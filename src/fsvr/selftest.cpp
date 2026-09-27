@@ -1,5 +1,7 @@
 // fsvr/selftest.cpp - the engine self check. Ours, not the hardware's.
 #include "fs1r/internal.h"
+#include "display.h"
+#include <cstring>
 
 // ------------------------------------------------------------------------------------------ self test
 // fs1r_emu -selftest: every sysex path the plugin will use. Parameter change in, parameter request out,
@@ -499,6 +501,19 @@ int selftest(Synth& S) {
       for (int i = 0; i < NCHAN; i++) if (S.ch[i].active && S.ch[i].note == 100) took = i;
       ck("the 33rd note steals the channel the unit stole (ch 2)", took == 2 && before == 2);
       S.all_off(); init_perf(S.perf); }
+
+    // fsvr/display.h, the transcribed display tables, against values the Data List and the manual give.
+    { using namespace display;
+      ck("fixed frequency: 440.2 at coarse 16, fine 0", !strcmp(FIXED_FREQUENCY[0][15], "440.2"));
+      ck("fixed frequency tops out at 28024 Hz", !strcmp(FIXED_FREQUENCY[127][20], "28024"));
+      ck("ratio spans 0.500 to 61.69", ratio(0, 0) == 0.5 && fabs(ratio(31, 99) - 61.69) < 1e-9);
+      const EffectType& hall = REVERB[1];
+      const ValueTable& rt = VALUE_TABLES[hall.slot[0].table];
+      ck("Hall1's Reverb Time at 0x50 starts at 2.0 s", hall.slot[0].lsb == 0x50 && !strcmp(rt.text[hall.slot[0].init - rt.sysexMin], "2.0"));
+      const EffectType& echo = REVERB[15];
+      const ValueTable& fb = VALUE_TABLES[echo.slot[1].table];
+      ck("Echo's Lch FB Level starts at +22", !strcmp(fb.text[echo.slot[1].init - fb.sysexMin], "+22"));
+      ck("Echo's Lch Delay1 starts at 220.0 ms (14-bit, 0.1 ms)", echo.slot[0].init == 2200 && VALUE_TABLES[echo.slot[0].table].count == 0); }
 
     printf(g_fails ? "selftest: %d FAILURES\n" : "selftest: ok\n", g_fails);
     return g_fails ? 1 : 0;

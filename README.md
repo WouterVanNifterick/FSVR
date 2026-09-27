@@ -198,6 +198,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 - `tuning.h` cost knobs, the control-rate decimation and the queue cap. Changing one must not change the output
 - `device.cpp` `fs1r::Device`, host-rate resampling and state as bulk dumps
 - `smf.h` Standard MIDI File reading; `selftest.cpp` the engine self check
+- `display.h` how the unit shows values, for editors and displays: fixed operator frequencies, ratios and every effect parameter value, with each effect type's parameter slots. Transcribed from K_Take's [FS1R Editor](https://synth-voice.sakura.ne.jp/fs1r_editor_english.html) (freeware) and checked against the Data List and the ROM
 - `src/console/main.cpp` the test console: WinMM MIDI in and out, waveOut, offline render
 
 **Plugin.** The JUCE layer, which never models synthesis; it moves parameter values in and out of the engine as sysex, exactly as a hardware editor would.
