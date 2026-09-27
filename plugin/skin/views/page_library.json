@@ -1,0 +1,44 @@
+{
+ "size": [
+  1235,
+  536
+ ],
+ "fill": {
+  "image": "backgrounds/page"
+ },
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "library_title",
+   "rect": [
+    569,
+    15,
+    96,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Browser",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "embed",
+   "name": "library",
+   "rect": [
+    12,
+    35,
+    1215,
+    472
+   ],
+   "view": "library_browser"
+  }
+ ]
+}

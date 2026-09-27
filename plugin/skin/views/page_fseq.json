@@ -1,0 +1,2981 @@
+{
+ "size": [
+  1235,
+  536
+ ],
+ "fill": {
+  "image": "backgrounds/page"
+ },
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "bank_frame",
+   "rect": [
+    14,
+    36,
+    364,
+    470
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "bank_title",
+   "rect": [
+    146,
+    15,
+    101,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Fseq Bank",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "bank_title_icon",
+   "rect": [
+    234,
+    18,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "list",
+   "name": "fseqs",
+   "rect": [
+    24,
+    46,
+    344,
+    424
+   ],
+   "layer": 4,
+   "param": "fseq.number",
+   "values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89
+   ],
+   "set": {
+    "fseq.bank": 1
+   },
+   "scroll": {
+    "track": "scrollbars/list_track",
+    "thumb": "scrollbars/library_thumb_flat",
+    "width": 14
+   },
+   "columns": [
+    {
+     "width": 22,
+     "image": "icons/lock"
+    },
+    {
+     "width": 36
+    },
+    {
+     "width": 170
+    },
+    {
+     "width": 102
+    }
+   ],
+   "rows": [
+    [
+     "preset",
+     "01",
+     "ShoobyDo",
+     "505 frames"
+    ],
+    [
+     "preset",
+     "02",
+     "2BarBeat",
+     "512 frames"
+    ],
+    [
+     "preset",
+     "03",
+     "D&B",
+     "512 frames"
+    ],
+    [
+     "preset",
+     "04",
+     "D&B Fill",
+     "512 frames"
+    ],
+    [
+     "preset",
+     "05",
+     "4BarBeat",
+     "512 frames"
+    ],
+    [
+     "preset",
+     "06",
+     "YouCanG",
+     "512 frames"
+    ],
+    [
+     "preset",
+     "07",
+     "EBSayHey",
+     "511 frames"
+    ],
+    [
+     "preset",
+     "08",
+     "RtmSynth",
+     "432 frames"
+    ],
+    [
+     "preset",
+     "09",
+     "VocalRtm",
+     "501 frames"
+    ],
+    [
+     "preset",
+     "10",
+     "WooWaPa",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "11",
+     "UooLha",
+     "118 frames"
+    ],
+    [
+     "preset",
+     "12",
+     "FemRtm",
+     "126 frames"
+    ],
+    [
+     "preset",
+     "13",
+     "ByonRole",
+     "78 frames"
+    ],
+    [
+     "preset",
+     "14",
+     "WowYeah",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "15",
+     "ListenVo",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "16",
+     "YAMAHAFS",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "17",
+     "Laugh",
+     "122 frames"
+    ],
+    [
+     "preset",
+     "18",
+     "Laugh2",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "19",
+     "AreYouR",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "20",
+     "Oiyai",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "21",
+     "Oiaiuo",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "22",
+     "UuWaUu",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "23",
+     "Wao",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "24",
+     "RndArp1",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "25",
+     "FiltrArp",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "26",
+     "RndArp2",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "27",
+     "TechArp",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "28",
+     "RndArp3",
+     "121 frames"
+    ],
+    [
+     "preset",
+     "29",
+     "Voco-Seq",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "30",
+     "PopTech",
+     "114 frames"
+    ],
+    [
+     "preset",
+     "31",
+     "1BarBeat",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "32",
+     "1BrBeat2",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "33",
+     "Undo",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "34",
+     "RndArp4",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "35",
+     "VoclRtm2",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "36",
+     "Reiyowha",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "37",
+     "RndArp5",
+     "104 frames"
+    ],
+    [
+     "preset",
+     "38",
+     "VocalArp",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "39",
+     "CanYouGi",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "40",
+     "Pu-Yo",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "41",
+     "Yaof",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "42",
+     "MyaOh",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "43",
+     "ChuckRtm",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "44",
+     "ILoveYou",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "45",
+     "Jan-On",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "46",
+     "Welcome",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "47",
+     "One-Two",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "48",
+     "Edokko",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "49",
+     "Everybdy",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "50",
+     "Uwau",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "51",
+     "YEEAAH",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "52",
+     "4-3-2-1",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "53",
+     "Test123",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "54",
+     "CheckSnd",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "55",
+     "ShavaDo",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "56",
+     "R-M-H-R",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "57",
+     "HiSchool",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "58",
+     "M.Blastr",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "59",
+     "L&G MayI",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "60",
+     "Hellow",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "61",
+     "ChowaUu",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "62",
+     "Everybd2",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "63",
+     "Dodidowa",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "64",
+     "Check123",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "65",
+     "BranNewY",
+     "117 frames"
+    ],
+    [
+     "preset",
+     "66",
+     "BoomBoom",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "67",
+     "Hi=Woo",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "68",
+     "FreeForm",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "69",
+     "FreqPad",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "70",
+     "YouKnow",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "71",
+     "OldTech",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "72",
+     "B/M",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "73",
+     "MiniJngl",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "74",
+     "EveryB-S",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "75",
+     "IYaan",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "76",
+     "Yeah",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "77",
+     "ThankYou",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "78",
+     "Yes=No",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "79",
+     "UnWaEDon",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "80",
+     "MouthPop",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "81",
+     "Fire",
+     "95 frames"
+    ],
+    [
+     "preset",
+     "82",
+     "TBLine",
+     "105 frames"
+    ],
+    [
+     "preset",
+     "83",
+     "China",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "84",
+     "Aeiou",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "85",
+     "YaYeYiYo",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "86",
+     "C7Seq",
+     "126 frames"
+    ],
+    [
+     "preset",
+     "87",
+     "SoundLib",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "88",
+     "IYaan2",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "89",
+     "Relax",
+     "128 frames"
+    ],
+    [
+     "preset",
+     "90",
+     "PSYAMAHA",
+     "128 frames"
+    ]
+   ],
+   "dataRows": {
+    "key": "fseq.user.list",
+    "param": "fseq.user",
+    "first": 1,
+    "set": {
+     "fseq.bank": 0
+    },
+    "row": [
+     "",
+     "U{n}",
+     "{1}",
+     "{2}"
+    ]
+   },
+   "rowHeight": 23,
+   "rowGap": 2,
+   "rowFill": "#434f50ff",
+   "gapFill": "#3a4546ff",
+   "selectFill": "#82ca9cff",
+   "row": {
+    "font": "library_row_white_12",
+    "valign": "middle"
+   },
+   "selectRow": {
+    "font": "library_row_black_12",
+    "valign": "middle"
+   },
+   "pad": [
+    6,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "button",
+   "name": "fseq_import",
+   "rect": [
+    24,
+    478,
+    112,
+    24
+   ],
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "surface": false,
+   "press": "up",
+   "pressedTiles": true,
+   "text": {
+    "text": "Import",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "action": {
+    "file": "open",
+    "key": "fseq.import",
+    "types": {
+     "SysEx": "syx"
+    },
+    "title": "Import an Fseq"
+   },
+   "tip": "Add an Fseq bulk dump (.syx) to your Fseqs"
+  },
+  {
+   "type": "button",
+   "name": "fseq_export",
+   "rect": [
+    140,
+    478,
+    112,
+    24
+   ],
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "surface": false,
+   "press": "up",
+   "pressedTiles": true,
+   "text": {
+    "text": "Export",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "action": {
+    "file": "save",
+    "key": "fseq.export",
+    "types": {
+     "SysEx": "syx"
+    },
+    "name": "Fseq.syx",
+    "title": "Export the Fseq"
+   },
+   "tip": "Save the selected Fseq as a bulk dump (.syx)"
+  },
+  {
+   "type": "button",
+   "name": "fseq_import_audio",
+   "rect": [
+    256,
+    478,
+    112,
+    24
+   ],
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "surface": false,
+   "press": "up",
+   "pressedTiles": true,
+   "text": {
+    "text": "Import Audio",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "action": {
+    "file": "open",
+    "key": "fseq.import_audio",
+    "types": {
+     "Audio": "wav;aif;aiff;mp3;ogg;m4a;mp4;aac"
+    },
+    "title": "Make an Fseq from audio"
+   },
+   "tip": "Analyse a WAV, AIFF, MP3, Ogg or MP4 into a new Fseq of your own"
+  },
+  {
+   "type": "plate",
+   "name": "seq_frame",
+   "rect": [
+    392,
+    36,
+    204,
+    124
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "speed_frame",
+   "rect": [
+    610,
+    36,
+    278,
+    124
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "loop_frame",
+   "rect": [
+    902,
+    36,
+    319,
+    124
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "seq_title",
+   "rect": [
+    412,
+    15,
+    164,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Formant Sequence",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "seq_title_icon",
+   "rect": [
+    559,
+    18,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "speed_title",
+   "rect": [
+    672,
+    15,
+    155,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Speed and Level",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "speed_title_icon",
+   "rect": [
+    810,
+    18,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "loop_title",
+   "rect": [
+    1013,
+    15,
+    96,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Loop",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "loop_title_icon",
+   "rect": [
+    1081,
+    18,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "seq_0_label",
+   "rect": [
+    400,
+    44,
+    82,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Part",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "seq_0",
+   "rect": [
+    484,
+    44,
+    104,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Off",
+     "value": 0
+    },
+    {
+     "label": "1",
+     "value": 1
+    },
+    {
+     "label": "2",
+     "value": 2
+    },
+    {
+     "label": "3",
+     "value": 3
+    },
+    {
+     "label": "4",
+     "value": 4
+    }
+   ],
+   "captionFromItem": true,
+   "param": "fseq.part"
+  },
+  {
+   "type": "plate",
+   "name": "seq_1_label",
+   "rect": [
+    400,
+    72,
+    82,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Play Mode",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "seq_1",
+   "rect": [
+    484,
+    72,
+    104,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Scratch",
+     "value": 0
+    },
+    {
+     "label": "Fseq",
+     "value": 1
+    }
+   ],
+   "captionFromItem": true,
+   "param": "fseq.play_mode"
+  },
+  {
+   "type": "plate",
+   "name": "seq_2_label",
+   "rect": [
+    400,
+    100,
+    82,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Trigger",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "seq_2",
+   "rect": [
+    484,
+    100,
+    104,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "First",
+     "value": 0
+    },
+    {
+     "label": "All",
+     "value": 1
+    }
+   ],
+   "captionFromItem": true,
+   "param": "fseq.trigger"
+  },
+  {
+   "type": "plate",
+   "name": "seq_3_label",
+   "rect": [
+    400,
+    128,
+    82,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Pitch",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "seq_3",
+   "rect": [
+    484,
+    128,
+    104,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Fseq",
+     "value": 0
+    },
+    {
+     "label": "Fixed",
+     "value": 1
+    }
+   ],
+   "captionFromItem": true,
+   "param": "fseq.pitch_mode"
+  },
+  {
+   "type": "plate",
+   "name": "speed_label",
+   "rect": [
+    620,
+    48,
+    80,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Speed %",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "speed",
+   "rect": [
+    620,
+    72,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "format": "%.1f",
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.speed",
+   "tip": "Speed in percent of the original, 0.0 to 0.4 following MIDI clock"
+  },
+  {
+   "type": "plate",
+   "name": "speed_vel_label",
+   "rect": [
+    690,
+    45,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Speed Vel",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "speed_vel",
+   "rect": [
+    708,
+    66,
+    44,
+    44
+   ],
+   "image": "knobs/rotary_small",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "fseq.speed_vel"
+  },
+  {
+   "type": "number",
+   "name": "speed_vel_value",
+   "rect": [
+    700,
+    111,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.speed_vel"
+  },
+  {
+   "type": "plate",
+   "name": "level_vel_label",
+   "rect": [
+    756,
+    45,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Level Vel",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "level_vel",
+   "rect": [
+    774,
+    66,
+    44,
+    44
+   ],
+   "image": "knobs/rotary_small",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "fseq.level_vel"
+  },
+  {
+   "type": "number",
+   "name": "level_vel_value",
+   "rect": [
+    766,
+    111,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.level_vel"
+  },
+  {
+   "type": "plate",
+   "name": "delay_label",
+   "rect": [
+    822,
+    45,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Delay",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "delay",
+   "rect": [
+    840,
+    66,
+    44,
+    44
+   ],
+   "image": "knobs/rotary_small",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "fseq.delay"
+  },
+  {
+   "type": "number",
+   "name": "delay_value",
+   "rect": [
+    832,
+    111,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.delay"
+  },
+  {
+   "type": "plate",
+   "name": "loop_0_label",
+   "rect": [
+    950,
+    44,
+    110,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Start",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "loop_0",
+   "rect": [
+    1064,
+    44,
+    110,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.start"
+  },
+  {
+   "type": "plate",
+   "name": "loop_1_label",
+   "rect": [
+    950,
+    72,
+    110,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Loop Mode",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "loop_1",
+   "rect": [
+    1064,
+    72,
+    110,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "One Way",
+     "value": 0
+    },
+    {
+     "label": "Round",
+     "value": 1
+    }
+   ],
+   "captionFromItem": true,
+   "param": "fseq.loop_mode"
+  },
+  {
+   "type": "plate",
+   "name": "loop_2_label",
+   "rect": [
+    950,
+    100,
+    110,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Loop Start",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "loop_2",
+   "rect": [
+    1064,
+    100,
+    110,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.loop_start"
+  },
+  {
+   "type": "plate",
+   "name": "loop_3_label",
+   "rect": [
+    950,
+    128,
+    110,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Loop End",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "loop_3",
+   "rect": [
+    1064,
+    128,
+    110,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.loop_end"
+  },
+  {
+   "type": "plate",
+   "name": "display_frame",
+   "rect": [
+    392,
+    174,
+    829,
+    196
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "display_screen",
+   "rect": [
+    402,
+    184,
+    809,
+    176
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "display",
+   "rect": [
+    402,
+    184,
+    809,
+    176
+   ],
+   "kind": "fseq",
+   "surface": false,
+   "fseq": "fseq.number",
+   "layer": 4,
+   "line": "#dfe9eaff",
+   "line2": "#ff9f00ff",
+   "dots": "#c80800ff",
+   "loop": [
+    "fseq.loop_start",
+    "fseq.loop_end"
+   ],
+   "showIf": {
+    "param": "fseq.bank",
+    "equals": 1
+   },
+   "tip": "The Fseq's eight voiced formant tracks (lighter where louder) and its pitch"
+  },
+  {
+   "type": "custom",
+   "name": "display_user",
+   "rect": [
+    402,
+    184,
+    809,
+    176
+   ],
+   "kind": "fseq",
+   "surface": false,
+   "key": "fseq.display",
+   "layer": 4,
+   "line": "#dfe9eaff",
+   "line2": "#ff9f00ff",
+   "dots": "#c80800ff",
+   "loop": [
+    "fseq.loop_start",
+    "fseq.loop_end"
+   ],
+   "showIf": {
+    "param": "fseq.bank",
+    "equals": 0
+   },
+   "tip": "Your Fseq's eight voiced formant tracks (lighter where louder) and its pitch"
+  },
+  {
+   "type": "plate",
+   "name": "ops_frame",
+   "rect": [
+    392,
+    384,
+    829,
+    122
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "ops_title",
+   "rect": [
+    402,
+    390,
+    300,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Operators of the selected part",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "op_1_label",
+   "rect": [
+    402,
+    416,
+    96,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 1",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "op_1_v",
+   "rect": [
+    402,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "V",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.1.v.fseq_sw.{part}",
+   "tip": "Voiced operator 1 follows the Fseq"
+  },
+  {
+   "type": "button",
+   "name": "op_1_u",
+   "rect": [
+    452,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "N",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.1.u.fseq_sw.{part}",
+   "tip": "Unvoiced (noise) operator 1 follows the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "op_1_track_label",
+   "rect": [
+    402,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Trk",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "op_1_track",
+   "rect": [
+    452,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.1.v.fseq_track.{part}",
+   "tip": "The Fseq track operator 1 follows"
+  },
+  {
+   "type": "plate",
+   "name": "op_2_label",
+   "rect": [
+    504,
+    416,
+    96,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 2",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "op_2_v",
+   "rect": [
+    504,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "V",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.2.v.fseq_sw.{part}",
+   "tip": "Voiced operator 2 follows the Fseq"
+  },
+  {
+   "type": "button",
+   "name": "op_2_u",
+   "rect": [
+    554,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "N",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.2.u.fseq_sw.{part}",
+   "tip": "Unvoiced (noise) operator 2 follows the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "op_2_track_label",
+   "rect": [
+    504,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Trk",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "op_2_track",
+   "rect": [
+    554,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.2.v.fseq_track.{part}",
+   "tip": "The Fseq track operator 2 follows"
+  },
+  {
+   "type": "plate",
+   "name": "op_3_label",
+   "rect": [
+    606,
+    416,
+    96,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 3",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "op_3_v",
+   "rect": [
+    606,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "V",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.3.v.fseq_sw.{part}",
+   "tip": "Voiced operator 3 follows the Fseq"
+  },
+  {
+   "type": "button",
+   "name": "op_3_u",
+   "rect": [
+    656,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "N",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.3.u.fseq_sw.{part}",
+   "tip": "Unvoiced (noise) operator 3 follows the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "op_3_track_label",
+   "rect": [
+    606,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Trk",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "op_3_track",
+   "rect": [
+    656,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.3.v.fseq_track.{part}",
+   "tip": "The Fseq track operator 3 follows"
+  },
+  {
+   "type": "plate",
+   "name": "op_4_label",
+   "rect": [
+    708,
+    416,
+    96,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 4",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "op_4_v",
+   "rect": [
+    708,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "V",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.4.v.fseq_sw.{part}",
+   "tip": "Voiced operator 4 follows the Fseq"
+  },
+  {
+   "type": "button",
+   "name": "op_4_u",
+   "rect": [
+    758,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "N",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.4.u.fseq_sw.{part}",
+   "tip": "Unvoiced (noise) operator 4 follows the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "op_4_track_label",
+   "rect": [
+    708,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Trk",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "op_4_track",
+   "rect": [
+    758,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.4.v.fseq_track.{part}",
+   "tip": "The Fseq track operator 4 follows"
+  },
+  {
+   "type": "plate",
+   "name": "op_5_label",
+   "rect": [
+    810,
+    416,
+    96,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 5",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "op_5_v",
+   "rect": [
+    810,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "V",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.5.v.fseq_sw.{part}",
+   "tip": "Voiced operator 5 follows the Fseq"
+  },
+  {
+   "type": "button",
+   "name": "op_5_u",
+   "rect": [
+    860,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "N",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.5.u.fseq_sw.{part}",
+   "tip": "Unvoiced (noise) operator 5 follows the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "op_5_track_label",
+   "rect": [
+    810,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Trk",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "op_5_track",
+   "rect": [
+    860,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.5.v.fseq_track.{part}",
+   "tip": "The Fseq track operator 5 follows"
+  },
+  {
+   "type": "plate",
+   "name": "op_6_label",
+   "rect": [
+    912,
+    416,
+    96,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 6",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "op_6_v",
+   "rect": [
+    912,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "V",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.6.v.fseq_sw.{part}",
+   "tip": "Voiced operator 6 follows the Fseq"
+  },
+  {
+   "type": "button",
+   "name": "op_6_u",
+   "rect": [
+    962,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "N",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.6.u.fseq_sw.{part}",
+   "tip": "Unvoiced (noise) operator 6 follows the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "op_6_track_label",
+   "rect": [
+    912,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Trk",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "op_6_track",
+   "rect": [
+    962,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.6.v.fseq_track.{part}",
+   "tip": "The Fseq track operator 6 follows"
+  },
+  {
+   "type": "plate",
+   "name": "op_7_label",
+   "rect": [
+    1014,
+    416,
+    96,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 7",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "op_7_v",
+   "rect": [
+    1014,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "V",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.7.v.fseq_sw.{part}",
+   "tip": "Voiced operator 7 follows the Fseq"
+  },
+  {
+   "type": "button",
+   "name": "op_7_u",
+   "rect": [
+    1064,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "N",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.7.u.fseq_sw.{part}",
+   "tip": "Unvoiced (noise) operator 7 follows the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "op_7_track_label",
+   "rect": [
+    1014,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Trk",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "op_7_track",
+   "rect": [
+    1064,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.7.v.fseq_track.{part}",
+   "tip": "The Fseq track operator 7 follows"
+  },
+  {
+   "type": "plate",
+   "name": "op_8_label",
+   "rect": [
+    1116,
+    416,
+    96,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 8",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "op_8_v",
+   "rect": [
+    1116,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "V",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.8.v.fseq_sw.{part}",
+   "tip": "Voiced operator 8 follows the Fseq"
+  },
+  {
+   "type": "button",
+   "name": "op_8_u",
+   "rect": [
+    1166,
+    440,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "N",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.8.u.fseq_sw.{part}",
+   "tip": "Unvoiced (noise) operator 8 follows the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "op_8_track_label",
+   "rect": [
+    1116,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Trk",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "op_8_track",
+   "rect": [
+    1166,
+    466,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.8.v.fseq_track.{part}",
+   "tip": "The Fseq track operator 8 follows"
+  }
+ ]
+}

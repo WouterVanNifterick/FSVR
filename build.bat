@@ -1,9 +1,11 @@
 @echo off
 rem Build helper: MSVC x64 from the VS 2022 Professional install (the Community install on E: has a broken vcvarsall).
 rem Everything that runs lands in bin\ (objects and the test binaries in build\).
-rem   build.bat                      -> bin\fs1r_emu.exe, the console, from src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\selftest.cpp + src\console\main.cpp
-rem   build.bat test                 -> builds and runs the self checks (effects, engine, formant, panel)
-rem   build.bat plugin               -> the standalone, VST3 and CLAP through CMake into bin\Standalone, bin\VST3, bin\CLAP
+rem   build.bat                      -> bin\fsvr_console.exe, the console, from src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\selftest.cpp + src\console\main.cpp
+rem   build.bat test                 -> builds and runs the self checks (effects, engine, formant, presets)
+rem   build.bat plugin               -> every plug-in format through CMake into bin\<format>: CLAP, VST3, VST2 and the
+rem                                     standalone (64-bit, build\x64), then the 32-bit VST2 with the DXi in it (build\x86),
+rem                                     then the plug-in's own check (check_plugin)
 rem   build.bat file.cpp [cl args]   -> compiles whatever you pass (paths relative to this folder)
 rem CMakeLists.txt builds the same targets for anything that is not MSVC-on-Windows.
 pushd "%~dp0"
@@ -11,19 +13,20 @@ call "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Bu
 if not exist build mkdir build
 if not exist bin mkdir bin
 if "%~1"=="" (
-  cl /nologo /O2 /EHsc /W3 /std:c++17 /I src src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\selftest.cpp src\console\main.cpp winmm.lib /Fe:bin\fs1r_emu.exe /Fobuild\
+  cl /nologo /O2 /EHsc /W3 /std:c++17 /I src src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\selftest.cpp src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
 ) else if "%~1"=="test" (
-  cl /nologo /O2 /EHsc /W3 /std:c++17 /I src src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\selftest.cpp src\console\main.cpp winmm.lib /Fe:bin\fs1r_emu.exe /Fobuild\ || goto :done
+  cl /nologo /O2 /EHsc /W3 /std:c++17 /I src src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\selftest.cpp src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\ || goto :done
   cl /nologo /O2 /EHsc /W3 /std:c++17 /I src tools\test_effects.cpp /Fe:build\test_effects.exe /Fobuild\ || goto :done
   build\test_effects.exe || goto :done
-  "%~dp0bin\fs1r_emu.exe" -selftest || goto :done
+  "%~dp0bin\fsvr_console.exe" -selftest || goto :done
   python "%~dp0tools\check_formant.py" || goto :done
-  python "%~dp0tools\check_panel.py" || goto :done
-  python "%~dp0tools\check_presets.py" || goto :done
-  python "%~dp0tools\check_interface.py"
+  python "%~dp0tools\check_presets.py"
 ) else if "%~1"=="plugin" (
-  cmake -B build\plugin -S . -DFS1R_BUILD_PLUGIN=ON || goto :done
-  cmake --build build\plugin --config Release
+  cmake -S . -B build\x64 -G "Visual Studio 17 2022" -A x64 -DFSVR_BUILD_PLUGIN=ON || goto :done
+  cmake --build build\x64 --config Release -- -m || goto :done
+  cmake -S . -B build\x86 -G "Visual Studio 17 2022" -A Win32 -DFSVR_BUILD_PLUGIN=ON || goto :done
+  cmake --build build\x86 --config Release -- -m || goto :done
+  build\x64\check_plugin.exe
 ) else (
   cl /nologo /O2 /EHsc /W3 /std:c++17 %* /Fobuild\
 )

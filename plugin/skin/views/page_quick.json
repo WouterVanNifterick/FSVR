@@ -1,0 +1,2327 @@
+{
+ "size": [
+  1235,
+  536
+ ],
+ "fill": {
+  "image": "backgrounds/page"
+ },
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "lfo_frame",
+   "rect": [
+    14,
+    36,
+    178,
+    221
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "tone_frame",
+   "rect": [
+    207,
+    36,
+    233,
+    221
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "filter_frame",
+   "rect": [
+    455,
+    36,
+    337,
+    221
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "peg_frame",
+   "rect": [
+    14,
+    285,
+    371,
+    221
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "amp_frame",
+   "rect": [
+    400,
+    285,
+    392,
+    221
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "lfo_title",
+   "rect": [
+    55,
+    15,
+    96,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "LFO",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "lfo_title_icon",
+   "rect": [
+    119,
+    18,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "tone_title",
+   "rect": [
+    275,
+    15,
+    96,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Tone",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "tone_title_icon",
+   "rect": [
+    343,
+    18,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "filter_title",
+   "rect": [
+    575,
+    15,
+    96,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Filter",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "filter_title_icon",
+   "rect": [
+    650,
+    18,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "peg_title",
+   "rect": [
+    126,
+    264,
+    146,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Pitch Envelope",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "peg_title_icon",
+   "rect": [
+    256,
+    267,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "amp_title",
+   "rect": [
+    505,
+    264,
+    182,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Amplitude Envelope",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "amp_title_icon",
+   "rect": [
+    668,
+    267,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "lfo1_rate_label",
+   "rect": [
+    21,
+    39,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Speed",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "lfo1_rate",
+   "rect": [
+    33,
+    60,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.lfo1_rate.{part}"
+  },
+  {
+   "type": "number",
+   "name": "lfo1_rate_value",
+   "rect": [
+    31,
+    117,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.lfo1_rate.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "lfo1_pmod_label",
+   "rect": [
+    105,
+    39,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Pitch",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "lfo1_pmod",
+   "rect": [
+    117,
+    60,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.lfo1_pmod.{part}"
+  },
+  {
+   "type": "number",
+   "name": "lfo1_pmod_value",
+   "rect": [
+    115,
+    117,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.lfo1_pmod.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "lfo1_delay_label",
+   "rect": [
+    21,
+    156,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Delay",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "lfo1_delay",
+   "rect": [
+    33,
+    177,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.lfo1_delay.{part}"
+  },
+  {
+   "type": "number",
+   "name": "lfo1_delay_value",
+   "rect": [
+    31,
+    234,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.lfo1_delay.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "lfo2_depth_label",
+   "rect": [
+    105,
+    156,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "LFO2 Dep",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "lfo2_depth",
+   "rect": [
+    117,
+    177,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.lfo2_depth.{part}"
+  },
+  {
+   "type": "number",
+   "name": "lfo2_depth_value",
+   "rect": [
+    115,
+    234,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.lfo2_depth.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "formant_label",
+   "rect": [
+    215,
+    39,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Formant",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "formant",
+   "rect": [
+    227,
+    60,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.formant.{part}"
+  },
+  {
+   "type": "number",
+   "name": "formant_value",
+   "rect": [
+    225,
+    117,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.formant.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "fm_label",
+   "rect": [
+    353,
+    39,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "FM",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "fm",
+   "rect": [
+    365,
+    60,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.fm.{part}"
+  },
+  {
+   "type": "number",
+   "name": "fm_value",
+   "rect": [
+    363,
+    117,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.fm.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "vn_balance_label",
+   "rect": [
+    215,
+    156,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "V/N Bal",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "vn_balance",
+   "rect": [
+    227,
+    177,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.vn_balance.{part}"
+  },
+  {
+   "type": "number",
+   "name": "vn_balance_value",
+   "rect": [
+    225,
+    234,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.vn_balance.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "detune_label",
+   "rect": [
+    353,
+    156,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Detune",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "detune",
+   "rect": [
+    365,
+    177,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.detune.{part}"
+  },
+  {
+   "type": "number",
+   "name": "detune_value",
+   "rect": [
+    363,
+    234,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.detune.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "f_cutoff_label",
+   "rect": [
+    463,
+    39,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Cutoff",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "f_cutoff",
+   "rect": [
+    475,
+    60,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.cutoff.{part}"
+  },
+  {
+   "type": "number",
+   "name": "f_cutoff_value",
+   "rect": [
+    473,
+    117,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.cutoff.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "f_resonance_label",
+   "rect": [
+    547,
+    39,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Resonance",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "f_resonance",
+   "rect": [
+    559,
+    60,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.resonance.{part}"
+  },
+  {
+   "type": "number",
+   "name": "f_resonance_value",
+   "rect": [
+    557,
+    117,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.resonance.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "f_filter_eg_label",
+   "rect": [
+    463,
+    156,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "EG Depth",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "f_filter_eg",
+   "rect": [
+    475,
+    177,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.filter_eg.{part}"
+  },
+  {
+   "type": "number",
+   "name": "f_filter_eg_value",
+   "rect": [
+    473,
+    234,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.filter_eg.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "f_lfo2_rate_label",
+   "rect": [
+    547,
+    156,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "LFO2 Spd",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "f_lfo2_rate",
+   "rect": [
+    559,
+    177,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.lfo2_rate.{part}"
+  },
+  {
+   "type": "number",
+   "name": "f_lfo2_rate_value",
+   "rect": [
+    557,
+    234,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.lfo2_rate.{part}"
+  },
+  {
+   "type": "button",
+   "name": "filter_sw",
+   "rect": [
+    650,
+    60,
+    130,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Filter",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "part.filter_sw.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "volume_track",
+   "rect": [
+    710,
+    104,
+    20,
+    128
+   ],
+   "fill": {
+    "image": "faders/track_narrow"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "volume",
+   "rect": [
+    699,
+    104,
+    42,
+    128
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.09,
+   "reset": "default",
+   "param": "part.volume.{part}"
+  },
+  {
+   "type": "number",
+   "name": "volume_value",
+   "rect": [
+    690,
+    233,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.volume.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "volume_label",
+   "rect": [
+    680,
+    84,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Volume",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "peg_init_label",
+   "rect": [
+    21,
+    288,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Init",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "peg_init_track",
+   "rect": [
+    51,
+    309,
+    20,
+    172
+   ],
+   "fill": {
+    "image": "faders/track_narrow"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "peg_init",
+   "rect": [
+    40,
+    309,
+    42,
+    172
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.09,
+   "reset": "default",
+   "param": "part.peg_init.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_init_value",
+   "rect": [
+    31,
+    482,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.peg_init.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "peg_attack_label",
+   "rect": [
+    107,
+    288,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Attack",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "peg_attack_track",
+   "rect": [
+    137,
+    309,
+    20,
+    172
+   ],
+   "fill": {
+    "image": "faders/track_narrow"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "peg_attack",
+   "rect": [
+    126,
+    309,
+    42,
+    172
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.09,
+   "reset": "default",
+   "param": "part.peg_attack.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_attack_value",
+   "rect": [
+    117,
+    482,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.peg_attack.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "peg_release_level_label",
+   "rect": [
+    193,
+    288,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Rel Lvl",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "peg_release_level_track",
+   "rect": [
+    223,
+    309,
+    20,
+    172
+   ],
+   "fill": {
+    "image": "faders/track_narrow"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "peg_release_level",
+   "rect": [
+    212,
+    309,
+    42,
+    172
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.09,
+   "reset": "default",
+   "param": "part.peg_release_level.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_release_level_value",
+   "rect": [
+    203,
+    482,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.peg_release_level.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "peg_release_label",
+   "rect": [
+    279,
+    288,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Release",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "peg_release_track",
+   "rect": [
+    309,
+    309,
+    20,
+    172
+   ],
+   "fill": {
+    "image": "faders/track_narrow"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "peg_release",
+   "rect": [
+    298,
+    309,
+    42,
+    172
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.09,
+   "reset": "default",
+   "param": "part.peg_release.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_release_value",
+   "rect": [
+    289,
+    482,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.peg_release.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "attack_label",
+   "rect": [
+    410,
+    288,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Attack",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "attack_track",
+   "rect": [
+    440,
+    309,
+    20,
+    172
+   ],
+   "fill": {
+    "image": "faders/track_narrow"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "attack",
+   "rect": [
+    429,
+    309,
+    42,
+    172
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.09,
+   "reset": "default",
+   "param": "part.attack.{part}"
+  },
+  {
+   "type": "number",
+   "name": "attack_value",
+   "rect": [
+    420,
+    482,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.attack.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "decay_label",
+   "rect": [
+    496,
+    288,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Decay",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "decay_track",
+   "rect": [
+    526,
+    309,
+    20,
+    172
+   ],
+   "fill": {
+    "image": "faders/track_narrow"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "decay",
+   "rect": [
+    515,
+    309,
+    42,
+    172
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.09,
+   "reset": "default",
+   "param": "part.decay.{part}"
+  },
+  {
+   "type": "number",
+   "name": "decay_value",
+   "rect": [
+    506,
+    482,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.decay.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "release_label",
+   "rect": [
+    582,
+    288,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Release",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "release_track",
+   "rect": [
+    612,
+    309,
+    20,
+    172
+   ],
+   "fill": {
+    "image": "faders/track_narrow"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "release",
+   "rect": [
+    601,
+    309,
+    42,
+    172
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.09,
+   "reset": "default",
+   "param": "part.release.{part}"
+  },
+  {
+   "type": "number",
+   "name": "release_value",
+   "rect": [
+    592,
+    482,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.release.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "vel_depth_label",
+   "rect": [
+    672,
+    297,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Vel Depth",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "vel_depth",
+   "rect": [
+    690,
+    318,
+    44,
+    44
+   ],
+   "image": "knobs/rotary_small",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.vel_depth.{part}"
+  },
+  {
+   "type": "number",
+   "name": "vel_depth_value",
+   "rect": [
+    682,
+    363,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.vel_depth.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "vel_offset_label",
+   "rect": [
+    672,
+    389,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Vel Offset",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "vel_offset",
+   "rect": [
+    690,
+    410,
+    44,
+    44
+   ],
+   "image": "knobs/rotary_small",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.vel_offset.{part}"
+  },
+  {
+   "type": "number",
+   "name": "vel_offset_value",
+   "rect": [
+    682,
+    455,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.vel_offset.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "morph_frame",
+   "rect": [
+    819,
+    35,
+    408,
+    472
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/mesh_dark_large"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "morph_title",
+   "rect": [
+    977,
+    15,
+    96,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Morph",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "morph_pad_frame_screen",
+   "rect": [
+    830,
+    92,
+    349,
+    346
+   ],
+   "fill": {
+    "colour": "#ffffffff"
+   },
+   "surface": false,
+   "layer": 1
+  },
+  {
+   "type": "plate",
+   "name": "morph_pad_frame",
+   "rect": [
+    830,
+    92,
+    349,
+    346
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "displays/morph_pad"
+   },
+   "surface": false
+  },
+  {
+   "type": "plate",
+   "name": "seed_corner",
+   "rect": [
+    1170,
+    435,
+    38,
+    62
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/morph_corner"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "random_y_label",
+   "rect": [
+    1181,
+    45,
+    45,
+    30
+   ],
+   "text": {
+    "text": "Rnd",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "random_y_label_2",
+   "rect": [
+    1179,
+    63,
+    45,
+    30
+   ],
+   "text": {
+    "text": "Amt",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "random_x",
+   "rect": [
+    836,
+    48,
+    337,
+    20
+   ],
+   "layer": 6,
+   "image": "faders/morph_x",
+   "vertical": false,
+   "sensitivity": 0.892857,
+   "fine": 0.2,
+   "wheel": 0.1,
+   "margin": 12,
+   "reset": "zero",
+   "param": "part.morph_jitter_x.{part}",
+   "tip": "Random X: how far each note's morph position may stray across"
+  },
+  {
+   "type": "dial",
+   "name": "random_y",
+   "rect": [
+    1190,
+    96,
+    19,
+    338
+   ],
+   "image": "faders/morph_y",
+   "sensitivity": 0.892857,
+   "fine": 0.2,
+   "wheel": 0.1,
+   "margin": 12,
+   "reset": "zero",
+   "param": "part.morph_jitter_y.{part}",
+   "tip": "Random Y: how far each note's morph position may stray up"
+  },
+  {
+   "type": "custom",
+   "name": "morph",
+   "rect": [
+    843,
+    104,
+    321,
+    321
+   ],
+   "layer": 6,
+   "kind": "morph_pad",
+   "params": [
+    "part.morph_x.{part}",
+    "part.morph_y.{part}",
+    "part.morph_jitter_x.{part}",
+    "part.morph_jitter_y.{part}",
+    "part.morph_seed.{part}"
+   ],
+   "handle": 21,
+   "colour": "#dbdbdbff",
+   "morphColour": "#b33733ff",
+   "tip": "The morph position between the four corner voices"
+  },
+  {
+   "type": "button",
+   "name": "corner_tl",
+   "rect": [
+    837,
+    72,
+    165,
+    20
+   ],
+   "fill": {
+    "image": "buttons/corner_field"
+   },
+   "layer": 4,
+   "param": "part.morph_edit.{part}",
+   "action": {
+    "value": 0
+   },
+   "text": {
+    "text": "{data:morph.{part}.tl|Init Voice}",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    3,
+    2,
+    2
+   ],
+   "tip": "Corner A (top left): click to edit it"
+  },
+  {
+   "type": "button",
+   "name": "corner_tr",
+   "rect": [
+    1007,
+    72,
+    165,
+    20
+   ],
+   "fill": {
+    "image": "buttons/corner_field"
+   },
+   "layer": 4,
+   "param": "part.morph_edit.{part}",
+   "action": {
+    "value": 1
+   },
+   "text": {
+    "text": "{data:morph.{part}.tr|Init Voice}",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    3,
+    2,
+    2
+   ],
+   "tip": "Corner B (top right): click to edit it"
+  },
+  {
+   "type": "button",
+   "name": "corner_bl",
+   "rect": [
+    837,
+    438,
+    165,
+    20
+   ],
+   "fill": {
+    "image": "buttons/corner_field"
+   },
+   "layer": 4,
+   "param": "part.morph_edit.{part}",
+   "action": {
+    "value": 2
+   },
+   "text": {
+    "text": "{data:morph.{part}.bl|Init Voice}",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    3,
+    2,
+    2
+   ],
+   "tip": "Corner C (bottom left): click to edit it"
+  },
+  {
+   "type": "button",
+   "name": "corner_br",
+   "rect": [
+    1007,
+    438,
+    165,
+    20
+   ],
+   "fill": {
+    "image": "buttons/corner_field"
+   },
+   "layer": 4,
+   "param": "part.morph_edit.{part}",
+   "action": {
+    "value": 3
+   },
+   "text": {
+    "text": "{data:morph.{part}.br|Init Voice}",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    3,
+    2,
+    2
+   ],
+   "tip": "Corner D (bottom right): click to edit it"
+  },
+  {
+   "type": "plate",
+   "name": "normalize_frame",
+   "rect": [
+    837,
+    462,
+    110,
+    35
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/plate_slate"
+   }
+  },
+  {
+   "type": "button",
+   "name": "normalize",
+   "rect": [
+    839,
+    464,
+    34,
+    31
+   ],
+   "fill": {
+    "image": "buttons/dark_square"
+   },
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "action": {
+    "data": {
+     "morph.request.{part}": "normalize"
+    }
+   },
+   "press": "up",
+   "tip": "Copy the edited corner's voice into all four"
+  },
+  {
+   "type": "plate",
+   "name": "normalize_icon",
+   "rect": [
+    846,
+    470,
+    20,
+    19
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "icons/normalize"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "normalize_label",
+   "rect": [
+    876,
+    467,
+    70,
+    30
+   ],
+   "text": {
+    "text": "Normalize",
+    "font": "caption_white_12",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "edit_all_frame",
+   "rect": [
+    952,
+    462,
+    110,
+    35
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/plate_slate"
+   }
+  },
+  {
+   "type": "button",
+   "name": "edit_all",
+   "rect": [
+    954,
+    464,
+    34,
+    31
+   ],
+   "fill": {
+    "image": "buttons/dark_toggle_square"
+   },
+   "layer": 4,
+   "param": "part.morph_edit.{part}",
+   "action": {
+    "value": 4
+   },
+   "pressedTiles": true,
+   "tip": "Edit all four corners at once"
+  },
+  {
+   "type": "plate",
+   "name": "edit_all_label",
+   "rect": [
+    991,
+    467,
+    70,
+    30
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Edit All",
+    "font": "caption_white_12",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "seed_frame",
+   "rect": [
+    1067,
+    462,
+    105,
+    35
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/plate_slate"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "seed_label",
+   "rect": [
+    1073,
+    467,
+    40,
+    30
+   ],
+   "text": {
+    "text": "Seed",
+    "font": "caption_white_12",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "seed",
+   "rect": [
+    1112,
+    467,
+    60,
+    30
+   ],
+   "text": {
+    "text": "1",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "format": "%.0f",
+   "sensitivity": 0.2,
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.morph_seed.{part}",
+   "tip": "The random seed"
+  },
+  {
+   "type": "plate",
+   "name": "seed_arrows",
+   "rect": [
+    1158,
+    473,
+    11,
+    15
+   ],
+   "fill": {
+    "image": "icons/spin_arrows"
+   }
+  }
+ ]
+}

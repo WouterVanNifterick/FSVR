@@ -1,72 +1,41 @@
-# The plugin layer: a controller for fs1rLib, never a synthesiser.
-#   cmake -B build/cmake -S . -DFS1R_BUILD_PLUGIN=ON
-#   cmake --build build/cmake --config Release
-# Needs the submodules: git submodule update --init --recursive
-juce_add_plugin(fs1r_plugin
-    PRODUCT_NAME "FSVR"
-    VERSION ${PROJECT_VERSION}
-    COMPANY_NAME "Musica.Studio"
-    BUNDLE_ID "studio.musica.fsvr"          # said outright, or JUCE builds it from the target name
-    ICON_BIG "${PROJECT_SOURCE_DIR}/icon.png"   # juceaide turns it into the exe's icon and the bundle's
-    PLUGIN_MANUFACTURER_CODE Msst
-    PLUGIN_CODE Fsvr
-    FORMATS AU VST3 Standalone     # AU is Logic's only plugin format; JUCE drops it off non-Apple builds
-    IS_SYNTH TRUE
-    NEEDS_MIDI_INPUT TRUE
-    NEEDS_MIDI_OUTPUT TRUE
-    IS_MIDI_EFFECT FALSE
-    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    COPY_PLUGIN_AFTER_BUILD FALSE
-    VST3_CATEGORIES Instrument Synth)
+# The FSVR plug-in: fs1rLib behind the Hollow GUI (hollow/), whose skin is skin/. Every format lands in
+# bin/<format> (hollow_add_plugin's BIN). The processor never models synthesis; see plugin.cpp.
+include(FetchContent)
+# Import Audio's decoders, both public domain: dr_wav (WAV, AIFF) and dr_mp3, and stb_vorbis.
+FetchContent_Declare(dr_libs URL https://github.com/mackron/dr_libs/archive/dfe8377631000664666519fdb83da193fd8037f4.tar.gz)
+FetchContent_Declare(stb URL https://github.com/nothings/stb/archive/2c980bb59875b0d32144a71867fbdebb2f77cd20.tar.gz)
+FetchContent_MakeAvailable(dr_libs stb)
 
-# The formats land in bin/Standalone, bin/VST3 and bin/CLAP (JUCE and the CLAP helper derive each
-# format's folder from these two); the import libraries stay in the build tree.
-set_target_properties(fs1r_plugin PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${FS1R_BIN}
-    RUNTIME_OUTPUT_DIRECTORY ${FS1R_BIN})
+# The factory banks: 1408 voices, 384 performances and 90 Fseqs, packed out of presets/ by
+# tools/make_presets_blob.py (generated/README.md).
+hollow_embed_files("${CMAKE_CURRENT_BINARY_DIR}/factory.cpp" kFactoryFiles kFactoryFileCount FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/generated/fs1r_presets.syx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/generated/fs1r_performances.syx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/generated/fs1r_fseqs.syx")
 
-# fs1r_panel.svg is the front panel drawing, made from docs/FS1R-front-panel-p14-ny.svg by
-# tools/make_panel_svg.py. Edit the drawing in docs/ and run that script again; it is committed so the
-# build needs no Python.
-# The factory patches: 1408 voices with their name index, 384 performances and the 90 preset formant
-# sequences, packed out of presets/ by tools/make_presets_blob.py so the plugin browses and loads all
-# of them with no EPROM image. Committed, for the same reason as the panel.
-juce_add_binary_data(fs1r_plugin_data SOURCES
-    generated/parameterDescriptions_fs1r.json
-    generated/fs1r_panel.svg
-    generated/fs1r_presets.syx
-    generated/fs1r_presets.csv
-    generated/fs1r_performances.syx
-    generated/fs1r_fseqs.syx)
-set_target_properties(fs1r_plugin_data PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+hollow_add_plugin(fsvr
+  NAME "FSVR"
+  SKIN "${CMAKE_CURRENT_SOURCE_DIR}/skin"
+  SOURCES plugin.cpp library.cpp audio_decode.cpp audio_fseq.cpp "${CMAKE_CURRENT_BINARY_DIR}/factory.cpp"
+  BUNDLE_ID studio.musica.fsvr
+  VERSION ${PROJECT_VERSION}
+  VENDOR musica.studio
+  AU_MANUFACTURER Msst
+  AU_SUBTYPE Fsvr
+  BIN "${FS1R_BIN}")
 
-target_sources(fs1r_plugin PRIVATE
-    PluginProcessor.cpp
-    gui/PluginEditor.cpp
-    gui/PanelView.cpp
-    gui/EditorPages.cpp
-    patch/ParameterDescriptions.cpp
-    patch/PatchManager.cpp)
-
-target_compile_definitions(fs1r_plugin PUBLIC
-    JUCE_WEB_BROWSER=0
-    JUCE_USE_CURL=0
-    JUCE_VST3_CAN_REPLACE_VST2=0
-    JUCE_DISPLAY_SPLASH_SCREEN=0
-    JUCE_REPORT_APP_USAGE=0)
-
-target_link_libraries(fs1r_plugin PRIVATE
-    fs1rLib
-    fs1r_plugin_data
-    juce::juce_audio_utils
-    juce::juce_audio_processors
-    PUBLIC
-    juce::juce_recommended_config_flags
-    juce::juce_recommended_lto_flags)
-
-# CLAP through clap-juce-extensions, which reuses the same target.
-if(TARGET clap_juce_extensions)
-    clap_juce_extensions_plugin(TARGET fs1r_plugin
-        CLAP_ID "studio.musica.fsvr"
-        CLAP_FEATURES instrument synthesizer "FM" stereo)
+target_link_libraries(fsvr_lib PRIVATE fs1rLib)
+target_compile_definitions(fsvr_lib PRIVATE FSVR_VERSION="${PROJECT_VERSION}")
+target_include_directories(fsvr_lib PRIVATE "${dr_libs_SOURCE_DIR}" "${stb_SOURCE_DIR}")
+if(WIN32)
+  target_link_libraries(fsvr_lib PRIVATE mfplat mfreadwrite mfuuid ole32 shell32)
+elseif(APPLE)
+  target_link_libraries(fsvr_lib PRIVATE "-framework AudioToolbox" "-framework CoreFoundation")
 endif()
+
+# The processor's own check: banks, the sysex round trip, morph, Import Audio (tools/check_plugin.cpp).
+add_executable(check_plugin "${PROJECT_SOURCE_DIR}/tools/check_plugin.cpp")
+target_link_libraries(check_plugin PRIVATE fsvr_lib)
+target_include_directories(check_plugin PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+set_target_properties(check_plugin PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_BINARY_DIR}>")
+add_test(NAME plugin COMMAND check_plugin)

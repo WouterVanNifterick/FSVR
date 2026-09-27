@@ -1,0 +1,3305 @@
+{
+ "size": [
+  1422,
+  134
+ ],
+ "fill": {
+  "image": "backgrounds/topbar"
+ },
+ "widgets": [
+  {
+   "type": "button",
+   "name": "logo",
+   "rect": [
+    104,
+    16,
+    162,
+    26
+   ],
+   "fill": {
+    "image": "branding/fsvr_logo"
+   },
+   "hoverTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.about_open",
+   "action": {
+    "step": 1
+   },
+   "press": "up",
+   "tip": "About FSVR"
+  },
+  {
+   "type": "plate",
+   "name": "pod",
+   "rect": [
+    468,
+    46,
+    350,
+    66
+   ],
+   "fill": {
+    "image": "panels/graphite_pod"
+   },
+   "surface": false,
+   "layer": 0
+  },
+  {
+   "type": "plate",
+   "name": "volume_label",
+   "rect": [
+    24,
+    28,
+    72,
+    20
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Volume",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "volume",
+   "rect": [
+    32,
+    51,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "perf.volume",
+   "tip": "The performance's volume"
+  },
+  {
+   "type": "number",
+   "name": "volume_value",
+   "rect": [
+    30,
+    108,
+    60,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "perf.volume"
+  },
+  {
+   "type": "plate",
+   "name": "attack_label",
+   "rect": [
+    816,
+    28,
+    72,
+    20
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Attack",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "attack",
+   "rect": [
+    824,
+    51,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.attack.{part}",
+   "tip": "The part's attack",
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "number",
+   "name": "attack_value",
+   "rect": [
+    822,
+    108,
+    60,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.attack.{part}",
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "release_label",
+   "rect": [
+    888,
+    28,
+    72,
+    20
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Release",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "release",
+   "rect": [
+    896,
+    51,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.release.{part}",
+   "tip": "The part's release",
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "number",
+   "name": "release_value",
+   "rect": [
+    894,
+    108,
+    60,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.release.{part}",
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "formant_label",
+   "rect": [
+    960,
+    28,
+    72,
+    20
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Formant",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "formant",
+   "rect": [
+    968,
+    51,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.formant.{part}",
+   "tip": "The part's formant",
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "number",
+   "name": "formant_value",
+   "rect": [
+    966,
+    108,
+    60,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.formant.{part}",
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "fm_label",
+   "rect": [
+    1032,
+    28,
+    72,
+    20
+   ],
+   "layer": 1,
+   "text": {
+    "text": "FM",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "fm",
+   "rect": [
+    1040,
+    51,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.fm.{part}",
+   "tip": "The part's fm",
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "number",
+   "name": "fm_value",
+   "rect": [
+    1038,
+    108,
+    60,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.fm.{part}",
+   "showIf": {
+    "var": "knobs",
+    "equals": "tone"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "kn1_label",
+   "rect": [
+    816,
+    28,
+    72,
+    20
+   ],
+   "layer": 1,
+   "text": {
+    "text": "KN1",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "kn1",
+   "rect": [
+    824,
+    51,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "knob.1",
+   "tip": "Knob 1, a control source (Mod page)",
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "number",
+   "name": "kn1_value",
+   "rect": [
+    822,
+    108,
+    60,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "knob.1",
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "kn2_label",
+   "rect": [
+    888,
+    28,
+    72,
+    20
+   ],
+   "layer": 1,
+   "text": {
+    "text": "KN2",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "kn2",
+   "rect": [
+    896,
+    51,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "knob.2",
+   "tip": "Knob 2, a control source (Mod page)",
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "number",
+   "name": "kn2_value",
+   "rect": [
+    894,
+    108,
+    60,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "knob.2",
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "kn3_label",
+   "rect": [
+    960,
+    28,
+    72,
+    20
+   ],
+   "layer": 1,
+   "text": {
+    "text": "KN3",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "kn3",
+   "rect": [
+    968,
+    51,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "knob.3",
+   "tip": "Knob 3, a control source (Mod page)",
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "number",
+   "name": "kn3_value",
+   "rect": [
+    966,
+    108,
+    60,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "knob.3",
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "kn4_label",
+   "rect": [
+    1032,
+    28,
+    72,
+    20
+   ],
+   "layer": 1,
+   "text": {
+    "text": "KN4",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "kn4",
+   "rect": [
+    1040,
+    51,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "knob.4",
+   "tip": "Knob 4, a control source (Mod page)",
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "number",
+   "name": "kn4_value",
+   "rect": [
+    1038,
+    108,
+    60,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "knob.4",
+   "showIf": {
+    "var": "knobs",
+    "equals": "kn"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "lcd",
+   "rect": [
+    104,
+    46,
+    330,
+    66
+   ],
+   "fill": {
+    "image": "displays/lcd_window"
+   },
+   "surface": false
+  },
+  {
+   "type": "number",
+   "name": "lcd_performance",
+   "rect": [
+    111,
+    52,
+    300,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "lcd_small",
+    "align": "left",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false,
+   "param": "perf.program",
+   "drag": false,
+   "reset": false,
+   "showIf": {
+    "param": "perf.bank",
+    "notEquals": 1
+   }
+  },
+  {
+   "type": "number",
+   "name": "lcd_user_perf",
+   "rect": [
+    111,
+    52,
+    72,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "lcd_small",
+    "align": "left",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false,
+   "param": "perf.user",
+   "format": "U%03.0f",
+   "drag": false,
+   "reset": false,
+   "showIf": {
+    "param": "perf.bank",
+    "equals": 1
+   }
+  },
+  {
+   "type": "textbox",
+   "name": "lcd_user_perf_name",
+   "rect": [
+    183,
+    52,
+    228,
+    16
+   ],
+   "key": "perf.user.name",
+   "text": {
+    "text": "",
+    "font": "lcd_small",
+    "align": "left",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false,
+   "showIf": {
+    "param": "perf.bank",
+    "equals": 1
+   }
+  },
+  {
+   "type": "button",
+   "name": "lcd_edited",
+   "rect": [
+    411,
+    52,
+    12,
+    16
+   ],
+   "fill": {
+    "image": "displays/lcd_edit"
+   },
+   "source": "modified",
+   "press": "up",
+   "surface": false,
+   "tip": "Edited since loaded or saved"
+  },
+  {
+   "type": "plate",
+   "name": "lcd_part",
+   "rect": [
+    111,
+    70,
+    24,
+    16
+   ],
+   "text": {
+    "text": "{part:upper}",
+    "font": "lcd_small",
+    "align": "left",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  {
+   "type": "number",
+   "name": "lcd_bank",
+   "rect": [
+    147,
+    70,
+    36,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "lcd_small",
+    "align": "left",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false,
+   "param": "part.bank.{part}",
+   "reset": false,
+   "tip": "The part's voice bank",
+   "showIf": {
+    "param": "part.bank.{part}",
+    "notEquals": 1
+   }
+  },
+  {
+   "type": "number",
+   "name": "lcd_program",
+   "rect": [
+    183,
+    70,
+    36,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "lcd_small",
+    "align": "left",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false,
+   "param": "part.program.{part}",
+   "format": "%03.0f",
+   "reset": false,
+   "tip": "The part's voice number",
+   "showIf": {
+    "param": "part.bank.{part}",
+    "notEquals": 1
+   }
+  },
+  {
+   "type": "number",
+   "name": "lcd_user_voice",
+   "rect": [
+    147,
+    70,
+    72,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "lcd_small",
+    "align": "left",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false,
+   "param": "part.user.{part}",
+   "format": "U%03.0f",
+   "reset": false,
+   "tip": "The part's user voice",
+   "showIf": {
+    "param": "part.bank.{part}",
+    "equals": 1
+   }
+  },
+  {
+   "type": "plate",
+   "name": "lcd_channel_label",
+   "rect": [
+    243,
+    70,
+    24,
+    16
+   ],
+   "text": {
+    "text": "CH",
+    "font": "lcd_small",
+    "align": "left",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  {
+   "type": "number",
+   "name": "lcd_channel",
+   "rect": [
+    279,
+    70,
+    36,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "lcd_small",
+    "align": "right",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false,
+   "param": "part.rcv_ch.{part}",
+   "reset": false,
+   "tip": "The channel the part receives on"
+  },
+  {
+   "type": "button",
+   "name": "lcd_midi",
+   "rect": [
+    411,
+    70,
+    12,
+    16
+   ],
+   "fill": {
+    "image": "displays/lcd_midi"
+   },
+   "source": "midi_in",
+   "press": "up",
+   "surface": false,
+   "tip": "MIDI in"
+  },
+  {
+   "type": "plate",
+   "name": "lcd_poly_label",
+   "rect": [
+    111,
+    88,
+    48,
+    16
+   ],
+   "text": {
+    "text": "POLY",
+    "font": "lcd_small",
+    "align": "left",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  {
+   "type": "textbox",
+   "name": "lcd_poly",
+   "rect": [
+    171,
+    88,
+    24,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "lcd_small",
+    "align": "right",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false,
+   "source": "voices",
+   "format": "%2d",
+   "tip": "Notes playing"
+  },
+  {
+   "type": "plate",
+   "name": "lcd_cpu_label",
+   "rect": [
+    243,
+    88,
+    36,
+    16
+   ],
+   "text": {
+    "text": "CPU",
+    "font": "lcd_small",
+    "align": "left",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  {
+   "type": "textbox",
+   "name": "lcd_cpu",
+   "rect": [
+    279,
+    88,
+    48,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "lcd_small",
+    "align": "right",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false,
+   "source": "cpu",
+   "format": "%3d%%"
+  },
+  {
+   "type": "dropdown",
+   "name": "patch_list",
+   "rect": [
+    108,
+    50,
+    306,
+    20
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Preset A",
+     "items": [
+      {
+       "label": "A001 Zap !",
+       "value": 0
+      },
+      {
+       "label": "A002 Shaman",
+       "value": 1
+      },
+      {
+       "label": "A003 Nightmare",
+       "value": 2
+      },
+      {
+       "label": "A004 Acid King",
+       "value": 3
+      },
+      {
+       "label": "A005 Snow Decay",
+       "value": 4
+      },
+      {
+       "label": "A006 Hollywood",
+       "value": 5
+      },
+      {
+       "label": "A007 Yes No",
+       "value": 6
+      },
+      {
+       "label": "A008 Fetish",
+       "value": 7
+      },
+      {
+       "label": "A009 Platipus",
+       "value": 8
+      },
+      {
+       "label": "A010 Bots",
+       "value": 9
+      },
+      {
+       "label": "A011 Sho",
+       "value": 10
+      },
+      {
+       "label": "A012 Technical",
+       "value": 11
+      },
+      {
+       "label": "A013 Dirt Vocoder",
+       "value": 12
+      },
+      {
+       "label": "A014 Homy",
+       "value": 13
+      },
+      {
+       "label": "A015 BeatBox",
+       "value": 14
+      },
+      {
+       "label": "A016 Magic Laugh",
+       "value": 15
+      },
+      {
+       "label": "A017 VocoTouch",
+       "value": 16
+      },
+      {
+       "label": "A018 The Seeker",
+       "value": 17
+      },
+      {
+       "label": "A019 Can You Give",
+       "value": 18
+      },
+      {
+       "label": "A020 Vox Morph",
+       "value": 19
+      },
+      {
+       "label": "A021 Vox Phase",
+       "value": 20
+      },
+      {
+       "label": "A022 F-Sweep",
+       "value": 21
+      },
+      {
+       "label": "A023 The Vocoder",
+       "value": 22
+      },
+      {
+       "label": "A024 Sand Voice",
+       "value": 23
+      },
+      {
+       "label": "A025 Everybody",
+       "value": 24
+      },
+      {
+       "label": "A026 HyperFuzz",
+       "value": 25
+      },
+      {
+       "label": "A027 Dist Mini",
+       "value": 26
+      },
+      {
+       "label": "A028 Strobe",
+       "value": 27
+      },
+      {
+       "label": "A029 Digital",
+       "value": 28
+      },
+      {
+       "label": "A030 Power Key",
+       "value": 29
+      },
+      {
+       "label": "A031 Moon Bass",
+       "value": 30
+      },
+      {
+       "label": "A032 LoFi Acid",
+       "value": 31
+      },
+      {
+       "label": "A033 Funk Bass",
+       "value": 32,
+       "columnBreak": true
+      },
+      {
+       "label": "A034 Matze",
+       "value": 33
+      },
+      {
+       "label": "A035 Glass Harp",
+       "value": 34
+      },
+      {
+       "label": "A036 Sweepers",
+       "value": 35
+      },
+      {
+       "label": "A037 Nu Skool",
+       "value": 36
+      },
+      {
+       "label": "A038 Syncorgano",
+       "value": 37
+      },
+      {
+       "label": "A039 Mitosis",
+       "value": 38
+      },
+      {
+       "label": "A040 Trance Cosmo",
+       "value": 39
+      },
+      {
+       "label": "A041 Glider",
+       "value": 40
+      },
+      {
+       "label": "A042 Night",
+       "value": 41
+      },
+      {
+       "label": "A043 To Warp",
+       "value": 42
+      },
+      {
+       "label": "A044 Space Bomb",
+       "value": 43
+      },
+      {
+       "label": "A045 Open",
+       "value": 44
+      },
+      {
+       "label": "A046 Dark",
+       "value": 45
+      },
+      {
+       "label": "A047 Walking Robo",
+       "value": 46
+      },
+      {
+       "label": "A048 Scaling",
+       "value": 47
+      },
+      {
+       "label": "A049 Ghost",
+       "value": 48
+      },
+      {
+       "label": "A050 Saucer",
+       "value": 49
+      },
+      {
+       "label": "A051 Force Field",
+       "value": 50
+      },
+      {
+       "label": "A052 Radio MW",
+       "value": 51
+      },
+      {
+       "label": "A053 4-3-2-1",
+       "value": 52
+      },
+      {
+       "label": "A054 Slow Attack",
+       "value": 53
+      },
+      {
+       "label": "A055 Spiral",
+       "value": 54
+      },
+      {
+       "label": "A056 Morph",
+       "value": 55
+      },
+      {
+       "label": "A057 Moving",
+       "value": 56
+      },
+      {
+       "label": "A058 Prophet F",
+       "value": 57
+      },
+      {
+       "label": "A059 Caravan",
+       "value": 58
+      },
+      {
+       "label": "A060 FormantSweep",
+       "value": 59
+      },
+      {
+       "label": "A061 Mysterians",
+       "value": 60
+      },
+      {
+       "label": "A062 DippeDut",
+       "value": 61
+      },
+      {
+       "label": "A063 Glacial",
+       "value": 62
+      },
+      {
+       "label": "A064 Mizu Guitar",
+       "value": 63
+      },
+      {
+       "label": "A065 Pure",
+       "value": 64,
+       "columnBreak": true
+      },
+      {
+       "label": "A066 Furry Bell",
+       "value": 65
+      },
+      {
+       "label": "A067 Replicant",
+       "value": 66
+      },
+      {
+       "label": "A068 Miracle",
+       "value": 67
+      },
+      {
+       "label": "A069 Swarm",
+       "value": 68
+      },
+      {
+       "label": "A070 Venus",
+       "value": 69
+      },
+      {
+       "label": "A071 Relaxxx",
+       "value": 70
+      },
+      {
+       "label": "A072 Mouth Pop",
+       "value": 71
+      },
+      {
+       "label": "A073 R.P.M.",
+       "value": 72
+      },
+      {
+       "label": "A074 Solstice",
+       "value": 73
+      },
+      {
+       "label": "A075 Bleep",
+       "value": 74
+      },
+      {
+       "label": "A076 Starship",
+       "value": 75
+      },
+      {
+       "label": "A077 SuperPad",
+       "value": 76
+      },
+      {
+       "label": "A078 Moby II",
+       "value": 77
+      },
+      {
+       "label": "A079 Spacy Pad",
+       "value": 78
+      },
+      {
+       "label": "A080 Pompeii",
+       "value": 79
+      },
+      {
+       "label": "A081 The Shadow",
+       "value": 80
+      },
+      {
+       "label": "A082 Earth Wind",
+       "value": 81
+      },
+      {
+       "label": "A083 Nebulous",
+       "value": 82
+      },
+      {
+       "label": "A084 CineSweep",
+       "value": 83
+      },
+      {
+       "label": "A085 Qwerty",
+       "value": 84
+      },
+      {
+       "label": "A086 Warm Galaxy",
+       "value": 85
+      },
+      {
+       "label": "A087 Octavian",
+       "value": 86
+      },
+      {
+       "label": "A088 Fat Line",
+       "value": 87
+      },
+      {
+       "label": "A089 Metallic",
+       "value": 88
+      },
+      {
+       "label": "A090 Superarp",
+       "value": 89
+      },
+      {
+       "label": "A091 Noble Metal",
+       "value": 90
+      },
+      {
+       "label": "A092 Perc Arp",
+       "value": 91
+      },
+      {
+       "label": "A093 Dog Bytes",
+       "value": 92
+      },
+      {
+       "label": "A094 Iron Man",
+       "value": 93
+      },
+      {
+       "label": "A095 Hard Pulse",
+       "value": 94
+      },
+      {
+       "label": "A096 Zansyo",
+       "value": 95
+      },
+      {
+       "label": "A097 Da Comp",
+       "value": 96,
+       "columnBreak": true
+      },
+      {
+       "label": "A098 Snow Pixy",
+       "value": 97
+      },
+      {
+       "label": "A099 Fusion",
+       "value": 98
+      },
+      {
+       "label": "A100 Funk",
+       "value": 99
+      },
+      {
+       "label": "A101 Manhattan",
+       "value": 100
+      },
+      {
+       "label": "A102 Fifths",
+       "value": 101
+      },
+      {
+       "label": "A103 Vulcan",
+       "value": 102
+      },
+      {
+       "label": "A104 Fluffy",
+       "value": 103
+      },
+      {
+       "label": "A105 Spellbound",
+       "value": 104
+      },
+      {
+       "label": "A106 VeloSweep",
+       "value": 105
+      },
+      {
+       "label": "A107 Raymond",
+       "value": 106
+      },
+      {
+       "label": "A108 Zapper",
+       "value": 107
+      },
+      {
+       "label": "A109 Harry",
+       "value": 108
+      },
+      {
+       "label": "A110 Fast&Cheap",
+       "value": 109
+      },
+      {
+       "label": "A111 Funky Tech",
+       "value": 110
+      },
+      {
+       "label": "A112 Pluck Glass",
+       "value": 111
+      },
+      {
+       "label": "A113 Komodo",
+       "value": 112
+      },
+      {
+       "label": "A114 Suikinkutsu",
+       "value": 113
+      },
+      {
+       "label": "A115 Gamelan",
+       "value": 114
+      },
+      {
+       "label": "A116 Thai Boxing",
+       "value": 115
+      },
+      {
+       "label": "A117 Siam Prayer",
+       "value": 116
+      },
+      {
+       "label": "A118 EthnicPercs",
+       "value": 117
+      },
+      {
+       "label": "A119 Mukkuri",
+       "value": 118
+      },
+      {
+       "label": "A120 Kalimba",
+       "value": 119
+      },
+      {
+       "label": "A121 Drum Kit 1",
+       "value": 120
+      },
+      {
+       "label": "A122 Drum Kit 2",
+       "value": 121
+      },
+      {
+       "label": "A123 Drum Kit 3",
+       "value": 122
+      },
+      {
+       "label": "A124 Drum Kit 9o9",
+       "value": 123
+      },
+      {
+       "label": "A125 TechBeat",
+       "value": 124
+      },
+      {
+       "label": "A126 BoomTchak",
+       "value": 125
+      },
+      {
+       "label": "A127 TechKicks",
+       "value": 126
+      },
+      {
+       "label": "A128 TekkSet",
+       "value": 127
+      }
+     ]
+    },
+    {
+     "label": "Preset B",
+     "items": [
+      {
+       "label": "B001 Sweepy Voice",
+       "value": 128
+      },
+      {
+       "label": "B002 Breathy 5th",
+       "value": 129
+      },
+      {
+       "label": "B003 Lightyears",
+       "value": 130
+      },
+      {
+       "label": "B004 Vox Move",
+       "value": 131
+      },
+      {
+       "label": "B005 Vox Tron",
+       "value": 132
+      },
+      {
+       "label": "B006 Spacy Aaah",
+       "value": 133
+      },
+      {
+       "label": "B007 Celebration",
+       "value": 134
+      },
+      {
+       "label": "B008 Choir",
+       "value": 135
+      },
+      {
+       "label": "B009 Human Woo",
+       "value": 136
+      },
+      {
+       "label": "B010 Human Ih",
+       "value": 137
+      },
+      {
+       "label": "B011 Human Eh",
+       "value": 138
+      },
+      {
+       "label": "B012 Human Oh",
+       "value": 139
+      },
+      {
+       "label": "B013 Shooby Do",
+       "value": 140
+      },
+      {
+       "label": "B014 Full Tines",
+       "value": 141
+      },
+      {
+       "label": "B015 DX Original",
+       "value": 142
+      },
+      {
+       "label": "B016 Dyno Rose",
+       "value": 143
+      },
+      {
+       "label": "B017 EP 1980",
+       "value": 144
+      },
+      {
+       "label": "B018 Crystal Rose",
+       "value": 145
+      },
+      {
+       "label": "B019 DX Phase",
+       "value": 146
+      },
+      {
+       "label": "B020 DX Classic",
+       "value": 147
+      },
+      {
+       "label": "B021 EP Reece",
+       "value": 148
+      },
+      {
+       "label": "B022 Nu Suitcase",
+       "value": 149
+      },
+      {
+       "label": "B023 EP Wide",
+       "value": 150
+      },
+      {
+       "label": "B024 Velvet Dyno",
+       "value": 151
+      },
+      {
+       "label": "B025 Tremolo",
+       "value": 152
+      },
+      {
+       "label": "B026 EP Soft",
+       "value": 153
+      },
+      {
+       "label": "B027 Wurli Dirty",
+       "value": 154
+      },
+      {
+       "label": "B028 Wurli Clean",
+       "value": 155
+      },
+      {
+       "label": "B029 CP Hard",
+       "value": 156
+      },
+      {
+       "label": "B030 UprightPiano",
+       "value": 157
+      },
+      {
+       "label": "B031 Clavmann",
+       "value": 158
+      },
+      {
+       "label": "B032 BryteClavman",
+       "value": 159
+      },
+      {
+       "label": "B033 Fat Clavmann",
+       "value": 160,
+       "columnBreak": true
+      },
+      {
+       "label": "B034 Digi Clav",
+       "value": 161
+      },
+      {
+       "label": "B035 Thin Clav",
+       "value": 162
+      },
+      {
+       "label": "B036 Optical",
+       "value": 163
+      },
+      {
+       "label": "B037 FundaBass",
+       "value": 164
+      },
+      {
+       "label": "B038 B-Rave",
+       "value": 165
+      },
+      {
+       "label": "B039 Square Bass",
+       "value": 166
+      },
+      {
+       "label": "B040 Ethno Bass",
+       "value": 167
+      },
+      {
+       "label": "B041 Bassline 1",
+       "value": 168
+      },
+      {
+       "label": "B042 Bassline 2",
+       "value": 169
+      },
+      {
+       "label": "B043 JungleBass",
+       "value": 170
+      },
+      {
+       "label": "B044 Plastic Bass",
+       "value": 171
+      },
+      {
+       "label": "B045 Punch Bass",
+       "value": 172
+      },
+      {
+       "label": "B046 Compu Saw",
+       "value": 173
+      },
+      {
+       "label": "B047 Dry Syn",
+       "value": 174
+      },
+      {
+       "label": "B048 Earth Lead",
+       "value": 175
+      },
+      {
+       "label": "B049 Hollow",
+       "value": 176
+      },
+      {
+       "label": "B050 Samplon",
+       "value": 177
+      },
+      {
+       "label": "B051 Noodles",
+       "value": 178
+      },
+      {
+       "label": "B052 BigAssSynth",
+       "value": 179
+      },
+      {
+       "label": "B053 Teck Hook",
+       "value": 180
+      },
+      {
+       "label": "B054 Sunhead",
+       "value": 181
+      },
+      {
+       "label": "B055 Moonweed",
+       "value": 182
+      },
+      {
+       "label": "B056 Tech Lead",
+       "value": 183
+      },
+      {
+       "label": "B057 Retronic",
+       "value": 184
+      },
+      {
+       "label": "B058 Formo Whistl",
+       "value": 185
+      },
+      {
+       "label": "B059 Baroque",
+       "value": 186
+      },
+      {
+       "label": "B060 Full B3",
+       "value": 187
+      },
+      {
+       "label": "B061 B3 Jazz Comp",
+       "value": 188
+      },
+      {
+       "label": "B062 B3 Perc 3rd",
+       "value": 189
+      },
+      {
+       "label": "B063 J.Road",
+       "value": 190
+      },
+      {
+       "label": "B064 Disto-Jam",
+       "value": 191
+      },
+      {
+       "label": "B065 Perc Organ",
+       "value": 192,
+       "columnBreak": true
+      },
+      {
+       "label": "B066 Dirty Organ",
+       "value": 193
+      },
+      {
+       "label": "B067 ByonOrgan",
+       "value": 194
+      },
+      {
+       "label": "B068 Blazin' Jim",
+       "value": 195
+      },
+      {
+       "label": "B069 Backin Organ",
+       "value": 196
+      },
+      {
+       "label": "B070 LS Night",
+       "value": 197
+      },
+      {
+       "label": "B071 Fat organ",
+       "value": 198
+      },
+      {
+       "label": "B072 70s Organ",
+       "value": 199
+      },
+      {
+       "label": "B073 Jazz Organ",
+       "value": 200
+      },
+      {
+       "label": "B074 Full Organ",
+       "value": 201
+      },
+      {
+       "label": "B075 The Lounge",
+       "value": 202
+      },
+      {
+       "label": "B076 ChurchOrgan",
+       "value": 203
+      },
+      {
+       "label": "B077 Hard String",
+       "value": 204
+      },
+      {
+       "label": "B078 DX Jazz",
+       "value": 205
+      },
+      {
+       "label": "B079 EtherGuitar",
+       "value": 206
+      },
+      {
+       "label": "B080 DistFeedback",
+       "value": 207
+      },
+      {
+       "label": "B081 Strat 7II",
+       "value": 208
+      },
+      {
+       "label": "B082 Taxi Brass",
+       "value": 209
+      },
+      {
+       "label": "B083 BrightFilter",
+       "value": 210
+      },
+      {
+       "label": "B084 Lead Horn",
+       "value": 211
+      },
+      {
+       "label": "B085 Bright",
+       "value": 212
+      },
+      {
+       "label": "B086 DX-Soft",
+       "value": 213
+      },
+      {
+       "label": "B087 Brassetra",
+       "value": 214
+      },
+      {
+       "label": "B088 Oberhorn",
+       "value": 215
+      },
+      {
+       "label": "B089 Obi Brass",
+       "value": 216
+      },
+      {
+       "label": "B090 Obi Hornz",
+       "value": 217
+      },
+      {
+       "label": "B091 Swell",
+       "value": 218
+      },
+      {
+       "label": "B092 Stab",
+       "value": 219
+      },
+      {
+       "label": "B093 Quackz",
+       "value": 220
+      },
+      {
+       "label": "B094 StabbaBabb",
+       "value": 221
+      },
+      {
+       "label": "B095 Fanfare",
+       "value": 222
+      },
+      {
+       "label": "B096 Wind Pad",
+       "value": 223
+      },
+      {
+       "label": "B097 Dark Pad",
+       "value": 224,
+       "columnBreak": true
+      },
+      {
+       "label": "B098 Thermal",
+       "value": 225
+      },
+      {
+       "label": "B099 Spacewind",
+       "value": 226
+      },
+      {
+       "label": "B100 Elise",
+       "value": 227
+      },
+      {
+       "label": "B101 OB Pad",
+       "value": 228
+      },
+      {
+       "label": "B102 Reflection",
+       "value": 229
+      },
+      {
+       "label": "B103 Emperor II",
+       "value": 230
+      },
+      {
+       "label": "B104 Fat Pad",
+       "value": 231
+      },
+      {
+       "label": "B105 Polar",
+       "value": 232
+      },
+      {
+       "label": "B106 Sky Bells",
+       "value": 233
+      },
+      {
+       "label": "B107 Heimdal",
+       "value": 234
+      },
+      {
+       "label": "B108 Ice Score",
+       "value": 235
+      },
+      {
+       "label": "B109 Solair",
+       "value": 236
+      },
+      {
+       "label": "B110 Angel Bells",
+       "value": 237
+      },
+      {
+       "label": "B111 Vesuvius",
+       "value": 238
+      },
+      {
+       "label": "B112 Space Harp",
+       "value": 239
+      },
+      {
+       "label": "B113 Ministry",
+       "value": 240
+      },
+      {
+       "label": "B114 Ensemble",
+       "value": 241
+      },
+      {
+       "label": "B115 Obie Strings",
+       "value": 242
+      },
+      {
+       "label": "B116 JMichel",
+       "value": 243
+      },
+      {
+       "label": "B117 Mild",
+       "value": 244
+      },
+      {
+       "label": "B118 Spacious",
+       "value": 245
+      },
+      {
+       "label": "B119 Oktavstrgs",
+       "value": 246
+      },
+      {
+       "label": "B120 Hit",
+       "value": 247
+      },
+      {
+       "label": "B121 Accordion",
+       "value": 248
+      },
+      {
+       "label": "B122 Sitar",
+       "value": 249
+      },
+      {
+       "label": "B123 Bag Pipe",
+       "value": 250
+      },
+      {
+       "label": "B124 Alloy",
+       "value": 251
+      },
+      {
+       "label": "B125 Tubular",
+       "value": 252
+      },
+      {
+       "label": "B126 Far West",
+       "value": 253
+      },
+      {
+       "label": "B127 Small Bell",
+       "value": 254
+      },
+      {
+       "label": "B128 Legend Vibe",
+       "value": 255
+      }
+     ]
+    },
+    {
+     "label": "Preset C",
+     "items": [
+      {
+       "label": "C001 UprightPiano",
+       "value": 256
+      },
+      {
+       "label": "C002 FM Piano",
+       "value": 257
+      },
+      {
+       "label": "C003 EP Wide",
+       "value": 258
+      },
+      {
+       "label": "C004 CP Hard",
+       "value": 259
+      },
+      {
+       "label": "C005 Velvet Dyno",
+       "value": 260
+      },
+      {
+       "label": "C006 Clear EP",
+       "value": 261
+      },
+      {
+       "label": "C007 DX Harpscd",
+       "value": 262
+      },
+      {
+       "label": "C008 Digi Clav",
+       "value": 263
+      },
+      {
+       "label": "C009 5th Piano",
+       "value": 264
+      },
+      {
+       "label": "C010 Glocken",
+       "value": 265
+      },
+      {
+       "label": "C011 MusicBox",
+       "value": 266
+      },
+      {
+       "label": "C012 Legend Vibe",
+       "value": 267
+      },
+      {
+       "label": "C013 Marimba",
+       "value": 268
+      },
+      {
+       "label": "C014 Xylophon",
+       "value": 269
+      },
+      {
+       "label": "C015 TubulBel",
+       "value": 270
+      },
+      {
+       "label": "C016 Dulcimer",
+       "value": 271
+      },
+      {
+       "label": "C017 B3 Perc 3rd",
+       "value": 272
+      },
+      {
+       "label": "C018 B3 Jazz Comp",
+       "value": 273
+      },
+      {
+       "label": "C019 Old Rotary",
+       "value": 274
+      },
+      {
+       "label": "C020 Full Organ",
+       "value": 275
+      },
+      {
+       "label": "C021 Dist Organ",
+       "value": 276
+      },
+      {
+       "label": "C022 Accordion",
+       "value": 277
+      },
+      {
+       "label": "C023 Chorus Harp",
+       "value": 278
+      },
+      {
+       "label": "C024 ChurchOrgan",
+       "value": 279
+      },
+      {
+       "label": "C025 Nylon Guitar",
+       "value": 280
+      },
+      {
+       "label": "C026 Steel Guitar",
+       "value": 281
+      },
+      {
+       "label": "C027 Jazz Guitar",
+       "value": 282
+      },
+      {
+       "label": "C028 Clean Guitar",
+       "value": 283
+      },
+      {
+       "label": "C029 Mute Guitar",
+       "value": 284
+      },
+      {
+       "label": "C030 DistFeedback",
+       "value": 285
+      },
+      {
+       "label": "C031 Dist Guitar",
+       "value": 286
+      },
+      {
+       "label": "C032 Punch Bass",
+       "value": 287
+      },
+      {
+       "label": "C033 Aco Bass",
+       "value": 288,
+       "columnBreak": true
+      },
+      {
+       "label": "C034 Plastic Bass",
+       "value": 289
+      },
+      {
+       "label": "C035 FM Slap",
+       "value": 290
+      },
+      {
+       "label": "C036 Fretless",
+       "value": 291
+      },
+      {
+       "label": "C037 Pick Bass",
+       "value": 292
+      },
+      {
+       "label": "C038 FM Slap 2",
+       "value": 293
+      },
+      {
+       "label": "C039 Bassline 1",
+       "value": 294
+      },
+      {
+       "label": "C040 Compu Saw",
+       "value": 295
+      },
+      {
+       "label": "C041 Strobe",
+       "value": 296
+      },
+      {
+       "label": "C042 Acid King",
+       "value": 297
+      },
+      {
+       "label": "C043 Power Key",
+       "value": 298
+      },
+      {
+       "label": "C044 5th Funk",
+       "value": 299
+      },
+      {
+       "label": "C045 DX Solo Str",
+       "value": 300
+      },
+      {
+       "label": "C046 Tremolo Str",
+       "value": 301
+      },
+      {
+       "label": "C047 FM Pizz",
+       "value": 302
+      },
+      {
+       "label": "C048 FM Harp",
+       "value": 303
+      },
+      {
+       "label": "C049 Spacious",
+       "value": 304
+      },
+      {
+       "label": "C050 FM Strings",
+       "value": 305
+      },
+      {
+       "label": "C051 JMichel",
+       "value": 306
+      },
+      {
+       "label": "C052 Ensemble",
+       "value": 307
+      },
+      {
+       "label": "C053 Vox Morph",
+       "value": 308
+      },
+      {
+       "label": "C054 Vox Move",
+       "value": 309
+      },
+      {
+       "label": "C055 Vox Phase",
+       "value": 310
+      },
+      {
+       "label": "C056 Hit",
+       "value": 311
+      },
+      {
+       "label": "C057 FM Solo Tp",
+       "value": 312
+      },
+      {
+       "label": "C058 Fanfare",
+       "value": 313
+      },
+      {
+       "label": "C059 DX-Soft",
+       "value": 314
+      },
+      {
+       "label": "C060 Lead Horn",
+       "value": 315
+      },
+      {
+       "label": "C061 Fr.Horn",
+       "value": 316
+      },
+      {
+       "label": "C062 FM Section",
+       "value": 317
+      },
+      {
+       "label": "C063 Bright",
+       "value": 318
+      },
+      {
+       "label": "C064 StabbaBabb",
+       "value": 319
+      },
+      {
+       "label": "C065 FM Lead Sax",
+       "value": 320,
+       "columnBreak": true
+      },
+      {
+       "label": "C066 FM Dbl Reed",
+       "value": 321
+      },
+      {
+       "label": "C067 Dark Clar",
+       "value": 322
+      },
+      {
+       "label": "C068 Moonweed",
+       "value": 323
+      },
+      {
+       "label": "C069 Hollow",
+       "value": 324
+      },
+      {
+       "label": "C070 Tech Lead",
+       "value": 325
+      },
+      {
+       "label": "C071 Retronic",
+       "value": 326
+      },
+      {
+       "label": "C072 HyperFuzz",
+       "value": 327
+      },
+      {
+       "label": "C073 FM Piccolo",
+       "value": 328
+      },
+      {
+       "label": "C074 FM Flute",
+       "value": 329
+      },
+      {
+       "label": "C075 RecoBell",
+       "value": 330
+      },
+      {
+       "label": "C076 FM PanFlute",
+       "value": 331
+      },
+      {
+       "label": "C077 FM Bottle",
+       "value": 332
+      },
+      {
+       "label": "C078 Heavy Pipe",
+       "value": 333
+      },
+      {
+       "label": "C079 Whistle",
+       "value": 334
+      },
+      {
+       "label": "C080 Ocarina",
+       "value": 335
+      },
+      {
+       "label": "C081 Earth Layer",
+       "value": 336
+      },
+      {
+       "label": "C082 Platipus",
+       "value": 337
+      },
+      {
+       "label": "C083 FM Lead",
+       "value": 338
+      },
+      {
+       "label": "C084 FM Lead 2",
+       "value": 339
+      },
+      {
+       "label": "C085 FM Lead 3",
+       "value": 340
+      },
+      {
+       "label": "C086 FM Lead 4",
+       "value": 341
+      },
+      {
+       "label": "C087 Sunhead",
+       "value": 342
+      },
+      {
+       "label": "C088 Teck Hook",
+       "value": 343
+      },
+      {
+       "label": "C089 Space  Harp",
+       "value": 344
+      },
+      {
+       "label": "C090 Fat Pad",
+       "value": 345
+      },
+      {
+       "label": "C091 Thermal",
+       "value": 346
+      },
+      {
+       "label": "C092 Nebulous",
+       "value": 347
+      },
+      {
+       "label": "C093 Qwerty",
+       "value": 348
+      },
+      {
+       "label": "C094 FM Pad",
+       "value": 349
+      },
+      {
+       "label": "C095 Spacy Pad",
+       "value": 350
+      },
+      {
+       "label": "C096 Spacewind",
+       "value": 351
+      },
+      {
+       "label": "C097 Rain",
+       "value": 352,
+       "columnBreak": true
+      },
+      {
+       "label": "C098 Fifths",
+       "value": 353
+      },
+      {
+       "label": "C099 Crystal",
+       "value": 354
+      },
+      {
+       "label": "C100 Atmospher",
+       "value": 355
+      },
+      {
+       "label": "C101 Bright Ens",
+       "value": 356
+      },
+      {
+       "label": "C102 Goblins",
+       "value": 357
+      },
+      {
+       "label": "C103 Harry",
+       "value": 358
+      },
+      {
+       "label": "C104 Sci-Fi",
+       "value": 359
+      },
+      {
+       "label": "C105 Sitar 2",
+       "value": 360
+      },
+      {
+       "label": "C106 Suikinkutsu",
+       "value": 361
+      },
+      {
+       "label": "C107 Mukkuri",
+       "value": 362
+      },
+      {
+       "label": "C108 Kalimba",
+       "value": 363
+      },
+      {
+       "label": "C109 Kalimba 2",
+       "value": 364
+      },
+      {
+       "label": "C110 Bag Pipe",
+       "value": 365
+      },
+      {
+       "label": "C111 Fiddle",
+       "value": 366
+      },
+      {
+       "label": "C112 Shanai",
+       "value": 367
+      },
+      {
+       "label": "C113 TnklBell",
+       "value": 368
+      },
+      {
+       "label": "C114 Agogo",
+       "value": 369
+      },
+      {
+       "label": "C115 SteelDrm",
+       "value": 370
+      },
+      {
+       "label": "C116 WoodBlok",
+       "value": 371
+      },
+      {
+       "label": "C117 TaikoDrm",
+       "value": 372
+      },
+      {
+       "label": "C118 Hollywood",
+       "value": 373
+      },
+      {
+       "label": "C119 Bleep",
+       "value": 374
+      },
+      {
+       "label": "C120 4-3-2-1",
+       "value": 375
+      },
+      {
+       "label": "C121 DippeDut",
+       "value": 376
+      },
+      {
+       "label": "C122 Glacial",
+       "value": 377
+      },
+      {
+       "label": "C123 Ice",
+       "value": 378
+      },
+      {
+       "label": "C124 Angle",
+       "value": 379
+      },
+      {
+       "label": "C125 Shooby Do",
+       "value": 380
+      },
+      {
+       "label": "C126 Everybody",
+       "value": 381
+      },
+      {
+       "label": "C127 Vox Move 2",
+       "value": 382
+      },
+      {
+       "label": "C128 Drum Kit 2",
+       "value": 383
+      }
+     ]
+    }
+   ],
+   "param": "perf.program",
+   "menuStyle": "native",
+   "tip": "Performances"
+  },
+  {
+   "type": "button",
+   "name": "prev_patch",
+   "rect": [
+    440,
+    60,
+    17,
+    17
+   ],
+   "fill": {
+    "image": "buttons/dark_up"
+   },
+   "press": "repeat",
+   "hoverTiles": false,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "perf.program",
+   "action": {
+    "step": -1
+   },
+   "tip": "Previous performance",
+   "pressedTiles": true
+  },
+  {
+   "type": "button",
+   "name": "next_patch",
+   "rect": [
+    440,
+    81,
+    17,
+    17
+   ],
+   "fill": {
+    "image": "buttons/dark_down"
+   },
+   "press": "repeat",
+   "hoverTiles": false,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "perf.program",
+   "action": {
+    "step": 1
+   },
+   "tip": "Next performance",
+   "pressedTiles": true
+  },
+  {
+   "type": "button",
+   "name": "show_editor",
+   "rect": [
+    474,
+    52,
+    72,
+    26
+   ],
+   "fill": {
+    "image": "buttons/strip_editor"
+   },
+   "press": "up",
+   "toggle": true,
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.hide_editor",
+   "tip": "Show or hide the editor",
+   "text": {
+    "text": "Editor",
+    "font": "caption_white_12",
+    "valign": "middle"
+   },
+   "pad": [
+    26,
+    1,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "button",
+   "name": "show_keys",
+   "rect": [
+    546,
+    52,
+    72,
+    26
+   ],
+   "fill": {
+    "image": "buttons/strip_keys"
+   },
+   "press": "up",
+   "toggle": true,
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.hide_keys",
+   "tip": "Show or hide the keyboard",
+   "text": {
+    "text": "Keys",
+    "font": "caption_white_12",
+    "valign": "middle"
+   },
+   "pad": [
+    26,
+    1,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "file_menu",
+   "rect": [
+    618,
+    52,
+    72,
+    26
+   ],
+   "fill": {
+    "image": "buttons/strip_file"
+   },
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Import SysEx...",
+     "value": 0,
+     "action": {
+      "file": "open",
+      "key": "sysex.import",
+      "types": {
+       "SysEx": "syx"
+      },
+      "title": "Import SysEx"
+     }
+    },
+    {
+     "label": "Export SysEx...",
+     "value": 1,
+     "action": {
+      "file": "save",
+      "key": "sysex.export",
+      "types": {
+       "SysEx": "syx"
+      },
+      "name": "FSVR.syx",
+      "title": "Export SysEx"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Options",
+     "value": 2,
+     "action": {
+      "goto": "page_master",
+      "stack": "pages"
+     }
+    }
+   ],
+   "tip": "SysEx and options",
+   "text": {
+    "text": "File",
+    "font": "caption_white_12",
+    "valign": "middle"
+   },
+   "pad": [
+    26,
+    1,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "button",
+   "name": "save_as",
+   "rect": [
+    690,
+    52,
+    72,
+    26
+   ],
+   "fill": {
+    "image": "buttons/strip_save"
+   },
+   "press": "up",
+   "toggle": true,
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "tip": "Store the performance, its voices and Fseq as a .syx; in the library it is a user performance",
+   "text": {
+    "text": "Store",
+    "font": "caption_white_12",
+    "valign": "middle"
+   },
+   "pad": [
+    26,
+    1,
+    2,
+    0
+   ],
+   "action": {
+    "file": "save",
+    "key": "perf.store",
+    "types": {
+     "SysEx": "syx"
+    },
+    "name": "{data:library.dir|}Performance.syx",
+    "title": "Store the performance"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "part_title",
+   "rect": [
+    474,
+    82,
+    46,
+    26
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Part",
+    "font": "label_white_13",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "part_1",
+   "rect": [
+    524,
+    82,
+    56,
+    26
+   ],
+   "fill": {
+    "image": "buttons/dark_part"
+   },
+   "text": {
+    "text": "1",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": false,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "set": {
+     "part": "p1"
+    }
+   },
+   "layer": 4,
+   "tip": "Edit part 1",
+   "pressedTiles": true
+  },
+  {
+   "type": "button",
+   "name": "part_2",
+   "rect": [
+    584,
+    82,
+    56,
+    26
+   ],
+   "fill": {
+    "image": "buttons/dark_part"
+   },
+   "text": {
+    "text": "2",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": false,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "set": {
+     "part": "p2"
+    }
+   },
+   "layer": 4,
+   "tip": "Edit part 2",
+   "pressedTiles": true
+  },
+  {
+   "type": "button",
+   "name": "part_3",
+   "rect": [
+    644,
+    82,
+    56,
+    26
+   ],
+   "fill": {
+    "image": "buttons/dark_part"
+   },
+   "text": {
+    "text": "3",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": false,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "set": {
+     "part": "p3"
+    }
+   },
+   "layer": 4,
+   "tip": "Edit part 3",
+   "pressedTiles": true
+  },
+  {
+   "type": "button",
+   "name": "part_4",
+   "rect": [
+    704,
+    82,
+    56,
+    26
+   ],
+   "fill": {
+    "image": "buttons/dark_part"
+   },
+   "text": {
+    "text": "4",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": false,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "set": {
+     "part": "p4"
+    }
+   },
+   "layer": 4,
+   "tip": "Edit part 4",
+   "pressedTiles": true
+  },
+  {
+   "type": "button",
+   "name": "knobs_tone",
+   "rect": [
+    768,
+    52,
+    44,
+    26
+   ],
+   "fill": {
+    "image": "buttons/dark_knobs"
+   },
+   "text": {
+    "text": "Tone",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": false,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "set": {
+     "knobs": "tone"
+    }
+   },
+   "layer": 4,
+   "tip": "The knobs edit the part: attack, release, formant, FM",
+   "pressedTiles": true
+  },
+  {
+   "type": "button",
+   "name": "knobs_kn",
+   "rect": [
+    768,
+    82,
+    44,
+    26
+   ],
+   "fill": {
+    "image": "buttons/dark_knobs"
+   },
+   "text": {
+    "text": "KN",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": false,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "set": {
+     "knobs": "kn"
+    }
+   },
+   "layer": 4,
+   "tip": "The knobs are KN1 to KN4, control sources for the controller sets",
+   "pressedTiles": true
+  },
+  {
+   "type": "plate",
+   "name": "monitor",
+   "rect": [
+    1106,
+    46,
+    286,
+    66
+   ],
+   "fill": {
+    "image": "displays/lcd_monitor"
+   },
+   "surface": false
+  },
+  {
+   "type": "plot",
+   "name": "spectrum",
+   "rect": [
+    1115,
+    54,
+    210,
+    40
+   ],
+   "line": "#17301fff",
+   "draw": "bars",
+   "surface": false,
+   "source": "scope",
+   "tip": "The last note's first 32 harmonics in the output"
+  },
+  {
+   "type": "meter",
+   "name": "meter_left",
+   "rect": [
+    1330,
+    54,
+    8,
+    52
+   ],
+   "frames": "floor",
+   "image": "meters/lcd_level",
+   "range": [
+    0,
+    142
+   ],
+   "surface": false,
+   "source": "level_l",
+   "tip": "Output level, -60 to 0 dB"
+  },
+  {
+   "type": "meter",
+   "name": "meter_right",
+   "rect": [
+    1340,
+    54,
+    8,
+    52
+   ],
+   "frames": "floor",
+   "image": "meters/lcd_level",
+   "range": [
+    0,
+    142
+   ],
+   "surface": false,
+   "source": "level_r",
+   "tip": "Output level, -60 to 0 dB"
+  },
+  {
+   "type": "button",
+   "name": "panic",
+   "rect": [
+    1358,
+    52,
+    31,
+    25
+   ],
+   "fill": {
+    "image": "buttons/dark_panic"
+   },
+   "toggle": false,
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "press": "momentary",
+   "param": "gui.panic",
+   "tip": "All notes off"
+  },
+  {
+   "type": "button",
+   "name": "midi_learn",
+   "rect": [
+    1358,
+    81,
+    31,
+    25
+   ],
+   "fill": {
+    "image": "buttons/dark_learn"
+   },
+   "toggle": true,
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.midi_learn",
+   "tip": "MIDI learn"
+  },
+  {
+   "type": "plot",
+   "name": "waveform",
+   "rect": [
+    1416,
+    3,
+    2,
+    2
+   ],
+   "line": "#ffffffff",
+   "draw": "trace",
+   "hidden": true
+  }
+ ]
+}

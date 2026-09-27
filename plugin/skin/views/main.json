@@ -1,0 +1,127 @@
+{
+ "size": [
+  1422,
+  843
+ ],
+ "fill": {
+  "colour": "#b0b0b0ff"
+ },
+ "fit": true,
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "deco_1",
+   "rect": [
+    17,
+    71,
+    124,
+    30
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "embed",
+   "name": "topbar",
+   "rect": [
+    0,
+    0,
+    1422,
+    134
+   ],
+   "view": "topbar"
+  },
+  {
+   "type": "embed",
+   "name": "sidebar",
+   "rect": [
+    0,
+    134,
+    188,
+    535
+   ],
+   "view": "sidebar",
+   "showIf": {
+    "param": "gui.hide_editor",
+    "equals": 0
+   }
+  },
+  {
+   "type": "embed",
+   "name": "pages",
+   "rect": [
+    188,
+    134,
+    1234,
+    535
+   ],
+   "view": "page_library",
+   "showIf": {
+    "param": "gui.hide_editor",
+    "equals": 0
+   }
+  },
+  {
+   "type": "embed",
+   "name": "keys",
+   "rect": [
+    0,
+    669,
+    1422,
+    174
+   ],
+   "view": "keys",
+   "showIf": {
+    "param": "gui.hide_keys",
+    "equals": 0
+   },
+   "fit": true
+  },
+  {
+   "type": "embed",
+   "name": "keys_bar",
+   "rect": [
+    0,
+    669,
+    1422,
+    6
+   ],
+   "view": "keys_hidden",
+   "showIf": {
+    "param": "gui.hide_keys",
+    "equals": 1
+   },
+   "fit": true
+  },
+  {
+   "type": "veil",
+   "name": "about_veil",
+   "rect": [
+    0,
+    0,
+    1422,
+    843
+   ],
+   "layer": 7,
+   "fill": {
+    "colour": "#00000000"
+   },
+   "showIf": "gui.about_open"
+  },
+  {
+   "type": "embed",
+   "name": "about_box",
+   "rect": [
+    350,
+    168,
+    723,
+    507
+   ],
+   "layer": 7,
+   "view": "dialog_about",
+   "showIf": "gui.about_open"
+  }
+ ]
+}

@@ -29,9 +29,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FSVR-console-windows
-          path: bin/fs1r_emu.exe
+          path: bin/fsvr_console.exe
           if-no-files-found: error
 
+  # The plug-in: Hollow (hollow/) with the FSVR skin (plugin/skin), every format the platform has, collected
+  # in bin/<format> by the build. The first configure downloads the CLAP and VST3 SDKs, clap-wrapper,
+  # RtAudio, RtMidi and the audio decoders; the plug-in's own check (check_plugin) runs on each 64-bit leg.
   plugin:
     strategy:
       fail-fast: false
@@ -39,43 +42,48 @@ jobs:
         include:
           - os: windows-latest
             name: windows
+            configure: -A x64
+          - os: windows-latest
+            name: windows-x86
+            configure: -A Win32
           - os: ubuntu-latest
             name: linux
+            configure: -DCMAKE_BUILD_TYPE=Release
           - os: macos-latest
             name: macos
+            configure: -DCMAKE_BUILD_TYPE=Release
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      # The list JUCE itself asks for, in extern/JUCE/docs/Linux Dependencies.md, minus what the plugin
-      # switches off: curl, the web browser and LADSPA hosting. Two of them are easy to miss.
-      # juce_graphics asks pkg-config for "freetype2 fontconfig" in one go, so a missing fontconfig
-      # takes freetype's include path down with it and juceaide fails on ft2build.h at configure time.
-      # juce_gui_basics reaches for XInput2.h, which is libxi-dev's, not libx11-dev's.
+      # The editor is an X11 window; the standalone's audio and MIDI are RtAudio's ALSA, JACK and
+      # PulseAudio backends and RtMidi's ALSA one, each built only when its headers are there.
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev libjack-jackd2-dev libfreetype-dev libfontconfig1-dev libx11-dev \
-            libxcomposite-dev libxcursor-dev libxext-dev libxi-dev libxinerama-dev libxrandr-dev libxrender-dev \
-            libglu1-mesa-dev mesa-common-dev
+          sudo apt-get install -y libx11-dev libasound2-dev libjack-jackd2-dev libpulse-dev pkg-config
       - name: Configure
-        run: cmake -B build/plugin -S . -DFS1R_BUILD_PLUGIN=ON -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON ${{ matrix.configure }}
       - name: Build
         run: cmake --build build/plugin --config Release
+      - name: Test
+        if: matrix.name != 'windows-x86'
+        run: ctest --test-dir build/plugin -C Release -R plugin --output-on-failure
       # Zipped here rather than in the release job, because an Actions artifact does not carry the
       # executable bit: bin/ uploaded as loose files comes back 644, and a macOS bundle whose
       # Contents/MacOS file is not executable fails to launch with "The application FSVR can't be
       # opened". A zip records the mode, and the artifact is then that one file, so a download off a
-      # plain Actions run is as usable as a release asset. -y keeps the .component's symlinks as
-      # symlinks.
+      # plain Actions run is as usable as a release asset. -y keeps the bundles' symlinks as symlinks.
+      # Only the plug-in folders go in: the console and render_capture are the engine job's.
       - name: Zip
         if: runner.os != 'Windows'
-        run: cd bin && zip -ry ../FSVR-plugin-${{ matrix.name }}.zip .
+        run: cd bin && zip -ry ../FSVR-plugin-${{ matrix.name }}.zip $(ls -d CLAP VST3 VST2 AU Standalone 2>/dev/null)
       - name: Zip
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path bin\* -DestinationPath FSVR-plugin-${{ matrix.name }}.zip
+        shell: pwsh
+        run: |
+          $dirs = 'CLAP', 'VST3', 'VST2', 'VST2 32-bit and DXi', 'Standalone' | Where-Object { Test-Path "bin/$_" } | ForEach-Object { "bin/$_" }
+          Compress-Archive -Path $dirs -DestinationPath FSVR-plugin-${{ matrix.name }}.zip
       - uses: actions/upload-artifact@v4
         with:
           name: FSVR-plugin-${{ matrix.name }}

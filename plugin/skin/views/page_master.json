@@ -1,0 +1,2153 @@
+{
+ "size": [
+  1235,
+  536
+ ],
+ "fill": {
+  "image": "backgrounds/page"
+ },
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "perf_frame",
+   "rect": [
+    14,
+    36,
+    330,
+    221
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "midi_frame",
+   "rect": [
+    359,
+    36,
+    433,
+    221
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "master_frame",
+   "rect": [
+    14,
+    285,
+    330,
+    221
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "receive_frame",
+   "rect": [
+    359,
+    285,
+    433,
+    221
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "cc_frame",
+   "rect": [
+    807,
+    36,
+    414,
+    470
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "perf_title",
+   "rect": [
+    120,
+    15,
+    119,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Performance",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "perf_title_icon",
+   "rect": [
+    225,
+    18,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "midi_title",
+   "rect": [
+    527,
+    15,
+    96,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "MIDI",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "midi_title_icon",
+   "rect": [
+    595,
+    18,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "master_title",
+   "rect": [
+    131,
+    264,
+    96,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Master",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "master_title_icon",
+   "rect": [
+    206,
+    267,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "receive_title",
+   "rect": [
+    511,
+    264,
+    128,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "MIDI Receive",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "receive_title_icon",
+   "rect": [
+    625,
+    267,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "cc_title",
+   "rect": [
+    923,
+    15,
+    182,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Controller Numbers",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "cc_title_icon",
+   "rect": [
+    1086,
+    18,
+    11,
+    11
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "icons/section_plus"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "volume_label",
+   "rect": [
+    12,
+    45,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Volume",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "volume_track",
+   "rect": [
+    42,
+    66,
+    20,
+    170
+   ],
+   "fill": {
+    "image": "faders/track_narrow"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "volume",
+   "rect": [
+    31,
+    66,
+    42,
+    170
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.09,
+   "reset": "default",
+   "param": "perf.volume"
+  },
+  {
+   "type": "number",
+   "name": "volume_value",
+   "rect": [
+    22,
+    237,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "perf.volume"
+  },
+  {
+   "type": "plate",
+   "name": "pan_label",
+   "rect": [
+    94,
+    45,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Pan",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "pan",
+   "rect": [
+    106,
+    66,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "perf.pan"
+  },
+  {
+   "type": "number",
+   "name": "pan_value",
+   "rect": [
+    104,
+    123,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "perf.pan"
+  },
+  {
+   "type": "plate",
+   "name": "perf_0_label",
+   "rect": [
+    100,
+    160,
+    88,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Category",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "perf_0",
+   "rect": [
+    192,
+    160,
+    140,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "--",
+     "value": 0
+    },
+    {
+     "label": "Piano",
+     "value": 1
+    },
+    {
+     "label": "Chromatic",
+     "value": 2
+    },
+    {
+     "label": "Organ",
+     "value": 3
+    },
+    {
+     "label": "Guitar",
+     "value": 4
+    },
+    {
+     "label": "Bass",
+     "value": 5
+    },
+    {
+     "label": "Strings",
+     "value": 6
+    },
+    {
+     "label": "Ensemble",
+     "value": 7
+    },
+    {
+     "label": "Brass",
+     "value": 8
+    },
+    {
+     "label": "Reed",
+     "value": 9
+    },
+    {
+     "label": "Pipe",
+     "value": 10
+    },
+    {
+     "label": "Synth Lead",
+     "value": 11
+    },
+    {
+     "label": "Synth Pad",
+     "value": 12,
+     "columnBreak": true
+    },
+    {
+     "label": "Synth FX",
+     "value": 13
+    },
+    {
+     "label": "Ethnic",
+     "value": 14
+    },
+    {
+     "label": "Percussive",
+     "value": 15
+    },
+    {
+     "label": "Sound FX",
+     "value": 16
+    },
+    {
+     "label": "Drums",
+     "value": 17
+    },
+    {
+     "label": "Synth Comp",
+     "value": 18
+    },
+    {
+     "label": "Vocal",
+     "value": 19
+    },
+    {
+     "label": "Combination",
+     "value": 20
+    },
+    {
+     "label": "Material Wave",
+     "value": 21
+    },
+    {
+     "label": "Sequence",
+     "value": 22
+    }
+   ],
+   "captionFromItem": true,
+   "param": "perf.category"
+  },
+  {
+   "type": "plate",
+   "name": "perf_1_label",
+   "rect": [
+    100,
+    188,
+    88,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Note Shift",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "perf_1",
+   "rect": [
+    192,
+    188,
+    140,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "perf.note_shift"
+  },
+  {
+   "type": "plate",
+   "name": "perf_2_label",
+   "rect": [
+    100,
+    216,
+    88,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Indiv Out",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "perf_2",
+   "rect": [
+    192,
+    216,
+    140,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Off",
+     "value": 0
+    },
+    {
+     "label": "Pre Ins",
+     "value": 1
+    },
+    {
+     "label": "Post Ins",
+     "value": 2
+    }
+   ],
+   "captionFromItem": true,
+   "param": "perf.indiv_out"
+  },
+  {
+   "type": "plate",
+   "name": "midi_0_label",
+   "rect": [
+    375,
+    50,
+    120,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Perf Channel",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "midi_0",
+   "rect": [
+    499,
+    50,
+    150,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "1",
+     "value": 0
+    },
+    {
+     "label": "2",
+     "value": 1
+    },
+    {
+     "label": "3",
+     "value": 2
+    },
+    {
+     "label": "4",
+     "value": 3
+    },
+    {
+     "label": "5",
+     "value": 4
+    },
+    {
+     "label": "6",
+     "value": 5
+    },
+    {
+     "label": "7",
+     "value": 6
+    },
+    {
+     "label": "8",
+     "value": 7
+    },
+    {
+     "label": "9",
+     "value": 8
+    },
+    {
+     "label": "10",
+     "value": 9,
+     "columnBreak": true
+    },
+    {
+     "label": "11",
+     "value": 10
+    },
+    {
+     "label": "12",
+     "value": 11
+    },
+    {
+     "label": "13",
+     "value": 12
+    },
+    {
+     "label": "14",
+     "value": 13
+    },
+    {
+     "label": "15",
+     "value": 14
+    },
+    {
+     "label": "16",
+     "value": 15
+    },
+    {
+     "label": "All",
+     "value": 16
+    },
+    {
+     "label": "Off",
+     "value": 17
+    }
+   ],
+   "captionFromItem": true,
+   "param": "sys.perf_channel"
+  },
+  {
+   "type": "plate",
+   "name": "midi_1_label",
+   "rect": [
+    375,
+    78,
+    120,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Program Mode",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "midi_1",
+   "rect": [
+    499,
+    78,
+    150,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Performance",
+     "value": 0
+    },
+    {
+     "label": "Multi",
+     "value": 1
+    }
+   ],
+   "captionFromItem": true,
+   "param": "sys.pgm_mode"
+  },
+  {
+   "type": "plate",
+   "name": "midi_2_label",
+   "rect": [
+    375,
+    106,
+    120,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Receive Notes",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "midi_2",
+   "rect": [
+    499,
+    106,
+    150,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "All",
+     "value": 0
+    },
+    {
+     "label": "Odd",
+     "value": 1
+    },
+    {
+     "label": "Even",
+     "value": 2
+    }
+   ],
+   "captionFromItem": true,
+   "param": "sys.rx_notes"
+  },
+  {
+   "type": "plate",
+   "name": "midi_3_label",
+   "rect": [
+    375,
+    134,
+    120,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Device",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "midi_3",
+   "rect": [
+    499,
+    134,
+    150,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "1",
+     "value": 0
+    },
+    {
+     "label": "2",
+     "value": 1
+    },
+    {
+     "label": "3",
+     "value": 2
+    },
+    {
+     "label": "4",
+     "value": 3
+    },
+    {
+     "label": "5",
+     "value": 4
+    },
+    {
+     "label": "6",
+     "value": 5
+    },
+    {
+     "label": "7",
+     "value": 6
+    },
+    {
+     "label": "8",
+     "value": 7
+    },
+    {
+     "label": "9",
+     "value": 8
+    },
+    {
+     "label": "10",
+     "value": 9,
+     "columnBreak": true
+    },
+    {
+     "label": "11",
+     "value": 10
+    },
+    {
+     "label": "12",
+     "value": 11
+    },
+    {
+     "label": "13",
+     "value": 12
+    },
+    {
+     "label": "14",
+     "value": 13
+    },
+    {
+     "label": "15",
+     "value": 14
+    },
+    {
+     "label": "16",
+     "value": 15
+    },
+    {
+     "label": "All",
+     "value": 16
+    }
+   ],
+   "captionFromItem": true,
+   "param": "sys.device"
+  },
+  {
+   "type": "button",
+   "name": "tx_knobs",
+   "rect": [
+    375,
+    162,
+    274,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Send the knobs' KN1 to KN4 as MIDI",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "sys.tx_knobs",
+   "tip": "Transmit Knob Control"
+  },
+  {
+   "type": "button",
+   "name": "rx_0",
+   "rect": [
+    375,
+    299,
+    274,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Bank Select",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "sys.rx_bank"
+  },
+  {
+   "type": "button",
+   "name": "rx_1",
+   "rect": [
+    375,
+    327,
+    274,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Program Change",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "sys.rx_program"
+  },
+  {
+   "type": "button",
+   "name": "rx_2",
+   "rect": [
+    375,
+    355,
+    274,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "SysEx",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "sys.rx_sysex"
+  },
+  {
+   "type": "button",
+   "name": "rx_3",
+   "rect": [
+    375,
+    383,
+    274,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Bulk Dump Protect",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "sys.dump_protect"
+  },
+  {
+   "type": "button",
+   "name": "rx_4",
+   "rect": [
+    375,
+    411,
+    274,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "KN1 to KN4 from MIDI",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "sys.rx_knobs"
+  },
+  {
+   "type": "plate",
+   "name": "tune_label",
+   "rect": [
+    20,
+    295,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Tune",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "tune",
+   "rect": [
+    32,
+    316,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "sys.tune"
+  },
+  {
+   "type": "number",
+   "name": "tune_value",
+   "rect": [
+    30,
+    373,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.tune"
+  },
+  {
+   "type": "plate",
+   "name": "master_0_label",
+   "rect": [
+    100,
+    316,
+    88,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Note Shift",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "master_0",
+   "rect": [
+    192,
+    316,
+    140,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.note_shift"
+  },
+  {
+   "type": "plate",
+   "name": "master_1_label",
+   "rect": [
+    100,
+    344,
+    88,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Vel Curve",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "master_1",
+   "rect": [
+    192,
+    344,
+    140,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Thru",
+     "value": 0
+    },
+    {
+     "label": "Soft 1",
+     "value": 1
+    },
+    {
+     "label": "Soft 2",
+     "value": 2
+    },
+    {
+     "label": "Wide",
+     "value": 3
+    },
+    {
+     "label": "Hard",
+     "value": 4
+    }
+   ],
+   "captionFromItem": true,
+   "param": "sys.vel_curve"
+  },
+  {
+   "type": "plate",
+   "name": "master_2_label",
+   "rect": [
+    100,
+    372,
+    88,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "BC Curve",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "master_2",
+   "rect": [
+    192,
+    372,
+    140,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Thru",
+     "value": 0
+    },
+    {
+     "label": "1",
+     "value": 1
+    },
+    {
+     "label": "2",
+     "value": 2
+    },
+    {
+     "label": "3",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "sys.bc_curve"
+  },
+  {
+   "type": "plate",
+   "name": "cc_0_label",
+   "rect": [
+    827,
+    52,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "KN1",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_0",
+   "rect": [
+    1005,
+    52,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_kn1",
+   "tip": "KN1's controller number"
+  },
+  {
+   "type": "plate",
+   "name": "cc_1_label",
+   "rect": [
+    827,
+    88,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "KN2",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_1",
+   "rect": [
+    1005,
+    88,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_kn2",
+   "tip": "KN2's controller number"
+  },
+  {
+   "type": "plate",
+   "name": "cc_2_label",
+   "rect": [
+    827,
+    124,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "KN3",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_2",
+   "rect": [
+    1005,
+    124,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_kn3",
+   "tip": "KN3's controller number"
+  },
+  {
+   "type": "plate",
+   "name": "cc_3_label",
+   "rect": [
+    827,
+    160,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "KN4",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_3",
+   "rect": [
+    1005,
+    160,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_kn4",
+   "tip": "KN4's controller number"
+  },
+  {
+   "type": "plate",
+   "name": "cc_4_label",
+   "rect": [
+    827,
+    196,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "MC1",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_4",
+   "rect": [
+    1005,
+    196,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_mc1",
+   "tip": "MC1's controller number"
+  },
+  {
+   "type": "plate",
+   "name": "cc_5_label",
+   "rect": [
+    827,
+    232,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "MC2",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_5",
+   "rect": [
+    1005,
+    232,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_mc2",
+   "tip": "MC2's controller number"
+  },
+  {
+   "type": "plate",
+   "name": "cc_6_label",
+   "rect": [
+    827,
+    268,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "MC3",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_6",
+   "rect": [
+    1005,
+    268,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_mc3",
+   "tip": "MC3's controller number"
+  },
+  {
+   "type": "plate",
+   "name": "cc_7_label",
+   "rect": [
+    827,
+    304,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "MC4",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_7",
+   "rect": [
+    1005,
+    304,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_mc4",
+   "tip": "MC4's controller number"
+  },
+  {
+   "type": "plate",
+   "name": "cc_8_label",
+   "rect": [
+    827,
+    340,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "FC",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_8",
+   "rect": [
+    1005,
+    340,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_fc",
+   "tip": "FC's controller number"
+  },
+  {
+   "type": "plate",
+   "name": "cc_9_label",
+   "rect": [
+    827,
+    376,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "BC",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_9",
+   "rect": [
+    1005,
+    376,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_bc",
+   "tip": "BC's controller number"
+  },
+  {
+   "type": "plate",
+   "name": "cc_10_label",
+   "rect": [
+    827,
+    412,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Formant",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_10",
+   "rect": [
+    1005,
+    412,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_formant",
+   "tip": "Formant's controller number"
+  },
+  {
+   "type": "plate",
+   "name": "cc_11_label",
+   "rect": [
+    827,
+    448,
+    170,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "FM",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "cc_11",
+   "rect": [
+    1005,
+    448,
+    80,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "sys.cc_fm",
+   "tip": "FM's controller number"
+  }
+ ]
+}

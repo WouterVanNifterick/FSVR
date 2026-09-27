@@ -4,3 +4,6 @@
 *.syx binary
 *.bin binary
 *.wav binary
+*.png binary
+# The editor's skin is published from the Hollow project (docs/editor.md): collapse it in diffs.
+plugin/skin/** linguist-generated=true

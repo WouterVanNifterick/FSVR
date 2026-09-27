@@ -1,0 +1,325 @@
+{
+ "size": [
+  723,
+  507
+ ],
+ "fill": {
+  "image": "dialogs/fsvr_about_backdrop"
+ },
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "version",
+   "rect": [
+    30,
+    36,
+    90,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "0.1.0",
+    "font": "about_version_white_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "owner",
+   "rect": [
+    222,
+    15,
+    255,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "FSVR, a software Yamaha FS1R",
+    "font": "about_text_steel_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "edition",
+   "rect": [
+    603,
+    57,
+    60,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "GUI",
+    "font": "about_text_steel_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "edition_label",
+   "rect": [
+    510,
+    57,
+    105,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Status:",
+    "font": "about_label_slate_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "cpu_mode",
+   "rect": [
+    222,
+    57,
+    300,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "modelled, calibrated against a real unit",
+    "font": "about_text_steel_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "key_code",
+   "rect": [
+    222,
+    36,
+    360,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "the FS1R's firmware, rewritten from its v1.20 ROM",
+    "font": "about_text_steel_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "sound_credits_1",
+   "rect": [
+    20,
+    291,
+    681,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Factory banks: the FS1R's 384 performances, 1408 voices and 90 Fseqs, from its own ROM.",
+    "font": "about_text_steel_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "sound_credits_2",
+   "rect": [
+    20,
+    311,
+    645,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "rgwan: the unit, its dumps and the capture sessions.     jameshansen: the project.",
+    "font": "about_text_steel_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "sound_credits_3",
+   "rect": [
+    20,
+    330,
+    645,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Built with Hollow by musica.studio.",
+    "font": "about_text_steel_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "cpu_label",
+   "rect": [
+    137,
+    57,
+    120,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Chips:",
+    "font": "about_label_slate_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "key_label",
+   "rect": [
+    137,
+    36,
+    300,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Engine:",
+    "font": "about_label_slate_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "owner_label",
+   "rect": [
+    137,
+    15,
+    300,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Plug-in:",
+    "font": "about_label_slate_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "copyright",
+   "rect": [
+    20,
+    362,
+    681,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "FS1R is a trademark of Yamaha Corporation. FSVR is not made by or affiliated with Yamaha.",
+    "font": "about_text_steel_12"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "close_area",
+   "rect": [
+    0,
+    0,
+    723,
+    507
+   ],
+   "press": "up",
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.about_open",
+   "action": {
+    "step": -1
+   }
+  },
+  {
+   "type": "textbox",
+   "name": "credits",
+   "rect": [
+    18,
+    156,
+    689,
+    132
+   ],
+   "layer": 4,
+   "text": {
+    "text": "FSVR rebuilds the Yamaha FS1R: formant shaping and FM synthesis, eight voiced and eight unvoiced\noperators, 88 algorithms, four parts, formant sequences and the unit's effects.\nIts control logic is the FS1R's own firmware, rewritten in C++ from the decompiled ROM. Its two custom\nchips, for which no documentation exists, are modelled and calibrated against recordings of a real unit.",
+    "font": "about_text_steel_12"
+   },
+   "pad": [
+    5,
+    3,
+    2,
+    2
+   ],
+   "multiline": true
+  }
+ ]
+}

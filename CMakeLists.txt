@@ -1,28 +1,27 @@
-# fs1rLib          the engine, no Windows, no host, no GUI. This is what a plugin links.
-# fs1r_emu         the test console (WinMM, Windows only), built into bin/.
+# fs1rLib          the engine, no Windows, no host, no GUI. This is what the plug-in links.
+# fsvr_console     the test console (WinMM, Windows only), built into bin/.
 # test_effects     the effect-block self check.
+# render_capture   the renderer behind the calibration loop, into bin/.
+# With FSVR_BUILD_PLUGIN, the plug-in: Hollow (hollow/) with the FSVR skin (plugin/), every format the
+# platform has into bin/<format>. The first configure downloads the CLAP, VST3 and AU SDKs, RtAudio and
+# RtMidi (through clap-wrapper) and the audio decoders.
 #
-# build.bat is the quick MSVC path; this file is for clang, CI, and the JUCE plugin layer later.
+# build.bat is the quick MSVC path; this file is for clang, CI, and the plug-in.
 #   cmake -B build/cmake -S . && cmake --build build/cmake --config Release && ctest --test-dir build/cmake
-cmake_minimum_required(VERSION 3.16)
-# macOS builds are universal, arm64 and x86_64 in one binary, so the same artifact runs on Apple silicon
-# and on Intel Macs. The GitHub runner is Apple silicon and a plain build there is arm64 only, which is
-# what issue #3 reported: "this application is not supported on this Mac". Both must be set before
-# project(), and either can still be overridden on the command line.
-if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES)
-  set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Build architectures for macOS" FORCE)
-endif()
-if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
-  set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum macOS version" FORCE)
-endif()
+#   cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON && cmake --build build/plugin --config Release
+cmake_minimum_required(VERSION 3.24)
+# Before project(): C++17, the static C++ runtime, and on macOS universal binaries (arm64 and x86_64, so
+# the same build runs on Apple silicon and Intel Macs; issue #3 was an arm64-only build) for 10.15 and up.
+include(hollow/cmake/HollowDefaults.cmake)
 project(fsvr VERSION 0.4.8 LANGUAGES C CXX)
+if(APPLE)
+  enable_language(OBJC OBJCXX)
+endif()
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release)
 endif()
-# Everything meant to be run lands in bin/: the console here, the plugin formats under bin/<Format>/.
+# Everything meant to be run lands in bin/: the console here, the plug-in formats under bin/<Format>/.
 set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 add_library(fs1rLib STATIC
@@ -36,9 +35,6 @@ add_library(fs1rLib STATIC
     src/fsvr/device.cpp
     src/fsvr/selftest.cpp)
 target_include_directories(fs1rLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-# The plugin formats are shared modules, and a Linux .so will not link a static library whose objects
-# are not position independent. Windows and macOS do not care either way.
-set_target_properties(fs1rLib PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
 if(MSVC)
   target_compile_options(fs1rLib PRIVATE /W3)
 else()
@@ -57,23 +53,20 @@ set_target_properties(render_capture PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${
 enable_testing()
 add_test(NAME effects COMMAND test_effects)
 
-option(FS1R_BUILD_PLUGIN "Build the JUCE plugin (needs the extern/ submodules)" OFF)
-if(FS1R_BUILD_PLUGIN)
-  if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/extern/JUCE/CMakeLists.txt)
-    message(FATAL_ERROR "extern/JUCE is empty; run: git submodule update --init --recursive")
-  endif()
-  add_subdirectory(extern/JUCE)
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/extern/clap-juce-extensions/CMakeLists.txt)
-    add_subdirectory(extern/clap-juce-extensions EXCLUDE_FROM_ALL)
-  endif()
-  add_subdirectory(plugin)
+if(WIN32)
+  add_executable(fsvr_console src/console/main.cpp)
+  target_link_libraries(fsvr_console PRIVATE fs1rLib winmm)
+  set_target_properties(fsvr_console PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${FS1R_BIN}>")
+  add_test(NAME engine COMMAND fsvr_console -selftest)
+else()
+  message(STATUS "fsvr_console needs WinMM; building fs1rLib and test_effects only")
+  add_executable(engine_selftest tools/engine_selftest.cpp)
+  target_link_libraries(engine_selftest PRIVATE fs1rLib)
+  add_test(NAME engine COMMAND engine_selftest)
 endif()
 
-if(WIN32)
-  add_executable(fs1r_emu src/console/main.cpp)
-  target_link_libraries(fs1r_emu PRIVATE fs1rLib winmm)
-  set_target_properties(fs1r_emu PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${FS1R_BIN}>")
-  add_test(NAME engine COMMAND fs1r_emu -selftest)
-else()
-  message(STATUS "fs1r_emu console needs WinMM; building fs1rLib and test_effects only")
+option(FSVR_BUILD_PLUGIN "Build the plug-in (downloads its SDKs on the first configure)" OFF)
+if(FSVR_BUILD_PLUGIN)
+  add_subdirectory(hollow)
+  add_subdirectory(plugin)
 endif()

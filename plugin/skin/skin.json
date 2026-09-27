@@ -1,0 +1,2033 @@
+{
+ "format": 1,
+ "name": "FSVR",
+ "root": "main",
+ "vars": {
+  "part": "p1",
+  "op": "1",
+  "layer": "v",
+  "browse": "perf",
+  "knobs": "tone"
+ },
+ "menu": {
+  "font": "menu_black_10",
+  "hoverFont": "menu_hover_10",
+  "fill": "#fefef2e1",
+  "hoverFill": "#a4aba7ff",
+  "hoverBand": "#73888aff",
+  "shadow": "#0000008c",
+  "separator": "#4a5859ff",
+  "rowHeight": 24,
+  "separatorHeight": 5,
+  "pad": [
+   6,
+   6,
+   6,
+   6
+  ],
+  "check": "icons/menu_check",
+  "arrow": "icons/menu_arrow",
+  "place": "over",
+  "releaseGuard": 680,
+  "keys": "escape",
+  "styles": {
+   "plain": {
+    "fill": "#fff0ffff",
+    "hoverFill": "#c8c8c8ff",
+    "hoverBand": null,
+    "hoverFont": "menu_black_10",
+    "shadow": "#053005ff",
+    "separator": "#053005ff",
+    "check": "icons/menu_check_plain",
+    "arrow": "icons/menu_arrow_plain"
+   }
+  }
+ },
+ "learn": {
+  "param": "gui.midi_learn",
+  "outline": "#ff000099",
+  "defaults": {
+   "7": "master.volume",
+   "10": "quick.stereo_width"
+  }
+ },
+ "fonts": {
+  "about_label_slate_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "about_text_steel_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "about_version_white_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "caps_white_bold_12": {
+   "caret": "#ffffffff",
+   "selection": "#ffffff50"
+  },
+  "caption_grey_12": {
+   "caret": "#475455ff",
+   "selection": "#47545550"
+  },
+  "caption_white_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "digits_grey_14": {
+   "caret": "#4e5d5eff",
+   "selection": "#4e5d5e50"
+  },
+  "empty": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "field_blue_19": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "header_light_grey_13": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "label_dark_12": {
+   "caret": "#475455ff",
+   "selection": "#47545550"
+  },
+  "label_white_13": {
+   "caret": "#ffffffff",
+   "selection": "#ffffff50"
+  },
+  "library_black_11_translucent": {
+   "caret": "#000000ff",
+   "selection": "#0000007f"
+  },
+  "library_black_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffff00"
+  },
+  "library_caption_dark_10": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "library_faint_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "library_field_white_12": {
+   "caret": "#ffffffff",
+   "selection": "#ffffffff"
+  },
+  "library_grey_11": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "library_header_white_11": {
+   "caret": "#ffffffff",
+   "selection": "#ffffffff"
+  },
+  "library_row_white_12": {
+   "caret": "#ffffffff",
+   "selection": "#ffffffff"
+  },
+  "library_text_black_12": {
+   "caret": "#000000ff",
+   "selection": "#73888aff"
+  },
+  "library_text_grey_10": {
+   "caret": "#000000ff",
+   "selection": "#73888aff"
+  },
+  "library_text_white_10": {
+   "caret": "#ffffffff",
+   "selection": "#73888aff"
+  },
+  "library_text_white_12": {
+   "caret": "#ffffffff",
+   "selection": "#73888aff"
+  },
+  "library_text_white_13": {
+   "caret": "#ffffffff",
+   "selection": "#73888aff"
+  },
+  "library_title_bold_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "library_white_11": {
+   "caret": "#ffffffff",
+   "selection": "#ffffffff"
+  },
+  "licence_button_navy_17": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "licence_heading_white_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "licence_status_white_bold_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "licence_text_navy_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "menu_black_10": {
+   "caret": "#000000ff",
+   "selection": "#73888aff"
+  },
+  "setup_black_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "setup_black_13": {
+   "caret": "#000000ff",
+   "selection": "#3e7898ff"
+  },
+  "setup_grey_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "setup_pixel_black_11": {
+   "caret": "#000000ff",
+   "selection": "#1000ff7f"
+  },
+  "setup_silver_13": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "tiny_white_8": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "title_dark_bold_12": {
+   "caret": "#475455ff",
+   "selection": "#47545550"
+  },
+  "title_white_16": {
+   "caret": "#ffffffff",
+   "selection": "#ffffff50"
+  },
+  "value_dark_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "value_dark_13": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "value_white_10": {
+   "caret": "#ffffffff",
+   "selection": "#ffffff50"
+  },
+  "value_white_10_copy_a": {
+   "caret": "#000000ff",
+   "selection": "#ffffff00"
+  },
+  "value_white_10_copy_b": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "value_white_12": {
+   "caret": "#000000ff",
+   "selection": "#ffffffff"
+  },
+  "caption_grey_12_inv": {
+   "caret": "#c1c2c3ff",
+   "selection": "#c1c2c350"
+  },
+  "value_dark_12_inv": {
+   "caret": "#ffffffff",
+   "selection": "#384243ff"
+  },
+  "label_dark_12_inv": {
+   "caret": "#c1c2c3ff",
+   "selection": "#c1c2c350"
+  },
+  "field_blue_19_inv": {
+   "caret": "#ffffffff",
+   "selection": "#384243ff"
+  }
+ },
+ "images": {
+  "backgrounds/fx_strip": {
+   "slice": [
+    0,
+    18,
+    0,
+    18
+   ]
+  },
+  "backgrounds/library_stripes": {
+   "slice": [
+    0,
+    0,
+    0,
+    15
+   ],
+   "surface": false
+  },
+  "buttons/arp_step_lamp": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/arp_step_toggle": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "buttons/arp_step_toggle_alt": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "buttons/arrow_down": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/arrow_up": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/dark_square": {
+   "tiles": 4,
+   "slice": [
+    0,
+    8,
+    0,
+    8
+   ],
+   "surface": false
+  },
+  "buttons/dialog_cancel": {
+   "tiles": 4,
+   "surface": false
+  },
+  "buttons/dialog_ok": {
+   "tiles": 4,
+   "surface": false
+  },
+  "buttons/dropdown_small": {
+   "slice": [
+    0,
+    23,
+    0,
+    2
+   ],
+   "surface": false
+  },
+  "buttons/dropdown_wide": {
+   "slice": [
+    0,
+    24,
+    0,
+    2
+   ],
+   "passes": 2,
+   "surface": false
+  },
+  "buttons/expand_arrow": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/header_alert": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/header_arp": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/header_clock": {
+   "tiles": 4,
+   "surface": false
+  },
+  "buttons/header_edit_all": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/header_file": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/header_keyboard": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/header_save_as": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/header_view": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/led_toggle": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/library_audition": {
+   "tiles": 5,
+   "surface": false
+  },
+  "buttons/library_blank_narrow": {
+   "tiles": 3,
+   "slice": [
+    0,
+    3,
+    0,
+    3
+   ],
+   "surface": false
+  },
+  "buttons/library_clear_search": {
+   "tiles": 3,
+   "surface": false
+  },
+  "buttons/library_close": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/library_dropdown_arrow": {
+   "slice": [
+    15,
+    14,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  "buttons/library_dropdown_faint": {
+   "slice": [
+    0,
+    17,
+    0,
+    2
+   ],
+   "surface": false
+  },
+  "buttons/library_effects": {
+   "tiles": 3,
+   "slice": [
+    5,
+    3,
+    5,
+    2
+   ],
+   "surface": false
+  },
+  "buttons/library_effects_tags": {
+   "tiles": 2,
+   "slice": [
+    5,
+    3,
+    5,
+    2
+   ],
+   "surface": false
+  },
+  "buttons/library_export": {
+   "tiles": 3,
+   "surface": false
+  },
+  "buttons/library_import": {
+   "tiles": 3,
+   "surface": false
+  },
+  "buttons/library_instruments": {
+   "tiles": 3,
+   "slice": [
+    5,
+    0,
+    5,
+    3
+   ],
+   "surface": false
+  },
+  "buttons/library_instruments_tags": {
+   "tiles": 2,
+   "slice": [
+    5,
+    0,
+    5,
+    3
+   ],
+   "surface": false
+  },
+  "buttons/library_power": {
+   "tiles": 3,
+   "surface": false
+  },
+  "buttons/library_program_list": {
+   "tiles": 3,
+   "slice": [
+    0,
+    24,
+    0,
+    3
+   ],
+   "surface": false
+  },
+  "buttons/library_reset": {
+   "tiles": 3,
+   "surface": false
+  },
+  "buttons/library_reset_tags": {
+   "tiles": 3,
+   "surface": false
+  },
+  "buttons/library_search_small": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/library_sounds_menu": {
+   "tiles": 4,
+   "slice": [
+    0,
+    24,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  "buttons/library_stack_bottom": {
+   "tiles": 4,
+   "slice": [
+    0,
+    8,
+    0,
+    8
+   ],
+   "surface": false
+  },
+  "buttons/library_stack_middle": {
+   "tiles": 4,
+   "slice": [
+    0,
+    8,
+    0,
+    8
+   ],
+   "surface": false
+  },
+  "buttons/library_stack_top": {
+   "tiles": 4,
+   "slice": [
+    0,
+    8,
+    0,
+    8
+   ],
+   "surface": false
+  },
+  "buttons/library_styles": {
+   "tiles": 4,
+   "surface": false
+  },
+  "buttons/licence_activate": {
+   "tiles": 3,
+   "slice": [
+    0,
+    8,
+    0,
+    77
+   ],
+   "surface": false
+  },
+  "buttons/licence_buy": {
+   "tiles": 3,
+   "slice": [
+    0,
+    8,
+    0,
+    93
+   ],
+   "surface": false
+  },
+  "buttons/licence_exit_demo": {
+   "tiles": 3,
+   "slice": [
+    0,
+    8,
+    0,
+    77
+   ],
+   "surface": false
+  },
+  "buttons/licence_run_demo": {
+   "tiles": 3,
+   "slice": [
+    0,
+    8,
+    0,
+    75
+   ],
+   "surface": false
+  },
+  "buttons/link": {
+   "tiles": 3,
+   "surface": false
+  },
+  "buttons/list_down": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/list_up": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/matrix_op_a": {
+   "tiles": 4,
+   "passes": 2,
+   "surface": false
+  },
+  "buttons/matrix_op_b": {
+   "tiles": 4,
+   "passes": 2,
+   "surface": false
+  },
+  "buttons/matrix_op_c": {
+   "tiles": 4,
+   "passes": 2,
+   "surface": false
+  },
+  "buttons/matrix_op_d": {
+   "tiles": 4,
+   "passes": 2,
+   "surface": false
+  },
+  "buttons/matrix_op_e": {
+   "tiles": 4,
+   "passes": 2,
+   "surface": false
+  },
+  "buttons/matrix_op_f": {
+   "tiles": 4,
+   "passes": 2,
+   "surface": false
+  },
+  "buttons/matrix_op_in": {
+   "tiles": 4,
+   "passes": 2,
+   "surface": false
+  },
+  "buttons/matrix_op_x": {
+   "tiles": 4,
+   "passes": 2,
+   "surface": false
+  },
+  "buttons/matrix_op_z": {
+   "tiles": 4,
+   "passes": 2,
+   "surface": false
+  },
+  "buttons/mini_morph_bl": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/mini_morph_br": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/mini_morph_tl": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/mini_morph_tr": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/nav_small": {
+   "tiles": 4,
+   "slice": [
+    0,
+    8,
+    0,
+    8
+   ],
+   "surface": false
+  },
+  "buttons/options_checkbox": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/options_dropdown": {
+   "slice": [
+    0,
+    15,
+    0,
+    8
+   ],
+   "surface": false
+  },
+  "buttons/options_pill": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/options_tab_database": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/options_tab_general": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/orange_small": {
+   "slice": [
+    0,
+    3,
+    0,
+    3
+   ],
+   "surface": false
+  },
+  "buttons/pill": {
+   "tiles": 4,
+   "surface": false
+  },
+  "buttons/player_arp": {
+   "tiles": 4,
+   "surface": false
+  },
+  "buttons/preset_down": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/preset_up": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/reset": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "buttons/setup_checkbox": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/setup_dropdown": {
+   "tiles": 3,
+   "slice": [
+    0,
+    21,
+    0,
+    9
+   ],
+   "surface": false
+  },
+  "buttons/setup_push": {
+   "tiles": 4,
+   "slice": [
+    0,
+    8,
+    0,
+    8
+   ],
+   "surface": false
+  },
+  "buttons/setup_segment_left": {
+   "tiles": 7,
+   "slice": [
+    0,
+    9,
+    0,
+    9
+   ],
+   "surface": false
+  },
+  "buttons/setup_segment_right": {
+   "tiles": 7,
+   "slice": [
+    0,
+    9,
+    0,
+    5
+   ],
+   "surface": false
+  },
+  "buttons/setup_tab": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/toggle_row": {
+   "tiles": 2,
+   "slice": [
+    0,
+    21,
+    0,
+    2
+   ],
+   "surface": false
+  },
+  "dialogs/about_wipe_ramp": {
+   "tiles": 383,
+   "surface": false
+  },
+  "dialogs/licence_exit_heading": {
+   "slice": [
+    0,
+    0,
+    0,
+    30
+   ],
+   "surface": false
+  },
+  "dialogs/options_field": {
+   "slice": [
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  "dialogs/options_field_grey": {
+   "slice": [
+    0,
+    5,
+    0,
+    5
+   ]
+  },
+  "dialogs/options_group_box": {
+   "slice": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  "dialogs/setup_list_frame": {
+   "slice": [
+    9,
+    9,
+    9,
+    9
+   ],
+   "surface": false
+  },
+  "dialogs/setup_page_frame": {
+   "slice": [
+    8,
+    8,
+    8,
+    8
+   ],
+   "surface": false
+  },
+  "dialogs/setup_spin_field": {
+   "slice": [
+    0,
+    21,
+    0,
+    8
+   ]
+  },
+  "dialogs/setup_status_plate": {
+   "slice": [
+    0,
+    8,
+    0,
+    8
+   ]
+  },
+  "dialogs/setup_tab_filler": {
+   "slice": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  "dialogs/setup_total_plate": {
+   "slice": [
+    0,
+    8,
+    0,
+    5
+   ]
+  },
+  "displays/amount_tag_bipolar": {
+   "tiles": 200,
+   "surface": false
+  },
+  "displays/amount_tag_percent": {
+   "tiles": 101,
+   "passes": 2,
+   "surface": false
+  },
+  "displays/amount_tag_pointer": {
+   "tiles": 200,
+   "surface": false
+  },
+  "displays/envelope_grid": {
+   "tiles": 2,
+   "slice": [
+    0,
+    5,
+    0,
+    5
+   ],
+   "surface": false
+  },
+  "displays/envelope_thumb": {
+   "slice": [
+    0,
+    2,
+    0,
+    2
+   ],
+   "surface": false
+  },
+  "displays/eq_curve": {
+   "slice": [
+    0,
+    2,
+    0,
+    2
+   ],
+   "surface": false
+  },
+  "displays/key_scaling_grid": {
+   "tiles": 2,
+   "slice": [
+    0,
+    5,
+    0,
+    5
+   ],
+   "surface": false
+  },
+  "displays/key_scaling_row": {
+   "slice": [
+    0,
+    2,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  "displays/marker_dotted_red": {
+   "slice": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  "displays/mod_row_blue": {
+   "slice": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  "displays/mod_row_green": {
+   "slice": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  "displays/scope_frame": {
+   "slice": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "surface": false
+  },
+  "faders/arp_marker": {
+   "tiles": 2,
+   "surface": false
+  },
+  "faders/mod_depth_bar": {
+   "tiles": 86,
+   "surface": false
+  },
+  "faders/mod_depth_bar_wide": {
+   "tiles": 172,
+   "surface": false
+  },
+  "faders/morph_x": {
+   "tiles": 203,
+   "surface": false
+  },
+  "faders/morph_x_thin": {
+   "tiles": 203,
+   "surface": false
+  },
+  "faders/morph_y": {
+   "tiles": 203,
+   "axis": "x",
+   "surface": false
+  },
+  "faders/morph_y_thin": {
+   "tiles": 203,
+   "axis": "x",
+   "surface": false
+  },
+  "faders/player_volume": {
+   "tiles": 76,
+   "surface": false
+  },
+  "faders/setup_slider": {
+   "tiles": 256,
+   "surface": false
+  },
+  "faders/wheel": {
+   "tiles": 128,
+   "axis": "x",
+   "surface": false
+  },
+  "icons/cabinet": {
+   "tiles": 6
+  },
+  "icons/library_source_badge": {
+   "tiles": 5,
+   "surface": false
+  },
+  "icons/library_tree_nodes": {
+   "tiles": 35,
+   "axis": "x",
+   "surface": false
+  },
+  "icons/setup_arrow_black": {
+   "slice": [
+    0,
+    0,
+    0,
+    11
+   ]
+  },
+  "icons/setup_arrow_grey": {
+   "slice": [
+    0,
+    0,
+    0,
+    11
+   ]
+  },
+  "keyboard/key_a": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "keyboard/key_b": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "keyboard/key_black": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "keyboard/key_c": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "keyboard/key_c_top": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "keyboard/key_d": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "keyboard/key_e": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "keyboard/key_f": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "keyboard/key_g": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "knobs/rotary_large": {
+   "surface": false,
+   "tiles": 128
+  },
+  "knobs/rotary_small": {
+   "surface": false,
+   "tiles": 128
+  },
+  "leds/clip_bar": {
+   "tiles": 2,
+   "slice": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  "leds/clip_dot": {
+   "tiles": 2,
+   "axis": "x"
+  },
+  "leds/clip_tiny": {
+   "tiles": 2
+  },
+  "leds/glow_square": {
+   "tiles": 10,
+   "surface": false
+  },
+  "leds/letter_e": {
+   "tiles": 2,
+   "surface": false
+  },
+  "leds/midi_plug": {
+   "tiles": 2,
+   "surface": false
+  },
+  "library/bevel_box_states": {
+   "tiles": 7,
+   "slice": [
+    5,
+    5,
+    5,
+    5
+   ],
+   "surface": false
+  },
+  "library/column_frame": {
+   "slice": [
+    23,
+    3,
+    3,
+    3
+   ]
+  },
+  "library/dark_field": {
+   "slice": [
+    0,
+    2,
+    0,
+    2
+   ]
+  },
+  "library/flat_swatch_pair": {
+   "tiles": 2,
+   "slice": [
+    21,
+    0,
+    0,
+    0
+   ]
+  },
+  "library/folder_tree_frame": {
+   "slice": [
+    26,
+    6,
+    6,
+    104
+   ],
+   "surface": false
+  },
+  "library/inset_field": {
+   "slice": [
+    9,
+    5,
+    9,
+    5
+   ],
+   "surface": false
+  },
+  "library/meta_panel": {
+   "slice": [
+    0,
+    0,
+    23,
+    0
+   ],
+   "surface": false
+  },
+  "library/name_field": {
+   "slice": [
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  "library/program_list_frame": {
+   "slice": [
+    23,
+    3,
+    3,
+    101
+   ],
+   "surface": false
+  },
+  "library/results_frame": {
+   "slice": [
+    26,
+    3,
+    3,
+    3
+   ]
+  },
+  "library/row_line": {
+   "slice": [
+    0,
+    0,
+    2,
+    0
+   ]
+  },
+  "library/row_line_divided": {
+   "slice": [
+    0,
+    2,
+    2,
+    0
+   ]
+  },
+  "library/search_field": {
+   "tiles": 2,
+   "slice": [
+    0,
+    14,
+    0,
+    12
+   ],
+   "surface": false
+  },
+  "library/toolbar_bar": {
+   "slice": [
+    0,
+    6,
+    0,
+    6
+   ],
+   "surface": false
+  },
+  "meters/level_header": {
+   "tiles": 32,
+   "axis": "x",
+   "surface": false
+  },
+  "meters/level_master": {
+   "tiles": 33,
+   "axis": "x",
+   "surface": false
+  },
+  "meters/level_master_alt": {
+   "tiles": 103,
+   "axis": "x"
+  },
+  "meters/level_operator": {
+   "tiles": 34,
+   "axis": "x",
+   "surface": false
+  },
+  "meters/player_level": {
+   "tiles": 29,
+   "surface": false
+  },
+  "panels/bevel_h": {
+   "slice": [
+    0,
+    3,
+    0,
+    3
+   ]
+  },
+  "panels/bevel_v": {
+   "slice": [
+    3,
+    0,
+    3,
+    0
+   ]
+  },
+  "panels/flat_grey": {
+   "slice": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  "panels/fx_rack_shadow": {
+   "slice": [
+    0,
+    0,
+    0,
+    18
+   ]
+  },
+  "panels/fx_rack_well": {
+   "slice": [
+    0,
+    15,
+    0,
+    15
+   ],
+   "surface": false
+  },
+  "panels/group_box": {
+   "slice": [
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  "panels/group_box_light": {
+   "slice": [
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  "panels/header_bar": {
+   "slice": [
+    0,
+    2,
+    0,
+    8
+   ],
+   "surface": false
+  },
+  "panels/header_console": {
+   "slice": [
+    0,
+    300,
+    0,
+    300
+   ],
+   "passes": 2,
+   "surface": false
+  },
+  "panels/inset_light": {
+   "slice": [
+    15,
+    15,
+    15,
+    15
+   ]
+  },
+  "panels/label_plate": {
+   "slice": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  "panels/light_box_medium": {
+   "slice": [
+    15,
+    15,
+    15,
+    15
+   ]
+  },
+  "panels/light_box_short": {
+   "slice": [
+    15,
+    15,
+    15,
+    15
+   ]
+  },
+  "panels/light_box_tall": {
+   "slice": [
+    15,
+    15,
+    15,
+    15
+   ]
+  },
+  "panels/light_column": {
+   "slice": [
+    0,
+    15,
+    0,
+    15
+   ]
+  },
+  "panels/list_two_column": {
+   "slice": [
+    5,
+    5,
+    5,
+    48
+   ]
+  },
+  "panels/mesh_dark_column": {
+   "slice": [
+    0,
+    15,
+    0,
+    15
+   ],
+   "surface": false
+  },
+  "panels/name_field": {
+   "slice": [
+    0,
+    2,
+    0,
+    2
+   ]
+  },
+  "panels/nav_column": {
+   "slice": [
+    375,
+    0,
+    23,
+    0
+   ],
+   "surface": false
+  },
+  "panels/plate_slate": {
+   "slice": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  "panels/plate_tint": {
+   "slice": [
+    3,
+    3,
+    3,
+    3
+   ]
+  },
+  "scrollbars/library_thumb_flat": {
+   "slice": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  "scrollbars/library_thumb_h": {
+   "slice": [
+    0,
+    12,
+    0,
+    12
+   ],
+   "surface": false
+  },
+  "scrollbars/library_thumb_h_thin": {
+   "slice": [
+    0,
+    12,
+    0,
+    12
+   ]
+  },
+  "scrollbars/library_thumb_v": {
+   "slice": [
+    12,
+    0,
+    12,
+    0
+   ]
+  },
+  "scrollbars/library_thumb_v_thin": {
+   "slice": [
+    12,
+    0,
+    12,
+    0
+   ]
+  },
+  "scrollbars/library_track_h": {
+   "slice": [
+    0,
+    12,
+    0,
+    12
+   ]
+  },
+  "scrollbars/library_track_h_thin": {
+   "slice": [
+    0,
+    12,
+    0,
+    12
+   ]
+  },
+  "scrollbars/library_track_v": {
+   "slice": [
+    12,
+    0,
+    12,
+    0
+   ]
+  },
+  "scrollbars/library_track_v_thin": {
+   "slice": [
+    12,
+    0,
+    12,
+    0
+   ]
+  },
+  "scrollbars/setup_thumb_v": {
+   "slice": [
+    5,
+    0,
+    5,
+    0
+   ]
+  },
+  "scrollbars/setup_track_v": {
+   "slice": [
+    9,
+    0,
+    9,
+    0
+   ]
+  },
+  "scrollbars/thumb_dark": {
+   "slice": [
+    11,
+    0,
+    11,
+    0
+   ]
+  },
+  "scrollbars/thumb_light": {
+   "slice": [
+    6,
+    0,
+    6,
+    0
+   ]
+  },
+  "scrollbars/track_dark": {
+   "slice": [
+    5,
+    0,
+    5,
+    0
+   ]
+  },
+  "switches/library_rating_dots": {
+   "tiles": 5,
+   "surface": false
+  },
+  "switches/note_name": {
+   "tiles": 12,
+   "surface": false
+  },
+  "switches/options_radio_pair": {
+   "tiles": 2,
+   "surface": false
+  },
+  "switches/preset_source": {
+   "tiles": 3,
+   "surface": false
+  },
+  "switches/readout_mode": {
+   "tiles": 3,
+   "axis": "x",
+   "surface": false
+  },
+  "backgrounds/mini_morph": {
+   "surface": false
+  },
+  "buttons/arp_clear": {
+   "surface": false
+  },
+  "buttons/arp_random": {
+   "surface": false
+  },
+  "buttons/arp_shift_left": {
+   "surface": false
+  },
+  "buttons/arp_shift_right": {
+   "surface": false
+  },
+  "buttons/arp_step_menu": {
+   "surface": false
+  },
+  "buttons/arp_step_menu_alt": {
+   "surface": false
+  },
+  "buttons/grey_small": {
+   "surface": false
+  },
+  "buttons/library_plain_white": {
+   "surface": false
+  },
+  "buttons/options_push": {
+   "surface": false
+  },
+  "buttons/save": {
+   "surface": false
+  },
+  "buttons/save_matrix": {
+   "surface": false
+  },
+  "buttons/step_down_tiny": {
+   "surface": false
+  },
+  "buttons/step_up_tiny": {
+   "surface": false
+  },
+  "displays/header_scale": {
+   "surface": false
+  },
+  "displays/header_scope_frame": {
+   "surface": false
+  },
+  "displays/microtuning_grid": {
+   "surface": false
+  },
+  "displays/microtuning_row": {
+   "surface": false
+  },
+  "displays/mod_row_corner_bl": {
+   "surface": false
+  },
+  "displays/mod_row_corner_br": {
+   "surface": false
+  },
+  "displays/mod_row_corner_tl": {
+   "surface": false
+  },
+  "displays/mod_row_corner_tr": {
+   "surface": false
+  },
+  "displays/morph_pad": {
+   "surface": false
+  },
+  "displays/note_scale": {
+   "surface": false
+  },
+  "displays/octave_grid": {
+   "surface": false
+  },
+  "displays/tuning_bar": {
+   "surface": false
+  },
+  "faders/cap": {
+   "surface": false
+  },
+  "faders/thumb_tiny": {
+   "surface": false
+  },
+  "faders/thumb_tiny_spare": {
+   "surface": false
+  },
+  "faders/track": {
+   "surface": false
+  },
+  "faders/track_long": {
+   "surface": false
+  },
+  "faders/tuning_handle": {
+   "surface": false
+  },
+  "faders/tuning_handle_small": {
+   "surface": false
+  },
+  "backgrounds/fm_matrix": {
+   "surface": false
+  },
+  "branding/vendor_logo": {
+   "surface": false
+  },
+  "branding/vendor_logo_small": {
+   "surface": false
+  },
+  "dialogs/setup_dotted_divider": {
+   "surface": false
+  },
+  "icons/folder": {
+   "surface": false
+  },
+  "icons/library_chevron_faint": {
+   "surface": false
+  },
+  "icons/licence_bullet": {
+   "surface": false
+  },
+  "icons/nav_arp": {
+   "surface": false
+  },
+  "icons/nav_expert": {
+   "surface": false
+  },
+  "icons/nav_fx": {
+   "surface": false
+  },
+  "icons/nav_library": {
+   "surface": false
+  },
+  "icons/nav_master": {
+   "surface": false
+  },
+  "icons/nav_quick": {
+   "surface": false
+  },
+  "icons/nav_tags": {
+   "surface": false
+  },
+  "icons/normalize": {
+   "surface": false
+  },
+  "icons/spin_arrows": {
+   "surface": false
+  },
+  "icons/spin_arrows_small": {
+   "surface": false
+  },
+  "library/splitter_grip": {
+   "surface": false
+  },
+  "meters/level_operator_spare": {
+   "surface": false
+  },
+  "misc/fx_strip_mockup": {
+   "surface": false
+  },
+  "misc/glyphs_title_white_bold_16": {
+   "surface": false
+  },
+  "misc/level_pan_caption": {
+   "surface": false
+  },
+  "panels/mesh_dark_large": {
+   "surface": false
+  },
+  "panels/nav_frame": {
+   "surface": false
+  },
+  "panels/separator": {
+   "surface": false
+  },
+  "displays/amount_tag_percent_inv": {
+   "tiles": 101,
+   "passes": 2,
+   "surface": false
+  },
+  "displays/amount_tag_pointer_inv": {
+   "tiles": 200,
+   "surface": false
+  },
+  "panels/inset_light_inv": {
+   "slice": [
+    15,
+    15,
+    15,
+    15
+   ],
+   "surface": false
+  },
+  "buttons/reset_inv": {
+   "tiles": 2,
+   "axis": "x",
+   "surface": false
+  },
+  "buttons/toggle_row_inv": {
+   "tiles": 2,
+   "slice": [
+    0,
+    21,
+    0,
+    2
+   ],
+   "surface": false
+  },
+  "buttons/dropdown_small_inv": {
+   "slice": [
+    0,
+    23,
+    0,
+    2
+   ],
+   "surface": false
+  },
+  "displays/mod_row_green_inv": {
+   "slice": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  "displays/mod_row_blue_inv": {
+   "slice": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  "panels/label_plate_inv": {
+   "slice": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "surface": false
+  },
+  "displays/mod_row_corner_br_inv": {
+   "surface": false
+  },
+  "displays/mod_row_corner_tr_inv": {
+   "surface": false
+  },
+  "displays/mod_row_corner_bl_inv": {
+   "surface": false
+  },
+  "displays/mod_row_corner_tl_inv": {
+   "surface": false
+  },
+  "displays/amount_tag_bipolar_inv": {
+   "tiles": 200,
+   "surface": false
+  },
+  "displays/envelope_grid_inv": {
+   "tiles": 2,
+   "slice": [
+    0,
+    5,
+    0,
+    5
+   ],
+   "surface": false
+  },
+  "displays/envelope_thumb_inv": {
+   "slice": [
+    0,
+    2,
+    0,
+    2
+   ],
+   "surface": false
+  },
+  "buttons/orange_small_inv": {
+   "slice": [
+    0,
+    3,
+    0,
+    3
+   ],
+   "surface": false
+  },
+  "buttons/link_inv": {
+   "tiles": 3,
+   "surface": false
+  },
+  "buttons/expand_arrow_inv": {
+   "tiles": 2,
+   "surface": false
+  },
+  "buttons/dropdown_wide_inv": {
+   "slice": [
+    0,
+    24,
+    0,
+    2
+   ],
+   "passes": 2,
+   "surface": false
+  },
+  "buttons/led_toggle_inv": {
+   "tiles": 2,
+   "surface": false
+  },
+  "meters/level_operator_inv": {
+   "tiles": 34,
+   "axis": "x",
+   "surface": false
+  },
+  "displays/microtuning_grid_inv": {
+   "surface": false
+  },
+  "displays/key_scaling_row_inv": {
+   "slice": [
+    0,
+    2,
+    0,
+    0
+   ],
+   "surface": false
+  },
+  "displays/note_scale_inv": {
+   "surface": false
+  },
+  "displays/key_scaling_grid_inv": {
+   "tiles": 2,
+   "slice": [
+    0,
+    5,
+    0,
+    5
+   ],
+   "surface": false
+  },
+  "displays/microtuning_row_inv": {
+   "surface": false
+  },
+  "displays/amount_tag_99_inv": {
+   "tiles": 100,
+   "passes": 2,
+   "surface": false
+  },
+  "displays/amount_tag_7_inv": {
+   "tiles": 8,
+   "passes": 2,
+   "surface": false
+  },
+  "branding/fsvr_logo": {
+   "surface": false,
+   "tiles": 2
+  },
+  "displays/lcd_window": {
+   "surface": false
+  },
+  "displays/lcd_monitor": {
+   "surface": false
+  },
+  "meters/lcd_level": {
+   "surface": false,
+   "tiles": 14
+  },
+  "displays/lcd_edit": {
+   "surface": false,
+   "tiles": 2
+  },
+  "displays/lcd_midi": {
+   "surface": false,
+   "tiles": 2
+  },
+  "icons/nav_md_library": {
+   "surface": false
+  },
+  "icons/nav_md_tags": {
+   "surface": false
+  },
+  "icons/nav_md_master": {
+   "surface": false
+  },
+  "icons/nav_md_fx": {
+   "surface": false
+  },
+  "icons/nav_md_arp": {
+   "surface": false
+  },
+  "icons/nav_md_quick": {
+   "surface": false
+  },
+  "icons/nav_md_expert": {
+   "surface": false
+  },
+  "buttons/strip_editor": {
+   "surface": false,
+   "tiles": 4
+  },
+  "buttons/strip_keys": {
+   "surface": false,
+   "tiles": 4
+  },
+  "buttons/strip_file": {
+   "surface": false,
+   "tiles": 4
+  },
+  "buttons/strip_save": {
+   "surface": false,
+   "tiles": 4
+  },
+  "buttons/dark_part": {
+   "surface": false,
+   "tiles": 4
+  },
+  "buttons/dark_knobs": {
+   "surface": false,
+   "tiles": 4
+  },
+  "buttons/dark_toggle_square": {
+   "surface": false,
+   "tiles": 4
+  },
+  "faders/pot_cap": {
+   "surface": false
+  },
+  "faders/track_narrow": {
+   "surface": false
+  },
+  "faders/track_long_narrow": {
+   "surface": false
+  },
+  "buttons/corner_field": {
+   "surface": false,
+   "tiles": 2,
+   "slice": [
+    0,
+    2,
+    0,
+    2
+   ]
+  },
+  "buttons/dark_wide": {
+   "surface": false,
+   "tiles": 4
+  },
+  "icons/lock": {
+   "surface": false,
+   "tiles": 2
+  },
+  "buttons/dark_panic": {
+   "surface": false,
+   "tiles": 4
+  },
+  "buttons/dark_learn": {
+   "surface": false,
+   "tiles": 4
+  },
+  "buttons/dark_up": {
+   "surface": false,
+   "tiles": 2
+  },
+  "buttons/dark_down": {
+   "surface": false,
+   "tiles": 2
+  },
+  "panels/graphite_pod": {
+   "surface": false,
+   "slice": [
+    10,
+    14,
+    10,
+    14
+   ]
+  },
+  "dialogs/fsvr_about_backdrop": {}
+ },
+ "density": 1.5
+}
