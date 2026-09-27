@@ -14,12 +14,14 @@
 #include "audio_fseq.h"
 #include "fs1r.h"
 #include "library.h"
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <mutex>
