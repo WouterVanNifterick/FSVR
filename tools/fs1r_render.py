@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Which renderer to drive, for the tools that render a note and measure it.
 
-bin/fs1r_emu.exe is the console and only runs on Windows; bin/render_capture is the same engine with
+bin/fsvr_console.exe is the console and only runs on Windows; bin/render_capture is the same engine with
 no host in it and runs anywhere, and takes the same flags for the offline-render path. Both are in
 bin/ on a Windows checkout, so the choice cannot be made from the file names alone: under WSL the
 .exe is present and fails before main(). Ask it instead.
@@ -10,15 +10,15 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CONSOLE = ROOT / "bin/fs1r_emu.exe"
+CONSOLE = ROOT / "bin/fsvr_console.exe"
 PORTABLE_NAMES = ("bin/render_capture.exe", "bin/render_capture")
 
 
-def _runs(exe):
+def _runs(exe, *args):
     if not exe.exists():
         return False
     try:
-        r = subprocess.run([str(exe)], capture_output=True, timeout=30)
+        r = subprocess.run([str(exe), *args], capture_output=True, timeout=30)
     except OSError:
         return False
     out = (r.stdout + r.stderr).lower()
@@ -27,7 +27,7 @@ def _runs(exe):
 
 def renderer():
     """The console when it runs here, otherwise the portable renderer. Raises if neither works."""
-    if _runs(CONSOLE):
+    if _runs(CONSOLE, "-h"):   # its usage; with no arguments it plays live until Ctrl-C
         return CONSOLE
     for name in PORTABLE_NAMES:
         p = ROOT / name
@@ -45,7 +45,7 @@ def note_args(exe, syx=None, wav=None, note=60, secs=None, rom=None, perf=None, 
     if perf is not None: a += ["-P", str(perf)]
     if syx is not None: a += ["-v", str(syx)]
     if pick is not None: a += ["-p", str(pick)]
-    if fseq is not None: a += ["-f" if exe.name.startswith("fs1r_emu") else "-fseq", str(fseq)]
+    if fseq is not None: a += ["-f" if exe.name.startswith("fsvr_console") else "-fseq", str(fseq)]
     if mono is not None: a += ["-mono", str(mono)]
     if note2 is not None: a += ["-n2", str(note2)]
     for num, val in cc: a += ["-cc", f"{num}={val}"]

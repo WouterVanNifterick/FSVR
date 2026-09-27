@@ -40,7 +40,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 ROM = ROOT.parent / "FS1R_DISASM" / "roms" / "fs1r_v120_eprom_cpuview.bin"
-EXE = ROOT / "bin" / ("fs1r_emu.exe" if sys.platform == "win32" else "fs1r_emu")
+EXE = ROOT / "bin" / ("fsvr_console.exe" if sys.platform == "win32" else "fsvr_console")
 RENDER = ROOT / "bin" / ("render_capture.exe" if sys.platform == "win32" else "render_capture")
 # The script moved from captures/ to tools/ when the tree was sorted; the songs, the recording and the
 # clips stayed where captures/README.md says they live.
@@ -127,7 +127,7 @@ def render_to(render, mid, wav):
     wav.parent.mkdir(parents=True, exist_ok=True)
     was = wav.stat().st_mtime if wav.exists() else 0
     out = render(mid, wav)
-    # fs1r_emu exits 0 even when it cannot open the wav, and then the clip below would be encoded from
+    # fsvr_console exits 0 even when it cannot open the wav, and then the clip below would be encoded from
     # whatever stale render was lying there. Seen for real: a concurrent build held the file open.
     if not wav.exists() or wav.stat().st_mtime <= was:
         sys.exit("the engine did not write %s:\n%s" % (wav, out))

@@ -73,7 +73,7 @@ python tools/make_capture_set.py --render
 python tools/analyze_capture.py captures/hardware/*.wav --compare
 ```
 
-`tools/render_capture.cpp` is new and exists because `fs1r_emu -smf` needs WinMM and so the calibration loop could only ever be closed on Windows. It renders 32-bit float, so a render carries no quantisation floor of its own against a 24-bit capture; the old 16-bit renders floored at −96 dB and several segments of this capture sit below that. The shared parts came out of `fs1r_console.cpp` into `src/fs1r_smf.h`, which the console still uses.
+`tools/render_capture.cpp` is new and exists because `fsvr_console -smf` needs WinMM and so the calibration loop could only ever be closed on Windows. It renders 32-bit float, so a render carries no quantisation floor of its own against a 24-bit capture; the old 16-bit renders floored at −96 dB and several segments of this capture sit below that. The shared parts came out of `fs1r_console.cpp` into `src/fs1r_smf.h`, which the console still uses.
 
 `tools/analyze_capture.py` also stopped scoring a segment that is silent on both sides as a disagreement. The engine renders digital silence as exactly zero and so does the hardware, but a 24-bit capture floors at −144.5 dB and a float render at −200, which scored those segments at 55 dB and swamped the median. Both columns below are measured with that fixed, so they are comparable.
 

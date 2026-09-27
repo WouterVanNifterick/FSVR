@@ -4,7 +4,7 @@
 //   render_capture [-r eprom.bin] [-P perf] [-p voice] [-fseq n] [-v file.syx]
 //                  [-n note] [-n2 note] [-cc num=val] [-mono time] [-d secs] -w out.wav
 //
-// The same renders fs1r_emu.exe does, minus the console, so the calibration loop in
+// The same renders fsvr_console.exe does, minus the console, so the calibration loop in
 // tools/analyze_capture.py and the render regression in tools/regress.py both run anywhere rather than
 // only on Windows. -f writes 32-bit float, which is what the comparison against a 24-bit hardware
 // capture wants; without it the output is 16-bit.

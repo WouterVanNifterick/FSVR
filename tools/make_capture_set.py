@@ -41,7 +41,7 @@ import fs1r_patch as fp
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "captures/requests"
 ENGINE_OUT = ROOT / "captures/engine"
-EXE = ROOT / "bin/fs1r_emu.exe"
+EXE = ROOT / "bin/fsvr_console.exe"
 RENDER = ROOT / ("bin/render_capture.exe" if os.name == "nt" else "bin/render_capture")
 EPROM = ROOT.parent / "FS1R_DISASM/roms/fs1r_v120_eprom_cpuview.bin"
 

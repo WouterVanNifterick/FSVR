@@ -2,7 +2,7 @@
 """Line the engine's render of each demo song up against a recording of the real unit playing the demo.
 
     python tools/extract_demo.py
-    for f in captures/demo/[0-9]*.mid; do bin/fs1r_emu -r eprom.bin -smf "$f" \
+    for f in captures/demo/[0-9]*.mid; do bin/fsvr_console -r eprom.bin -smf "$f" \
         -w "captures/demo/render/$(basename "$f" .mid).wav" -d 2; done
     python tools/check_demo.py "captures/raw/FS1R DEMO.flac" captures/demo/render
 

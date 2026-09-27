@@ -138,7 +138,7 @@ def main():
             continue
         args = [str(exe)] + [x.replace("{rom}", str(rom)) for x in extra]
         # The portable renderer spells the Fseq index -fseq, since -f alone is its float-output flag.
-        if not exe.name.startswith("fs1r_emu"):
+        if not exe.name.startswith("fsvr_console"):
             args = ["-fseq" if x == "-f" else x for x in args]
         wav = OUT / f"regress_{name}.wav"
         args += ["-w", str(wav), "-n", str(note), "-d", str(secs)]

@@ -4,7 +4,7 @@
 #include <cstring>
 
 // ------------------------------------------------------------------------------------------ self test
-// fs1r_emu -selftest: every sysex path the plugin will use. Parameter change in, parameter request out,
+// fsvr_console -selftest: every sysex path the plugin will use. Parameter change in, parameter request out,
 // bulk dump out and straight back in, and the whole 400/608 byte state surviving the round trip.
 static int g_fails = 0;
 static void ck(const char* what, bool ok) { if (!ok) { printf("  FAIL %s\n", what); g_fails++; } }

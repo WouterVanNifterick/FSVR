@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXE = ROOT / "bin/fs1r_emu.exe"
+EXE = ROOT / "bin/fsvr_console.exe"
 ROM = ROOT.parent / "FS1R_DISASM/roms/fs1r_v120_eprom_cpuview.bin"
 SONGS = ROOT / "captures/demo"
 

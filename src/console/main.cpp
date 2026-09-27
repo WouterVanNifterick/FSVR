@@ -1,8 +1,8 @@
 // console/main.cpp - the test console on top of fs1r_lib: WinMM MIDI in and out, waveOut, offline render.
 //
-//   fs1r_emu.exe -l                                   list MIDI ports
-//   fs1r_emu.exe -selftest                            run the engine self check
-//   fs1r_emu.exe [-m N] [-o N] [-c ch] [-v voice.syx] [-r eprom.bin [-p voice] [-P perf] [-f fseq]]
+//   fsvr_console.exe -l                                   list MIDI ports
+//   fsvr_console.exe -selftest                            run the engine self check
+//   fsvr_console.exe [-m N] [-o N] [-c ch] [-v voice.syx] [-r eprom.bin [-p voice] [-P perf] [-f fseq]]
 //                [-g gain] [-w test.wav [-n note] [-n2 note] [-cc num=val] [-d secs]]
 //
 // The console owns no synthesis. It feeds MIDI bytes to fs1r::Device and pulls audio back.
@@ -76,7 +76,7 @@ static int g_note2 = -1;   // -n2: second note played at 1/3 while the first is 
 static std::vector<std::pair<int, int>> g_cc;   // -cc num=val: control changes sent before the note
 
 // ------------------------------------------------------------------------------------------ main
-static std::string ini_path() { char p[MAX_PATH]; GetModuleFileNameA(nullptr, p, MAX_PATH); std::string s(p); size_t k = s.find_last_of("\\/"); return s.substr(0, k + 1) + "fs1r_emu.ini"; }
+static std::string ini_path() { char p[MAX_PATH]; GetModuleFileNameA(nullptr, p, MAX_PATH); std::string s(p); size_t k = s.find_last_of("\\/"); return s.substr(0, k + 1) + "fsvr_console.ini"; }
 static int list_midi_out() { int n = midiOutGetNumDevs(); for (int i = 0; i < n; i++) { MIDIOUTCAPSA c; midiOutGetDevCapsA(i, &c, sizeof c); printf("  %d: %s\n", i, c.szPname); } return n; }
 static int list_midi() { int n = midiInGetNumDevs(); for (int i = 0; i < n; i++) { MIDIINCAPSA c; midiInGetDevCapsA(i, &c, sizeof c); printf("  %d: %s\n", i, c.szPname); } return n; }
 
@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
         else if (a == "-mono" && i + 1 < argc) monoTime = atoi(argv[++i]);
         else if (a == "-d" && i + 1 < argc) testSecs = atof(argv[++i]);
         else if (a == "-smf" && i + 1 < argc) smf = argv[++i];
-        else { printf("usage: fs1r_emu [-l] [-selftest] [-m midiport] [-o midiout] [-c channel] [-v file.syx [-p index]]\n"
+        else { printf("usage: fsvr_console [-l] [-selftest] [-m midiport] [-o midiout] [-c channel] [-v file.syx [-p index]]\n"
                       "                [-r eprom.bin [-p voice] [-P performance] [-f fseq]] [-g gain]\n"
                       "                [-w test.wav [-n note] [-n2 note] [-cc num=val] [-d seconds]] [-mono portatime]\n"
                       "                [-smf file.mid -w out.wav [-d tail seconds]]\n"); return 1; }
