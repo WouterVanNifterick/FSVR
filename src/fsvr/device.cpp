@@ -82,7 +82,7 @@ void Device::getState(std::vector<uint8_t>& sysex) const {
     uint8_t perfBytes[400]; S.current_perf_bytes(perfBytes);
     S.push_bulk(0x10, 0, 0, perfBytes, 400);
     for (int i = 0; i < 4; i++) S.push_bulk(0x40 + i, 0, 0, S.perf.part[i].voice.raw, 608);
-    if (S.fseq.valid) { std::vector<uint8_t> f; S.fseq_bytes(f); S.push_bulk(0x70, 0, 0, f.data(), (int)f.size()); }
+    if (S.fseq.valid) { std::vector<uint8_t> f; S.fseq_bytes(f); S.push_bulk(0x60, 0, 0, f.data(), (int)f.size()); }   // the current Fseq, Data List 3.2.1
     sysex.clear();
     for (auto& m : S.outQ) sysex.insert(sysex.end(), m.begin(), m.end());
     S.outQ.clear();
@@ -98,7 +98,10 @@ bool Device::setState(const uint8_t* d, size_t len) {
         size_t n = j - i + 1;
         {
             std::lock_guard<std::mutex> lk(p->s.mtx);
-            if (load_sysex(p->s, p->rom.ok ? &p->rom : nullptr, d + i, n, 0, 0)) any = true;
+            // The system block getState wrote: the firmware's loader takes no system bulk, and this is the
+            // device's own state rather than a dump off the MIDI input, so it goes back byte for byte.
+            if (n == 76 + 11 && d[i + 3] == 0x5E && d[i + 6] == 0x00) { memcpy(p->s.sys, d + i + 9, 76); any = true; }
+            else if (load_sysex(p->s, p->rom.ok ? &p->rom : nullptr, d + i, n, 0, 0)) any = true;
             else if (apply_param_change_locked(p->s, d + i, n)) any = true;
         }
         i = j + 1;
@@ -137,6 +140,17 @@ bool Device::fseqFrame(int step, uint8_t out[50]) const {
 }
 int Device::fseqPosition() const { return p->s.fseq.valid ? p->s.fseqStep : 0; }
 int Device::fseqPart() const { return p->s.fseqPart; }
+double Device::fseqFrameSeconds(int s) { return (VELW[clampi(s, 0, 127)] * 84.0 + 2884.0) * 32.0 / CPU_HZ; }   // fseq_start at ratio 1000
+// word_hz inverted, and a frame level: notes.cpp refresh_regs doubles the byte into the level register, and
+// the chip attenuates LEVEL_DB per register step (ymp706.cpp).
+int Device::fseqWord(double hz) { return hz > 0 ? clampi((int)lround(26861 + 1024 * log2(hz / 440.0)), 0, 0x7FFE) : 0; }
+int Device::fseqLevel(double gain) { return gain > 0 ? clampi((int)lround(-20 * log10(gain) / (2 * LEVEL_DB)), 0, 127) : 127; }
+int Device::activeNotes() const {
+    std::lock_guard<std::mutex> lk(p->s.mtx);
+    int n = 0;
+    for (auto& c : p->s.ch) n += c.active && (c.held || c.sustained);
+    return n;
+}
 
 int Device::selfTest() { init_tables(); Synth s; return selftest(s); }
 

@@ -61,7 +61,9 @@ bool rom_fseq(Synth& S, const Rom& R, int n) {
 }
 
 bool load_sysex(Synth& S, const Rom* R, const uint8_t* d, size_t len, int pick, int part) {
-    // FS1R bulk: F0 43 0n 5E bc bc ah am al <data> cs F7. Voice 608 bytes (ah 40-43/51), performance 400 (ah 10/11), Fseq (ah 70)
+    // FS1R bulk: F0 43 0n 5E bc bc ah am al <data> cs F7. Voice 608 bytes (ah 40-43/51), performance 400 (ah 10/11), Fseq
+    // (ah 60 current, 61 internal: the Data List's "6b 00 nn", 3.2.1; and 70, which tools/extract_presets.py wrote the
+    // bundled presets with before the Data List was checked, kept so they still load)
     // DX7 VCED:  F0 43 0n 00 01 1B <155 bytes> cs F7
     int found = 0;
     for (size_t i = 0; i + 10 < len; i++) {
@@ -81,7 +83,7 @@ bool load_sysex(Synth& S, const Rom* R, const uint8_t* d, size_t len, int pick, 
             // "FSeq Bulk does not interpret Byte Count" (Data List 3.2.1), and it cannot: a 512 frame
             // dump is 25632 bytes and the count is 14 bits. The header's own frame count says how long
             // the dump is, which is also how the length is known when stepping over one.
-            if (ah == 0x70 && i + 9 + 32 <= len) {
+            if ((ah == 0x60 || ah == 0x61 || ah == 0x70) && i + 9 + 32 <= len) {
                 int frames = 128 * ((p[0x1B] & 3) + 1);
                 size_t n = 32 + (size_t)frames * 50;
                 if (i + 9 + n + 2 > len) break;
