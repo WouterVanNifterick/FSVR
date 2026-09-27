@@ -17,7 +17,7 @@ A020 is two layered parts of PrB 097 `SpacySweep` (algorithm 8) on the performan
 | A014 Homy | | 16 | 25 % |
 | A020 Vox Morph | | 16 | 53 % |
 
-A laptop i7 core is one and a half to two times slower than this, and a DAW shares it, so "5 to 8 voices hits the limit" is the engine as built, not the AU wrapper. The plugin does flush denormals (`juce::ScopedNoDenormals` in `processBlock`); without it Vox Morph reads 120 % on the same core, which is the number anyone benchmarking the console or `render_capture` sees, since those do not set FTZ.
+A laptop i7 core is one and a half to two times slower than this, and a DAW shares it, so "5 to 8 voices hits the limit" is the engine as built, not the AU wrapper. The plugin does flush denormals (`NoDenormals` around `process` in `plugin/plugin.cpp`, FTZ and DAZ on x86, FZ on ARM); without it Vox Morph reads 120 % on the same core, which is the number anyone benchmarking the console or `render_capture` sees, since those do not set FTZ.
 
 The profile (`-fno-inline -pg`) is flat: `fsin` 14 %, `EG::tick` 10 %, the unvoiced block about 15 %, `db2lin_fast` 5 %, the rest spread across `render_chan`. There is no single hot spot; it is the count of operator paths.
 

@@ -1,8 +1,8 @@
 # FSVR
 
-![The FSVR standalone running](docs/standalone.png)
+![The FSVR standalone running](docs/fsvr_standalone.png)
 
-**FSVR**, Formant Synthesizer Virtual Rack, is a software reconstruction of the Yamaha FS1R as a plugin and a console synth: its firmware logic rewritten in C++ from the decompiled ROM, four parts, 32 channels, the filter, both LFOs, pan, the three effect blocks, performances and Fseq playback. VST3, CLAP, AU and standalone, with the front panel as the GUI.
+**FSVR**, Formant Synthesizer Virtual Rack, is a software reconstruction of the Yamaha FS1R as a plugin and a console synth: its firmware logic rewritten in C++ from the decompiled ROM, four parts, 32 channels, the filter, both LFOs, pan, the three effect blocks, performances and Fseq playback. CLAP, VST3, VST2 and standalone on Windows, macOS and Linux, an AU on macOS and a 32-bit VST2 with a DXi on Windows, with an editor for every parameter the unit has, a bank manager for your own .syx libraries, a morph square and Import Audio for Fseqs.
 
 Download the latest build: **https://github.com/musicastudio/FSVR/releases/latest** (no installer, no dependencies).
 
@@ -60,7 +60,7 @@ Three words carry the status of each piece below. **Read** is lifted out of the 
 
 The practical result is that patches, performances and Fseqs load and play with the same parameter interpretation the hardware uses, because the same logic computes them. What still differs from a real unit lives inside the two custom chips.
 
-A short list of places FSVR behaves differently **on purpose** is kept in [docs/Differences.md](docs/Differences.md), with the firmware address behind each one. There is one entry today: a part's filter switch is live here, so turning the filter on or off reaches the notes already sounding, where the unit latches that switch per note at note-on and only its cutoff and resonance follow a held note.
+A short list of places FSVR behaves differently **on purpose** is kept in [docs/Differences.md](docs/Differences.md), with the firmware address behind each one where there is one. The engine has one entry: a part's filter switch is live here, so turning the filter on or off reaches the notes already sounding, where the unit latches that switch per note at note-on and only its cutoff and resonance follow a held note. The rest are the plug-in's additions, things the unit never had: the morph square, user libraries without the unit's memory limits, and Import Audio.
 
 ### The processors
 
@@ -85,11 +85,10 @@ A short list of places FSVR behaves differently **on purpose** is kept in [docs/
 
 All read from the firmware and its tables, and all finished.
 
-- **Factory data.** The 1408 preset voices, 384 performances and 90 formant sequences out of the EPROM, plus the voice (608 bytes), performance (400), Fseq and system bulk layouts and the DX7 VCED and ACED maps. Extracted into `presets/` and built into the plugin, so the patch browser needs no EPROM image. The `Internal Perform Bank` and `Internal Voice Bank` is actually cherry-picking from `preset performances` and `preset voices` by factory set routines to NVRAM in real unit, we decided not to implement it in FSVR, because you can always find these performances and voices from preset voices, and your voice can be store in SysEx, therefore makes it not necessary as a plugin.
+- **Factory data.** The 1408 preset voices, 384 performances and 90 formant sequences out of the EPROM, plus the voice (608 bytes), performance (400), Fseq and system bulk layouts and the DX7 VCED and ACED maps. Extracted into `presets/` and built into the plugin, so the patch browser needs no EPROM image. The unit's `Internal Perform Bank` and `Internal Voice Bank` are copies its factory set routines make from the presets into NVRAM, so FSVR has no fixed internal banks; the plug-in keeps a user library of .syx files instead, as many performances, voices and Fseqs as you import or store.
 - **Fseq playback.** Frame timing on its own timer, every loop mode with the direction the loop points imply, the start offset, the performance start delay, scratch mode from controller destination 47, MIDI clock sync at all five speed ratios, and the voice Fseq switches.
 - **Controller sets.** The whole matrix out of three firmware functions: the source bit order, the bipolar and raw source conversions, the clamped sum, the three scalers and which of the 48 destinations uses each, the per-part gate, and the destinations that edit a part byte instead of contributing an offset. The voice's own Formant and FM control matrix with it.
 - **MIDI and sysex.** The whole parameter map in both directions, bulk dumps and parameter changes in and out, dump and parameter requests answered with checksummed replies, RPN 0-2, the ten NRPN 01 xx part parameters, bank select and program change in both performance and multi modes, MIDI clock and active sensing.
-- **The panel.** The plugin's GUI is the front panel, and the cursor stops and controller set behind it are read out of the EPROM's own screen tables rather than off a photo. `docs/interface_from_firmware.md`.
 
 ### Where it stands
 
@@ -99,63 +98,65 @@ Nothing in `cal.h` is a guess any more, and nothing outside the effects is open.
 
 **Known issue:** performances that layer two parts of a voice with all eight unvoiced operators live (A020 Vox Morph is the extreme) are heavy, about half a desktop core at 8 notes and more than a laptop i7 has to give. [docs/performance.md](docs/performance.md) has the measurements and the fixes in order of cost.
 
-What is left is **the effects layer, VOP3-2**: 87 algorithms modelled from the Data List, 17 to 29 dB against real impulse responses over eighty-four segments. It is a rebuild of each block from the microcode or a measurement of each against a register session, and it is the last piece. Tiers 0 to 3 and 5 are done, so the engine, the library and console split, the plugin in all three formats, the front panel GUI, the licence and CI are all in, and Tier 4, fidelity and verification, is complete outside the effects.
+What is left is **the effects layer, VOP3-2**: 87 algorithms modelled from the Data List, 17 to 29 dB against real impulse responses over eighty-four segments. It is a rebuild of each block from the microcode or a measurement of each against a register session, and it is the last piece. Tiers 0 to 3 and 5 are done, so the engine, the library and console split, the plugin in every format with its editor, the licence and CI are all in, and Tier 4, fidelity and verification, is complete outside the effects.
 
 ## Build and run
 
 ### Prebuilt
 
-[The latest release](https://github.com/musicastudio/FSVR/releases/latest) has zipped VST3, CLAP and standalone builds for Windows, Linux and macOS, with an AU for Logic Pro in the macOS zip. The macOS builds are universal, Apple silicon and Intel in one binary. No installer, no dependencies.
+[The latest release](https://github.com/musicastudio/FSVR/releases/latest) has zipped CLAP, VST3, VST2 and standalone builds for Windows, Linux and macOS, with an AU for Logic Pro in the macOS zip and a 32-bit VST2 carrying a DXi (Cakewalk's older plug-in format, registered with `regsvr32`) in the Windows x86 zip. The macOS builds are universal, Apple silicon and Intel in one binary. No installer, no dependencies. [docs/plugin_guide.md](docs/plugin_guide.md) is the user guide.
 
 Every push to `main` builds the same set through [GitHub Actions](https://github.com/musicastudio/FSVR/actions), so a build for an OS you do not own is always one Actions run away, including on a fork. `.github/workflows/build.yml` is three jobs:
 
-- **engine**, on `windows-latest`, `ubuntu-latest` and `macos-latest`. Plain CMake with no submodules, then `ctest`, which runs the effect self check everywhere and the engine self check on Windows. Uploads `FSVR-console-windows`.
-- **plugin**, on the same three. Checks out the submodules, installs the X11, ALSA and FreeType packages JUCE asks for on Linux, configures with `-DFS1R_BUILD_PLUGIN=ON`, and uploads `FSVR-plugin-windows`, `FSVR-plugin-linux` and `FSVR-plugin-macos`, each holding the VST3, the CLAP and the standalone for that OS, and the AU as well on macOS.
+- **engine**, on `windows-latest`, `ubuntu-latest` and `macos-latest`. Plain CMake with no downloads, then `ctest`, which runs the effect and engine self checks everywhere. Uploads `FSVR-console-windows`.
+- **plugin**, on Windows x64, Windows x86, Linux and macOS. Installs the X11, ALSA, JACK and PulseAudio headers on Linux, configures with `-DFSVR_BUILD_PLUGIN=ON`, runs the plug-in's own check (`check_plugin`) on the 64-bit legs, and uploads `FSVR-plugin-windows`, `FSVR-plugin-windows-x86`, `FSVR-plugin-linux` and `FSVR-plugin-macos`, each holding every format for that platform.
 - **release**, on a `v*` tag only. Zips every artifact and attaches it to a GitHub release.
 
 ### Building it
 
-CMake everywhere, C++17. The engine, the console and the self checks need no submodules and no dependencies:
+CMake 3.24 or later everywhere, C++17. The engine, the console and the self checks need no dependencies:
 
 ```bash
-cmake -B build/cmake -S .                 # fs1rLib, test_effects, bin/render_capture, and bin/fs1r_emu on Windows
+cmake -B build/cmake -S .                 # fs1rLib, test_effects, bin/render_capture, and bin/fsvr_console on Windows
 cmake --build build/cmake --config Release
 ctest --test-dir build/cmake -C Release   # the self checks
 ```
 
-The plugin needs the submodules and adds one flag:
+The plug-in adds one flag. Its first configure downloads the CLAP SDK and [clap-wrapper](https://github.com/free-audio/clap-wrapper), which fetches the VST3 and AU SDKs, RtAudio and RtMidi, and Import Audio's decoders ([dr_libs](https://github.com/mackron/dr_libs) and [stb_vorbis](https://github.com/nothings/stb)), so it needs the network once:
 
 ```bash
-git submodule update --init --recursive
-cmake -B build/plugin -S . -DFS1R_BUILD_PLUGIN=ON
+cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON
 cmake --build build/plugin --config Release
+ctest --test-dir build/plugin -C Release -R plugin   # the plug-in's own check
 ```
 
-VST3, CLAP and a standalone land in `bin/VST3`, `bin/CLAP` and `bin/Standalone`, plus an AU in `bin/AU` on macOS, which is the only plugin format Logic Pro loads. The 1408 factory voices, the 384 factory performances and the 90 preset formant sequences are built into the plugin, so its patch browser needs no EPROM image. [docs/plugin_guide.md](docs/plugin_guide.md) is the user guide.
+On Linux install `libx11-dev libasound2-dev libjack-jackd2-dev libpulse-dev pkg-config` first (Debian and Ubuntu names). On Windows a second build with `-A Win32` makes the 32-bit VST2 with the DXi in it.
+
+Every format lands in a folder of its own under `bin/`: `bin/CLAP`, `bin/VST3`, `bin/VST2` and `bin/Standalone`, `bin/AU` on macOS, which is the only plugin format Logic Pro loads, and `bin/VST2 32-bit and DXi` from the 32-bit build. The 1408 factory voices, the 384 factory performances and the 90 preset formant sequences are built into the plugin, so its browser needs no EPROM image.
 
 On Windows `build.bat` is the shortcut, MSVC x64 out of the VS 2022 Professional vcvars64:
 
 ```bat
-build.bat            bin\fs1r_emu.exe, the console
+build.bat            bin\fsvr_console.exe, the console
 build.bat test       build and run the self checks
-build.bat plugin     the two plugin CMake commands above
+build.bat plugin     every plug-in format, 64-bit and 32-bit, then check_plugin
 ```
 
 Everything meant to be run lands in `bin/`; objects and the test binaries go to `build/`.
 
 ### The console
 
-`bin/fs1r_emu` is the test harness on top of the engine library. It is Windows only, since it uses WinMM for MIDI and waveOut for audio, but its offline render path needs no devices at all.
+`bin/fsvr_console` is the test harness on top of the engine library. It is Windows only, since it uses WinMM for MIDI and waveOut for audio, but its offline render path needs no devices at all.
 
 ```bat
-fs1r_emu -l                                     list MIDI ports
-fs1r_emu                                        asks for a MIDI input once, remembers it in bin\fs1r_emu.ini
-fs1r_emu -m 0 -o 0 -v presets\native\000_Ballad_EP.syx
-fs1r_emu -v presets\dx7\004_Pianotone1.syx      DX7-format presets, converted the way the firmware does
-fs1r_emu -r <eprom.bin> -p 128                  ROM voice, 0-255 native and 256-1407 the DX7 banks
-fs1r_emu -r <eprom.bin> -P 0                    ROM performance 0-383 with its voices and Fseq
-fs1r_emu -r <eprom.bin> -P 0 -f 29              override the Fseq with preset Fseq 1-90
-fs1r_emu -v presets\native\128_BagPipe.syx -w test.wav -n 60 -d 3     offline render, no devices needed
+fsvr_console -l                                     list MIDI ports
+fsvr_console                                        asks for a MIDI input once, remembers it in bin\fsvr_console.ini
+fsvr_console -m 0 -o 0 -v presets\native\000_Ballad_EP.syx
+fsvr_console -v presets\dx7\004_Pianotone1.syx      DX7-format presets, converted the way the firmware does
+fsvr_console -r <eprom.bin> -p 128                  ROM voice, 0-255 native and 256-1407 the DX7 banks
+fsvr_console -r <eprom.bin> -P 0                    ROM performance 0-383 with its voices and Fseq
+fsvr_console -r <eprom.bin> -P 0 -f 29              override the Fseq with preset Fseq 1-90
+fsvr_console -v presets\native\128_BagPipe.syx -w test.wav -n 60 -d 3     offline render, no devices needed
 ```
 
 Options. `-m` MIDI input, `-o` MIDI output for dump and parameter replies, `-c` force all parts onto one MIDI channel (the default is each part on its own receive channel), `-v` a sysex file holding FS1R voice, performance or Fseq bulk dumps or a DX7 VCED dump, with `-p` picking the n-th dump in the file, `-r` a 2 MB EPROM image with `-p` voice, `-P` performance and `-f` Fseq, `-g` output gain, `-w` offline render with `-n` note, `-n2` a second note a third of the way in, `-cc num=val` control changes sent before the note, `-d` seconds, `-mono` part 1 mono with full-time portamento, `-selftest` the engine self check. `FS1R_DEBUG=1` prints the computed register values at every note on.
@@ -201,13 +202,13 @@ python tools/regress.py                 # the whole fixed preset list against th
 - `display.h` how the unit shows values, for editors and displays: fixed operator frequencies, ratios and every effect parameter value, with each effect type's parameter slots. Transcribed from K_Take's [FS1R Editor](https://synth-voice.sakura.ne.jp/fs1r_editor_english.html) (freeware) and checked against the Data List and the ROM
 - `src/console/main.cpp` the test console: WinMM MIDI in and out, waveOut, offline render
 
-**Plugin.** The JUCE layer, which never models synthesis; it moves parameter values in and out of the engine as sysex, exactly as a hardware editor would.
+**Plugin.** The plug-in layer, which never models synthesis; it moves parameter values in and out of the engine as sysex, exactly as a hardware editor would.
 
-- `plugin/PluginProcessor`, `PluginEditor`, `PanelView`, `EditorPages`, `PatchManager` and `ParameterDescriptions`
-- `plugin/fs1r_panel.svg` the front panel artwork, generated by `tools/make_panel_svg.py`
-- `plugin/fs1r_presets.syx` with its index `fs1r_presets.csv`, `fs1r_performances.syx` and `fs1r_fseqs.syx`, the bundled factory banks, packed from `presets/` by `tools/make_presets_blob.py`
-- `plugin/parameterDescriptions_fs1r.json` the 893 parameters with their sysex addresses and bit layouts, generated by `tools/gen_parameters.py`
-- `extern/` JUCE and clap-juce-extensions, as submodules
+- `plugin/plugin.cpp` the processor: every param a sysex parameter change into `fs1r::Device`, the engine's own bulk dumps read back into the params, program change, the morph square, the monitor, and the File menu's and bank manager's requests
+- `plugin/library.cpp` the bank manager's data: .syx files as banks (FS1R bulks, DX7 single voices and 32-voice banks), the factory bank and the user library folder; `audio_decode.cpp` and `audio_fseq.cpp` Import Audio
+- `plugin/skin/` the editor, a [Hollow](hollow/) skin: views, params (`params.json`, 3,223 of them), images and fonts, and `data/fs1r_sysex.json`, the address and packing of every param. Generated in the Hollow project (kept beside this repository, not published) by its `tools/fsvr` from Hollow FM 3's artwork and this repository's tables, then copied here by its `tools/fsvr/publish.py` with the chrome surface burnt into the images by `hollow-bake`. Edit it with Hollow's web editor, or change the generator there and publish again
+- `plugin/generated/` the bundled factory banks `fs1r_presets.syx` with its index `fs1r_presets.csv`, `fs1r_performances.syx` and `fs1r_fseqs.syx`, packed from `presets/` by `tools/make_presets_blob.py`, and `parameterDescriptions_fs1r.json`, the 893 parameters with their sysex addresses and bit layouts, by `tools/gen_parameters.py`, which the skin's param table is built from
+- `hollow/` the plug-in framework: the formats (CLAP, and through clap-wrapper VST3, AU and the standalone; VST2 and the DXi of its own), the skin runtime and software renderer, and the editor window on Windows, macOS and X11. [hollow/docs/skin-format.md](hollow/docs/skin-format.md) is the skin's contract
 
 **Tools, firmware.**
 
@@ -226,8 +227,9 @@ python tools/regress.py                 # the whole fixed preset list against th
 **Tools, checks.**
 
 - `tools/regress.py` renders the fixed preset list and diffs it against `regress_ref.json`: pitch, harmonic peaks, envelope, stereo width, centroid
-- `tools/test_effects.cpp` decodes and sweeps every effect type, and `fs1r_emu -selftest` is the engine check. Both run under `ctest`
-- `tools/check_wav.py`, `check_formant.py`, `check_presets.py`, `check_panel.py` and `check_interface.py`, the rest of what `build.bat test` runs; `check_skirt.py` renders every harmonic form at every skirt against the register sweep
+- `tools/test_effects.cpp` decodes and sweeps every effect type, and `fsvr_console -selftest` (`engine_selftest` away from Windows) is the engine check. Both run under `ctest`
+- `tools/check_plugin.cpp` drives the plug-in's processor the way a host does: factory banks, a saved session, Import SysEx, the bank browser, morph, Import Audio, program change, panic and the monitor. `ctest` runs it in a plug-in build
+- `tools/check_wav.py`, `check_formant.py` and `check_presets.py`, the rest of what `build.bat test` runs; `check_skirt.py` renders every harmonic form at every skirt against the register sweep
 
 **Data.**
 
@@ -239,9 +241,10 @@ python tools/regress.py                 # the whole fixed preset list against th
 - [docs/research.md](docs/research.md) what is known about the hardware, and [docs/ymp706_registers.md](docs/ymp706_registers.md) the tone generator interface and the CPU-side engine lifted from the firmware. These two are the reference.
 - [docs/fidelity_plan.md](docs/fidelity_plan.md) the ranked read of where the engine stands against every recording; `capture_0918.md` and `hardware_capture_request.md` are the capture working
 - `docs/aeg.md`, `formant.md`, `skirt.md`, `noise.md` and `detune.md`, one measurement each, the working behind the constants in `cal`
-- `docs/midi_dispatch.md` how a Note On, a Control Change and both aftertouches get from the SCI0 interrupt to the tone generator; `interface_from_firmware.md` the panel's cursor stops and controller set, read out of the EPROM's own screen tables
+- `docs/midi_dispatch.md` how a Note On, a Control Change and both aftertouches get from the SCI0 interrupt to the tone generator; `interface_from_firmware.md` the unit's screen tables, cursor stops and MIDI View, read out of the EPROM
 - `docs/vop3_microcode.md`, `vop3_2_microcode.md` and `vop3_pinout.md` the VOP3 reference
 - [docs/Differences.md](docs/Differences.md) the short list of places FSVR knowingly behaves differently from the unit, and why
-- [docs/plugin_guide.md](docs/plugin_guide.md) the plugin user guide. The Data List and owner's manual text and the formant patent are here too.
+- [docs/plugin_guide.md](docs/plugin_guide.md) the plugin user guide, and [docs/editor.md](docs/editor.md) why the editor is the way it is: which of the unit's limits it drops, the morph square, the bank manager and what the processor answers for the GUI. The Data List and owner's manual text and the formant patent are here too.
+- [hollow/docs/](hollow/docs/) the plug-in framework: `framework.md` how a product is built on it, `skin-format.md` the skin's contract
 - [STATUS.md](STATUS.md) what is known, what is modelled and what nobody knows, with the open work at the end
 - [docs/findings.md](docs/findings.md) the research log, newest first, and the evidence behind each constant

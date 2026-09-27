@@ -1,14 +1,10 @@
 # The FS1R interface, read out of the firmware
 
-The panel in `plugin/PanelView.cpp` was built from the owner's manual and from the manual's own drawing
-of the front panel. The manual is prose, though, and prose leaves gaps: it does not say what order the
-CURSOR buttons walk, it lists the icon labels in a different order in two different places, and it
-never says which MIDI messages the unit answers. All of that is in the v1.20 EPROM as data, and this
-note is what came out of it.
-
-Everything below is checkable. `tools/check_interface.py` reads the screen tables back out and fails
-the build's test step if the panel's stop lists and the firmware ever drift apart; it skips with a
-warning when the EPROM image is not present, since that image is not in this repository.
+The owner's manual describes the unit's display and front panel in prose, and prose leaves gaps: it
+does not say what order the CURSOR buttons walk, it lists the icon labels in a different order in two
+different places, and it never says which MIDI messages the unit answers. All of that is in the v1.20
+EPROM as data, and this note is what came out of it. Every address below can be re-checked against the
+image, which is not in this repository.
 
 Where the tables only say what a screen contains and not how it is laid out, the second source is
 footage of a real v1.20 unit: <https://www.youtube.com/watch?v=ic4TUvlUxtI>, 55 seconds of someone
@@ -50,12 +46,6 @@ two tables of a mode are index-for-index parallel:
 | PLAY MIDI View | 0x39312C | 8 |
 | PART ASSIGN screens | 0x39328C | 12 |
 | PART ASSIGN MIDI View | 0x39346C | 12 |
-
-To dump them again:
-
-```bash
-python tools/check_interface.py
-```
 
 ## 2. The cursor stops
 
@@ -152,7 +142,7 @@ add  0x30,r4           ; 0x30 + part: the part's own sysex address high
 jsr  @r1               ; write parameter (0x30+part, 0x00, r6) = value
 ```
 
-Two of those are the panel's own ATTACK and RELEASE knobs, which is a useful cross-check: the knobs
+Two of those are the unit's own ATTACK and RELEASE knobs, which is a useful cross-check: the knobs
 write part bytes 0x1A and 0x1C, and CC 73 and 72 write the same two.
 
 ## 4. The PLAY screen as the hardware draws it
@@ -179,8 +169,7 @@ Two corrections to the owner's manual fall out of it.
 **The selected icon is drawn in reverse video, not with a pointer above it.** The manual says on pages
 22 and 25 that "a small triangular pointer appears above the icon corresponding to the selected
 parameter". On a v1.20 unit the selected field is a filled block with the glyphs knocked out of it,
-and there is no triangle anywhere on the screen in any frame of the clip. The panel drew the manual's
-version until this was checked.
+and there is no triangle anywhere on the screen in any frame of the clip.
 
 **BANK/PGM# does not show a number in PLAY mode.** It shows the performance's category. The number is
 already on both text lines, so the icon carries the one thing that is not.
@@ -190,38 +179,8 @@ comes up with the cursor on the program number half of the pair, so VALUE steps 
 time without anything being selected first. Pressing a PART button leaves for PART ASSIGN, where the
 same VALUE buttons step the selected part's voice instead - which is the behaviour that looked wrong.
 
-## 5. What this changed here
+## 5. What this changed in the engine
 
-Fixed:
-
-- **PART = ALL, the PLAY screen, now exists** with its own eight stops, its own strip and the layout
-  above. VALUE on its bank and program pair steps the performance - a whole bank of 128 on the bank
-  half, one at a time on the program half.
-- **The selected icon is reverse video**, not a pointer and a box.
 - **CC 93, not 94, is the variation send.** The engine had 94, which is the XG celeste depth. Both the
   MIDI View record (`Bn 5D`) and the handler table say 93.
 - **CC 71, 72, 73 and 74 were not handled at all.** They are now, on the part bytes above.
-- **The cursor order.** `Filter` was sixth; it is second to last. `Rcv Max` and `Dry Lvl` were missing
-  entirely, and `Part` was a stop the hardware does not have.
-- **`Rcv Max` is skipped on parts 3 and 4**, as the manual says on page 25.
-- **The `Filter` stop is the cutoff offset, not the filter switch.** It is part byte 0x18, which is
-  what `Bn 4A` writes; the panel was pointing at the on/off switch at byte 0x07 and drawing it as one.
-- **The MIDI View shows the channel message**, `Bn 20 = 3` rather than an invented sysex string, and
-  shows nothing for the five stops whose records are blank.
-- `Ins Sw` is spelled `InsEfSw`, as the display spells it.
-
-Still different from the hardware, on purpose or for want of room:
-
-- **The upper line carries the performance name and the stop name together.** The hardware puts only
-  the stop name there, at columns 10 to 18, and shows the value after the `=` on the lower line. Ours
-  needs the lower line for the part's voice, so the value is shown transiently instead. On the PLAY
-  screen, where the hardware's lower line is free, the layout matches.
-- **PART = ALL is reached with the PART buttons or [EXIT]**, not by pressing both PART buttons at once
-  as page 22 describes, because one mouse cannot press two buttons. PART - from part 1 goes to ALL and
-  either PART button leaves it, so the two buttons walk ALL, 01, 02, 03, 04.
-- **The REV and VAR send icons and the KEY field are approximations** of the hardware's shapes.
-- **On the Bank and Pgm# stops the hardware blanks the upper line** and writes the bank and program
-  pair there with the solid and hollow pointers. Ours keeps the name on the right and puts the bank or
-  the program number in the strip field, because the pair does not fit beside the performance name.
-- **The volume knob is moved right** of where the drawing has it, which is a deliberate cosmetic
-  choice and the only one of these that is not about space.

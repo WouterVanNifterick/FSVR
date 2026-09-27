@@ -53,6 +53,9 @@ Grouped by what blocks each item rather than by subsystem. This file is the list
 **Ready, needs no hardware**
 
 - The effects against hardware, 17 to 29 dB over three files and eighty-four segments. The largest number in the set, and the only item left outside a hardware session
+- The render regression's reference is stale. With the EPROM image present, fifteen of `tools/regress.py`'s nineteen cases fail on this machine at `8618c17` and after the Hollow plug-in change alike, with the same numbers, and the two builds render those cases bit for bit the same, so the drift came in with an earlier engine change and was never folded into `regress_ref.json`. Find which commit moved each case, say why in its message, then `--update`
+- The plug-in's macOS and Linux builds have only been built by CI, not played in a host; Windows is checked in the standalone and by Steinberg's VST3 validator (47 of 47). `clap-validator` has not been run on any of them
+- The editor's own open items (names aren't editable, the LCD's performance menu lists the factory banks only) are in [docs/editor.md](docs/editor.md)
 - CPU: A020 Vox Morph at 8 notes is 53 % of one desktop core (16 channels, all eight unvoiced operators live). Not a fidelity item; the options and their measured gains are in [docs/performance.md](docs/performance.md), starting with the −100 dB operator gate that never lets a level-0 operator go idle
 
 **Blocked on a hardware session** (`FS1R.unlock/captures/fs1r_capture_session4.py` carries all of it)
@@ -74,7 +77,6 @@ Grouped by what blocks each item rather than by subsystem. This file is the list
 
 - YMP706 emulation. Not possible without register semantics or a die, and the chip is too rare for a die shot. It stays a model
 - Engine thread with a lookahead buffer, only if a host's buffer is ever the limit rather than the engine
-- Skin files. Only worth it if a second panel ever needs skinning
 
 **Reported**
 

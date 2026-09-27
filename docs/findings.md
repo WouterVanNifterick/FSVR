@@ -8,6 +8,16 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-09-27, the engine sent Fseq bulks at the Data List's address and took them only at its own
+
+The Data List's bulk address table (3.2.1, "Address (H) (M) (L)") gives the Fseq bulk as `6b 00 nn`, b the bank: 60 00 00 for the current Fseq and 61 00 nn for internal Fseq nn. `Synth::dump_request` (`midi.cpp`) answers a request with exactly that. `load_sysex` (`rom.cpp`), though, took an Fseq bulk only at address high 70, the address `tools/extract_presets.py` gave the preset files before anyone checked the table, so a dump off a real unit, or one this engine had just sent, was dropped without a word. `load_sysex` now takes 60, 61 and 70 (70 stays so the bundled presets still load), `Device::getState` writes the current Fseq at 60 00 00, and the plug-in's exports carry it there, so what FSVR writes is what a unit takes.
+
+Two more in the same place, both in `fsvr/device.cpp`, ours: `Device::setState` dropped the system bulk that `getState` writes, since the firmware's loader takes none, so a restored session kept the fresh system block; it now puts those 76 bytes back as they were. And the plug-in's `saving()` snapshotted the engine before its worker had applied a session that had just arrived, which the plug-in's own check caught as a session saved straight after it was opened losing its sound.
+
+None of these moves a render. `bin/fsvr_console.exe -w` at `8618c17` and after is the same file, byte for byte, on the init voice, performances 2 and 56 (the second with Fseq 0) and 300, and ROM voice 300.
+
+---
+
 ## 2026-09-25, a fixed-frequency operator gets no frequency EG
 
 `24_onset`'s `onset-feg` segment was the one isolated subsystem that separated from the unit: **2.54x** its own body at the tick window against the unit's **0.98x**. It turned out not to be a step at all, and the flagged ratio was the analyzer reading a frequency sweep rather than a discontinuity — a carrier sliding down from well above its target has its largest first differences at the start, which is exactly where the window sits. Measuring the thing itself instead settles it.
@@ -477,7 +487,7 @@ rgwan recorded the fifteen demo songs with the effects and the filter stripped (
 
 **The bass part** is 2.2 dB quiet at every velocity and its formants sit in the wrong octaves, -5 to -8 dB at 160 to 320 Hz and +5 to +10 at 640 to 2560 Hz on notes 40 to 57, where the window is shorter than the period. That is the formant window family, item 8 of `docs/fidelity_plan.md`, seen at a fundamental the capture set never played.
 
-**Two scoring faults, still open.** `tools/analyze_capture.py`'s shape number on the noise files is carried by its sixth-octave bands below 100 Hz, one or two FFT bins each at the recording's floor, which is why it moved 3.3 to 3.1 where the same files moved 2.65 to 1.19 on bands within 40 dB of the peak. And `tools/regress.py` needs `bin/fs1r_emu.exe`, so it cannot run outside Windows.
+**Two scoring faults, still open.** `tools/analyze_capture.py`'s shape number on the noise files is carried by its sixth-octave bands below 100 Hz, one or two FFT bins each at the recording's floor, which is why it moved 3.3 to 3.1 where the same files moved 2.65 to 1.19 on bands within 40 dB of the peak. And `tools/regress.py` needs `bin/fsvr_console.exe`, so it cannot run outside Windows.
 
 ## 2026-09-21, the filter and the noise formant both come off the inferred list
 

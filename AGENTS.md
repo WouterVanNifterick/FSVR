@@ -26,7 +26,9 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 | `src/fs1r/chips/cal.h` | the calibration surface | this is the file you edit to calibrate |
 | `src/fsvr/` | **ours**, no hardware counterpart | nothing. The hardware has no opinion |
 | `src/fsvr/tuning.h` | our cost knobs | nothing, and changing one must not alter the output |
-| `plugin/` | the JUCE layer | it never models synthesis, see below |
+| `plugin/` | the plug-in: processor, bank manager, Import Audio | it never models synthesis, see below |
+| `plugin/skin/` | the editor, generated in the Hollow project | nothing; it is published from there (`docs/editor.md`) |
+| `hollow/` | the plug-in framework, Hollow's `framework/` | nothing. Keep it in step with Hollow's copy |
 
 ## The rules
 
@@ -36,9 +38,9 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 
 **Cite the firmware by address.** Anything read from the disassembly names its `FUN_xxxxxxxx` so the next person can re-check it in Ghidra. `tools/ghidra_ctrl_dests.py` shows how to reach code Ghidra never turns into functions.
 
-**The plugin never models synthesis.** It moves parameter values in and out of the engine as sysex, exactly as a hardware editor would, and learns state back from the engine's MIDI output. If you find yourself computing audio in `plugin/`, you are in the wrong layer.
+**The plugin never models synthesis.** It moves parameter values in and out of the engine as sysex, exactly as a hardware editor would, and learns state back from the engine's own bulk dumps. If you find yourself computing audio in `plugin/`, you are in the wrong layer. The morph square blends voice bytes into a voice bulk and Import Audio writes Fseq bytes on the scales `fs1r::Device` gives it; neither renders anything.
 
-**Generated files are generated.** Do not hand-edit anything in `plugin/generated/`, nor `src/fs1r/firmware/tables.h` or `algorithms.h`. Change the generator or its source and re-run it. `plugin/generated/README.md` names each generator.
+**Generated files are generated.** Do not hand-edit anything in `plugin/generated/`, nor `src/fs1r/firmware/tables.h` or `algorithms.h`. Change the generator or its source and re-run it. `plugin/generated/README.md` names each generator. `plugin/skin/` is generated in the Hollow project beside this repository (`tools/fsvr/make_skin.py`, then `tools/fsvr/publish.py`, which bakes the chrome in); a layout tweak can be made in Hollow's web editor on `plugin/skin` directly, but a param, a page or anything the generator makes goes through the generator, or the next publish loses it.
 
 **Scale is not fidelity.** `src/fsvr/tuning.h` holds knobs that trade CPU for nothing else. If changing one moves a measurement, the value is wrong, not the hardware's.
 
@@ -58,7 +60,15 @@ The release job reads that body off the tag *object* through the API, not from a
 build.bat test
 ```
 
-That builds the engine and the console, then runs the effect self check, the engine self check, and `check_formant`, `check_panel`, `check_presets` and `check_interface`. All of them must pass.
+That builds the engine and the console, then runs the effect self check, the engine self check, and `check_formant` and `check_presets`. All of them must pass.
+
+If you touched the plug-in (`plugin/`, `hollow/` or the skin):
+
+```bash
+build.bat plugin
+```
+
+That builds every format, 64-bit and 32-bit, into `bin/<format>` and runs `check_plugin`, which drives the processor the way a host does. Anywhere else, `cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON`, build, and `ctest -R plugin`.
 
 If you touched anything the audio path reaches, also run the render regression:
 
@@ -68,12 +78,12 @@ python tools/regress.py
 
 Nineteen fixed cases against `tools/regress_ref.json`. It compares pitch, harmonic peaks, envelope, stereo width and centroid. **If it fails, that is a finding, not an inconvenience.** Only run `--update` when you meant to change the output and can say why in the commit message.
 
-`regress.py` and `check_formant.py` drive `bin/fs1r_emu.exe` on Windows and `bin/render_capture` anywhere else, picked by `tools/fs1r_render.py` (the console is in `bin/` on every checkout but fails before `main()` under WSL, so the choice is made by running it, not by looking for the file). **The stored reference is a Windows build's**, since the engine calls `rand()` for random note phase and pan and the two C libraries disagree, so on Linux every case fails on a fresh checkout. To check a change there, fingerprint the same build twice: `--update` before your edit, keep the file aside, then compare after. A case that moves is real; one that moves without touching its subsystem is the reference, not the engine.
+`regress.py` and `check_formant.py` drive `bin/fsvr_console.exe` on Windows and `bin/render_capture` anywhere else, picked by `tools/fs1r_render.py` (the console is in `bin/` on every checkout but fails before `main()` under WSL, so the choice is made by running it, not by looking for the file). **The stored reference is a Windows build's**, since the engine calls `rand()` for random note phase and pan and the two C libraries disagree, so on Linux every case fails on a fresh checkout. To check a change there, fingerprint the same build twice: `--update` before your edit, keep the file aside, then compare after. A case that moves is real; one that moves without touching its subsystem is the reference, not the engine.
 
 For a change that should not alter the output at all, prove it rather than assume it. Render a fixed case before and after and compare the file hashes:
 
 ```bash
-bin/fs1r_emu.exe -w before.wav -n 60 -d 3
+bin/fsvr_console.exe -w before.wav -n 60 -d 3
 ```
 
 ## Finding work
@@ -100,4 +110,5 @@ The EPROM image itself is not in this repo either. It is rgwan's dump, kept outs
 - The engine always runs at 48 kHz whatever the host rate. `fs1r::Device` resamples on the way out, so patch timing is identical everywhere
 - `TICK_HZ` is 192.3 Hz. Only `render`, `render_chan` and `refresh_ctl` run per sample; everything `tick()` reaches is control rate
 - Three tables are filled once by `init_tables()` and have external linkage on purpose. Making them file-static again would give every translation unit its own zeroed copy and the engine would render silence
+- The plug-in's processor runs on two threads: the audio thread sends param changes and MIDI and renders, a worker loads patches and files and reads the engine back into the params. `ctl` guards what both touch, and the audio thread only ever try-locks it. `saving()` finishes whatever the worker has not reached before the host saves
 - Commits here never carry a `Co-Authored-By` line
