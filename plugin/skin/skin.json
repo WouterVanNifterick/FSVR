@@ -53,18 +53,6 @@
   }
  },
  "fonts": {
-  "about_label_slate_12": {
-   "caret": "#000000ff",
-   "selection": "#ffffffff"
-  },
-  "about_text_steel_12": {
-   "caret": "#000000ff",
-   "selection": "#ffffffff"
-  },
-  "about_version_white_12": {
-   "caret": "#000000ff",
-   "selection": "#ffffffff"
-  },
   "caps_white_bold_12": {
    "caret": "#ffffffff",
    "selection": "#ffffff50"
@@ -2018,7 +2006,6 @@
     14
    ]
   },
-  "dialogs/fsvr_about_backdrop": {},
   "panels/group_tab_light": {
    "slice": [
     0,
@@ -2090,6 +2077,18 @@
   },
   "icons/nav_pointer": {
    "surface": false
+  },
+  "branding/musica_studio": {
+   "tiles": 2
+  },
+  "branding/musica_studio_small": {
+   "tiles": 2
+  },
+  "buttons/about_button": {
+   "tiles": 2
+  },
+  "buttons/about_close": {
+   "tiles": 2
   }
  },
  "density": 1.5

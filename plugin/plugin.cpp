@@ -227,6 +227,7 @@ public:
         sel[(size_t)perfProgram] = std::nan("");
         lib.rescan(true);
         st.setData("library.dir", (std::filesystem::u8path(lib.dir) / "").u8string());
+        st.setData("fsvr.version", FSVR_VERSION);   // the About box's header
         writeLists();
         names();
         worker = std::thread([this] { run(); });
@@ -666,6 +667,7 @@ private:
                 // if (mor.size() == 4 * 4 * 608) std::memcpy(corners[p][c].data(), mor.data() + (size_t)(p * 4 + c) * 608, 608);
                 // else
                 std::memcpy(corners[p][c].data(), model.voice[p], 608);
+        st.setData("fsvr.version", FSVR_VERSION);   // a session saved by another version carries its number
         writeLists();
         names();
     }

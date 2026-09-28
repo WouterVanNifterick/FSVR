@@ -1,325 +1,521 @@
 {
  "size": [
-  723,
-  507
+  640,
+  480
  ],
  "fill": {
-  "image": "dialogs/fsvr_about_backdrop"
+  "colour": "#ffffffff"
  },
  "widgets": [
-  {
-   "type": "plate",
-   "name": "version",
-   "rect": [
-    30,
-    36,
-    90,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "0.1.0",
-    "font": "about_version_white_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "owner",
-   "rect": [
-    222,
-    15,
-    255,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "FSVR, a software Yamaha FS1R",
-    "font": "about_text_steel_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "edition",
-   "rect": [
-    603,
-    57,
-    60,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "GUI",
-    "font": "about_text_steel_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "edition_label",
-   "rect": [
-    510,
-    57,
-    105,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "Status:",
-    "font": "about_label_slate_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "cpu_mode",
-   "rect": [
-    222,
-    57,
-    300,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "modelled, calibrated against a real unit",
-    "font": "about_text_steel_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "key_code",
-   "rect": [
-    222,
-    36,
-    360,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "the FS1R's firmware, rewritten from its v1.20 ROM",
-    "font": "about_text_steel_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "sound_credits_1",
-   "rect": [
-    20,
-    291,
-    681,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "Factory banks: the FS1R's 384 performances, 1408 voices and 90 Fseqs, from its own ROM.",
-    "font": "about_text_steel_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "sound_credits_2",
-   "rect": [
-    20,
-    311,
-    645,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "rgwan: the unit, its dumps and the capture sessions.     jameshansen: the project.",
-    "font": "about_text_steel_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "sound_credits_3",
-   "rect": [
-    20,
-    330,
-    645,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "Built with Hollow by musica.studio.",
-    "font": "about_text_steel_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "cpu_label",
-   "rect": [
-    137,
-    57,
-    120,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "Chips:",
-    "font": "about_label_slate_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "key_label",
-   "rect": [
-    137,
-    36,
-    300,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "Engine:",
-    "font": "about_label_slate_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "owner_label",
-   "rect": [
-    137,
-    15,
-    300,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "Plug-in:",
-    "font": "about_label_slate_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "copyright",
-   "rect": [
-    20,
-    362,
-    681,
-    30
-   ],
-   "layer": 0,
-   "text": {
-    "text": "FS1R is a trademark of Yamaha Corporation. FSVR is not made by or affiliated with Yamaha.",
-    "font": "about_text_steel_12"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
   {
    "type": "button",
    "name": "close_area",
    "rect": [
     0,
     0,
-    723,
-    507
+    640,
+    480
    ],
    "press": "up",
-   "pressOffset": [
-    2,
-    2
-   ],
    "param": "gui.about_open",
    "action": {
     "step": -1
    }
   },
   {
-   "type": "textbox",
-   "name": "credits",
+   "type": "plate",
+   "name": "frame_top",
    "rect": [
-    18,
-    156,
-    689,
-    132
+    0,
+    0,
+    640,
+    12
    ],
-   "layer": 4,
+   "layer": 0,
+   "fill": {
+    "colour": "#e8e8e8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "frame_bottom",
+   "rect": [
+    0,
+    468,
+    640,
+    12
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#e8e8e8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "frame_left",
+   "rect": [
+    0,
+    12,
+    12,
+    456
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#e8e8e8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "frame_right",
+   "rect": [
+    628,
+    12,
+    12,
+    456
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#e8e8e8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "edge_top",
+   "rect": [
+    0,
+    0,
+    640,
+    1
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#c8c8c8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "edge_bottom",
+   "rect": [
+    0,
+    479,
+    640,
+    1
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#c8c8c8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "edge_left",
+   "rect": [
+    0,
+    0,
+    1,
+    480
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#c8c8c8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "edge_right",
+   "rect": [
+    639,
+    0,
+    1,
+    480
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#c8c8c8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "version",
+   "rect": [
+    16,
+    16,
+    300,
+    26
+   ],
+   "layer": 0,
    "text": {
-    "text": "FSVR rebuilds the Yamaha FS1R: formant shaping and FM synthesis, eight voiced and eight unvoiced\noperators, 88 algorithms, four parts, formant sequences and the unit's effects.\nIts control logic is the FS1R's own firmware, rewritten in C++ from the decompiled ROM. Its two custom\nchips, for which no documentation exists, are modelled and calibrated against recordings of a real unit.",
-    "font": "about_text_steel_12"
+    "text": "FSVR v{data:fsvr.version|}",
+    "font": "aw_black_24",
+    "align": "left",
+    "valign": "middle"
    },
    "pad": [
-    5,
-    3,
-    2,
-    2
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "button",
+   "name": "publisher",
+   "rect": [
+    437,
+    15,
+    151,
+    21
    ],
-   "multiline": true
+   "layer": 1,
+   "fill": {
+    "image": "branding/musica_studio"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "action": {
+    "url": "https://musica.studio"
+   },
+   "tip": "musica.studio"
+  },
+  {
+   "type": "button",
+   "name": "close_x",
+   "rect": [
+    596,
+    14,
+    32,
+    32
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "buttons/about_close"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "param": "gui.about_open",
+   "action": {
+    "step": -1
+   },
+   "text": {
+    "text": "x",
+    "font": "aw_black_24",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    3
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "logo",
+   "rect": [
+    24,
+    64,
+    162,
+    26
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "branding/fsvr_logo_black"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "intro_1",
+   "rect": [
+    24,
+    104,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "A software Yamaha FS1R. Its control logic is the FS1R's own firmware,",
+    "font": "aw_grey_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "intro_2",
+   "rect": [
+    24,
+    124,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "rewritten in C++ from the decompiled v1.20 ROM; its two custom chips are",
+    "font": "aw_grey_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "intro_3",
+   "rect": [
+    24,
+    144,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "modelled and calibrated against recordings of a real unit.",
+    "font": "aw_grey_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credits",
+   "rect": [
+    24,
+    184,
+    300,
+    32
+   ],
+   "layer": 0,
+   "text": {
+    "text": "credits.",
+    "font": "aw_black_24",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_1_name",
+   "rect": [
+    24,
+    222,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Zhiyuan Wan",
+    "font": "aw_black_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_1_role",
+   "rect": [
+    24,
+    242,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "hardware reverse engineering, testing, development, algorithm improvements",
+    "font": "aw_grey_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_2_name",
+   "rect": [
+    24,
+    272,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "James Hansen",
+    "font": "aw_black_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_2_role",
+   "rect": [
+    24,
+    292,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "project lead, coordination, development and GUI design",
+    "font": "aw_grey_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "fine_1",
+   "rect": [
+    24,
+    332,
+    592,
+    16
+   ],
+   "layer": 0,
+   "text": {
+    "text": "The factory banks are the FS1R's own, read from its ROM. Built with Hollow. Free software, GPLv3.",
+    "font": "aw_grey_13",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "fine_2",
+   "rect": [
+    24,
+    350,
+    592,
+    16
+   ],
+   "layer": 0,
+   "text": {
+    "text": "FS1R is a trademark of Yamaha Corporation. FSVR is not made by or affiliated with Yamaha.",
+    "font": "aw_grey_13",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "button",
+   "name": "site",
+   "rect": [
+    224,
+    396,
+    196,
+    45
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "buttons/about_button"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "action": {
+    "url": "https://musica.studio/code/fsvr"
+   },
+   "text": {
+    "text": "musica.studio.",
+    "font": "aw_black_24",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "tip": "musica.studio/code/fsvr"
+  },
+  {
+   "type": "button",
+   "name": "discord",
+   "rect": [
+    428,
+    396,
+    188,
+    45
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "buttons/about_button"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "action": {
+    "url": "https://discord.gg/6sXu3GmkNm"
+   },
+   "text": {
+    "text": "discord.",
+    "font": "aw_black_24",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "tip": "The FSVR Discord"
   }
  ]
 }

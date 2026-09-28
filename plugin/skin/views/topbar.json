@@ -3307,6 +3307,25 @@
    "line": "#ffffffff",
    "draw": "trace",
    "hidden": true
+  },
+  {
+   "type": "button",
+   "name": "musica_studio",
+   "rect": [
+    1264,
+    20,
+    128,
+    17
+   ],
+   "fill": {
+    "image": "branding/musica_studio_small"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "action": {
+    "url": "https://musica.studio"
+   },
+   "tip": "musica.studio"
   }
  ]
 }

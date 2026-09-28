@@ -178,10 +178,10 @@
    "type": "embed",
    "name": "about_box",
    "rect": [
-    350,
-    168,
-    723,
-    507
+    391,
+    181,
+    640,
+    480
    ],
    "layer": 7,
    "view": "dialog_about",

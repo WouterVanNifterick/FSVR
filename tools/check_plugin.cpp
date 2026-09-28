@@ -135,6 +135,7 @@ int main() {
     Rig a;
     CHECK(a.st->size() > 3000, "the skin's params did not load (%zu)", a.st->size());
     CHECK(!a.data("library.dir").empty(), "no library.dir");
+    CHECK(!a.data("fsvr.version").empty(), "no fsvr.version for the About box");
 
     // A fresh instance plays what its LCD names: A001 "Zap !", B021 on part 1, a Sound FX.
     CHECK(a.until([&] { return a.is("part.bank.p1", 3) && a.is("part.program.p1", 21); }), "A001 did not load its part 1 voice B021 (bank %g, program %g)",
