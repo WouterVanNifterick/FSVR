@@ -104,13 +104,14 @@ What is left is **the effects layer, VOP3-2**: 87 algorithms modelled from the D
 
 ### Prebuilt
 
-[The latest release](https://github.com/musicastudio/FSVR/releases/latest) has zipped CLAP, VST3, VST2 and standalone builds for Windows, Linux and macOS, with an AU for Logic Pro in the macOS zip and a 32-bit VST2 carrying a DXi (Cakewalk's older plug-in format, registered with `regsvr32`) in the Windows x86 zip. The macOS builds are universal, Apple silicon and Intel in one binary. No installer, no dependencies. [docs/plugin_guide.md](docs/plugin_guide.md) is the user guide.
+[The latest release](https://github.com/musicastudio/FSVR/releases/latest), also on [musica.studio](https://musica.studio/code/fsvr), has an installer for Windows, macOS and Linux that puts every format in place, and each format as its own zip, `FSVR-<OS>-<format>.zip`: CLAP, VST3, VST2 and standalone everywhere, an AU for Logic Pro on macOS, and on Windows `FSVR-Windows-VST2-32-DXi.zip`, a 32-bit VST2 carrying a DXi (Cakewalk's older plug-in format, registered with `regsvr32`). The macOS builds are universal, Apple silicon and Intel in one binary. No dependencies. [docs/plugin_guide.md](docs/plugin_guide.md) is the user guide.
 
-Every push to `main` builds the same set through [GitHub Actions](https://github.com/musicastudio/FSVR/actions), so a build for an OS you do not own is always one Actions run away, including on a fork. `.github/workflows/build.yml` is three jobs:
+Every push to `main` builds the same set through [GitHub Actions](https://github.com/musicastudio/FSVR/actions), so a build for an OS you do not own is always one Actions run away, including on a fork. `.github/workflows/build.yml` is four jobs:
 
 - **engine**, on `windows-latest`, `ubuntu-latest` and `macos-latest`. Plain CMake with no downloads, then `ctest`, which runs the effect and engine self checks everywhere. Uploads `FSVR-console-windows`.
 - **plugin**, on Windows x64, Windows x86, Linux and macOS. Installs the X11, ALSA, JACK and PulseAudio headers on Linux, configures with `-DFSVR_BUILD_PLUGIN=ON`, runs the plug-in's own check (`check_plugin`) on the 64-bit legs, and uploads `FSVR-plugin-windows`, `FSVR-plugin-windows-x86`, `FSVR-plugin-linux` and `FSVR-plugin-macos`, each holding every format for that platform.
-- **release**, on a `v*` tag only. Zips every artifact and attaches it to a GitHub release.
+- **installer**, on Linux. Checks out [musicastudio/Installer](https://github.com/musicastudio/Installer), packs the plug-in artifacts into it and builds `FSVR-Windows-Installer.exe`, `FSVR-MacOS-Installer.zip`, `FSVR-Linux-Installer` and `FSVR-MacOS-Update` (the bare binary the macOS updater runs), at the version in `CMakeLists.txt`.
+- **release**, on a `v*` tag only. Splits the plug-in artifacts into one zip per format, named as FM8.plus names its own (`FSVR-Windows-VST2-64.zip`, `FSVR-Windows-VST2-32-DXi.zip`, `FSVR-MacOS-AU.zip` and so on), adds the installers, the console and `SHA256SUMS.txt`, and attaches them to a GitHub release. The installers' updater never reads GitHub: musica.studio mirrors each release and serves the update from there.
 
 ### Building it
 

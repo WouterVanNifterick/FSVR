@@ -13,7 +13,9 @@ The plugin is a controller for the engine, not a second synthesiser. Everything 
 | DXi | inside the 32-bit `FSVR.dll` | | |
 | Standalone | `FSVR.exe` | `FSVR.app` | `FSVR` |
 
-Copy what your host loads into its plug-in folder: on Windows `C:\Program Files\Common Files\CLAP` and `...\VST3`; on macOS `~/Library/Audio/Plug-Ins/CLAP`, `VST3`, `VST` and `Components` (Logic Pro loads only the AU, scans it at launch and validates a new one once); on Linux `~/.clap`, `~/.vst3` and `~/.vst`. The macOS builds are universal, Apple silicon and Intel in one binary. The DXi, for Cakewalk's older hosts, registers with `regsvr32 "FSVR.dll"` from an elevated prompt, the 32-bit DLL from `VST2 32-bit and DXi`.
+The installer (`FSVR-Windows-Installer.exe`, `FSVR-MacOS-Installer.zip`, `FSVR-Linux-Installer` on [the release page](https://github.com/musicastudio/FSVR/releases/latest) or [musica.studio](https://musica.studio/code/fsvr)) puts every format in the folders hosts scan, with all of them ticked by default, and can keep FSVR up to date through musica.studio. To install by hand, each format is also its own zip, `FSVR-<OS>-<format>.zip`.
+
+Copy what your host loads into its plug-in folder: on Windows `C:\Program Files\Common Files\CLAP` and `...\VST3`; on macOS `~/Library/Audio/Plug-Ins/CLAP`, `VST3`, `VST` and `Components` (Logic Pro loads only the AU, scans it at launch and validates a new one once); on Linux `~/.clap`, `~/.vst3` and `~/.vst`. The macOS builds are universal, Apple silicon and Intel in one binary. The DXi, for Cakewalk's older hosts, registers with `regsvr32 "FSVR.dll"` from an elevated prompt, the 32-bit DLL from `FSVR-Windows-VST2-32-DXi.zip` (the installer does this for you).
 
 Nothing here is signed by an Apple developer account, so the first launch of the macOS standalone needs **Open** from its right-click menu, or one command to drop the quarantine flag the download put on it:
 

@@ -90,8 +90,51 @@ jobs:
           path: FSVR-plugin-${{ matrix.name }}.zip
           if-no-files-found: error
 
+  # The installers, from musicastudio/Installer (the engine) with the plug-in artifacts above as their
+  # payloads, all three built on Linux: Windows and macOS cross-compile, Linux needs cgo and X11. The
+  # version is FSVR's own, out of CMakeLists.txt, and a tag that disagrees with it fails here. The
+  # installer's licensed font comes from the INSTALLER_FONT secret, payload/font.bin in base64, already
+  # cut and scrambled by the Installer's build.sh; without it the installers draw in Go Mono.
+  installer:
+    needs: plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: musicastudio/Installer
+          path: installer
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: installer/go.mod
+          cache-dependency-path: installer/go.sum
+      - name: Linux dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev xorg-dev
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: FSVR-plugin-*
+          path: plugin
+      # Windows x64 and x86 go into one folder, the layout of a local bin/.
+      - name: Payloads
+        run: |
+          for p in windows windows-x86 macos linux; do unzip -qo "plugin/FSVR-plugin-$p/FSVR-plugin-$p.zip" -d "bin-${p%-x86}"; done
+      - name: Build
+        env:
+          INSTALLER_FONT: ${{ secrets.INSTALLER_FONT }}
+        run: |
+          v=$(sed -n 's/^project(fsvr VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$v" ]; then echo "tag $GITHUB_REF_NAME, but CMakeLists.txt says $v"; exit 1; fi
+          if [ -n "$INSTALLER_FONT" ]; then echo "$INSTALLER_FONT" | base64 -d > installer/payload/font.bin; fi
+          VERSION=$v BIN_WINDOWS=$PWD/bin-windows BIN_MACOS=$PWD/bin-macos BIN_LINUX=$PWD/bin-linux installer/build.sh
+          cd installer/dist && zip -qry FSVR-MacOS-Installer.zip FSVR-MacOS-Installer.app && rm -r FSVR-MacOS-Installer.app && ls -l
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FSVR-installers
+          path: installer/dist/*
+          if-no-files-found: error
+
   release:
-    needs: [engine, plugin]
+    needs: [engine, plugin, installer]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -110,16 +153,26 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      # The plugin jobs upload a ready zip each, so only the console artifact is still loose files.
-      - name: Zip the console
+      # One zip per format, named as FM8.plus names its assets: FSVR-<OS>-<format>.zip, each holding
+      # just that format's files, so FSVR-Windows-VST3.zip opens onto FSVR.vst3. The 64-bit Windows VST2
+      # is VST2-64 beside the 32-bit VST2-32-DXi, which carries the DXi in the same DLL. The installers
+      # and the console go up as they are, with SHA256SUMS.txt over the lot.
+      - name: Release files
         run: |
-          cd artifacts
-          for d in */; do
-            n=${d%/}
-            if [ -f "$n/$n.zip" ]; then mv "$n/$n.zip" . && rmdir "$n"; else (cd "$n" && zip -r "../$n.zip" .); fi
-          done
-          ls -l
+          out=$PWD/release && mkdir -p "$out"
+          split() { # split <artifact> <OS>
+            rm -rf x && mkdir x && unzip -q "artifacts/FSVR-plugin-$1/FSVR-plugin-$1.zip" -d x
+            for d in x/*/; do
+              f=$(basename "$d")
+              case "$f/$2" in "VST2 32-bit and DXi/"*) f=VST2-32-DXi ;; VST2/Windows) f=VST2-64 ;; esac
+              (cd "$d" && zip -qry "$out/FSVR-$2-$f.zip" .)
+            done
+          }
+          split windows Windows && split windows-x86 Windows && split macos MacOS && split linux Linux
+          (cd artifacts/FSVR-console-windows && zip -q "$out/FSVR-Windows-Console.zip" fsvr_console.exe)
+          cp artifacts/FSVR-installers/* "$out/"
+          cd "$out" && sha256sum * > SHA256SUMS.txt && ls -l
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.zip
+          files: release/*
           body_path: notes.md
