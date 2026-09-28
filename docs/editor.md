@@ -1,11 +1,11 @@
 # The FSVR editor
 
-The plug-in's editor covers everything the Yamaha FS1R has, in Hollow FM 3's hammered aqua chrome: a [Hollow](../hollow/docs/framework.md) skin in `plugin/skin`, drawn by the framework's software renderer, and a processor (`plugin/plugin.cpp`) that answers it out of the engine. This file records the choices where software and the unit part ways, what the processor does for each control the unit never had, and the usability fixes from a sweep of every page. The skin is generated in the Hollow project (`tools/fsvr`, from Hollow FM 3's artwork and this repository's tables) and published here with its chrome burnt into the artwork; [plugin_guide.md](plugin_guide.md) is how to use it.
+The plug-in's editor covers everything the Yamaha FS1R has, in hammered aqua chrome: a [Hollow](../hollow/docs/framework.md) skin in `plugin/skin`, drawn by the framework's software renderer, and a processor (`plugin/plugin.cpp`) that answers it out of the engine. This file records the choices where software and the unit part ways, what the processor does for each control the unit never had, and the usability fixes from a sweep of every page. The skin is edited in place with the Hollow project's web editor, and its chrome is burnt into the artwork; [plugin_guide.md](plugin_guide.md) is how to use it.
 
 ## Rules
 
-- **Look.** About 70 to 80 percent Hollow FM 3, with light FS1R touches: the green LCD, the dot font, the graphite pod and dark buttons. Hollow FM 3's own controls (pots, dropdowns, tags) stay; none are redrawn by hand. Two changes make them FSVR's own: the pots' caps are inverted (graphite with a light pointer, their bezel and shading kept), and the faders' handle is that cap without its pointer at three quarters, on a disc of the panel's colour, over the track at half its width.
-- **The chrome is in the artwork.** Hollow lays its surface over the artwork at run time; FSVR's copy has it burnt into the images (`hollow-bake`), so every place renders the same pixels with no surface at run time, checked by rendering the window both ways.
+- **Look.** Hammered aqua chrome over slate panels, with light FS1R touches: the green LCD, the dot font, the graphite pod and dark buttons. The pots, dropdowns and tags share one style across every page, on light translucent plates inside each group, and each group's title is a tab on top of its box, left-aligned with 45 degree sides. Whatever is lit (a toggle, the chosen page, part or operator) lights in the LCD's green, the green of the browser's chosen row. The pots' caps are graphite with a light pointer, and the faders' handle is that cap without its pointer at three quarters, on a disc of the panel's colour, over the track at half its width.
+- **The chrome is in the artwork.** Hollow's runtime can lay a surface texture over a skin's artwork; FSVR's skin has its chrome burnt into the images instead (`hollow-bake`), so every place renders the same pixels with no surface at run time, checked by rendering the window both ways.
 - **Limits from the unit's memory or panel go.** Software has no battery-backed RAM to share out and no physical knobs, so a limit that exists only for those reasons is dropped from the GUI.
 - **Limits from the unit's data formats stay.** FSVR reads and writes the FS1R's own sysex, so four parts, eight voiced and eight unvoiced operators, one Fseq per performance, the insertion, variation, reverb and EQ chain, and the name lengths all keep the format's shape.
 - **Limits in the engine stay in the GUI until the engine lifts them.** The engine runs the FS1R's own firmware, rewritten from the decompiled ROM, so its 32-note allocation is real. The GUI keeps the unit's note reserve controls rather than promising voices the engine won't play.
@@ -49,6 +49,8 @@ The unit has two knob mode buttons. With the upper one lit, its four knobs edit 
 
 ### The morph square
 
+**Off for now.** The square is gone from the Easy page and its code is commented out in `plugin/plugin.cpp` until it works: every edit reaches all four corners, so a part plays its one voice wherever the morph params sit, and a session's saved corners are ignored. What follows is how it worked.
+
 The morph square, on the Easy page: four corner voices per part, blended into the one voice the part plays. [Differences.md](Differences.md) has it as a difference from the unit.
 
 - **What the square does.** A part's morph holds four corner voices, one per corner of the square. The square's position blends them, a random amount on each axis nudges every note's position (from a seed), Normalize copies one corner into all four, and the edit pages edit one corner or all of them.
@@ -60,6 +62,14 @@ The morph square, on the Easy page: four corner voices per part, blended into th
 - **Random.** Each note moves the position by up to the random amounts, from a generator seeded by the seed. The engine holds one voice per part, as the unit does, so the notes already sounding follow the newest note's position, rather than each voice moving on its own.
 - **Params per part.** `part.morph_x`, `part.morph_y` (0 to 100, host-automatable), `part.morph_jitter_x`, `part.morph_jitter_y`, `part.morph_seed`, and `part.morph_edit` (A, B, C, D or All), editor state the host doesn't list.
 
+### The algorithm browser
+
+The unit picks an algorithm by number from a list; FSVR draws them.
+
+- **The header.** The matrix's header (`fm_matrix`, embedded by the six expert pages) holds the algorithm's number with ▼ and ▲ and Select Algorithm on one plate, and the Feedback pot, once for every page. The matrix's artwork came with FM8's pan row under the output row, which FSVR never drew into; it is gone, and the matrix sits one row lower under a taller header.
+- **Browsing.** Select Algorithm swaps the matrix for `alg_browser`: the 88 algorithms as small matrices, Hollow's `matrix_wires` with a fixed `number` at a `scale`, 2x2, 3x3 or 4x4 at a time (the skin var `alg_grid`, kept with the GUI state). The scroll bar is the morph square's Rnd Amt fader, its track and handle cut from `faders/morph_y`.
+- **Choosing.** The browser opens scrolled to the current algorithm, lit in green. A click sets `voice.alg.pN` and goes back to the matrix; Cancel goes back without a change.
+
 ### Import Audio
 
 The Fseq page's Import Audio makes an Fseq of your own out of a WAV, AIFF, MP3, Ogg Vorbis or MP4/M4A file (`plugin/audio_fseq.cpp`, after [fseq-flash](https://github.com/zkarcher/fseq-flash)): per frame a pitch from the autocorrelation, and eight formants picked from the smoothed spectrum as its strongest peaks at least a bandwidth apart, their level split between the voiced and the unvoiced operators by how periodic the frame is. The frame bytes are written on the engine's own scales (`fs1r::Device::fseqWord`, `fseqLevel`), the header's speed makes the Fseq play at the sound's own pace, as many frames as fit in 512, and its note is the key that plays the sound at its own pitch. The Fseq is a bank of its own in the library, named after the file, loads at once, and plays on the performance's Fseq part (part 1 when none has it). A voice whose operators follow the Fseq is what voices it: the factory's FseqBase voices, B115 to B128, are made for that.
@@ -70,12 +80,13 @@ The Fseq page's Import Audio makes an Fseq of your own out of a WAV, AIFF, MP3, 
 - **Panic** (the bezel's top button) is all notes off while held.
 - **The LCD's POLY** counts the voices sounding, one per part a key plays, out of the unit's 32. CPU is the audio thread's load.
 - **File > Options** opens the Performance page, where the system settings are.
+- **File > Audio/MIDI Settings**, listed in the standalone only, opens clap-wrapper's own device window: on Windows the command its window's system menu sends, on macOS its app menu's action. Linux's standalone has no such window, so the item is not listed there.
 
 ## Usability sweep
 
 ### Text overflow
 
-The skin generator measures text against its widget with the skin's own font strips, the way the runtime measures it: every static caption, every choice a dropdown can show, every label or the widest number a number field can show, and every list cell. It found 25 overflows in the pages as they stood, and a few more in the new controls as they went in; the skin has none. The fixes:
+Hollow's `tools/overflow.py` measures text against its widget with the skin's own font strips, the way the runtime measures it: every static caption, every choice a dropdown can show, every label or the widest number a number field can show, and every list cell. It found 25 overflows in the pages as they stood, and a few more in the new controls as they went in; the skin has none. The fixes:
 
 - **Dropdowns.** The text pad cleared 14 px on the right while the arrow reaches 19 px in, so long choices ("Performance", "Int Voice 128") ran under the arrow. The pad is 21 px.
 - **Centred tags.** The label plates' text pad is 1 px each side (was 3 and 2), giving captions like "Transpose", "Bandwidth" and "Resonance" the room they need on the operator page.
@@ -108,11 +119,11 @@ The FS1R's noise generator is its eight unvoiced operators. Each is noise shaped
 
 ## Everything fitted
 
-Of the FS1R's params, every one is on a page except these, all on purpose: the unit-only settings (above); the reverb's and variation's tenth parameter slot, which no effect type in the Data List uses; and a receive channel range for parts 3 and 4, since the manual gives Rcv Max to parts 1 and 2 only, though the sysex has the byte for all four. The skin generator checks every build for a param no view reaches.
+Of the FS1R's params, every one is on a page except these, all on purpose: the unit-only settings (above); the reverb's and variation's tenth parameter slot, which no effect type in the Data List uses; and a receive channel range for parts 3 and 4, since the manual gives Rcv Max to parts 1 and 2 only, though the sysex has the byte for all four.
 
 ## Readouts
 
-Values read the way the unit shows them, from `src/fsvr/display.h`, which the skin generator turns into the skin's data tables `fixed_freq`, `op_ratio` and `fx_values`.
+Values read the way the unit shows them, from `src/fsvr/display.h`, which the skin's data tables `fixed_freq`, `op_ratio` and `fx_values` were made from.
 
 - **Effects.** One slot param means something different in each effect type (Reverb Param 1 is Hall1's Reverb Time and Delay LCR's Lch Delay), so each slot has a readout per type, shown with its type, through that type's value table ("2.0" seconds, "4.0k", "thru", "D=W"), or for the 14-bit delay times the value as milliseconds, and a drag stays within what that type takes.
 - **Operator frequency.** The coarse display reads as the unit reads F.Coarse: a voiced operator's ratio (0.500 to 61.69, from coarse and fine), or in fixed mode, and for an unvoiced operator, the frequency in hertz, with "Hz" beside it.
@@ -152,7 +163,7 @@ Program change reaches the same params the unit's way: on the performance channe
 
 ## Validation against K_Take's FS1R Editor
 
-K_Take's FS1R Editor (freeware; Windows 1.62 from 2020, Mac 1.1.0 from 2015) is an independent editor for the unit, built from Yamaha's documentation and the hardware. Both builds were disassembled with Ghidra outside the repositories, and the tables its Mac build creates at launch were compared with what the skin generator builds from this repository's Data List and ROM data.
+K_Take's FS1R Editor (freeware; Windows 1.62 from 2020, Mac 1.1.0 from 2015) is an independent editor for the unit, built from Yamaha's documentation and the hardware. Both builds were disassembled with Ghidra outside the repositories, and the tables its Mac build creates at launch were compared with the skin's tables, made from this repository's Data List and ROM data.
 
 | Area | Compared | Result |
 |---|---|---|

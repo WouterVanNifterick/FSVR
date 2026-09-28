@@ -459,6 +459,24 @@ void Gui::setScroll(Node& n, int i, int pixels) {
     if (s.child) saveUi();
 }
 
+// An embed with scroll "reveal" centres the first radio button inside it that is on (a chooser's
+// current choice), after an action changes pages or vars.
+void Gui::reveal(Node& n) {
+    for (size_t i = 0; n.view && i < n.w.size(); ++i) {
+        Inst& s = n.w[i];
+        if (!s.child) continue;
+        const Node& c = *s.child;
+        for (size_t k = 0; n.view->widgets[i].scroll.reveal && c.view && k < c.w.size(); ++k) {
+            const Action& a = c.view->widgets[k].action;
+            if (a.type == Action::Value && c.w[k].param >= 0 && state_.get(c.w[k].param) == a.amount) {
+                setScroll(n, (int)i, c.w[k].r.y + c.w[k].r.h / 2 - rectOf(n, (int)i).h / 2);
+                break;
+            }
+        }
+        reveal(*s.child);
+    }
+}
+
 // The innermost embed or list under the point whose content is taller than it.
 Hit Gui::scroller(Node& n, int x, int y) {
     if (!n.view || !n.clip.contains(x, y)) return {};
@@ -1191,6 +1209,9 @@ void Gui::runAction(Node& n, int i, const Action& action) {
     case Action::Url:
         platformOpenUrl(a.target);
         return;
+    case Action::Standalone:   // "settings": the app's audio and MIDI settings
+        if (window && standalone()) platformAudioSettings(window);
+        return;
     case Action::File: {   // a native dialog; the chosen path goes to text data, for the product to act on
         std::string path;
         if (!window || !platformFileDialog(window, a.target == "save", a.title, a.vars, withData(n, a.nameKey), path)) return;
@@ -1209,14 +1230,6 @@ void Gui::runAction(Node& n, int i, const Action& action) {
         return;
     case Action::Data:   // text data keys set to the given texts (a curve reset, a name)
         for (auto& kv : a.vars) state_.setData(subst(n, kv.first), kv.second);
-        return;
-    case Action::Value:   // a radio button: its param to this value
-        if (n.w[i].param >= 0) {
-            Hit h{&n, i, gen_};
-            begin(h);
-            setPlain(h, a.amount);
-            end();
-        }
         return;
     case Action::Step:
         if (n.w[i].param >= 0) {
@@ -1237,6 +1250,15 @@ void Gui::runAction(Node& n, int i, const Action& action) {
         inst(t).toggled = true;
         break;
     }
+    case Action::Value:   // a radio button: its param to this value, then its goto if it has one
+        if (n.w[i].param >= 0) {
+            Hit h{&n, i, gen_};
+            begin(h);
+            setPlain(h, a.amount);
+            end();
+        }
+        if (a.stack.empty()) return;
+        [[fallthrough]];
     case Action::Goto: {
         int k;
         Node* p = findEmbed(root_, a.stack, &k);
@@ -1247,12 +1269,13 @@ void Gui::runAction(Node& n, int i, const Action& action) {
     }
     conds(root_, false);
     relayout();
+    reveal(root_);
     saveUi();
 }
 
 // ---- step sequences ---------------------------------------------------------------------------------
 
-// A three-component Tausworthe generator, as the original's sequencer uses, seeded per editor.
+// A three-component Tausworthe generator, seeded per editor.
 uint32_t Gui::random() {
     uint32_t& s1 = taus_[0];
     uint32_t& s2 = taus_[1];
@@ -1265,7 +1288,7 @@ uint32_t Gui::random() {
 
 // Params <prefix><n>.<leaf>, n = 1..count, as a step sequence. insert / delete shift every leaf at
 // step index; reset sets one leaf row to its defaults; random fills it with random valid values,
-// by the original's rules for its rows (on, tie, accent: a coin; octave -1..1; note_order: steps
+// by these rules for the rows (on, tie, accent: a coin; octave -1..1; note_order: steps
 // that are on 0..7, steps that are off the previous on-step's value; transpose: a major or minor
 // scale degree, the scale picked once per row), uniform over the param's values otherwise.
 void Gui::sequence(Node& n, const Action& a) {
@@ -1629,8 +1652,8 @@ void Gui::mouseLeave() {
 }
 
 // Dials and numbers with a "wheel" fraction move by it per notch (Shift multiplies it by fine); a
-// stepped param keeps the unsnapped remainder between notches and lands on the nearest step, as the
-// original's knobs do. Elsewhere the wheel scrolls the embed or list under the pointer.
+// stepped param keeps the unsnapped remainder between notches and lands on the nearest step.
+// Elsewhere the wheel scrolls the embed or list under the pointer.
 void Gui::wheel(int x, int y, double notches, bool shift) {
     if (live(press_) || !menus_.empty()) return;
     hideTip(true);
@@ -1647,7 +1670,7 @@ void Gui::wheel(int x, int y, double notches, bool shift) {
         end();
         return;
     }
-    // Shortcut: 30 px per notch in embeds (the original's rack step is not known), a row in lists.
+    // Shortcut: 30 px per notch in embeds (a fixed step, not measured), a row in lists.
     if (Hit e = scroller(root_, x, y)) {
         const Widget& w = wid(e);
         int step = w.kind == Kind::List ? std::max(1, w.rowHeight + w.rowGap) : skin_->dp(30);
@@ -1977,6 +2000,7 @@ void Gui::itemMenu(const Hit& h, const std::vector<Item>& items, Rect at, const 
     std::function<std::vector<MenuEntry>(const std::vector<Item>&)> build = [&](const std::vector<Item>& its) {
         std::vector<MenuEntry> out;
         for (auto& it : its) {
+            if (it.action.type == Action::Standalone && !standalone()) continue;   // only the app has its settings
             MenuEntry e;
             e.label = it.label;
             e.separator = it.separator;
@@ -2011,7 +2035,7 @@ void Gui::itemMenu(const Hit& h, const std::vector<Item>& items, Rect at, const 
 void Gui::dropdown(const Hit& h) { itemMenu(h, wid(h).items, menuAnchor(h), wid(h).menuStyle, true); }
 
 // A menu opens below its widget (or over it, by style), or with "menuAt" at a point of the widget's
-// view: the original opens its native menus at the top-left of a neighbouring value field.
+// view, such as the top-left of a neighbouring value field.
 Rect Gui::menuAnchor(const Hit& h) const {
     Rect r = rectOf(*h.node, h.i);
     const Widget& w = wid(h);
@@ -2048,7 +2072,7 @@ void Gui::openMenu(std::vector<MenuEntry> items, Rect at, const std::string& sty
     const MenuStyle* st = &skin_->menu;
     auto named = skin_->menuStyles.find(style);
     if (named != skin_->menuStyles.end()) st = &named->second;
-    if ((style == "native" && kNativeMenus) || !st->on) {   // the original's native menus check only toggle items, never the current value
+    if ((style == "native" && kNativeMenus) || !st->on) {   // native menus check only toggle items, never the current value
         pick(platformMenu(window, items, at.x, at.y + at.h));
         return;
     }
@@ -2388,7 +2412,7 @@ void Gui::watch(std::shared_ptr<Skin> skin) {
 // ---- GUI state ----------------------------------------------------------------------------------
 
 // Asks the host for the new size and sizes our window; when the host declines (or cannot resize),
-// the windows around ours are resized too, as the original does.
+// the windows around ours are resized too.
 void Gui::resizeWindow() {
     if (!window) return;
     bool asked = host_ && host_->resize(w_ * scale_, h_ * scale_);

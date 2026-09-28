@@ -81,180 +81,125 @@
    "type": "plate",
    "name": "perf_title",
    "rect": [
-    120,
-    15,
-    119,
-    21
+    20,
+    16,
+    124,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Performance",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "perf_title_icon",
-   "rect": [
-    225,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {
    "type": "plate",
    "name": "midi_title",
    "rect": [
-    527,
-    15,
-    96,
-    21
+    365,
+    16,
+    73,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "MIDI",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "midi_title_icon",
-   "rect": [
-    595,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {
    "type": "plate",
    "name": "master_title",
    "rect": [
-    131,
-    264,
-    96,
-    21
+    20,
+    265,
+    89,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Master",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "master_title_icon",
-   "rect": [
-    206,
-    267,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {
    "type": "plate",
    "name": "receive_title",
    "rect": [
-    511,
-    264,
-    128,
-    21
+    365,
+    265,
+    125,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "MIDI Receive",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "receive_title_icon",
-   "rect": [
-    625,
-    267,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {
    "type": "plate",
    "name": "cc_title",
    "rect": [
-    923,
-    15,
-    182,
-    21
+    813,
+    16,
+    163,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Controller Numbers",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "cc_title_icon",
-   "rect": [
-    1086,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {

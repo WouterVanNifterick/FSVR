@@ -10,6 +10,9 @@ captures/analysis/
 captures/demo/render/
 captures/raw/
 *.flac
+
+# the Hollow editor's tile and glyph exports, kept next to plugin/skin
+plugin/tiles/
 __pycache__/
 
 # the calibration log tools/demo_probe.py appends to

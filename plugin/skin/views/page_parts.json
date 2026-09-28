@@ -22,40 +22,49 @@
    }
   },
   {
+   "type": "plate",
+   "name": "part_1_tab",
+   "rect": [
+    20,
+    16,
+    97,
+    20
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_tab_light"
+   }
+  },
+  {
    "type": "button",
    "name": "part_1_select",
    "rect": [
-    122,
-    9,
-    80,
-    24
+    38,
+    16,
+    57,
+    20
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/part_radio"
    },
    "text": {
     "text": "Part 1",
-    "font": "label_white_13",
-    "align": "center",
-    "valign": "middle"
+    "font": "caption_grey_12",
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "hoverTiles": true,
-   "pressOffset": [
-    1,
-    1
+    18,
+    4,
+    0,
+    0
    ],
    "action": {
     "set": {
      "part": "p1"
     }
    },
-   "tip": "Edit part 1"
+   "tip": "Edit part 1",
+   "layer": 1
   },
   {
    "type": "plate",
@@ -1915,40 +1924,49 @@
    }
   },
   {
+   "type": "plate",
+   "name": "part_2_tab",
+   "rect": [
+    325,
+    16,
+    100,
+    20
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_tab_light"
+   }
+  },
+  {
    "type": "button",
    "name": "part_2_select",
    "rect": [
-    427,
-    9,
-    80,
-    24
+    343,
+    16,
+    60,
+    20
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/part_radio"
    },
    "text": {
     "text": "Part 2",
-    "font": "label_white_13",
-    "align": "center",
-    "valign": "middle"
+    "font": "caption_grey_12",
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "hoverTiles": true,
-   "pressOffset": [
-    1,
-    1
+    18,
+    4,
+    0,
+    0
    ],
    "action": {
     "set": {
      "part": "p2"
     }
    },
-   "tip": "Edit part 2"
+   "tip": "Edit part 2",
+   "layer": 1
   },
   {
    "type": "plate",
@@ -3808,40 +3826,49 @@
    }
   },
   {
+   "type": "plate",
+   "name": "part_3_tab",
+   "rect": [
+    630,
+    16,
+    100,
+    20
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_tab_light"
+   }
+  },
+  {
    "type": "button",
    "name": "part_3_select",
    "rect": [
-    732,
-    9,
-    80,
-    24
+    648,
+    16,
+    60,
+    20
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/part_radio"
    },
    "text": {
     "text": "Part 3",
-    "font": "label_white_13",
-    "align": "center",
-    "valign": "middle"
+    "font": "caption_grey_12",
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "hoverTiles": true,
-   "pressOffset": [
-    1,
-    1
+    18,
+    4,
+    0,
+    0
    ],
    "action": {
     "set": {
      "part": "p3"
     }
    },
-   "tip": "Edit part 3"
+   "tip": "Edit part 3",
+   "layer": 1
   },
   {
    "type": "plate",
@@ -5576,40 +5603,49 @@
    }
   },
   {
+   "type": "plate",
+   "name": "part_4_tab",
+   "rect": [
+    935,
+    16,
+    101,
+    20
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_tab_light"
+   }
+  },
+  {
    "type": "button",
    "name": "part_4_select",
    "rect": [
-    1037,
-    9,
-    80,
-    24
+    953,
+    16,
+    61,
+    20
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/part_radio"
    },
    "text": {
     "text": "Part 4",
-    "font": "label_white_13",
-    "align": "center",
-    "valign": "middle"
+    "font": "caption_grey_12",
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "hoverTiles": true,
-   "pressOffset": [
-    1,
-    1
+    18,
+    4,
+    0,
+    0
    ],
    "action": {
     "set": {
      "part": "p4"
     }
    },
-   "tip": "Edit part 4"
+   "tip": "Edit part 4",
+   "layer": 1
   },
   {
    "type": "plate",

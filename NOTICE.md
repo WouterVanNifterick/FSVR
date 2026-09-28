@@ -19,7 +19,7 @@ These are Yamaha's data. They are included because the emulation is worthless wi
 
 **Documentation quoted from:** the FS1R owner's manual and Data List (Yamaha, 1998) and US patent 5,610,354. The text files under `docs/` are conversions kept for reference while working; the parameter tables in `plugin/generated/parameterDescriptions_fs1r.json` are derived from them. `src/fsvr/display.h` is transcribed from K_Take's freeware FS1R Editor, with credit in the file.
 
-**The editor's artwork** in `plugin/skin/images` and `plugin/skin/fonts` is derived from the editor artwork of Native Instruments' FM8: FM8's own panels, controls and bitmap fonts, upscaled to 1.5x, restyled with a hammered chrome surface burnt into the artwork, recoloured and tinted, with operator boxes, value tags, the LCD, the header pod and the wordmark drawn anew. It is not ours to license. Drawn into it under their own licences: glyphs of the [Saira](https://fonts.google.com/specimen/Saira) typeface (SIL Open Font License 1.1) and icons from Google's [Material Symbols](https://fonts.google.com/icons) (Apache License 2.0). The layouts in `plugin/skin/views` and the tables in `plugin/skin/data` are this project's.
+**The editor** features aspects under their own licences: glyphs of the [Saira](https://fonts.google.com/specimen/Saira) typeface (SIL Open Font License 1.1) and icons from Google's [Material Symbols](https://fonts.google.com/icons) (Apache License 2.0). The layouts in `plugin/skin/views` and the tables in `plugin/skin/data` are this project's.
 
 **In `hollow/third_party/`, under their own licences:** `stb/` (stb_image and stb_image_write, public domain or MIT), `strmbase/` (Microsoft's DirectShow BaseClasses, MIT, for the DXi), and `vst2/`, a minimal VST 2.4 ABI header written for this project from the public interface description.
 
@@ -29,4 +29,4 @@ These are Yamaha's data. They are included because the emulation is worthless wi
 
 ## Trademarks
 
-Yamaha and FS1R are trademarks of Yamaha Corporation; Native Instruments and FM8 are trademarks of Native Instruments GmbH; VST is a trademark of Steinberg Media Technologies GmbH. This project is not affiliated with, endorsed by, or connected to any of them in any way.
+Yamaha and FS1R are trademarks of Yamaha Corporation; VST is a trademark of Steinberg Media Technologies GmbH. This project is not affiliated with, endorsed by, or connected to any of them in any way.

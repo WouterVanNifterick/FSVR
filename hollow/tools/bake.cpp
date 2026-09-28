@@ -3,7 +3,7 @@
 // root through embeds and the pages their stacks switch to, in that order), so that place renders the
 // same pixels with the surface off. An image nothing draws is baked at the window's corner. Prints each
 // image it wrote and anything the bake cannot carry (a colour fill the surface would change); the caller
-// then drops "surface" from skin.json (tools/fsvr/publish.py in Hollow).
+// then drops "surface" and its textures from skin.json.
 #include "core/core.h"
 #include "embedded_skin.h"
 #include <cstdio>

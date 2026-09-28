@@ -4,7 +4,7 @@
 
 namespace hollow {
 
-// Over an opaque canvas the blends are the original's, measured pixel for pixel against it: images
+// Over an opaque canvas the blends are integer ones: images
 // and glyphs (s a + d (255 - a)) >> 8, fills and single pixels (s a + d (256 - a)) >> 8, both
 // truncating, so a translucent edge comes out up to a level darker than an exact blend would.
 template <uint32_t Rest> static inline void blend(uint32_t& d, uint32_t s) {
@@ -89,8 +89,8 @@ static void blit(Canvas& c, const Image& img, Rect src, Rect dst, Rect clip, con
     }
 }
 
-// Fills dst with src repeated from dst's top-left, clipped to clip: the original draws the edges and
-// the centre of a nine-slice image this way (corners come out 1:1 since their sizes match).
+// Fills dst with src repeated from dst's top-left, clipped to clip: the edges and
+// the centre of a nine-slice image are drawn this way (corners come out 1:1 since their sizes match).
 static void repeat(Canvas& c, const Image& img, Rect src, Rect dst, Rect clip, const Surface* sf) {
     if (src.empty() || dst.empty()) return;
     Rect r = dst & clip;
@@ -105,7 +105,7 @@ static void repeat(Canvas& c, const Image& img, Rect src, Rect dst, Rect clip, c
     }
 }
 
-// "passes": art the original composites more than once (the same pixels blended again).
+// "passes": art composited more than once (the same pixels blended again).
 void drawImage(Canvas& c, const Image& img, int tile, Rect dst, bool stretch, const Surface* surface) {
     if (img.px.empty()) return;
     const Surface* sf = surface && surface->tex && img.surface ? surface : nullptr;

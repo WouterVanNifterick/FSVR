@@ -217,7 +217,7 @@ void platformSize(PlatformWindow* w, int width, int height) {
 
 // Up the parent chain, each window that closely wraps ours (its frame adds at most 80 px either way)
 // gets our new size plus that frame; an MDI client or a bigger window (the host's main window) stops
-// the walk. The same walk the original makes when its size changes; each window keeps its place.
+// the walk. Each window keeps its place.
 void platformResizeParents(PlatformWindow* w, int width, int height) {
     HWND child = w->hwnd;
     int dw = 0, dh = 0;
@@ -237,7 +237,7 @@ void platformResizeParents(PlatformWindow* w, int width, int height) {
 // Entries report id + 1 as their command (0 is "no choice"); submenus nest, column breaks start a column.
 static void fillMenu(HMENU m, const std::vector<MenuEntry>& items) {
     for (auto& e : items) {
-        UINT brk = e.columnBreak ? MF_MENUBREAK : 0;   // a new column without a divider line, as the original
+        UINT brk = e.columnBreak ? MF_MENUBREAK : 0;   // a new column without a divider line
         if (e.separator) {
             AppendMenuW(m, MF_SEPARATOR | brk, 0, nullptr);
         } else if (!e.items.empty()) {
@@ -282,6 +282,13 @@ void platformFocus(PlatformWindow* w, bool on) {
 void platformOpenUrl(const std::string& url) {
     if (url.compare(0, 7, "http://") == 0 || url.compare(0, 8, "https://") == 0)
         ShellExecuteW(nullptr, L"open", wide(url).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+}
+
+// clap-wrapper's standalone window opens its settings from its system menu; the command's id is 0
+// (Menu::Identifier::AudioMidiSettings in windows_standalone.h).
+const bool kAudioSettings = true;
+void platformAudioSettings(PlatformWindow* w) {
+    PostMessageW(GetAncestor(w->hwnd, GA_ROOT), WM_SYSCOMMAND, 0, 0);
 }
 
 // The common dialogs: a filter of "Name (*.a;*.b)" then "*.a;*.b" per type, a save's extension the first type's first.

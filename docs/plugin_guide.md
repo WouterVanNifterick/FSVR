@@ -25,19 +25,21 @@ On Linux the editor is an X11 window (a Wayland desktop runs it under XWayland).
 
 ## The standalone
 
-The standalone keeps its audio and MIDI devices under **Audio/MIDI Settings** in the window's system menu (right-click the title bar), with Save State, Load State and Reset State beside it. It remembers the devices and the last state in `clap-wrapper-standalone/studio.musica.fsvr` in your local application data.
+The standalone keeps its audio and MIDI devices under **File > Audio/MIDI Settings** on Windows and macOS, the same window as **Audio/MIDI Settings** in the window's system menu on Windows (right-click the title bar), with Save State, Load State and Reset State beside it there. It remembers the devices and the last state in `clap-wrapper-standalone/studio.musica.fsvr` in your local application data.
 
 ## The window
 
-The header is the unit's front panel: the performance's volume, the LCD, a pod of Editor, Keys, File and Store buttons over the four part buttons, the Tone and KN knob modes and their four knobs, and the output monitor.
+The header is the unit's front panel: the performance's volume, the LCD, a pod of File, Store, Editor and Keys buttons over the four part buttons, the Tone and KN knob modes and their four knobs, and the output monitor.
 
 - **The LCD** shows the performance (click it for the factory performance menu; the arrows step through them), the selected part's voice and receive channel, the voices sounding (POLY) and the CPU. A user item shows as U and its number.
 - **Part 1 to 4** pick the part the edit pages show. Every part's params exist on their own, so a host automates a known part whichever is selected.
 - **Tone and KN.** With Tone lit the four knobs are the part's Attack, Release, Formant and FM; with KN lit they are KN1 to KN4, the control sources the performance's controller sets route.
 - **The monitor** shows the last note's first 32 harmonics and the output level. The top bezel button is panic, all notes off while held; the lower one arms MIDI learn: click a control, move a controller, and that CC drives it from then on. The assignments are saved with the session.
-- **Editor** and **Keys** hide the editor pages and the keyboard.
+- **Editor** and **Keys** hide the editor pages and the keyboard, and the window shrinks to what is left.
 
 The navigator on the left opens the pages: Browser, Parts, Performance, Effects, Fseq, Easy, and the expert pages for the operators (1 to 8, each V for the voiced operator and N for the unvoiced, the noise generator), Ops and Env (all eight at once), Mod (controller sets, LFOs, the Formant and FM routes), KeySc, Filter and Pitch. Values read as the unit's display reads them: -24..+24, L63..R63, C-2..G8, the effect parameters in hertz, milliseconds or their named choices, an operator's frequency as a ratio or in hertz.
+
+The expert pages share the algorithm matrix on the right. Its header holds the algorithm's number, with ▼ and ▲ to step it (or drag it, scroll it or double-click to type one), and the Feedback pot. **Select Algorithm** swaps the matrix for a browser of all 88, drawn as small matrices, 2x2, 3x3 or 4x4 at a time, scrolled with the wheel or the bar, and opened on the current one; click one to take it, or Cancel to keep the one you had.
 
 ## The browser and your library
 

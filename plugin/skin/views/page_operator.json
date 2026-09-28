@@ -81,626 +81,126 @@
    "type": "plate",
    "name": "coarse_title",
    "rect": [
-    60,
-    15,
-    96,
-    21
+    20,
+    16,
+    86,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Coarse",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "coarse_title_icon",
-   "rect": [
-    135,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab"
    }
   },
   {
    "type": "plate",
    "name": "fine_title",
    "rect": [
-    192,
-    15,
-    96,
-    21
+    174,
+    16,
+    70,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Fine",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "fine_title_icon",
-   "rect": [
-    260,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab"
    }
   },
   {
    "type": "plate",
    "name": "osc_title",
    "rect": [
-    420,
-    15,
-    110,
-    21
+    333,
+    16,
+    101,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Oscillator",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "osc_title_icon",
-   "rect": [
-    517,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab"
    }
   },
   {
    "type": "plate",
    "name": "amp_title",
    "rect": [
-    665,
-    15,
-    101,
-    21
+    644,
+    16,
+    107,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Amplitude",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "amp_title_icon",
-   "rect": [
-    753,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {
    "type": "plate",
    "name": "matrix_title",
    "rect": [
-    966,
+    827,
     15,
-    101,
-    21
+    104,
+    23
    ],
-   "layer": 0,
+   "layer": 4,
    "text": {
     "text": "Algorithm",
-    "font": "caption_grey_12",
-    "align": "center"
+    "font": "caption_white_12",
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "matrix_title_icon",
-   "rect": [
-    1054,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_dark"
    }
-  },
-  {
-   "type": "dropdown",
-   "name": "algorithm",
-   "rect": [
-    915,
-    42,
-    218,
-    30
-   ],
-   "fill": {
-    "image": "buttons/dropdown_wide"
-   },
-   "text": {
-    "text": "...",
-    "font": "label_white_13",
-    "valign": "middle"
-   },
-   "pad": [
-    15,
-    2,
-    20,
-    2
-   ],
-   "pressOffset": [
-    2,
-    2
-   ],
-   "items": [
-    {
-     "label": "Algorithm 1",
-     "value": 1
-    },
-    {
-     "label": "Algorithm 2",
-     "value": 2
-    },
-    {
-     "label": "Algorithm 3",
-     "value": 3
-    },
-    {
-     "label": "Algorithm 4",
-     "value": 4
-    },
-    {
-     "label": "Algorithm 5",
-     "value": 5
-    },
-    {
-     "label": "Algorithm 6",
-     "value": 6
-    },
-    {
-     "label": "Algorithm 7",
-     "value": 7
-    },
-    {
-     "label": "Algorithm 8",
-     "value": 8
-    },
-    {
-     "label": "Algorithm 9",
-     "value": 9
-    },
-    {
-     "label": "Algorithm 10",
-     "value": 10
-    },
-    {
-     "label": "Algorithm 11",
-     "value": 11
-    },
-    {
-     "label": "Algorithm 12",
-     "value": 12
-    },
-    {
-     "label": "Algorithm 13",
-     "value": 13
-    },
-    {
-     "label": "Algorithm 14",
-     "value": 14
-    },
-    {
-     "label": "Algorithm 15",
-     "value": 15
-    },
-    {
-     "label": "Algorithm 16",
-     "value": 16
-    },
-    {
-     "label": "Algorithm 17",
-     "value": 17
-    },
-    {
-     "label": "Algorithm 18",
-     "value": 18
-    },
-    {
-     "label": "Algorithm 19",
-     "value": 19
-    },
-    {
-     "label": "Algorithm 20",
-     "value": 20
-    },
-    {
-     "label": "Algorithm 21",
-     "value": 21
-    },
-    {
-     "label": "Algorithm 22",
-     "value": 22
-    },
-    {
-     "label": "Algorithm 23",
-     "value": 23,
-     "columnBreak": true
-    },
-    {
-     "label": "Algorithm 24",
-     "value": 24
-    },
-    {
-     "label": "Algorithm 25",
-     "value": 25
-    },
-    {
-     "label": "Algorithm 26",
-     "value": 26
-    },
-    {
-     "label": "Algorithm 27",
-     "value": 27
-    },
-    {
-     "label": "Algorithm 28",
-     "value": 28
-    },
-    {
-     "label": "Algorithm 29",
-     "value": 29
-    },
-    {
-     "label": "Algorithm 30",
-     "value": 30
-    },
-    {
-     "label": "Algorithm 31",
-     "value": 31
-    },
-    {
-     "label": "Algorithm 32",
-     "value": 32
-    },
-    {
-     "label": "Algorithm 33",
-     "value": 33
-    },
-    {
-     "label": "Algorithm 34",
-     "value": 34
-    },
-    {
-     "label": "Algorithm 35",
-     "value": 35
-    },
-    {
-     "label": "Algorithm 36",
-     "value": 36
-    },
-    {
-     "label": "Algorithm 37",
-     "value": 37
-    },
-    {
-     "label": "Algorithm 38",
-     "value": 38
-    },
-    {
-     "label": "Algorithm 39",
-     "value": 39
-    },
-    {
-     "label": "Algorithm 40",
-     "value": 40
-    },
-    {
-     "label": "Algorithm 41",
-     "value": 41
-    },
-    {
-     "label": "Algorithm 42",
-     "value": 42
-    },
-    {
-     "label": "Algorithm 43",
-     "value": 43
-    },
-    {
-     "label": "Algorithm 44",
-     "value": 44
-    },
-    {
-     "label": "Algorithm 45",
-     "value": 45,
-     "columnBreak": true
-    },
-    {
-     "label": "Algorithm 46",
-     "value": 46
-    },
-    {
-     "label": "Algorithm 47",
-     "value": 47
-    },
-    {
-     "label": "Algorithm 48",
-     "value": 48
-    },
-    {
-     "label": "Algorithm 49",
-     "value": 49
-    },
-    {
-     "label": "Algorithm 50",
-     "value": 50
-    },
-    {
-     "label": "Algorithm 51",
-     "value": 51
-    },
-    {
-     "label": "Algorithm 52",
-     "value": 52
-    },
-    {
-     "label": "Algorithm 53",
-     "value": 53
-    },
-    {
-     "label": "Algorithm 54",
-     "value": 54
-    },
-    {
-     "label": "Algorithm 55",
-     "value": 55
-    },
-    {
-     "label": "Algorithm 56",
-     "value": 56
-    },
-    {
-     "label": "Algorithm 57",
-     "value": 57
-    },
-    {
-     "label": "Algorithm 58",
-     "value": 58
-    },
-    {
-     "label": "Algorithm 59",
-     "value": 59
-    },
-    {
-     "label": "Algorithm 60",
-     "value": 60
-    },
-    {
-     "label": "Algorithm 61",
-     "value": 61
-    },
-    {
-     "label": "Algorithm 62",
-     "value": 62
-    },
-    {
-     "label": "Algorithm 63",
-     "value": 63
-    },
-    {
-     "label": "Algorithm 64",
-     "value": 64
-    },
-    {
-     "label": "Algorithm 65",
-     "value": 65
-    },
-    {
-     "label": "Algorithm 66",
-     "value": 66
-    },
-    {
-     "label": "Algorithm 67",
-     "value": 67,
-     "columnBreak": true
-    },
-    {
-     "label": "Algorithm 68",
-     "value": 68
-    },
-    {
-     "label": "Algorithm 69",
-     "value": 69
-    },
-    {
-     "label": "Algorithm 70",
-     "value": 70
-    },
-    {
-     "label": "Algorithm 71",
-     "value": 71
-    },
-    {
-     "label": "Algorithm 72",
-     "value": 72
-    },
-    {
-     "label": "Algorithm 73",
-     "value": 73
-    },
-    {
-     "label": "Algorithm 74",
-     "value": 74
-    },
-    {
-     "label": "Algorithm 75",
-     "value": 75
-    },
-    {
-     "label": "Algorithm 76",
-     "value": 76
-    },
-    {
-     "label": "Algorithm 77",
-     "value": 77
-    },
-    {
-     "label": "Algorithm 78",
-     "value": 78
-    },
-    {
-     "label": "Algorithm 79",
-     "value": 79
-    },
-    {
-     "label": "Algorithm 80",
-     "value": 80
-    },
-    {
-     "label": "Algorithm 81",
-     "value": 81
-    },
-    {
-     "label": "Algorithm 82",
-     "value": 82
-    },
-    {
-     "label": "Algorithm 83",
-     "value": 83
-    },
-    {
-     "label": "Algorithm 84",
-     "value": 84
-    },
-    {
-     "label": "Algorithm 85",
-     "value": 85
-    },
-    {
-     "label": "Algorithm 86",
-     "value": 86
-    },
-    {
-     "label": "Algorithm 87",
-     "value": 87
-    },
-    {
-     "label": "Algorithm 88",
-     "value": 88
-    }
-   ],
-   "captionFromItem": true,
-   "param": "voice.alg.{part}",
-   "layer": 4,
-   "tip": "The algorithm: which operators modulate which, and which reach the output"
-  },
-  {
-   "type": "plate",
-   "name": "feedback_label",
-   "rect": [
-    1143,
-    44,
-    32,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "text": "FB",
-    "font": "caption_grey_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ],
-   "layer": 4
-  },
-  {
-   "type": "number",
-   "name": "feedback",
-   "rect": [
-    1177,
-    44,
-    36,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "text": "",
-    "font": "value_dark_12",
-    "align": "center",
-    "valign": "middle"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
-   "param": "voice.feedback.{part}",
-   "layer": 4,
-   "tip": "Feedback level"
   },
   {
    "type": "embed",

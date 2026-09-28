@@ -74,8 +74,16 @@
    ],
    "view": "keys",
    "showIf": {
-    "param": "gui.hide_keys",
-    "equals": 0
+    "all": [
+     {
+      "param": "gui.hide_keys",
+      "equals": 0
+     },
+     {
+      "param": "gui.hide_editor",
+      "equals": 0
+     }
+    ]
    },
    "fit": true
   },
@@ -90,8 +98,64 @@
    ],
    "view": "keys_hidden",
    "showIf": {
-    "param": "gui.hide_keys",
-    "equals": 1
+    "all": [
+     {
+      "param": "gui.hide_keys",
+      "equals": 1
+     },
+     {
+      "param": "gui.hide_editor",
+      "equals": 0
+     }
+    ]
+   },
+   "fit": true
+  },
+  {
+   "type": "embed",
+   "name": "keys_up",
+   "rect": [
+    0,
+    134,
+    1422,
+    174
+   ],
+   "view": "keys",
+   "showIf": {
+    "all": [
+     {
+      "param": "gui.hide_keys",
+      "equals": 0
+     },
+     {
+      "param": "gui.hide_editor",
+      "equals": 1
+     }
+    ]
+   },
+   "fit": true
+  },
+  {
+   "type": "embed",
+   "name": "keys_bar_up",
+   "rect": [
+    0,
+    134,
+    1422,
+    6
+   ],
+   "view": "keys_hidden",
+   "showIf": {
+    "all": [
+     {
+      "param": "gui.hide_keys",
+      "equals": 1
+     },
+     {
+      "param": "gui.hide_editor",
+      "equals": 1
+     }
+    ]
    },
    "fit": true
   },

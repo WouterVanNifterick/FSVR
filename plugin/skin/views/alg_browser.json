@@ -1,0 +1,236 @@
+{
+ "size": [
+  408,
+  472
+ ],
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "browser_bg",
+   "rect": [
+    0,
+    0,
+    408,
+    472
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/mesh_dark_large"
+   }
+  },
+  {
+   "type": "button",
+   "name": "grid_2",
+   "rect": [
+    14,
+    11,
+    38,
+    21
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "2x2",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "action": {
+    "set": {
+     "alg_grid": "2"
+    }
+   },
+   "tip": "Show the algorithms 2 by 2"
+  },
+  {
+   "type": "button",
+   "name": "grid_3",
+   "rect": [
+    56,
+    11,
+    38,
+    21
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "3x3",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "action": {
+    "set": {
+     "alg_grid": "3"
+    }
+   },
+   "tip": "Show the algorithms 3 by 3"
+  },
+  {
+   "type": "button",
+   "name": "grid_4",
+   "rect": [
+    98,
+    11,
+    38,
+    21
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "4x4",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "action": {
+    "set": {
+     "alg_grid": "4"
+    }
+   },
+   "tip": "Show the algorithms 4 by 4"
+  },
+  {
+   "type": "button",
+   "name": "cancel",
+   "rect": [
+    316,
+    7,
+    78,
+    31
+   ],
+   "fill": {
+    "image": "buttons/dark_square"
+   },
+   "layer": 4,
+   "text": {
+    "text": "Cancel",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "press": "up",
+   "action": {
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   },
+   "tip": "Back to the matrix, keeping the algorithm"
+  },
+  {
+   "type": "embed",
+   "name": "grid_2_list",
+   "rect": [
+    12,
+    42,
+    386,
+    418
+   ],
+   "view": "alg_grid_2",
+   "layer": 3,
+   "showIf": {
+    "var": "alg_grid",
+    "equals": "2"
+   },
+   "scroll": {
+    "track": "scrollbars/morph_track",
+    "thumb": "scrollbars/morph_thumb",
+    "width": 20,
+    "reveal": true
+   }
+  },
+  {
+   "type": "embed",
+   "name": "grid_3_list",
+   "rect": [
+    12,
+    42,
+    386,
+    418
+   ],
+   "view": "alg_grid_3",
+   "layer": 3,
+   "showIf": {
+    "var": "alg_grid",
+    "equals": "3"
+   },
+   "scroll": {
+    "track": "scrollbars/morph_track",
+    "thumb": "scrollbars/morph_thumb",
+    "width": 20,
+    "reveal": true
+   }
+  },
+  {
+   "type": "embed",
+   "name": "grid_4_list",
+   "rect": [
+    12,
+    42,
+    386,
+    418
+   ],
+   "view": "alg_grid_4",
+   "layer": 3,
+   "showIf": {
+    "var": "alg_grid",
+    "equals": "4"
+   },
+   "scroll": {
+    "track": "scrollbars/morph_track",
+    "thumb": "scrollbars/morph_thumb",
+    "width": 20,
+    "reveal": true
+   }
+  }
+ ]
+}

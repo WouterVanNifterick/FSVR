@@ -23,7 +23,7 @@
    "name": "op_1",
    "rect": [
     17,
-    39,
+    61,
     40,
     29
    ],
@@ -45,7 +45,7 @@
    "name": "op_2",
    "rect": [
     59,
-    81,
+    103,
     40,
     29
    ],
@@ -67,7 +67,7 @@
    "name": "op_3",
    "rect": [
     101,
-    123,
+    145,
     40,
     29
    ],
@@ -89,7 +89,7 @@
    "name": "op_4",
    "rect": [
     143,
-    165,
+    187,
     40,
     29
    ],
@@ -111,7 +111,7 @@
    "name": "op_5",
    "rect": [
     185,
-    207,
+    229,
     40,
     29
    ],
@@ -133,7 +133,7 @@
    "name": "op_6",
    "rect": [
     227,
-    249,
+    271,
     40,
     29
    ],
@@ -155,7 +155,7 @@
    "name": "op_7",
    "rect": [
     269,
-    291,
+    313,
     40,
     29
    ],
@@ -177,7 +177,7 @@
    "name": "op_8",
    "rect": [
     311,
-    333,
+    355,
     40,
     29
    ],
@@ -199,9 +199,9 @@
    "name": "wires",
    "rect": [
     0,
-    0,
+    22,
     408,
-    473
+    451
    ],
    "kind": "matrix_wires",
    "layer": 3,
@@ -214,7 +214,7 @@
    "name": "fb_1_1",
    "rect": [
     17,
-    17,
+    39,
     40,
     29
    ],
@@ -364,7 +364,7 @@
    "name": "fb_2_2",
    "rect": [
     59,
-    59,
+    81,
     40,
     29
    ],
@@ -390,7 +390,7 @@
    "name": "fb_3_3",
    "rect": [
     101,
-    101,
+    123,
     40,
     29
    ],
@@ -508,7 +508,7 @@
    "name": "fb_4_3",
    "rect": [
     143,
-    123,
+    145,
     40,
     29
    ],
@@ -534,7 +534,7 @@
    "name": "fb_4_4",
    "rect": [
     143,
-    143,
+    165,
     40,
     29
    ],
@@ -588,7 +588,7 @@
    "name": "fb_5_3",
    "rect": [
     185,
-    123,
+    145,
     40,
     29
    ],
@@ -614,7 +614,7 @@
    "name": "fb_5_5",
    "rect": [
     185,
-    185,
+    207,
     40,
     29
    ],
@@ -644,7 +644,7 @@
    "name": "fb_6_6",
    "rect": [
     227,
-    227,
+    249,
     40,
     29
    ],
@@ -690,7 +690,7 @@
    "name": "fb_7_7",
    "rect": [
     269,
-    269,
+    291,
     40,
     29
    ],
@@ -752,7 +752,7 @@
    "name": "1_to_2",
    "rect": [
     17,
-    81,
+    103,
     40,
     29
    ],
@@ -866,7 +866,7 @@
    "name": "1_to_3",
    "rect": [
     17,
-    123,
+    145,
     40,
     29
    ],
@@ -940,7 +940,7 @@
    "name": "1_to_4",
    "rect": [
     17,
-    165,
+    187,
     40,
     29
    ],
@@ -982,7 +982,7 @@
    "name": "1_to_5",
    "rect": [
     17,
-    207,
+    229,
     40,
     29
    ],
@@ -1008,7 +1008,7 @@
    "name": "1_to_8",
    "rect": [
     17,
-    333,
+    355,
     40,
     29
    ],
@@ -1034,7 +1034,7 @@
    "name": "1_to_out",
    "rect": [
     17,
-    417,
+    439,
     40,
     29
    ],
@@ -1268,7 +1268,7 @@
    "name": "2_to_3",
    "rect": [
     59,
-    123,
+    145,
     40,
     29
    ],
@@ -1370,7 +1370,7 @@
    "name": "2_to_4",
    "rect": [
     59,
-    165,
+    187,
     40,
     29
    ],
@@ -1412,7 +1412,7 @@
    "name": "2_to_5",
    "rect": [
     59,
-    207,
+    229,
     40,
     29
    ],
@@ -1438,7 +1438,7 @@
    "name": "2_to_6",
    "rect": [
     59,
-    249,
+    271,
     40,
     29
    ],
@@ -1464,7 +1464,7 @@
    "name": "2_to_7",
    "rect": [
     59,
-    291,
+    313,
     40,
     29
    ],
@@ -1490,7 +1490,7 @@
    "name": "2_to_8",
    "rect": [
     59,
-    333,
+    355,
     40,
     29
    ],
@@ -1520,7 +1520,7 @@
    "name": "2_to_out",
    "rect": [
     59,
-    417,
+    439,
     40,
     29
    ],
@@ -1798,7 +1798,7 @@
    "name": "3_to_4",
    "rect": [
     101,
-    165,
+    187,
     40,
     29
    ],
@@ -1976,7 +1976,7 @@
    "name": "3_to_5",
    "rect": [
     101,
-    207,
+    229,
     40,
     29
    ],
@@ -2062,7 +2062,7 @@
    "name": "3_to_6",
    "rect": [
     101,
-    249,
+    271,
     40,
     29
    ],
@@ -2112,7 +2112,7 @@
    "name": "3_to_7",
    "rect": [
     101,
-    291,
+    313,
     40,
     29
    ],
@@ -2154,7 +2154,7 @@
    "name": "3_to_8",
    "rect": [
     101,
-    333,
+    355,
     40,
     29
    ],
@@ -2204,7 +2204,7 @@
    "name": "3_to_out",
    "rect": [
     101,
-    417,
+    439,
     40,
     29
    ],
@@ -2330,7 +2330,7 @@
    "name": "4_to_5",
    "rect": [
     143,
-    207,
+    229,
     40,
     29
    ],
@@ -2496,7 +2496,7 @@
    "name": "4_to_6",
    "rect": [
     143,
-    249,
+    271,
     40,
     29
    ],
@@ -2554,7 +2554,7 @@
    "name": "4_to_7",
    "rect": [
     143,
-    291,
+    313,
     40,
     29
    ],
@@ -2604,7 +2604,7 @@
    "name": "4_to_8",
    "rect": [
     143,
-    333,
+    355,
     40,
     29
    ],
@@ -2670,7 +2670,7 @@
    "name": "4_to_out",
    "rect": [
     143,
-    417,
+    439,
     40,
     29
    ],
@@ -2816,7 +2816,7 @@
    "name": "5_to_6",
    "rect": [
     185,
-    249,
+    271,
     40,
     29
    ],
@@ -2978,7 +2978,7 @@
    "name": "5_to_7",
    "rect": [
     185,
-    291,
+    313,
     40,
     29
    ],
@@ -3016,7 +3016,7 @@
    "name": "5_to_8",
    "rect": [
     185,
-    333,
+    355,
     40,
     29
    ],
@@ -3098,7 +3098,7 @@
    "name": "5_to_out",
    "rect": [
     185,
-    417,
+    439,
     40,
     29
    ],
@@ -3256,7 +3256,7 @@
    "name": "6_to_7",
    "rect": [
     227,
-    291,
+    313,
     40,
     29
    ],
@@ -3422,7 +3422,7 @@
    "name": "6_to_8",
    "rect": [
     227,
-    333,
+    355,
     40,
     29
    ],
@@ -3540,7 +3540,7 @@
    "name": "6_to_out",
    "rect": [
     227,
-    417,
+    439,
     40,
     29
    ],
@@ -3690,7 +3690,7 @@
    "name": "7_to_8",
    "rect": [
     269,
-    333,
+    355,
     40,
     29
    ],
@@ -3960,7 +3960,7 @@
    "name": "7_to_out",
    "rect": [
     269,
-    417,
+    439,
     40,
     29
    ],
@@ -4086,7 +4086,7 @@
    "name": "8_to_out",
    "rect": [
     311,
-    417,
+    439,
     40,
     29
    ],
@@ -4098,6 +4098,226 @@
    "wheel": 0.02,
    "margin": 12,
    "layer": 4
+  },
+  {
+   "type": "plate",
+   "name": "alg_frame",
+   "rect": [
+    14,
+    5,
+    266,
+    32
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/plate_slate"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "alg_label",
+   "rect": [
+    18,
+    6,
+    30,
+    30
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Alg",
+    "font": "caption_white_12",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    4,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "number",
+   "name": "algorithm",
+   "rect": [
+    46,
+    6,
+    30,
+    30
+   ],
+   "layer": 4,
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    4,
+    2,
+    0
+   ],
+   "sensitivity": 0.1,
+   "fine": 0.2,
+   "wheel": 0.011494,
+   "reset": false,
+   "editable": true,
+   "param": "voice.alg.{part}",
+   "tip": "The algorithm: drag, scroll or type one"
+  },
+  {
+   "type": "button",
+   "name": "alg_down",
+   "rect": [
+    78,
+    12,
+    17,
+    17
+   ],
+   "fill": {
+    "image": "buttons/dark_down"
+   },
+   "layer": 4,
+   "press": "repeat",
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "step": -1
+   },
+   "tip": "Previous algorithm"
+  },
+  {
+   "type": "button",
+   "name": "alg_up",
+   "rect": [
+    97,
+    12,
+    17,
+    17
+   ],
+   "fill": {
+    "image": "buttons/dark_up"
+   },
+   "layer": 4,
+   "press": "repeat",
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "step": 1
+   },
+   "tip": "Next algorithm"
+  },
+  {
+   "type": "button",
+   "name": "select_algorithm",
+   "rect": [
+    118,
+    6,
+    160,
+    30
+   ],
+   "fill": {
+    "image": "buttons/dark_square"
+   },
+   "layer": 4,
+   "text": {
+    "text": "Select Algorithm",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    4,
+    2,
+    0
+   ],
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "press": "up",
+   "action": {
+    "goto": "alg_browser",
+    "stack": "fm_matrix"
+   },
+   "tip": "Browse the 88 algorithms"
+  },
+  {
+   "type": "plate",
+   "name": "feedback_label",
+   "rect": [
+    284,
+    10,
+    68,
+    20
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Feedback",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    0,
+    2,
+    0,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "feedback_value",
+   "rect": [
+    284,
+    29,
+    68,
+    22
+   ],
+   "layer": 4,
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.feedback.{part}"
+  },
+  {
+   "type": "dial",
+   "name": "feedback_pot",
+   "rect": [
+    354,
+    8,
+    44,
+    44
+   ],
+   "layer": 4,
+   "image": "knobs/rotary_small",
+   "sensitivity": 1,
+   "fine": 0.2,
+   "wheel": 0.142857,
+   "reset": "default",
+   "param": "voice.feedback.{part}",
+   "tip": "Feedback level"
   }
  ]
 }

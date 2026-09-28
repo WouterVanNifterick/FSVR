@@ -365,7 +365,7 @@ private:
             f.min = st.def((size_t)i).min;
             if (!f.locate()) continue;
             if (f.area == Voice) {
-                // Switches and choices come from the nearest corner, amounts blend (docs/fsvr-skin.md, Morph).
+                // Switches and choices come from the nearest corner, amounts blend (docs/editor.md, The morph square).
                 const std::string& id = m.first;
                 const auto& labels = st.def((size_t)i).labels;
                 const bool choice = (!labels.empty() && labels.size() <= 24) || id.find(".alg.") != std::string::npos ||
@@ -405,7 +405,10 @@ private:
         sel[(size_t)i] = st.get((size_t)i);
         notify = true;
     }
-    int edit(int p) const { return std::clamp((int)std::lround(get(morphEdit[p])), 0, 4); }
+    // The morph square is off until it works: every edit reaches all four corners (Edit All), so they stay
+    // one voice and the blend is that voice wherever the position params sit.
+    // int edit(int p) const { return std::clamp((int)std::lround(get(morphEdit[p])), 0, 4); }
+    int edit(int) const { return 4; }
 
     // ---- to the engine ------------------------------------------------------------------------------
 
@@ -498,11 +501,12 @@ private:
             send(f, model.voice[p]);
         }
         for (int p = 0; p < 4; ++p) {
-            for (int i : {morphX[p], morphY[p]})
-                if (i >= 0 && st.get((size_t)i) != base[(size_t)i]) {
-                    base[(size_t)i] = st.get((size_t)i);
-                    morphed[p] = true;
-                }
+            // the morph square is off: a position change moves nothing
+            // for (int i : {morphX[p], morphY[p]})
+            //     if (i >= 0 && st.get((size_t)i) != base[(size_t)i]) {
+            //         base[(size_t)i] = st.get((size_t)i);
+            //         morphed[p] = true;
+            //     }
             if (morphed[p]) remorph(p);
             if (knob[p] >= 0 && st.get((size_t)knob[p]) != base[(size_t)knob[p]]) {   // KN1..KN4 on their control numbers
                 base[(size_t)knob[p]] = st.get((size_t)knob[p]);
@@ -541,7 +545,7 @@ private:
         }
         if (st8 == 0x90 && n >= 3 && b[2]) {
             lastNote = b[1];
-            for (int p = 0; p < 4 && live; ++p) jitter(p, ch);
+            // for (int p = 0; p < 4 && live; ++p) jitter(p, ch);   // the morph square is off
         }
         if (st8 == 0xB0 && n >= 3) {
             const int cc = b[1], v = b[2];
@@ -644,7 +648,7 @@ private:
     void restore(unsigned loads) {
         loadsSeen = loads;
         const std::vector<uint8_t> eng = unb64(st.data("fsvr.engine"));
-        const std::vector<uint8_t> mor = unb64(st.data("fsvr.morph"));
+        // const std::vector<uint8_t> mor = unb64(st.data("fsvr.morph"));
         for (size_t i = 0; i < st.size(); ++i) sel[i] = st.get(i);
         if (!eng.empty()) {
             dev.allNotesOff();
@@ -658,8 +662,10 @@ private:
         }
         for (int p = 0; p < 4; ++p)
             for (int c = 0; c < 4; ++c)
-                if (mor.size() == 4 * 4 * 608) std::memcpy(corners[p][c].data(), mor.data() + (size_t)(p * 4 + c) * 608, 608);
-                else std::memcpy(corners[p][c].data(), model.voice[p], 608);
+                // the morph square is off: a session's saved corners give way to the voice it plays
+                // if (mor.size() == 4 * 4 * 608) std::memcpy(corners[p][c].data(), mor.data() + (size_t)(p * 4 + c) * 608, 608);
+                // else
+                std::memcpy(corners[p][c].data(), model.voice[p], 608);
         writeLists();
         names();
     }

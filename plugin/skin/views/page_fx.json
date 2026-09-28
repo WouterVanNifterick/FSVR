@@ -60258,36 +60258,25 @@
    "type": "plate",
    "name": "fx_title",
    "rect": [
-    569,
-    15,
-    96,
-    21
+    20,
+    16,
+    91,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Effects",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "fx_title_icon",
-   "rect": [
-    648,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab"
    }
   },
   {

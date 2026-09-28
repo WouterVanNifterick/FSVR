@@ -33,7 +33,7 @@ struct State::Impl {
     std::atomic<int> ccs[128], ccMap[128];   // last value (-1 = never), assigned param (-1 = none)
     std::atomic<unsigned> midiCount{0};
     std::atomic<double> cpu{0};
-    std::atomic<bool> modified{true};   // a fresh instance has never been saved or loaded (the original lights it)
+    std::atomic<bool> modified{true};   // a fresh instance has never been saved or loaded, so it starts modified
     std::atomic<unsigned> loads{0};
     std::atomic<float> peaks[2] = {};
     mutable std::mutex scopeLock;       // the processor's worker writes, the GUI reads; never the audio thread

@@ -11,23 +11,26 @@
    "type": "plate",
    "name": "library_title",
    "rect": [
-    569,
+    18,
     15,
-    96,
-    21
+    97,
+    23
    ],
-   "layer": 0,
+   "layer": 4,
    "text": {
     "text": "Browser",
-    "font": "caption_grey_12",
-    "align": "center"
+    "font": "caption_white_12",
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab_dark"
+   }
   },
   {
    "type": "embed",

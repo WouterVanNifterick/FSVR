@@ -1,8 +1,8 @@
 # hollow_add_plugin(<target>
-#     NAME "Hollow FM"                     file and display name of every format
+#     NAME "My Synth"                      file and display name of every format
 #     SKIN <dir>                           the skin folder, embedded into the binaries
 #     SOURCES plugin.cpp ...               pluginInfo(), createProcessor() and any DSP
-#     BUNDLE_ID studio.musica.hollow-fm    must equal Info::id; the CLAP id and the bundle id
+#     BUNDLE_ID com.example.my-synth       must equal Info::id; the CLAP id and the bundle id
 #     [VERSION 1.0.0]                      bundle version (default: the project version)
 #     [VENDOR "musica.studio"]             AU manufacturer name
 #     [AU_TYPE aumu|aufx] [AU_MANUFACTURER <4 chars>] [AU_SUBTYPE <4 chars>]

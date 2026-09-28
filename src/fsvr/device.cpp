@@ -106,6 +106,10 @@ bool Device::setState(const uint8_t* d, size_t len) {
         }
         i = j + 1;
     }
+    // The Fseq bulk's loader gives a performance with no Fseq part the first one, as a load from the Fseq
+    // page wants; restoring a saved state is not that, and the performance's own Fseq part stands.
+    std::lock_guard<std::mutex> lk(p->s.mtx);
+    p->s.fseqPart = (p->s.perf.c[0x15] & 7) ? (p->s.perf.c[0x15] & 7) - 1 : -1;
     return any;
 }
 
@@ -152,7 +156,23 @@ int Device::activeNotes() const {
     return n;
 }
 
-int Device::selfTest() { init_tables(); Synth s; return selftest(s); }
+int Device::selfTest() {
+    init_tables();
+    Synth s;
+    int fails = selftest(s);
+    // A saved state with an Fseq loaded but no Fseq part comes back with none: the plug-in's session
+    // restore once played the last Fseq on part 1 under a performance that has no Fseq.
+    std::vector<uint8_t> f(9 + 32 + 128 * 50 + 2, 0), state;
+    f[0] = 0xF0; f[1] = 0x43; f[3] = 0x5E; f[6] = 0x60; f.back() = 0xF7;
+    Device a, b;
+    a.sendMidi(f.data(), f.size());
+    const uint8_t off[10] = {0xF0, 0x43, 0x10, 0x5E, 0x10, 0x00, 0x15, 0x00, 0x00, 0xF7};
+    a.sendMidi(off, sizeof off);
+    a.getState(state);
+    b.setState(state.data(), state.size());
+    if (a.fseqPart() != -1 || b.fseqPart() != -1) { printf("  FAIL state restore enables the Fseq (part %d)\n", b.fseqPart()); fails++; }
+    return fails;
+}
 
 }  // namespace fs1r
 

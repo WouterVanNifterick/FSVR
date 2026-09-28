@@ -2,7 +2,7 @@
 
 > This copy travels with FSVR's `hollow/`, which is Hollow's `framework/` folder. The web editor (`editor/`) and the skin tools (`tools/`) it mentions live in the Hollow project beside this repository.
 
-A skin is a folder. The runtime (`framework/src/core`), the web editor (`editor/`) and the importer (`tools/fm8import`) all read and write exactly this format, so this file is the contract between them. Anything not described here does not exist.
+A skin is a folder. The runtime (`framework/src/core`) and the web editor (`editor/`) both read and write exactly this format, so this file is the contract between them. Anything not described here does not exist.
 
 ```
 skin/
@@ -21,7 +21,7 @@ All images are 8-bit RGBA PNG with straight (not premultiplied) alpha. Names are
 ```json
 {
   "format": 1,
-  "name": "Hollow FM",
+  "name": "My Synth",
   "root": "main",
   "images": {
     "knobs/rotary_large": { "tiles": 128 },
@@ -32,13 +32,13 @@ All images are 8-bit RGBA PNG with straight (not premultiplied) alpha. Names are
 ```
 
 - `root`: the view the editor window shows; its size is the window size at scale 1.
-- `vars` (optional): variables visible to every view (see Variables), e.g. `{ "timbre": "tl" }`. Buttons change them with a `set` action.
-- `density` (default 1): the skin's pixels per unit of the runtime's own geometry. Everything the skin states (rects, pads, slices, fonts, artwork) is in the skin's own pixels; `density` scales what the runtime supplies itself: the drawings of the custom kinds (the FM matrix wires, envelope and key scaling editors, pad handles, the piano's key-art offsets, scope line widths), menu and tooltip chrome (borders, shadows, check marks, arrows, the tooltip's offset), the defaults of pixel fields (menu `rowHeight`, `separatorHeight` and `pad`, tooltip `pad`, scroll `width`, morph `handle`, envelope `handleOffset`, key scaling `scaleRect`), and drag rates, which stay per design pixel so a denser skin drags at the same speed on screen. Built-in sizes round half away from zero and lines are `round(density)` px wide. `tools/skinscale` writes it when it scales a skin: Hollow FM 2 is Hollow FM at 1.5.
+- `vars` (optional): variables visible to every view (see Variables), e.g. `{ "part": "p1" }`. Buttons change them with a `set` action.
+- `density` (default 1): the skin's pixels per unit of the runtime's own geometry. Everything the skin states (rects, pads, slices, fonts, artwork) is in the skin's own pixels; `density` scales what the runtime supplies itself: the drawings of the custom kinds (the FM matrix wires, envelope and key scaling editors, pad handles, the piano's key-art offsets, scope line widths), menu and tooltip chrome (borders, shadows, check marks, arrows, the tooltip's offset), the defaults of pixel fields (menu `rowHeight`, `separatorHeight` and `pad`, tooltip `pad`, scroll `width`, morph `handle`, envelope `handleOffset`, key scaling `scaleRect`), and drag rates, which stay per design pixel so a denser skin drags at the same speed on screen. Built-in sizes round half away from zero and lines are `round(density)` px wide.
 - `images`: metadata only for images that need it. An image without an entry is one tile, no slicing.
   - `tiles` (default 1): the image is a strip of equal tiles (animation or state frames).
   - `axis` (default `"y"`): `"y"` = tiles stacked top to bottom, `"x"` = side by side. Tile `i` of `n` in a `w x h` image is `(0, i*h/n, w, h/n)` for `"y"` and `(i*w/n, 0, w/n, h)` for `"x"`. A requested tile index is clamped to `0..n-1`.
   - `slice` `[top, right, bottom, left]`: nine-slice bands in pixels. When an image with `slice` is drawn into a rect of a different size than its tile, the four corners are copied 1:1, and the edges and the centre are filled by repeating their band from its top-left (tiled, not scaled). A band of 0 means that axis scales as a whole. Without `slice` an image is always drawn 1:1 at the rect's top-left and clipped to the rect.
-  - `passes` (default 1): how many times the image is composited, for art the original composites twice.
+  - `passes` (default 1): how many times the image is composited, for art meant to be blended more than once.
   - `surface` (default true): false keeps the skin's `surface` off this image.
 - `surface` (optional): a texture laid over the light, grey pixels of the skin's artwork and colour fills: every widget and view fill, dial, meter and slider image, and scrollbar part. Text, menus, tooltips and the custom kinds' own drawings are never touched. `{ "image": "surfaces/ice_metal", "lightness": [0.70, 0.86], "chroma": [0.06, 0.14], "strength": 1 }`:
   - The texture is tiled from the window's top-left in window pixels, so a texture as large as the root view lies across the whole window without a seam, whatever image a pixel comes from.
@@ -48,10 +48,9 @@ All images are 8-bit RGBA PNG with straight (not premultiplied) alpha. Names are
     - its image's own slope times `art` pixels, where a full slope is 127. The runtime works that slope out once per image and tile, as the Sobel gradient of lightness times opacity, lighter below reading as tilted up; colour fills have none.
     - plus the sheet's slope from `normals` (R and G around 128, in window pixels) times `sheet` pixels.
     - So flat panels mirror the environment continuously, bevels bend the reflection sharply, and dents in the sheet ripple it.
-  - `tools/skinscale/surface.py` makes such textures and sets this field; Hollow FM 3's is `ice_chrome`, reflecting.
-  - A see-through display (a grid drawn over the page) would still show the surface behind it, so `surface.py --screens` puts a plain plate with `"surface": false` behind each display screen and turns the surface off on the display itself.
+  - A see-through display (a grid drawn over the page) would still show the surface behind it, so give each display screen a plain plate with `"surface": false` behind it and turn the surface off on the display itself.
 
-Compositing follows the original's integer blend: images and glyphs `(s*a + d*(255-a)) >> 8`, colour fills `(s*a + d*(256-a)) >> 8`, per channel, writing the source alpha.
+Compositing uses an integer blend: images and glyphs `(s*a + d*(255-a)) >> 8`, colour fills `(s*a + d*(256-a)) >> 8`, per channel, writing the source alpha.
 
 ## params.json
 
@@ -128,7 +127,7 @@ A widget with no `param` keeps a local value (starting at `value`, default 0), s
 | `embed` | another view at `rect` (clipped) | forwarded | `view`, `vars` |
 | `custom` | `fill` plus a kind-specific overlay | kind-specific | `kind`, `fill`, `params` |
 
-Button state tile: the strip is laid out as groups `[normal][pressed, if pressedTiles][hover, if hoverTiles]` followed by one disabled tile if `disabledTile`. Each group holds `states = (tiles - disabledTile) / (1 + hoverTiles + pressedTiles)` tiles, one per value (so a toggle's groups hold 2). The tile drawn is `min(value, states - 1) + states * group`, where `group` is 1 while pressed (if `pressedTiles`), else `1 + pressedTiles` while hovered (if `hoverTiles`), else 0; or the last tile when disabled and `disabledTile`. The pressed tile shows while the button is held, even if the pointer leaves it. `pressOffset` applies only while pressed with `pressedTiles`. This matches the original switch paint routine, checked against the decompiled code.
+Button state tile: the strip is laid out as groups `[normal][pressed, if pressedTiles][hover, if hoverTiles]` followed by one disabled tile if `disabledTile`. Each group holds `states = (tiles - disabledTile) / (1 + hoverTiles + pressedTiles)` tiles, one per value (so a toggle's groups hold 2). The tile drawn is `min(value, states - 1) + states * group`, where `group` is 1 while pressed (if `pressedTiles`), else `1 + pressedTiles` while hovered (if `hoverTiles`), else 0; or the last tile when disabled and `disabledTile`. The pressed tile shows while the button is held, even if the pointer leaves it. `pressOffset` applies only while pressed with `pressedTiles`.
 
 `toggle`: each act flips the value between 0 and 1, or steps to the next value (wrapping) for a param with more than two values. A button without `toggle` just acts (runs its `action`, and a bound param briefly reads 1 for `momentary`/`repeat`).
 
@@ -139,13 +138,14 @@ Button state tile: the strip is laid out as groups `[normal][pressed, if pressed
 - `{ "set": { "timbre": "br" } }`: set skin-wide `vars`. The button draws as on while every listed var has that value.
 - `{ "toggle": "about_box" }`: flip `hidden` on the widget with that name (searched in the same view first, then from the root).
 - `{ "url": "https://example.com" }`: open in the browser.
+- `{ "standalone": "settings" }`: open the standalone app's own audio and MIDI settings (clap-wrapper's device window). A menu item with it is listed only in the standalone, and only where that app has such a window (Windows and macOS), so a File menu can carry it in every format.
 - `{ "sequence": "insert", "prefix": "arp.step.", "index": "{step}", "count": 32 }` (or `"delete"`): treats params named `<prefix><n>.<leaf>` for n = 1..count as a step sequence. Insert moves steps index..count-1 one place up (the last is dropped) and resets step index to its defaults; delete moves steps index+1..count one place down and resets step count. `index` may use `{var}`.
-- `{ "sequence": "reset" | "random", "prefix": "arp.step.", "leaf": "on", "count": 32 }`: sets `<prefix><n>.<leaf>` for n = 1..count to its default, or to random valid values (for the original's sequencer rows, the rules in its reverse-engineering notes).
+- `{ "sequence": "reset" | "random", "prefix": "arp.step.", "leaf": "on", "count": 32 }`: sets `<prefix><n>.<leaf>` for n = 1..count to its default, or to random valid values (for a step sequencer's rows).
 - `{ "presets": "<table>", "key": "env.{op}", "name": "<text key>", "save": true, "columns": 16 }`: a native menu of the preset slots of `data/<table>.json` (kept, once changed, in text data `presets.<table>`), `columns` items per column. Choosing a slot copies its content into text data `key` and its name into text data `name`; with `save` the menu also offers storing the current content and name into a slot.
 - `{ "data": { "keyscale.z": "0 -60 0.5|127 67 0.5" } }`: store these strings as text data (keys may use `{var}`), for buttons that restore a shape.
 - `{ "midi_map": "remove" }` (or `"reset"`): for the context menu of a `midi_map` list, drop the selected row's assignment (a fixed row's CC goes back to its default), or drop them all and restore `learn.defaults`.
 - `{ "file": "open" | "save", "key": "<text key>", "types": { "SysEx": "syx", "Audio": "wav;mp3" }, "title": "...", "name": "<a save's file name>" }`: a native open or save dialog (`name` may hold `{data:<key>|<default>}`, so a processor can start a save in a folder of its own: `"{data:library.dir|}Performance.syx"`); the chosen file's path (UTF-8) is stored as text data under `key` (with `{var}`s), for the product's processor to act on and clear. Cancelling changes nothing.
-- `{ "value": 2 }`: set the bound param to this plain value, a radio button: it draws as on while the param holds that value.
+- `{ "value": 2 }`: set the bound param to this plain value, a radio button: it draws as on while the param holds that value. With a `goto`, `stack` and optional `vars` as well, it then shows that view there, so a chooser closes itself on a pick.
 - `{ "step": 0.01 }`: add this amount to the bound param's plain value (clamped to its range). With `"press": "repeat"` it nudges while held. A `step` button's own tile does not follow the param.
 
 `items` (dropdown): `[ { "label": "Sine", "value": 0 }, { "separator": true }, ... ]`. Choosing an item sets the value to its `value`. With `captionFromItem` the button text shows the chosen label.
@@ -164,14 +164,14 @@ Kinds for synths whose settings are plain params (FSVR's):
 - `"stage_env"`: an envelope of stages, its levels and times params. `start` is the level at key on and `points` `[[time, level], ...]` the stages, each a param id (with `{vars}`) or a number; a point's time is how long the stage into it takes. `sustain` is the index of the point held until key off (a dotted marker and a plateau `gap` time units wide, default 25, follow it). `range` `[lo, hi]` spans the levels (default the first level param's range; a range across 0 draws the zero line and fills from it), and `minTime` (default 150) the least time shown across the width. Colours as the envelope's (`grid`, `area`, `curve`, `handle`, `dots`). Dragging a point moves its time sideways and its level up and down, Shift finer.
 - `"fseq"`: a formant sequence from `data/<table>.json` (`table`, default `fseqs`), the entry the param named by `fseq` picks: its eight tracks' formant frequencies over time (`layer` `"v"` voiced or `"u"` unvoiced), each segment as opaque as the frame is loud, in `line`; the pitch in `line2`; the params named by `loop` as dotted markers in `dots`. The height spans the frequencies the sequence's audible frames use. With `"key": "<text key>"` the entry is the text data under that key instead, one entry of the same shape as JSON, for a sequence the processor holds (FSVR's user Fseqs). `"position"` names a param holding the frame playback is at, drawn as a solid line in `cursor` (default `#e8b84bff`); the processor keeps it current.
 - `"level_scale"`: a level key scaling curve across the keyboard, from the params named by `breakPoint` (semitones above `breakBase`, default 21), `leftDepth`, `rightDepth` (0..99), `leftCurve` and `rightCurve` (0 -lin, 1 -exp, 2 +exp, 3 +lin), in `line`, with the centre line in `grid` and the break point in `dots`. The shape is drawn, not a chip's table.
-- `"matrix_wires"` with `algorithm` (a param id) draws a fixed algorithm's wires instead of amounts: the entry of `data/<table>.json` (`table`, default `algorithms`) at the param's value minus `first` (default 1), `{"mod": [[src, dst], ...], "fb": [src, dst], "out": [carriers]}` with operators 1..8.
+- `"matrix_wires"` with `algorithm` (a param id) draws a fixed algorithm's wires instead of amounts: the entry of `data/<table>.json` (`table`, default `algorithms`) at the param's value minus `first` (default 1), `{"mod": [[src, dst], ...], "fb": [src, dst], "out": [carriers]}` with operators 1..8. `number` in place of `algorithm` draws that algorithm always. The wires are unbroken, from each operator box to its destination's edge with an arrow and down into the output bus, so a skin's amount tags go over them in a higher layer. A thumbnail of one: `scale` (default 1) shrinks the whole drawing, `box` (a colour) draws the eight operator boxes itself, numbered in the widget's `text.font` when it has one, for where no operator art sits over the wires, and `boxSize` `[w, h]` sizes the boxes the wires meet, in the drawing's units before `scale` (default `[16.67, 13.33]`, the visible box of FSVR's operator art at density 1.5).
 - These kinds redraw whenever a param their fields name changes.
 
 ### Embeds, stacks and variables
 
 An `embed` shows the view named `view` inside its rect, clipped. Any embed can be switched at runtime by a button `goto` whose `stack` names it, which is how pages work: the main view has an embed called `pages`, and each navigation button is a `goto` on it. Adding a page means adding a view file and a button.
 
-`vars` is an object of strings. Inside the embedded view (and further embeds, which inherit and may override them) every `{name}` in a widget's `param` and `text.text` is replaced by the value. `{name:upper}` gives the value in upper case (for captions such as an operator letter). Lookup order: the nearest embed's `vars`, then outer embeds, then the skin-wide `vars` from `skin.json` (as changed by `set` actions). When a `set` action or a `goto` changes a var, every bound widget re-resolves its param and redraws. One operator view can then serve six operators: `"param": "op.{op}.ratio"` with `vars: { "op": "a" }` .. `{ "op": "f" }`.
+`vars` is an object of strings. Inside the embedded view (and further embeds, which inherit and may override them) every `{name}` in a widget's `param` and `text.text` is replaced by the value. `{name:upper}` gives the value in upper case (for captions such as an operator letter). Lookup order: the nearest embed's `vars`, then outer embeds, then the skin-wide `vars` from `skin.json` (as changed by `set` actions). When a `set` action or a `goto` changes a var, every bound widget re-resolves its param and redraws. One operator view can then serve eight operators: `"param": "op.{op}.ratio"` with `vars: { "op": "1" }` .. `{ "op": "8" }`.
 
 The runtime saves the current view and vars of every embed, the visibility of every widget toggled by an action, and the GUI scale in the plugin state, so a session reopens on the same page.
 
@@ -187,7 +187,7 @@ These fields extend the tables above. A runtime that predates them ignores them.
 
 ### Conditions
 
-- `"showIf"` and `"enableIf"` on any widget: `"fx.reverb.on"` (true while that param is not at its minimum), or `{ "param": "<id>", "equals": 2 }`, `{ "param": "<id>", "notEquals": 0 }`, `{ "param": "<id>", "atLeast": 4 }`, `{ "param": "<id>", "atMost": 8 }` (plain values), `{ "var": "op", "equals": "pitch" }`. An `enableIf` on an `embed` disables everything inside it. `{ "stack": "pages", "view": "page_arp" }` is true while that embed shows that view (with optional `"vars"` that must match too), for markers that follow the current page. A widget whose `showIf` is false is not drawn and not hit; one whose `enableIf` is false draws disabled and ignores input. Both re-evaluate whenever values or vars change. `{var}` placeholders work in the param id.
+- `"showIf"` and `"enableIf"` on any widget: `"fx.reverb.on"` (true while that param is not at its minimum), or `{ "param": "<id>", "equals": 2 }`, `{ "param": "<id>", "notEquals": 0 }`, `{ "param": "<id>", "atLeast": 4 }`, `{ "param": "<id>", "atMost": 8 }` (plain values), `{ "var": "op", "equals": "pitch" }`. An `enableIf` on an `embed` disables everything inside it. `{ "stack": "pages", "view": "page_fseq" }` is true while that embed shows that view (with optional `"vars"` that must match too), for markers that follow the current page. A widget whose `showIf` is false is not drawn and not hit; one whose `enableIf` is false draws disabled and ignores input. Both re-evaluate whenever values or vars change. `{var}` placeholders work in the param id.
 
 ### Fitting
 
@@ -195,7 +195,7 @@ These fields extend the tables above. A runtime that predates them ignores them.
 
 ### Edit all
 
-- `skin.json` `"editAll": { "param": "<internal param>", "var": "timbre", "values": ["bl", "br", "tr", "tl"] }`: while that param is on, an edit to a widget whose param template contains `{timbre}` writes every one of those values' params, not just the current one, in the same gesture.
+- `skin.json` `"editAll": { "param": "<internal param>", "var": "part", "values": ["p1", "p2", "p3", "p4"] }`: while that param is on, an edit to a widget whose param template contains `{part}` writes every one of those values' params, not just the current one, in the same gesture.
 
 ### Compound conditions and mirrored params
 
@@ -213,12 +213,12 @@ These fields extend the tables above. A runtime that predates them ignores them.
 
 ### Piano key art
 
-- `piano` field `"keyImages": { "c": "<image>", "d": ..., "e": ..., "f": ..., "g": ..., "a": ..., "b": ..., "black": ..., "top": ... }`: each a two-tile image (normal, pressed). With it, a pressed key is drawn as tile 1 of its image at the key's place (the top C of the range uses `"top"`), instead of a highlight. With `keyImages` the piano draws every key from its image (tile 0, or tile 1 while pressed) at the original's positions, one octave per 130 px.
+- `piano` field `"keyImages": { "c": "<image>", "d": ..., "e": ..., "f": ..., "g": ..., "a": ..., "b": ..., "black": ..., "top": ... }`: each a two-tile image (normal, pressed). With it, a pressed key is drawn as tile 1 of its image at the key's place (the top C of the range uses `"top"`), instead of a highlight. With `keyImages` the piano draws every key from its image (tile 0, or tile 1 while pressed) at fixed positions, one octave per 130 px.
 
 ### Flow and scrolling
 
 - A view with `"flow": "column"` places its widgets top to bottom in file order: each visible widget keeps its `x` and its height, starts where the previous visible one ended (plus `"gap"`, default 0), and hidden widgets take no space. The first visible widget keeps the `y` of the first widget in the file, so a column can start below a heading. The view's height becomes the total.
-- An `embed` with `"scroll": { "track": "<image>", "thumb": "<image>", "width": 12 }` scrolls vertically when its view is taller than the rect: the wheel scrolls it, and a scrollbar of that width is drawn at the rect's right edge (the track image stretched to the full height, the thumb sized in proportion and dragged). The scroll position is saved with the GUI state.
+- An `embed` with `"scroll": { "track": "<image>", "thumb": "<image>", "width": 12 }` scrolls vertically when its view is taller than the rect: the wheel scrolls it, and a scrollbar of that width is drawn at the rect's right edge (the track image stretched to the full height, the thumb sized in proportion and dragged). The scroll position is saved with the GUI state. With `"reveal": true` the first radio button inside it that is on (a `value` action whose param holds its value) is scrolled to the middle after any button's `goto`, `set` or `toggle`, so a chooser opens on the current choice.
 
 ### Text entry
 
@@ -290,4 +290,4 @@ The runtime draws at scale 1 into a buffer and presents it at an integer scale 1
 
 ## Live editing
 
-When the environment variable `HOLLOW_SKIN_DIR` points at a skin folder, the runtime loads the skin from there instead of the copy embedded in the plug-in, and reloads it about once a second when any file's modification time changes. Point it at `plugins/<name>/skin`, open the standalone, and edits saved from the web editor appear in the running plug-in.
+When the environment variable `HOLLOW_SKIN_DIR` points at a skin folder, the runtime loads the skin from there instead of the copy embedded in the plug-in, and reloads it about once a second when any file's modification time changes. Point it at the skin folder (`hollow.py run` points FSVR's standalone at `../FSVR/plugin/skin`), open the standalone, and edits saved from the web editor appear in the running plug-in.

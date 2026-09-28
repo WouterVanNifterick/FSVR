@@ -13,8 +13,8 @@
    "rect": [
     6,
     35,
-    168,
-    472
+    176,
+    473
    ],
    "layer": 0,
    "fill": {
@@ -25,15 +25,16 @@
    "type": "plate",
    "name": "nav_title",
    "rect": [
-    54,
+    6,
     15,
-    96,
+    176,
     24
    ],
    "layer": 0,
    "text": {
     "text": "Navigator",
-    "font": "caption_grey_12"
+    "font": "caption_grey_12",
+    "align": "center"
    },
    "pad": [
     2,
@@ -48,7 +49,7 @@
    "rect": [
     17,
     50,
-    147,
+    155,
     448
    ],
    "layer": 1,
@@ -186,12 +187,12 @@
    "type": "plate",
    "name": "nav_library_icon",
    "rect": [
-    23,
+    26,
     51,
     34,
     35
    ],
-   "layer": 2,
+   "layer": 4,
    "fill": {
     "image": "icons/nav_md_library"
    }
@@ -200,12 +201,12 @@
    "type": "plate",
    "name": "nav_tags_icon",
    "rect": [
-    23,
+    26,
     90,
     34,
     35
    ],
-   "layer": 2,
+   "layer": 4,
    "fill": {
     "image": "icons/nav_md_tags"
    }
@@ -214,12 +215,12 @@
    "type": "plate",
    "name": "nav_master_icon",
    "rect": [
-    23,
+    26,
     129,
     34,
     35
    ],
-   "layer": 2,
+   "layer": 4,
    "fill": {
     "image": "icons/nav_md_master"
    }
@@ -228,12 +229,12 @@
    "type": "plate",
    "name": "nav_fx_icon",
    "rect": [
-    23,
+    26,
     168,
     34,
     35
    ],
-   "layer": 2,
+   "layer": 4,
    "fill": {
     "image": "icons/nav_md_fx"
    }
@@ -242,12 +243,12 @@
    "type": "plate",
    "name": "nav_arp_icon",
    "rect": [
-    23,
+    26,
     207,
     34,
     35
    ],
-   "layer": 2,
+   "layer": 4,
    "fill": {
     "image": "icons/nav_md_arp"
    }
@@ -256,12 +257,12 @@
    "type": "plate",
    "name": "nav_quick_icon",
    "rect": [
-    23,
+    26,
     246,
     34,
     35
    ],
-   "layer": 2,
+   "layer": 4,
    "fill": {
     "image": "icons/nav_md_quick"
    }
@@ -270,12 +271,12 @@
    "type": "plate",
    "name": "nav_expert_icon",
    "rect": [
-    23,
+    26,
     285,
     34,
     35
    ],
-   "layer": 2,
+   "layer": 4,
    "fill": {
     "image": "icons/nav_md_expert"
    }
@@ -286,7 +287,7 @@
    "rect": [
     23,
     246,
-    135,
+    143,
     35
    ],
    "text": {
@@ -309,7 +310,11 @@
    "action": {
     "goto": "page_quick",
     "stack": "pages"
-   }
+   },
+   "fill": {
+    "image": "buttons/nav_big"
+   },
+   "hoverTiles": true
   },
   {
    "type": "button",
@@ -317,7 +322,7 @@
    "rect": [
     23,
     285,
-    135,
+    143,
     35
    ],
    "text": {
@@ -340,15 +345,19 @@
    "action": {
     "goto": "page_all_ops",
     "stack": "pages"
-   }
+   },
+   "fill": {
+    "image": "buttons/nav_big"
+   },
+   "hoverTiles": true
   },
   {
    "type": "button",
    "name": "nav_op_2",
    "rect": [
-    126,
+    132,
     333,
-    26,
+    28,
     26
    ],
    "fill": {
@@ -386,9 +395,9 @@
    "type": "button",
    "name": "nav_op_4",
    "rect": [
-    126,
+    132,
     363,
-    26,
+    28,
     26
    ],
    "fill": {
@@ -426,9 +435,9 @@
    "type": "button",
    "name": "nav_op_6",
    "rect": [
-    126,
+    132,
     393,
-    26,
+    28,
     26
    ],
    "fill": {
@@ -468,7 +477,7 @@
    "rect": [
     23,
     129,
-    135,
+    143,
     35
    ],
    "text": {
@@ -477,7 +486,7 @@
     "valign": "middle"
    },
    "pad": [
-    38,
+    41,
     3,
     0,
     0
@@ -491,15 +500,19 @@
    "action": {
     "goto": "page_master",
     "stack": "pages"
-   }
+   },
+   "fill": {
+    "image": "buttons/nav_big"
+   },
+   "hoverTiles": true
   },
   {
    "type": "button",
    "name": "nav_op_8",
    "rect": [
-    126,
+    132,
     423,
-    26,
+    28,
     26
    ],
    "fill": {
@@ -537,9 +550,9 @@
    "type": "button",
    "name": "nav_pitch",
    "rect": [
-    93,
+    97,
     453,
-    59,
+    63,
     26
    ],
    "fill": {
@@ -574,7 +587,7 @@
    "rect": [
     23,
     168,
-    135,
+    143,
     35
    ],
    "text": {
@@ -597,7 +610,11 @@
    "action": {
     "goto": "page_fx",
     "stack": "pages"
-   }
+   },
+   "fill": {
+    "image": "buttons/nav_big"
+   },
+   "hoverTiles": true
   },
   {
    "type": "button",
@@ -605,7 +622,7 @@
    "rect": [
     23,
     207,
-    135,
+    143,
     35
    ],
    "text": {
@@ -628,7 +645,11 @@
    "action": {
     "goto": "page_fseq",
     "stack": "pages"
-   }
+   },
+   "fill": {
+    "image": "buttons/nav_big"
+   },
+   "hoverTiles": true
   },
   {
    "type": "button",
@@ -636,7 +657,7 @@
    "rect": [
     27,
     393,
-    59,
+    63,
     26
    ],
    "fill": {
@@ -671,7 +692,7 @@
    "rect": [
     23,
     51,
-    135,
+    143,
     35
    ],
    "text": {
@@ -694,7 +715,11 @@
    "action": {
     "goto": "page_library",
     "stack": "pages"
-   }
+   },
+   "fill": {
+    "image": "buttons/nav_big"
+   },
+   "hoverTiles": true
   },
   {
    "type": "button",
@@ -702,7 +727,7 @@
    "rect": [
     23,
     90,
-    135,
+    143,
     35
    ],
    "text": {
@@ -725,7 +750,11 @@
    "action": {
     "goto": "page_parts",
     "stack": "pages"
-   }
+   },
+   "fill": {
+    "image": "buttons/nav_big"
+   },
+   "hoverTiles": true
   },
   {
    "type": "button",
@@ -733,7 +762,7 @@
    "rect": [
     27,
     363,
-    59,
+    63,
     26
    ],
    "fill": {
@@ -768,7 +797,7 @@
    "rect": [
     27,
     333,
-    59,
+    63,
     26
    ],
    "fill": {
@@ -803,7 +832,7 @@
    "rect": [
     27,
     453,
-    59,
+    63,
     26
    ],
    "fill": {
@@ -837,9 +866,9 @@
    "type": "button",
    "name": "nav_op_7",
    "rect": [
-    93,
+    97,
     423,
-    26,
+    28,
     26
    ],
    "fill": {
@@ -877,9 +906,9 @@
    "type": "button",
    "name": "nav_op_5",
    "rect": [
-    93,
+    97,
     393,
-    26,
+    28,
     26
    ],
    "fill": {
@@ -917,9 +946,9 @@
    "type": "button",
    "name": "nav_op_3",
    "rect": [
-    93,
+    97,
     363,
-    26,
+    28,
     26
    ],
    "fill": {
@@ -957,9 +986,9 @@
    "type": "button",
    "name": "nav_op_1",
    "rect": [
-    93,
+    97,
     333,
-    26,
+    28,
     26
    ],
    "fill": {
@@ -999,7 +1028,7 @@
    "rect": [
     27,
     423,
-    59,
+    63,
     26
    ],
    "fill": {

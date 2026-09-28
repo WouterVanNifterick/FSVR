@@ -25,36 +25,25 @@
    "type": "plate",
    "name": "bank_title",
    "rect": [
-    146,
-    15,
-    101,
-    21
+    20,
+    16,
+    108,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Fseq Bank",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "bank_title_icon",
-   "rect": [
-    234,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab"
    }
   },
   {
@@ -754,7 +743,7 @@
    },
    "pad": [
     6,
-    0,
+    5,
     0,
     0
    ]
@@ -899,108 +888,75 @@
    "type": "plate",
    "name": "seq_title",
    "rect": [
-    412,
-    15,
-    164,
-    21
+    398,
+    16,
+    159,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Formant Sequence",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "seq_title_icon",
-   "rect": [
-    559,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {
    "type": "plate",
    "name": "speed_title",
    "rect": [
-    672,
-    15,
-    155,
-    21
+    616,
+    16,
+    145,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Speed and Level",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "speed_title_icon",
-   "rect": [
-    810,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {
    "type": "plate",
    "name": "loop_title",
    "rect": [
-    1013,
-    15,
-    96,
-    21
+    908,
+    16,
+    75,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Loop",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "loop_title_icon",
-   "rect": [
-    1081,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {

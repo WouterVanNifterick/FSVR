@@ -7,7 +7,8 @@
   "op": "1",
   "layer": "v",
   "browse": "perf",
-  "knobs": "tone"
+  "knobs": "tone",
+  "alg_grid": "3"
  },
  "menu": {
   "font": "menu_black_10",
@@ -363,10 +364,6 @@
    "surface": false
   },
   "buttons/header_view": {
-   "tiles": 2,
-   "surface": false
-  },
-  "buttons/led_toggle": {
    "tiles": 2,
    "surface": false
   },
@@ -1394,12 +1391,6 @@
    ]
   },
   "panels/nav_column": {
-   "slice": [
-    375,
-    0,
-    23,
-    0
-   ],
    "surface": false
   },
   "panels/plate_slate": {
@@ -2027,7 +2018,79 @@
     14
    ]
   },
-  "dialogs/fsvr_about_backdrop": {}
+  "dialogs/fsvr_about_backdrop": {},
+  "panels/group_tab_light": {
+   "slice": [
+    0,
+    20,
+    0,
+    20
+   ],
+   "surface": false
+  },
+  "panels/group_tab": {
+   "slice": [
+    0,
+    20,
+    0,
+    20
+   ],
+   "surface": false
+  },
+  "panels/group_tab_dark": {
+   "slice": [
+    0,
+    20,
+    0,
+    20
+   ],
+   "surface": false
+  },
+  "buttons/part_radio": {
+   "tiles": 2,
+   "surface": false
+  },
+  "scrollbars/morph_track": {
+   "slice": [
+    12,
+    0,
+    12,
+    0
+   ],
+   "surface": false
+  },
+  "scrollbars/morph_thumb": {
+   "slice": [
+    5,
+    0,
+    5,
+    0
+   ],
+   "surface": false
+  },
+  "buttons/alg_cell": {
+   "tiles": 4,
+   "slice": [
+    3,
+    3,
+    3,
+    3
+   ],
+   "surface": false
+  },
+  "keyboard/shadow_left": {
+   "surface": false
+  },
+  "keyboard/shadow_right": {
+   "surface": false
+  },
+  "buttons/nav_big": {
+   "tiles": 3,
+   "surface": false
+  },
+  "icons/nav_pointer": {
+   "surface": false
+  }
  },
  "density": 1.5
 }

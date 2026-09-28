@@ -27,7 +27,7 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 | `src/fsvr/` | **ours**, no hardware counterpart | nothing. The hardware has no opinion |
 | `src/fsvr/tuning.h` | our cost knobs | nothing, and changing one must not alter the output |
 | `plugin/` | the plug-in: processor, bank manager, Import Audio | it never models synthesis, see below |
-| `plugin/skin/` | the editor, generated in the Hollow project | nothing; it is published from there (`docs/editor.md`) |
+| `plugin/skin/` | the editor, edited in place with Hollow's web editor | nothing; the hardware has no opinion (`docs/editor.md`) |
 | `hollow/` | the plug-in framework, Hollow's `framework/` | nothing. Keep it in step with Hollow's copy |
 
 ## The rules
@@ -40,7 +40,7 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 
 **The plugin never models synthesis.** It moves parameter values in and out of the engine as sysex, exactly as a hardware editor would, and learns state back from the engine's own bulk dumps. If you find yourself computing audio in `plugin/`, you are in the wrong layer. The morph square blends voice bytes into a voice bulk and Import Audio writes Fseq bytes on the scales `fs1r::Device` gives it; neither renders anything.
 
-**Generated files are generated.** Do not hand-edit anything in `plugin/generated/`, nor `src/fs1r/firmware/tables.h` or `algorithms.h`. Change the generator or its source and re-run it. `plugin/generated/README.md` names each generator. `plugin/skin/` is generated in the Hollow project beside this repository (`tools/fsvr/make_skin.py`, then `tools/fsvr/publish.py`, which bakes the chrome in); a layout tweak can be made in Hollow's web editor on `plugin/skin` directly, but a param, a page or anything the generator makes goes through the generator, or the next publish loses it.
+**Generated files are generated.** Do not hand-edit anything in `plugin/generated/`, nor `src/fs1r/firmware/tables.h` or `algorithms.h`. Change the generator or its source and re-run it. `plugin/generated/README.md` names each generator. `plugin/skin/` is not generated: it is the source, edited in place with the web editor of the Hollow project beside this repository (`python hollow.py editor` there opens it by default). Its params and `data/fs1r_sysex.json` were made from `plugin/generated/` once, so a change to the parameter descriptions reaches the skin only by editing it there too.
 
 **Scale is not fidelity.** `src/fsvr/tuning.h` holds knobs that trade CPU for nothing else. If changing one moves a measurement, the value is wrong, not the hardware's.
 

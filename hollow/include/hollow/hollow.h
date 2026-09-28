@@ -16,8 +16,8 @@ namespace hollow {
 // ---- product description ------------------------------------------------------------------
 
 struct Info {
-    const char* id;            // reverse-DNS, e.g. "studio.musica.hollow-fm"
-    const char* name;          // "Hollow FM"
+    const char* id;            // reverse-DNS, e.g. "com.example.my-synth"
+    const char* name;          // "My Synth"
     const char* vendor;
     const char* url;
     const char* version;       // "1.0.0"
@@ -164,6 +164,8 @@ public:
         virtual void edit(size_t param, double plain) = 0;   // value is already in State
         virtual void endEdit(size_t param) = 0;
         virtual bool resize(int width, int height) { (void)width; (void)height; return false; }
+        // True in the standalone app, whose audio and MIDI settings a skin's "standalone" action opens.
+        virtual bool standalone() const { return false; }
     };
 
     Editor(std::shared_ptr<Skin> skin, State& state, Host& host);

@@ -25,36 +25,25 @@
    "type": "plate",
    "name": "sets_title",
    "rect": [
-    540,
-    15,
-    155,
-    21
+    20,
+    16,
+    136,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Controller Sets",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "sets_title_icon",
-   "rect": [
-    678,
-    18,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab"
    }
   },
   {
@@ -1104,7 +1093,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -1124,7 +1113,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -1144,7 +1133,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -1164,7 +1153,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -1741,7 +1730,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -1761,7 +1750,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -1781,7 +1770,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -1801,7 +1790,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -2378,7 +2367,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -2398,7 +2387,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -2418,7 +2407,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -2438,7 +2427,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -3015,7 +3004,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -3035,7 +3024,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -3055,7 +3044,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -3075,7 +3064,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -3652,7 +3641,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -3672,7 +3661,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -3692,7 +3681,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -3712,7 +3701,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -4289,7 +4278,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -4309,7 +4298,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -4329,7 +4318,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -4349,7 +4338,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -4926,7 +4915,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -4946,7 +4935,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -4966,7 +4955,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -4986,7 +4975,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -5563,7 +5552,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -5583,7 +5572,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -5603,7 +5592,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -5623,7 +5612,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/led_toggle"
+    "image": "buttons/toggle_row"
    },
    "toggle": true,
    "pressOffset": [
@@ -5651,36 +5640,25 @@
    "type": "plate",
    "name": "box1_title",
    "rect": [
-    176,
-    297,
-    96,
-    21
+    20,
+    298,
+    76,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "LFO 1",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "box1_title_icon",
-   "rect": [
-    247,
-    300,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {
@@ -5701,36 +5679,25 @@
    "type": "plate",
    "name": "box2_title",
    "rect": [
-    561,
-    297,
-    96,
-    21
+    450,
+    298,
+    79,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "LFO 2",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "box2_title_icon",
-   "rect": [
-    632,
-    300,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {
@@ -5751,36 +5718,25 @@
    "type": "plate",
    "name": "box3_title",
    "rect": [
-    893,
-    297,
-    218,
-    21
+    790,
+    298,
+    191,
+    20
    ],
    "layer": 0,
    "text": {
     "text": "Formant and FM Control",
     "font": "caption_grey_12",
-    "align": "center"
+    "align": "left"
    },
    "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "box3_title_icon",
-   "rect": [
-    1089,
-    300,
-    11,
-    11
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 0,
    "fill": {
-    "image": "icons/section_plus"
+    "image": "panels/group_tab_light"
    }
   },
   {

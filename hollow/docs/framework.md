@@ -2,7 +2,7 @@
 
 > This copy travels with FSVR's `hollow/`, which is Hollow's `framework/` folder. The web editor (`editor/`) and the skin tools (`tools/`) it mentions live in the Hollow project beside this repository.
 
-FSVR's `plugin/` is a working product on this framework, and Hollow's own `plugins/starter` the smallest one. A Hollow product is three things: a `plugin.cpp` that describes it (and makes sound, if it does), a skin folder that is its GUI, and one `hollow_add_plugin()` call. The framework supplies the rest: the formats, the editor window, parameter plumbing, state, GUI scaling and the embedded skin.
+FSVR's `plugin/` (in the FSVR repository) is a full product on this framework, with a processor, and Hollow's `plugins/fsvr` the smallest one: FSVR's skin in a silent shell. A Hollow product is three things: a `plugin.cpp` that describes it (and makes sound, if it does), a skin folder that is its GUI, and one `hollow_add_plugin()` call. The framework supplies the rest: the formats, the editor window, parameter plumbing, state, GUI scaling and the embedded skin.
 
 ## 1. The product
 
@@ -78,7 +78,8 @@ Configure and build as in the README; the formats land in `build/<dir>/out/`. `-
 - `HOLLOW_SKIN_DIR=<skin folder>` makes any build read the skin from disk and reload it on save, so the editor and a running standalone or host work together.
 - `hollow-render <skin> <view> <out.png> [state file]` renders any view without a window, for checks and documentation; a saved state (`hollow-state 1`: params, text data, UI vars and pages) renders the view as that instance would show it.
 - Right-click an empty part of the editor window for 1x to 4x scaling; the choice is saved with the instance.
-- For a larger GUI at a size that is not a whole multiple, `python tools/skinscale/scale.py skin skin_large --factor 1.5` writes a scaled copy of the skin: the layout scaled, the artwork upscaled with Real-ESRGAN, the fonts scaled glyph by glyph, and `skin.json` `density` set so the runtime's own drawings follow. Give it its own product folder, as Hollow FM 2 does.
+- For a GUI drawn at a size that is not a whole multiple, set `skin.json` `density` to its pixels per unit so the runtime's own drawings follow (FSVR's skin is 1.5).
+- `python tools/overflow.py <skin>` lists text wider than its widget: static captions, every choice a dropdown can show, the widest value a number field can show, and list cells, measured with the skin's own fonts as the runtime measures them.
 
 ## What the framework does for a processor
 

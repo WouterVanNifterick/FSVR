@@ -51,7 +51,7 @@
    "name": "volume_label",
    "rect": [
     24,
-    28,
+    32,
     72,
     20
    ],
@@ -90,7 +90,7 @@
    "name": "volume_value",
    "rect": [
     30,
-    108,
+    112,
     60,
     16
    ],
@@ -116,7 +116,7 @@
    "name": "attack_label",
    "rect": [
     816,
-    28,
+    32,
     72,
     20
    ],
@@ -163,7 +163,7 @@
    "name": "attack_value",
    "rect": [
     822,
-    108,
+    112,
     60,
     16
    ],
@@ -193,7 +193,7 @@
    "name": "release_label",
    "rect": [
     888,
-    28,
+    32,
     72,
     20
    ],
@@ -240,7 +240,7 @@
    "name": "release_value",
    "rect": [
     894,
-    108,
+    112,
     60,
     16
    ],
@@ -270,7 +270,7 @@
    "name": "formant_label",
    "rect": [
     960,
-    28,
+    32,
     72,
     20
    ],
@@ -317,7 +317,7 @@
    "name": "formant_value",
    "rect": [
     966,
-    108,
+    112,
     60,
     16
    ],
@@ -347,7 +347,7 @@
    "name": "fm_label",
    "rect": [
     1032,
-    28,
+    32,
     72,
     20
    ],
@@ -394,7 +394,7 @@
    "name": "fm_value",
    "rect": [
     1038,
-    108,
+    112,
     60,
     16
    ],
@@ -424,7 +424,7 @@
    "name": "kn1_label",
    "rect": [
     816,
-    28,
+    32,
     72,
     20
    ],
@@ -471,7 +471,7 @@
    "name": "kn1_value",
    "rect": [
     822,
-    108,
+    112,
     60,
     16
    ],
@@ -501,7 +501,7 @@
    "name": "kn2_label",
    "rect": [
     888,
-    28,
+    32,
     72,
     20
    ],
@@ -548,7 +548,7 @@
    "name": "kn2_value",
    "rect": [
     894,
-    108,
+    112,
     60,
     16
    ],
@@ -578,7 +578,7 @@
    "name": "kn3_label",
    "rect": [
     960,
-    28,
+    32,
     72,
     20
    ],
@@ -625,7 +625,7 @@
    "name": "kn3_value",
    "rect": [
     966,
-    108,
+    112,
     60,
     16
    ],
@@ -655,7 +655,7 @@
    "name": "kn4_label",
    "rect": [
     1032,
-    28,
+    32,
     72,
     20
    ],
@@ -702,7 +702,7 @@
    "name": "kn4_value",
    "rect": [
     1038,
-    108,
+    112,
     60,
     16
    ],
@@ -2758,7 +2758,7 @@
    "type": "button",
    "name": "show_editor",
    "rect": [
-    474,
+    618,
     52,
     72,
     26
@@ -2791,7 +2791,7 @@
    "type": "button",
    "name": "show_keys",
    "rect": [
-    546,
+    690,
     52,
     72,
     26
@@ -2824,7 +2824,7 @@
    "type": "dropdown",
    "name": "file_menu",
    "rect": [
-    618,
+    474,
     52,
     72,
     26
@@ -2872,9 +2872,16 @@
       "goto": "page_master",
       "stack": "pages"
      }
+    },
+    {
+     "label": "Audio/MIDI Settings...",
+     "value": 3,
+     "action": {
+      "standalone": "settings"
+     }
     }
    ],
-   "tip": "SysEx and options",
+   "tip": "SysEx, options, and in the standalone the audio and MIDI settings",
    "text": {
     "text": "File",
     "font": "caption_white_12",
@@ -2891,7 +2898,7 @@
    "type": "button",
    "name": "save_as",
    "rect": [
-    690,
+    546,
     52,
     72,
     26

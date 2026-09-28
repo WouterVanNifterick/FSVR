@@ -4,7 +4,7 @@
 //
 // Transcribed from K_Take's FS1R Editor (freeware), https://synth-voice.sakura.ne.jp/fs1r_editor_english.html,
 // whose tables were read out of its Mac build 1.1.0 (2015); its Windows build 1.62 (2020) carries
-// the same text. Checked against the Data List and the ROM (Hollow's docs/fsvr-skin.md, Validation):
+// the same text. Checked against the Data List and the ROM (docs/editor.md, Validation):
 // the effect slots, addresses and defaults, the algorithms' carriers and the preset Fseq parameters
 // all agree. One typo is corrected, FIXED_FREQUENCY[1][12] ("50.33", for 55.33). With thanks to K_Take.
 #pragma once
