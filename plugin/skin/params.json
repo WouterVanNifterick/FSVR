@@ -36355,6 +36355,14 @@
   "host": false
  },
  {
+  "id": "fseq.position",
+  "name": "Fseq Position",
+  "min": 0,
+  "max": 511,
+  "steps": 511,
+  "host": false
+ },
+ {
   "id": "gui.panic",
   "name": "Panic",
   "min": 0,

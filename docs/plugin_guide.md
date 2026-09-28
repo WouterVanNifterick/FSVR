@@ -52,7 +52,7 @@ Your library is a folder of .syx files, one bank each: `Documents/FSVR/Library` 
 
 ## Fseqs
 
-The Fseq page is a bank manager of its own: the 90 presets with a lock, then yours. Beside it are the performance's Fseq settings (the part it plays on, play mode, trigger, pitch, speed, loop), its tracks drawn, and which operators of the selected part follow it. **Import** adds a .syx of Fseqs to the library, **Export** saves the loaded Fseq as a bulk dump the unit takes.
+The Fseq page is a bank manager of its own: the 90 presets with a lock, then yours. Beside it are the performance's Fseq settings (the part it plays on, play mode, trigger, pitch, speed, loop), its tracks drawn with a gold line where playback is, and which operators of the selected part follow it. Choosing an Fseq sets the loop to the one its header gives, as the unit does; a performance keeps its own. **Import** adds a .syx of Fseqs to the library, **Export** saves the loaded Fseq as a bulk dump the unit takes.
 
 **Import Audio** makes an Fseq of your own out of a WAV, AIFF, MP3, Ogg Vorbis or MP4/M4A file: a pitch and eight formants a frame, voiced and unvoiced, as many frames as fit the Fseq's 512, playing at the sound's own pace at 100 % speed. The key that plays it at its own pitch is the header's note. It lands in the library as a bank named after the file and loads at once, on the performance's Fseq part (part 1 when none has one). You hear it through a voice whose operators follow the Fseq: the factory's FseqBase voices, B115 to B128, are made for that, or switch on V and N for an operator on the Fseq page.
 

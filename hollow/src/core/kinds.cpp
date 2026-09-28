@@ -2022,6 +2022,7 @@ static void stageUp(Gui& g, const Hit& h, Rect r, int, int) {
 // colours line (the tracks, their opacity following each frame's level), line2 (the pitch) and dots
 // (the loop points). Frequencies run bottom to top, scaled to the range the Fseq's audible frames use.
 // With "key" the entry is the text data under it instead, one such entry as JSON (a product's own Fseq).
+// "position" names a param holding the frame playback is at, drawn as a solid line in "cursor".
 static int hexByte(const std::string& s, int i) {
     auto nib = [](char ch) { return ch <= '9' ? ch - '0' : (ch | 0x20) - 'a' + 10; };
     return (size_t)(2 * i + 1) < s.size() ? nib(s[(size_t)(2 * i)]) * 16 + nib(s[(size_t)(2 * i + 1)]) : 0;
@@ -2071,6 +2072,8 @@ static void fseqDraw(Gui& g, Canvas& c, const Hit& h, Rect r) {
         int x = X(std::clamp((int)std::lround(g.state().get(q)), 0, n - 1));
         for (int y = r.y; y < r.y + r.h; y += 3 * k) fillRect(c, {x, y, k, 2 * k}, dots);
     }
+    if (int q = g.paramOf(h, j["position"].str()); q >= 0)   // where playback is, a solid line in "cursor"
+        fillRect(c, {X(std::clamp((int)std::lround(g.state().get(q)), 0, n - 1)), r.y, k, r.h}, colourField(w, "cursor", 0xffe8b84b));
     c.clip = saved;
 }
 

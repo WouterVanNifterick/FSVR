@@ -310,7 +310,7 @@ private:
 
     // params by id
     int P(const std::string& id) const { return st.indexOf(id); }
-    int perfProgram = -1, perfBank = -1, perfUser = -1, fseqBank = -1, fseqNumber = -1, fseqUser = -1, fseqPart = -1, panic = -1;
+    int perfProgram = -1, perfBank = -1, perfUser = -1, fseqBank = -1, fseqNumber = -1, fseqUser = -1, fseqPart = -1, fseqPos = -1, panic = -1;
     int partBank[4], partProgram[4], partUser[4], morphX[4], morphY[4], jitterX[4], jitterY[4], morphSeed[4], morphEdit[4];
     int browseBank = -1, browseCategory = -1, browsePerf = -1, browseFseq = -1, browseVoice[4], knob[4];
 
@@ -377,7 +377,7 @@ private:
             fieldParams.push_back(i);
         }
         perfProgram = P("perf.program"); perfBank = P("perf.bank"); perfUser = P("perf.user");
-        fseqBank = P("fseq.bank"); fseqNumber = P("fseq.number"); fseqUser = P("fseq.user"); fseqPart = P("fseq.part");
+        fseqBank = P("fseq.bank"); fseqNumber = P("fseq.number"); fseqUser = P("fseq.user"); fseqPart = P("fseq.part"); fseqPos = P("fseq.position");
         panic = P("gui.panic");
         browseBank = P("browse.bank"); browseCategory = P("browse.category"); browsePerf = P("browse.perf"); browseFseq = P("browse.fseq");
         for (int p = 0; p < 4; ++p) {
@@ -393,10 +393,16 @@ private:
     }
 
     double get(int i) const { return i >= 0 ? st.get((size_t)i) : 0; }
-    void put(int i, double v) {   // a param the worker sets itself: no action follows from it
+    void put(int i, double v) {   // a value read back from the engine: it has it already, and no action follows
         if (i < 0) return;
         st.set((size_t)i, v);
         base[(size_t)i] = sel[(size_t)i] = st.get((size_t)i);
+        notify = true;
+    }
+    void choose(int i, double v) {   // a value the processor picks as a user would: the engine hears it like any edit
+        if (i < 0) return;
+        st.set((size_t)i, v);
+        sel[(size_t)i] = st.get((size_t)i);
         notify = true;
     }
     int edit(int p) const { return std::clamp((int)std::lround(get(morphEdit[p])), 0, 4); }
@@ -614,6 +620,7 @@ private:
                 step();
             }
             requests();
+            if (fseqPos >= 0) st.set((size_t)fseqPos, dev.fseqPosition());   // the Fseq page's playback line
             if (++n % 30 == 0 && lib.rescan()) {
                 std::lock_guard<std::mutex> g(ctl);
                 writeLists();
@@ -841,17 +848,24 @@ private:
         adopt();
     }
 
-    void loadFactoryFseq(int n) {
-        if (n < 0 || n >= (int)factory.fseqs.size()) return;
-        dev.loadSyx(factory.fseqs[(size_t)n].syx.data(), factory.fseqs[(size_t)n].syx.size(), 0, 0);
+    // Choosing an Fseq, as the unit's panel does, copies its header's loop points into the performance:
+    // the player reads the performance's pair and nothing else (FUN_0000FFFA, docs/ymp706_registers.md),
+    // so without the copy a new Fseq plays the loop the performance had, one frame when that was 0 to 0.
+    // A performance's own load keeps its pair (followPerf loads its Fseq without this).
+    void chooseFseq(const Item& f) {
+        dev.loadSyx(f.syx.data(), f.syx.size(), 0, 0);
+        const uint8_t* h = f.data();
+        choose(P("fseq.loop_start"), h[0x10] << 7 | h[0x11]);
+        choose(P("fseq.loop_end"), h[0x12] << 7 | h[0x13]);
         adopt();
     }
 
+    void loadFactoryFseq(int n) {
+        if (n >= 0 && n < (int)factory.fseqs.size()) chooseFseq(factory.fseqs[(size_t)n]);
+    }
+
     void loadUserFseq(int n) {
-        const Item* it = lib.fseq(n);
-        if (!it) return;
-        dev.loadSyx(it->syx.data(), it->syx.size(), 0, 0);
-        adopt();
+        if (const Item* it = lib.fseq(n)) chooseFseq(*it);
     }
 
     // A row of the browsed user bank: list 0 performances, 1 voices (into part p), 2 Fseqs.
@@ -864,11 +878,11 @@ private:
             loadUserPerf(n);
         } else if (list == 1) {
             put(partUser[p], n);
-            put(partBank[p], 1);
+            choose(partBank[p], 1);
             loadPartVoice(p);
         } else {
             put(fseqUser, n);
-            put(fseqBank, 0);
+            choose(fseqBank, 0);
             loadUserFseq(n);
         }
     }
@@ -986,7 +1000,7 @@ private:
         if (!b.fseqs.empty() && (fseqFirst || (b.perfs.empty() && b.voices.empty()))) {
             const int n = lib.number(lib.fseqs, k, 0);
             put(fseqUser, n);
-            put(fseqBank, 0);
+            choose(fseqBank, 0);
             loadUserFseq(n);
         } else if (!b.perfs.empty()) {
             const int n = lib.number(lib.perfs, k, 0);
@@ -994,7 +1008,7 @@ private:
         } else if (!b.voices.empty()) {
             const int p = selectedPart(), n = lib.number(lib.voices, k, 0);
             put(partUser[p], n);
-            put(partBank[p], 1);
+            choose(partBank[p], 1);
             loadPartVoice(p);
         }
     }
@@ -1056,8 +1070,8 @@ private:
         writeLists();
         const int n = lib.number(lib.fseqs, k, 0);
         put(fseqUser, n);
-        put(fseqBank, 0);
-        if (get(fseqPart) == 0) put(fseqPart, 1);
+        choose(fseqBank, 0);
+        if (get(fseqPart) == 0) choose(fseqPart, 1);
         loadUserFseq(n);
         message("Made \"" + lib.banks[(size_t)k].name + "\": " + std::to_string(frames) + " frames");
     }

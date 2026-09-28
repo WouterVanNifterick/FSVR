@@ -135,6 +135,7 @@ The skin asks through params and the instance's text data; the processor (`plugi
 | `perf.user.name` | text data | processor | The loaded user performance's name, for the LCD |
 | `fsvr.message` | text data | processor | What the last import, export or analysis did, in the browser's header |
 | `fseq.display` | text data | processor | The loaded Fseq's tracks, for the Fseq page's display of a user Fseq |
+| `fseq.position` | param (not the host's) | processor | The frame playback is at, the display's gold line |
 | `perf.bank`, `perf.user`, `perf.program` | params | GUI or host | The performance to load |
 | `part.bank.pN`, `part.program.pN`, `part.user.pN` | params | GUI or host | A part's voice |
 | `fseq.bank`, `fseq.number`, `fseq.user` | params | GUI or host | The Fseq |
@@ -144,6 +145,8 @@ The skin asks through params and the instance's text data; the processor (`plugi
 | `morph.request.pN` | text data | GUI | `normalize`: copy the edited corner into all four |
 | `gui.panic` | param (not the host's) | GUI | All notes off while held |
 | `fsvr.engine`, `fsvr.morph` | text data | processor | The engine's bulk dumps and the morph corners, saved with the instance |
+
+Choosing an Fseq (the browser, the Fseq page, Import, Import Audio) copies its header's loop start and end into the performance, as the unit's panel does: the player reads the performance's pair and nothing else (FUN_0000FFFA, `docs/ymp706_registers.md`), so without the copy a new Fseq would play the loop the performance had, and hold one frame when that was 0 to 0. Loading a performance keeps its own pair.
 
 Program change reaches the same params the unit's way: on the performance channel in Performance mode a performance of the bank selected (bank select 3F then 40 for the user's, 41 to 43 for Preset A to C), in Multi mode a voice for each part on the channel.
 

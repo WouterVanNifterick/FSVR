@@ -240,6 +240,14 @@ int main() {
         CHECK(std::abs(hi - 0x62) <= 1, "the pitch word's high byte is %02x, 150 Hz is 62", hi);
     }
 
+    // The Fseq plays from a note on its part, and the page's playback line follows it.
+    a.set("fseq.part", 1);
+    a.set("fseq.play_mode", 1);   // Fseq, not Scratch
+    a.run(2);
+    a.midi({0x90, 60, 100});
+    CHECK(a.until([&] { return a.get("fseq.position") > 5; }), "the Fseq playback position stayed at %g (speed %g, delay %g, part %g, mode %g, voices %d)", a.get("fseq.position"), a.get("fseq.speed"), a.get("fseq.delay"), a.get("fseq.part"), a.get("fseq.play_mode"), a.st->voices());
+    a.midi({0x80, 60, 0});
+
     // Export writes a hardware-shaped dump.
     a.st->setData("sysex.export", (tmp / "out.syx").u8string());
     CHECK(a.until([&] { return fs::exists(tmp / "out.syx") && fs::file_size(tmp / "out.syx") > 3000; }), "Export SysEx wrote nothing");

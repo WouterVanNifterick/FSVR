@@ -1789,6 +1789,7 @@
     "fseq.loop_start",
     "fseq.loop_end"
    ],
+   "position": "fseq.position",
    "showIf": {
     "param": "fseq.bank",
     "equals": 1
@@ -1815,6 +1816,7 @@
     "fseq.loop_start",
     "fseq.loop_end"
    ],
+   "position": "fseq.position",
    "showIf": {
     "param": "fseq.bank",
     "equals": 0
