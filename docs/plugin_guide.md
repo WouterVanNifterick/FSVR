@@ -29,7 +29,7 @@ The standalone keeps its audio and MIDI devices under **Audio/MIDI Settings** in
 
 ## The window
 
-The header is the unit's front panel as FM8 would have drawn it: the performance's volume, the LCD, a pod of Editor, Keys, File and Store buttons over the four part buttons, the Tone and KN knob modes and their four knobs, and the output monitor.
+The header is the unit's front panel: the performance's volume, the LCD, a pod of Editor, Keys, File and Store buttons over the four part buttons, the Tone and KN knob modes and their four knobs, and the output monitor.
 
 - **The LCD** shows the performance (click it for the factory performance menu; the arrows step through them), the selected part's voice and receive channel, the voices sounding (POLY) and the CPU. A user item shows as U and its number.
 - **Part 1 to 4** pick the part the edit pages show. Every part's params exist on their own, so a host automates a known part whichever is selected.
@@ -58,7 +58,7 @@ The Fseq page is a bank manager of its own: the 90 presets with a lock, then you
 
 ## The morph square
 
-The Easy page holds the part's quick edits and FM8's morph square: four corner voices, A to D, blended into the voice the part plays.
+The Easy page holds the part's quick edits and the morph square: four corner voices, A to D, blended into the voice the part plays.
 
 - With **Edit All** lit (a fresh part), a voice you load goes into all four corners and the edit pages edit all four, so the part plays as it always did.
 - Click a **corner** to edit it alone: a voice you load then goes into that corner only, and the edit pages show and edit it.

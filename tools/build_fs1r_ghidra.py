@@ -5,7 +5,7 @@
     python tools/build_fs1r_ghidra.py --only fs1r
 
 Layout: ROM images live in the sibling FS1R_DISASM/roms folder (see its README.md); Ghidra projects
-and the decomp.db sqlite files are written next to them.  Modelled on FM8.plus/tools/build_fm8_ghidra.py.
+and the decomp.db sqlite files are written next to them.
 """
 from __future__ import annotations
 
