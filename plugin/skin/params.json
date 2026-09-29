@@ -36451,5 +36451,148 @@
   ],
   "default": 0,
   "host": false
+ },
+ {
+  "id": "gui.edited",
+  "name": "Edited",
+  "min": 0,
+  "max": 1,
+  "steps": 1,
+  "labels": [
+   "Off",
+   "On"
+  ],
+  "default": 0,
+  "host": false
+ },
+ {
+  "id": "save.bank",
+  "name": "Save Bank",
+  "min": 0,
+  "max": 4096,
+  "steps": 4096,
+  "host": false
+ },
+ {
+  "id": "item.category",
+  "name": "Item Category",
+  "min": 0,
+  "max": 22,
+  "default": 0,
+  "steps": 22,
+  "labels": [
+   "--",
+   "Piano",
+   "Chromatic",
+   "Organ",
+   "Guitar",
+   "Bass",
+   "Strings",
+   "Ensemble",
+   "Brass",
+   "Reed",
+   "Pipe",
+   "Synth Lead",
+   "Synth Pad",
+   "Synth FX",
+   "Ethnic",
+   "Percussive",
+   "Sound FX",
+   "Drums",
+   "Synth Comp",
+   "Vocal",
+   "Combination",
+   "Material Wave",
+   "Sequence"
+  ],
+  "host": false
+ },
+ {
+  "id": "item.readonly",
+  "name": "Item Read Only",
+  "min": 0,
+  "max": 1,
+  "steps": 1,
+  "labels": [
+   "Off",
+   "On"
+  ],
+  "default": 0,
+  "host": false
+ },
+ {
+  "id": "item.kind",
+  "name": "Item Kind",
+  "min": 0,
+  "max": 2,
+  "steps": 2,
+  "labels": [
+   "Performance",
+   "Voice",
+   "No Category"
+  ],
+  "default": 0,
+  "host": false
+ },
+ {
+  "id": "bank.readonly",
+  "name": "Bank Read Only",
+  "min": 0,
+  "max": 1,
+  "steps": 1,
+  "labels": [
+   "Off",
+   "On"
+  ],
+  "default": 0,
+  "host": false
+ },
+ {
+  "id": "standalone.api",
+  "name": "Standalone Api",
+  "min": 0,
+  "max": 1024,
+  "steps": 1024,
+  "host": false
+ },
+ {
+  "id": "standalone.output",
+  "name": "Standalone Output",
+  "min": 0,
+  "max": 1024,
+  "steps": 1024,
+  "host": false
+ },
+ {
+  "id": "standalone.input",
+  "name": "Standalone Input",
+  "min": 0,
+  "max": 1024,
+  "steps": 1024,
+  "host": false
+ },
+ {
+  "id": "standalone.rate",
+  "name": "Standalone Rate",
+  "min": 0,
+  "max": 1024,
+  "steps": 1024,
+  "host": false
+ },
+ {
+  "id": "standalone.buffer",
+  "name": "Standalone Buffer",
+  "min": 0,
+  "max": 1024,
+  "steps": 1024,
+  "host": false
+ },
+ {
+  "id": "standalone.midi",
+  "name": "Standalone Midi",
+  "min": 0,
+  "max": 1024,
+  "steps": 1024,
+  "host": false
  }
 ]

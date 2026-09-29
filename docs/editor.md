@@ -16,12 +16,20 @@ The plug-in's editor covers everything the Yamaha FS1R has, in hammered aqua chr
 
 The unit holds 128 internal performances, 128 voices (or 64 and six Fseqs). FSVR has a user library instead: a folder of .syx files, `Documents/FSVR/Library` (`FSVR_LIBRARY` names another), each file a bank, shared by every instance and read again whenever a file comes, goes or changes.
 
-- **Banks.** The browser's Bank column holds the factory bank, Yamaha FS1R, then the library's banks by name. File > Import SysEx copies the file into the library as a new bank named after it, "Name", then "Name 2" if that is taken, and opens it; its first performance loads, else its first voice into the selected part, else its first Fseq. A bank is any mix of FS1R performance, voice and Fseq bulks at any of their addresses, DX7 single voices (VCED, with an ACED before it) and DX7 32-voice banks, which are unpacked to single voices since the unit takes only those.
-- **Store** saves the performance with its four voices and its Fseq as a .syx, starting in the library, where it is a bank of its own and a user performance at once.
+- **Banks.** The browser's Bank column holds the factory bank, Yamaha FS1R, then the library's banks by name. Import > Import FS1R SysEx to New Bank copies the file into the library as a new bank named after it, "Name", then "Name 2" if that is taken, and opens it; its first performance loads, else its first voice into the selected part, else its first Fseq. A bank is any mix of FS1R performance, voice and Fseq bulks at any of their addresses, DX7 single voices (VCED, with an ACED before it) and DX7 32-voice banks, which are unpacked to single voices since the unit takes only those.
+- **Save > Save Current Preset** opens a modal: the library's banks with `<New Bank>` first, the preset's name (the performance's 12 characters) and, for a new bank, the bank's name. The factory bank is not listed, since it is read only. The performance goes into the bank's .syx with its four voices and its Fseq after it, where it is a user performance; one of the same name in that bank is replaced, with the voices and Fseq that came with it.
+- **Save > Export Current Preset** writes the performance as a `.fsvr` file, FSVR's own format: XML, so it can carry more than the unit's bytes later on. Version 1 holds `<name>`, `<category>` and `<sysex encoding="base64">`, the performance, voice and Fseq bulks it loads from. **Import > Import FSVR Preset** loads one at once and opens the Save modal on the name the file gives.
+- **Save > Export to FS1R SysEx** writes the whole unit, system included, as bulk dumps a real FS1R takes.
+- **Right-click on a preset** (a performance, voice or Fseq row, in any bank): a heading naming it ("Performance: China Pop"), then Rename, Delete, Edit Attributes, Copy Attributes, Paste Attributes. The row lights while its menu and the modal it opens are up. A preset's attributes are its category; an Fseq and a DX voice have none. Delete and Rename edit the bank's file in place, and deleting a performance takes the voices and Fseq that came with it. The factory's presets open the same modals read only, and their attributes still copy. The row's first cell, its code, names the item: U and a number for a user item, A001 for a factory performance or voice, 01 for a factory Fseq.
+- **Right-click on a bank**: a heading ("Bank: CYBER"), then Rename and Delete. A deleted bank's file moves to the library's `Deleted` folder rather than going for good; renaming renames the file. Yamaha FS1R is read only.
+- **Edited.** `gui.edited` is on once a param reaches the engine after a performance loaded or saved, and the LCD's edit mark shows it. Closing the standalone while it is on asks whether to save first (Windows; macOS and Linux close without asking).
 - **A user bank in the browser** lists its performances, voices and Fseqs, each with its U number, filtered by the Category column (the factory lists are static in the skin; a user bank's rows are the processor's). A row loads what it names; a voice goes into the selected part.
 - **Numbers.** Every user item has a U number, the banks' items one after another: U1, U2 and so on, as many as there are (up to 16,384, a host param's fixed range, exact through a host's 32-bit normalized value). A user performance is Performance Bank User with `perf.user`; a user voice is a part's bank Int with `part.user.pN`; a user Fseq is Fseq Bank Int with `fseq.user`. The FS1R's own `fseq.number` byte stops at 89 and keeps meaning a preset. The LCD shows a user item as U002.
-- **Int inside a bank.** A performance names its voices and Fseq by bank and number. When it comes from a bank that holds its own internal voices (a dump of a whole unit, voices at 51 00 nn), Int voice N is that bank's voice N; when voice bulks for its parts follow it in the file (what Store writes), those are its voices; otherwise Int N is user voice N. Fseqs follow the same rule.
-- **User lists.** Under the factory bank, the Category column's User entry lists every user performance or voice, and the Fseq page's bank lists the 90 presets with a lock and then every user Fseq.
+- **Int inside a bank.** A performance names its voices and Fseq by bank and number. When it comes from a bank that holds its own internal voices (a dump of a whole unit, voices at 51 00 nn), Int voice N is that bank's voice N; when voice bulks for its parts follow it in the file (what Save to Bank writes), those are its voices; otherwise Int N is user voice N. Fseqs follow the same rule.
+- **Banks hold their own.** Yamaha FS1R lists the factory's presets only; a user preset is found in its own bank, since the same name can be in two banks. The Fseq page's bank still lists the 90 presets with a lock and then every user Fseq.
+- **Another bank opens on All.** Choosing a bank sets the Category column back to All, so a category picked in one bank never hides another bank's presets.
+- **A part shows the voice it plays.** A user performance's parts playing its bank's voices (the ones saved after it, or its bank's Int voices) take those voices' U numbers, so the Parts page and the LCD name them, and editing a part's voice number starts from the voice it plays.
+- **The lit row is what plays.** A user bank's lists light the loaded performance, each part's voice and the Fseq when they come from that bank, and nothing when they come from elsewhere.
 
 ## Unit-only settings without controls
 
@@ -79,8 +87,19 @@ The Fseq page's Import Audio makes an Fseq of your own out of a WAV, AIFF, MP3, 
 - **The monitor** shows the last note's first 32 harmonics in the output, at the numbers printed under them, and the output's peak level per channel, -60 to 0 dB.
 - **Panic** (the bezel's top button) is all notes off while held.
 - **The LCD's POLY** counts the voices sounding, one per part a key plays, out of the unit's 32. CPU is the audio thread's load.
-- **File > Options** opens the Performance page, where the system settings are.
-- **File > Audio/MIDI Settings**, listed in the standalone only, opens clap-wrapper's own device window: on Windows the command its window's system menu sends, on macOS its app menu's action. Linux's standalone has no such window, so the item is not listed there.
+- **MIDI/Aud**, above Volume in the standalone only, opens its audio and MIDI settings. On Windows they are a modal of the skin's (`dialog_audio`) that reads and drives clap-wrapper's own settings window, which stays hidden: the driver, output, input, sample rate and buffer size as dropdowns and the MIDI inputs as a list of lamps, each change applied and saved by the app as if its window had been used. On macOS the button opens clap-wrapper's window through its app menu's action; Linux's standalone has neither, so the button does nothing there.
+
+### Modals
+
+Every dialog but the About box is a Hollow modal: a view named `dialog_*`, opened by a `modal` action or by the processor through the text data `hollow.modal`, drawn centred over the window behind a dimming veil, with the keyboard (Escape closes it). They share one frame: a dark title bar with the title and a close X, the page's hammered aqua around the browser's dark stripes, a dark rim, dark buttons along the bottom right, text fields dark on a thin light rim, and lists in the browser's colours. The window grows to hold a modal when the editor is hidden.
+
+| Modal | Opened by |
+|---|---|
+| `dialog_save` | Save > Save Current Preset; Import FSVR Preset; Save... when closing |
+| `dialog_delete`, `dialog_rename`, `dialog_attributes` | A preset's right-click menu |
+| `dialog_bank_delete`, `dialog_bank_rename` | A bank's right-click menu |
+| `dialog_quit` | Closing the standalone with the performance edited (skin.json `close`) |
+| `dialog_audio` | MIDI/Aud (skin.json `standalone`) |
 
 ## Usability sweep
 
@@ -134,10 +153,20 @@ The skin asks through params and the instance's text data; the processor (`plugi
 
 | Key or param | Kind | Written by | Meaning |
 |---|---|---|---|
-| `sysex.import`, `fseq.import` | text data | GUI | A .syx to import as a bank (the File menu; the Fseq bank's Import) |
-| `sysex.export`, `perf.store`, `fseq.export` | text data | GUI | Where to write the unit, the performance, the Fseq |
+| `sysex.import`, `fseq.import` | text data | GUI | A .syx to import as a bank (the Import menu; the Fseq bank's Import) |
+| `sysex.export`, `fseq.export` | text data | GUI | Where to write the unit, the Fseq |
+| `fsvr.export`, `fsvr.import` | text data | GUI | A .fsvr preset to write, or to load and save |
+| `save.open`, `save.request`, `save.then_close` | text data | GUI | Save to Bank opened (the processor fills it in), confirmed, and whether the standalone closes after it |
+| `save.name`, `save.bank_name`, `save.bank` | text data, param (not the host's) | both | The preset's name, a new bank's name, the bank (0 a new one, else 1 + its row) |
+| `item.context`, `bank.context` | text data | GUI | The row a right-click was on: its index and cells, tab-separated (a list's `contextRow`) |
+| `item.name`, `item.what`, `item.new_name`, `item.max`, `item.category`, `item.readonly`, `item.kind` | text data, params (not the host's) | processor | That preset, for its modals |
+| `item.request` | text data | GUI | delete, rename, attributes, copy or paste on it |
+| `bank.name`, `bank.new_name`, `bank.readonly`, `bank.request` | text data, param (not the host's) | both | The same for a bank: delete or rename |
+| `perf.name` | text data | processor | The engine's performance name, Export Current Preset's file name |
+| `gui.edited` | param (not the host's) | processor | The performance changed since it was loaded or saved |
+| `hollow.modal`, `hollow.close` | text data | either | The modal shown; "1" closes the standalone without asking (Hollow's) |
 | `fseq.import_audio` | text data | GUI | A sound file to make an Fseq of |
-| `library.dir` | text data | processor | The library folder, where Store starts |
+| `library.dir` | text data | processor | The library folder |
 | `bank.list` | text data | processor | The library's banks, a name a line |
 | `perf.user.list`, `voice.user.list`, `fseq.user.list` | text data | processor | Every user item, a line each, tab-separated fields |
 | `browse.perf.list`, `browse.voice.list`, `browse.fseq.list` | text data | processor | The browsed user bank's rows, filtered by category |

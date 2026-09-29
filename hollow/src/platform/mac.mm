@@ -288,6 +288,11 @@ const bool kAudioSettings = true;
 void platformAudioSettings(PlatformWindow*) {
     [NSApp sendAction:NSSelectorFromString(@"openAudioSettingsWindow:") to:nil from:nil];
 }
+// Shortcut: the settings stay in the app's own window, and closing does not ask; Windows has both.
+bool platformDevices(PlatformWindow*, std::vector<DeviceList>&) { return false; }
+void platformSetDevice(PlatformWindow*, int, int) {}
+void platformWatchClose(PlatformWindow*) {}
+void platformCloseApp(PlatformWindow*) {}
 
 // NSOpenPanel / NSSavePanel, run modal; the types' extensions become the allowed ones.
 bool platformFileDialog(PlatformWindow*, bool save, const std::string& title, const Vars& types, const std::string& name, std::string& path) {

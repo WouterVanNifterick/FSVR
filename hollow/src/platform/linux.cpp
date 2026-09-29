@@ -304,6 +304,10 @@ void platformOpenUrl(const std::string& url) {
 // clap-wrapper's Linux standalone has no settings window.
 const bool kAudioSettings = false;
 void platformAudioSettings(PlatformWindow*) {}
+bool platformDevices(PlatformWindow*, std::vector<DeviceList>&) { return false; }
+void platformSetDevice(PlatformWindow*, int, int) {}
+void platformWatchClose(PlatformWindow*) {}
+void platformCloseApp(PlatformWindow*) {}
 
 // zenity, else kdialog: the file dialogs every desktop has one of. False when neither is installed.
 bool platformFileDialog(PlatformWindow*, bool save, const std::string& title, const Vars& types, const std::string& name, std::string& path) {

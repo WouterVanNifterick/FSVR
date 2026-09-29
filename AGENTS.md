@@ -68,7 +68,7 @@ If you touched the plug-in (`plugin/`, `hollow/` or the skin):
 build.bat plugin
 ```
 
-That builds every format, 64-bit and 32-bit, into `bin/<format>` and runs `check_plugin`, which drives the processor the way a host does. Anywhere else, `cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON`, build, and `ctest -R plugin`.
+That builds every format, 64-bit and 32-bit, into `bin/<format>` and runs `check_plugin`, which drives the processor the way a host does, then `check_gui`, which drives the editor over it the way a mouse and a keyboard do: every menu, dialog, page and control. Anywhere else, `cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON`, build, and `ctest -R "plugin|gui"`.
 
 If you touched anything the audio path reaches, also run the render regression:
 

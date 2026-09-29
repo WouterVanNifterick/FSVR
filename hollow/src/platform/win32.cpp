@@ -22,6 +22,9 @@ struct PlatformWindow {
     Gui* gui = nullptr;
     bool tracking = false;
     wchar_t high = 0;           // WM_CHAR: the first half of a surrogate pair
+    HWND root = nullptr;        // the standalone's window, while its close asks the GUI first
+    WNDPROC rootProc = nullptr; // and its own procedure
+    bool closing = false;       // platformCloseApp: it closes without asking
 };
 
 static int classUsers = 0;
@@ -38,6 +41,13 @@ static std::wstring wide(const std::string& s) {
     std::wstring w(n, L'\0');
     MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), &w[0], n);
     return w;
+}
+
+static std::string narrow(const std::wstring& w) {
+    int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
+    std::string s(n, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), &s[0], n, nullptr, nullptr);
+    return s;
 }
 
 static int floorDiv(int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); }
@@ -160,6 +170,15 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
+// The standalone's window, subclassed by platformWatchClose: WM_CLOSE asks the GUI first (a skin's
+// "close" modal may stop it), unless platformCloseApp sent it.
+static LRESULT CALLBACK rootProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* w = (PlatformWindow*)GetPropW(hwnd, L"HollowClose");
+    if (!w) return DefWindowProcW(hwnd, msg, wp, lp);
+    if (msg == WM_CLOSE && !w->closing && !w->gui->closeRequested()) return 0;
+    return CallWindowProcW(w->rootProc, hwnd, msg, wp, lp);
+}
+
 PlatformWindow* platformOpen(void* parent, Gui* gui) {
     HMODULE mod = thisModule();
     if (classUsers++ == 0) {
@@ -193,6 +212,10 @@ PlatformWindow* platformOpen(void* parent, Gui* gui) {
 }
 
 void platformClose(PlatformWindow* w) {
+    if (w->root && IsWindow(w->root)) {   // the standalone's close goes back to its own procedure
+        if (GetPropW(w->root, L"HollowClose") == w) RemovePropW(w->root, L"HollowClose");
+        if ((WNDPROC)GetWindowLongPtrW(w->root, GWLP_WNDPROC) == rootProc) SetWindowLongPtrW(w->root, GWLP_WNDPROC, (LONG_PTR)w->rootProc);
+    }
     if (w->tip) DestroyWindow(w->tip);
     KillTimer(w->hwnd, 1);
     SetWindowLongPtrW(w->hwnd, GWLP_USERDATA, 0);
@@ -245,7 +268,7 @@ static void fillMenu(HMENU m, const std::vector<MenuEntry>& items) {
             fillMenu(sub, e.items);
             AppendMenuW(m, MF_POPUP | MF_STRING | brk, (UINT_PTR)sub, wide(e.label).c_str());
         } else {
-            AppendMenuW(m, MF_STRING | brk | (e.checked ? MF_CHECKED : 0), (UINT_PTR)(e.id + 1), wide(e.label).c_str());
+            AppendMenuW(m, MF_STRING | brk | (e.checked ? MF_CHECKED : 0) | (e.disabled ? MF_GRAYED : 0), (UINT_PTR)(e.id + 1), wide(e.label).c_str());
         }
     }
 }
@@ -289,6 +312,67 @@ void platformOpenUrl(const std::string& url) {
 const bool kAudioSettings = true;
 void platformAudioSettings(PlatformWindow* w) {
     PostMessageW(GetAncestor(w->hwnd, GA_ROOT), WM_SYSCOMMAND, 0, 0);
+}
+
+void platformWatchClose(PlatformWindow* w) {
+    HWND root = GetAncestor(w->hwnd, GA_ROOT);
+    if (!root || root == w->hwnd || w->root) return;
+    // Shortcut: SetWindowLongPtr rather than SetWindowSubclass, which comctl32 exports by name only from
+    // version 6 and a plug-in without a manifest cannot count on; the old procedure goes back on close.
+    SetPropW(root, L"HollowClose", w);
+    w->root = root;
+    w->rootProc = (WNDPROC)SetWindowLongPtrW(root, GWLP_WNDPROC, (LONG_PTR)rootProc);
+}
+
+void platformCloseApp(PlatformWindow* w) {
+    w->closing = true;
+    PostMessageW(GetAncestor(w->hwnd, GA_ROOT), WM_CLOSE, 0, 0);
+}
+
+// The settings window clap-wrapper keeps hidden until its system menu shows it: its comboboxes and the
+// MIDI list box are children with the ids 0 to 5 (Settings::Identifier in windows_standalone.h), and a
+// change reaches its WM_COMMAND handler as the control's own notification would, so the app applies and
+// saves it as when the window is used by hand.
+static HWND settingsWindow() {
+    HWND found = nullptr;
+    EnumThreadWindows(GetCurrentThreadId(), [](HWND h, LPARAM lp) -> BOOL {
+        wchar_t t[64] = L"";
+        if (!GetWindowTextW(h, t, 64) || std::wcscmp(t, L"Audio/MIDI Settings") != 0) return TRUE;
+        *(HWND*)lp = h;
+        return FALSE;
+    }, (LPARAM)&found);
+    return found;
+}
+
+bool platformDevices(PlatformWindow*, std::vector<DeviceList>& out) {
+    HWND s = settingsWindow();
+    if (!s) return false;
+    out.assign(6, {});
+    for (int k = 0; k < 6; ++k) {
+        HWND c = GetDlgItem(s, k);
+        if (!c) return false;
+        bool list = k == 5;
+        int n = (int)SendMessageW(c, list ? LB_GETCOUNT : CB_GETCOUNT, 0, 0);
+        for (int i = 0; i < n; ++i) {
+            int len = (int)SendMessageW(c, list ? LB_GETTEXTLEN : CB_GETLBTEXTLEN, i, 0);
+            std::wstring t((size_t)std::max(len, 0) + 1, L'\0');
+            SendMessageW(c, list ? LB_GETTEXT : CB_GETLBTEXT, i, (LPARAM)&t[0]);
+            t.resize(std::wcslen(t.c_str()));
+            out[(size_t)k].items.push_back(narrow(t));
+            if (list && SendMessageW(c, LB_GETSEL, i, 0) > 0) out[(size_t)k].on.push_back(i);
+        }
+        int sel = list ? -1 : (int)SendMessageW(c, CB_GETCURSEL, 0, 0);
+        if (sel >= 0) out[(size_t)k].on.push_back(sel);
+    }
+    return true;
+}
+
+void platformSetDevice(PlatformWindow*, int list, int item) {
+    HWND s = settingsWindow(), c = s ? GetDlgItem(s, list) : nullptr;
+    if (!c) return;
+    if (list == 5) SendMessageW(c, LB_SETSEL, SendMessageW(c, LB_GETSEL, item, 0) > 0 ? FALSE : TRUE, item);
+    else if (SendMessageW(c, CB_SETCURSEL, item, 0) == CB_ERR) return;
+    SendMessageW(s, WM_COMMAND, MAKEWPARAM(list, list == 5 ? LBN_SELCHANGE : CBN_SELCHANGE), (LPARAM)c);
 }
 
 // The common dialogs: a filter of "Name (*.a;*.b)" then "*.a;*.b" per type, a save's extension the first type's first.

@@ -17,6 +17,7 @@ struct Item {
     std::vector<uint8_t> syx;      // the one F0..F7 message that loads it (a DX voice: VCED, its ACED folded in)
     int partVoice[4] = {-1, -1, -1, -1};   // a performance: voices (0x40..0x43 bulks) that came right after it
     int fseq = -1;                         // and the Fseq that came with them
+    size_t at = 0, len = 0;        // its bytes in the bank's file (a DX voice: from its ACED)
     const uint8_t* data() const { return syx.data() + 9; }   // a native bulk's data, after its address
 };
 
@@ -33,6 +34,11 @@ Bank parseSyx(const std::vector<uint8_t>& bytes, const std::string& name);
 
 // A bulk's F0..F7 with a new address and its checksum redone (a voice bound for a given part).
 std::vector<uint8_t> readdress(const std::vector<uint8_t>& syx, int ah, int am, int al);
+// An item's sysex with a new name (cut to the format's length), or a new category byte (a DX voice has
+// none: unchanged), its checksum redone.
+std::vector<uint8_t> renamed(const Item& it, const std::string& name);
+std::vector<uint8_t> recategorized(const Item& it, int category);
+int nameLength(const Item& it);   // 12 a performance, 10 a voice, 8 an Fseq
 // One FS1R native bulk: F0 43 00 5E bc bc ah am al <data> cs F7.
 std::vector<uint8_t> bulk(int ah, int am, int al, const uint8_t* data, size_t size);
 
@@ -54,6 +60,13 @@ public:
     // Writes bytes as a new bank called name (made unique the same way); its index, or -1.
     int add(const std::string& name, const std::vector<uint8_t>& bytes, std::string& err);
     int bankOf(const std::string& path) const;
+    // Edits a bank's file in place: each (at, len) range of it becomes the bytes given. A bank left with
+    // nothing in it goes the way remove() sends it. False (err says why) when it cannot be written.
+    struct Splice { size_t at, len; std::vector<uint8_t> bytes; };
+    bool splice(int bank, std::vector<Splice> edits, std::string& err);
+    // A bank's file moves into the library's Deleted folder, out of the library but not lost.
+    bool remove(int bank, std::string& err);
+    bool rename(int bank, const std::string& name, std::string& err, std::string* path = nullptr);   // its file, so its name
     const Item* perf(int n) const { return n >= 1 && n <= (int)perfs.size() ? &banks[perfs[n - 1].bank].perfs[perfs[n - 1].index] : nullptr; }
     const Item* voice(int n) const { return n >= 1 && n <= (int)voices.size() ? &banks[voices[n - 1].bank].voices[voices[n - 1].index] : nullptr; }
     const Item* fseq(int n) const { return n >= 1 && n <= (int)fseqs.size() ? &banks[fseqs[n - 1].bank].fseqs[fseqs[n - 1].index] : nullptr; }

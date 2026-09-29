@@ -41,3 +41,10 @@ target_link_libraries(check_plugin PRIVATE fsvr_lib)
 target_include_directories(check_plugin PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 set_target_properties(check_plugin PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_BINARY_DIR}>")
 add_test(NAME plugin COMMAND check_plugin)
+
+# The editor's own check: the skin and the processor driven through a windowless Gui (tools/check_gui.cpp).
+add_executable(check_gui "${PROJECT_SOURCE_DIR}/tools/check_gui.cpp")
+target_link_libraries(check_gui PRIVATE fsvr_lib)
+target_include_directories(check_gui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+set_target_properties(check_gui PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_BINARY_DIR}>")
+add_test(NAME gui COMMAND check_gui)

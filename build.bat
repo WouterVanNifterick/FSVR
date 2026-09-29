@@ -5,7 +5,7 @@ rem   build.bat                      -> bin\fsvr_console.exe, the console, from 
 rem   build.bat test                 -> builds and runs the self checks (effects, engine, formant, presets)
 rem   build.bat plugin               -> every plug-in format through CMake into bin\<format>: CLAP, VST3, VST2 and the
 rem                                     standalone (64-bit, build\x64), then the 32-bit VST2 with the DXi in it (build\x86),
-rem                                     then the plug-in's own check (check_plugin)
+rem                                     then the plug-in's own checks (check_plugin, check_gui)
 rem   build.bat file.cpp [cl args]   -> compiles whatever you pass (paths relative to this folder)
 rem   set FSVR_MATH=0..3           -> the sample loop's maths backend (src\fsvr\fastmath.h): 0 raw libm, 1 LUT (unset), 2 CORDIC, 3 hybrid
 rem CMakeLists.txt builds the same targets for anything that is not MSVC-on-Windows.
@@ -29,7 +29,8 @@ if "%~1"=="" (
   cmake --build build\x64 --config Release -- -m || goto :done
   cmake -S . -B build\x86 -G "Visual Studio 17 2022" -A Win32 -DFSVR_BUILD_PLUGIN=ON || goto :done
   cmake --build build\x86 --config Release -- -m || goto :done
-  build\x64\check_plugin.exe
+  build\x64\check_plugin.exe || goto :done
+  build\x64\check_gui.exe
 ) else (
   cl /nologo /O2 /EHsc /W3 /std:c++17 %* /Fobuild\
 )

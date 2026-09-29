@@ -83,6 +83,7 @@ Bank parseSyx(const std::vector<uint8_t>& b, const std::string& name) {
     Bank bank;
     bank.name = name;
     std::vector<uint8_t> aced;   // a DX ACED waits for the VCED it completes
+    size_t acedAt = 0;
     int open = -1;               // the performance that voice and Fseq bulks right after it belong to
     const size_t n = b.size();
     for (size_t i = 0; i < n;) {
@@ -93,6 +94,7 @@ Bank parseSyx(const std::vector<uint8_t>& b, const std::string& name) {
         const uint8_t* m = b.data() + i;
         const size_t len = j - i + 1;
         std::vector<uint8_t> msg(m, m + len);
+        const size_t at = i;
         i = j + 1;
         if (len < 8 || m[1] != 0x43 || (m[2] & 0xF0) != 0) continue;
         if (m[3] == 0x5E && len >= 11) {
@@ -102,6 +104,8 @@ Bank parseSyx(const std::vector<uint8_t>& b, const std::string& name) {
             Item it;
             it.address = ah;
             it.syx = msg;
+            it.at = at;
+            it.len = len;
             if ((ah == 0x10 || ah == 0x11) && dl >= 400) {
                 it.name = text(d, 12);
                 it.category = d[14];
@@ -128,8 +132,11 @@ Bank parseSyx(const std::vector<uint8_t>& b, const std::string& name) {
             }
         } else if (m[3] == 0x05 && m[4] == 0x00 && m[5] == 0x31) {
             aced = msg;
+            acedAt = at;
         } else if (m[3] == 0x00 && m[4] == 0x01 && m[5] == 0x1B && len >= 6 + 155 + 2) {
             bank.voices.push_back(dxVoice(m + 6, aced));
+            bank.voices.back().at = aced.empty() ? at : acedAt;
+            bank.voices.back().len = at + len - bank.voices.back().at;
             aced.clear();
             open = -1;
         } else if (m[3] == 0x09 && m[4] == 0x20 && m[5] == 0x00 && len >= 6 + 4096 + 2) {
@@ -142,6 +149,47 @@ Bank parseSyx(const std::vector<uint8_t>& b, const std::string& name) {
         }
     }
     return bank;
+}
+
+int nameLength(const Item& it) { return it.address >= 0x60 ? 8 : it.address >= 0x40 || !it.address ? 10 : 12; }
+
+// The checksum of the last message in syx: a native bulk's over its byte count, address and data, a DX
+// VCED's over its 155 data bytes.
+static void resum(std::vector<uint8_t>& syx) {
+    size_t f = syx.size();
+    while (f > 0 && syx[f - 1] != 0xF0) --f;   // just past the last F0: a DX voice's VCED follows its ACED
+    if (f == 0 || syx.size() < f + 5) return;
+    const size_t start = f - 1 + (syx[f + 2] == 0x5E ? 4 : 6), cs = syx.size() - 2;
+    int sum = 0;
+    for (size_t i = start; i < cs; ++i) sum += syx[i];
+    syx[cs] = (uint8_t)(-sum & 0x7F);
+}
+
+std::vector<uint8_t> renamed(const Item& it, const std::string& name) {
+    std::vector<uint8_t> s = it.syx;
+    const int n = nameLength(it);
+    size_t at = 9;
+    if (!it.address) {   // a DX voice: VCED bytes 145..154, after the ACED
+        at = s.size();
+        while (at > 0 && s[at - 1] != 0xF0) --at;
+        at += 5 + 145;
+    }
+    if (at + (size_t)n + 2 > s.size()) return s;
+    for (int k = 0; k < n; ++k) {
+        const char c = k < (int)name.size() ? name[(size_t)k] : ' ';
+        s[at + (size_t)k] = (uint8_t)(c >= 32 && c < 127 ? c : ' ');
+    }
+    resum(s);
+    return s;
+}
+
+std::vector<uint8_t> recategorized(const Item& it, int category) {
+    std::vector<uint8_t> s = it.syx;
+    const size_t at = it.address == 0x10 || it.address == 0x11 ? 9 + 14 : it.address >= 0x40 && it.address <= 0x51 ? 9 + 0x0E : 0;
+    if (!at || at + 2 > s.size()) return s;
+    s[at] = (uint8_t)std::clamp(category, 0, 22);
+    resum(s);
+    return s;
 }
 
 bool readFile(const std::string& utf8Path, std::vector<uint8_t>& out) {
@@ -258,6 +306,51 @@ int Library::import(const std::string& path, std::string& err) {
         return -1;
     }
     return add(fs::u8path(path).stem().u8string(), bytes, err);
+}
+
+bool Library::splice(int bank, std::vector<Splice> edits, std::string& err) {
+    if (bank < 0 || bank >= (int)banks.size()) return false;
+    const std::string path = banks[(size_t)bank].path;
+    std::vector<uint8_t> b;
+    if (!readFile(path, b)) { err = "Cannot read " + path; return false; }
+    std::sort(edits.begin(), edits.end(), [](const Splice& x, const Splice& y) { return x.at > y.at; });   // back to front
+    for (auto& e : edits) {
+        e.at = std::min(e.at, b.size());   // past the end: appended
+        const size_t len = std::min(e.len, b.size() - e.at);
+        b.erase(b.begin() + (long)e.at, b.begin() + (long)(e.at + len));
+        b.insert(b.begin() + (long)e.at, e.bytes.begin(), e.bytes.end());
+    }
+    if (parseSyx(b, "").empty()) return remove(bank, err);
+    if (!writeFile(path, b)) { err = "Cannot write " + path; return false; }
+    rescan(true);
+    return true;
+}
+
+bool Library::remove(int bank, std::string& err) {
+    if (bank < 0 || bank >= (int)banks.size()) return false;
+    const fs::path from = fs::u8path(banks[(size_t)bank].path), bin = fs::u8path(dir) / "Deleted";
+    std::error_code ec;
+    fs::create_directories(bin, ec);
+    fs::path to = bin / from.filename();
+    for (int k = 2; fs::exists(to, ec); ++k) to = bin / fs::u8path(from.stem().u8string() + " " + std::to_string(k) + ".syx");
+    fs::rename(from, to, ec);
+    if (ec) { err = "Cannot move " + from.u8string() + ": " + ec.message(); return false; }
+    rescan(true);
+    return true;
+}
+
+bool Library::rename(int bank, const std::string& name, std::string& err, std::string* path) {
+    if (bank < 0 || bank >= (int)banks.size()) return false;
+    const fs::path from = fs::u8path(banks[(size_t)bank].path);
+    std::error_code ec;
+    // Only the case changing keeps the name as it is; anything else is made unique like a new bank's.
+    const std::string stem = lower(from.stem().u8string()) == lower(name) ? name : uniqueName(name);
+    const fs::path to = fs::u8path(dir) / fs::u8path(stem + ".syx");
+    fs::rename(from, to, ec);
+    if (ec) { err = "Cannot rename " + from.u8string() + ": " + ec.message(); return false; }
+    if (path) *path = to.u8string();
+    rescan(true);
+    return true;
 }
 
 int Library::number(const std::vector<Ref>& list, int bank, int index) const {

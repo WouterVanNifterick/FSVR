@@ -498,6 +498,7 @@ struct Loader {
         }
         else if (a.has("step")) { r.type = Action::Step; r.amount = a["step"].num(); }
         else if (a.has("midi_map")) { r.type = Action::MidiMap; r.target = a["midi_map"].str(); }
+        else if (a.has("modal")) { r.type = Action::Modal; r.target = a["modal"].str(); r.vars = vars(a["data"]); }
         else if (a.has("data")) { r.type = Action::Data; r.vars = vars(a["data"]); }
         else if (a.has("presets")) {
             r.type = Action::Presets;
@@ -524,6 +525,7 @@ struct Loader {
             item.separator = it["separator"].flag();
             item.label = it["label"].str();
             item.shortLabel = it["short"].str(item.label);
+            item.disabled = it["disabled"].flag();
             item.value = it["value"].num();
             item.check = it["check"].flag();
             item.columnBreak = it["columnBreak"].flag();
@@ -580,6 +582,7 @@ struct Loader {
         w.action = action(j["action"]);
         w.items = items(j["items"]);
         w.context = items(j["context"]);
+        w.itemsData = j["itemsData"].str();
         w.menuStyle = j["menuStyle"].str();
         w.hasMenuAt = j.has("menuAt");
         w.menuAt[0] = j["menuAt"][0].integer();
@@ -627,7 +630,7 @@ struct Loader {
         w.colGap = j["colGap"].integer();
         for (auto& c : j["columns"].items) {
             std::string a = c["align"].str();
-            w.columns.push_back({c["width"].integer(), a == "center" ? 1 : a == "right" ? 2 : 0, c["edit"].str() == "int", image(c["image"].str())});
+            w.columns.push_back({c["width"].integer(), a == "center" ? 1 : a == "right" ? 2 : 0, c["edit"].str() == "int", image(c["image"].str()), c["tileCell"].flag()});
         }
         for (auto& f : j["fixed"].items) w.fixed.push_back({f["param"].str(), f["label"].str(), f["ccParam"].str()});
         for (auto& row : j["rows"].items) {
@@ -791,6 +794,29 @@ std::shared_ptr<Skin> loadFiles(const Files& files, std::string* error) {
         for (int i = 0; i < (int)v.widgets.size(); ++i) v.order.push_back(i);
         std::stable_sort(v.order.begin(), v.order.end(), [&](int a, int b) { return v.widgets[a].layer < v.widgets[b].layer; });
         skin->views[v.name] = std::move(v);
+    }
+    // A modal: the root view ends with a veil over the whole window and an embed that shows the modal's
+    // view, both hidden until the text data under kModalKey names one (editor.cpp, syncModal).
+    skin->modalVeil = Loader::colour(sj["modal"]["veil"].str(), skin->modalVeil);
+    skin->closeModal = sj["close"]["modal"].str();
+    skin->closeIf = Loader::cond(sj["close"]["if"]);
+    skin->settingsView = sj["standalone"]["settings"].str();
+    if (auto root = skin->views.find(skin->root); root != skin->views.end()) {
+        View& v = root->second;
+        Widget veil, box;
+        veil.kind = Kind::Veil;
+        veil.name = kModalVeil;
+        veil.fill.hasColour = true;
+        veil.fill.colour = skin->modalVeil;
+        box.kind = Kind::Embed;
+        box.name = kModalBox;
+        for (Widget* w : {&veil, &box}) {
+            w->layer = 7;
+            w->hidden = true;
+            w->surface = false;
+            v.order.push_back((int)v.widgets.size());   // last in the top layer: over everything, the About box too
+            v.widgets.push_back(*w);
+        }
     }
     for (auto& fj : sj["fonts"].members) {   // text entry colours per font
         int id = ld.font(fj.first);

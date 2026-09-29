@@ -138,8 +138,9 @@ Button state tile: the strip is laid out as groups `[normal][pressed, if pressed
 - `{ "set": { "timbre": "br" } }`: set skin-wide `vars`. The button draws as on while every listed var has that value.
 - `{ "toggle": "about_box" }`: flip `hidden` on the widget with that name (searched in the same view first, then from the root).
 - `{ "url": "https://example.com" }`: open in the browser.
-- `{ "standalone": "settings" }`: open the standalone app's own audio and MIDI settings (clap-wrapper's device window). A menu item with it is listed only in the standalone, and only where that app has such a window (Windows and macOS), so a File menu can carry it in every format.
-- `{ "scale": "menu" }`: open the window scale menu (1x to 4x) under the widget, the one a right-click on empty space opens.
+- `{ "standalone": "settings" }`: open the standalone app's own audio and MIDI settings (clap-wrapper's device window), or with skin.json `"standalone": { "settings": "<view>" }` that view as a modal where the platform can read the window (Windows; see Modals). A menu item with it is listed only in the standalone, and only where that app has such a window (Windows and macOS), so a File menu can carry it in every format. `{ "standalone": "close" }` closes the standalone without asking.
+- `{ "modal": "<view>", "data": { "<key>": "<text>" } }`: store the text data first (keys may use `{var}`), then show that view as the modal; `"modal": ""` closes it. See Modals.
+- `{ "scale": "menu" }`: open the window scale menu (1x to 4x) under the widget. A right-click on empty space opens nothing, so a skin that wants the scales offers them with this.
 - `{ "sequence": "insert", "prefix": "arp.step.", "index": "{step}", "count": 32 }` (or `"delete"`): treats params named `<prefix><n>.<leaf>` for n = 1..count as a step sequence. Insert moves steps index..count-1 one place up (the last is dropped) and resets step index to its defaults; delete moves steps index+1..count one place down and resets step count. `index` may use `{var}`.
 - `{ "sequence": "reset" | "random", "prefix": "arp.step.", "leaf": "on", "count": 32 }`: sets `<prefix><n>.<leaf>` for n = 1..count to its default, or to random valid values (for a step sequencer's rows).
 - `{ "presets": "<table>", "key": "env.{op}", "name": "<text key>", "save": true, "columns": 16 }`: a native menu of the preset slots of `data/<table>.json` (kept, once changed, in text data `presets.<table>`), `columns` items per column. Choosing a slot copies its content into text data `key` and its name into text data `name`; with `save` the menu also offers storing the current content and name into a slot.
@@ -183,7 +184,7 @@ These fields extend the tables above. A runtime that predates them ignores them.
 ### Internal params and text data
 
 - A param with `"host": false` is saved with the instance and bindable like any other, but hosts never see it (not listed, not automatable; VST2 indices count host params only). Use it for GUI-side state that must persist, such as sequencer steps, wheel positions or the selected envelope point.
-- Text data in captions: a `plate`, `button` or `dropdown` caption (and a list cell) may hold `{data:<key>|<default>}`, filled with the text data under that key (`{var}`s allowed) or the default until there is some, redrawn as the data changes.
+- Text data in captions: a `plate`, `button` or `dropdown` caption (and a list cell) may hold `{data:<key>|<default>}`, filled with the text data under that key (`{var}`s allowed) or the default until there is some, redrawn as the data changes (a caption within the runtime's next tick).
 - Text data: a `textbox` with `"key": "<key>"` (may contain `{var}`) shows and, when `editable`, edits the string stored under that key in the instance; `"text.text"` is the value shown until one is stored. `custom` kinds that keep shapes (envelopes) store them under their `key` the same way.
 
 ### Conditions
@@ -242,7 +243,7 @@ Further `menu` fields:
 - `keys`: `"all"` (default: arrows, Enter, Escape) or `"escape"` (only Escape closes).
 - `styles`: named partial overrides of these fields, e.g. `{ "plain": { "fill": "#fff0ffff", "hoverBand": null } }`. A widget picks one with `"menuStyle": "<name>"`, or `"menuStyle": "native"` for a native menu.
 - On opening, the item for the current value is highlighted.
-- Menu items may also carry: `"items": [...]` (a submenu, opening on hover to the right), `"check": true` (a toggle item showing a check mark), `"short": "<text>"` (the caption shown by `captionFromItem` instead of the label), `"columnBreak": true` (starts a new column, native menus), and `"action": { ... }` (any button action, run when chosen instead of setting the value).
+- Menu items may also carry: `"items": [...]` (a submenu, opening on hover to the right), `"disabled": true` (shown in the style's `disabledFont`, never highlighted or chosen: a heading), `"check": true` (a toggle item showing a check mark), `"short": "<text>"` (the caption shown by `captionFromItem` instead of the label), `"columnBreak": true` (starts a new column, native menus), and `"action": { ... }` (any button action, run when chosen instead of setting the value).
 - `"menuAt": [x, y]` on a dropdown or a `presets` button: the menu opens with its top-left at that point of the view (for example on a neighbouring name field), instead of relative to the widget.
 - Native menus check only `check` items (never the current value), and their column breaks draw no divider line.
 - `"context": [items]` on any widget: right-click (on release) opens a menu of those items at the pointer, in the widget's `menuStyle` (default the named style `"plain"` if it exists).
@@ -261,8 +262,18 @@ Further `menu` fields:
 - A `list` with `dataRows` redraws whenever the text data its rows come from changes, so a processor can fill a list after it is shown.
 - `list` field `"source": "midi_map"`: rows are the MIDI learn assignments (below).
 
+### Modals
+
+- The root view gets two widgets at load: a `veil` over the whole window and an `embed` above it, both last in layer 7 and hidden. The text data `hollow.modal` names the view the embed shows, centred, with the veil behind it; `""` or an unknown view hides both. A `modal` action sets it, and so can a processor, from any thread. The window grows to hold the modal (a margin of 16 around it) while a fitted root is smaller, and shrinks back when it closes. A modal takes the keyboard, and Escape closes it. A new editor window starts with none, and the embed is not saved with the GUI state.
+- skin.json `"modal": { "veil": "#rrggbbaa" }`: the veil's colour (default `#00000080`).
+- skin.json `"close": { "modal": "<view>", "if": <condition> }`: in the standalone (Windows), closing its window while the condition holds opens that modal instead. `{ "standalone": "close" }` then closes it without asking, as does a processor's text data `hollow.close` set to `"1"`.
+- skin.json `"standalone": { "settings": "<view>" }`: the modal `{ "standalone": "settings" }` opens. The runtime reads clap-wrapper's settings window into text data and params: for each of `api`, `output`, `input`, `rate` and `buffer`, the lines of `standalone.<list>.items` and the chosen line's index in the param `standalone.<list>` (a dropdown with `itemsData`); `standalone.midi.items` lines are `name` then a tab and `1` for an open input or `0`. Setting a param changes that choice in the app, setting `standalone.midi` to 1 + a row flips that input, and everything is read again. The skin declares the params (`host: false`). Where the window cannot be read, the action opens the app's own window.
+- The skin var `standalone` is `"1"` in the standalone and `"0"` elsewhere, for widgets only the app has.
+
 ### Lists
 
+- `list` field `"contextRow": "<text key>"`: a right-click on a row stores the row's index and its cells, tab-separated, under that key before the list's `context` menu opens; a right-click off the rows opens nothing. The row lights, in place of the list's selection, until its menu and any modal it opened close, and `{cell:n}` in a menu item's label is the row's n-th cell (from 1), so the menu names the row. A column's `"tileCell": true` draws its image's tile numbered by the cell (`"0"`, `"1"`), a lamp per row.
+- `dropdown` field `"itemsData": "<text key>"`: its items are that text data's lines, valued 0, 1, 2 ... in order, for choices only the product knows.
 - A `list` with a `param` is a chooser: clicking row `i` sets the param to `values[i]` (or `first + i`, `first` default 0) and every param its `"set"` names (`{ "<param id>": <plain value> }`, `{var}` allowed, or an array of one value per row) to its value, in one gesture; the selected row is the one whose value and `set` values the params hold, and none while they hold others. A browser column of voices from several banks is a list whose `set` gives each row's bank.
 - `list` fields: `"columns": [{ "width": 33, "align": "right", "edit": "int" }, { "width": 196 }, { "width": 20, "image": "<image>" }]` (an `image` column draws that image centred in each row whose cell is not empty, its tile 1 on the selected row when it has two, instead of the text), `"colGap"`, `"rowHeight"`, `"rowGap"`, `"gapFill"` (colour behind the rows, showing in the gaps), `"rowFill"`, `"selectFill"`, `"selectRow"` (the selected row's text style, for a text that reads on `selectFill`), `"valign"`, `"scroll"` (as for embeds, plus `"always": true` to draw the scrollbar even when not needed), `"rows"` (static rows, arrays of cell strings; a cell `"{data:<key>|<default>}"` shows the text data under that key, `{var}`s allowed, or the default until there is some), `"dataRows": { "key": "<text key>", "row": ["U{n}", "{1}", "{2}"], "param": "<id>", "first": 0, "set": { "<id>": 0 } }` (after the static rows, a row for each line of the text data under `key`, as many as there are: `{1}`, `{2}` ... are the line's tab-separated fields and `{n}` its number from 1; in a bound list a press sets `param`, else the list's, to `first` plus the row's index among them, with `set`), and the row text style in `"row"`. Rows fill down to the bottom even when empty. A click selects a row; double-click on an `"edit": "int"` cell edits it; Delete removes a selected row of a `source` list.
 
@@ -287,7 +298,7 @@ A font is a PNG glyph strip holding the 256 characters of Latin-1 (codes 0..255)
 
 ## Scale
 
-The runtime draws at scale 1 into a buffer and presents it at an integer scale 1..4 with nearest-neighbour pixel replication, so the artwork stays sharp. Right-clicking an empty part of the window offers the scales.
+The runtime draws at scale 1 into a buffer and presents it at an integer scale 1..4 with nearest-neighbour pixel replication, so the artwork stays sharp. A `scale` action offers the scales.
 
 ## Live editing
 

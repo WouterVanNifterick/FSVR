@@ -27,11 +27,11 @@ On Linux the editor is an X11 window (a Wayland desktop runs it under XWayland).
 
 ## The standalone
 
-The standalone keeps its audio and MIDI devices under **File > Audio/MIDI Settings** on Windows and macOS, the same window as **Audio/MIDI Settings** in the window's system menu on Windows (right-click the title bar), with Save State, Load State and Reset State beside it there. It remembers the devices and the last state in `clap-wrapper-standalone/studio.musica.fsvr` in your local application data.
+The standalone's **MIDI/Aud** button, above Volume, opens its audio and MIDI settings: the driver, output, input, sample rate and buffer size, and the MIDI inputs, where a click opens or closes one. On Windows it is a dialog in the synth's own style that works the same settings as **Audio/MIDI Settings** in the window's system menu (right-click the title bar), with Save State, Load State and Reset State beside it there; on macOS it opens the app's settings window. Closing the standalone on Windows with the performance changed since it was loaded or saved asks whether to save it to a bank first. It remembers the devices and the last state in `clap-wrapper-standalone/studio.musica.fsvr` in your local application data.
 
 ## The window
 
-The header is the unit's front panel: the performance's volume, the LCD, a pod of File, Store, Editor and Keys buttons over the four part buttons, the Tone and KN knob modes and their four knobs, and the output monitor.
+The header is the unit's front panel: the performance's volume, the LCD, a pod of Save, Import, Editor and Keys buttons over the four part buttons, the Tone and KN knob modes and their four knobs, and the output monitor.
 
 - **The LCD** shows the performance (click it for the factory performance menu; the arrows step through them), the selected part's voice and receive channel, the voices sounding (POLY) and the CPU. A user item shows as U and its number.
 - **Part 1 to 4** pick the part the edit pages show. Every part's params exist on their own, so a host automates a known part whichever is selected.
@@ -49,10 +49,13 @@ The Bank column holds the factory bank, **Yamaha FS1R** (the 384 performances, 1
 
 Your library is a folder of .syx files, one bank each: `Documents/FSVR/Library` (set `FSVR_LIBRARY` to use another). Every FSVR in every host shares it and notices when a file in it comes, goes or changes, so you can also manage it with a file manager.
 
-- **File > Import SysEx** copies a .syx into the library as a new bank named after the file (the name with a number after it if that is taken), shows it and loads the first thing in it. It takes FS1R performance, voice and Fseq dumps, including a whole unit's internal memory, DX7 single voices and DX7 32-voice banks.
-- **Store** saves the performance with its voices and its Fseq as a .syx, starting in the library folder, where it becomes a bank of its own.
-- **File > Export SysEx** writes the whole unit, system settings included, as bulk dumps a real FS1R takes.
-- Under the factory bank, the **User** category lists every performance or voice in your library, each with its U number.
+- **Save > Save Current Preset** saves the performance with its voices and its Fseq into one of your banks, or a new one, under the name you give it (12 characters). Saving under a name the bank already has replaces that preset. The factory bank is read only, so it is not offered.
+- **Save > Export Current Preset** writes the performance as an `.fsvr` file, FSVR's own preset format, to share or keep outside the library. **Import > Import FSVR Preset** loads one and asks which bank to save it to.
+- **Import > Import FS1R SysEx to New Bank** copies a .syx into the library as a new bank named after the file (the name with a number after it if that is taken), shows it and loads the first thing in it. It takes FS1R performance, voice and Fseq dumps, including a whole unit's internal memory, DX7 single voices and DX7 32-voice banks.
+- **Save > Export to FS1R SysEx** writes the whole unit, system settings included, as bulk dumps a real FS1R takes.
+- **Right-click a preset** to delete or rename it, or to edit, copy or paste its attributes (its category). The factory's presets are read only, but their attributes open to read and copy.
+- **Right-click a bank** to delete or rename it. A deleted bank's file moves to the library's `Deleted` folder, so it can come back.
+- **Yamaha FS1R** lists the factory's presets only; yours are in the banks you saved them to.
 
 ## Fseqs
 
@@ -77,7 +80,7 @@ Notes, bend, aftertouch, controllers, RPN and NRPN, clock and sysex reach the en
 
 ## Sessions
 
-The session holds every param, the engine's own bulk dumps, the morph corners and your MIDI learn assignments, so a project reopens exactly as it was saved. The params hosts see are every FS1R param for all four parts, the morph square, the knobs and the performance, voice and Fseq numbers; the editor's own state (pages, the browser's position, the selected part, the scale) is saved with it but not listed. Right-click an empty part of the window for 1x to 4x scaling.
+The session holds every param, the engine's own bulk dumps, the morph corners and your MIDI learn assignments, so a project reopens exactly as it was saved. The params hosts see are every FS1R param for all four parts, the morph square, the knobs and the performance, voice and Fseq numbers; the editor's own state (pages, the browser's position, the selected part, the scale) is saved with it but not listed. The window's size, 1x to 4x, is the scale in the LCD's bottom right corner: click it.
 
 ## What is modelled and what is read
 

@@ -79,7 +79,8 @@ Configure and build as in the README; the formats land in `build/<dir>/out/`. `-
 
 - `HOLLOW_SKIN_DIR=<skin folder>` makes any build read the skin from disk and reload it on save, so the editor and a running standalone or host work together.
 - `hollow-render <skin> <view> <out.png> [state file]` renders any view without a window, for checks and documentation; a saved state (`hollow-state 1`: params, text data, UI vars and pages) renders the view as that instance would show it.
-- Right-click an empty part of the editor window for 1x to 4x scaling; the choice is saved with the instance.
+- A button with the action `{ "scale": "menu" }` offers 1x to 4x scaling; the choice is saved with the instance.
+- A test can drive a `Gui` without a window (FSVR's `tools/check_gui.cpp`): skinned menus open without one, `widgetRect` finds a widget by embed path and name, `menuLabels` and `chooseMenu` read and pick the open menu, `modal` names the open modal, and `probes` lists every visible control.
 - For a GUI drawn at a size that is not a whole multiple, set `skin.json` `density` to its pixels per unit so the runtime's own drawings follow (FSVR's skin is 1.5).
 - `python tools/overflow.py <skin>` lists text wider than its widget: static captions, every choice a dropdown can show, the widest value a number field can show, and list cells, measured with the skin's own fonts as the runtime measures them.
 

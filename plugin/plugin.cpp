@@ -2,8 +2,9 @@
 // fs1r::Device and nothing more (AGENTS.md): every param is a sysex parameter change into the engine, as
 // the skin's data/fs1r_sysex.json addresses it, and what the engine holds comes back out of its own bulk
 // dumps. Around that sit the parts of the GUI the unit never had: the bank manager (factory banks and a
-// user library of .syx files, library.h), the morph square (four corner voices per part, blended into the
-// one voice the engine plays), Import Audio (audio_fseq.h), the output monitor and the file menu.
+// user library of .syx files, library.h, and its Save, Import and right-click menus), the morph square
+// (four corner voices per part, blended into the one voice the engine plays), Import Audio (audio_fseq.h)
+// and the output monitor.
 //
 // Threads: the audio thread sends param changes and MIDI and renders; a worker loads patches, files and
 // libraries and brings what the engine did back into the params. ctl guards what both touch (the model of
@@ -314,6 +315,7 @@ private:
     int perfProgram = -1, perfBank = -1, perfUser = -1, fseqBank = -1, fseqNumber = -1, fseqUser = -1, fseqPart = -1, fseqPos = -1, panic = -1;
     int partBank[4], partProgram[4], partUser[4], morphX[4], morphY[4], jitterX[4], jitterY[4], morphSeed[4], morphEdit[4];
     int browseBank = -1, browseCategory = -1, browsePerf = -1, browseFseq = -1, browseVoice[4], knob[4];
+    int perfCategory = -1, edited = -1, saveBank = -1, itemCategory = -1, itemReadonly = -1, itemKind = -1, bankReadonly = -1;
 
     // MIDI waiting for its place in the block
     static constexpr int kEvents = 1024;
@@ -381,6 +383,8 @@ private:
         perfProgram = P("perf.program"); perfBank = P("perf.bank"); perfUser = P("perf.user");
         fseqBank = P("fseq.bank"); fseqNumber = P("fseq.number"); fseqUser = P("fseq.user"); fseqPart = P("fseq.part"); fseqPos = P("fseq.position");
         panic = P("gui.panic");
+        perfCategory = P("perf.category"); edited = P("gui.edited"); saveBank = P("save.bank");
+        itemCategory = P("item.category"); itemReadonly = P("item.readonly"); itemKind = P("item.kind"); bankReadonly = P("bank.readonly");
         browseBank = P("browse.bank"); browseCategory = P("browse.category"); browsePerf = P("browse.perf"); browseFseq = P("browse.fseq");
         for (int p = 0; p < 4; ++p) {
             const std::string s = "p" + std::to_string(p + 1);
@@ -478,6 +482,7 @@ private:
             const double v = st.get((size_t)i);
             if (v == base[(size_t)i]) continue;
             base[(size_t)i] = v;
+            if (edited >= 0) st.set((size_t)edited, 1);   // the performance differs from what was loaded or saved
             const Field& f = fields[(size_t)i];
             const int raw = f.toRaw(v);
             if (f.area != Voice) {
@@ -692,6 +697,7 @@ private:
         }
         std::memcpy(model.sys, now.sys, 76);
         std::memcpy(model.perf, now.perf, 400);
+        st.setData("perf.name", perfName());
         for (int p = 0; p < 4; ++p) {
             if (std::memcmp(now.voice[p], model.voice[p], 608) == 0) continue;
             const int e = edit(p);
@@ -772,7 +778,9 @@ private:
             else loadUserFseq((int)get(fseqUser));
         }
         if (moved(panic) && get(panic) > 0) dev.allNotesOff();
-        bool lists = moved(browseBank) | moved(browseCategory);
+        const bool bank = moved(browseBank);
+        if (bank && get(browseCategory) != 0) put(browseCategory, 0);   // another bank opens on All, never on an empty filter
+        bool lists = bank | moved(browseCategory);
         if (lists) writeLists();
         if (moved(browsePerf) && get(browsePerf) >= 1) pick(0, (int)get(browsePerf), 0);
         if (moved(browseFseq) && get(browseFseq) >= 1) pick(2, (int)get(browseFseq), 0);
@@ -796,6 +804,8 @@ private:
         put(perfBank, 0);
         st.setData("perf.user.name", "");
         adopt();
+        put(edited, 0);
+        syncBrowse();
     }
 
     void loadUserPerf(int n) {
@@ -809,24 +819,39 @@ private:
         put(perfUser, n);
         st.setData("perf.user.name", it->name);
         adopt();
+        put(edited, 0);
+        syncBrowse();
     }
 
     // A performance names its voices and its Fseq by bank and number: the factory's, or Int for the
     // user's own, which in a bank that holds its own internal voices means those.
+    //
+    // A part playing a library voice gets that voice's U number, so the part shows the voice it plays and an
+    // edit of its bank or number starts from it, rather than from a U number left by an earlier load.
     void followPerf(const Item& perf, const Bank* bank) {
         const uint8_t* d = perf.data();
+        const int k = bank && bank >= lib.banks.data() && bank < lib.banks.data() + lib.banks.size() ? (int)(bank - lib.banks.data()) : -1;
         for (int p = 0; p < 4; ++p) {
             const int vb = d[192 + 52 * p + 1], prog = d[192 + 52 * p + 2];
-            if (bank && perf.partVoice[p] >= 0) loadVoiceItem(bank->voices[(size_t)perf.partVoice[p]], p);
+            auto from = [&](const Item* v) {   // a voice of the performance's own bank
+                loadVoiceItem(*v, p);
+                if (k >= 0) put(partUser[p], lib.number(lib.voices, k, (int)(v - bank->voices.data())));
+            };
+            if (bank && perf.partVoice[p] >= 0) from(&bank->voices[(size_t)perf.partVoice[p]]);
             else if (vb >= 2 && factoryVoice(vb, prog) < (int)factory.voices.size()) loadVoiceItem(factory.voices[(size_t)factoryVoice(vb, prog)], p);
             else if (vb == 1) {
-                if (const Item* v = internal(bank, &Bank::voices, prog)) loadVoiceItem(*v, p);
-                else if (const Item* u = lib.voice(prog + 1)) loadVoiceItem(*u, p);
+                if (const Item* v = internal(bank, &Bank::voices, prog)) from(v);
+                else if (const Item* u = lib.voice(prog + 1)) { loadVoiceItem(*u, p); put(partUser[p], prog + 1); }
             }
         }
         if (bank && perf.fseq >= 0) {
             const Item& f = bank->fseqs[(size_t)perf.fseq];
             dev.loadSyx(f.syx.data(), f.syx.size(), 0, 0);
+            // The engine's Fseq loader hands a performance with no Fseq part the first part, as a load from
+            // the Fseq page wants (chooseFseq). A saved preset's Fseq is the one the unit held when the
+            // performance was saved, so the performance's own part byte goes in again over it: with the
+            // part off, that Fseq's frame pitch was shifting every note on part 1 once the preset came back.
+            if (fseqPart >= 0) send(fields[(size_t)fseqPart], d);
         } else if ((d[0x15] & 7) != 0) {
             const int num = d[0x17];
             if (d[0x16] & 1) {
@@ -857,6 +882,7 @@ private:
         dev.allNotesOff();
         loadVoiceItem(*it, p);
         adopt();
+        syncBrowse();
     }
 
     // Choosing an Fseq, as the unit's panel does, copies its header's loop points into the performance:
@@ -869,6 +895,7 @@ private:
         choose(P("fseq.loop_start"), h[0x10] << 7 | h[0x11]);
         choose(P("fseq.loop_end"), h[0x12] << 7 | h[0x13]);
         adopt();
+        syncBrowse();
     }
 
     void loadFactoryFseq(int n) {
@@ -960,6 +987,22 @@ private:
         st.setData("browse.perf.list", rows[0]);
         st.setData("browse.voice.list", rows[1]);
         st.setData("browse.fseq.list", rows[2]);
+        syncBrowse();
+    }
+
+    // The browsed bank's lists light what is loaded (nothing when it is from elsewhere), so a click on any
+    // other row loads it, and a lit row is never a stale one.
+    void syncBrowse() {
+        auto row = [&](int list, int n) {
+            const auto it = std::find(browsed[list].begin(), browsed[list].end(), n);
+            return it == browsed[list].end() ? 0 : (int)(it - browsed[list].begin()) + 1;
+        };
+        auto set = [&](int i, int v) {   // a click the worker has not acted on yet stays
+            if (i >= 0 && st.get((size_t)i) == sel[(size_t)i] && get(i) != v) put(i, v);
+        };
+        set(browsePerf, get(perfBank) == 1 ? row(0, (int)get(perfUser)) : 0);
+        for (int p = 0; p < 4; ++p) set(browseVoice[p], get(partBank[p]) == 1 ? row(1, (int)get(partUser[p])) : 0);
+        set(browseFseq, get(fseqBank) == 0 ? row(2, (int)get(fseqUser)) : 0);
     }
 
     // ---- requests from the GUI ---------------------------------------------------------------------
@@ -986,8 +1029,18 @@ private:
     void requests() {
         if (std::string path = take("sysex.import"); !path.empty()) importSyx(path, false);
         if (std::string path = take("fseq.import"); !path.empty()) importSyx(path, true);
-        if (std::string path = take("sysex.export"); !path.empty()) exportSyx(path, true);
-        if (std::string path = take("perf.store"); !path.empty()) exportSyx(path, false);
+        if (std::string path = take("sysex.export"); !path.empty()) exportSyx(path);
+        if (std::string path = take("fsvr.export"); !path.empty()) exportPreset(path);
+        if (std::string path = take("fsvr.import"); !path.empty()) importPreset(path);
+        if (take("save.open") == "1") openSave();
+        if (take("save.request") == "1") saveToBank();
+        if (std::string c = st.data("item.context"); c != itemSeen) {
+            std::lock_guard<std::mutex> g(ctl);
+            describeItem(itemSeen = c);
+        }
+        if (std::string c = st.data("bank.context"); c != bankSeen) describeBank(bankSeen = c);
+        if (std::string r = take("item.request"); !r.empty()) itemRequest(r);
+        if (std::string r = take("bank.request"); !r.empty()) bankRequest(r);
         if (std::string path = take("fseq.export"); !path.empty()) exportFseq(path);
         if (std::string path = take("fseq.import_audio"); !path.empty()) importAudio(path);
         for (int p = 0; p < 4; ++p)
@@ -1028,31 +1081,362 @@ private:
         }
     }
 
-    // Export SysEx writes the whole unit (system, performance, its four voices and its Fseq); Store the
-    // performance with its voices and Fseq, and when it lands in the library it is a user performance.
-    void exportSyx(const std::string& path, bool system) {
-        std::vector<uint8_t> dump, out;
+    // Export SysEx writes the whole unit: system, performance, its four voices and its Fseq.
+    void exportSyx(const std::string& path) {
+        std::vector<uint8_t> dump;
         {
             std::lock_guard<std::mutex> g(ctl);
             dev.getState(dump);
         }
-        for (size_t i = 0; i < dump.size();) {
+        if (!writeFile(path, dump)) message("Cannot write " + path);
+        else message("Saved " + std::filesystem::u8path(path).filename().u8string());
+    }
+
+    // ---- presets: the performance with its four voices and its Fseq -------------------------------
+
+    std::string perfName() const {
+        std::string n;
+        for (int k = 0; k < 12; ++k) n += model.perf[k] >= 32 && model.perf[k] < 127 ? (char)model.perf[k] : ' ';
+        while (!n.empty() && n.back() == ' ') n.pop_back();
+        return n;
+    }
+
+    // Under ctl: the engine's performance, voices and Fseq as the unit dumps them, the performance named.
+    std::vector<uint8_t> presetBytes(const std::string& name) {
+        std::vector<uint8_t> dump, out;
+        dev.getState(dump);
+        for (size_t i = 0; i + 6 < dump.size();) {
             size_t j = i + 1;
             while (j < dump.size() && dump[j] != 0xF7) ++j;
-            if (system || dump[i + 6] != 0x00) out.insert(out.end(), dump.begin() + (long)i, dump.begin() + (long)std::min(j + 1, dump.size()));
+            std::vector<uint8_t> m(dump.begin() + (long)i, dump.begin() + (long)std::min(j + 1, dump.size()));
             i = j + 1;
+            if (m[6] == 0x00) continue;   // the system is the unit's, not the preset's
+            if (m[6] == 0x10) {
+                Item perf;
+                perf.address = 0x10;
+                perf.syx = m;
+                m = renamed(perf, name);
+            }
+            out.insert(out.end(), m.begin(), m.end());
         }
-        if (!writeFile(path, out)) { message("Cannot write " + path); return; }
+        return out;
+    }
+
+    // Under ctl: the engine's performance name and category, as the unit's parameter changes.
+    void setPerf(const std::string* name, int category) {
+        for (int k = 0; name && k < 12; ++k) {
+            const char c = k < (int)name->size() ? (*name)[(size_t)k] : ' ';
+            model.perf[k] = (uint8_t)(c >= 32 && c < 127 ? c : ' ');
+            Field f;
+            f.h = 0x10;
+            f.l = k;
+            f.off = k;
+            send(f, model.perf);
+        }
+        if (name) st.setData("perf.name", perfName());
+        if (category >= 0 && perfCategory >= 0) {
+            const Field& f = fields[(size_t)perfCategory];
+            f.set(model.perf, f.toRaw(category));
+            send(f, model.perf);
+            put(perfCategory, category);
+        }
+    }
+
+    static std::string trimmed(std::string s) {
+        while (!s.empty() && (s.back() == ' ' || s.back() == '\t' || s.back() == '\n' || s.back() == '\r')) s.pop_back();
+        size_t a = 0;
+        while (a < s.size() && s[a] == ' ') ++a;
+        return s.substr(a);
+    }
+
+    // The Save modal opens on the performance's name, and on its own bank when it came from one, else the
+    // bank the browser shows, else a new bank.
+    void openSave() {
         std::lock_guard<std::mutex> g(ctl);
-        lib.rescan();
-        writeLists();
-        const int k = lib.bankOf(path);
-        if (!system && k >= 0 && !lib.banks[(size_t)k].perfs.empty()) {
-            put(perfUser, lib.number(lib.perfs, k, 0));
-            put(perfBank, 1);
-            st.setData("perf.user.name", lib.banks[(size_t)k].perfs[0].name);
+        st.setData("save.name", perfName());
+        int bank = get(perfBank) == 1 && lib.perf((int)get(perfUser)) ? lib.perfs[(size_t)get(perfUser) - 1].bank + 1 : (int)get(browseBank);
+        put(saveBank, bank >= 1 && bank <= (int)lib.banks.size() ? bank : 0);
+        // A new bank's name starts on one no bank has, so the name shown is the name the file gets.
+        std::string fresh = "My Presets";
+        auto taken = [&](const std::string& n) {
+            return std::any_of(lib.banks.begin(), lib.banks.end(), [&](const Bank& b) { return b.name == n; });
+        };
+        for (int k = 2; taken(fresh); ++k) fresh = "My Presets " + std::to_string(k);
+        st.setData("save.bank_name", fresh);
+    }
+
+    // Save to Bank: the performance with its voices and Fseq into the bank the modal chose, or a new one.
+    // A performance of the same name there is replaced, with the voices and Fseq that came with it.
+    void saveToBank() {
+        std::string name = trimmed(st.data("save.name")).substr(0, 12), err;
+        if (name.empty()) name = "Untitled";
+        std::lock_guard<std::mutex> g(ctl);
+        setPerf(&name, -1);
+        const std::vector<uint8_t> bytes = presetBytes(name);
+        const int chosen = (int)get(saveBank) - 1;
+        int k = chosen;
+        if (k < 0 || k >= (int)lib.banks.size()) {
+            const std::string bankName = trimmed(st.data("save.bank_name"));
+            k = lib.add(bankName.empty() ? name : bankName, bytes, err);
+        } else {
+            const Bank& b = lib.banks[(size_t)k];
+            std::vector<Library::Splice> e;
+            for (auto& perf : b.perfs)
+                if (trimmed(perf.name) == name) {
+                    e = presetRanges(b, perf);
+                    e[0].bytes = bytes;
+                    break;
+                }
+            if (e.empty()) e.push_back({SIZE_MAX, 0, bytes});
+            if (!lib.splice(k, e, err)) k = -1;
         }
-        message("Saved " + std::filesystem::u8path(path).filename().u8string());
+        if (k < 0) { message(err); return; }
+        writeLists();
+        const Bank& b = lib.banks[(size_t)k];
+        for (int i = (int)b.perfs.size() - 1; i >= 0; --i)
+            if (trimmed(b.perfs[(size_t)i].name) == name) {
+                put(perfUser, lib.number(lib.perfs, k, i));
+                break;
+            }
+        put(perfBank, 1);
+        put(browseBank, k + 1);
+        put(edited, 0);
+        st.setData("perf.user.name", name);
+        writeLists();
+        message("Saved \"" + name + "\" to " + b.name);
+        if (take("save.then_close") == "1") st.setData("hollow.close", "1");   // the standalone was closing
+    }
+
+    // A performance's bytes in its bank: its own first, then the voices and Fseq that came with it.
+    static std::vector<Library::Splice> presetRanges(const Bank& b, const Item& perf) {
+        std::vector<Library::Splice> e{{perf.at, perf.len, {}}};
+        for (int v : perf.partVoice)
+            if (v >= 0) e.push_back({b.voices[(size_t)v].at, b.voices[(size_t)v].len, {}});
+        if (perf.fseq >= 0) e.push_back({b.fseqs[(size_t)perf.fseq].at, b.fseqs[(size_t)perf.fseq].len, {}});
+        return e;
+    }
+
+    static std::string xmlEscape(const std::string& s) {
+        std::string o;
+        for (char c : s) o += c == '&' ? "&amp;" : c == '<' ? "&lt;" : c == '>' ? "&gt;" : c == '"' ? "&quot;" : std::string(1, c);
+        return o;
+    }
+
+    static std::string xmlText(const std::string& doc, const std::string& tag) {   // the first <tag ...>text</tag>
+        size_t a = doc.find("<" + tag), e = std::string::npos;
+        if (a != std::string::npos) a = doc.find('>', a);
+        if (a != std::string::npos) e = doc.find("</" + tag + ">", ++a);
+        if (e == std::string::npos) return {};
+        std::string s = doc.substr(a, e - a), o;
+        static const std::pair<const char*, char> ents[] = {{"&amp;", '&'}, {"&lt;", '<'}, {"&gt;", '>'}, {"&quot;", '"'}, {"&apos;", '\''}};
+        for (size_t i = 0; i < s.size(); ++i) {
+            bool hit = false;
+            for (auto& en : ents)
+                if (s.compare(i, std::strlen(en.first), en.first) == 0) { o += en.second; i += std::strlen(en.first) - 1; hit = true; break; }
+            if (!hit) o += s[i];
+        }
+        return o;
+    }
+
+    // Export Preset: FSVR's own .fsvr, XML so it can carry more than the unit's bytes later on. Version 1
+    // holds the name, the category and the sysex a performance and its voices and Fseq load from.
+    void exportPreset(const std::string& path) {
+        std::string xml;
+        {
+            std::lock_guard<std::mutex> g(ctl);
+            const std::string name = perfName();
+            const std::vector<uint8_t> bytes = presetBytes(name);
+            xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<fsvr version=\"1\" type=\"performance\">\n  <name>" + xmlEscape(name) +
+                  "</name>\n  <category>" + xmlEscape(kCategories[std::clamp((int)model.perf[14], 0, 22)]) +
+                  "</category>\n  <sysex encoding=\"base64\">" + b64(bytes.data(), bytes.size()) + "</sysex>\n</fsvr>\n";
+        }
+        if (!writeFile(path, std::vector<uint8_t>(xml.begin(), xml.end()))) message("Cannot write " + path);
+        else message("Exported " + std::filesystem::u8path(path).filename().u8string());
+    }
+
+    // Import FSVR Preset: the preset plays at once, and the Save modal opens on its name.
+    void importPreset(const std::string& path) {
+        std::vector<uint8_t> raw;
+        if (!readFile(path, raw)) { message("Cannot read " + path); return; }
+        const std::string doc(raw.begin(), raw.end());
+        if (doc.find("<fsvr") == std::string::npos) { message(std::filesystem::u8path(path).filename().u8string() + " is not an FSVR preset"); return; }
+        const Bank b = parseSyx(unb64(xmlText(doc, "sysex")), "");
+        if (b.perfs.empty()) { message("No performance in " + std::filesystem::u8path(path).filename().u8string()); return; }
+        std::string name = trimmed(xmlText(doc, "name")).substr(0, 12);
+        if (name.empty()) name = b.perfs[0].name;
+        std::lock_guard<std::mutex> g(ctl);
+        dev.allNotesOff();
+        dev.loadSyx(b.perfs[0].syx.data(), b.perfs[0].syx.size(), 0, 0);
+        followPerf(b.perfs[0], &b);
+        adopt();
+        put(edited, 1);   // in no bank yet
+        st.setData("save.name", name);
+        put(saveBank, (int)get(browseBank) <= (int)lib.banks.size() ? (int)get(browseBank) : 0);
+        st.setData("save.then_close", "");
+        st.setData("hollow.modal", "dialog_save");
+    }
+
+    // ---- right-click on a browser row ---------------------------------------------------------------
+
+    // The row the right-click was on: the browser's tab says what it lists, and its code which one, "U12"
+    // a user item, "A001" a factory performance or voice, "01" a factory Fseq.
+    struct Target { int kind = -1, user = 0, factory = -1; };
+    Target target;
+    std::string itemSeen, bankSeen;
+    int clip = -1;                     // Copy Attributes: the category, -1 before any copy
+    int bankTarget = -2;               // the bank row: -1 the factory's, else a library bank
+
+    std::string browseTab() const {
+        Json ui;
+        return hollow::parseJson(st.ui(), ui) ? ui["vars"]["browse"].str("perf") : "perf";
+    }
+
+    const Item* itemOf(const Target& t) const {
+        const std::vector<Item>* f = t.kind == 0 ? &factory.perfs : t.kind == 1 ? &factory.voices : &factory.fseqs;
+        if (t.user) return t.kind == 0 ? lib.perf(t.user) : t.kind == 1 ? lib.voice(t.user) : lib.fseq(t.user);
+        return t.factory >= 0 && t.factory < (int)f->size() ? &(*f)[(size_t)t.factory] : nullptr;
+    }
+
+    const Library::Ref* refOf(const Target& t) const {
+        const std::vector<Library::Ref>& l = t.kind == 0 ? lib.perfs : t.kind == 1 ? lib.voices : lib.fseqs;
+        return t.user >= 1 && t.user <= (int)l.size() ? &l[(size_t)t.user - 1] : nullptr;
+    }
+
+    void describeItem(const std::string& ctx) {   // under ctl
+        std::vector<std::string> f;
+        for (size_t a = 0; a <= ctx.size();) {
+            size_t e = std::min(ctx.find('\t', a), ctx.size());
+            f.push_back(ctx.substr(a, e - a));
+            a = e + 1;
+        }
+        const std::string tab = browseTab(), code = f.size() > 1 ? f[1] : "";
+        target = {};
+        target.kind = tab == "voice" ? 1 : tab == "fseq" ? 2 : 0;
+        if (!code.empty() && code[0] == 'U') target.user = std::atoi(code.c_str() + 1);
+        else if (target.kind == 2) target.factory = std::atoi(code.c_str()) - 1;
+        else if (code.size() >= 2 && code[0] >= 'A' && code[0] <= 'K') {
+            const int num = std::atoi(code.c_str() + 1) - 1;
+            target.factory = target.kind == 0 ? (code[0] - 'A') * 128 + num : factoryVoice(code[0] - 'A' + 2, num);
+        }
+        const Item* it = itemOf(target);
+        const char* kinds[3] = {"performance", "voice", "Fseq"};
+        st.setData("item.name", it ? it->name : "");
+        st.setData("item.what", std::string(kinds[target.kind]) + " \"" + (it ? it->name : "") + "\"");
+        st.setData("item.new_name", it ? it->name : "");
+        st.setData("item.max", it ? std::to_string(nameLength(*it)) + " characters at most" : "");
+        put(itemReadonly, target.user ? 0 : 1);
+        put(itemKind, target.kind == 2 || (it && !it->address) ? 2 : target.kind);   // 2: no category (an Fseq, a DX voice)
+        put(itemCategory, it && it->address ? std::clamp(it->category, 0, 22) : 0);
+    }
+
+    // The performance the engine holds, if it is a user one: its bank's file and place, to find it again
+    // by after the library changes under it.
+    struct Loaded { std::string path, name; int index = -1; };
+    Loaded loaded() const {
+        const int n = (int)get(perfUser);
+        if (get(perfBank) != 1 || !lib.perf(n)) return {};
+        const Library::Ref& r = lib.perfs[(size_t)n - 1];
+        return {lib.banks[(size_t)r.bank].path, lib.banks[(size_t)r.bank].perfs[(size_t)r.index].name, r.index};
+    }
+    void relocate(const Loaded& was, const std::string& path) {
+        const int k = was.index < 0 ? -1 : lib.bankOf(path);
+        if (k < 0) return;
+        const Bank& b = lib.banks[(size_t)k];
+        int best = -1;
+        for (int i = 0; i < (int)b.perfs.size(); ++i)
+            if (b.perfs[(size_t)i].name == was.name && (best < 0 || i == was.index)) best = i;
+        if (best >= 0) put(perfUser, lib.number(lib.perfs, k, best));
+    }
+
+    // Delete, Rename, Edit Attributes (OK), Copy Attributes and Paste Attributes on the row; the factory's
+    // presets can be read and copied from, not changed.
+    void itemRequest(const std::string& r) {
+        std::lock_guard<std::mutex> g(ctl);
+        const Item* it = itemOf(target);
+        if (!it) return;
+        const bool categorized = target.kind < 2 && it->address;
+        if (r == "copy") {
+            if (!categorized) { message("An Fseq or a DX voice has no attributes to copy"); return; }
+            clip = it->category;
+            message("Copied the attributes of \"" + it->name + "\"");
+            return;
+        }
+        const Library::Ref* ref = refOf(target);
+        if (!ref) { message("The Yamaha FS1R presets are read only"); return; }
+        const Bank& b = lib.banks[(size_t)ref->bank];
+        const std::string path = b.path, old = it->name;
+        const Loaded was = loaded();
+        const bool isLoaded = target.kind == 0 && was.index == ref->index && was.path == path;
+        std::vector<Library::Splice> e;
+        std::string done, name;
+        int cat = -1;
+        if (r == "delete") {
+            e = target.kind == 0 ? presetRanges(b, *it) : std::vector<Library::Splice>{{it->at, it->len, {}}};
+            done = "Deleted \"" + old + "\"";
+        } else if (r == "rename") {
+            name = trimmed(st.data("item.new_name")).substr(0, (size_t)nameLength(*it));
+            if (name.empty() || name == old) return;
+            e.push_back({it->at, it->len, renamed(*it, name)});
+            done = "Renamed \"" + old + "\" to \"" + name + "\"";
+        } else if (r == "attributes" || r == "paste") {
+            cat = r == "paste" ? clip : (int)get(itemCategory);
+            if (!categorized) { message("An Fseq or a DX voice has no attributes"); return; }
+            if (cat < 0) { message("Copy the attributes of a preset first"); return; }
+            e.push_back({it->at, it->len, recategorized(*it, cat)});
+            done = "\"" + old + "\" is now " + kCategories[cat];
+        } else {
+            return;
+        }
+        std::string err;
+        if (!lib.splice(ref->bank, e, err)) { message(err); return; }
+        if (isLoaded && r != "delete") setPerf(name.empty() ? nullptr : &name, cat);   // the engine's copy follows its bank
+        if (isLoaded && !name.empty()) st.setData("perf.user.name", name);
+        relocate(was, path);
+        writeLists();
+        describeItem(itemSeen);
+        message(done);
+    }
+
+    // The bank row: 0 the factory bank, then the library's banks in order.
+    void describeBank(const std::string& ctx) {
+        const size_t tab = ctx.find('\t');
+        const int row = std::atoi(ctx.c_str());
+        const std::string name = tab == std::string::npos ? "" : ctx.substr(tab + 1);
+        bankTarget = row - 1;
+        st.setData("bank.name", name);
+        st.setData("bank.new_name", name);
+        put(bankReadonly, row == 0 ? 1 : 0);
+    }
+
+    void bankRequest(const std::string& r) {
+        std::lock_guard<std::mutex> g(ctl);
+        const int k = bankTarget;
+        if (k < 0 || k >= (int)lib.banks.size()) { message("The Yamaha FS1R bank is read only"); return; }
+        const std::string old = lib.banks[(size_t)k].name, path = lib.banks[(size_t)k].path;
+        const bool browsed = (int)get(browseBank) == k + 1;
+        Loaded was = loaded();
+        std::string err;
+        if (r == "delete") {
+            if (!lib.remove(k, err)) { message(err); return; }
+            if (browsed) put(browseBank, 0);
+            message("Deleted the bank \"" + old + "\" (kept in the library's Deleted folder)");
+        } else if (r == "rename") {
+            const std::string name = trimmed(st.data("bank.new_name"));
+            if (name.empty() || name == old) return;
+            std::string moved;
+            if (!lib.rename(k, name, err, &moved)) { message(err); return; }
+            const int now = lib.bankOf(moved);
+            if (now >= 0) {
+                if (browsed) put(browseBank, now + 1);
+                if (was.path == path) was.path = lib.banks[(size_t)now].path;
+            }
+            message("Renamed the bank \"" + old + "\" to \"" + (now >= 0 ? lib.banks[(size_t)now].name : name) + "\"");
+        } else {
+            return;
+        }
+        relocate(was, was.path);
+        writeLists();
+        describeBank(bankSeen);
     }
 
     void exportFseq(const std::string& path) {

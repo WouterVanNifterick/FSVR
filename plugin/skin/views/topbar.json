@@ -47,6 +47,46 @@
    "layer": 0
   },
   {
+   "type": "button",
+   "name": "audio_settings",
+   "rect": [
+    22,
+    6,
+    76,
+    24
+   ],
+   "fill": {
+    "image": "buttons/dark_part"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "MIDI/Aud",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    1,
+    2,
+    0
+   ],
+   "layer": 4,
+   "action": {
+    "standalone": "settings"
+   },
+   "tip": "Audio and MIDI settings",
+   "showIf": {
+    "var": "standalone",
+    "equals": "1"
+   }
+  },
+  {
    "type": "plate",
    "name": "volume_label",
    "rect": [
@@ -842,10 +882,10 @@
    "fill": {
     "image": "displays/lcd_edit"
    },
-   "source": "modified",
    "press": "up",
    "surface": false,
-   "tip": "Edited since loaded or saved"
+   "tip": "Edited since loaded or saved",
+   "param": "gui.edited"
   },
   {
    "type": "plate",
@@ -2851,9 +2891,9 @@
   },
   {
    "type": "dropdown",
-   "name": "file_menu",
+   "name": "import_menu",
    "rect": [
-    474,
+    546,
     52,
     72,
     26
@@ -2867,8 +2907,20 @@
    ],
    "items": [
     {
-     "label": "Import SysEx...",
+     "label": "Import FSVR Preset...",
      "value": 0,
+     "action": {
+      "file": "open",
+      "key": "fsvr.import",
+      "types": {
+       "FSVR preset": "fsvr"
+      },
+      "title": "Import FSVR Preset"
+     }
+    },
+    {
+     "label": "Import FS1R SysEx to New Bank...",
+     "value": 1,
      "action": {
       "file": "open",
       "key": "sysex.import",
@@ -2877,42 +2929,11 @@
       },
       "title": "Import SysEx"
      }
-    },
-    {
-     "label": "Export SysEx...",
-     "value": 1,
-     "action": {
-      "file": "save",
-      "key": "sysex.export",
-      "types": {
-       "SysEx": "syx"
-      },
-      "name": "FSVR.syx",
-      "title": "Export SysEx"
-     }
-    },
-    {
-     "separator": true
-    },
-    {
-     "label": "Options",
-     "value": 2,
-     "action": {
-      "goto": "page_master",
-      "stack": "pages"
-     }
-    },
-    {
-     "label": "Audio/MIDI Settings...",
-     "value": 3,
-     "action": {
-      "standalone": "settings"
-     }
     }
    ],
-   "tip": "SysEx, options, and in the standalone the audio and MIDI settings",
+   "tip": "Import an FSVR preset, or a .syx as a new bank",
    "text": {
-    "text": "File",
+    "text": "Import",
     "font": "caption_white_12",
     "valign": "middle"
    },
@@ -2924,10 +2945,10 @@
    ]
   },
   {
-   "type": "button",
-   "name": "save_as",
+   "type": "dropdown",
+   "name": "save_menu",
    "rect": [
-    546,
+    474,
     52,
     72,
     26
@@ -2935,16 +2956,13 @@
    "fill": {
     "image": "buttons/strip_save"
    },
-   "press": "up",
-   "toggle": true,
-   "pressedTiles": true,
    "pressOffset": [
     2,
     2
    ],
-   "tip": "Store the performance, its voices and Fseq as a .syx; in the library it is a user performance",
+   "tip": "Save the performance to a bank, or export it",
    "text": {
-    "text": "Store",
+    "text": "Save",
     "font": "caption_white_12",
     "valign": "middle"
    },
@@ -2954,15 +2972,48 @@
     2,
     0
    ],
-   "action": {
-    "file": "save",
-    "key": "perf.store",
-    "types": {
-     "SysEx": "syx"
+   "items": [
+    {
+     "label": "Save Current Preset...",
+     "value": 0,
+     "action": {
+      "modal": "dialog_save",
+      "data": {
+       "save.open": "1",
+       "save.then_close": ""
+      }
+     }
     },
-    "name": "{data:library.dir|}Performance.syx",
-    "title": "Store the performance"
-   }
+    {
+     "separator": true
+    },
+    {
+     "label": "Export Current Preset...",
+     "value": 1,
+     "action": {
+      "file": "save",
+      "key": "fsvr.export",
+      "types": {
+       "FSVR preset": "fsvr"
+      },
+      "name": "{data:perf.name|Preset}.fsvr",
+      "title": "Export Preset"
+     }
+    },
+    {
+     "label": "Export to FS1R SysEx...",
+     "value": 2,
+     "action": {
+      "file": "save",
+      "key": "sysex.export",
+      "types": {
+       "SysEx": "syx"
+      },
+      "name": "FSVR.syx",
+      "title": "Export SysEx"
+     }
+    }
+   ]
   },
   {
    "type": "plate",

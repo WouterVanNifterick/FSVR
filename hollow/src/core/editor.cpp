@@ -7,12 +7,20 @@
 #include <climits>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <random>
 
 namespace hollow {
 
 using Clock = std::chrono::steady_clock;
 using ms = std::chrono::milliseconds;
+
+const char* const kModalKey = "hollow.modal";
+const char* const kModalVeil = "hollow_modal_veil";
+const char* const kModalBox = "hollow_modal";
+static const char* const kCloseKey = "hollow.close";   // a processor's "1" closes the standalone without asking
+// The standalone's settings modal: a param and a text data key of items per device list.
+static const char* const kDevices[6] = {"api", "output", "input", "rate", "buffer", "midi"};
 
 static Vars toVars(const Json& j) {
     Vars v;
@@ -65,6 +73,7 @@ Gui::Gui(const Skin* skin, State& state, Editor::Host* host, const std::string& 
     taus_[0] = rd() | 2;
     taus_[1] = rd() | 8;
     taus_[2] = rd() | 16;
+    standaloneVar();
     rebuild();
 }
 
@@ -90,6 +99,12 @@ void Gui::rebuild() {
     canvas_.assign((size_t)w_ * h_, 0);
     root_ = Node();
     build(root_, name, nullptr, "", 0);
+    modalVeil_ = modalBox_ = -1;
+    modalShown_.clear();
+    for (size_t i = 0; v && i < v->widgets.size(); ++i) {
+        if (v->widgets[i].name == kModalVeil) modalVeil_ = (int)i;
+        if (v->widgets[i].name == kModalBox) modalBox_ = (int)i;
+    }
     resolve(root_);
     conds(root_, false);
     relayout();
@@ -312,6 +327,19 @@ void Gui::update() {
 // A root view with "fit" makes the window the bounding box of its visible widgets.
 void Gui::relayout() {
     flow(root_);
+    if (modalBox_ >= 0 && !modalShown_.empty()) {   // the modal centred over the window, which grows to hold it
+        const View* mv = skin_->view(modalShown_);
+        int bw = root_.view->w, bh = root_.view->h, m = skin_->dp(16);
+        if (root_.view->fit) {
+            bw = bh = 1;
+            for (size_t i = 0; i < root_.w.size(); ++i)
+                if ((int)i != modalVeil_ && (int)i != modalBox_ && visible(root_.w[i]))
+                    bw = std::max(bw, root_.w[i].r.x + root_.w[i].r.w), bh = std::max(bh, root_.w[i].r.y + root_.w[i].r.h);
+        }
+        int mw = mv ? mv->w : 0, mh = mv ? mv->h : 0, W = std::max(bw, mw + 2 * m), H = std::max(bh, mh + 2 * m);
+        root_.w[modalVeil_].r = {0, 0, W, H};
+        root_.w[modalBox_].r = {(W - mw) / 2, (H - mh) / 2, mw, mh};
+    }
     if (root_.view && root_.view->fit) {
         int w = 1, h = 1;
         for (auto& s : root_.w)
@@ -484,6 +512,7 @@ Hit Gui::scroller(Node& n, int x, int y) {
         const Widget& w = n.view->widgets[*it];
         Inst& s = n.w[*it];
         if (!visible(s) || !rectOf(n, *it).contains(x, y)) continue;
+        if (w.kind == Kind::Veil) return {};   // nothing behind a veil (a modal's) scrolls
         bool tall = contentHeight(n, *it) > rectOf(n, *it).h;
         if (w.kind == Kind::List) {
             if (tall) return {&n, *it, gen_};
@@ -870,7 +899,7 @@ void Gui::paintWidget(Canvas& c, Node& n, int i, Rect r) {
                 }
                 return false;
             };
-            find(w.items);
+            find(w.itemsData.empty() ? w.items : itemsOf(n, i));
         }
         drawCaption(c, w.text, withData(n, caption), r, w.pad, pressed ? w.pressOffset[0] : 0, pressed ? w.pressOffset[1] : 0, true);
         break;
@@ -1051,8 +1080,8 @@ void Gui::paintList(Canvas& c, Node& n, int i, Rect r) {
     Rect content = r;
     content.w -= bar(n, i).w;
     auto model = listModel(n, i);
-    int pitch = std::max(1, w.rowHeight + w.rowGap), rows = (int)model.size(), sel = s.row;
-    if (s.param >= 0) {   // a bound list shows the first row whose params all hold what it sets
+    int pitch = std::max(1, w.rowHeight + w.rowGap), rows = (int)model.size(), sel = s.context >= 0 ? s.context : s.row;
+    if (s.param >= 0 && s.context < 0) {   // a bound list shows the first row whose params all hold what it sets
         Hit h{&n, i, gen_};
         sel = -1;
         for (int k = 0; k < rows && sel < 0; ++k) {
@@ -1085,8 +1114,8 @@ void Gui::paintList(Canvas& c, Node& n, int i, Rect r) {
             if (col < w.columns.size() && w.columns[col].image >= 0) {   // an icon: tile 1 on the selected row when there is one
                 const Image& img = skin_->images[w.columns[col].image];
                 Rect t = img.tile(0);
-                if (!cells[col].empty())
-                    drawImage(c, img, k == sel && img.tiles > 1 ? 1 : 0, {x + (cw - t.w) / 2, y + (w.rowHeight - t.h) / 2, t.w, t.h});
+                int tile = w.columns[col].tileCell ? std::atoi(cells[col].c_str()) : k == sel && img.tiles > 1 ? 1 : 0;
+                if (!cells[col].empty()) drawImage(c, img, tile, {x + (cw - t.w) / 2, y + (w.rowHeight - t.h) / 2, t.w, t.h});
                 x += cw + w.colGap;
                 continue;
             }
@@ -1107,8 +1136,8 @@ void Gui::listDown(const Hit& h, int x, int y, bool dbl) {
     const Widget& w = wid(h);
     Inst& s = inst(h);
     Rect r = rectOf(*h.node, h.i);
-    int pitch = std::max(1, w.rowHeight + w.rowGap), row = (y - r.y + s.scroll) / pitch;
-    if (row < 0 || row >= listRows(*h.node, h.i) || (y - r.y + s.scroll) % pitch >= w.rowHeight) return;
+    int row = listRowAt(h, y);
+    if (row < 0) return;
     s.row = row;
     if (s.param >= 0) setParams(listRowParams(h, row));   // a bound list: the row's params
     listFocus_ = h;
@@ -1173,6 +1202,7 @@ Hit Gui::tipAt(Node& n, int x, int y) {
     for (auto it = n.view->order.rbegin(); it != n.view->order.rend(); ++it) {
         Inst& s = n.w[*it];
         if (!visible(s) || !rectOf(n, *it).contains(x, y)) continue;
+        if (n.view->widgets[*it].kind == Kind::Veil) return {};   // nor shows its tip
         if (s.child) {
             if (Hit h = tipAt(*s.child, x, y)) return h;
         } else if (!n.view->widgets[*it].tip.empty()) {
@@ -1210,8 +1240,20 @@ void Gui::runAction(Node& n, int i, const Action& action) {
     case Action::Url:
         platformOpenUrl(a.target);
         return;
-    case Action::Standalone:   // "settings": the app's audio and MIDI settings
-        if (window && standalone()) platformAudioSettings(window);
+    case Action::Standalone:   // "settings": the app's audio and MIDI settings; "close": quit without asking
+        if (!window || !standalone()) return;
+        if (a.target == "close") {
+            closing_ = true;
+            platformCloseApp(window);
+        } else if (!skin_->settingsView.empty() && readDevices()) {
+            setModal(skin_->settingsView);
+        } else {
+            platformAudioSettings(window);
+        }
+        return;
+    case Action::Modal:   // text data first (what the modal is for), then the view, or "" to close it
+        for (auto& kv : a.vars) state_.setData(subst(n, kv.first), kv.second);
+        setModal(a.target);
         return;
     case Action::Scale:   // the window scale menu, under the widget
         scaleMenu(rectOf(n, i));
@@ -1446,9 +1488,8 @@ void Gui::mouseDown(int x, int y, bool right, bool dbl, bool shift) {
         listFocus_ = {};
         if (window && !wantsKeys()) platformFocus(window, false);
     }
-    if (right) {   // context menus open on the release
-        if (!h) scaleMenu({x, y, 0, 0});
-        else if (wid(h).kind == Kind::Custom && wid(h).ops && wid(h).ops->right) wid(h).ops->right(*this, h, rectOf(*h.node, h.i), x, y, shift, false);
+    if (right) {   // context menus open on the release; empty space has none (the scale menu is a skin's { "scale": "menu" })
+        if (h && wid(h).kind == Kind::Custom && wid(h).ops && wid(h).ops->right) wid(h).ops->right(*this, h, rectOf(*h.node, h.i), x, y, shift, false);
         return;
     }
     if (!h) return;
@@ -1603,7 +1644,8 @@ void Gui::mouseUp(int x, int y, bool shift) {
         size_t level;
         int row;
         if (menuAt(x, y, level, row)) {
-            if (row >= 0 && menus_[level].items[row].items.empty() && !menus_[level].items[row].separator) pickMenu(menus_[level].items[row].id);
+            const MenuEntry& e = row >= 0 ? menus_[level].items[row] : MenuEntry();
+            if (row >= 0 && e.items.empty() && !e.separator && !e.disabled) pickMenu(e.id);
         } else if (st.releaseGuard > 0) {
             closeMenus();
         }
@@ -1640,7 +1682,46 @@ void Gui::rightUp(int x, int y, bool shift) {
     if (!h) return;
     const Widget& w = wid(h);
     if (w.kind == Kind::Custom && w.ops && w.ops->right) w.ops->right(*this, h, rectOf(*h.node, h.i), x, y, shift, true);
-    else if (!w.context.empty()) contextMenu(h, x, y);
+    else if (w.kind == Kind::List && w.json.has("contextRow")) {   // the row it is for, as text data, then its menu
+        int row = listRowAt(h, y);
+        if (row < 0) return;
+        const std::vector<std::string> cells = listModel(*h.node, h.i)[(size_t)row].cells;
+        std::string v = std::to_string(row);
+        for (auto& c : cells) v += "\t" + c;
+        state_.setData(subst(*h.node, w.json["contextRow"].str()), v);
+        unlight(root_);
+        inst(h).context = row;   // lit until its menu, and the modal that may follow, close
+        contextLit_ = true;
+        invalidate(rectOf(*h.node, h.i));
+        // "{cell:n}" in an item's label is the row's n-th cell, so the menu names what it is for.
+        std::function<void(std::vector<Item>&)> fill = [&](std::vector<Item>& items) {
+            for (auto& it : items) {
+                for (size_t at; (at = it.label.find("{cell:")) != std::string::npos;) {
+                    size_t e = it.label.find('}', at);
+                    if (e == std::string::npos) break;
+                    size_t n = (size_t)std::atoi(it.label.c_str() + at + 6);
+                    it.label.replace(at, e - at + 1, n >= 1 && n <= cells.size() ? cells[n - 1] : std::string());
+                }
+                fill(it.items);
+            }
+        };
+        std::vector<Item> items = w.context;
+        fill(items);
+        if (!items.empty()) contextMenu(h, x, y, items);
+    } else if (!w.context.empty()) contextMenu(h, x, y);
+}
+
+void Gui::unlight(Node& n) {
+    for (size_t i = 0; n.view && i < n.w.size(); ++i) {
+        if (n.w[i].context >= 0) { n.w[i].context = -1; invalidate(rectOf(n, (int)i) & n.clip); }
+        if (n.w[i].child) unlight(*n.w[i].child);
+    }
+}
+
+int Gui::listRowAt(const Hit& h, int y) const {
+    const Widget& w = wid(h);
+    int pitch = std::max(1, w.rowHeight + w.rowGap), at = y - rectOf(*h.node, h.i).y + inst(h).scroll, row = at / pitch;
+    return at >= 0 && row < listRows(*h.node, h.i) && at % pitch < w.rowHeight ? row : -1;
 }
 
 void Gui::mouseLeave() {
@@ -1684,7 +1765,7 @@ void Gui::wheel(int x, int y, double notches, bool shift) {
 
 // ---- keyboard: text entry, menus, lists -------------------------------------------------------------
 
-bool Gui::wantsKeys() const { return !menus_.empty() || editing_on_ || live(listFocus_); }
+bool Gui::wantsKeys() const { return !menus_.empty() || editing_on_ || live(listFocus_) || !modalShown_.empty(); }
 
 void Gui::focusLost() {
     closeMenus();
@@ -1714,9 +1795,9 @@ bool Gui::keyDown(Key k, bool shift, bool ctrl) {
             int s = k == KeyHome ? -1 : k == KeyEnd ? n : m.sel < 0 && dir < 0 ? n : m.sel;
             for (int t = 0; t < n; ++t) {
                 s = ((s + dir) % n + n) % n;
-                if (!m.items[s].separator) break;
+                if (!m.items[s].separator && !m.items[s].disabled) break;
             }
-            if (!m.items[s].separator) {
+            if (!m.items[s].separator && !m.items[s].disabled) {
                 m.sel = s;
                 closeMenus(level + 1);
                 invalidate(m.r);
@@ -1725,7 +1806,11 @@ bool Gui::keyDown(Key k, bool shift, bool ctrl) {
         return true;
     }
     if (!editing_on_) {
-        if (!live(listFocus_)) return false;
+        if (!live(listFocus_)) {
+            if (modalShown_.empty()) return false;
+            if (k == KeyEscape) setModal("");   // Escape closes a modal, as its Cancel would
+            return true;
+        }
         if (k == KeyEscape) listFocus_ = {};
         else if (k == KeyDelete && wid(listFocus_).source == Widget::MidiMap) listAction(listFocus_, Action{Action::MidiMap, "remove"});
         return true;
@@ -2008,6 +2093,7 @@ void Gui::itemMenu(const Hit& h, const std::vector<Item>& items, Rect at, const 
             MenuEntry e;
             e.label = it.label;
             e.separator = it.separator;
+            e.disabled = it.disabled;
             e.columnBreak = it.columnBreak;
             e.check = it.check;
             bool on = it.action.type != Action::None ? activeAction(it.action) : std::abs(it.value - v) < 1e-9;
@@ -2036,7 +2122,24 @@ void Gui::itemMenu(const Hit& h, const std::vector<Item>& items, Rect at, const 
     });
 }
 
-void Gui::dropdown(const Hit& h) { itemMenu(h, wid(h).items, menuAnchor(h), wid(h).menuStyle, true); }
+void Gui::dropdown(const Hit& h) { itemMenu(h, itemsOf(*h.node, h.i), menuAnchor(h), wid(h).menuStyle, true); }
+
+// "itemsData": one item per line of that text data, valued by its index, for choices only the product knows.
+std::vector<Item> Gui::itemsOf(const Node& n, int i) const {
+    const Widget& w = n.view->widgets[i];
+    if (w.itemsData.empty()) return w.items;
+    std::vector<Item> out;
+    std::string d = state_.data(subst(n, w.itemsData));
+    for (size_t p = 0; p < d.size();) {
+        size_t e = std::min(d.find('\n', p), d.size());
+        Item it;
+        it.label = it.shortLabel = d.substr(p, e - p);
+        it.value = (double)out.size();
+        out.push_back(std::move(it));
+        p = e + 1;
+    }
+    return out;
+}
 
 // A menu opens below its widget (or over it, by style), or with "menuAt" at a point of the widget's
 // view, such as the top-left of a neighbouring value field.
@@ -2049,10 +2152,12 @@ Rect Gui::menuAnchor(const Hit& h) const {
 }
 
 // At the pointer, in the widget's menu style, else the style named "plain" if the skin has one.
-void Gui::contextMenu(const Hit& h, int x, int y) {
+void Gui::contextMenu(const Hit& h, int x, int y) { contextMenu(h, x, y, wid(h).context); }
+
+void Gui::contextMenu(const Hit& h, int x, int y, const std::vector<Item>& items) {
     const Widget& w = wid(h);
     std::string style = !w.menuStyle.empty() ? w.menuStyle : skin_->menuStyles.count("plain") ? "plain" : "";
-    itemMenu(h, w.context, {x, y, 0, 0}, style, false);
+    itemMenu(h, items, {x, y, 0, 0}, style, false);
 }
 
 void Gui::scaleMenu(Rect at) {
@@ -2071,13 +2176,14 @@ void Gui::scaleMenu(Rect at) {
 
 // Skinned in the named style (or the default "menu"), or native: for "native", or without a menu
 // style. Native menus mark the current item with their own check mark.
+// A skinned menu opens without a window too (a GUI driven by a test); a native one needs the window.
 void Gui::openMenu(std::vector<MenuEntry> items, Rect at, const std::string& style, std::function<void(int)> pick) {
-    if (!window || items.empty()) return;
+    if (items.empty()) return;
     const MenuStyle* st = &skin_->menu;
     auto named = skin_->menuStyles.find(style);
     if (named != skin_->menuStyles.end()) st = &named->second;
     if ((style == "native" && kNativeMenus) || !st->on) {   // native menus check only toggle items, never the current value
-        pick(platformMenu(window, items, at.x, at.y + at.h));
+        if (window) pick(platformMenu(window, items, at.x, at.y + at.h));
         return;
     }
     closeMenus();
@@ -2085,7 +2191,50 @@ void Gui::openMenu(std::vector<MenuEntry> items, Rect at, const std::string& sty
     menuOpened_ = Clock::now();
     menuPressed_ = false;
     openSkinned(0, std::move(items), at, !st->over, st);
-    platformFocus(window, true);
+    if (window) platformFocus(window, true);
+}
+
+// ---- for tests: widgets by path, the open menu, the modal ------------------------------------------
+
+// "topbar/save_menu": embed names from the root, then the widget's name; a visible widget only.
+bool Gui::widgetRect(const std::string& path, Rect& r) {
+    size_t slash = path.rfind('/');
+    Node* n = nodeAt(slash == std::string::npos ? "" : path.substr(0, slash));
+    Hit h;
+    if (!n || !findWidget(*n, path.substr(slash == std::string::npos ? 0 : slash + 1), h, false) || !visible(inst(h))) return false;
+    r = rectOf(*h.node, h.i) & h.node->clip;
+    return !r.empty();
+}
+
+std::vector<Gui::Probe> Gui::probes() {
+    std::vector<Probe> out;
+    std::function<void(Node&)> walk = [&](Node& n) {
+        for (size_t i = 0; n.view && i < n.w.size(); ++i) {
+            if (!visible(n.w[i]) || !enabled(n, (int)i)) continue;
+            Rect r = rectOf(n, (int)i) & n.clip;
+            if (!r.empty()) out.push_back({(n.path.empty() ? "" : n.path + "/") + n.view->widgets[i].name, &n.view->widgets[i], r, n.w[i].param});
+            if (n.w[i].child) walk(*n.w[i].child);
+        }
+    };
+    walk(root_);
+    return out;
+}
+
+std::vector<std::string> Gui::menuLabels() const {
+    std::vector<std::string> out;
+    if (!menus_.empty())
+        for (auto& e : menus_.back().items) out.push_back(e.separator ? "-" : e.label);
+    return out;
+}
+
+bool Gui::chooseMenu(const std::string& label) {
+    if (menus_.empty()) return false;
+    for (auto& e : menus_.back().items)
+        if (!e.separator && !e.disabled && e.items.empty() && e.label == label) {
+            pickMenu(e.id);
+            return true;
+        }
+    return false;
 }
 
 static bool hasShadow(const MenuStyle& s) { return (s.shadow >> 24) != 0; }
@@ -2169,7 +2318,7 @@ bool Gui::menuAt(int x, int y, size_t& level, int& row) const {
 // edge + 1, its top on the row's top; any deeper menu closes.
 void Gui::hoverMenu(size_t level, int row) {
     Menu& m = menus_[level];
-    if (row >= 0 && m.items[row].separator) row = -1;
+    if (row >= 0 && (m.items[row].separator || m.items[row].disabled)) row = -1;
     if (row < 0 || row == m.sel) {
         if (row < 0 && m.sel >= 0) { m.sel = -1; invalidate(m.r); }
         if (row < 0) closeMenus(level + 1);
@@ -2213,7 +2362,7 @@ void Gui::paintMenu(Canvas& c, const Menu& m) {
             continue;
         }
         bool hot = k == m.sel;
-        const Font& f = skin_->fonts[hot && st.hoverFont >= 0 ? st.hoverFont : st.font];
+        const Font& f = skin_->fonts[e.disabled && st.disabledFont >= 0 ? st.disabledFont : hot && st.hoverFont >= 0 ? st.hoverFont : st.font];
         int textX = row.x + m.indent;
         if (hot) {
             fillRect(c, row, st.hoverFill);
@@ -2323,6 +2472,10 @@ void Gui::checkValues(Node& n) {
             s.stored = state_.hasData(s.key);
             s.data = state_.data(s.key);
         }
+        if (s.text.find("{data:") != std::string::npos) {   // a caption follows the text data it names
+            std::string t = withData(n, s.text);
+            if (t != s.caption) { s.caption = t; changed = true; }
+        }
         if (w.kind == Kind::List && w.json["dataRows"].has("key")) {   // a list follows the text data its rows come from
             std::string d = state_.data(subst(n, w.json["dataRows"]["key"].str()));
             if (d != s.data) { s.data = d; changed = true; }
@@ -2377,6 +2530,17 @@ void Gui::tick() {
     if (learn != learnOn_) {
         learnOn_ = learn;
         setLearnTarget({});
+    }
+    syncModal();
+    syncDevices();
+    if (contextLit_ && menus_.empty() && modalShown_.empty()) {
+        unlight(root_);   // by the tree, since a modal's show may have left a Hit on the list dead
+        contextLit_ = false;
+    }
+    if (standalone() && window && state_.data(kCloseKey) == "1") {
+        state_.setData(kCloseKey, "");
+        closing_ = true;
+        platformCloseApp(window);
     }
     checkValues(root_);
     loaded = false;
@@ -2435,7 +2599,7 @@ void Gui::setScale(int s) {
 void Gui::writeEmbeds(const Node& n, std::string& o) const {
     for (size_t i = 0; n.view && i < n.w.size(); ++i) {
         const Node* c = n.w[i].child.get();
-        if (!c) continue;
+        if (!c || (&n == &root_ && (int)i == modalBox_)) continue;   // a modal is not a page to come back to
         const Widget& w = n.view->widgets[i];
         if (c->viewName != w.view || c->vars != w.vars) {
             o += (o.back() == '{' ? "" : ",") + jsonQuote(c->path) + ":{\"view\":" + jsonQuote(c->viewName) + ",\"vars\":";
@@ -2491,6 +2655,7 @@ void Gui::applyUi(const std::string& json) {
         scale = std::clamp(j["scale"].integer(scale), 1, 4);
         for (auto& m : j["vars"].members) setVar(vars_, m.first, m.second.str());
     }
+    standaloneVar();   // a session saved in the standalone opens in a host without its buttons
     rebuild();
     // Saved pages go parent first, so each path finds the embed its parent entry just showed.
     for (auto& m : j["embeds"].members) {
@@ -2520,6 +2685,82 @@ void Gui::applyUi(const std::string& json) {
     relayout();
     setScale(scale);
     saveUi();
+    syncModal();
+}
+
+// ---- modals ---------------------------------------------------------------------------------------
+
+// The skin var "standalone" is "1" in the standalone app, for what only it has (its audio settings).
+void Gui::standaloneVar() { setVar(vars_, "standalone", standalone() ? "1" : "0"); }
+
+void Gui::setModal(const std::string& view) {
+    state_.setData(kModalKey, view);
+    syncModal();
+}
+
+// The modal shows the view the text data under kModalKey names: over the window behind a veil, with
+// the keyboard (Escape closes it). An action or the processor sets the key; "" closes it.
+void Gui::syncModal() {
+    if (modalBox_ < 0) return;
+    std::string v = state_.data(kModalKey);
+    if (!skin_->view(v)) v.clear();
+    if (v == modalShown_) return;
+    closeMenus();
+    finishEdit(false);
+    listFocus_ = {};
+    hover_ = {};
+    modalShown_ = v;
+    root_.w[modalVeil_].hidden = root_.w[modalBox_].hidden = v.empty();
+    if (!v.empty()) show(root_, modalBox_, v, {});
+    else relayout();
+    if (window) platformFocus(window, !v.empty());
+}
+
+// The standalone's window is closing: with a "close" modal and its condition holding, that modal opens
+// instead and the window stays.
+bool Gui::closeRequested() {
+    if (closing_ || skin_->closeModal.empty()) return true;
+    const Cond& c = skin_->closeIf;
+    if (!test(root_, c, c.param.empty() ? -1 : state_.indexOf(subst(root_, c.param)))) return true;
+    setModal(skin_->closeModal);
+    return false;
+}
+
+// The settings modal's lists and params from the app's settings window: each list's items as lines of
+// text data "standalone.<list>.items", its choice in the param "standalone.<list>"; the MIDI inputs' lines
+// carry a second field, "1" for an open input and "0" for a closed one, and a pick of one (the param at
+// 1 + its row) flips it.
+bool Gui::readDevices() {
+    std::vector<DeviceList> lists;
+    if (!window || !platformDevices(window, lists) || lists.size() < 6) return false;
+    for (int k = 0; k < 6; ++k) {
+        const DeviceList& l = lists[(size_t)k];
+        std::string items;
+        for (size_t i = 0; i < l.items.size(); ++i) {
+            bool on = std::find(l.on.begin(), l.on.end(), (int)i) != l.on.end();
+            items += l.items[i] + (k == 5 ? on ? "\t1" : "\t0" : "") + "\n";
+        }
+        state_.setData(std::string("standalone.") + kDevices[k] + ".items", items);
+        int p = state_.indexOf(std::string("standalone.") + kDevices[k]);
+        if (p < 0) continue;
+        state_.set((size_t)p, k == 5 || l.on.empty() ? 0 : l.on[0]);
+        deviceSent_[k] = state_.get((size_t)p);
+    }
+    return true;
+}
+
+// While the settings modal shows: a choice made there goes to the app's settings window, and everything
+// is read back, since a new API or device changes what the others offer.
+void Gui::syncDevices() {
+    if (modalShown_.empty() || modalShown_ != skin_->settingsView || !window) return;
+    for (int k = 0; k < 6; ++k) {
+        int p = state_.indexOf(std::string("standalone.") + kDevices[k]);
+        if (p < 0 || state_.get((size_t)p) == deviceSent_[k]) continue;
+        int item = (int)std::lround(state_.get((size_t)p)) - (k == 5 ? 1 : 0);
+        if (item >= 0) platformSetDevice(window, k, item);
+        readDevices();
+        return;
+    }
 }
 
 void Gui::setSkin(const Skin* skin) {
@@ -2546,8 +2787,13 @@ Editor::Editor(std::shared_ptr<Skin> skin, State& state, Host& host)
 Editor::~Editor() { detach(); }
 
 bool Editor::attach(void* parent) {
-    if (!impl_->gui.window) impl_->gui.window = platformOpen(parent, &impl_->gui);
-    return impl_->gui.window != nullptr;
+    Gui& g = impl_->gui;
+    if (!g.window) {
+        g.state().setData(kModalKey, "");   // a new window never opens on a modal an old one left
+        g.window = platformOpen(parent, &g);
+        if (g.window && g.standalone() && !g.skin().closeModal.empty()) platformWatchClose(g.window);
+    }
+    return g.window != nullptr;
 }
 
 void Editor::detach() {

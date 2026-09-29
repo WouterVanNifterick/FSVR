@@ -308,6 +308,31 @@
     5,
     0,
     0
+   ],
+   "contextRow": "bank.context",
+   "context": [
+    {
+     "label": "Bank: {cell:1}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_bank_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_bank_delete"
+     }
+    }
    ]
   },
   {
@@ -386,9 +411,6 @@
    "rows": [
     [
      "All"
-    ],
-    [
-     "User"
     ],
     [
      "No category"
@@ -495,6 +517,32 @@
     5,
     0,
     0
+   ],
+   "values": [
+    0,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24
    ]
   },
   {
@@ -3788,21 +3836,59 @@
    "set": {
     "perf.bank": 0
    },
-   "dataRows": {
-    "key": "perf.user.list",
-    "param": "perf.user",
-    "first": 1,
-    "set": {
-     "perf.bank": 1
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
     },
-    "row": [
-     "U{n}",
-     "{1}",
-     "{2}",
-     "{3}",
-     "{4}"
-    ]
-   }
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -13733,183 +13819,59 @@
      12
     ]
    },
-   "dataRows": {
-    "key": "voice.user.list",
-    "param": "part.user.{part}",
-    "first": 1,
-    "set": {
-     "part.bank.{part}": 1
-    },
-    "row": [
-     "U{n}",
-     "{1}",
-     "{2}"
-    ]
-   }
-  },
-  {
-   "type": "list",
-   "name": "perfs_user",
-   "rect": [
-    355,
-    65,
-    843,
-    386
-   ],
-   "layer": 4,
-   "columns": [
+   "contextRow": "item.context",
+   "context": [
     {
-     "width": 62
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
     },
     {
-     "width": 190
+     "separator": true
     },
     {
-     "width": 128
-    },
-    {
-     "width": 250
-    }
-   ],
-   "param": "perf.program",
-   "values": [],
-   "rows": [],
-   "scroll": {
-    "track": "scrollbars/list_track",
-    "thumb": "scrollbars/library_thumb_flat",
-    "width": 14
-   },
-   "showIf": {
-    "all": [
-     {
-      "var": "browse",
-      "equals": "perf"
-     },
-     {
-      "param": "browse.bank",
-      "equals": 0
-     },
-     {
-      "param": "browse.category",
-      "equals": 1
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
      }
-    ]
-   },
-   "rowHeight": 23,
-   "rowGap": 2,
-   "rowFill": "#434f50ff",
-   "gapFill": "#3a4546ff",
-   "selectFill": "#82ca9cff",
-   "row": {
-    "font": "library_row_white_12",
-    "valign": "middle"
-   },
-   "selectRow": {
-    "font": "library_row_black_12",
-    "valign": "middle"
-   },
-   "pad": [
-    6,
-    5,
-    0,
-    0
-   ],
-   "dataRows": {
-    "key": "perf.user.list",
-    "param": "perf.user",
-    "first": 1,
-    "set": {
-     "perf.bank": 1
-    },
-    "row": [
-     "U{n}",
-     "{1}",
-     "{2}",
-     "{3}",
-     "{4}"
-    ]
-   }
-  },
-  {
-   "type": "list",
-   "name": "voices_user",
-   "rect": [
-    355,
-    65,
-    843,
-    386
-   ],
-   "layer": 4,
-   "columns": [
-    {
-     "width": 62
     },
     {
-     "width": 190
-    },
-    {
-     "width": 128
-    },
-    {
-     "width": 250
-    }
-   ],
-   "param": "part.program.{part}",
-   "values": [],
-   "rows": [],
-   "scroll": {
-    "track": "scrollbars/list_track",
-    "thumb": "scrollbars/library_thumb_flat",
-    "width": 14
-   },
-   "showIf": {
-    "all": [
-     {
-      "var": "browse",
-      "equals": "voice"
-     },
-     {
-      "param": "browse.bank",
-      "equals": 0
-     },
-     {
-      "param": "browse.category",
-      "equals": 1
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
      }
-    ]
-   },
-   "rowHeight": 23,
-   "rowGap": 2,
-   "rowFill": "#434f50ff",
-   "gapFill": "#3a4546ff",
-   "selectFill": "#82ca9cff",
-   "row": {
-    "font": "library_row_white_12",
-    "valign": "middle"
-   },
-   "selectRow": {
-    "font": "library_row_black_12",
-    "valign": "middle"
-   },
-   "pad": [
-    6,
-    5,
-    0,
-    0
-   ],
-   "dataRows": {
-    "key": "voice.user.list",
-    "param": "part.user.{part}",
-    "first": 1,
-    "set": {
-     "part.bank.{part}": 1
     },
-    "row": [
-     "U{n}",
-     "{1}",
-     "{2}"
-    ]
-   }
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -14081,7 +14043,60 @@
      3,
      3
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -14402,7 +14417,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -15715,7 +15783,60 @@
      5,
      5
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -15884,7 +16005,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -16777,7 +16951,60 @@
      6,
      6
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -17058,7 +17285,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -17965,7 +18245,60 @@
      6,
      6
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -18134,7 +18467,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -18670,7 +19056,60 @@
      7,
      7
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -19039,7 +19478,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -19988,7 +20480,60 @@
      8,
      8
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -20165,7 +20710,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -20869,7 +21467,60 @@
      8,
      8
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -20966,7 +21617,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -21075,7 +21779,60 @@
      8,
      8
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -21324,7 +22081,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -21986,7 +22796,60 @@
      9,
      9
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -22083,7 +22946,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -22276,7 +23192,60 @@
      9,
      9
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -22413,7 +23382,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -22697,7 +23719,60 @@
      9,
      9
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -23034,7 +24109,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -23619,7 +24747,60 @@
      11,
      11
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -24004,7 +25185,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -24701,7 +25935,60 @@
      11,
      11
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -24934,7 +26221,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -25351,7 +26691,60 @@
      12,
      12
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -25560,7 +26953,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -25928,7 +27374,60 @@
      10,
      10
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -26041,7 +27540,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -26570,7 +28122,60 @@
      10,
      10
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -26787,7 +28392,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -27470,7 +29128,60 @@
      12,
      12
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -27623,7 +29334,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -27928,7 +29692,60 @@
      3,
      3
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -28209,7 +30026,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -28633,7 +30503,60 @@
      12,
      12
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -28954,7 +30877,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -29301,7 +31277,60 @@
      10,
      10
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -29454,7 +31483,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -29696,7 +31778,60 @@
      11,
      11
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -29833,7 +31968,60 @@
    ],
    "set": {
     "perf.bank": 0
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -29998,7 +32186,60 @@
      3,
      3
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -30698,20 +32939,59 @@
    "set": {
     "fseq.bank": 1
    },
-   "dataRows": {
-    "key": "fseq.user.list",
-    "param": "fseq.user",
-    "first": 1,
-    "set": {
-     "fseq.bank": 0
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Fseq: {cell:2}",
+     "value": 0,
+     "disabled": true
     },
-    "row": [
-     "U{n}",
-     "{1}",
-     "",
-     "{2}"
-    ]
-   }
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -30786,7 +33066,60 @@
      "{4}",
      "{5}"
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Performance: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -30859,7 +33192,60 @@
      "{2}",
      "{3}"
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Voice: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "list",
@@ -30933,7 +33319,60 @@
      "",
      "{3}"
     ]
-   }
+   },
+   "contextRow": "item.context",
+   "context": [
+    {
+     "label": "Fseq: {cell:2}",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Rename",
+     "value": 1,
+     "action": {
+      "modal": "dialog_rename"
+     }
+    },
+    {
+     "label": "Delete",
+     "value": 2,
+     "action": {
+      "modal": "dialog_delete"
+     }
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Edit Attributes",
+     "value": 3,
+     "action": {
+      "modal": "dialog_attributes"
+     }
+    },
+    {
+     "label": "Copy Attributes",
+     "value": 4,
+     "action": {
+      "data": {
+       "item.request": "copy"
+      }
+     }
+    },
+    {
+     "label": "Paste Attributes",
+     "value": 5,
+     "action": {
+      "data": {
+       "item.request": "paste"
+      }
+     }
+    }
+   ]
   }
  ]
 }

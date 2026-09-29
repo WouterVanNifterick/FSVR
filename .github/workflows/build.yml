@@ -34,7 +34,7 @@ jobs:
 
   # The plug-in: Hollow (hollow/) with the FSVR skin (plugin/skin), every format the platform has, collected
   # in bin/<format> by the build. The first configure downloads the CLAP and VST3 SDKs, clap-wrapper,
-  # RtAudio, RtMidi and the audio decoders; the plug-in's own check (check_plugin) runs on each 64-bit leg.
+  # RtAudio, RtMidi and the audio decoders; the plug-in's own checks (check_plugin, check_gui) run on each 64-bit leg.
   plugin:
     strategy:
       fail-fast: false
@@ -68,7 +68,7 @@ jobs:
         run: cmake --build build/plugin --config Release
       - name: Test
         if: matrix.name != 'windows-x86'
-        run: ctest --test-dir build/plugin -C Release -R plugin --output-on-failure
+        run: ctest --test-dir build/plugin -C Release -R "plugin|gui" --output-on-failure
       # Zipped here rather than in the release job, because an Actions artifact does not carry the
       # executable bit: bin/ uploaded as loose files comes back 644, and a macOS bundle whose
       # Contents/MacOS file is not executable fails to launch with "The application FSVR can't be

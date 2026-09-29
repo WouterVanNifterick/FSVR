@@ -60,7 +60,7 @@ The entries above are the engine's. The plug-in adds features the unit never had
 
 **The unit.** 128 internal performances, and 128 internal voices with no Fseqs or 64 voices with six, in battery-backed RAM.
 
-**FSVR.** A folder of .syx files, each a bank, as many as you import or store (File > Import SysEx names a new bank after the file). A performance's Int voices and Fseq mean its own bank's internal ones when the bank holds them, and your library's numbered ones otherwise. The factory banks are the unit's.
+**FSVR.** A folder of .syx files, each a bank, as many as you import or save to (Import > Import FS1R SysEx to New Bank names a new bank after the file). A performance's Int voices and Fseq mean its own bank's internal ones when the bank holds them, and your library's numbered ones otherwise. The factory banks are the unit's.
 
 ## Import Audio
 

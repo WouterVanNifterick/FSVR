@@ -1,7 +1,8 @@
 // check_plugin: the FSVR processor end to end, as a host drives it but without one: its State (the skin's
 // params and text data), its worker and its audio, a block at a time. The factory banks, a sysex param
 // round trip through a saved session, Import SysEx into the bank manager, a pick from a user bank, the
-// morph square, Import Audio, program change, panic and the monitor. Exits non-zero on any failure.
+// morph square, Import Audio, program change, panic and the monitor, Save to Bank, .fsvr presets and the
+// browser's right-click menus. Exits non-zero on any failure.
 //   build/<dir>/Release/check_plugin      (ctest runs it as "plugin")
 #include <hollow/hollow.h>
 #include <algorithm>
@@ -58,6 +59,56 @@ struct Rig {   // one instance, run a block at a time
 static void writeBytes(const fs::path& p, const std::vector<uint8_t>& b) {
     std::ofstream f(p, std::ios::binary);
     f.write((const char*)b.data(), (std::streamsize)b.size());
+}
+
+// One native bulk at ah 00 al onto the end of a unit-shaped image.
+static void addBulk(std::vector<uint8_t>& unit, int ah, int al, const std::vector<uint8_t>& d) {
+    std::vector<uint8_t> m = {0xF0, 0x43, 0x00, 0x5E, (uint8_t)(d.size() >> 7), (uint8_t)(d.size() & 0x7F), (uint8_t)ah, 0x00, (uint8_t)al};
+    m.insert(m.end(), d.begin(), d.end());
+    int sum = 0;
+    for (size_t i = 4; i < m.size(); ++i) sum += m[i];
+    m.push_back((uint8_t)(-sum & 0x7F));
+    m.push_back(0xF7);
+    unit.insert(unit.end(), m.begin(), m.end());
+}
+
+// 1 + the line of a list whose tab-separated field is text, 0 if none.
+static int rowOf(const Rig& a, const char* key, const std::string& text, int field = 0) {
+    std::string d = a.data(key);
+    int n = 1;
+    for (size_t p = 0; p < d.size(); ++n) {
+        const size_t e = std::min(d.find('\n', p), d.size());
+        std::string line = d.substr(p, e - p);
+        for (int k = 0; k < field; ++k) line = line.find('\t') == std::string::npos ? std::string() : line.substr(line.find('\t') + 1);
+        if (line.substr(0, line.find('\t')) == text) return n;
+        p = e + 1;
+    }
+    return 0;
+}
+
+// The fundamental of a held C4 in Hz: the left channel's last 4096 samples after a third of a second,
+// from silence, by autocorrelation over 40 Hz to 1.2 kHz.
+static double pitchOf(Rig& a) {
+    a.set("gui.panic", 1);
+    a.run(8);
+    a.set("gui.panic", 0);
+    a.run(20);
+    a.midi({0x90, 60, 100});
+    std::vector<float> x;
+    for (int b = 0; b < 40; ++b) {
+        a.run();
+        if (b >= 32) x.insert(x.end(), a.l.begin(), a.l.end());
+    }
+    a.midi({0x80, 60, 0});
+    a.run(4);
+    int best = 40;
+    double top = -1e30;
+    for (int lag = 40; lag < 1200; ++lag) {
+        double s = 0;
+        for (size_t i = 0; i + (size_t)lag < x.size(); ++i) s += x[i] * x[i + (size_t)lag];
+        if (s > top) { top = s; best = lag; }
+    }
+    return 48000.0 / best;
 }
 
 // A DX7 32-voice bank (VMEM): every voice an init voice (op 1 loud), named TEST01..TEST32.
@@ -268,8 +319,303 @@ int main() {
     a.st->setData("sysex.export", (tmp / "out.syx").u8string());
     CHECK(a.until([&] { return fs::exists(tmp / "out.syx") && fs::file_size(tmp / "out.syx") > 3000; }), "Export SysEx wrote nothing");
 
+    // Save to Bank, as the Save modal asks for it: an edit marks the performance edited, the modal opens
+    // on its name, and the save makes a new bank holding it as a user performance.
+    auto lineOf = [&](const char* key, const std::string& first) { return rowOf(a, key, first); };   // 1 + the line whose first field is first, 0 if none
+    auto request = [&](const char* key, const std::string& v) { a.st->setData("fsvr.message", ""); a.st->setData(key, v); };
+    auto settle = [&] { a.until([] { return false; }, 150); };   // a right-click's row reaches the worker before its modal opens
+    a.set("perf.program", 1);
+    CHECK(a.until([&] { return a.is("perf.category", 19) && a.is("gui.edited", 0); }), "A002 did not load clean");
+    a.set("perf.volume", 90);
+    CHECK(a.until([&] { return a.is("gui.edited", 1); }), "an edit did not mark the performance edited");
+    a.st->setData("save.open", "1");
+    CHECK(a.until([&] { return a.data("save.name") == "Shaman"; }), "the Save modal opened on \"%s\"", a.data("save.name").c_str());
+    a.set("save.bank", 0);
+    a.st->setData("save.bank_name", "Saved");
+    a.st->setData("save.name", "My Shaman");
+    request("save.request", "1");
+    CHECK(a.until([&] { return lineOf("bank.list", "Saved") && a.is("perf.bank", 1) && a.data("perf.user.name") == "My Shaman"; }),
+          "Save to a new bank did not make \"Saved\" (%s)", a.data("fsvr.message").c_str());
+    CHECK(a.is("gui.edited", 0), "the saved performance still reads as edited");
+    const int saved = lineOf("bank.list", "Saved");
+    a.set("browse.bank", saved);
+    CHECK(a.until([&] { return a.lines("browse.perf.list") == 1; }), "the new bank lists %d performances", a.lines("browse.perf.list"));
+    a.set("save.bank", saved);
+    request("save.request", "1");   // the same name again replaces it
+    CHECK(a.until([&] { return !a.data("fsvr.message").empty(); }) && a.lines("browse.perf.list") == 1, "saving \"My Shaman\" again left %d performances (%s)",
+          a.lines("browse.perf.list"), a.data("fsvr.message").c_str());
+    a.st->setData("save.name", "Second");
+    request("save.request", "1");
+    CHECK(a.until([&] { return a.lines("browse.perf.list") == 2; }), "a second name did not add a performance (%s)", a.data("fsvr.message").c_str());
+
+    // A saved preset loads back as it was saved: its performance, its four voices and its Fseq, byte for
+    // byte but the name, after another performance in between.
+    auto unb64 = [](const std::string& s) {
+        static const std::string k = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        std::vector<uint8_t> o;
+        uint32_t v = 0;
+        int bits = 0;
+        for (char c : s) {
+            size_t p = k.find(c);
+            if (p == std::string::npos) continue;
+            v = v << 6 | (uint32_t)p;
+            if ((bits += 6) >= 8) o.push_back((uint8_t)(v >> (bits -= 8)));
+        }
+        return o;
+    };
+    auto bulks = [](const std::vector<uint8_t>& d) {   // address high and data of each bulk but the system's
+        std::vector<std::pair<int, std::vector<uint8_t>>> out;
+        for (size_t i = 0; i + 11 < d.size();) {
+            size_t j = i + 1;
+            while (j < d.size() && d[j] != 0xF7) ++j;
+            if (d[i + 6] != 0x00) out.push_back({d[i + 6], std::vector<uint8_t>(d.begin() + (long)i + 9, d.begin() + (long)j - 1)});
+            i = j + 1;
+        }
+        return out;
+    };
+    auto engine = [&] { a.run(4); a.proc->saving(); return bulks(unb64(a.data("fsvr.engine"))); };
+    auto saveAs = [&](int bank, const std::string& name) {
+        a.st->setData("save.name", "");
+        a.st->setData("save.open", "1");
+        CHECK(a.until([&] { return a.data("save.name") == a.data("perf.name"); }), "the Save modal did not open on \"%s\"", a.data("perf.name").c_str());
+        a.set("save.bank", bank);
+        a.st->setData("save.name", name);
+        request("save.request", "1");
+        CHECK(a.until([&] { return a.data("perf.user.name") == name && a.is("gui.edited", 0); }), "\"%s\" did not save (%s)", name.c_str(), a.data("fsvr.message").c_str());
+    };
+    auto sound = [&] {   // a note's RMS in dB over half a second, from silence
+        a.set("gui.panic", 1);
+        a.run(8);
+        a.set("gui.panic", 0);
+        a.run(40);
+        a.midi({0x90, 60, 100});
+        double sum = 0;
+        int n = 0;
+        for (int b = 0; b < 48; ++b) {
+            a.run();
+            for (float v : a.l) { sum += (double)v * v; ++n; }
+        }
+        a.midi({0x80, 60, 0});
+        return 10 * std::log10(sum / n + 1e-20);
+    };
+    auto same = [&](const char* what, const std::vector<std::pair<int, std::vector<uint8_t>>>& was, std::vector<std::pair<int, std::vector<uint8_t>>> now) {
+        CHECK(was.size() == now.size(), "%s: %zu bulks, then %zu", what, was.size(), now.size());
+        for (size_t k = 0; k < std::min(was.size(), now.size()); ++k) {
+            if (now[k].first == 0x10 && now[k].second.size() >= 12 && was[k].second.size() >= 12)   // but the name
+                std::copy(was[k].second.begin(), was[k].second.begin() + 12, now[k].second.begin());
+            size_t diff = 0, first = 0;
+            for (size_t b = 0; b < std::min(was[k].second.size(), now[k].second.size()); ++b)
+                if (was[k].second[b] != now[k].second[b] && !diff++) first = b;
+            CHECK(was[k].first == now[k].first && !diff, "%s: bulk %02x has %zu bytes changed, the first at %zu (%d, was %d)", what, was[k].first, diff, first,
+                  diff ? now[k].second[first] : 0, diff ? was[k].second[first] : 0);
+        }
+    };
+    auto sameAfterReload = [&](const char* what, double loud, const std::vector<std::pair<int, std::vector<uint8_t>>>& edited) {
+        CHECK(std::fabs(sound() - loud) < 1.0, "%s: saving changed the sound", what);
+        const auto was = engine();
+        same((std::string(what) + ", saving").c_str(), edited, was);
+        const int n = (int)a.get("perf.user");
+        const std::string name = a.data("perf.user.name");
+        a.set("perf.bank", 0);
+        a.set("perf.program", 1);
+        CHECK(a.until([&] { return a.data("perf.name") == "Shaman"; }), "%s: A002 did not load in between", what);
+        a.set("perf.user", n);
+        a.set("perf.bank", 1);
+        CHECK(a.until([&] { return a.data("perf.name") == name; }), "%s: it did not load back (\"%s\")", what, a.data("perf.name").c_str());
+        const auto now = engine();
+        const double again = sound();
+        CHECK(std::fabs(again - loud) < 1.0, "%s: a note is %.1f dB after the reload, %.1f dB when saved", what, again, loud);
+        CHECK(was.size() == now.size(), "%s: %zu bulks saved, %zu loaded", what, was.size(), now.size());
+        for (size_t k = 0; k < std::min(was.size(), now.size()); ++k) {
+            size_t diff = 0, first = 0;
+            for (size_t b = 0; b < std::min(was[k].second.size(), now[k].second.size()); ++b)
+                if (was[k].second[b] != now[k].second[b] && !diff++) first = b;
+            CHECK(was[k].first == now[k].first && !diff, "%s: bulk %02x came back with %zu bytes changed, the first at %zu (%d, was %d)", what, was[k].first, diff, first,
+                  diff ? now[k].second[first] : 0, diff ? was[k].second[first] : 0);
+        }
+    };
+
+    // A factory performance, edited in a voice and in the performance, saved into a user bank.
+    a.set("perf.bank", 0);
+    a.set("perf.program", 12);   // A013 Dirt Vocoder
+    CHECK(a.until([&] { return a.data("perf.name") == "Dirt Vocoder" && a.is("gui.edited", 0); }), "A013 did not load (\"%s\")", a.data("perf.name").c_str());
+    a.set("op.1.v.level.p1", 42);
+    a.set("perf.volume", 77);
+    a.set("part.note_shift.p2", 30);
+    a.run(4);
+    const double edited = sound();
+    const auto editedBytes = engine();
+    saveAs(saved, "Round Trip");
+    CHECK(a.until([&] { return a.is("browse.bank", saved) && a.get("browse.perf") == lineOf("browse.perf.list", "U" + std::to_string((int)a.get("perf.user"))); }),
+          "the saved preset's row is not the lit one (row %g)", a.get("browse.perf"));
+    sameAfterReload("a saved factory performance", edited, editedBytes);
+
+    // A bank shaped like a whole unit's dump: a performance at 11 00 05 whose parts play the bank's own
+    // internal voices (Int, 51 00 nn), loaded, edited and saved back over itself.
+    {
+        a.set("perf.bank", 0);
+        a.set("perf.program", 12);
+        CHECK(a.until([&] { return a.data("perf.name") == "Dirt Vocoder" && a.is("gui.edited", 0); }), "A013 did not load again");
+        const auto parts = engine();
+        std::vector<uint8_t> unit;
+        for (auto& b : parts) {
+            if (b.first != 0x10) continue;
+            std::vector<uint8_t> d = b.second;
+            std::memcpy(d.data(), "Int Perf    ", 12);
+            for (int p = 0; p < 4; ++p) { d[192 + 52 * p + 1] = 1; d[192 + 52 * p + 2] = (uint8_t)(10 + p); }
+            addBulk(unit, 0x11, 5, d);
+        }
+        for (auto& b : parts)
+            if (b.first >= 0x40 && b.first <= 0x43) addBulk(unit, 0x51, 10 + b.first - 0x40, b.second);
+        const fs::path unitSyx = tmp / "Unit.syx";
+        writeBytes(unitSyx, unit);
+        a.st->setData("sysex.import", unitSyx.u8string());
+        CHECK(a.until([&] { return a.data("perf.name") == "Int Perf" && a.data("perf.user.name") == "Int Perf"; }), "the unit bank's performance did not load (\"%s\")",
+              a.data("perf.name").c_str());
+        const auto loaded = engine();
+        for (size_t k = 0; k < loaded.size() && k < parts.size(); ++k)
+            if (loaded[k].first >= 0x40 && loaded[k].first <= 0x43)
+                CHECK(loaded[k].second == parts[k].second, "part %d did not load the bank's Int voice", loaded[k].first - 0x40 + 1);
+        auto voiceName = [&](int n) {   // line n of the user voice list, its name
+            std::string d = a.data("voice.user.list");
+            size_t p = 0;
+            for (int k = 1; k < n && p < d.size(); ++k) p = d.find('\n', p) + 1;
+            return p >= d.size() ? std::string() : d.substr(p, d.find('\t', p) - p);
+        };
+        CHECK(a.is("part.bank.p1", 1) && voiceName((int)a.get("part.user.p1")) == a.data("morph.p1.bl"), "part 1 plays \"%s\" but shows U%g, \"%s\"",
+              a.data("morph.p1.bl").c_str(), a.get("part.user.p1"), voiceName((int)a.get("part.user.p1")).c_str());
+        a.set("op.2.v.level.p1", 11);
+        a.set("perf.volume", 66);
+        a.run(4);
+        const double intEdited = sound();
+        const auto intBytes = engine();
+        saveAs(lineOf("bank.list", "Unit"), "Int Perf");
+        a.set("browse.bank", lineOf("bank.list", "Unit"));
+        CHECK(a.until([&] { return a.lines("browse.perf.list") == 1; }), "saving over \"Int Perf\" left %d performances in its bank", a.lines("browse.perf.list"));
+        sameAfterReload("a unit bank's performance saved over itself", intEdited, intBytes);
+
+        // Another bank opens on All: a category left from the factory bank never hides a bank's presets.
+        a.set("browse.bank", 0);
+        a.set("browse.category", 7);   // Bass
+        a.until([] { return false; }, 150);
+        a.set("browse.bank", lineOf("bank.list", "Unit"));
+        CHECK(a.until([&] { return a.is("browse.category", 0) && a.lines("browse.perf.list") == 1; }), "the bank opened on category %g with %d rows",
+              a.get("browse.category"), a.lines("browse.perf.list"));
+    }
+
+    // Export Preset writes .fsvr XML; importing it loads it and opens the Save modal on its name.
+    const fs::path preset = tmp / "Int Perf.fsvr";
+    request("fsvr.export", preset.u8string());
+    CHECK(a.until([&] { std::vector<uint8_t> b; std::ifstream f(preset, std::ios::binary); std::string x((std::istreambuf_iterator<char>(f)), {});
+                        return x.find("<name>Int Perf</name>") != std::string::npos && x.find("<sysex") != std::string::npos; }), "Export Preset wrote no .fsvr");
+    a.st->setData("hollow.modal", "");
+    request("fsvr.import", preset.u8string());
+    CHECK(a.until([&] { return a.data("hollow.modal") == "dialog_save" && a.data("save.name") == "Int Perf"; }), "Import FSVR Preset did not open the Save modal (%s)",
+          a.data("fsvr.message").c_str());
+
+    // The right-click menu on a user performance: Rename, Edit Attributes, Paste Attributes, Delete.
+    const std::string second = "0\tU" + std::to_string(lineOf("perf.user.list", "Second")) + "\tSecond";
+    a.st->setData("item.context", second);
+    CHECK(a.until([&] { return a.data("item.name") == "Second" && a.is("item.readonly", 0); }), "the row did not describe itself (\"%s\")", a.data("item.name").c_str());
+    a.st->setData("item.new_name", "Renamed");
+    request("item.request", "rename");
+    CHECK(a.until([&] { return lineOf("perf.user.list", "Renamed") > 0; }), "Rename did not rename (%s)", a.data("fsvr.message").c_str());
+    const std::string renamed = "0\tU" + std::to_string(lineOf("perf.user.list", "Renamed")) + "\tRenamed";
+    a.st->setData("item.context", renamed);
+    settle();
+    a.set("item.category", 5);
+    request("item.request", "attributes");
+    CHECK(a.until([&] { return a.data("perf.user.list").find("Renamed\tBass") != std::string::npos; }), "Edit Attributes did not set Bass (%s)", a.data("fsvr.message").c_str());
+    a.st->setData("item.context", "0\tA001\tZap !");   // a factory row: read only, but its attributes copy
+    CHECK(a.until([&] { return a.data("item.name") == "Zap !" && a.is("item.readonly", 1) && a.is("item.category", 16); }), "A001 did not describe itself read only");
+    request("item.request", "delete");
+    CHECK(a.until([&] { return a.data("fsvr.message").find("read only") != std::string::npos; }), "deleting a factory preset said \"%s\"", a.data("fsvr.message").c_str());
+    request("item.request", "copy");
+    CHECK(a.until([&] { return a.data("fsvr.message").rfind("Copied", 0) == 0; }), "Copy Attributes said \"%s\"", a.data("fsvr.message").c_str());
+    a.st->setData("item.context", renamed);
+    CHECK(a.until([&] { return a.data("item.name") == "Renamed"; }), "back on the user row");
+    request("item.request", "paste");
+    CHECK(a.until([&] { return a.data("perf.user.list").find("Renamed\tSound FX") != std::string::npos; }), "Paste Attributes did not paste Sound FX");
+    request("item.request", "delete");
+    CHECK(a.until([&] { return !lineOf("perf.user.list", "Renamed") && lineOf("perf.user.list", "My Shaman"); }), "Delete did not delete only \"Renamed\"");
+
+    // The right-click menu on a bank: Rename Bank, then Delete Bank, which keeps its file in Deleted.
+    a.st->setData("bank.context", std::to_string(lineOf("bank.list", "Saved")) + "\tSaved");
+    settle();
+    a.st->setData("bank.new_name", "Kept");
+    request("bank.request", "rename");
+    CHECK(a.until([&] { return lineOf("bank.list", "Kept") && !lineOf("bank.list", "Saved"); }), "Rename Bank did not rename (%s)", a.data("fsvr.message").c_str());
+    a.st->setData("bank.context", "0\tYamaha FS1R");
+    settle();
+    request("bank.request", "delete");
+    CHECK(a.until([&] { return a.data("fsvr.message").find("read only") != std::string::npos; }), "deleting the factory bank said \"%s\"", a.data("fsvr.message").c_str());
+    a.st->setData("bank.context", std::to_string(lineOf("bank.list", "Kept")) + "\tKept");
+    settle();
+    request("bank.request", "delete");
+    CHECK(a.until([&] { return !lineOf("bank.list", "Kept"); }) && fs::exists(tmp / "Library" / "Deleted" / "Kept.syx"), "Delete Bank did not move \"Kept\" to Deleted");
+
+    // A performance with no Fseq part, saved while the unit held an Fseq, plays at its own pitch when its
+    // copy is picked after a close and reopen. The preset carries that Fseq, and the engine's Fseq loader
+    // gives a performance without a part the first one, so the copy once played every part 1 note at the
+    // frame's pitch, its sequence running. The bank is shaped like a unit's dump again, from B014 "Full
+    // Tines" (a piano) in Fseq play mode with the Fseq pitch on part 1 alone, as the performance reported
+    // was; the Fseq the unit holds is the factory's 43 "ChuckRtm".
+    {
+        a.set("perf.bank", 0);
+        a.set("perf.program", 141);
+        CHECK(a.until([&] { return a.data("perf.name") == "Full Tines" && a.is("gui.edited", 0); }), "B014 did not load (\"%s\")", a.data("perf.name").c_str());
+        const std::string vowel = a.data("fseq.display");
+        a.set("fseq.bank", 1);
+        a.set("fseq.number", 42);
+        CHECK(a.until([&] { return a.data("fseq.display") != vowel; }), "the factory Fseq did not load");
+        std::vector<uint8_t> unit;
+        for (auto& b : engine()) {
+            if (b.first >= 0x40 && b.first <= 0x43) addBulk(unit, 0x51, 20 + b.first - 0x40, b.second);
+            if (b.first != 0x10) continue;
+            std::vector<uint8_t> d = b.second;
+            std::memcpy(d.data(), "Tines Int   ", 12);
+            d[0x15] = 0;   // Fseq part off
+            d[0x21] = 2;   // Fseq play mode
+            d[0x23] = 0;   // Fseq pitch
+            for (int p = 0; p < 4; ++p) { d[192 + 52 * p + 1] = 1; d[192 + 52 * p + 2] = (uint8_t)(20 + p); d[192 + 52 * p + 4] = p ? 127 : 16; }   // part 1 alone, on the Perf channel
+            addBulk(unit, 0x11, 7, d);
+        }
+        const fs::path unitSyx = tmp / "Unit Two.syx";
+        writeBytes(unitSyx, unit);
+        a.st->setData("sysex.import", unitSyx.u8string());
+        CHECK(a.until([&] { return a.data("perf.user.name") == "Tines Int" && a.is("gui.edited", 0); }), "Unit Two's performance did not load (\"%s\")", a.data("perf.name").c_str());
+        CHECK(a.is("fseq.part", 0), "Tines Int loaded with Fseq part %g", a.get("fseq.part"));
+        const double hz = pitchOf(a);
+        CHECK(hz > 200 && hz < 330, "Tines Int plays C4 at %.1f Hz", hz);
+        a.set("part.attack.p1", 63);
+        a.run(4);
+        saveAs(lineOf("bank.list", "Unit Two"), "Tines Copy");
+        a.proc->saving();
+        const std::string session = a.st->save();
+        Rig b;
+        b.st->load(session);
+        b.proc->saving();
+        CHECK(b.data("fsvr.engine") == a.data("fsvr.engine"), "the engine did not come back with the session");
+        b.set("browse.bank", rowOf(b, "bank.list", "Unit Two"));
+        CHECK(b.until([&] { return b.lines("browse.perf.list") == 2; }), "the reopened instance lists %d performances in Unit Two", b.lines("browse.perf.list"));
+        // The session came back with the saved row lit, so the original first: the copy is then a pick, not
+        // the engine the session restored.
+        b.set("browse.perf", rowOf(b, "browse.perf.list", "Tines Int", 1));
+        CHECK(b.until([&] { return b.data("perf.user.name") == "Tines Int"; }), "the reopened instance did not load \"Tines Int\" (\"%s\")", b.data("perf.name").c_str());
+        b.set("browse.perf", rowOf(b, "browse.perf.list", "Tines Copy", 1));
+        CHECK(b.until([&] { return b.data("perf.user.name") == "Tines Copy" && b.is("part.attack.p1", 63); }), "the pick did not load \"Tines Copy\" (\"%s\")", b.data("perf.name").c_str());
+        CHECK(b.is("fseq.part", 0), "Tines Copy came back with Fseq part %g", b.get("fseq.part"));
+        const double back = pitchOf(b);
+        CHECK(std::fabs(back - hz) < 0.02 * hz, "Tines Copy plays C4 at %.1f Hz after the reopen, %.1f Hz when saved", back, hz);
+        const double step = b.get("fseq.position");   // the worker publishes the Fseq's step every tick
+        b.midi({0x90, 60, 100});
+        b.until([&] { return b.get("fseq.position") != step; }, 400);
+        b.midi({0x80, 60, 0});
+        CHECK(b.get("fseq.position") == step, "the Fseq ran on Tines Copy, which has no Fseq part (step %g, was %g)", b.get("fseq.position"), step);
+    }
+
     a.proc.reset();
     fs::remove_all(tmp, ec);
-    if (!fails) std::printf("check_plugin: factory banks, sessions, Import SysEx, the bank browser, morph (off), Import Audio, program change, panic and the monitor all pass\n");
+    if (!fails) std::printf("check_plugin: factory banks, sessions, Import SysEx, the bank browser, morph (off), Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus and a preset's Fseq after a reopen all pass\n");
     return fails ? 1 : 0;
 }

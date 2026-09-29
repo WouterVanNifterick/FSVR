@@ -109,7 +109,7 @@ What is left is **the effects layer, VOP3-2**: 87 algorithms modelled from the D
 Every push to `main` builds the same set through [GitHub Actions](https://github.com/musicastudio/FSVR/actions), so a build for an OS you do not own is always one Actions run away, including on a fork. `.github/workflows/build.yml` is four jobs:
 
 - **engine**, on `windows-latest`, `ubuntu-latest` and `macos-latest`. Plain CMake with no downloads, then `ctest`, which runs the effect and engine self checks everywhere. Uploads `FSVR-console-windows`.
-- **plugin**, on Windows x64, Windows x86, Linux and macOS. Installs the X11, ALSA, JACK and PulseAudio headers on Linux, configures with `-DFSVR_BUILD_PLUGIN=ON`, runs the plug-in's own check (`check_plugin`) on the 64-bit legs, and uploads `FSVR-plugin-windows`, `FSVR-plugin-windows-x86`, `FSVR-plugin-linux` and `FSVR-plugin-macos`, each holding every format for that platform.
+- **plugin**, on Windows x64, Windows x86, Linux and macOS. Installs the X11, ALSA, JACK and PulseAudio headers on Linux, configures with `-DFSVR_BUILD_PLUGIN=ON`, runs the plug-in's own checks (`check_plugin`, `check_gui`) on the 64-bit legs, and uploads `FSVR-plugin-windows`, `FSVR-plugin-windows-x86`, `FSVR-plugin-linux` and `FSVR-plugin-macos`, each holding every format for that platform.
 - **installer**, on Linux. Checks out [musicastudio/Installer](https://github.com/musicastudio/Installer), packs the plug-in artifacts into it and builds `FSVR-Windows-Installer.exe`, `FSVR-MacOS-Installer.zip`, `FSVR-Linux-Installer` and `FSVR-MacOS-Update` (the bare binary the macOS updater runs), at the version in `CMakeLists.txt`.
 - **release**, on a `v*` tag only. Splits the plug-in artifacts into one zip per format, named as FM8.plus names its own (`FSVR-Windows-VST2-64.zip`, `FSVR-Windows-VST2-32-DXi.zip`, `FSVR-MacOS-AU.zip` and so on), adds the installers, the console and `SHA256SUMS.txt`, and attaches them to a GitHub release. The installers' updater never reads GitHub: musica.studio mirrors each release and serves the update from there.
 
@@ -140,7 +140,7 @@ On Windows `build.bat` is the shortcut, MSVC x64 out of the VS 2022 Professional
 ```bat
 build.bat            bin\fsvr_console.exe, the console
 build.bat test       build and run the self checks
-build.bat plugin     every plug-in format, 64-bit and 32-bit, then check_plugin
+build.bat plugin     every plug-in format, 64-bit and 32-bit, then check_plugin and check_gui
 ```
 
 Everything meant to be run lands in `bin/`; objects and the test binaries go to `build/`.
@@ -206,7 +206,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 
 **Plugin.** The plug-in layer, which never models synthesis; it moves parameter values in and out of the engine as sysex, exactly as a hardware editor would.
 
-- `plugin/plugin.cpp` the processor: every param a sysex parameter change into `fs1r::Device`, the engine's own bulk dumps read back into the params, program change, the morph square, the monitor, and the File menu's and bank manager's requests
+- `plugin/plugin.cpp` the processor: every param a sysex parameter change into `fs1r::Device`, the engine's own bulk dumps read back into the params, program change, the morph square, the monitor, and the Save and Import menus' and bank manager's requests
 - `plugin/library.cpp` the bank manager's data: .syx files as banks (FS1R bulks, DX7 single voices and 32-voice banks), the factory bank and the user library folder; `audio_decode.cpp` and `audio_fseq.cpp` Import Audio
 - `plugin/skin/` the editor, a [Hollow](hollow/) skin: views, params (`params.json`, 3,223 of them), images and fonts, and `data/fs1r_sysex.json`, the address and packing of every param. This copy is the source: edit it with the web editor of the Hollow project (kept beside this repository, not published), which opens it by default and saves into it
 - `plugin/generated/` the bundled factory banks `fs1r_presets.syx` with its index `fs1r_presets.csv`, `fs1r_performances.syx` and `fs1r_fseqs.syx`, packed from `presets/` by `tools/make_presets_blob.py`, and `parameterDescriptions_fs1r.json`, the 893 parameters with their sysex addresses and bit layouts, by `tools/gen_parameters.py`, which the skin's param table is built from
@@ -230,7 +230,8 @@ python tools/regress.py                 # the whole fixed preset list against th
 
 - `tools/regress.py` renders the fixed preset list and diffs it against `regress_ref.json`: pitch, harmonic peaks, envelope, stereo width, centroid
 - `tools/test_effects.cpp` decodes and sweeps every effect type, and `fsvr_console -selftest` (`engine_selftest` away from Windows) is the engine check. Both run under `ctest`
-- `tools/check_plugin.cpp` drives the plug-in's processor the way a host does: factory banks, a saved session, Import SysEx, the bank browser, morph, Import Audio, program change, panic and the monitor. `ctest` runs it in a plug-in build
+- `tools/check_plugin.cpp` drives the plug-in's processor the way a host does: factory banks, a saved session, Import SysEx, the bank browser, morph, Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets and the right-click menus. `ctest` runs it in a plug-in build
+- `tools/check_gui.cpp` drives the editor over the processor without a window, as a mouse and a keyboard would: the top bar's menus and toggles, every page, the browser's right-click menus, every dialog, the modal's veil, Escape and close X, the close prompt, the scale menu and About, then every page's dials, faders, dropdowns and toggles. `ctest` runs it as "gui"
 - `tools/check_wav.py`, `check_formant.py` and `check_presets.py`, the rest of what `build.bat test` runs; `check_skirt.py` renders every harmonic form at every skirt against the register sweep
 
 **Data.**

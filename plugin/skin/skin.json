@@ -1944,7 +1944,13 @@
   },
   "buttons/dark_part": {
    "surface": false,
-   "tiles": 4
+   "tiles": 4,
+   "slice": [
+    0,
+    8,
+    0,
+    8
+   ]
   },
   "buttons/dark_knobs": {
    "surface": false,
@@ -2097,5 +2103,15 @@
    "surface": false
   }
  },
- "density": 1.5
+ "density": 1.5,
+ "modal": {
+  "veil": "#0a141599"
+ },
+ "close": {
+  "modal": "dialog_quit",
+  "if": "gui.edited"
+ },
+ "standalone": {
+  "settings": "dialog_audio"
+ }
 }
