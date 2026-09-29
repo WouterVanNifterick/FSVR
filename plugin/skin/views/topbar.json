@@ -1126,6 +1126,35 @@
    "format": "%3d%%"
   },
   {
+   "type": "button",
+   "name": "lcd_scale",
+   "rect": [
+    387,
+    88,
+    36,
+    16
+   ],
+   "text": {
+    "text": "",
+    "font": "lcd_small_light",
+    "align": "right",
+    "valign": "top"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "surface": false,
+   "source": "scale",
+   "press": "up",
+   "action": {
+    "scale": "menu"
+   },
+   "tip": "Window size"
+  },
+  {
    "type": "dropdown",
    "name": "patch_list",
    "rect": [

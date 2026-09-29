@@ -1007,10 +1007,10 @@
     924,
     104,
     20,
-    128
+    125
    ],
    "fill": {
-    "image": "faders/track_narrow"
+    "image": "faders/track_short_narrow"
    }
   },
   {
@@ -1020,7 +1020,7 @@
     913,
     104,
     42,
-    128
+    125
    ],
    "image": "faders/pot_cap",
    "slider": true,
@@ -1107,7 +1107,7 @@
     265,
     309,
     20,
-    172
+    173
    ],
    "fill": {
     "image": "faders/track_narrow"
@@ -1120,7 +1120,7 @@
     254,
     309,
     42,
-    172
+    173
    ],
    "image": "faders/pot_cap",
    "slider": true,
@@ -1185,7 +1185,7 @@
     351,
     309,
     20,
-    172
+    173
    ],
    "fill": {
     "image": "faders/track_narrow"
@@ -1198,7 +1198,7 @@
     340,
     309,
     42,
-    172
+    173
    ],
    "image": "faders/pot_cap",
    "slider": true,
@@ -1263,7 +1263,7 @@
     437,
     309,
     20,
-    172
+    173
    ],
    "fill": {
     "image": "faders/track_narrow"
@@ -1276,7 +1276,7 @@
     426,
     309,
     42,
-    172
+    173
    ],
    "image": "faders/pot_cap",
    "slider": true,
@@ -1341,7 +1341,7 @@
     523,
     309,
     20,
-    172
+    173
    ],
    "fill": {
     "image": "faders/track_narrow"
@@ -1354,7 +1354,7 @@
     512,
     309,
     42,
-    172
+    173
    ],
    "image": "faders/pot_cap",
    "slider": true,
@@ -1419,7 +1419,7 @@
     654,
     309,
     20,
-    172
+    173
    ],
    "fill": {
     "image": "faders/track_narrow"
@@ -1432,7 +1432,7 @@
     643,
     309,
     42,
-    172
+    173
    ],
    "image": "faders/pot_cap",
    "slider": true,
@@ -1497,7 +1497,7 @@
     740,
     309,
     20,
-    172
+    173
    ],
    "fill": {
     "image": "faders/track_narrow"
@@ -1510,7 +1510,7 @@
     729,
     309,
     42,
-    172
+    173
    ],
    "image": "faders/pot_cap",
    "slider": true,
@@ -1575,7 +1575,7 @@
     826,
     309,
     20,
-    172
+    173
    ],
    "fill": {
     "image": "faders/track_narrow"
@@ -1588,7 +1588,7 @@
     815,
     309,
     42,
-    172
+    173
    ],
    "image": "faders/pot_cap",
    "slider": true,

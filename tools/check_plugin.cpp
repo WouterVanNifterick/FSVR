@@ -203,6 +203,8 @@ int main() {
     a.st->setData("sysex.import", syx.u8string());
     CHECK(a.until([&] { return a.data("bank.list") == "Test Bank\nTest Bank 2\n"; }), "a second import did not make \"Test Bank 2\"");
     CHECK(a.lines("voice.user.list") == 64, "%d user voices, not 64", a.lines("voice.user.list"));
+    CHECK(a.data("fsvr.message").rfind("Imported", 0) == 0, "no import message (\"%s\")", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return a.data("fsvr.message").empty(); }), "the import message stayed up");
 
     // A pick from the browsed user bank: its third voice into part 2.
     a.set("browse.bank", 1);

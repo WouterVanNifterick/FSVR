@@ -1411,10 +1411,10 @@
     748,
     86,
     20,
-    150
+    149
    ],
    "fill": {
-    "image": "faders/track_narrow"
+    "image": "faders/track_mid_narrow"
    }
   },
   {
@@ -1424,7 +1424,7 @@
     737,
     86,
     42,
-    150
+    149
    ],
    "image": "faders/pot_cap",
    "slider": true,

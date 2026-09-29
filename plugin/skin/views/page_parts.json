@@ -1139,7 +1139,7 @@
     42,
     220,
     20,
-    238
+    236
    ],
    "fill": {
     "image": "faders/track_long_narrow"
@@ -1152,7 +1152,7 @@
     31,
     220,
     42,
-    238
+    236
    ],
    "image": "faders/pot_cap",
    "slider": true,
@@ -3041,7 +3041,7 @@
     347,
     220,
     20,
-    238
+    236
    ],
    "fill": {
     "image": "faders/track_long_narrow"
@@ -3054,7 +3054,7 @@
     336,
     220,
     42,
-    238
+    236
    ],
    "image": "faders/pot_cap",
    "slider": true,
@@ -4818,7 +4818,7 @@
     652,
     220,
     20,
-    238
+    236
    ],
    "fill": {
     "image": "faders/track_long_narrow"
@@ -4831,7 +4831,7 @@
     641,
     220,
     42,
-    238
+    236
    ],
    "image": "faders/pot_cap",
    "slider": true,
@@ -6595,7 +6595,7 @@
     957,
     220,
     20,
-    238
+    236
    ],
    "fill": {
     "image": "faders/track_long_narrow"
@@ -6608,7 +6608,7 @@
     946,
     220,
     42,
-    238
+    236
    ],
    "image": "faders/pot_cap",
    "slider": true,

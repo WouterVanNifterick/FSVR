@@ -2089,6 +2089,12 @@
   },
   "buttons/about_close": {
    "tiles": 2
+  },
+  "faders/track_mid_narrow": {
+   "surface": false
+  },
+  "faders/track_short_narrow": {
+   "surface": false
   }
  },
  "density": 1.5

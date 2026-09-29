@@ -231,7 +231,7 @@
     42,
     66,
     20,
-    170
+    173
    ],
    "fill": {
     "image": "faders/track_narrow"
@@ -244,7 +244,7 @@
     31,
     66,
     42,
-    170
+    173
    ],
    "image": "faders/pot_cap",
    "slider": true,

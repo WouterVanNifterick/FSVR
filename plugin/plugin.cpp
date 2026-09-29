@@ -342,6 +342,7 @@ private:
     bool notify = false;               // the worker changed params; the host re-reads them
     std::vector<int> browsed[3];       // the browsed bank's rows as U numbers: performances, voices, Fseqs
     std::vector<uint8_t> fseqShown;    // the Fseq the page's display last had
+    int messageTicks = 0;              // worker ticks until the status line clears
 
     // ---- setup -----------------------------------------------------------------------------------
 
@@ -631,6 +632,7 @@ private:
                 writeLists();
             }
             if (n % 2 == 0) harmonics();
+            if (messageTicks && --messageTicks == 0) st.setData("fsvr.message", "");
             if (notify && n % 8 == 0) {   // at most four times a second: a rescan of 3,000 params is not free for a host
                 notify = false;
                 if (paramsChanged) paramsChanged();
@@ -667,6 +669,7 @@ private:
                 // if (mor.size() == 4 * 4 * 608) std::memcpy(corners[p][c].data(), mor.data() + (size_t)(p * 4 + c) * 608, 608);
                 // else
                 std::memcpy(corners[p][c].data(), model.voice[p], 608);
+        st.setData("fsvr.message", "");
         st.setData("fsvr.version", FSVR_VERSION);   // a session saved by another version carries its number
         writeLists();
         names();
@@ -967,7 +970,11 @@ private:
         return v;
     }
 
-    void message(const std::string& s) { st.setData("fsvr.message", s); }
+    // A status line for the library page: it clears itself after five seconds, and a session never brings one back.
+    void message(const std::string& s) {
+        st.setData("fsvr.message", s);
+        messageTicks = 150;
+    }
 
     int selectedPart() const {   // the GUI's {part} var, out of its saved state
         Json ui;
