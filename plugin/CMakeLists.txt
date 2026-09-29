@@ -22,6 +22,8 @@ hollow_add_plugin(fsvr
   VENDOR musica.studio
   AU_MANUFACTURER Msst
   AU_SUBTYPE Fsvr
+  WINDOWS_ICON "${PROJECT_SOURCE_DIR}/icon.ico"
+  MACOS_ICON "${PROJECT_SOURCE_DIR}/icon.icns"
   BIN "${FS1R_BIN}")
 
 target_link_libraries(fsvr_lib PRIVATE fs1rLib)

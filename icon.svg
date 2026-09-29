@@ -3,7 +3,10 @@
      own F, S and R with the V drawn to match, here at the full letter width so the two rows sit on one
      grid. Stacked FS over VR, the block filling the width inside a 12px border with 8px clear of it;
      the row gap and the space above and below the block are the same. Regenerate icon.png with:
-     magick -background none icon.svg -resize 512x512 icon.png  -->
+     magick -background none icon.svg -resize 512x512 icon.png
+     The standalone's icons beside it, icon.ico (Windows) and icon.icns (macOS), come from here too:
+     magick -background none -density 384 icon.svg -define icon:auto-resize=256,128,64,48,32,24,16 icon.ico
+     magick -background none -density 192 icon.svg -resize 1024x1024 icon1024.png, saved as icon.icns by Pillow  -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <rect width="512" height="512" fill="#95b5b7"/>
   <rect x="6.0" y="6.0" width="500" height="500"

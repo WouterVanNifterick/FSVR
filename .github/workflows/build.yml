@@ -125,6 +125,7 @@ jobs:
           v=$(sed -n 's/^project(fsvr VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
           if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$v" ]; then echo "tag $GITHUB_REF_NAME, but CMakeLists.txt says $v"; exit 1; fi
           if [ -n "$INSTALLER_FONT" ]; then echo "$INSTALLER_FONT" | base64 -d > installer/payload/font.bin; fi
+          cp icon.png installer/product/icon.png   # the setup's own icon and its Linux menu entry's: FSVR's
           VERSION=$v BIN_WINDOWS=$PWD/bin-windows BIN_MACOS=$PWD/bin-macos BIN_LINUX=$PWD/bin-linux installer/build.sh
           cd installer/dist && zip -qry FSVR-MacOS-Installer.zip FSVR-MacOS-Installer.app && rm -r FSVR-MacOS-Installer.app && ls -l
       - uses: actions/upload-artifact@v4
