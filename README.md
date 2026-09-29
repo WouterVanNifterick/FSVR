@@ -198,6 +198,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 `src/fsvr/` is **ours**. Nothing in the hardware corresponds to any of it.
 
 - `tuning.h` cost knobs, the control-rate decimation and the queue cap. Changing one must not change the output
+- `fastmath.h`, `fastmath.cpp` the sample loop's sine, 2^x, dB and tanh: a table (the default), CORDIC, a hybrid of the two, or raw libm, chosen by `FSVR_MATH`
 - `device.cpp` `fs1r::Device`, host-rate resampling and state as bulk dumps
 - `smf.h` Standard MIDI File reading; `selftest.cpp` the engine self check
 - `display.h` how the unit shows values, for editors and displays: fixed operator frequencies, ratios and every effect parameter value, with each effect type's parameter slots. Transcribed from K_Take's [FS1R Editor](https://synth-voice.sakura.ne.jp/fs1r_editor_english.html) (freeware) and checked against the Data List and the ROM

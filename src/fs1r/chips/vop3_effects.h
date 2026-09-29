@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
+#include "../../fsvr/fastmath.h"   // the per-sample sine, 2^x and tanh
 
 // ------------------------------------------------------------------------------------------ parameter decoding
 static inline double fx_freq_hz(int i) { return 20.0 * pow(2.0, clampi(i, 0, 60) / 6.0); }
@@ -94,7 +95,7 @@ struct Biq {                                     // RBJ biquad, transposed form 
 };
 struct FxLfo { double ph = 0, inc = 0; void set(double hz, double sr) { inc = hz / sr; }
     inline void step() { ph += inc; if (ph >= 1) ph -= 1; }
-    inline double sine(double off = 0) const { double p = ph + off; return sin(2 * PI * (p - floor(p))); }
+    inline double sine(double off = 0) const { return fm::sin_turns(ph + off); }
     inline double tri(double off = 0) const { double p = ph + off; p -= floor(p); return p < 0.5 ? 4 * p - 1 : 3 - 4 * p; }
 };
 struct FxEnv { double e = 0, ka = 0, kr = 0;
@@ -277,14 +278,20 @@ struct FxBlock {
             tail.set(sr, 0.6, 0.8, 5, 2);
             if (slot == FX_INSERTION && w[6] < 60) lpf.set(0, sr, fx_freq_hz(w[6]), 0.7, 0); break;
         case C_PITCH: break;
-        case C_WAHDIST: case C_COMPDIST:
+        case C_WAHDIST:
             env.set(5.0, 170.0, sr); configure_dist(); break;
+        case C_COMPDIST:                            // Comp+Dist: attack 0x11E; Cmp+DS+Dly, Cmp+OD+Dly: attack 0x11C (Data List p.30)
+            if (type == 25) env.set(fx_attack_ms(w[11]), fx_release_ms(w[12]), sr); else env.set(fx_attack_ms(w[10]), fx_release_ms(w[11]), sr);
+            configure_dist(); break;
         default: break;
         }
     }
     void configure_dist() {
         int lf = slot == FX_VARIATION ? 1 : 1, lg = 2, mf = slot == FX_VARIATION ? 6 : 6, mg = 7, mq = 8, lp = 3;
         if (common == C_AMPSIM) { if (w[2] < 60) lpf.set(0, sr, fx_freq_hz(w[2]), 0.7, 0); return; }
+        if (common == C_COMPDIST && type != 25) {   // Cmp+DS+Dly / Cmp+OD+Dly: DS Low Gain 0x112, DS Mid Gain 0x114, the frequencies are Comp+Dist's defaults
+            eqLo.set(4, sr, 250.0, 0.7, fx_gain_db(w[5])); eqMid.set(3, sr, 4000.0, 1.0, fx_gain_db(w[6])); return;
+        }
         eqLo.set(4, sr, fx_freq_hz(w[lf]), 0.7, fx_gain_db(w[lg]));
         eqMid.set(3, sr, fx_freq_hz(w[mf]), fx_q(w[mq]), fx_gain_db(w[mg]));
         if (w[lp] < 60) lpf.set(0, sr, fx_freq_hz(w[lp]), 0.7, 0);
@@ -393,7 +400,7 @@ struct FxBlock {
             for (int s = 0; s < 2; s++) {
                 double x = (s ? inR : inL) + fbz[s] * fb;
                 double m = 0.5 + 0.5 * lfo.sine(s ? (common == C_PHASER2 ? fx_unit(w[12]) - 0.5 : 0.5) : 0.0);
-                double f = 200.0 * pow(2.0, (shift * 3.0 + m * depth * 4.0));
+                double f = 200.0 * fm::exp2(shift * 3.0 + m * depth * 4.0);
                 double g = (1 - tan(PI * std::min(f, sr * 0.45) / sr)) / (1 + tan(PI * std::min(f, sr * 0.45) / sr));
                 for (int i = 0; i < stages; i++) { double y = g * x + ap[s][i]; ap[s][i] = x - g * y; x = y; }
                 fbz[s] = x;
@@ -433,6 +440,11 @@ struct FxBlock {
             lfo.step();
             double m = dir == 5 ? (lfo.ph < 0.5 ? 1 : -1) : dir == 3 ? lfo.tri() : dir == 4 ? -lfo.tri() : lfo.sine();
             if (dir == 1) m = fabs(m); else if (dir == 2) m = -fabs(m);
+            // The pan position glides to where the LFO puts it, the way the gate's gain does above. The
+            // L/R direction is a square wave and the flip was one sample wide: on B016 Dyno Rose (L/R,
+            // 4 Hz) that put a step in the return every 124 ms of a held note. INFERRED: the unit does
+            // not click there, how fast it swings is not measured, and the reading is the gate's 0.002.
+            z[0] += (m - z[0]) * 0.002; m = z[0];
             double gL = 1 - lr * 0.5 * (1 - m), gR = 1 - lr * 0.5 * (1 + m);
             double fb2 = 1 - fr * 0.3 * (0.5 + 0.5 * lfo.sine(0.25));
             L = shelves(0, inL * gL * fb2); R = shelves(1, inR * gR * fb2);
@@ -446,7 +458,7 @@ struct FxBlock {
             double mono = (inL + inR) * 0.5, m;
             if (touch) m = std::min(1.0, env.run(mono) * (1 + fx_unit(sens) * 12.0));
             else { lfo.step(); m = 0.5 + 0.5 * lfo.sine() * fx_unit(sens); }
-            double f = 120.0 * pow(2.0, fx_unit(cf) * 4.0 + m * 3.5);
+            double f = 120.0 * fm::exp2(fx_unit(cf) * 4.0 + m * 3.5);
             wah.set(2, sr, f, fx_q(rs), 0);
             L = wah.run(0, inL) * 2.0; R = wah.run(1, inR) * 2.0;
             if (common == C_WAHDIST) {
@@ -469,7 +481,7 @@ struct FxBlock {
         case C_ENHANCER: {
             double drive = 1 + fx_unit(w[1]) * 20, mix = fx_unit(w[2]);
             double hL = hpf.run(0, inL), hR = hpf.run(1, inR);
-            L = inL + tanh(hL * drive) * mix; R = inR + tanh(hR * drive) * mix;
+            L = inL + fm::tanh(hL * drive) * mix; R = inR + fm::tanh(hR * drive) * mix;
             break; }
         case C_GATE: {
             double th = pow(10.0, fx_thresh_db(w[2]) / 20.0), lvl = fx_unit(w[3]) * 2;
@@ -482,14 +494,15 @@ struct FxBlock {
             int ai, ri, ti, rt, drv = -1, outw = -1;
             if (common == C_COMP) { ai = 0; ri = 1; ti = 2; rt = 3; outw = 4; }
             else if (type == 25) { ai = 11; ri = 12; ti = 13; rt = 14; drv = 0; outw = 4; }
-            else { ai = 11; ri = 12; ti = 13; rt = 14; drv = 3; outw = 4; }
+            else { ai = 10; ri = 11; ti = 12; rt = 13; drv = 3; outw = 4; }   // Cmp+DS+Dly / Cmp+OD+Dly (Data List p.30)
             (void)ai; (void)ri;
             double th = pow(10.0, fx_thresh_db(w[ti]) / 20.0), ratio = fx_ratio(w[rt]);
             double e = env.run((fabs(inL) + fabs(inR)) * 0.5) + 1e-9;
             double g = e > th ? pow(th / e, 1.0 - 1.0 / ratio) : 1.0;
             L = inL * g; R = inR * g;
             if (drv >= 0) {
-                L = dist_stage(0, L, w[drv], w[10]); R = dist_stage(1, R, w[drv], w[10]);
+                int edge = type == 25 ? w[10] : type == 26 ? 80 : 104;   // no Edge word on 26/27: Distortion's and Overdrive's defaults
+                L = dist_stage(0, L, w[drv], edge); R = dist_stage(1, R, w[drv], edge);
                 if (type == 26 || type == 27) {                   // Cmp+DS+Dly / Cmp+OD+Dly
                     int d = (int)(fx_ms(w[0]) * 0.001 * sr); double fb = fx_bip(w[1]), mix = fx_unit(w[2]);
                     double yl = dl[0].tap(d), yr = dl[1].tap(d);
@@ -562,7 +575,7 @@ struct FxBlock {
             double c1 = ((int)w[2] - 64) + ((int)w[0] - 64) * 100.0, c2 = ((int)w[3] - 64) + ((int)w[0] - 64) * 100.0;
             int base = (int)(fx_ms(w[1]) * 0.001 * sr) + 1;
             dl[0].push((inL + inR) * 0.5);
-            z[0] += pow(2.0, c1 / 1200.0) - 1.0; z[1] += pow(2.0, c2 / 1200.0) - 1.0;
+            z[0] += fm::exp2(c1 / 1200.0) - 1.0; z[1] += fm::exp2(c2 / 1200.0) - 1.0;
             double win = 0.03 * sr;
             if (z[0] > win) z[0] -= win; if (z[0] < 0) z[0] += win;
             if (z[1] > win) z[1] -= win; if (z[1] < 0) z[1] += win;

@@ -20,6 +20,7 @@
 #include "hardware.h"
 #include "chips/cal.h"
 #include "../fsvr/tuning.h"
+#include "../fsvr/fastmath.h"
 
 // ------------------------------------------------------------------------------------------ firmware helpers
 static inline int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
@@ -108,7 +109,7 @@ static inline int vel_att(int b, int vel) {
     if (b & 8) { s = (b & 7) + 1; t = VELW[vel]; } else { s = 7 - (b & 7); t = VELW[127 - vel]; }
     return std::min(255, (15 - 2 * s) + ((s * 32 * t) >> 8));
 }
-static inline double db2lin(double db) { return db <= -150 ? 0.0 : pow(10.0, db / 20.0); }
+static inline double db2lin(double db) { return db <= -150 ? 0.0 : fm::db2lin(db); }
 // One pole per sample coefficient for the voiced level register, cal::LEVEL_SLEW_MS as a rate.
 const double LEVEL_SLEW_K = 1.0 - exp(-1.0 / (cal::LEVEL_SLEW_MS * 0.001 * SR));
 // The note-on damp, same shape: what is left of the previous note in a reused channel decays at this
@@ -117,24 +118,17 @@ const double DAMP_K = exp(-1.0 / (cal::DAMP_MS * 0.001 * SR));
 // 1024 units per octave, and the word is a 16 bit register that saturates rather than wrapping.
 // MEASURED 2026-09-21 off 12_fseqlevel: a ratio operator driven by an Fseq lands past the ceiling at
 // every note and the unit answers with one line at 23982 Hz, which is word 32767 to a tenth.
-static inline double word_hz(int w) { return 440.0 * pow(2.0, (std::clamp(w, 0, 0x7FFF) - 26861) / 1024.0); }
+static inline double word_hz(int w) { return 440.0 * fm::exp2((std::clamp(w, 0, 0x7FFF) - 26861) / 1024.0); }
 
 // ------------------------------------------------------------------------------------------ tables (chip side)
-extern float g_sin[4097];
 extern float g_win[2][8][1025];
 extern float g_winDC[2][8];
-extern float g_db2lin[2305];
 void init_tables();
-static inline float fsin(double ph) { double x = (ph - floor(ph)) * 4096.0; int i = (int)x; float f = (float)(x - i); return g_sin[i] + (g_sin[i + 1] - g_sin[i]) * f; }
+// The sine and the level path go through fsvr/fastmath.h, which is where the backend is chosen.
+static inline double fsin(double ph) { return fm::sin_turns(ph); }
 static inline float fwin(int fam, int s, double x) { double y = x * 1024.0; int i = (int)y; if (i >= 1024) return 0.f; float f = (float)(y - i); const float* w = g_win[fam][s]; return w[i] + (w[i + 1] - w[i]) * f; }
-// The per-sample level path: the table above with linear interpolation (error under 1e-5) instead of a
-// pow() per operator per sample. Anything above the table is rare enough to compute.
-static inline double db2lin_fast(double db) {
-    if (db <= -128) return 0.0;
-    if (db >= 16) return db2lin(db);
-    double x = (db + 128) * 16.0; int i = (int)x; float f = (float)(x - i);
-    return g_db2lin[i] + (g_db2lin[i + 1] - g_db2lin[i]) * f;
-}
+// The per-sample level path: anything at or under -128 dB is silence, the rest is the backend's.
+static inline double db2lin_fast(double db) { return db <= -128 ? 0.0 : fm::db2lin(db); }
 // INFERRED: chip EG rate 0..63 -> seconds for a full 96 dB traverse. The firmware maps time T to rate (99-T)*0xA4>>8, the
 // exact inverse of the DX7's (R*41)>>6, and its DX7 converter uses T = 99 - R, so the chip is assumed to time its EG like the
 // DX7 EGS: increment (4 + (q & 3)) << (q >> 2) per 64 samples on a 2^28 = 96 dB scale (Dexed). 6.6 ms at 63, 380 s at 0.
@@ -334,6 +328,10 @@ struct OpState {
 };
 struct Chan {
     bool active = false; int part = 0, note = 0, vel = 0; bool held = false, sustained = false; uint32_t age = 0;
+    // Ours: a channel whose carriers and noise are over stops rendering (render_chan). quiet counts the
+    // zero samples that decide it, and freezeLeft is the samples until its last envelope is done, once
+    // that is arithmetic, so the allocator sees it freed on the same sample it would have been.
+    bool silent = false; int quiet = 0; long long freezeLeft = -1;
     // The channel's last output, and the damp left over from the note this channel was playing before.
     // FUN_00023000: note-on damps the channel it is about to take (the mask table at 0x35B260 is one hot
     // per channel) rather than silencing it, so the previous note's waveform fades instead of being cut

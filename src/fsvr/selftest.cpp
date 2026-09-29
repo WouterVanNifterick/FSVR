@@ -9,6 +9,7 @@
 static int g_fails = 0;
 static void ck(const char* what, bool ok) { if (!ok) { printf("  FAIL %s\n", what); g_fails++; } }
 int selftest(Synth& S) {
+    ck("fastmath backend within its error budget of libm", fm::selfcheck() == 0);
     // 1. a parameter change reaches the engine at every address class
     struct { int ah, am, al, v; const char* name; } pc[] = {
         {0x00, 0, 0x0E, 3, "system velocity curve"},

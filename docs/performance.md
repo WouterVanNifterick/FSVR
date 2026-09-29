@@ -35,3 +35,44 @@ In order of cost to do, each with the measurement that says what it buys:
 ## What not to do
 
 Do not touch `tuning::CTL_DECIMATION` to chase this: its rule is that changing it must not change the output, and at 16 the control maths is already well under the operator loop in the profile. Do not lower the voiced gate under the 16-bit floor to chase the number further, and do not skip operators by their *level byte*: a level-0 operator can still be a modulator with a control set or an Fseq track driving it.
+
+## The sample loop's maths: table, CORDIC, or both (2026-09-28)
+
+Everything the per-sample path asks of libm (the sine by phase, 2^x for the pitch EGs and the effect sweeps, 10^(dB/20) for the level path, tanh in the enhancer) now goes through `src/fsvr/fastmath.h`, and `FSVR_MATH` picks how it is computed: `0` raw libm, `1` a table with linear interpolation, `2` CORDIC in Q40 fixed point, `3` a hybrid where the table seeds a short CORDIC rotation over the residual. `set FSVR_MATH=n` before `build.bat`, or `-DFSVR_MATH=RAW|LUT|CORDIC|HYBRID` to CMake. The self check prints which one is built and its worst error against libm over a sweep of each function; all four pass the nineteen render cases against a fingerprint of the tree before the change.
+
+Thirty seconds of one note, `bin/fsvr_console.exe -r ROM -P n -n 60 -d 30`, best of three on the desktop, MSVC `/O2`, no FTZ:
+
+| backend | A020 Vox Morph (`-P 19`) | `-P 24`, regress.py's perf-everybody | worst error vs libm |
+|---|---|---|---|
+| 1 LUT (default) | 1.86 s | 1.75 s | 3e-7 (sin), 7e-6 relative (dB table) |
+| 0 raw libm | 2.79 s | 3.18 s | 0 |
+| 3 hybrid | 6.77 s | 8.19 s | 1.2e-7 |
+| 2 CORDIC | 8.96 s | 10.98 s | 5e-10 |
+
+The table wins by a wide margin and is the default. One trap on the way: the table's 2^x first scaled its result with `ldexp`, which is a CRT call on MSVC and cost more than the `pow` it replaced; it now writes the exponent field of the double directly, which is exact. A CORDIC step is a serial chain of a shift, an xor and two adds on x, y and z, and even branchless and cut to the fifteen steps the residual needs, fifteen of them cost more than the two loads and one multiply of a table read on any core with a fast FPU; the branchy first version was worse again (9.1 s and 11.3 s on the hybrid) because the sign of the residual mispredicts half the time. The hybrid is more accurate than the table and independent of table size, which is what it would be for on a target without that FPU, and it is kept for that. Raw libm is kept as the reference the self check measures against and for A/B renders; it is a sin() per operator per sample and was never what the engine shipped with.
+
+The grain windows (`g_win`) are not part of this. They are a modelled waveform read by phase, not a function of x that another method could compute, and they stay a table on every backend.
+
+## Fat Line: 32 channels alive for a one-note line (2026-09-28)
+
+jameshansen: the Fat Line demo sits at about 50 % of a core. Measured with a counting build of the engine (`__rdtsc` around each section, counters per sample) on the demo's own song, 27.9 s, plain MSVC `/O2` build:
+
+| | before | after |
+|---|---|---|
+| render time | 12.0 s (43 % of a core) | 6.1 s (22 %) |
+| channels rendering per sample | 28.5 of 32 | 28.5, of which 14.8 silent and free |
+| voiced operators working per sample | 100.5 | 70.9 |
+| operator slots only ticking an EG per sample | 127.9 | 39.1 |
+| refresh_ctl share of the render | 25 % | 12 % |
+
+**What the song does.** Parts 1 and 2 are DigiSQ2, whose operators 3 and 4 have a release time of 99, the slowest setting. After every 70 ms note of the bass line they hold near 0 dB as modulators for minutes, so a channel is never finished: the engine never freed one during the song, and 28.5 channels rendered on average for a line that holds one note at a time. Their carriers were done within a second (release times 28 to 43), their unvoiced operators sit at level 0 with the EG held at full, so each channel ran 8 voiced and 8 unvoiced EGs, the control refresh and the operator loop for nothing. Parts 3 and 4 alone render in 0.36 s; the effects are 3 % and the filters 5 %. The unit renders every one of these channels in full and it costs it nothing.
+
+**What changed**, all in `render_chan` and `refresh_ctl`, all ours:
+
+1. **A channel whose carriers and noise are over stops rendering.** Once every carrier's EG is done with no grain in flight, every unvoiced EG is done, and the channel has put out 64 samples under 1e-9 with no damp left, it is silent. Its remaining envelopes are all in their release and falling linearly, so the sample at which the last one passes -120 dB is arithmetic, and the channel costs nothing until the allocator may treat it as free on that sample. The render differs from before in one 16-bit sample by one step on the song (the filter's ring-down below 1e-9). Freeing the channel outright instead was tried and rejected: it changes which channel the firmware's allocator steals, and 132,000 samples moved by up to 193 steps.
+2. **The control refresh skips finished operators.** A voiced operator whose EG is done, with no grain in flight and no attenuation under -20 dB (the carrier correction can reach -22.5), never reads its frequency maths again; an unvoiced operator whose EG is done is gated for good. Bit-identical.
+3. **The control-rate maths reads the tables.** `word_hz` and `db2lin` go through `fsvr/fastmath.h` like the sample loop does. That moves 0.4 % of the song's 16-bit samples by one step, from the 1/16 dB table's 6.6e-6 relative error.
+
+The nineteen regression cases match a fingerprint of the tree before the change, and the demo ledger reads the same to the digit before and after (`tools/demo_scores.txt`, the two rows of 2026-09-28). Vox Morph's one-note render goes from 1.86 s to 1.54 s on the same rules.
+
+**What is left** is real work: fourteen sounding channels of carrier release tails between -60 and -120 dB, and the unit computes those too. The -90 dB gate above is 5 % on this song (5.3 operators per sample sit between -100 and -90), doubling `CTL_DECIMATION` another 6 %, and beyond that it is the operator loop itself.

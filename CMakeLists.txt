@@ -33,16 +33,28 @@ add_library(fs1rLib STATIC
     src/fs1r/firmware/patch.cpp
     src/fs1r/firmware/rom.cpp
     src/fsvr/device.cpp
+    src/fsvr/fastmath.cpp
     src/fsvr/selftest.cpp)
 target_include_directories(fs1rLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# The sample loop's maths backend, src/fsvr/fastmath.h: LUT (the default, and the fastest measured), RAW
+# (libm, kept for A/B renders), CORDIC, or HYBRID, where the table seeds a short CORDIC rotation.
+set(FSVR_MATH "LUT" CACHE STRING "fastmath backend: RAW, LUT, CORDIC or HYBRID")
+set_property(CACHE FSVR_MATH PROPERTY STRINGS RAW LUT CORDIC HYBRID)
+set(_fsvr_math_names RAW LUT CORDIC HYBRID)
+list(FIND _fsvr_math_names "${FSVR_MATH}" _fsvr_math_id)
+if(_fsvr_math_id LESS 0)
+  message(FATAL_ERROR "FSVR_MATH must be RAW, LUT, CORDIC or HYBRID, not ${FSVR_MATH}")
+endif()
+target_compile_definitions(fs1rLib PUBLIC FSVR_MATH=${_fsvr_math_id})
 if(MSVC)
   target_compile_options(fs1rLib PRIVATE /W3)
 else()
   target_compile_options(fs1rLib PRIVATE -Wall -Wno-unused-function)
 endif()
 
-add_executable(test_effects tools/test_effects.cpp)
+add_executable(test_effects tools/test_effects.cpp src/fsvr/fastmath.cpp)
 target_include_directories(test_effects PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_definitions(test_effects PRIVATE FSVR_MATH=${_fsvr_math_id})
 
 # The renderer behind the calibration loop. The console does this too, but only on Windows, and
 # tools/analyze_capture.py needs a render of every capture request to compare a recording against.

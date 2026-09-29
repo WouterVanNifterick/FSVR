@@ -1,14 +1,11 @@
 // fs1r/chips/ymp706.cpp - the tone generator, modelled. INFERRED: the constants are in chips/cal.h.
 #include "fs1r/internal.h"
 
-float g_sin[4097];
 float g_win[2][8][1025];       // [asymmetric?][skirt]: the two window families
 float g_winDC[2][8];           // each window's mean, which a grain under a DC carrier does not carry
-float g_db2lin[2305];                                          // -128 .. +16 dB in 1/16 dB steps
 
 void init_tables() {
-    for (int i = 0; i <= 4096; i++) g_sin[i] = (float)sin(2 * PI * i / 4096.0);
-    for (int i = 0; i <= 2304; i++) g_db2lin[i] = (float)pow(10.0, (i / 16.0 - 128.0) / 20.0);
+    fm::init();
     // MEASURED 2026-09-19 (FS1R.unlock's skirt sweep, all sixty partials) and 2026-09-24 (the same take
     // read again, plus 04_formant_2): the grain window is sin^p with p = 2 * 2^skirt on every form, and
     // there are two families. The "2" forms (all2, odd2, res2) are the symmetric window, whose line
@@ -109,6 +106,13 @@ void Synth::refresh_ctl(Chan& C) {
         OpState& s = C.op[o]; const OpV& v = V.v[o]; const OpU& u = V.u[o];
         s.att = C.regLevel[o] * LEVEL_DB + am_att(C.regAM, v.ams);
         if (alg[2 * o + 1] & 1) s.att += cal::CARRIER_DB * V.corr[o];         // carrier level correction (bits in the 0x200 word), 1.5 dB steps INFERRED
+        // Ours, and bit-identical: an operator whose EG is over, with no grain in flight and no level
+        // boost that could lift it back over the -100 dB gate before the next refresh, never reads its
+        // frequency maths again. The carrier correction can reach -22.5 dB, hence the -20 dB bound on
+        // both the target attenuation and the slewed one. MEASURED 2026-09-28 on the Fat Line demo:
+        // refresh_ctl was a quarter of the render and half of that was for finished operators.
+        if (s.eg.done() && !s.g[0].on && !s.g[1].on && s.att >= -20 && s.attS >= -20) goto unvoiced;
+        {
         int pmw = (int)(C.regPM * cal::PMS_FRAC[v.pms]) + C.vcFreq[o][0];
         // The detune word goes into the frequency word rather than onto the result: it is a pitch
         // word offset on the chip, and the formant branch already carries it inside frmtWord.
@@ -132,7 +136,10 @@ void Synth::refresh_ctl(Chan& C) {
         s.fw = word_hz(C.regPitch + 0x1243 + pmw - C.vcFreq[o][0]);
         s.bw = clampi(C.bwReg[o] + C.vcBw[o][0], 0, 99);                 // register 0x218, the formant's
         s.ratio = v.form == 7 ? 0 : clampi(C.frmtWord[o], 0, 99);         // register 0x230, every other form's
-        s.wl7 = std::min(cal::FRMT_WL_MAX, C.f0 / (cal::FRMT_BW_HZ0 * pow(2.0, s.bw / cal::FRMT_BW_DB)));
+        s.wl7 = std::min(cal::FRMT_WL_MAX, C.f0 / (cal::FRMT_BW_HZ0 * fm::exp2(s.bw / cal::FRMT_BW_DB)));
+        }
+        unvoiced:
+        if (s.ueg.done()) continue;   // the same, and simpler: the unvoiced attenuation is never negative, so a finished noise EG is gated for good
         // unvoiced (noise formant) operator
         s.uatt = C.regULevel[o] * LEVEL_DB + am_att(C.regAM, u.ams);
         double nf;
@@ -142,7 +149,7 @@ void Synth::refresh_ctl(Chan& C) {
         // link-fo, not as itself. uv-linkff-sine's image reads mode 1 where the sysex asked for 2.
         else if (u.mode) nf = C.f0;
         else nf = word_hz(C.ufreqWord[o] + C.ufbW[o] + (C.regFM * u.fms) / 7 + C.vcFreq[o][1]);
-        s.nf = nf * pow(2.0, u.transpose / 12.0);
+        s.nf = nf * fm::exp2(u.transpose / 12.0);
         // MEASURED noise formant, docs/noise.md and cal.h: two unequal digital one-poles on white noise,
         // their coefficients and the band's peak gain read off the tables against the register and the
         // skirt. The gain is the band's PEAK, not its RMS, which is what the fit measured; the RMS follows
@@ -163,6 +170,32 @@ void Synth::refresh_ctl(Chan& C) {
 }
 
 void Synth::render_chan(Chan& C, double& outL, double& outR) {
+    if (C.silent) {
+        // Ours. The carriers and the noise are over and the filter has rung down, so the channel's output
+        // is zero from here to its end; what is left is when the allocator may treat it as free, which
+        // is the sample its last envelope passes -120 dB. Every envelope still running is in its release
+        // and falling linearly, so that sample is arithmetic, and the channel costs nothing until then.
+        // The hardware renders these channels in full, at no cost; on the Fat Line demo they were half
+        // of the 32 channels for the whole song (docs/performance.md, 2026-09-28).
+        if (C.freezeLeft < 0) {
+            long long worst = 0; bool can = true;
+            for (auto& s : C.op) for (const EG* e : {&s.eg, &s.ueg}) {
+                if (e->done()) continue;
+                if (e->stage != 4 || e->rising || e->rate <= 0) { can = false; break; }
+                long long n = (long long)((e->cur + 120.0) / e->rate) + 2; if (n > worst) worst = n;
+            }
+            if (can) C.freezeLeft = worst;
+        }
+        if (C.freezeLeft >= 0) { if (--C.freezeLeft <= 0) C.active = false; }
+        else {
+            // An envelope still rising, or holding: tick them until they are all falling.
+            bool alive = false;
+            for (auto& s : C.op) { s.eg.tick(); s.ueg.tick(); if (!s.eg.done() || !s.ueg.done()) alive = true; }
+            if (!alive) C.active = false;
+        }
+        outL = outR = 0.0; C.lastL = C.lastR = 0.0;
+        return;
+    }
     if (C.ctlLeft-- <= 0) { C.ctlLeft = tuning::CTL_DECIMATION - 1; refresh_ctl(C); }
     const Voice& V = perf.part[C.part].voice; const unsigned char* alg = FS1R_ALG[V.alg];
     double partV = C.partV, partU = C.partU;
@@ -190,7 +223,7 @@ void Synth::render_chan(Chan& C, double& outL, double& outR) {
             // fixed operator does not take that word at all, it takes its own coarse/fine bytes.
             // Formant operators are NOT covered either way by any capture, so they keep the EG here
             // rather than being changed on a guess.
-            if (!v.fixed && s.feg.stage < 2) fop *= pow(2.0, s.feg.tick() / 12.0);
+            if (!v.fixed && s.feg.stage < 2) fop *= fm::exp2(s.feg.tick() / 12.0);
             y = op_sample(s, v, s.fw, fop, s.ratio, in * FM_INDEX, gain);
         }
         Cb = y; if (t0 & 2) H = y; if (t1 & 4) S += y; if (t0 & 4) fbNew = y;
@@ -200,7 +233,7 @@ void Synth::render_chan(Chan& C, double& outL, double& outR) {
         double uegdb = s.ueg.tick();
         if (uegdb - s.uatt > -100) {
             double nf = s.nf;
-            if (s.ufeg.stage < 2) nf *= pow(2.0, s.ufeg.tick() / 12.0);
+            if (s.ufeg.stage < 2) nf *= fm::exp2(s.ufeg.tick() / 12.0);
             s.rng ^= s.rng << 13; s.rng ^= s.rng >> 17; s.rng ^= s.rng << 5;
             // Uniform in [-1, 1) scaled to unit variance, so the tables in cal.h read in the band's own RMS.
             double nz = ((int32_t)s.rng) * (1.7320508 / 2147483648.0);
@@ -218,6 +251,11 @@ void Synth::render_chan(Chan& C, double& outL, double& outR) {
     bool alive = false;
     for (auto& s : C.op) if (!s.eg.done() || !s.ueg.done()) { alive = true; break; }
     if (!alive) C.active = false;
+    // The channel goes silent once every carrier's EG is over with no grain in flight, every noise EG
+    // is over, and the filter has rung down: 64 samples of nothing, with no damp left from the note before.
+    bool carriersDone = true;
+    for (int o = 0; o < 8; o++) { const OpState& s = C.op[o]; if (((alg[2 * o + 1] & 1) && (!s.eg.done() || s.g[0].on || s.g[1].on)) || !s.ueg.done()) { carriersDone = false; break; } }
+    if (carriersDone && fabs(mix) < 1e-9 && C.dampL == 0.0 && C.dampR == 0.0) { if (++C.quiet >= 64) C.silent = true; } else C.quiet = 0;
     // The channel accumulator saturates before the filter loop, which is where the capture puts it:
     // eight carriers stacked in one channel clip flat, while the filter's own output on ingain-12 rides
     // 4 dB above that ceiling, so nothing downstream of CHOUT can be what clips.
