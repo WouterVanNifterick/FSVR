@@ -8,6 +8,18 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-09-29, the PLG100-SG's phoneme table is in the FS1R's own formant word encoding
+
+The SG keeps its formants as log pitch words and converts to the chip's linear frequency number only at the last step, and both the word and the conversion line up with the FS1R. `tools/sg_phonemes.py` decodes the table.
+
+**The layout.** `FUN_0000E992(n)` returns `0x1A068 + n * 0xFB8` for singers 0 to 7: a 24-byte header and 125 records of 32 bytes. Every byte is seven bits. Singers 0, 2, 4 and 6 share one header and differ from each other by 5 to 103 bytes; 1, 3, 5 and 7 share the other and differ from the first set in about 2240 of 4000 bytes. So it is two voices in four close variants each.
+
+**The word.** `FUN_0000C0F6` builds each formant word as `hi * 256 + lo * 2` from a record's byte pairs, four of them at bytes 3 to 10 and a fifth at bytes 1 and 2, adds a per-singer and a per-part offset, and clamps to 0..0x7CAC. That is the FS1R's Fseq frame encoding exactly (`docs/ymp706_registers.md`, Fseq playback). `FUN_0000B702` interpolates between the previous frame and this one and hands the word to `FUN_0000F1DC`, which computes `(4/9) * 2^((x - 0x5000) / 1024)` through a mantissa table at 0x22A28 that is `65536 * (2^(i/1024) - 1)` to the unit, and a table of octave powers at 0x22A08. That is 1024 units per octave, the FS1R pitch word's own resolution, and 0x7CAC is where the result reaches 1023, the top of the extension bank's ten-bit frequency field.
+
+**The vowels.** The ROM gives the ratios exactly and the absolute scale not at all, since that depends on the YMF293's clock. Read on the FS1R's origin instead, word 0x7FFF at 23982 Hz as measured off `12_fseqlevel` on 2026-09-21, and nothing fitted, singer 0's first five records are the Japanese vowels in dictionary order with textbook male formants: 900/1236 Hz (a), 327 with its second formant at 2383 (i), 413/1573 (u), 475/2090 (e), 538/809 (o). The groups after them run in fives the same way, which is the shape of the consonant-vowel syllabary. That the vowels come out where they should on an origin measured for a different reason argues that the SG's word is the FS1R's word, origin included, but this is one reading and it is not settled. The test is to play a frame built from these bytes on the unit and hear the vowel, or record it and read the formants back.
+
+**Why it matters here.** If it holds, a record's byte pairs go into an FS1R Fseq frame's formant frequency bytes unchanged, which is 1000 phoneme frames of Yamaha's own formant data for an Import Audio style "sing this text" path in the plug-in. The levels, the fifth word's role, and the record's first byte (shared across each group of five, so probably the consonant) are not read yet.
+
 ## 2026-09-29, the PLG100-SG's YMF293 is an OPL3 with two extra banks, and shares no register interface with the YMP706
 
 rgwan dumped the PLG100-SG's firmware today (`dmps/plg100-sg/XT687D0_M27C802.bin` in `rgwan/fs1r_firmware_RE`), and the question was whether its tone generator, the YMF293-F, is a relative of the YMP706 that the SG firmware could let us read from a second angle. It is not, at the register level.
