@@ -225,63 +225,17 @@
   },
   {
    "type": "plate",
-   "name": "intro_1",
+   "name": "tagline",
    "rect": [
     24,
-    104,
+    100,
     592,
-    20
+    30
    ],
    "layer": 0,
    "text": {
-    "text": "A software Yamaha FS1R. Its control logic is the FS1R's own firmware,",
-    "font": "aw_grey_16",
-    "align": "left",
-    "valign": "middle"
-   },
-   "pad": [
-    0,
-    0,
-    0,
-    0
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "intro_2",
-   "rect": [
-    24,
-    124,
-    592,
-    20
-   ],
-   "layer": 0,
-   "text": {
-    "text": "rewritten in C++ from the decompiled v1.20 ROM; its two custom chips are",
-    "font": "aw_grey_16",
-    "align": "left",
-    "valign": "middle"
-   },
-   "pad": [
-    0,
-    0,
-    0,
-    0
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "intro_3",
-   "rect": [
-    24,
-    144,
-    592,
-    20
-   ],
-   "layer": 0,
-   "text": {
-    "text": "modelled and calibrated against recordings of a real unit.",
-    "font": "aw_grey_16",
+    "text": "A millennial FM monster, reborn.",
+    "font": "aw_grey_24",
     "align": "left",
     "valign": "middle"
    },
@@ -297,7 +251,7 @@
    "name": "credits",
    "rect": [
     24,
-    184,
+    160,
     300,
     32
    ],
@@ -320,7 +274,7 @@
    "name": "credit_1_name",
    "rect": [
     24,
-    222,
+    198,
     592,
     20
    ],
@@ -343,7 +297,7 @@
    "name": "credit_1_role",
    "rect": [
     24,
-    242,
+    218,
     592,
     20
    ],
@@ -366,7 +320,7 @@
    "name": "credit_2_name",
    "rect": [
     24,
-    272,
+    250,
     592,
     20
    ],
@@ -389,7 +343,7 @@
    "name": "credit_2_role",
    "rect": [
     24,
-    292,
+    270,
     592,
     20
    ],
@@ -409,30 +363,7 @@
   },
   {
    "type": "plate",
-   "name": "fine_1",
-   "rect": [
-    24,
-    332,
-    592,
-    16
-   ],
-   "layer": 0,
-   "text": {
-    "text": "The factory banks are the FS1R's own, read from its ROM. Built with Hollow. Free software, GPLv3.",
-    "font": "aw_grey_13",
-    "align": "left",
-    "valign": "middle"
-   },
-   "pad": [
-    0,
-    0,
-    0,
-    0
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "fine_2",
+   "name": "trademark",
    "rect": [
     24,
     350,
