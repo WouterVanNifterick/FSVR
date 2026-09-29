@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -39,7 +40,7 @@ struct Ui {   // one instance and its editor, run a block and a GUI tick at a ti
         }
         gui.pixels();   // paints what changed, so a paint that breaks shows up here
     }
-    template <class F> bool until(F done, int ms = 5000) {
+    template <class F> bool until(F done, int ms = 10000) {
         for (auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms); std::chrono::steady_clock::now() < end;) {
             run();
             if (done()) return true;
@@ -47,7 +48,17 @@ struct Ui {   // one instance and its editor, run a block and a GUI tick at a ti
         }
         return false;
     }
-    void settle() { until([] { return false; }, 120); }   // the worker's ~30 Hz tick reaches what was just done
+    void settle() { until([] { return false; }, 200); }   // the worker's ~30 Hz tick reaches what was just done
+    // Opens the Save modal from a menu or button and waits for the processor to fill it in: the name and bank
+    // name cleared first, so a value left from an earlier save never passes for the new one.
+    bool openSave(const std::function<void()>& open) {
+        st->setData("save.name", "");
+        st->setData("save.bank_name", "");
+        open();
+        const bool ok = until([&] { return gui.modal() == "dialog_save" && !data("save.name").empty() && !data("save.bank_name").empty(); });
+        settle();
+        return ok;
+    }
 
     int at(const std::string& id) const { return st->indexOf(id); }
     double get(const std::string& id) const { return at(id) >= 0 ? st->get((size_t)at(id)) : -1e9; }
@@ -138,7 +149,7 @@ struct Ui {   // one instance and its editor, run a block and a GUI tick at a ti
 static const char* const kModal = "hollow_modal/";
 
 int main() {
-    const fs::path tmp = fs::temp_directory_path() / "fsvr_check_gui";
+    const fs::path tmp = fs::temp_directory_path() / ("fsvr_check_gui_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));   // runs side by side
     std::error_code ec;
     fs::remove_all(tmp, ec);
     fs::create_directories(tmp / "Library");
@@ -240,16 +251,14 @@ int main() {
         u.click(M + "close_x");
         CHECK(u.gui.modal().empty(), "the close X did not close the close prompt");
         u.gui.closeRequested();
-        u.click(M + "save");   // Save... goes on to Save Current Preset
-        CHECK(u.until([&] { return u.gui.modal() == "dialog_save" && u.data("save.name") == "Zap !"; }), "Save... did not open the Save modal on the name (\"%s\", \"%s\")",
-              u.gui.modal().c_str(), u.data("save.name").c_str());
+        CHECK(u.openSave([&] { u.click(M + "save"); }) && u.data("save.name") == "Zap !", "Save... did not open the Save modal on the name (\"%s\", \"%s\")",
+              u.gui.modal().c_str(), u.data("save.name").c_str());   // Save... goes on to Save Current Preset
         u.click(M + "cancel");
 
         // ---- Save Current Preset into a new bank, typed into the modal -------------------------------
         u.click("sidebar/nav_library");
-        u.click("topbar/save_menu");
-        u.choose("Save Current Preset...");
-        CHECK(u.until([&] { return u.gui.modal() == "dialog_save" && u.data("save.name") == "Zap !"; }), "Save Current Preset did not open the Save modal");
+        CHECK(u.openSave([&] { u.click("topbar/save_menu"); u.choose("Save Current Preset..."); }) && u.data("save.name") == "Zap !",
+              "Save Current Preset did not open the Save modal (\"%s\")", u.data("save.name").c_str());
         u.row(M + "banks", 0);
         CHECK(u.get("save.bank") == 0 && u.shows(M + "bank_name"), "<New Bank> did not ask for the new bank's name");
         u.click(M + "name");
@@ -304,16 +313,20 @@ int main() {
         u.menuIs({"Performance: Zap Edit", "-", "Rename", "Delete", "-", "Edit Attributes", "Copy Attributes", "Paste Attributes"}, "a user preset's");
         u.choose("Rename");
         CHECK(u.until([&] { return u.gui.modal() == "dialog_rename" && u.data("item.new_name") == "Zap Edit"; }), "Rename opened on \"%s\"", u.data("item.new_name").c_str());
+        u.settle();
         u.click(M + "name");
         u.type("Zap Two");
         u.click(M + "rename");
         CHECK(u.until([&] { return u.data("browse.perf.list").find("\tZap Two\t") != std::string::npos; }), "Rename did not rename (%s)", u.data("fsvr.message").c_str());
         u.row("pages/library/perfs_bank", 0, true);
         u.choose("Paste Attributes");
-        CHECK(u.until([&] { return u.data("browse.perf.list").find("Zap Two\tVocal") != std::string::npos; }), "Paste Attributes did not paste Shaman's Vocal");
+        CHECK(u.until([&] { return u.data("browse.perf.list").find("Zap Two\tVocal") != std::string::npos && u.get("item.category") == 19; }),
+              "Paste Attributes did not paste Shaman's Vocal");
+        u.settle();
         u.row("pages/library/perfs_bank", 0, true);
         u.choose("Edit Attributes");
         CHECK(u.until([&] { return u.gui.modal() == "dialog_attributes" && u.data("item.name") == "Zap Two"; }) && u.shows(M + "ok"), "a user preset's attributes are not writable");
+        u.settle();
         u.click(M + "category");
         u.choose("Bass");
         u.click(M + "ok");
@@ -328,10 +341,10 @@ int main() {
         CHECK(u.until([&] { return u.lineOf("bank.list", "GUI Bank") == 0; }), "deleting the bank's only preset left the bank");
 
         // ---- a bank's right-click menu: Rename, Delete -----------------------------------------------
-        u.click("topbar/save_menu");
-        u.choose("Save Current Preset...");
-        u.until([&] { return u.data("save.bank_name") == "My Presets"; });
-        u.click(M + "save");   // the offered new bank, "My Presets"
+        u.openSave([&] { u.click("topbar/save_menu"); u.choose("Save Current Preset..."); });
+        CHECK(u.data("save.bank_name") == "My Presets", "the new bank offered is \"%s\"", u.data("save.bank_name").c_str());
+        u.row(M + "banks", 0);
+        u.click(M + "save");   // into the offered new bank, "My Presets"
         CHECK(u.until([&] { return u.lineOf("bank.list", "My Presets") > 0; }), "Save did not make \"My Presets\"");
         u.row("pages/library/banks", 0, true);
         u.menuIs({"Bank: Yamaha FS1R", "-", "Rename", "Delete"}, "the factory bank's");
@@ -341,8 +354,9 @@ int main() {
         u.row("pages/library/banks", u.lineOf("bank.list", "My Presets"), true);
         u.menuIs({"Bank: My Presets", "-", "Rename", "Delete"}, "a user bank's");
         u.choose("Rename");
-        CHECK(u.until([&] { return u.gui.modal() == "dialog_bank_rename" && u.data("bank.name") == "My Presets"; }), "Rename Bank has no name (\"%s\")",
-              u.data("bank.name").c_str());
+        CHECK(u.until([&] { return u.gui.modal() == "dialog_bank_rename" && u.data("bank.name") == "My Presets" && u.data("bank.new_name") == "My Presets"; }),
+              "Rename Bank has no name (\"%s\")", u.data("bank.name").c_str());
+        u.settle();
         u.click(M + "name");
         u.type("Renamed Bank");
         u.click(M + "rename");
