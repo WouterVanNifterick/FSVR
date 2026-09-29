@@ -51,6 +51,11 @@ VERSIONS = [
          blocks=SH704X_COMMON,
          vectors=[0x0],
          proj=ROOT / "PLG150DX_GHIDRA_PROJ", analysis=ROOT / "PLG150DX_GHIDRA_ANALYSIS"),
+    dict(key="plg100sg", proj_name="PLG100SG", program="plg100sg",
+         base=ROMS / "PLG100-SG.BIN",                     # SH7014, ROM-less: the M27C802 is CS0 at 0, byte pairs swapped to CPU order
+         blocks=SH704X_COMMON,
+         vectors=[0x0],
+         proj=ROOT / "PLG100SG_GHIDRA_PROJ", analysis=ROOT / "PLG100SG_GHIDRA_ANALYSIS"),
     dict(key="fs1r_v11", proj_name="FS1R_V11", program="fs1r_v11",
          base=ROMS / "fs1r_sh7044_flash_1.20_256k.bin",   # no v1.1 flash dump exists; the loader part is version independent
          blocks=[("eprom", 0x00200000, 0x200000, ROMS / "fs1r_v11_eprom_cpuview.bin", False)] + SH704X_COMMON,
@@ -284,7 +289,7 @@ def process(v, redecomp=False):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--only", default="", help="comma list of keys: fs1r,plg150dx,fs1r_v11")
+    ap.add_argument("--only", default="", help="comma list of keys: fs1r,plg150dx,plg100sg,fs1r_v11")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--redecomp", action="store_true", help="throw away decomp.db and decompile again")
     args = ap.parse_args()
