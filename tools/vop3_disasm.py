@@ -45,6 +45,18 @@ def fields(r10, r9, r8, r7, r6):
     )
 
 
+def encode(cls=2, ra=0, rb=0, wdst=0, op=0, sel=0, route=0, rd=None, path=0, mem=0, daddr=0, mmode=0,
+           r9x=0, r7x=0, r6x=0, r10x=0):
+    """The inverse of fields(): build (r10, r9, r8, r7, r6) for a probe step. rd=None leaves the read disabled;
+    the *x arguments OR raw bits in for fields that have no name yet."""
+    r10 = mem | r10x
+    r9 = path << 8 | ra | r9x
+    r8 = daddr << 7 | mmode
+    r7 = route << 12 | sel << 10 | op << 6 | (0x10 | rd if rd is not None else 0) | r7x
+    r6 = cls << 14 | rb << 7 | wdst | r6x
+    return r10, r9, r8, r7, r6
+
+
 def reg(n, voices=0):
     """Register name. With --voices V, r[1 + V*k + v] is input/state k of voice v (AN1x: V=5; the FS1R filter
     is V=6 per channel with r[6c] the class-1 control word, so its stride starts at 0, not 1)."""
@@ -154,6 +166,9 @@ def demo():
     f = fields(2, 0x0017, 0x0068, 0x4112, 0x800A)
     assert f["mem"] == 2 and f["mmode"] == 0x68 and f["daddr"] == 0 and f["f7e"] == 0x12
     assert disasm(0, (0, 0, 0, 0, 0)) == "000  nop"
+    assert encode(ra=0x62, rb=0x61, wdst=0x3e, op=2, route=1, path=1, r9x=0x1000, r7x=0x8200) == (0, 0x1162, 0, 0x9280, 0xb0be)
+    assert encode(ra=0x62, rb=0x62, wdst=0x3d, op=2, rd=1, path=1, r9x=0x1000, r7x=0x8200) == (0, 0x1162, 0, 0x8291, 0xb13d)
+    assert encode(cls=1, ra=0x61, r7x=0x8000) == (0, 0x0061, 0, 0x8000, 0x4000)
     print("ok")
 
 
