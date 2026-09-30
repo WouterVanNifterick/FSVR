@@ -40,7 +40,8 @@ def fields(r10, r9, r8, r7, r6):
         f7e=r7 & 0x3f,
         f6a=r6 >> 14,           # CHIP r6[15:14] class: 1 = constant load (rest of r6 unused), 2 = MAC, 0 = no output, 3 = runaway
         rb=(r6 >> 7) & 0x7f,    # CHIP r6[13:7]: source register B on a MAC step (0x61 = where the cutoff constant is loaded)
-        f6c=r6 & 0x3f,          # CHIP r6[5:0]: exact-match (55/63 other values run away): the result's write address; r7[5:0] reads it back
+        f6c=r6 & 0x3f,          # CHIP r6[5:0]: exact-match (55/63 other values run away): the result's write address = r[0x40 | f6c]
+                                # FW: 97% of rA/rB reads >= 0x40 name a slot a class-2 step writes; r[40] is read and never written (zero register)
     )
 
 
@@ -63,9 +64,9 @@ def disasm(step, words, coef=None, byt=None, labels=None):
         if f["rb"]:
             parts.append("rB=%02x" % f["rb"])
         if f["f6c"]:
-            parts.append("-> w[%02x]" % f["f6c"])
+            parts.append("-> r[%02x]" % (0x40 | f["f6c"]))   # the write slot is the upper half of the register file
     if f["rd_en"]:
-        parts.append("rd w[%x]" % f["rd"])
+        parts.append("rd r[%02x]" % (0x40 | f["rd"]))       # replaces k as the operand (k is dead on every rd-en step, FW)
     op = "path=%x.%x%s%s route=%d op=%d%s r7=%d.%02x class=%d" % (f["op9hi"], f["op9"], "+" if f["r9b7"] else "", "^" if f["r9b15"] else "",
                                                                  f["f7b"], f["op7"], "s" if f["r7sel"] else "", f["f7a"], f["f7c"], f["f6a"])
     k = ""
@@ -135,6 +136,7 @@ def demo():
     assert f["op9"] == 1 and f["ra"] == 0x62 and f["rb"] == 0x61 and f["f6c"] == 0x3e and f["f6a"] == 2
     assert f["op7"] == 2 and f["r7sel"] == 0 and f["rd_en"] == 0
     assert fields(0, 0, 0, 0x8291, 0)["rd_en"] == 1 and fields(0, 0, 0, 0x8291, 0)["rd"] == 1
+    assert "-> r[7e]" in disasm(0x98, (0, 0x1162, 0, 0x9280, 0xb0be)) and "rd r[41]" in disasm(0x9c, (0, 0x1162, 0, 0x8291, 0xb13d))
     # PLG150-AN step 0x11: r10=2 marks a memory access, r8 low bits carry the mode
     f = fields(2, 0x0017, 0x0068, 0x4112, 0x800A)
     assert f["mem"] == 2 and f["mmode"] == 0x68 and f["daddr"] == 0 and f["f7e"] == 0x12

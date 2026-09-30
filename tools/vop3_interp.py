@@ -5,15 +5,19 @@
     python tools/vop3_interp.py                                     # self-check against the chip data
 
 What is modelled (CHIP-measured, see the ISA doc, section 2-3):
-  class 1   r[rA] = k                       (k signed 1.15; the constant is read only here)
-  class 2   a = r[rA]; b = r[rB]; if rd-en: c = w[rsrc]
+  class 1   r[rA] = k                       (k signed 1.15)
+  class 2   a = r[rA]; b = r[rB]; c = r[0x40 | rsrc] if rd-en else k
+            (FW: the firmware patches k into class-2 steps on all three machines, never into an rd-en step;
+             rd-en swaps the read in for the constant, the MEG's m1 = const | t)
             op 2: y = a * b                 (multiply-class: the cutoff MAC)
             op 1: y = a if sel else CONST   (move-class: the output stage puts a on its route)
             op 5: y = a                     (pass-through: on the output stage, the unfiltered input)
-            other: y = OP[op](a, b, c)      (unmeasured; default 0)
+            other: y = OP[op](a, b, c)      (MEG mapping, section 7 of the ISA doc)
             if rd-en: y = y - c             (the read flattens the response on the output stage)
-            w[wdst] = y; route 0 on an op-1 step adds y to the output bus
+            r[0x40 | wdst] = y; route 0 on an op-1 step adds y to the output bus
   class 0/3 nothing
+One register file of 128: class-1 loads name any of it, class-2 results land in the upper half (FW: 97% of
+reads >= 0x40 name a written slot, r[40] is the never-written zero register).
 
 Register banking (INFERRED, not measured directly): the chip closes filter channel 4 when its cutoff
 load 08e is cleared even though the same register r[61] is loaded by 012 (channel 0), 097 (channel 7),
@@ -58,8 +62,7 @@ class Interp:
     def __init__(self, steps, coef, first=0, banks=16, bank_of=fs1r_bank):
         self.steps, self.coef, self.first = steps, coef, first
         self.bank_of = bank_of
-        self.rb = [[0.0] * 128 for _ in range(banks)]     # register file, one bank per channel
-        self.w = [0.0] * 64
+        self.rb = [[0.0] * 128 for _ in range(banks)]     # register file, one bank per channel; w[n] = r[0x40 | n]
         self.bus = 0.0
         self.trace = None
         # op semantics from the MEG cross-check (docs/vop3_isa.md section 7); the FS1R exposes no
@@ -83,7 +86,8 @@ class Interp:
         if f["f6a"] != 2:
             return
         a, b = r[f["ra"]], r[f["rb"]]
-        c = self.w[f["rd"]] if f["rd_en"] else 0.0
+        k = s16(self.coef[self.first + i]) if self.coef else 0.0
+        c = r[0x40 | f["rd"]] if f["rd_en"] else k     # exclusive on the FS1R (0/240 rd-en steps carry k); the AN's few k+rd steps are not modelled
         op = f["op7"]
         if op == 2 or op == 5:
             y = a * b                                # fresh product (MEG p = c*r); op 5 discards the accumulator
@@ -95,7 +99,7 @@ class Interp:
             y = y - c
         y = max(-1.0, min(SAT, y))
         if f["f6c"]:
-            self.w[f["f6c"]] = y
+            r[0x40 | f["f6c"]] = y
         if op == 1 and f["f7b"] == 0:
             self.bus += y
         if self.trace is not None:
