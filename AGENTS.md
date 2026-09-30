@@ -52,7 +52,12 @@ The release job reads that body off the tag *object* through the API, not from a
 
 **The release page is the Download table, a rule, then the tag's notes.** The release job writes the table of the three installers (Windows, macOS, Linux, each linked on the tag, with how to run it) and the paragraph on per-format zips above the tag's message, as v0.5.0's page first had them by hand; so the tag holds only the notes. The notes follow v0.5.0's and v0.5.1's shape: a first line `FSVR vX.Y.Z: <what the round is>.`, a paragraph naming whose reports it answers, then one paragraph per change led by its point in bold, with the measured numbers, and a closing **Checks.** paragraph saying what passed and what was not run.
 
-**rgwan is credited on every release.** The commit a release tag points at (the version bump, or the last commit before the tag) and the tag's message both end with `Co-authored-by: rgwan <h@iloli.bid>`. It is the only co-author line this repo carries: never one for Claude or any other tool, on any commit. Put it in the commit before pushing, since adding it afterwards means rewriting a pushed commit.
+**Both collaborators are credited on every release.** The commit a release tag points at (the version bump, or the last commit before the tag) ends with a `Co-authored-by` line for whichever of the two is not its author:
+
+- authored by jameshansen: `Co-authored-by: rgwan <h@iloli.bid>`
+- authored by rgwan: `Co-authored-by: jameshansen <1550976+jameshansen@users.noreply.github.com>`
+
+The line goes in that commit only, never in the tag's message or the release notes, which the release page shows as they are. It is the only co-author line this repo carries: never one for Claude or any other tool, on any commit. Put it in the commit before pushing, since adding it afterwards means rewriting a pushed commit.
 
 **One release per request.** A release is cut when asked for, then the next one waits for the next ask: more changes pushed later in the same conversation go to `main` and stay there until the user says to release them. Do not chain point releases on your own because the previous one has already built.
 
@@ -115,4 +120,4 @@ The EPROM image itself is not in this repo either. It is rgwan's dump, kept outs
 - `TICK_HZ` is 192.3 Hz. Only `render`, `render_chan` and `refresh_ctl` run per sample; everything `tick()` reaches is control rate
 - Three tables are filled once by `init_tables()` and have external linkage on purpose. Making them file-static again would give every translation unit its own zeroed copy and the engine would render silence
 - The plug-in's processor runs on two threads: the audio thread sends param changes and MIDI and renders, a worker loads patches and files and reads the engine back into the params. `ctl` guards what both touch, and the audio thread only ever try-locks it. `saving()` finishes whatever the worker has not reached before the host saves
-- Commits here never carry a `Co-Authored-By` line for Claude or any tool; the one co-author line is rgwan's, on release commits and tags (Releases, above)
+- Commits here never carry a `Co-Authored-By` line for Claude or any tool; the one co-author line is the other collaborator's, on the commit a release tag points at (Releases, above)
