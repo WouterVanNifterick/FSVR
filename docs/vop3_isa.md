@@ -62,3 +62,39 @@ these bits without a ground truth. Three things would settle it, none available 
    listing says what each of the 45 memory slots and 230 steps must compute.
 
 Until one of those lands, the disassembler prints fields, not operations.
+
+## AN1x (an1x_v104.bin, H8/3002) — third driver, and the first with parameter labels
+
+`tools/extract_an1x_vop3.py` → `docs/vop3_an1x/{voice,boot}.bin`; listing in `docs/vop3_disasm/an1x_voice.txt`
+(annotated). Uploader `FUN_00056028` uses the identical register protocol (reset via reg 1, mode 5 = 0x1004,
+regs 0xC/0xB/10..6 per step, 0x1A/0x1C delay slots when `r10&7`). Image row = 6 words: coef, `r10 | byte<<4`,
+r9, r8, r7, r6 — so **reg 0xC (the "byte table") is packed into the r10 word by Yamaha's own tooling**, i.e.
+it is part of the instruction, not a side table.
+
+The AN1x scene-parameter table at `0xCFCEC` (0x22 bytes/entry, index = scene sysex address, see
+`docs/an1x_param_map.md`) names, for every knob, the VOP3 step(s) whose constant it rewrites (`FUN_000564a0`
+writes reg 0xB at a step; `FUN_000564f4`/`FUN_00056562` write reg 0xB + reg 0xC). That gives:
+
+| parameter | steps (5 voices) | step shape | what the constant is |
+|---|---|---|---|
+| VCF Cutoff | 165 16d 174 17c 185 | `r6t=1 op9=40 r7=1.2.00.0`, k | log-frequency, table `0xCADB0`: 85.3 units/step = 1024/octave |
+| VCO1/2 Pitch+Fine | 004/009, 0e3/0e7 | 009: `op9=01 rA=4f r7=1.0.02.0` | 341/semitone (4096/octave) + fine 3/cent, + key/PB term `((note&0x7f)+(oct&7)*0x80-0x200)` |
+| Mixer VCO1/VCO2/Ring/Noise | 148.. 149.. 147.. 14a.. (stride 5) | `r6t=2 op9=00 r7=0.0.00.0 rB=..`, byte=voice+3 | `level*0x67` (linear gain, 0x7f→0x3339) |
+| VCO Edge, PWM depth/src, Sync pitch/depth/src, FM src | see map | `r6t=2` steps in the oscillator blocks | — |
+| VCA Feedback | 146 | `op9=01 rB=5c r7=1.2.01.1` | — |
+| VCF Mod / VCA Mod depth | 1f2/1f1, 1ee/1ed | — | — |
+
+So: the step following every cutoff constant is `op9=60 r7=0.3.00.1 r6t=1` — a log→linear conversion (the EX5
+MEG AN program does the same with an exp table in reverb RAM). The FS1R filter has the same *semantic* (per-channel
+cutoff/reso/gain constants patched by the firmware into `r6t=1` steps 0x12/0x15/0x18, 0x8e/0x91/0x94, …) with a
+different opcode word (`r7=8000`), consistent with the FS1R computing its coefficients on the H8S and the AN
+computing them on the DSP.
+
+**Reg 0xC ("byte")**: on the AN1x it is 3..7 on exactly the 5×23 per-voice parameter-patchable steps and 1 on
+the global ones (VCA feedback, pitch mod), 0 elsewhere; on the FS1R filter it is 0/1 per step. It is a per-step
+tag the firmware uses to select which steps a patch applies to — a write-group id, not data.
+
+Still open (the hard block for an interpreter): the mapping of `r7[15:6]`, `r9[15:7]` and `r8[6:0]` to the
+multiplier/accumulator/table operations. Next lever: the AN1x per-voice step lists give 23 labelled steps per
+voice × 5 voices; aligning those labelled steps against the EX5 MEG AN program (`docs/ex5_meg.md`, whose
+operations are known) is now a labelled matching problem rather than a blind one.

@@ -6,6 +6,7 @@ See docs/vop3_isa.md for the evidence behind each field.
     python tools/vop3_disasm.py docs/vop3/program_0.bin --coef docs/vop3/coefficients_0.bin --byte docs/vop3/byte_table.bin
     python tools/vop3_disasm.py docs/vop3_an/mode0.bin --an --first 4
     python tools/vop3_disasm.py docs/vop3_2/base.bin --byte docs/vop3_2/base_bytes.bin
+    python tools/vop3_disasm.py docs/vop3_an1x/voice.bin --an --labels docs/an1x_param_map.md
 
 Step formats:
   5-word (FS1R uploads): r10 r9 r8 r7 r6, big-endian, 10 bytes per step
@@ -31,11 +32,12 @@ def fields(r10, r9, r8, r7, r6):
     )
 
 
-def disasm(step, words, coef=None, byt=None):
+def disasm(step, words, coef=None, byt=None, labels=None):
     r10, r9, r8, r7, r6 = words
     f = fields(r10, r9, r8, r7, r6)
+    lab = ("   ; " + labels[step]) if labels and step in labels else ""
     if not any(words):
-        return "%03x  nop" % step
+        return "%03x  nop%s" % (step, lab)
     parts = []
     if f["mem"]:
         parts.append("mem%d[slot %02x] mode %02x" % (f["mem"], step >> 2, f["mmode"]))
@@ -55,7 +57,25 @@ def disasm(step, words, coef=None, byt=None):
         k += " k=%04x(%+.4f)" % (coef[step], struct.unpack(">h", struct.pack(">H", coef[step]))[0] / 32768.0)
     if byt is not None and byt[step]:
         k += " b=%d" % byt[step]
-    return "%03x  %s  %s%s" % (step, op, " ".join(parts), k)
+    return "%03x  %s  %s%s%s" % (step, op, " ".join(parts), k, lab)
+
+
+def load_labels(path):
+    """docs/an1x_param_map.md lines: - `33` VCF Cutoff  ... steps=[165 16d ...] | step=004/009"""
+    import re
+    labels = {}
+    for line in open(path, encoding="utf-8"):
+        m = re.match(r"- `(\w+)` (.+?)\s+handler=.*?(?:steps=\[([0-9a-f ]+)\]|step=([0-9a-f]+)/([0-9a-f]+))", line)
+        if not m:
+            continue
+        name = m.group(2).strip()
+        steps = m.group(3).split() if m.group(3) else [m.group(4), m.group(5)]
+        for v, st in enumerate(steps):
+            st = int(st, 16)
+            if st:
+                tag = "%s v%d" % (name, v) if m.group(3) else name
+                labels[st] = (labels[st] + ", " + tag) if st in labels else tag
+    return labels
 
 
 def load(path, an=False):
@@ -73,7 +93,9 @@ def main():
     ap.add_argument("--coef", help="512 x u16 per-step constants (reg 0xB)")
     ap.add_argument("--byte", help="per-step byte table (reg 0xC)")
     ap.add_argument("--first", type=lambda x: int(x, 0), default=0, help="program address of the first step")
+    ap.add_argument("--labels", help="parameter->step map (docs/an1x_param_map.md) to annotate steps")
     a = ap.parse_args()
+    labels = load_labels(a.labels) if a.labels else None
     steps, coef, byt = load(a.program, a.an)
     if a.coef:
         c = open(a.coef, "rb").read(); coef = list(struct.unpack(">%dH" % (len(c) // 2), c))
@@ -84,7 +106,7 @@ def main():
     if byt is not None and len(byt) < a.first + len(steps):
         byt = [0] * a.first + list(byt)
     for i, w in enumerate(steps):
-        print(disasm(a.first + i, w, coef, byt))
+        print(disasm(a.first + i, w, coef, byt, labels))
 
 
 def demo():

@@ -65,6 +65,14 @@ VERSIONS = [
                  ("io", 0x00FFFF00, 0x100, None, True)],      # on-chip registers; the pspec already defines on-chip RAM
          vectors=[0x0], nvec=64,
          proj=ROOT / "PLG150AN_GHIDRA_PROJ", analysis=ROOT / "PLG150AN_GHIDRA_ANALYSIS"),
+    dict(key="an1x", proj_name="AN1X", program="an1x", lang=LANG_H8,
+         base=ROMS / "an1x_v104_cpuview.bin",              # AN1x v1.04, HD6413002 at 16 MHz, byte pairs swapped from an1x_v104.bin
+         blocks=[("ram", 0x00200000, 0x40000, None, False),   # 2x HM628128 = 256 KB
+                 ("cs2", 0x00400000, 0x200000, None, False),  # VOP3 (main) and DMS board VOP3
+                 ("cs3", 0x00600000, 0x200000, None, False),
+                 ("io", 0x00FFFF00, 0x100, None, True)],
+         vectors=[0x0], nvec=64,
+         proj=ROOT / "AN1X_GHIDRA_PROJ", analysis=ROOT / "AN1X_GHIDRA_ANALYSIS"),
     dict(key="fs1r_v11", proj_name="FS1R_V11", program="fs1r_v11",
          base=ROMS / "fs1r_sh7044_flash_1.20_256k.bin",   # no v1.1 flash dump exists; the loader part is version independent
          blocks=[("eprom", 0x00200000, 0x200000, ROMS / "fs1r_v11_eprom_cpuview.bin", False)] + SH704X_COMMON,
@@ -298,7 +306,7 @@ def process(v, redecomp=False):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--only", default="", help="comma list of keys: fs1r,plg150dx,plg100sg,plg150an,fs1r_v11")
+    ap.add_argument("--only", default="", help="comma list of keys: fs1r,plg150dx,plg100sg,plg150an,an1x,fs1r_v11")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--redecomp", action="store_true", help="throw away decomp.db and decompile again")
     args = ap.parse_args()
