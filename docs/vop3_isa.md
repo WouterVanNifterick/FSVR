@@ -92,6 +92,15 @@ r10 [15:3] ?        [2:0] mem
 | 6 | closed | passes rA; 100% carry a read | accumulate-forward | 0 |
 | 7 | closed | passes rA | shifted mul-acc | 0 (op 7 starts a chain; the running value is not its source) |
 
+**Session 12 (VOP3-2, `captures/2026-10-01-0414-s12/README.md`) closes:** the output word is 18 bits
+(LSB 2^-17); the pipeline lag is 2 samples; `sel` negates the running-value term (op 0 `-s + g*x`, op 4
+`-s`, ops 1..3 unchanged); `route` scales the step's output 3 : 2 : 1 : 0 = 1 : 1/4 : 1/8 : 1/16; op 7
+reads the input at any step (session 11's zero at `0d3` was on route 3); `path`, `r8[6:0]`, `r10` and the
+DRAM offset registers are inert on a step of a program without a delay line. **Still open:** what `r[rB]`
+holds (rB set drives the output to full scale; a class-1 load does not reach it, nor does rA alone reach
+op 1's operand), the internal accumulator width, and why `rd-en` leaves `k` as the gain on VOP3-2's op-1
+`0d3` while VOP3-1's `0f8` ignores its `k`.
+
 **On a step with no feedback the arithmetic is readable** (last column; VOP3-2's DRAM writer `0d3`, every
 fit a pure gain of the same signal, residual equal to the reference's): the constant only multiplies, op 0
 adds the product to the running value, ops 1..3 replace it with the product, op 4 passes it, op 5 shifts it

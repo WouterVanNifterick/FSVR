@@ -8,11 +8,13 @@ What is modelled (CHIP-measured, see the ISA doc, section 2-3; VOP3-1 and VOP3-2
   class 1   r[rA] = k                       (k signed 1.15)
   class 2   g = w[rsrc] if rd-en else k     (the gain; FS1R.unlock session 11: the constant only ever multiplies)
             s = the running value (the previous class-2 step's result)
-            x = r[rA] * r[rB] over the non-zero operand fields, s when both are 0
-            op 0: y = s + g*x   op 1..3: y = g*x   op 4: y = s   op 5: y = sign of s (-2^-17 or 0)
-            op 6: y = 0         op 7: y = g * in[step]        (session 11 `held`, VOP3-2 0d3; `dc dram`:
-            a zero input gives exact zero for every op and k. in[step] is the chip's input port at that step:
-            op 7 heads VOP3-2's chains (0d0/0d4) and gives exact zero mid-chain at 0d3)
+            x = s when rB = 0 (session 12: rA alone is ignored by op 1), r[rA] * r[rB] when both are set
+            (VOP3-1's cutoff MAC), r[rB] when only rB is
+            s' = -s if sel else s                     (session 12: sel negates the running-value term)
+            op 0: y = s' + g*x  op 1..3: y = g*x  op 4: y = s'  op 5: y = sign of s (-2^-17 or 0)
+            op 6: y = 0         op 7: y = g * input, 0 on route 3   (session 11 `held`, 12 `op7pos`: the
+            input port reads at any step; `dc dram`: a zero input gives exact zero for every op and k)
+            y clamps at 1.15 (not measured: session 12's `sat` shows only write transients)
             w[wdst] = y; route 0 on an op-1 step adds y to the output bus
   class 0/3 nothing
 Two files: r[0..7f] (7-bit, class-1 loads and the chip's per-voice I/O window, stride 6 per FS1R channel
@@ -26,10 +28,13 @@ channel and the bank must come from the step's position, since the loads differ 
 `Interp.bank_of(step)` returns that bank; the default is the FS1R filter's layout (sixteen channels,
 four groups of four interleaved, ISA doc section 1). Replace it for another chip.
 
-INFERRED, not yet split on the chip: `x` with non-zero operands (session 11 measured only rA = rB = 0,
-where x is s; session 8's cutoff MAC follows rA x rB), and which steps have an input port (`inp` is
-per step; only 0d0/0d4 are known to). Not modelled: accumulator width and
-saturation beyond 1.15, `path`, delay memory (r10/r8), `sel`. `Interp.ops` maps op -> f(s, g, x).
+OPEN (docs/vop3_isa.md section 3): what r[rB] holds on VOP3-2 (rB set drives the output to full scale
+even after a class-1 load of 0.5, so the load does not land there); why rA changes op 0 (gain 1.74, not
+2) but not op 1; rd-en: inert on VOP3-2's op-1 0d3 (gain stays k for rsrc 0..f), yet VOP3-1's 0f8 ignores
+its k (session 9); the model keeps the VOP3-1 reading. Measured inert on VOP3-2, not modelled: path
+r9[11:8], r8[6:0], r10, 0e9's daddr, the DRAM offset registers (image 0 has no delay line). Not modelled: `route`'s scale on
+the value a step sends out (session 12, relative: 3 : 2 : 1 : 0 = 1 : 1/4 : 1/8 : 1/16), the output's
+18-bit word (LSB 2^-17), delay memory. `Interp.ops` maps op -> f(s', g, x).
 
 The self-check reproduces session 11's `held` table on VOP3-2's 0d0..0d3 chain, take 2's silence, and
 session 8's cutoff MAC and per-channel step ownership.
@@ -66,12 +71,12 @@ class Interp:
         self.w = [0.0] * 64
         self.bus = 0.0
         self.acc = 0.0          # s, the running value
-        self.inp = {}           # step -> the chip's audio input at that step, op 7's source
+        self.inp = 0.0          # the chip's audio input, op 7's source
         self.trace = None
         self.ops = {0: lambda s, g, x: s + g * x, 1: lambda s, g, x: g * x, 2: lambda s, g, x: g * x,
                     3: lambda s, g, x: g * x, 4: lambda s, g, x: s,
                     5: lambda s, g, x: -2.0 ** -17 if s < 0 else 0.0,
-                    6: lambda s, g, x: 0.0, 7: lambda s, g, x: g * self.inp.get(self.step, 0.0)}
+                    6: lambda s, g, x: 0.0, 7: lambda s, g, x: 0.0 if self.route == 3 else g * self.inp}
 
     @property
     def r(self):
@@ -87,11 +92,11 @@ class Interp:
             return
         k = s16(self.coef[self.first + i]) if self.coef else 0.0
         g = self.w[f["rd"]] if f["rd_en"] else k       # exclusive on the FS1R (0/240 rd-en steps carry k); the AN's few k+rd steps are not modelled
-        regs = [r[n] for n in (f["ra"], f["rb"]) if n]
-        x = regs[0] * regs[1] if len(regs) == 2 else regs[0] if regs else self.acc
+        x = self.acc if not f["rb"] else r[f["ra"]] * r[f["rb"]] if f["ra"] else r[f["rb"]]
         op = f["op7"]
-        self.step = self.first + i
-        y = max(-1.0, min(SAT, self.ops[op](self.acc, g, x)))
+        self.route = f["f7b"]              # r7[13:12]
+        s = -self.acc if f["r7sel"] else self.acc
+        y = max(-SAT, min(SAT, self.ops[op](s, g, x)))
         self.acc = y
         if f["f6c"]:
             self.w[f["f6c"]] = y
@@ -100,10 +105,10 @@ class Interp:
         if self.trace is not None:
             self.trace.append((self.first + i, y))
 
-    def sample(self, inputs=None, bank=0, inp=None):
-        """One pass over the program. `inputs` maps register -> value written into `bank` first; `inp` maps
-        step -> the chip's audio input there (op 7)."""
-        self.bus, self.inp = 0.0, inp or {}
+    def sample(self, inputs=None, bank=0, inp=0.0):
+        """One pass over the program. `inputs` maps register -> value written into `bank` first; `inp` is
+        the chip's audio input (op 7)."""
+        self.bus, self.inp = 0.0, inp
         for reg, v in (inputs or {}).items():
             self.rb[bank][reg] = v
         for i in range(len(self.steps)):
@@ -130,11 +135,11 @@ def demo():
     # 0d3 (op 4, writes DRAM d[18b]). `held` swept 0d3's op and k with audio on the input.
     chain = [(0, 0, 0, 0x01C0, 0x8001), (0, 0, 0, 0x0100, 0x8002), (0, 0, 0, 0x0100, 0x8003), (0, 0, 0xC580, 0x7100, 0x8004)]
 
-    def d3(op, k, inp):
-        st = chain[:3] + [chain[3][:3] + ((chain[3][3] & ~0x1C0) | op << 6, chain[3][4])]
+    def d3(op, k, inp, sel=0, ra=0):
+        st = chain[:3] + [(0, ra, chain[3][2], (chain[3][3] & ~0x5C0) | op << 6 | sel << 10, chain[3][4])]
         it = Interp(st, [0x7FFF, 0, 0, k], bank_of=lambda _: 0)
         it.trace = []
-        it.sample(inp={0: inp})
+        it.sample(inp=inp)
         y = dict(it.trace)[3]
         return y / (0x7FFF / 32768.0 * inp) if inp else y          # gain relative to the shipped word (op 4)
 
@@ -145,6 +150,10 @@ def demo():
             assert abs(d3(op, k, 0.5) - want) < 0.006, (op, hex(k), d3(op, k, 0.5), want)
     assert abs(d3(5, 0x4000, -0.5)) < 1e-4                       # op 5: sign only, ~-2^-17
     assert all(d3(op, k, 0.0) == 0.0 for op in range(8) for k in (0x2000, 0x4000, 0xC000, 0x7FFF))  # `dc dram`
+    # session 12: sel on op 0..4 (k 0x4000) and op 1 with rA = r[61] alone
+    for op, want in {0: -0.4993, 1: 0.5003, 2: 0.5018, 3: 0.5018, 4: -0.9991}.items():
+        assert abs(d3(op, 0x4000, 0.5, sel=1) - want) < 0.006, (op, d3(op, 0x4000, 0.5, sel=1), want)
+    assert abs(d3(1, 0x7FFF, 0.5, ra=0x61) - 1.0022) < 0.006
 
     steps, _ = load(Path(__file__).resolve().parents[1] / "docs/vop3/program_0.bin")
     coef = list(struct.unpack(">512H", (Path(__file__).resolve().parents[1] / "docs/vop3/coefficients_0.bin").read_bytes()))
