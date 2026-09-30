@@ -98,3 +98,40 @@ Still open (the hard block for an interpreter): the mapping of `r7[15:6]`, `r9[1
 multiplier/accumulator/table operations. Next lever: the AN1x per-voice step lists give 23 labelled steps per
 voice × 5 voices; aligning those labelled steps against the EX5 MEG AN program (`docs/ex5_meg.md`, whose
 operations are known) is now a labelled matching problem rather than a blind one.
+
+## Measured on the chip (2026-09-30, FS1R.unlock `captures/2026-09-30-9`)
+
+Four takes on rgwan's unit through the firmware's own patch path (`FUN_0000B600` from the CPU shadow,
+which is the only safe write: VOP3 register 0 is an address latch the 192 Hz tick also uses). One
+held note through the filter, one program step rewritten at a time, octave bands against the reference.
+Full tables in that folder's README; what they settle for the instruction word:
+
+**Program layout.** In a 124-step group, the four filter channels are interleaved: channel c owns steps
+`base+3c..base+3c+2` (gain, mode, cutoff constant) and then every step `base+0x0c+c+4n`. Clearing any of
+a channel's 31 steps changes its output; clearing any other step of the group does not.
+
+**Field roles, as measured (the disassembler's `fields()` carries the same notes):**
+
+| field | measured role |
+|---|---|
+| `r6[15:14]` | step class. 1 = constant load: the staged reg-0xB value goes to register `r9[7:0]`, and **no other bit of r6 matters**. 2 = MAC. Flipping the class to 0 silences the step's contribution, to 3 makes the loop run away |
+| `r9[7:0]` on class 1 | destination register (0x61 for channel 0's cutoff). Every bit matters |
+| `r9[6:0]` on class 2 | source register A. Every bit matters: any other register gives a smaller operand and the corner retunes to ~200 Hz |
+| `r9[7]` | a mode bit of its own on the MAC step (partial loss); same signature as `r9[15]` |
+| `r9[11:8]` | the operation. All four bits of `0x1` on the cutoff MAC lose the corner |
+| `r9[12]` | changes the operation (`0x11 -> 0x01`: +14 dB above 640 Hz, the filter opens). `r9[14:13]` inert |
+| `r6[13:7]` on class 2 | source register B (0x61 = where the cutoff constant was loaded). Bits 7-10, 12, 13 all lose the corner; bit 11 is inert on this step |
+| `r6[5:0]` | six-bit mode. Bits 0, 1 lose the corner; 2, 4, 5 run away; 3 retunes; **bit 6 inert** |
+| `r7[15:14]` | **inert on all three probed steps.** Not an opcode bit the chip acts on here |
+| `r7[13:12]` | result destination select. Either bit set on any of the three steps breaks the loop, usually as the gain-step-lost runaway |
+| `r7[10]`, `r7[7]`, `r7[6]` | break every step they were probed on |
+| `r7[4]`, `r7[8]` | break the MAC step; `r7[4]` also the constant load |
+| `r7[3:0]`, `r7[5]`, `r7[9]`, `r7[11]` | inert where probed (all zero on those steps) |
+
+**The cutoff data path, read off the chip:** step `08e` loads the staged cutoff constant into register
+0x61; step `098` is `op 1, mode 0x3e: reg 0x62 * reg 0x61` and the corner follows its result; step `08c`
+(`r7=0140, mode 0x13`) supplies the term without which the loop runs away, i.e. the unity/gain term of
+the ladder. The cutoff byte to corner law itself is `15_filter`'s and is in `docs/filter.md`.
+
+**Next take** (`fs1r_capture_session8.py values`, 2.8 min): every value of `r9[11:8]`, `r7[13:12]` and
+`r6[5:0]` on the MAC step, so the operation and mode fields get a table instead of a bit mask.

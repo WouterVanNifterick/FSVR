@@ -1,72 +1,72 @@
-158  op9=00 r7=0.0.01.1 r6t=2  d[002] rB=05 b=3
-159  op9=00 r7=1.1.00.0 r6t=2  d[046] rA=67 rB=06 b=3
-15a  op9=00 r7=0.0.01.1 r6t=2  rB=68
-15b  op9=00 r7=0.0.00.0 r6t=2  mem2[slot 56] mode 40 rB=67
-15c  op9=00 r7=1.0.04.0 r6t=2  rA=68 rB=67
-15d  op9=00 r7=0.0.01.1 r6t=2  rB=69
-15e  op9=00 r7=0.0.00.0 r6t=2  rB=68
-15f  op9=00 r7=1.1.04.0 r6t=2  mem2[slot 57] mode 40 rA=69 rB=68
-160  op9=00 r7=0.0.03.1 r6t=2  d[11c] c6=37 b=1
-161  op9=00 r7=0.0.00.0 r6t=2  rB=6e b=1
-162  op9=00 r7=0.0.00.0 r6t=2  rB=70 b=1
-163  op9=00 r7=0.0.00.0 r6t=2  mem2[slot 58] mode 40 rB=73 b=1
-164  op9=00 r7=1.0.00.0 r6t=2  d[11d] rA=77 rB=76 b=1
-165  op9=00 r7=1.1.03.1 r6t=2  rA=6d c6=37 b=1
-166  op9=00 r7=0.0.01.1 r6t=3  rB=6d
-167  op9=00 r7=0.0.01.1 r6t=3  mem2[slot 59] mode 40 d[08b] rA=6e rB=6e
-168  op9=00 r7=0.0.01.1 r6t=3  d[11e] rA=6f rB=6f
-169  op9=00 r7=0.0.01.1 r6t=3  rA=70 rB=70
-16a  op9=00 r7=0.0.01.1 r6t=3  rA=71 rB=71
-16b  op9=00 r7=0.0.01.1 r6t=3  mem2[slot 5a] mode 40 rA=72 rB=72
-16c  op9=00 r7=0.0.01.1 r6t=3  d[138] rA=73 rB=73
-16d  op9=00 r7=0.0.01.1 r6t=3  rA=74 rB=74
-16e  op9=00 r7=0.0.01.1 r6t=3  rA=75 rB=75
-16f  op9=00 r7=0.0.00.0 r6t=0  mem2[slot 5b] mode 40 rA=76
-170  op9=00 r7=0.0.01.1 r6t=2  d[139] rB=69
-171  op9=00 r7=1.1.02.0 r6t=2  rA=78 c6=38
-172  op9=00 r7=0.0.01.1 r6t=2  rB=69
-173  op9=20 r7=1.0.02.0 r6t=2  mem1[slot 5c] mode 40 c6=38
-174  op9=00 r7=0.0.00.0 r6t=0  d[13a]
+158  op=0.0 dst=0 r7=0.01.1 class=2  d[002] rB=05 b=3
+159  op=0.0 dst=1 r7=1.00.0 class=2  d[046] rA=67 rB=06 b=3
+15a  op=0.0 dst=0 r7=0.01.1 class=2  rB=68
+15b  op=0.0 dst=0 r7=0.00.0 class=2  mem2[slot 56] mode 40 rB=67
+15c  op=0.0 dst=0 r7=1.04.0 class=2  rA=68 rB=67
+15d  op=0.0 dst=0 r7=0.01.1 class=2  rB=69
+15e  op=0.0 dst=0 r7=0.00.0 class=2  rB=68
+15f  op=0.0 dst=1 r7=1.04.0 class=2  mem2[slot 57] mode 40 rA=69 rB=68
+160  op=0.0 dst=0 r7=0.03.1 class=2  d[11c] mode=37 b=1
+161  op=0.0 dst=0 r7=0.00.0 class=2  rB=6e b=1
+162  op=0.0 dst=0 r7=0.00.0 class=2  rB=70 b=1
+163  op=0.0 dst=0 r7=0.00.0 class=2  mem2[slot 58] mode 40 rB=73 b=1
+164  op=0.0 dst=0 r7=1.00.0 class=2  d[11d] rA=77 rB=76 b=1
+165  op=0.0 dst=1 r7=1.03.1 class=2  rA=6d mode=37 b=1
+166  op=0.0 dst=0 r7=0.01.1 class=3  rB=6d
+167  op=0.0+ dst=0 r7=0.01.1 class=3  mem2[slot 59] mode 40 d[08b] rA=6e rB=6e
+168  op=0.0+ dst=0 r7=0.01.1 class=3  d[11e] rA=6f rB=6f
+169  op=0.0+ dst=0 r7=0.01.1 class=3  rA=70 rB=70
+16a  op=0.0+ dst=0 r7=0.01.1 class=3  rA=71 rB=71
+16b  op=0.0+ dst=0 r7=0.01.1 class=3  mem2[slot 5a] mode 40 rA=72 rB=72
+16c  op=0.0+ dst=0 r7=0.01.1 class=3  d[138] rA=73 rB=73
+16d  op=0.0+ dst=0 r7=0.01.1 class=3  rA=74 rB=74
+16e  op=0.0+ dst=0 r7=0.01.1 class=3  rA=75 rB=75
+16f  op=0.0+ dst=0 r7=0.00.0 class=0  mem2[slot 5b] mode 40 rA=76
+170  op=0.0 dst=0 r7=0.01.1 class=2  d[139] rB=69
+171  op=0.0 dst=1 r7=1.02.0 class=2  rA=78 mode=38
+172  op=0.0 dst=0 r7=0.01.1 class=2  rB=69
+173  op=2.0 dst=0 r7=1.02.0 class=2  mem1[slot 5c] mode 40 mode=38
+174  op=0.0 dst=0 r7=0.00.0 class=0  d[13a]
 175  nop
 176  nop
-177  op9=20 r7=1.0.02.1 r6t=2  mem1[slot 5d] mode 40 rB=78 c6=39 b=1
-178  op9=00 r7=0.0.03.1 r6t=2  c6=39
-179  op9=00 r7=1.1.02.0 r6t=2  d[1bf] c6=3a
-17a  op9=00 r7=0.0.03.1 r6t=2  c6=39
-17b  op9=20 r7=1.0.02.0 r6t=2  mem2[slot 5e] mode 40 c6=3a
+177  op=2.0 dst=0 r7=1.02.1 class=2  mem1[slot 5d] mode 40 rB=78 mode=39 b=1
+178  op=0.0 dst=0 r7=0.03.1 class=2  mode=39
+179  op=0.0 dst=1 r7=1.02.0 class=2  d[1bf] mode=3a
+17a  op=0.0 dst=0 r7=0.03.1 class=2  mode=39
+17b  op=2.0 dst=0 r7=1.02.0 class=2  mem2[slot 5e] mode 40 mode=3a
 17c  nop
 17d  nop
 17e  nop
-17f  op9=00 r7=0.0.00.0 r6t=0  mem2[slot 5f] mode 40
-180  op9=00 r7=0.0.00.0 r6t=0  d[13b]
+17f  op=0.0 dst=0 r7=0.00.0 class=0  mem2[slot 5f] mode 40
+180  op=0.0 dst=0 r7=0.00.0 class=0  d[13b]
 181  nop
 182  nop
-183  op9=00 r7=1.1.03.1 r6t=2  mem1[slot 60] mode 40 rA=6b c6=3b b=1
-184  op9=00 r7=0.0.01.1 r6t=2  d[13c] rB=6a
-185  op9=00 r7=0.0.00.0 r6t=2  rB=6b
-186  op9=00 r7=1.1.04.0 r6t=2  rA=6a rB=6b
-187  op9=00 r7=0.0.01.1 r6t=2  mem2[slot 61] mode 40 d[08c] rB=6c
-188  op9=00 r7=0.0.02.0 r6t=2  c6=36
-189  op9=00 r7=1.1.06.0 r6t=2  rA=6c c6=3c
-18a  op9=00 r7=0.0.00.0 r6t=0  d[1f6]
-18b  op9=00 r7=0.0.00.0 r6t=0  mem2[slot 62] mode 40
-18c  op9=00 r7=0.0.00.0 r6t=0  d[13d]
+183  op=0.0 dst=1 r7=1.03.1 class=2  mem1[slot 60] mode 40 rA=6b mode=3b b=1
+184  op=0.0 dst=0 r7=0.01.1 class=2  d[13c] rB=6a
+185  op=0.0 dst=0 r7=0.00.0 class=2  rB=6b
+186  op=0.0 dst=1 r7=1.04.0 class=2  rA=6a rB=6b
+187  op=0.0 dst=0 r7=0.01.1 class=2  mem2[slot 61] mode 40 d[08c] rB=6c
+188  op=0.0 dst=0 r7=0.02.0 class=2  mode=36
+189  op=0.0 dst=1 r7=1.06.0 class=2  rA=6c mode=3c
+18a  op=0.0 dst=0 r7=0.00.0 class=0  d[1f6]
+18b  op=0.0 dst=0 r7=0.00.0 class=0  mem2[slot 62] mode 40
+18c  op=0.0 dst=0 r7=0.00.0 class=0  d[13d]
 18d  nop
-18e  op9=00 r7=0.0.02.1 r6t=2  rB=77 c6=3c b=1
-18f  op9=00 r7=1.1.02.0 r6t=2  mem2[slot 63] mode 40 rA=78 c6=3d b=1
-190  op9=00 r7=0.0.03.1 r6t=3  d[13e] c6=39
-191  op9=00 r7=0.0.03.1 r6t=2  d[1f7] c6=37 b=1
-192  op9=00 r7=0.0.02.0 r6t=2  c6=3b b=1
-193  op9=00 r7=1.1.02.0 r6t=2  mem2[slot 64] mode 40 rA=79 c6=3e b=1
-194  op9=00 r7=0.0.00.0 r6t=0  d[11f]
-195  op9=00 r7=0.0.01.1 r6t=2  rB=05 b=1
-196  op9=00 r7=1.2.00.0 r6t=2  rA=0f rB=79 b=1
-197  op9=00 r7=0.0.01.1 r6t=2  mem2[slot 65] mode 40 rB=06 b=1
-198  op9=00 r7=1.2.00.0 r6t=2  d[120] rA=10 rB=78 b=1
+18e  op=0.0 dst=0 r7=0.02.1 class=2  rB=77 mode=3c b=1
+18f  op=0.0 dst=1 r7=1.02.0 class=2  mem2[slot 63] mode 40 rA=78 mode=3d b=1
+190  op=0.0 dst=0 r7=0.03.1 class=3  d[13e] mode=39
+191  op=0.0 dst=0 r7=0.03.1 class=2  d[1f7] mode=37 b=1
+192  op=0.0 dst=0 r7=0.02.0 class=2  mode=3b b=1
+193  op=0.0 dst=1 r7=1.02.0 class=2  mem2[slot 64] mode 40 rA=79 mode=3e b=1
+194  op=0.0 dst=0 r7=0.00.0 class=0  d[11f]
+195  op=0.0 dst=0 r7=0.01.1 class=2  rB=05 b=1
+196  op=0.0 dst=2 r7=1.00.0 class=2  rA=0f rB=79 b=1
+197  op=0.0 dst=0 r7=0.01.1 class=2  mem2[slot 65] mode 40 rB=06 b=1
+198  op=0.0 dst=2 r7=1.00.0 class=2  d[120] rA=10 rB=78 b=1
 199  nop
 19a  nop
-19b  op9=20 r7=1.0.02.1 r6t=2  mem1[slot 66] mode 40 rB=6a c6=3f b=1
-19c  op9=00 r7=0.0.00.0 r6t=0  d[121]
+19b  op=2.0 dst=0 r7=1.02.1 class=2  mem1[slot 66] mode 40 rB=6a mode=3f b=1
+19c  op=0.0 dst=0 r7=0.00.0 class=0  d[121]
 19d  nop
 19e  nop
-19f  op9=20 r7=1.0.02.1 r6t=2  mem1[slot 67] mode 40 rB=6c c6=3f b=1
+19f  op=2.0 dst=0 r7=1.02.1 class=2  mem1[slot 67] mode 40 rB=6c mode=3f b=1

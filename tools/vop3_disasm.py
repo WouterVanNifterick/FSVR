@@ -17,18 +17,26 @@ import struct
 
 
 def fields(r10, r9, r8, r7, r6):
+    # Field roles marked CHIP are measured on the FS1R (FS1R.unlock captures/2026-09-30-9, single-bit
+    # flips on live steps); the rest are from the three firmwares' structure.
     return dict(
         mem=r10 & 7,            # delay-memory access this step (slot = step >> 2); 0 on FS1R VOP3-1, which has no DRAM
         r10hi=r10 >> 3,
-        op9=r9 >> 8,            # r9[15:8]: 0x11..0x18, 0x40/0x41, 0x60, 0x80, 0x01/02/04/08 ...
-        ra=r9 & 0x7f,           # r9[6:0]: register address A (per-voice state, stride 6 per filter channel)
-        r9b7=(r9 >> 7) & 1,
+        op9=(r9 >> 8) & 0xf,    # CHIP r9[11:8]: the operation; every bit of 0x1 on the cutoff MAC loses the corner
+        op9hi=(r9 >> 12) & 7,   # r9[14:12]: bit 12 changes the operation (0x11 -> 0x01 opens the filter), 13/14 inert
+        ra=r9 & 0x7f,           # CHIP r9[6:0]: source register A on a MAC step; destination register on a constant load
+        r9b7=(r9 >> 7) & 1,     # CHIP r9[7]: a mode bit of its own (same effect as r9[15])
+        r9b15=r9 >> 15,
         daddr=r8 >> 7,          # r8[15:7]: 9-bit data-memory address (points at other steps' constants / voice state)
         mmode=r8 & 0x7f,        # r8[6:0]: memory-access mode bits (0x40 on VOP3-2 reads, 0x28/0x30/0x68 on the AN)
-        f7a=r7 >> 14, f7b=(r7 >> 12) & 3, f7c=(r7 >> 7) & 0x1f, f7d=(r7 >> 6) & 1, f7e=r7 & 0x3f,
-        f6a=r6 >> 14,           # r6[15:14]: 2 = normal step, 1 = constant/parameter load, 0 = idle, 3 rare
-        rb=(r6 >> 7) & 0x7f,    # r6[13:7]: register address B (per-voice state, stride 6)
-        f6c=r6 & 0x7f,          # r6[6:0]: 7-bit field, shares the 17..27 / 37..42 / 61..63 value ranges with r7[5:0]
+        f7a=r7 >> 14,           # CHIP r7[15:14]: no effect on any of three probed steps
+        f7b=(r7 >> 12) & 3,     # CHIP r7[13:12]: result destination select; either bit set on a step breaks the loop
+        f7c=(r7 >> 7) & 0x1f,   # CHIP bits 10 and 7 break every step; 11, 9, 8 step-dependent
+        f7d=(r7 >> 6) & 1,      # CHIP breaks every step
+        f7e=r7 & 0x3f,          # CHIP bit 4 breaks; bits 3:0 untested (zero on the probed steps)
+        f6a=r6 >> 14,           # CHIP r6[15:14] class: 1 = constant load (rest of r6 unused), 2 = MAC, 0 = no output, 3 = runaway
+        rb=(r6 >> 7) & 0x7f,    # CHIP r6[13:7]: source register B on a MAC step (0x61 = where the cutoff constant is loaded)
+        f6c=r6 & 0x3f,          # CHIP r6[5:0]: six-bit mode; bit 6 unused
     )
 
 
@@ -43,15 +51,19 @@ def disasm(step, words, coef=None, byt=None, labels=None):
         parts.append("mem%d[slot %02x] mode %02x" % (f["mem"], step >> 2, f["mmode"]))
     if f["daddr"]:
         parts.append("d[%03x]" % f["daddr"])
-    if f["ra"]:
-        parts.append("rA=%02x" % f["ra"])
-    if f["rb"]:
-        parts.append("rB=%02x" % f["rb"])
-    if f["f6c"]:
-        parts.append("c6=%02x" % f["f6c"])
+    if f["f6a"] == 1:
+        parts.append("r[%02x] = k" % f["ra"])            # constant load: r9[7:0] names the destination register
+    else:
+        if f["ra"]:
+            parts.append("rA=%02x" % f["ra"])
+        if f["rb"]:
+            parts.append("rB=%02x" % f["rb"])
+        if f["f6c"]:
+            parts.append("mode=%02x" % f["f6c"])
     if f["f7e"]:
         parts.append("c7=%02x" % f["f7e"])
-    op = "op9=%02x r7=%d.%d.%02x.%d r6t=%d" % (f["op9"], f["f7a"], f["f7b"], f["f7c"], f["f7d"], f["f6a"])
+    op = "op=%x.%x%s%s dst=%d r7=%d.%02x.%d class=%d" % (f["op9hi"], f["op9"], "+" if f["r9b7"] else "", "^" if f["r9b15"] else "",
+                                                          f["f7b"], f["f7a"], f["f7c"], f["f7d"], f["f6a"])
     k = ""
     if coef is not None and coef[step]:
         k += " k=%04x(%+.4f)" % (coef[step], struct.unpack(">h", struct.pack(">H", coef[step]))[0] / 32768.0)
@@ -113,6 +125,10 @@ def demo():
     # FS1R VOP3-1 step 0x08e (ch0 cutoff constant): r7=8000 r6=4000, k=7fff
     f = fields(0, 0x0061, 0, 0x8000, 0x4000)
     assert f["ra"] == 0x61 and f["f6a"] == 1 and f["rb"] == 0 and f["daddr"] == 0
+    assert "r[61] = k" in disasm(0x8e, (0, 0x0061, 0, 0x8000, 0x4000))
+    # FS1R step 0x098, the cutoff MAC: reg 0x62 * reg 0x61, op 1, mode 0x3e (measured on the chip)
+    f = fields(0, 0x1162, 0, 0x9280, 0xb0be)
+    assert f["op9"] == 1 and f["ra"] == 0x62 and f["rb"] == 0x61 and f["f6c"] == 0x3e and f["f6a"] == 2
     # PLG150-AN step 0x11: r10=2 marks a memory access, r8 low bits carry the mode
     f = fields(2, 0x0017, 0x0068, 0x4112, 0x800A)
     assert f["mem"] == 2 and f["mmode"] == 0x68 and f["daddr"] == 0 and f["f7e"] == 0x12

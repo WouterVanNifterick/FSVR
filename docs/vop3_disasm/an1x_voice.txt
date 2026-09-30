@@ -1,512 +1,512 @@
-000  op9=00 r7=0.0.03.1 r6t=2  c6=01 b=1
-001  op9=00 r7=1.1.02.0 r6t=2  d[181] c6=02 b=1   ; VCO1 Pmod Dp
-002  op9=00 r7=0.0.03.1 r6t=2  c6=01 b=1   ; VCO2 Pmod Dp
-003  op9=00 r7=1.0.02.0 r6t=2  d[183] c6=02 b=1   ; VCO2 Pmod Dp
-004  op9=00 r7=0.0.01.1 r6t=2  rB=7f c6=43 b=2   ; VCO1 Pitch, VCO1 Fine
-005  op9=00 r7=1.0.02.0 r6t=2  rA=4d c6=01 b=1
-006  op9=00 r7=0.0.01.1 r6t=2  rA=4e rB=7f b=1   ; VCO1 PW
-007  op9=11 r7=1.0.03.1 r6t=2  c6=3f b=3   ; FM Src1 v0
-008  op9=00 r7=0.0.02.1 r6t=2  rB=4d c6=08 b=3
-009  op9=01 r7=1.0.02.0 r6t=2  rA=4f c6=16 k=2000(+0.2500) b=2   ; VCO1 Pitch, VCO1 Fine
-00a  op9=04 r7=1.0.02.0 r6t=2  rA=53 c6=2b c7=11
-00b  op9=12 r7=1.0.03.1 r6t=2  c6=3f b=4   ; FM Src1 v1
-00c  op9=13 r7=1.0.03.1 r6t=2  c6=3f b=5   ; FM Src1 v2
-00d  op9=00 r7=0.0.02.1 r6t=2  rB=4f c6=3f b=3   ; SyncPit Dp v0, SyncPit Src v0
-00e  op9=40 r7=1.2.02.0 r6t=2  rA=58 c6=3f b=3   ; Sync Pitch v0
-00f  op9=60 r7=0.3.00.1 r6t=1  
-010  op9=00 r7=0.0.02.1 r6t=2  rB=4d c6=09 b=4
-011  op9=00 r7=1.0.02.0 r6t=2  mem2[slot 04] mode 68 d[0cc] rA=50 c6=17 c7=11
-012  op9=04 r7=1.0.02.0 r6t=2  rA=54 c6=2c c7=12
-013  op9=12 r7=1.0.03.1 r6t=2  c6=3f b=6   ; FM Src1 v3
-014  op9=15 r7=1.0.03.1 r6t=2  c6=3f b=7   ; FM Src1 v4
-015  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 05] mode 30 rB=50 c6=3f b=4   ; SyncPit Dp v1, SyncPit Src v1
-016  op9=40 r7=1.2.02.0 r6t=2  d[113] rA=59 c6=3f b=4   ; Sync Pitch v1
-017  op9=60 r7=0.3.00.1 r6t=1  
-018  op9=00 r7=0.0.02.1 r6t=2  rB=4d c6=0a b=5
-019  op9=00 r7=1.0.02.0 r6t=2  mem2[slot 06] mode 68 rA=51 c6=18 c7=11
-01a  op9=04 r7=1.0.02.0 r6t=2  d[10d] rA=55 c6=2d c7=13
-01b  op9=13 r7=0.0.03.1 r6t=2  c6=13 k=4000(+0.5000)
-01c  op9=00 r7=0.3.02.1 r6t=2  rA=61 rB=4e c6=3f b=3   ; VCO1 PWM Dp v0, VCO1 PWM Src v0
-01d  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 07] mode 30 rB=51 c6=3f b=5   ; SyncPit Dp v2, SyncPit Src v2
-01e  op9=40 r7=1.2.02.0 r6t=2  d[113] rA=5a c6=3f b=5   ; Sync Pitch v2
-01f  op9=60 r7=0.3.00.1 r6t=1  d[096]
-020  op9=00 r7=0.0.02.1 r6t=2  rB=4d c6=0b b=6
-021  op9=00 r7=1.0.02.0 r6t=2  mem2[slot 08] mode 68 rA=52 c6=19 c7=11
-022  op9=04 r7=1.0.02.0 r6t=2  d[10d] rA=56 c6=21 c7=12
-023  op9=12 r7=0.0.03.1 r6t=2  c6=13 k=4000(+0.5000)
-024  op9=00 r7=1.1.03.1 r6t=2  d[194] c6=0d c7=13
-025  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 09] mode 30 rB=52 c6=3f b=6   ; SyncPit Dp v3, SyncPit Src v3
-026  op9=40 r7=1.2.02.0 r6t=2  d[113] rA=5b c6=3f b=6   ; Sync Pitch v3
-027  op9=60 r7=0.3.00.1 r6t=1  
-028  op9=00 r7=0.0.02.1 r6t=2  rB=4d c6=0c b=7
-029  op9=01 r7=1.0.02.0 r6t=2  mem2[slot 0a] mode 68 rA=4d c6=1a c7=11 b=1
-02a  op9=04 r7=1.0.02.0 r6t=2  d[10d] rA=57 c6=1c c7=15
-02b  op9=12 r7=0.0.03.1 r6t=2  c6=13 k=4000(+0.5000)
-02c  op9=00 r7=1.1.03.1 r6t=2  d[195] c6=0d c7=12
-02d  op9=00 r7=0.3.02.1 r6t=2  mem2[slot 0b] mode 30 rA=53 rB=4e c6=3f b=4   ; VCO1 PWM Dp v1, VCO1 PWM Src v1
-02e  op9=44 r7=1.2.02.1 r6t=2  d[10d] rA=4f rB=4f c6=01 c7=11
-02f  op9=60 r7=0.3.00.1 r6t=1  
-030  op9=02 r7=1.1.03.1 r6t=2  d[18f] c6=0d c7=12
-031  op9=00 r7=0.3.02.1 r6t=2  mem2[slot 0c] mode 68 rA=62 rB=4e c6=3f b=5   ; VCO1 PWM Dp v2, VCO1 PWM Src v2
-032  op9=13 r7=0.0.03.1 r6t=2  d[10d] c6=0d k=4000(+0.5000)
-033  op9=00 r7=0.3.02.1 r6t=2  rA=63 rB=4e c6=3f b=6   ; VCO1 PWM Dp v3, VCO1 PWM Src v3
-034  op9=00 r7=0.3.02.1 r6t=2  rA=64 rB=4e c6=3f b=7   ; VCO1 PWM Dp v4, VCO1 PWM Src v4
-035  op9=00 r7=1.1.03.1 r6t=2  mem2[slot 0d] mode 30 d[190] c6=0d c7=13
-036  op9=40 r7=2.0.01.1 r6t=2  d[10d] rB=4f k=2000(+0.2500)
-037  op9=00 r7=0.0.09.0 r6t=2  rA=53 rB=61 c6=3f c7=12
-038  op9=00 r7=0.0.09.0 r6t=2  rA=61 rB=53 c6=3f c7=12
-039  op9=13 r7=0.0.03.1 r6t=2  mem2[slot 0e] mode 28 c6=0d k=4000(+0.5000)
-03a  op9=00 r7=0.0.02.1 r6t=2  d[10e] rB=4d c6=3f b=7   ; SyncPit Dp v4, SyncPit Src v4
-03b  op9=40 r7=1.2.02.0 r6t=2  rA=4e c6=3f b=7   ; Sync Pitch v4
-03c  op9=60 r7=0.3.00.1 r6t=1  
-03d  op9=00 r7=0.0.09.0 r6t=2  d[0cd] rA=62 rB=62 c6=3f c7=12
-03e  op9=00 r7=0.0.09.0 r6t=2  mem2[slot 0f] mode 68 d[10e] rA=63 rB=63 c6=3f c7=12
-03f  op9=00 r7=0.0.09.0 r6t=2  d[093] rA=64 rB=64 c6=3f c7=12
-040  op9=12 r7=0.0.02.1 r6t=2  d[198] rA=01 rB=01 c6=0e c7=13
-041  op9=00 r7=0.0.02.1 r6t=2  d[1a1] rA=0b rB=0b c6=14 k=4000(+0.5000)
-042  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 10] mode 30 d[1a6] rA=10 rB=10 c6=14 k=4000(+0.5000)
-043  op9=44 r7=1.2.02.1 r6t=2  d[111] rA=50 rB=50 c6=01 c7=11
-044  op9=60 r7=0.3.00.1 r6t=1  
-045  op9=12 r7=0.1.02.1 r6t=2  d[19c] rA=06 rB=53 c6=18 k=4000(+0.5000)
-046  op9=00 r7=1.0.00.0 r6t=2  mem2[slot 11] mode 68 d[197] rB=06 c6=5b
-047  op9=13 r7=1.3.03.0 r6t=2  d[111] rA=53 c6=0e c7=12
-048  op9=00 r7=2.3.02.1 r6t=2  rA=54 rB=7e c6=18 k=1400(+0.1562)
-049  op9=13 r7=0.0.03.1 r6t=2  c6=11 k=4000(+0.5000)
-04a  op9=80 r7=0.0.01.0 r6t=1  rB=18 c7=0c
-04b  op9=00 r7=1.3.03.1 r6t=2  mem2[slot 12] mode 30 d[1a1] rA=0b c6=14 c7=13
-04c  op9=40 r7=2.0.01.1 r6t=2  d[119] rB=50 k=2000(+0.2500)
-04d  op9=00 r7=0.0.0a.1 r6t=3  rB=53 c6=1c
-04e  op9=00 r7=1.1.03.1 r6t=2  d[191] c6=11 c7=13
-04f  op9=00 r7=2.3.02.1 r6t=2  rB=7e c6=17 k=1400(+0.1562)
-050  op9=42 r7=2.0.08.0 r6t=3  mem2[slot 14] mode 2a rB=54 k=4000(+0.5000)
-051  op9=13 r7=1.3.03.0 r6t=2  d[10e] c6=0e c7=12
-052  op9=13 r7=0.0.03.1 r6t=2  c6=19 k=4000(+0.5000)
-053  op9=85 r7=0.0.01.0 r6t=1  rB=2a c7=0c k=e148(-0.2400)
-054  op9=00 r7=1.3.03.1 r6t=2  mem2[slot 15] mode 28 d[1a6] rA=10 c6=14 c7=13
-055  op9=44 r7=0.2.01.1 r6t=2  d[114] rB=1f c7=12
-056  op9=04 r7=2.3.01.0 r6t=2  d[097] rA=54 rB=4f c6=3e c7=15
-057  op9=13 r7=0.0.02.1 r6t=2  d[199] rA=02 rB=02 c6=0e c7=13
-058  op9=00 r7=0.0.02.1 r6t=2  d[1a2] rA=0c rB=0c c6=15 k=4000(+0.5000)
-059  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 16] mode 28 d[1a7] rA=11 rB=11 c6=15 k=4000(+0.5000)
-05a  op9=44 r7=1.2.02.1 r6t=2  d[130] rA=51 rB=51 c6=01 c7=11
-05b  op9=60 r7=0.3.00.1 r6t=1  d[0ce]
-05c  op9=13 r7=0.1.02.1 r6t=2  d[19d] rA=07 rB=61 c6=19 k=4000(+0.5000)
-05d  op9=00 r7=1.0.00.0 r6t=2  mem2[slot 17] mode 68 d[19b] rB=07
-05e  op9=16 r7=1.3.03.0 r6t=2  d[12b] rA=53 c6=14 c7=13
-05f  op9=00 r7=2.3.02.1 r6t=2  rA=55 rB=7e c6=19 k=1400(+0.1562)
-060  op9=80 r7=0.0.01.0 r6t=1  rB=44 c7=0c
-061  op9=00 r7=1.3.03.1 r6t=2  mem2[slot 18] mode 30 d[1a2] rA=0c c6=15 c7=16
-062  op9=40 r7=2.0.01.1 r6t=2  d[11b] rB=51 k=2000(+0.2500)
-063  op9=00 r7=0.0.0a.1 r6t=3  rB=53 c6=1d
-064  op9=00 r7=2.3.02.1 r6t=2  rB=7e c6=1b k=1400(+0.1562)
-065  op9=40 r7=2.0.08.0 r6t=3  mem2[slot 19] mode 2a rB=55
-066  op9=13 r7=1.3.03.0 r6t=2  d[114] c6=14 c7=13
-067  op9=13 r7=0.0.03.1 r6t=2  c6=1b k=4000(+0.5000)
-068  op9=80 r7=0.0.01.0 r6t=1  rB=54 c7=0c
-069  op9=00 r7=1.3.03.1 r6t=2  mem2[slot 1a] mode 28 d[1a7] rA=11 c6=15 c7=13
-06a  op9=44 r7=0.2.01.1 r6t=2  d[114] rB=20 c7=12
-06b  op9=04 r7=2.3.01.0 r6t=2  rA=55 rB=50 c6=3e c7=15
-06c  op9=13 r7=0.0.02.1 r6t=2  d[195] rA=03 rB=03 c6=14 c7=13
-06d  op9=00 r7=0.0.02.1 r6t=2  d[1a3] rA=0d rB=0d c6=0f k=4000(+0.5000)
-06e  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 1b] mode 28 d[1a8] rA=12 rB=12 c6=0f k=4000(+0.5000)
-06f  op9=44 r7=1.2.02.1 r6t=2  d[131] rA=52 rB=52 c6=01 c7=11
-070  op9=60 r7=0.3.00.1 r6t=1  
-071  op9=13 r7=0.1.02.1 r6t=2  d[19e] rA=08 rB=62 c6=15 k=4000(+0.5000)
-072  op9=00 r7=1.0.00.0 r6t=2  mem2[slot 1c] mode 68 d[19b] rB=08
-073  op9=16 r7=1.3.03.0 r6t=2  d[12c] rA=53 c6=14 c7=13
-074  op9=00 r7=2.3.02.1 r6t=2  rA=56 rB=7e c6=15 k=1400(+0.1562)
-075  op9=80 r7=0.0.01.0 r6t=1  rB=6e c7=0c
-076  op9=00 r7=1.3.03.1 r6t=2  mem2[slot 1d] mode 30 d[1a3] rA=0d c6=0f c7=16
-077  op9=40 r7=2.0.01.1 r6t=2  d[11b] rB=52 k=2000(+0.2500)
-078  op9=00 r7=0.0.0a.1 r6t=3  rB=53 c6=1e
-079  op9=00 r7=2.3.02.1 r6t=2  rB=7e c6=1b k=1400(+0.1562)
-07a  op9=40 r7=2.0.08.0 r6t=3  mem2[slot 1e] mode 2a rB=56
-07b  op9=13 r7=1.3.03.0 r6t=2  d[114] c6=14 c7=13
-07c  op9=13 r7=0.0.03.1 r6t=2  d[0cf] c6=1b k=4000(+0.5000)
-07d  op9=80 r7=0.0.01.0 r6t=1  rB=7e c7=0c
-07e  op9=00 r7=1.3.03.1 r6t=2  mem2[slot 1f] mode 28 d[1a8] rA=12 c6=0f c7=13
-07f  op9=44 r7=0.2.01.1 r6t=2  d[094] rB=21 c7=12
-080  op9=04 r7=2.3.01.0 r6t=2  d[120] rA=56 rB=51 c6=3e c7=15
-081  op9=13 r7=0.0.02.1 r6t=2  d[19b] rA=04 rB=04 c6=14 c7=13
-082  op9=00 r7=0.0.02.1 r6t=2  d[1a4] rA=0e rB=0e c6=10 k=4000(+0.5000)
-083  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 20] mode 28 d[1a9] rA=13 rB=13 c6=10 k=4000(+0.5000)
-084  op9=44 r7=1.2.02.1 r6t=2  d[132] rA=53 rB=4d c6=01 c7=11
-085  op9=60 r7=0.3.00.1 r6t=1  c6=47
-086  op9=11 r7=0.1.02.1 r6t=2  d[19f] rA=09 rB=63 c6=1b k=4000(+0.5000)
-087  op9=00 r7=1.0.00.0 r6t=2  mem2[slot 21] mode 68 d[181] rB=09
-088  op9=13 r7=1.3.03.0 r6t=2  d[12d] rA=4d c6=20 c7=13
-089  op9=00 r7=2.3.02.1 r6t=2  rA=57 rB=7e c6=1b k=1400(+0.1562)
-08a  op9=80 r7=0.0.01.0 r6t=2  rB=18 c7=0c
-08b  op9=00 r7=1.3.03.1 r6t=2  mem2[slot 22] mode 30 d[1a4] rA=0e c6=10 c7=13
-08c  op9=40 r7=2.0.01.1 r6t=2  d[101] rB=53 k=2000(+0.2500)
-08d  op9=00 r7=0.0.0a.1 r6t=3  rB=4d c6=1f
-08e  op9=00 r7=2.3.02.1 r6t=2  rB=7e c6=01 k=1400(+0.1562)
-08f  op9=40 r7=2.0.08.0 r6t=3  mem2[slot 23] mode 2a rB=57
-090  op9=11 r7=1.3.03.0 r6t=2  d[101] c6=20 c7=11
-091  op9=11 r7=0.0.03.1 r6t=2  c6=01 k=4000(+0.5000)
-092  op9=80 r7=0.0.01.0 r6t=2  rB=28 c7=0c
-093  op9=00 r7=1.3.03.1 r6t=2  mem2[slot 24] mode 28 d[1a9] rA=13 c6=10 c7=11
-094  op9=44 r7=0.2.01.1 r6t=2  d[133] rB=22 c7=12
-095  op9=04 r7=2.3.01.0 r6t=2  rA=57 rB=52 c6=3e c7=15
-096  op9=11 r7=0.0.02.1 r6t=2  d[181] rA=05 rB=05 c6=01 c7=11
-097  op9=00 r7=0.0.02.1 r6t=2  d[1a5] rA=0f rB=0f c6=11 k=4000(+0.5000)
-098  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 26] mode 28 d[1aa] rA=14 rB=14 c6=11 k=4000(+0.5000)
-099  op9=44 r7=0.2.01.1 r6t=2  d[134] rB=23 c7=12
-09a  op9=12 r7=1.0.01.1 r6t=2  rB=54 k=3852(+0.4400) b=3   ; VCO1 Edge v0
-09b  op9=11 r7=0.1.02.1 r6t=2  d[1a0] rA=0a rB=64 c6=01 k=4000(+0.5000)
-09c  op9=00 r7=1.0.00.0 r6t=2  mem2[slot 27] mode 28 d[1b5] rB=0a
-09d  op9=13 r7=1.3.03.0 r6t=2  d[121] rA=4d c6=33 c7=11
-09e  op9=44 r7=0.1.01.0 r6t=2  d[0d0] rB=15 c6=18 c7=12
-09f  op9=00 r7=2.3.02.1 r6t=2  d[098] rA=54 rB=7e c6=01 k=1400(+0.1562)
-0a0  op9=82 r7=0.0.01.0 r6t=2  rB=44 c7=0c b=1
-0a1  op9=00 r7=1.3.03.1 r6t=2  mem2[slot 28] mode 28 d[1a5] rA=0f c6=11 c7=13
-0a2  op9=44 r7=0.1.01.0 r6t=2  d[11c] rB=1a c6=1c c7=12
-0a3  op9=03 r7=0.0.0a.1 r6t=3  rB=4d c6=20 b=1
-0a4  op9=00 r7=2.3.02.1 r6t=2  rB=7e c6=35 k=1400(+0.1562)
-0a5  op9=41 r7=2.0.08.0 r6t=3  mem2[slot 29] mode 2a rB=54 b=1
-0a6  op9=15 r7=1.3.03.0 r6t=2  d[126] c6=33 c7=11
-0a7  op9=04 r7=2.3.01.0 r6t=2  rA=54 rB=53 c6=3e c7=15
-0a8  op9=85 r7=0.0.01.0 r6t=2  rB=54 c7=0c k=35c3(+0.4200) b=3
-0a9  op9=00 r7=1.3.03.1 r6t=2  mem2[slot 2a] mode 28 d[1aa] rA=14 c6=11 c7=15
-0aa  op9=00 r7=0.0.01.1 r6t=1  d[111] rA=4d k=f000(-0.1250) b=1
-0ab  op9=00 r7=0.0.01.1 r6t=1  rA=4e k=f000(-0.1250) b=1
-0ac  op9=16 r7=1.0.01.1 r6t=2  rB=55 k=3852(+0.4400) b=4   ; VCO1 Edge v1
-0ad  op9=17 r7=1.0.02.1 r6t=2  rB=4d c6=30 c7=12
-0ae  op9=18 r7=1.0.02.1 r6t=2  d[119] rB=4e c6=30 c7=13
-0af  op9=44 r7=0.1.01.0 r6t=2  rB=16 c6=19 c7=16
-0b0  op9=19 r7=2.3.01.0 r6t=2  rB=4f c6=3d c7=11
-0b1  op9=00 r7=0.0.08.1 r6t=2  rB=15 c7=15
-0b2  op9=00 r7=1.0.0a.0 r6t=2  mem2[slot 2c] mode 28 rA=15 c6=26 c7=15
-0b3  op9=44 r7=0.1.01.0 r6t=2  rB=1b c6=1d c7=16
-0b4  op9=00 r7=0.0.03.1 r6t=2  c6=26 c7=17
-0b5  op9=00 r7=1.0.02.0 r6t=2  rA=4f c6=11 c7=18
-0b6  op9=00 r7=0.0.08.1 r6t=2  mem2[slot 2d] mode 28 rB=1a c7=15
-0b7  op9=05 r7=1.0.0a.0 r6t=2  d[11d] rA=1a c6=11 c7=15 k=35c3(+0.4200) b=4
-0b8  op9=00 r7=1.0.01.1 r6t=2  rA=4f rB=4f c7=19
-0b9  op9=16 r7=1.0.01.1 r6t=2  rB=56 k=3852(+0.4400) b=5   ; VCO1 Edge v2
-0ba  op9=17 r7=1.0.02.1 r6t=2  rB=4d c6=31 c7=12
-0bb  op9=18 r7=1.0.02.1 r6t=2  d[122] rB=4e c6=31 c7=13
-0bc  op9=44 r7=0.1.01.0 r6t=2  rB=17 c6=15 c7=16
-0bd  op9=19 r7=2.3.01.0 r6t=2  d[0d1] rB=50 c6=3d c7=11
-0be  op9=00 r7=0.0.08.1 r6t=2  d[095] rB=16 c7=15
-0bf  op9=00 r7=1.0.0a.0 r6t=2  mem2[slot 2f] mode 28 rA=16 c6=1d c7=15
-0c0  op9=44 r7=0.1.01.0 r6t=2  rB=1c c6=1e c7=16
-0c1  op9=00 r7=0.0.03.1 r6t=2  c6=1d c7=17
-0c2  op9=00 r7=1.0.02.0 r6t=2  rA=50 c6=22 c7=18
-0c3  op9=00 r7=0.0.08.1 r6t=2  mem2[slot 30] mode 28 rB=1b c7=15
-0c4  op9=05 r7=1.0.0a.0 r6t=2  d[11d] rA=1b c6=22 c7=15 k=35c3(+0.4200) b=5
-0c5  op9=00 r7=1.0.01.1 r6t=2  rA=50 rB=50 c7=19
-0c6  op9=16 r7=1.0.01.1 r6t=2  rB=57 k=3852(+0.4400) b=6   ; VCO1 Edge v3
-0c7  op9=17 r7=1.0.02.1 r6t=2  rB=4d c6=32 c7=12
-0c8  op9=18 r7=1.0.02.1 r6t=2  d[11b] rB=4e c6=32 c7=13
-0c9  op9=44 r7=0.1.01.0 r6t=2  rB=18 c6=1b c7=16
-0ca  op9=19 r7=2.3.01.0 r6t=2  rB=51 c6=3d c7=11
-0cb  op9=00 r7=0.0.08.1 r6t=2  rB=17 c7=15
-0cc  op9=00 r7=1.0.0a.0 r6t=2  mem2[slot 33] mode 28 rA=17 c6=1d c7=15
-0cd  op9=44 r7=0.1.01.0 r6t=2  rB=1d c6=1f c7=16
-0ce  op9=00 r7=0.0.03.1 r6t=2  c6=1d c7=17
-0cf  op9=00 r7=1.0.02.0 r6t=2  rA=51 c6=1b c7=18
-0d0  op9=00 r7=0.0.08.1 r6t=2  mem2[slot 34] mode 28 rB=1c c7=15
-0d1  op9=05 r7=1.0.0a.0 r6t=2  d[11b] rA=1c c6=1b c7=15 k=35c3(+0.4200) b=6
-0d2  op9=00 r7=1.0.01.1 r6t=2  rA=51 rB=51 c7=19
-0d3  op9=16 r7=1.0.01.1 r6t=2  rB=54 k=3852(+0.4400) b=7   ; VCO1 Edge v4
-0d4  op9=17 r7=1.0.02.1 r6t=2  rB=4d c6=34 c7=12
-0d5  op9=18 r7=1.0.02.1 r6t=2  d[101] rB=4e c6=34 c7=13
-0d6  op9=44 r7=0.1.01.0 r6t=2  rB=19 c6=01 c7=16
-0d7  op9=19 r7=2.3.01.0 r6t=2  rB=52 c6=3d c7=11
-0d8  op9=00 r7=0.0.08.1 r6t=2  rB=18 c7=15
-0d9  op9=00 r7=1.0.0a.0 r6t=2  mem2[slot 36] mode 28 rA=18 c6=1b c7=15
-0da  op9=44 r7=0.1.01.0 r6t=2  rB=1e c6=20 c7=16
-0db  op9=00 r7=0.0.03.1 r6t=2  c6=1b c7=17
-0dc  op9=00 r7=1.0.02.0 r6t=2  rA=52 c6=01 c7=18
-0dd  op9=00 r7=0.0.08.1 r6t=2  mem2[slot 37] mode 28 d[0c1] rB=1d c7=15
-0de  op9=02 r7=1.0.0a.0 r6t=2  d[11b] rA=1d c6=01 c7=15 k=35c3(+0.4200) b=7
-0df  op9=00 r7=1.0.01.1 r6t=2  d[099] rA=4d rB=52 c7=19
-0e0  op9=11 r7=1.0.02.1 r6t=2  rB=4d c6=19 c7=12
-0e1  op9=13 r7=1.0.02.1 r6t=2  rB=4e c6=19 c7=13
-0e2  op9=14 r7=2.3.01.0 r6t=2  d[103] rB=53 c6=3d c7=11
-0e3  op9=00 r7=1.0.01.0 r6t=2  rA=52 rB=7f c6=03 b=2   ; VCO2 Pitch, VCO2 Fine
-0e4  op9=00 r7=0.0.08.1 r6t=2  rB=19 c7=12
-0e5  op9=00 r7=1.0.0a.0 r6t=2  rA=19 c6=1b c7=12
-0e6  op9=00 r7=0.0.02.1 r6t=2  rB=52 c6=08 b=3
-0e7  op9=41 r7=1.2.02.0 r6t=2  rA=54 c6=16 k=2000(+0.2500) b=2   ; VCO2 Pitch, VCO2 Fine
-0e8  op9=60 r7=0.3.00.1 r6t=1  
-0e9  op9=00 r7=0.0.03.1 r6t=2  c6=1b c7=11
-0ea  op9=00 r7=1.0.02.0 r6t=2  mem2[slot 3a] mode 68 rA=4e c6=03 c7=13
-0eb  op9=00 r7=0.0.08.1 r6t=2  rB=1e c7=12
-0ec  op9=00 r7=1.0.0a.0 r6t=2  rA=1e c6=03 c7=12
-0ed  op9=00 r7=1.0.01.1 r6t=2  rA=4e rB=4e c7=14
-0ee  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 3b] mode 30 rB=52 c6=09 b=4
-0ef  op9=42 r7=1.2.02.0 r6t=2  d[103] rA=55 c6=17 c7=11 k=4001(+0.5000) b=1
-0f0  op9=60 r7=0.3.00.1 r6t=1  
-0f1  op9=00 r7=0.0.01.1 r6t=2  rA=53 rB=7f b=1   ; VCO2 PW
-0f2  op9=00 r7=0.3.02.0 r6t=2  mem2[slot 3c] mode 68 rA=57 c6=3f b=3   ; VCO2 PWM Dp v0, VCO2 PWM Src v0
-0f3  op9=13 r7=0.0.03.1 r6t=2  d[103] c6=03 c7=12
-0f4  op9=00 r7=0.3.02.1 r6t=2  rA=58 rB=53 c6=3f b=4   ; VCO2 PWM Dp v1, VCO2 PWM Src v1
-0f5  op9=00 r7=0.3.02.1 r6t=2  rA=59 rB=53 c6=3f b=5   ; VCO2 PWM Dp v2, VCO2 PWM Src v2
-0f6  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 3d] mode 30 rB=52 c6=0a b=5
-0f7  op9=40 r7=1.2.02.0 r6t=2  d[103] rA=56 c6=18 c7=11
-0f8  op9=60 r7=0.3.00.1 r6t=1  
-0f9  op9=00 r7=0.0.02.1 r6t=2  d[183] rA=1f rB=1f c6=03 c7=13
-0fa  op9=00 r7=0.3.02.1 r6t=2  mem2[slot 3e] mode 68 rA=57 rB=53 c6=3f b=6   ; VCO2 PWM Dp v3, VCO2 PWM Src v3
-0fb  op9=13 r7=0.0.03.1 r6t=2  d[102] c6=03 c7=12
-0fc  op9=00 r7=0.0.0a.1 r6t=3  d[184] rB=57 c6=03
-0fd  op9=00 r7=0.3.02.1 r6t=2  d[0c8] rA=5a rB=53 c6=3f b=7   ; VCO2 PWM Dp v4, VCO2 PWM Src v4
-0fe  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 3f] mode 30 d[08b] rB=52 c6=0b b=6
-0ff  op9=40 r7=1.2.02.0 r6t=2  d[102] rA=53 c6=19 c7=11
-100  op9=60 r7=0.3.00.1 r6t=1  c6=6e
-101  op9=00 r7=0.0.02.1 r6t=2  d[182] rA=20 rB=20 c6=02 c7=13
-102  op9=00 r7=2.3.01.0 r6t=2  mem2[slot 40] mode 68 rA=54 rB=54 c6=3e k=e148(-0.2400)
-103  op9=13 r7=0.0.03.1 r6t=2  d[105] c6=02 c7=12
-104  op9=00 r7=0.0.0a.1 r6t=3  d[186] rB=58 c6=02
-105  op9=11 r7=1.0.01.1 r6t=2  rB=54 k=3852(+0.4400) b=3   ; VCO2 Edge v0
-106  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 41] mode 30 d[09a] rB=52 c6=0c b=7
-107  op9=40 r7=1.2.02.0 r6t=2  d[105] rA=52 c6=1a c7=11
-108  op9=60 r7=0.3.00.1 r6t=1  
-109  op9=00 r7=0.0.02.1 r6t=2  d[185] rA=21 rB=21 c6=05 c7=13
-10a  op9=00 r7=2.3.01.0 r6t=2  mem2[slot 42] mode 68 rA=54 rB=55 c6=3e k=e148(-0.2400)
-10b  op9=13 r7=0.0.03.1 r6t=2  d[109] c6=05 c7=12
-10c  op9=00 r7=0.0.0a.1 r6t=3  d[189] rB=59 c6=05
-10d  op9=00 r7=2.3.01.0 r6t=2  rA=55 rB=56 c6=3e k=e148(-0.2400)
-10e  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 43] mode 30 d[183] rA=22 rB=22 c6=09 c7=13
-10f  op9=40 r7=0.1.01.0 r6t=2  d[104] rB=24 c6=03 c7=11
-110  op9=40 r7=0.1.01.0 r6t=2  rB=29 c6=04 c7=11
-111  op9=11 r7=1.0.01.1 r6t=2  rB=54 k=3852(+0.4400) b=4   ; VCO2 Edge v1
-112  op9=12 r7=0.0.03.1 r6t=2  mem2[slot 44] mode 28 c6=04 c7=12
-113  op9=13 r7=1.0.01.1 r6t=2  d[104] rB=55 k=3852(+0.4400) b=5   ; VCO2 Edge v2
-114  op9=02 r7=0.0.0a.1 r6t=3  d[184] rB=57 c6=03 k=35c3(+0.4200) b=3
-115  op9=00 r7=2.3.01.0 r6t=2  rA=53 rB=53 c6=3e k=e148(-0.2400)
-116  op9=00 r7=0.0.02.1 r6t=2  mem2[slot 45] mode 28 d[182] rA=23 rB=23 c6=04 c7=12
-117  op9=40 r7=0.1.01.0 r6t=2  d[106] rB=25 c6=02 c7=11
-118  op9=40 r7=0.1.01.0 r6t=2  rB=2a c6=06 c7=11
-119  op9=00 r7=0.0.08.1 r6t=2  rB=24 c7=12
-11a  op9=00 r7=1.0.0a.0 r6t=2  mem2[slot 46] mode 28 rA=24 c6=06 c7=12
-11b  op9=00 r7=2.3.01.0 r6t=2  d[10a] rA=52 rB=52 c6=3e k=e148(-0.2400)
-11c  op9=00 r7=0.0.0a.1 r6t=3  d[18c] rB=5a c6=02
-11d  op9=00 r7=0.0.08.1 r6t=2  rB=29 c7=12
-11e  op9=01 r7=1.0.0a.0 r6t=2  mem2[slot 47] mode 28 d[0c9] rA=29 c6=0a c7=12 k=35c3(+0.4200) b=4
-11f  op9=40 r7=0.1.01.0 r6t=2  d[105] rB=26 c6=05 c7=13
-120  op9=40 r7=0.1.01.0 r6t=2  rB=2b c6=09 c7=13
-121  op9=00 r7=0.0.08.1 r6t=2  rB=25 c7=11
-122  op9=00 r7=1.0.0a.0 r6t=2  mem2[slot 48] mode 28 rA=25 c6=05 c7=11
-123  op9=12 r7=1.0.01.1 r6t=2  d[11b] rB=53 k=3852(+0.4400) b=6   ; VCO2 Edge v3
-124  op9=13 r7=1.0.01.1 r6t=2  rB=52 k=3852(+0.4400) b=7   ; VCO2 Edge v4
-125  op9=00 r7=0.0.08.1 r6t=2  rB=2a c7=11
-126  op9=01 r7=1.0.0a.0 r6t=2  mem2[slot 49] mode 28 rA=2a c6=1b c7=11 k=35c3(+0.4200) b=5
-127  op9=40 r7=0.1.01.0 r6t=2  d[103] rB=27 c6=03 c7=12
-128  op9=40 r7=0.1.01.0 r6t=2  rB=2c c6=04 c7=12
-129  op9=05 r7=0.0.08.1 r6t=2  rB=26 c7=11 k=f000(-0.1250) b=1
-12a  op9=00 r7=1.0.0a.0 r6t=2  mem2[slot 4a] mode 28 rA=26 c6=03 c7=11
-12b  op9=06 r7=0.0.03.1 r6t=2  d[104] c6=06 k=f000(-0.1250) b=1
-12c  op9=11 r7=1.0.02.0 r6t=2  rA=52 c6=0a c7=15
-12d  op9=00 r7=0.0.08.1 r6t=2  rB=2b c7=11
-12e  op9=02 r7=1.0.0a.0 r6t=2  mem2[slot 4b] mode 28 rA=2b c6=04 c7=11 k=35c3(+0.4200) b=6
-12f  op9=40 r7=0.1.01.0 r6t=2  d[102] rB=28 c6=02 c7=13
-130  op9=40 r7=0.1.01.0 r6t=2  rB=2d c6=0c c7=13
-131  op9=00 r7=0.0.08.1 r6t=2  rB=27 c7=12
-132  op9=00 r7=1.0.0a.0 r6t=2  mem2[slot 4c] mode 28 rA=27 c6=02 c7=12
-133  op9=00 r7=0.0.03.1 r6t=2  d[105] c6=05 c7=16
-134  op9=12 r7=1.0.02.0 r6t=2  rA=53 c6=1b c7=15
-135  op9=00 r7=0.0.08.1 r6t=2  rB=2c c7=12
-136  op9=04 r7=1.0.0a.0 r6t=2  mem2[slot 4d] mode 28 rA=2c c6=05 c7=12 k=35c3(+0.4200) b=7
-137  op9=00 r7=0.0.03.1 r6t=2  d[103] c6=03 c7=16
-138  op9=13 r7=1.0.02.0 r6t=2  rA=54 c6=04 c7=15
-139  op9=00 r7=0.0.08.1 r6t=2  rB=28 c7=14
-13a  op9=00 r7=1.0.0a.0 r6t=2  rA=28 c6=03 c7=14
-13b  op9=00 r7=0.0.03.1 r6t=2  d[102] c6=02 c7=16
-13c  op9=14 r7=1.0.02.0 r6t=2  rA=55 c6=05 c7=15
-13d  op9=00 r7=0.0.08.1 r6t=2  rB=2d c7=14
-13e  op9=00 r7=1.0.0a.0 r6t=2  d[0ca] rA=2d c6=02 c7=14
-13f  op9=00 r7=0.0.03.1 r6t=2  d[084] c6=03 c7=16
-140  op9=11 r7=1.0.02.0 r6t=2  rA=56 c6=02 c7=15
-141  op9=00 r7=1.2.01.1 r6t=2  rA=57 rB=4f c6=6f c7=11
-142  op9=00 r7=1.2.01.1 r6t=2  rA=58 rB=50 c7=12
-143  op9=00 r7=1.2.01.1 r6t=2  rA=59 rB=51 c7=13
-144  op9=00 r7=1.2.01.1 r6t=2  rA=5a rB=4d c7=14
-145  op9=00 r7=1.2.01.1 r6t=2  rA=57 rB=4e c7=11
-146  op9=01 r7=1.2.01.1 r6t=2  rB=5c b=1   ; VCA Feedback
-147  op9=00 r7=0.0.00.0 r6t=2  d[142] rB=57 b=3   ; Ring Mod v0
-148  op9=00 r7=0.0.00.0 r6t=2  rB=4f b=3   ; VCO1 Level v0
-149  op9=00 r7=0.0.00.0 r6t=2  rB=52 b=3   ; VCO2 Level v0
-14a  op9=00 r7=1.0.02.0 r6t=2  d[182] c6=02 b=3   ; Noise Level v0
-14b  op9=00 r7=1.2.01.1 r6t=2  rB=5d c7=11
-14c  op9=00 r7=0.0.00.0 r6t=2  d[143] rB=58 b=4   ; Ring Mod v1
-14d  op9=00 r7=0.0.00.0 r6t=2  rB=50 b=4   ; VCO1 Level v1
-14e  op9=00 r7=0.0.00.0 r6t=2  rB=53 b=4   ; VCO2 Level v1
-14f  op9=00 r7=1.0.02.0 r6t=2  d[183] c6=03 b=4   ; Noise Level v1
-150  op9=00 r7=1.2.01.1 r6t=2  rB=5e c7=11
-151  op9=00 r7=0.0.00.0 r6t=2  d[145] rB=59 b=5   ; Ring Mod v2
-152  op9=00 r7=0.0.00.0 r6t=2  rB=51 b=5   ; VCO1 Level v2
-153  op9=00 r7=0.0.00.0 r6t=2  rB=54 b=5   ; VCO2 Level v2
-154  op9=00 r7=1.0.02.0 r6t=2  d[186] c6=05 b=5   ; Noise Level v2
-155  op9=00 r7=1.2.01.1 r6t=2  rB=5f c7=11
-156  op9=00 r7=0.0.00.0 r6t=2  d[145] rB=5a b=6   ; Ring Mod v3
-157  op9=00 r7=0.0.00.0 r6t=2  d[085] rB=4d b=6   ; VCO1 Level v3
-158  op9=00 r7=0.0.00.0 r6t=2  rB=55 b=6   ; VCO2 Level v3
-159  op9=00 r7=1.0.02.0 r6t=2  d[19b] c6=05 b=6   ; Noise Level v3
-15a  op9=00 r7=1.2.01.1 r6t=2  rB=60 c7=11
-15b  op9=00 r7=0.0.00.0 r6t=2  d[14c] rB=57 b=7   ; Ring Mod v4
-15c  op9=00 r7=0.0.00.0 r6t=2  rB=4e b=7   ; VCO1 Level v4
-15d  op9=00 r7=0.0.00.0 r6t=2  d[0c2] rB=56 b=7   ; VCO2 Level v4
-15e  op9=00 r7=1.0.02.0 r6t=2  d[183] c6=0c b=7   ; Noise Level v4
-15f  op9=00 r7=1.0.0a.1 r6t=2  d[18c] rB=2e c6=02 k=2000(+0.2500) b=3
-160  op9=00 r7=1.0.0a.1 r6t=2  d[19b] rB=2f c6=03 k=2000(+0.2500) b=4
-161  op9=00 r7=1.0.0a.1 r6t=2  d[19d] rB=30 c6=06 k=2000(+0.2500) b=5
-162  op9=00 r7=1.0.0a.1 r6t=2  d[192] rB=31 c6=1b k=2000(+0.2500) b=6
-163  op9=00 r7=0.0.02.1 r6t=2  rB=4c c6=0d b=3
-164  op9=03 r7=0.0.02.0 r6t=2  c6=12 b=1
-165  op9=40 r7=1.2.00.0 r6t=1   k=7fff(+1.0000) b=3   ; VCF Cutoff v0
-166  op9=60 r7=0.3.00.1 r6t=1  
-167  op9=00 r7=1.0.0a.1 r6t=2  d[19e] rB=32 c6=03 k=2000(+0.2500) b=7
-168  op9=00 r7=1.0.02.1 r6t=2  mem2[slot 5a] mode 68 rA=2e rB=2e c6=0c k=0148(+0.0100) b=3
-169  op9=00 r7=1.0.02.1 r6t=2  rA=2f rB=2f c6=1b k=0148(+0.0100) b=4
-16a  op9=00 r7=1.0.02.1 r6t=2  rA=30 rB=30 c6=1d k=0148(+0.0100) b=5
-16b  op9=00 r7=0.0.02.1 r6t=2  rB=4c c6=0e b=4
-16c  op9=00 r7=0.0.02.0 r6t=2  mem2[slot 5b] mode 30 c6=13 c7=13
-16d  op9=40 r7=1.2.00.0 r6t=1  d[103] k=7fff(+1.0000) b=4   ; VCF Cutoff v1
-16e  op9=60 r7=0.3.00.1 r6t=1  
-16f  op9=00 r7=1.0.02.1 r6t=2  rA=31 rB=31 c6=12 k=0148(+0.0100) b=6
-170  op9=00 r7=1.0.02.1 r6t=2  mem2[slot 5c] mode 68 rA=32 rB=32 c6=1e k=0148(+0.0100) b=7
-171  op9=11 r7=0.0.03.1 r6t=2  d[103] c6=03 k=7c00(+0.9688) b=3
-172  op9=00 r7=0.0.02.1 r6t=2  rB=4c c6=0f b=5
-173  op9=00 r7=0.0.02.0 r6t=2  c6=14 c7=13
-174  op9=40 r7=1.2.00.0 r6t=1  mem2[slot 5d] mode 34 k=7fff(+1.0000) b=5   ; VCF Cutoff v2
-175  op9=60 r7=0.3.00.1 r6t=1  d[103]
-176  op9=11 r7=1.0.02.1 r6t=2  d[086] rA=4d rB=7d c6=03 c7=11
-177  op9=00 r7=0.0.01.1 r6t=2  d[193] rB=38 k=4000(+0.5000)
-178  op9=12 r7=0.0.03.1 r6t=2  mem2[slot 5e] mode 68 c6=03 k=7c00(+0.9688) b=4
-179  op9=00 r7=1.0.01.1 r6t=2  d[183] rB=4d c7=11
-17a  op9=00 r7=0.0.02.1 r6t=2  d[114] rB=4c c6=10 b=6
-17b  op9=01 r7=0.0.02.0 r6t=2  c6=15 c7=13 k=c000(-0.5000) b=3
-17c  op9=40 r7=1.2.00.0 r6t=1  mem2[slot 5f] mode 34 k=7fff(+1.0000) b=6   ; VCF Cutoff v3
-17d  op9=60 r7=0.3.00.1 r6t=1  d[114]
-17e  op9=14 r7=1.0.02.1 r6t=2  d[0c3] rA=4d rB=7d c6=14 c7=12
-17f  op9=12 r7=2.0.02.1 r6t=2  rB=4d c6=03 c7=11
-180  op9=15 r7=2.2.02.1 r6t=2  mem2[slot 60] mode 68 rB=4d c6=03 k=9df8(-0.7659)
-181  op9=14 r7=0.0.03.1 r6t=2  d[107] c6=14 k=7c00(+0.9688) b=5
-182  op9=00 r7=1.0.01.1 r6t=2  d[18b] rB=4d c6=47 c7=14
-183  op9=00 r7=0.0.02.1 r6t=2  rB=4c c6=11 b=7
-184  op9=00 r7=0.0.02.0 r6t=2  mem2[slot 61] mode 30 c6=0b c7=13
-185  op9=40 r7=1.2.00.0 r6t=1  d[10c] k=7fff(+1.0000) b=7   ; VCF Cutoff v4
-186  op9=60 r7=0.3.00.1 r6t=1  
-187  op9=01 r7=1.1.01.0 r6t=2  rA=4c rB=33 c6=0c c7=11 k=c000(-0.5000) b=4
-188  op9=00 r7=1.0.00.0 r6t=2  mem2[slot 62] mode 68 rA=51 rB=38 k=8000(-1.0000)
-189  op9=18 r7=0.0.03.1 r6t=2  d[10c] c6=0c k=7c00(+0.9688) b=6
-18a  op9=00 r7=0.0.01.1 r6t=2  d[194] rB=39 k=4000(+0.5000)
-18b  op9=13 r7=2.0.02.1 r6t=2  rB=4d c6=0b c7=11
-18c  op9=00 r7=0.0.01.1 r6t=2  mem2[slot 63] mode 30 rB=33 k=4000(+0.5000)
-18d  op9=59 r7=1.1.00.0 r6t=2  d[107] rB=51 c7=12
-18e  op9=16 r7=2.2.02.1 r6t=2  rB=4d c6=0b k=9df8(-0.7659)
-18f  op9=11 r7=1.0.02.1 r6t=2  rA=4e rB=7d c6=07 c7=14
-190  op9=1a r7=0.0.03.1 r6t=2  mem2[slot 64] mode 28 c6=07 k=7c00(+0.9688) b=7
-191  op9=00 r7=1.1.01.0 r6t=2  d[107] rA=4d rB=34 c6=1b c7=11
-192  op9=00 r7=1.0.00.0 r6t=2  rA=52 rB=39 k=8000(-1.0000)
-193  op9=01 r7=1.0.01.1 r6t=2  d[18b] rB=4e c7=11 k=c000(-0.5000) b=5
-194  op9=00 r7=0.0.01.1 r6t=2  mem4[slot 65] mode 28 rB=34 k=4000(+0.5000)
-195  op9=5b r7=1.1.00.0 r6t=2  d[115] rB=52 c7=13
-196  op9=00 r7=0.0.01.1 r6t=2  d[19b] rB=3a k=4000(+0.5000)
-197  op9=14 r7=2.0.02.1 r6t=2  rB=4e c6=0b c7=11
-198  op9=17 r7=2.2.02.1 r6t=2  mem2[slot 66] mode 28 rB=4e c6=0b k=9df8(-0.7659)
-199  op9=00 r7=1.1.01.0 r6t=2  d[10b] rA=4e rB=35 c6=1d c7=11
-19a  op9=00 r7=1.0.00.0 r6t=2  rA=53 rB=3a k=8000(-1.0000)
-19b  op9=11 r7=1.0.02.1 r6t=2  rA=4f rB=7d c6=0c c7=18
-19c  op9=00 r7=0.0.01.1 r6t=2  mem4[slot 67] mode 28 rB=35 k=4000(+0.5000)
-19d  op9=59 r7=1.1.00.0 r6t=2  d[10c] rB=53 c7=14
-19e  op9=00 r7=0.0.0b.0 r6t=2  d[0cb] c6=15 c7=19
-19f  op9=00 r7=1.0.0a.0 r6t=2  d[087] rA=33 c6=0b c7=19
-1a0  op9=00 r7=0.0.01.1 r6t=2  mem2[slot 68] mode 28 d[195] rB=3b k=4000(+0.5000)
-1a1  op9=18 r7=1.0.02.1 r6t=2  d[10c] rA=50 rB=7d c6=07 c7=1a
-1a2  op9=00 r7=1.0.01.1 r6t=2  d[18c] rB=4f c7=11
-1a3  op9=01 r7=0.0.0b.0 r6t=2  c6=0c c7=1b k=c000(-0.5000) b=6
-1a4  op9=00 r7=1.0.0a.0 r6t=2  mem4[slot 69] mode 28 rA=34 c6=0c c7=1b
-1a5  op9=5a r7=1.1.01.0 r6t=2  d[112] rB=33 c6=13 c7=12
-1a6  op9=12 r7=2.0.02.1 r6t=2  rB=4f c6=0c c7=11
-1a7  op9=00 r7=1.1.01.0 r6t=2  rA=4f rB=36 c6=12 c7=11
-1a8  op9=00 r7=1.0.00.0 r6t=2  mem2[slot 6a] mode 28 rA=54 rB=3b k=8000(-1.0000)
-1a9  op9=18 r7=2.2.02.1 r6t=2  d[10c] rB=4f c6=0c k=9df8(-0.7659)
-1aa  op9=00 r7=1.0.01.1 r6t=2  d[18c] rB=50 c7=18
-1ab  op9=00 r7=0.0.0b.0 r6t=2  c6=12 c7=19
-1ac  op9=01 r7=1.0.0a.0 r6t=2  mem4[slot 6b] mode 28 rA=35 c6=0c c7=19 k=c000(-0.5000) b=7
-1ad  op9=5b r7=1.1.01.0 r6t=2  d[112] rB=34 c6=14 c7=13
-1ae  op9=00 r7=0.0.01.1 r6t=2  d[193] rB=3c k=4000(+0.5000)
-1af  op9=13 r7=2.0.02.1 r6t=2  rB=50 c6=0c c7=11
-1b0  op9=19 r7=2.2.02.1 r6t=2  mem2[slot 6c] mode 28 rB=50 c6=0c k=9df8(-0.7659)
-1b1  op9=00 r7=0.0.01.1 r6t=2  d[10c] rB=36 k=4000(+0.5000)
-1b2  op9=5a r7=1.1.00.0 r6t=2  rB=54 c7=12
-1b3  op9=00 r7=0.0.0b.0 r6t=2  c6=12 c7=1a
-1b4  op9=00 r7=1.0.0a.0 r6t=2  mem4[slot 6d] mode 28 rA=38 c6=0c c7=1a
-1b5  op9=00 r7=1.1.01.0 r6t=2  d[10c] rA=50 rB=37 c6=1e c7=11
-1b6  op9=00 r7=1.0.00.0 r6t=2  rA=55 rB=3c k=8000(-1.0000)
-1b7  op9=00 r7=0.0.08.1 r6t=2  rB=3d c7=15
-1b8  op9=00 r7=1.0.08.0 r6t=2  mem2[slot 6e] mode 28 rA=3d rB=38 c7=15
-1b9  op9=00 r7=0.0.01.1 r6t=2  d[10c] rB=37 k=4000(+0.5000)
-1ba  op9=51 r7=1.1.00.0 r6t=2  rB=55 c7=13
-1bb  op9=00 r7=0.0.0b.0 r6t=2  c6=0c c7=1b
-1bc  op9=00 r7=1.0.0a.0 r6t=2  mem4[slot 6f] mode 28 rA=39 c6=0c c7=1b
-1bd  op9=00 r7=0.0.08.1 r6t=2  d[112] rB=42 c7=15
-1be  op9=00 r7=1.0.08.0 r6t=2  d[0cc] rA=42 rB=3d c7=15
-1bf  op9=00 r7=0.0.08.1 r6t=2  rB=3e c7=16
-1c0  op9=00 r7=1.0.08.0 r6t=2  mem2[slot 70] mode 28 rA=3e rB=39 c7=16
-1c1  op9=15 r7=2.1.03.1 r6t=2  d[101] c6=01 k=745a(+0.9090)
-1c2  op9=1a r7=2.1.03.1 r6t=2  c6=02 k=745a(+0.9090)
-1c3  op9=00 r7=0.0.0b.0 r6t=2  c6=12 c7=1a
-1c4  op9=04 r7=1.0.0a.0 r6t=2  mem4[slot 71] mode 28 rA=36 c6=01 c7=1a k=7fff(+1.0000) b=3
-1c5  op9=56 r7=1.1.01.0 r6t=2  d[101] rB=35 c6=1b c7=14
-1c6  op9=00 r7=0.0.08.1 r6t=2  rB=43 c7=16
-1c7  op9=00 r7=1.0.08.0 r6t=2  rA=43 rB=3e c7=16
-1c8  op9=00 r7=0.0.08.1 r6t=2  mem2[slot 72] mode 28 rB=47 c7=14
-1c9  op9=04 r7=1.0.08.0 r6t=2  d[101] rA=4c rB=42 c7=14
-1ca  op9=1b r7=2.1.03.1 r6t=2  rA=47 c6=03 k=745a(+0.9090)
-1cb  op9=01 r7=0.0.0b.0 r6t=2  c6=01 c7=11 k=7fff(+1.0000) b=4
-1cc  op9=00 r7=1.0.0a.0 r6t=2  mem4[slot 73] mode 28 rA=37 c6=01 c7=11
-1cd  op9=51 r7=1.1.01.0 r6t=2  d[101] rB=36 c6=15 c7=12
-1ce  op9=00 r7=0.0.08.1 r6t=2  rB=48 c7=11
-1cf  op9=04 r7=1.0.08.0 r6t=2  rA=4d rB=43 c7=11
-1d0  op9=12 r7=2.1.03.1 r6t=2  mem2[slot 74] mode 28 rA=48 c6=0b k=745a(+0.9090)
-1d1  op9=15 r7=2.1.03.1 r6t=2  d[101] c6=0c k=745a(+0.9090)
-1d2  op9=00 r7=1.0.01.1 r6t=2  rA=5c rB=4c c7=15
-1d3  op9=00 r7=0.0.0b.0 r6t=2  c6=01 c7=16
-1d4  op9=00 r7=1.0.0a.0 r6t=2  mem4[slot 75] mode 28 d[0c1] rA=3a c6=01 c7=16
-1d5  op9=53 r7=1.1.01.0 r6t=2  d[102] rB=37 c6=13 c7=13
-1d6  op9=00 r7=0.0.08.1 r6t=2  rB=3f c7=17
-1d7  op9=00 r7=1.0.08.0 r6t=2  d[081] rA=3f rB=3a c7=17
-1d8  op9=16 r7=2.1.03.0 r6t=1  mem2[slot 76] mode 28 c6=01 k=0da3(+0.1065)
-1d9  op9=00 r7=0.0.08.1 r6t=2  d[102] rB=44 c7=17
-1da  op9=00 r7=1.0.08.0 r6t=2  rA=44 rB=3f c7=17
-1db  op9=00 r7=0.0.0b.0 r6t=2  c6=02 c7=11
-1dc  op9=00 r7=1.0.0a.0 r6t=2  mem4[slot 77] mode 28 rA=3b c6=02 c7=11
-1dd  op9=00 r7=1.0.01.1 r6t=2  d[103] rA=5d rB=4d c7=1a
-1de  op9=00 r7=0.0.08.1 r6t=2  rB=40 c7=18
-1df  op9=00 r7=1.0.08.0 r6t=2  rA=40 rB=3b c7=18
-1e0  op9=00 r7=1.0.03.1 r6t=2  d[182] c6=01 c7=16
-1e1  op9=00 r7=0.0.08.1 r6t=2  d[103] rB=45 c7=18
-1e2  op9=01 r7=1.0.08.0 r6t=2  rA=45 rB=40 c7=18 k=7fff(+1.0000) b=5
-1e3  op9=00 r7=0.0.0b.0 r6t=2  c6=03 c7=13
-1e4  op9=00 r7=1.0.0a.0 r6t=2  rA=3c c6=03 c7=13
-1e5  op9=01 r7=0.0.08.1 r6t=2  rB=49 c7=11 k=7fff(+1.0000) b=6
-1e6  op9=04 r7=1.0.08.0 r6t=2  rA=4c rB=44 c7=11
-1e7  op9=00 r7=0.0.08.1 r6t=2  rA=49 rB=41 c7=19
-1e8  op9=00 r7=1.0.08.0 r6t=2  rA=41 rB=3c c7=19
-1e9  op9=00 r7=0.0.08.1 r6t=2  rB=4a c7=11
-1ea  op9=04 r7=1.0.08.0 r6t=2  rA=4d rB=45 c7=11
-1eb  op9=00 r7=0.0.08.1 r6t=2  rA=4a rB=46 c7=19
-1ec  op9=01 r7=1.0.08.0 r6t=2  rA=46 rB=41 c7=19 k=7fff(+1.0000) b=7
-1ed  op9=00 r7=0.0.02.1 r6t=2  rB=7f c6=01 b=1   ; VCA Mod Dp
-1ee  op9=11 r7=2.1.02.0 r6t=2  c6=02 b=1   ; VCA Mod Dp
-1ef  op9=00 r7=0.0.08.1 r6t=2  rB=4b c7=11
-1f0  op9=04 r7=1.0.08.0 r6t=2  rA=4e rB=46 c7=11
-1f1  op9=00 r7=0.0.03.1 r6t=2  rA=4b c6=01 b=1   ; VCF Mod Dp
-1f2  op9=00 r7=1.0.02.0 r6t=2  rA=4c c6=02 b=1   ; VCF Mod Dp
-1f3  op9=00 r7=1.0.01.1 r6t=2  rA=5e rB=4c c7=1b
-1f4  op9=00 r7=1.0.01.1 r6t=2  rA=5f rB=4d c7=12
-1f5  op9=00 r7=1.0.01.1 r6t=2  rA=60 rB=4e c7=15
-1f6  op9=00 r7=1.0.01.1 r6t=2  rA=4d rB=5c c7=11
-1f7  op9=00 r7=1.0.01.1 r6t=2  d[092] rA=4e rB=5d c7=11
-1f8  op9=00 r7=1.0.01.1 r6t=2  rA=4f rB=5e c7=11
-1f9  op9=00 r7=1.0.01.1 r6t=2  rA=4d rB=5f c7=11
-1fa  op9=00 r7=1.0.01.1 r6t=2  rA=4e rB=60 c7=11
-1fb  op9=00 r7=1.1.01.1 r6t=2  d[183] rB=4d k=7fff(+1.0000) b=3
-1fc  op9=00 r7=1.1.01.1 r6t=2  d[1ae] rB=4e k=7fff(+1.0000) b=4
-1fd  op9=00 r7=1.1.01.1 r6t=2  d[19b] rB=4f k=7fff(+1.0000) b=5
-1fe  op9=00 r7=0.0.01.1 r6t=2  d[0cb] rB=4d k=7fff(+1.0000) b=6
-1ff  op9=00 r7=1.0.00.0 r6t=2  d[1af] rB=4e k=7fff(+1.0000) b=7
+000  op=0.0 dst=0 r7=0.03.1 class=2  mode=01 b=1
+001  op=0.0 dst=1 r7=1.02.0 class=2  d[181] mode=02 b=1   ; VCO1 Pmod Dp
+002  op=0.0 dst=0 r7=0.03.1 class=2  mode=01 b=1   ; VCO2 Pmod Dp
+003  op=0.0 dst=0 r7=1.02.0 class=2  d[183] mode=02 b=1   ; VCO2 Pmod Dp
+004  op=0.0 dst=0 r7=0.01.1 class=2  rB=7f mode=03 b=2   ; VCO1 Pitch, VCO1 Fine
+005  op=0.0 dst=0 r7=1.02.0 class=2  rA=4d mode=01 b=1
+006  op=0.0 dst=0 r7=0.01.1 class=2  rA=4e rB=7f b=1   ; VCO1 PW
+007  op=1.1 dst=0 r7=1.03.1 class=2  mode=3f b=3   ; FM Src1 v0
+008  op=0.0 dst=0 r7=0.02.1 class=2  rB=4d mode=08 b=3
+009  op=0.1 dst=0 r7=1.02.0 class=2  rA=4f mode=16 k=2000(+0.2500) b=2   ; VCO1 Pitch, VCO1 Fine
+00a  op=0.4 dst=0 r7=1.02.0 class=2  rA=53 mode=2b c7=11
+00b  op=1.2 dst=0 r7=1.03.1 class=2  mode=3f b=4   ; FM Src1 v1
+00c  op=1.3 dst=0 r7=1.03.1 class=2  mode=3f b=5   ; FM Src1 v2
+00d  op=0.0 dst=0 r7=0.02.1 class=2  rB=4f mode=3f b=3   ; SyncPit Dp v0, SyncPit Src v0
+00e  op=4.0 dst=2 r7=1.02.0 class=2  rA=58 mode=3f b=3   ; Sync Pitch v0
+00f  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+010  op=0.0 dst=0 r7=0.02.1 class=2  rB=4d mode=09 b=4
+011  op=0.0 dst=0 r7=1.02.0 class=2  mem2[slot 04] mode 68 d[0cc] rA=50 mode=17 c7=11
+012  op=0.4 dst=0 r7=1.02.0 class=2  rA=54 mode=2c c7=12
+013  op=1.2 dst=0 r7=1.03.1 class=2  mode=3f b=6   ; FM Src1 v3
+014  op=1.5 dst=0 r7=1.03.1 class=2  mode=3f b=7   ; FM Src1 v4
+015  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 05] mode 30 rB=50 mode=3f b=4   ; SyncPit Dp v1, SyncPit Src v1
+016  op=4.0 dst=2 r7=1.02.0 class=2  d[113] rA=59 mode=3f b=4   ; Sync Pitch v1
+017  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+018  op=0.0 dst=0 r7=0.02.1 class=2  rB=4d mode=0a b=5
+019  op=0.0 dst=0 r7=1.02.0 class=2  mem2[slot 06] mode 68 rA=51 mode=18 c7=11
+01a  op=0.4 dst=0 r7=1.02.0 class=2  d[10d] rA=55 mode=2d c7=13
+01b  op=1.3 dst=0 r7=0.03.1 class=2  mode=13 k=4000(+0.5000)
+01c  op=0.0 dst=3 r7=0.02.1 class=2  rA=61 rB=4e mode=3f b=3   ; VCO1 PWM Dp v0, VCO1 PWM Src v0
+01d  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 07] mode 30 rB=51 mode=3f b=5   ; SyncPit Dp v2, SyncPit Src v2
+01e  op=4.0 dst=2 r7=1.02.0 class=2  d[113] rA=5a mode=3f b=5   ; Sync Pitch v2
+01f  op=6.0 dst=3 r7=0.00.1 class=1  d[096] r[00] = k
+020  op=0.0 dst=0 r7=0.02.1 class=2  rB=4d mode=0b b=6
+021  op=0.0 dst=0 r7=1.02.0 class=2  mem2[slot 08] mode 68 rA=52 mode=19 c7=11
+022  op=0.4 dst=0 r7=1.02.0 class=2  d[10d] rA=56 mode=21 c7=12
+023  op=1.2 dst=0 r7=0.03.1 class=2  mode=13 k=4000(+0.5000)
+024  op=0.0 dst=1 r7=1.03.1 class=2  d[194] mode=0d c7=13
+025  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 09] mode 30 rB=52 mode=3f b=6   ; SyncPit Dp v3, SyncPit Src v3
+026  op=4.0 dst=2 r7=1.02.0 class=2  d[113] rA=5b mode=3f b=6   ; Sync Pitch v3
+027  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+028  op=0.0 dst=0 r7=0.02.1 class=2  rB=4d mode=0c b=7
+029  op=0.1 dst=0 r7=1.02.0 class=2  mem2[slot 0a] mode 68 rA=4d mode=1a c7=11 b=1
+02a  op=0.4 dst=0 r7=1.02.0 class=2  d[10d] rA=57 mode=1c c7=15
+02b  op=1.2 dst=0 r7=0.03.1 class=2  mode=13 k=4000(+0.5000)
+02c  op=0.0 dst=1 r7=1.03.1 class=2  d[195] mode=0d c7=12
+02d  op=0.0 dst=3 r7=0.02.1 class=2  mem2[slot 0b] mode 30 rA=53 rB=4e mode=3f b=4   ; VCO1 PWM Dp v1, VCO1 PWM Src v1
+02e  op=4.4 dst=2 r7=1.02.1 class=2  d[10d] rA=4f rB=4f mode=01 c7=11
+02f  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+030  op=0.2 dst=1 r7=1.03.1 class=2  d[18f] mode=0d c7=12
+031  op=0.0 dst=3 r7=0.02.1 class=2  mem2[slot 0c] mode 68 rA=62 rB=4e mode=3f b=5   ; VCO1 PWM Dp v2, VCO1 PWM Src v2
+032  op=1.3 dst=0 r7=0.03.1 class=2  d[10d] mode=0d k=4000(+0.5000)
+033  op=0.0 dst=3 r7=0.02.1 class=2  rA=63 rB=4e mode=3f b=6   ; VCO1 PWM Dp v3, VCO1 PWM Src v3
+034  op=0.0 dst=3 r7=0.02.1 class=2  rA=64 rB=4e mode=3f b=7   ; VCO1 PWM Dp v4, VCO1 PWM Src v4
+035  op=0.0 dst=1 r7=1.03.1 class=2  mem2[slot 0d] mode 30 d[190] mode=0d c7=13
+036  op=4.0 dst=0 r7=2.01.1 class=2  d[10d] rB=4f k=2000(+0.2500)
+037  op=0.0 dst=0 r7=0.09.0 class=2  rA=53 rB=61 mode=3f c7=12
+038  op=0.0 dst=0 r7=0.09.0 class=2  rA=61 rB=53 mode=3f c7=12
+039  op=1.3 dst=0 r7=0.03.1 class=2  mem2[slot 0e] mode 28 mode=0d k=4000(+0.5000)
+03a  op=0.0 dst=0 r7=0.02.1 class=2  d[10e] rB=4d mode=3f b=7   ; SyncPit Dp v4, SyncPit Src v4
+03b  op=4.0 dst=2 r7=1.02.0 class=2  rA=4e mode=3f b=7   ; Sync Pitch v4
+03c  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+03d  op=0.0 dst=0 r7=0.09.0 class=2  d[0cd] rA=62 rB=62 mode=3f c7=12
+03e  op=0.0 dst=0 r7=0.09.0 class=2  mem2[slot 0f] mode 68 d[10e] rA=63 rB=63 mode=3f c7=12
+03f  op=0.0 dst=0 r7=0.09.0 class=2  d[093] rA=64 rB=64 mode=3f c7=12
+040  op=1.2 dst=0 r7=0.02.1 class=2  d[198] rA=01 rB=01 mode=0e c7=13
+041  op=0.0 dst=0 r7=0.02.1 class=2  d[1a1] rA=0b rB=0b mode=14 k=4000(+0.5000)
+042  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 10] mode 30 d[1a6] rA=10 rB=10 mode=14 k=4000(+0.5000)
+043  op=4.4 dst=2 r7=1.02.1 class=2  d[111] rA=50 rB=50 mode=01 c7=11
+044  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+045  op=1.2 dst=1 r7=0.02.1 class=2  d[19c] rA=06 rB=53 mode=18 k=4000(+0.5000)
+046  op=0.0 dst=0 r7=1.00.0 class=2  mem2[slot 11] mode 68 d[197] rB=06 mode=1b
+047  op=1.3+ dst=3 r7=1.03.0 class=2  d[111] rA=53 mode=0e c7=12
+048  op=0.0 dst=3 r7=2.02.1 class=2  rA=54 rB=7e mode=18 k=1400(+0.1562)
+049  op=1.3 dst=0 r7=0.03.1 class=2  mode=11 k=4000(+0.5000)
+04a  op=0.0^ dst=0 r7=0.01.0 class=1  r[00] = k c7=0c
+04b  op=0.0 dst=3 r7=1.03.1 class=2  mem2[slot 12] mode 30 d[1a1] rA=0b mode=14 c7=13
+04c  op=4.0 dst=0 r7=2.01.1 class=2  d[119] rB=50 k=2000(+0.2500)
+04d  op=0.0 dst=0 r7=0.0a.1 class=3  rB=53 mode=1c
+04e  op=0.0 dst=1 r7=1.03.1 class=2  d[191] mode=11 c7=13
+04f  op=0.0 dst=3 r7=2.02.1 class=2  rB=7e mode=17 k=1400(+0.1562)
+050  op=4.2 dst=0 r7=2.08.0 class=3  mem2[slot 14] mode 2a rB=54 k=4000(+0.5000)
+051  op=1.3 dst=3 r7=1.03.0 class=2  d[10e] mode=0e c7=12
+052  op=1.3 dst=0 r7=0.03.1 class=2  mode=19 k=4000(+0.5000)
+053  op=0.5^ dst=0 r7=0.01.0 class=1  r[00] = k c7=0c k=e148(-0.2400)
+054  op=0.0 dst=3 r7=1.03.1 class=2  mem2[slot 15] mode 28 d[1a6] rA=10 mode=14 c7=13
+055  op=4.4 dst=2 r7=0.01.1 class=2  d[114] rB=1f c7=12
+056  op=0.4 dst=3 r7=2.01.0 class=2  d[097] rA=54 rB=4f mode=3e c7=15
+057  op=1.3 dst=0 r7=0.02.1 class=2  d[199] rA=02 rB=02 mode=0e c7=13
+058  op=0.0 dst=0 r7=0.02.1 class=2  d[1a2] rA=0c rB=0c mode=15 k=4000(+0.5000)
+059  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 16] mode 28 d[1a7] rA=11 rB=11 mode=15 k=4000(+0.5000)
+05a  op=4.4 dst=2 r7=1.02.1 class=2  d[130] rA=51 rB=51 mode=01 c7=11
+05b  op=6.0 dst=3 r7=0.00.1 class=1  d[0ce] r[00] = k
+05c  op=1.3 dst=1 r7=0.02.1 class=2  d[19d] rA=07 rB=61 mode=19 k=4000(+0.5000)
+05d  op=0.0 dst=0 r7=1.00.0 class=2  mem2[slot 17] mode 68 d[19b] rB=07
+05e  op=1.6+ dst=3 r7=1.03.0 class=2  d[12b] rA=53 mode=14 c7=13
+05f  op=0.0 dst=3 r7=2.02.1 class=2  rA=55 rB=7e mode=19 k=1400(+0.1562)
+060  op=0.0^ dst=0 r7=0.01.0 class=1  r[00] = k c7=0c
+061  op=0.0 dst=3 r7=1.03.1 class=2  mem2[slot 18] mode 30 d[1a2] rA=0c mode=15 c7=16
+062  op=4.0 dst=0 r7=2.01.1 class=2  d[11b] rB=51 k=2000(+0.2500)
+063  op=0.0 dst=0 r7=0.0a.1 class=3  rB=53 mode=1d
+064  op=0.0 dst=3 r7=2.02.1 class=2  rB=7e mode=1b k=1400(+0.1562)
+065  op=4.0 dst=0 r7=2.08.0 class=3  mem2[slot 19] mode 2a rB=55
+066  op=1.3 dst=3 r7=1.03.0 class=2  d[114] mode=14 c7=13
+067  op=1.3 dst=0 r7=0.03.1 class=2  mode=1b k=4000(+0.5000)
+068  op=0.0^ dst=0 r7=0.01.0 class=1  r[00] = k c7=0c
+069  op=0.0 dst=3 r7=1.03.1 class=2  mem2[slot 1a] mode 28 d[1a7] rA=11 mode=15 c7=13
+06a  op=4.4 dst=2 r7=0.01.1 class=2  d[114] rB=20 c7=12
+06b  op=0.4 dst=3 r7=2.01.0 class=2  rA=55 rB=50 mode=3e c7=15
+06c  op=1.3 dst=0 r7=0.02.1 class=2  d[195] rA=03 rB=03 mode=14 c7=13
+06d  op=0.0 dst=0 r7=0.02.1 class=2  d[1a3] rA=0d rB=0d mode=0f k=4000(+0.5000)
+06e  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 1b] mode 28 d[1a8] rA=12 rB=12 mode=0f k=4000(+0.5000)
+06f  op=4.4 dst=2 r7=1.02.1 class=2  d[131] rA=52 rB=52 mode=01 c7=11
+070  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+071  op=1.3 dst=1 r7=0.02.1 class=2  d[19e] rA=08 rB=62 mode=15 k=4000(+0.5000)
+072  op=0.0 dst=0 r7=1.00.0 class=2  mem2[slot 1c] mode 68 d[19b] rB=08
+073  op=1.6+ dst=3 r7=1.03.0 class=2  d[12c] rA=53 mode=14 c7=13
+074  op=0.0 dst=3 r7=2.02.1 class=2  rA=56 rB=7e mode=15 k=1400(+0.1562)
+075  op=0.0^ dst=0 r7=0.01.0 class=1  r[00] = k c7=0c
+076  op=0.0 dst=3 r7=1.03.1 class=2  mem2[slot 1d] mode 30 d[1a3] rA=0d mode=0f c7=16
+077  op=4.0 dst=0 r7=2.01.1 class=2  d[11b] rB=52 k=2000(+0.2500)
+078  op=0.0 dst=0 r7=0.0a.1 class=3  rB=53 mode=1e
+079  op=0.0 dst=3 r7=2.02.1 class=2  rB=7e mode=1b k=1400(+0.1562)
+07a  op=4.0 dst=0 r7=2.08.0 class=3  mem2[slot 1e] mode 2a rB=56
+07b  op=1.3 dst=3 r7=1.03.0 class=2  d[114] mode=14 c7=13
+07c  op=1.3 dst=0 r7=0.03.1 class=2  d[0cf] mode=1b k=4000(+0.5000)
+07d  op=0.0^ dst=0 r7=0.01.0 class=1  r[00] = k c7=0c
+07e  op=0.0 dst=3 r7=1.03.1 class=2  mem2[slot 1f] mode 28 d[1a8] rA=12 mode=0f c7=13
+07f  op=4.4 dst=2 r7=0.01.1 class=2  d[094] rB=21 c7=12
+080  op=0.4 dst=3 r7=2.01.0 class=2  d[120] rA=56 rB=51 mode=3e c7=15
+081  op=1.3 dst=0 r7=0.02.1 class=2  d[19b] rA=04 rB=04 mode=14 c7=13
+082  op=0.0 dst=0 r7=0.02.1 class=2  d[1a4] rA=0e rB=0e mode=10 k=4000(+0.5000)
+083  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 20] mode 28 d[1a9] rA=13 rB=13 mode=10 k=4000(+0.5000)
+084  op=4.4 dst=2 r7=1.02.1 class=2  d[132] rA=53 rB=4d mode=01 c7=11
+085  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+086  op=1.1 dst=1 r7=0.02.1 class=2  d[19f] rA=09 rB=63 mode=1b k=4000(+0.5000)
+087  op=0.0 dst=0 r7=1.00.0 class=2  mem2[slot 21] mode 68 d[181] rB=09
+088  op=1.3+ dst=3 r7=1.03.0 class=2  d[12d] rA=4d mode=20 c7=13
+089  op=0.0 dst=3 r7=2.02.1 class=2  rA=57 rB=7e mode=1b k=1400(+0.1562)
+08a  op=0.0^ dst=0 r7=0.01.0 class=2  rB=18 c7=0c
+08b  op=0.0 dst=3 r7=1.03.1 class=2  mem2[slot 22] mode 30 d[1a4] rA=0e mode=10 c7=13
+08c  op=4.0 dst=0 r7=2.01.1 class=2  d[101] rB=53 k=2000(+0.2500)
+08d  op=0.0 dst=0 r7=0.0a.1 class=3  rB=4d mode=1f
+08e  op=0.0 dst=3 r7=2.02.1 class=2  rB=7e mode=01 k=1400(+0.1562)
+08f  op=4.0 dst=0 r7=2.08.0 class=3  mem2[slot 23] mode 2a rB=57
+090  op=1.1 dst=3 r7=1.03.0 class=2  d[101] mode=20 c7=11
+091  op=1.1 dst=0 r7=0.03.1 class=2  mode=01 k=4000(+0.5000)
+092  op=0.0^ dst=0 r7=0.01.0 class=2  rB=28 c7=0c
+093  op=0.0 dst=3 r7=1.03.1 class=2  mem2[slot 24] mode 28 d[1a9] rA=13 mode=10 c7=11
+094  op=4.4 dst=2 r7=0.01.1 class=2  d[133] rB=22 c7=12
+095  op=0.4 dst=3 r7=2.01.0 class=2  rA=57 rB=52 mode=3e c7=15
+096  op=1.1 dst=0 r7=0.02.1 class=2  d[181] rA=05 rB=05 mode=01 c7=11
+097  op=0.0 dst=0 r7=0.02.1 class=2  d[1a5] rA=0f rB=0f mode=11 k=4000(+0.5000)
+098  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 26] mode 28 d[1aa] rA=14 rB=14 mode=11 k=4000(+0.5000)
+099  op=4.4 dst=2 r7=0.01.1 class=2  d[134] rB=23 c7=12
+09a  op=1.2 dst=0 r7=1.01.1 class=2  rB=54 k=3852(+0.4400) b=3   ; VCO1 Edge v0
+09b  op=1.1 dst=1 r7=0.02.1 class=2  d[1a0] rA=0a rB=64 mode=01 k=4000(+0.5000)
+09c  op=0.0 dst=0 r7=1.00.0 class=2  mem2[slot 27] mode 28 d[1b5] rB=0a
+09d  op=1.3+ dst=3 r7=1.03.0 class=2  d[121] rA=4d mode=33 c7=11
+09e  op=4.4 dst=1 r7=0.01.0 class=2  d[0d0] rB=15 mode=18 c7=12
+09f  op=0.0 dst=3 r7=2.02.1 class=2  d[098] rA=54 rB=7e mode=01 k=1400(+0.1562)
+0a0  op=0.2^ dst=0 r7=0.01.0 class=2  rB=44 c7=0c b=1
+0a1  op=0.0 dst=3 r7=1.03.1 class=2  mem2[slot 28] mode 28 d[1a5] rA=0f mode=11 c7=13
+0a2  op=4.4 dst=1 r7=0.01.0 class=2  d[11c] rB=1a mode=1c c7=12
+0a3  op=0.3 dst=0 r7=0.0a.1 class=3  rB=4d mode=20 b=1
+0a4  op=0.0 dst=3 r7=2.02.1 class=2  rB=7e mode=35 k=1400(+0.1562)
+0a5  op=4.1 dst=0 r7=2.08.0 class=3  mem2[slot 29] mode 2a rB=54 b=1
+0a6  op=1.5 dst=3 r7=1.03.0 class=2  d[126] mode=33 c7=11
+0a7  op=0.4 dst=3 r7=2.01.0 class=2  rA=54 rB=53 mode=3e c7=15
+0a8  op=0.5^ dst=0 r7=0.01.0 class=2  rB=54 c7=0c k=35c3(+0.4200) b=3
+0a9  op=0.0 dst=3 r7=1.03.1 class=2  mem2[slot 2a] mode 28 d[1aa] rA=14 mode=11 c7=15
+0aa  op=0.0 dst=0 r7=0.01.1 class=1  d[111] r[4d] = k k=f000(-0.1250) b=1
+0ab  op=0.0 dst=0 r7=0.01.1 class=1  r[4e] = k k=f000(-0.1250) b=1
+0ac  op=1.6 dst=0 r7=1.01.1 class=2  rB=55 k=3852(+0.4400) b=4   ; VCO1 Edge v1
+0ad  op=1.7 dst=0 r7=1.02.1 class=2  rB=4d mode=30 c7=12
+0ae  op=1.8 dst=0 r7=1.02.1 class=2  d[119] rB=4e mode=30 c7=13
+0af  op=4.4 dst=1 r7=0.01.0 class=2  rB=16 mode=19 c7=16
+0b0  op=1.9 dst=3 r7=2.01.0 class=2  rB=4f mode=3d c7=11
+0b1  op=0.0 dst=0 r7=0.08.1 class=2  rB=15 c7=15
+0b2  op=0.0 dst=0 r7=1.0a.0 class=2  mem2[slot 2c] mode 28 rA=15 mode=26 c7=15
+0b3  op=4.4 dst=1 r7=0.01.0 class=2  rB=1b mode=1d c7=16
+0b4  op=0.0 dst=0 r7=0.03.1 class=2  mode=26 c7=17
+0b5  op=0.0 dst=0 r7=1.02.0 class=2  rA=4f mode=11 c7=18
+0b6  op=0.0 dst=0 r7=0.08.1 class=2  mem2[slot 2d] mode 28 rB=1a c7=15
+0b7  op=0.5 dst=0 r7=1.0a.0 class=2  d[11d] rA=1a mode=11 c7=15 k=35c3(+0.4200) b=4
+0b8  op=0.0 dst=0 r7=1.01.1 class=2  rA=4f rB=4f c7=19
+0b9  op=1.6 dst=0 r7=1.01.1 class=2  rB=56 k=3852(+0.4400) b=5   ; VCO1 Edge v2
+0ba  op=1.7 dst=0 r7=1.02.1 class=2  rB=4d mode=31 c7=12
+0bb  op=1.8 dst=0 r7=1.02.1 class=2  d[122] rB=4e mode=31 c7=13
+0bc  op=4.4 dst=1 r7=0.01.0 class=2  rB=17 mode=15 c7=16
+0bd  op=1.9 dst=3 r7=2.01.0 class=2  d[0d1] rB=50 mode=3d c7=11
+0be  op=0.0 dst=0 r7=0.08.1 class=2  d[095] rB=16 c7=15
+0bf  op=0.0 dst=0 r7=1.0a.0 class=2  mem2[slot 2f] mode 28 rA=16 mode=1d c7=15
+0c0  op=4.4 dst=1 r7=0.01.0 class=2  rB=1c mode=1e c7=16
+0c1  op=0.0 dst=0 r7=0.03.1 class=2  mode=1d c7=17
+0c2  op=0.0 dst=0 r7=1.02.0 class=2  rA=50 mode=22 c7=18
+0c3  op=0.0 dst=0 r7=0.08.1 class=2  mem2[slot 30] mode 28 rB=1b c7=15
+0c4  op=0.5 dst=0 r7=1.0a.0 class=2  d[11d] rA=1b mode=22 c7=15 k=35c3(+0.4200) b=5
+0c5  op=0.0 dst=0 r7=1.01.1 class=2  rA=50 rB=50 c7=19
+0c6  op=1.6 dst=0 r7=1.01.1 class=2  rB=57 k=3852(+0.4400) b=6   ; VCO1 Edge v3
+0c7  op=1.7 dst=0 r7=1.02.1 class=2  rB=4d mode=32 c7=12
+0c8  op=1.8 dst=0 r7=1.02.1 class=2  d[11b] rB=4e mode=32 c7=13
+0c9  op=4.4 dst=1 r7=0.01.0 class=2  rB=18 mode=1b c7=16
+0ca  op=1.9 dst=3 r7=2.01.0 class=2  rB=51 mode=3d c7=11
+0cb  op=0.0 dst=0 r7=0.08.1 class=2  rB=17 c7=15
+0cc  op=0.0 dst=0 r7=1.0a.0 class=2  mem2[slot 33] mode 28 rA=17 mode=1d c7=15
+0cd  op=4.4 dst=1 r7=0.01.0 class=2  rB=1d mode=1f c7=16
+0ce  op=0.0 dst=0 r7=0.03.1 class=2  mode=1d c7=17
+0cf  op=0.0 dst=0 r7=1.02.0 class=2  rA=51 mode=1b c7=18
+0d0  op=0.0 dst=0 r7=0.08.1 class=2  mem2[slot 34] mode 28 rB=1c c7=15
+0d1  op=0.5 dst=0 r7=1.0a.0 class=2  d[11b] rA=1c mode=1b c7=15 k=35c3(+0.4200) b=6
+0d2  op=0.0 dst=0 r7=1.01.1 class=2  rA=51 rB=51 c7=19
+0d3  op=1.6 dst=0 r7=1.01.1 class=2  rB=54 k=3852(+0.4400) b=7   ; VCO1 Edge v4
+0d4  op=1.7 dst=0 r7=1.02.1 class=2  rB=4d mode=34 c7=12
+0d5  op=1.8 dst=0 r7=1.02.1 class=2  d[101] rB=4e mode=34 c7=13
+0d6  op=4.4 dst=1 r7=0.01.0 class=2  rB=19 mode=01 c7=16
+0d7  op=1.9 dst=3 r7=2.01.0 class=2  rB=52 mode=3d c7=11
+0d8  op=0.0 dst=0 r7=0.08.1 class=2  rB=18 c7=15
+0d9  op=0.0 dst=0 r7=1.0a.0 class=2  mem2[slot 36] mode 28 rA=18 mode=1b c7=15
+0da  op=4.4 dst=1 r7=0.01.0 class=2  rB=1e mode=20 c7=16
+0db  op=0.0 dst=0 r7=0.03.1 class=2  mode=1b c7=17
+0dc  op=0.0 dst=0 r7=1.02.0 class=2  rA=52 mode=01 c7=18
+0dd  op=0.0 dst=0 r7=0.08.1 class=2  mem2[slot 37] mode 28 d[0c1] rB=1d c7=15
+0de  op=0.2 dst=0 r7=1.0a.0 class=2  d[11b] rA=1d mode=01 c7=15 k=35c3(+0.4200) b=7
+0df  op=0.0 dst=0 r7=1.01.1 class=2  d[099] rA=4d rB=52 c7=19
+0e0  op=1.1 dst=0 r7=1.02.1 class=2  rB=4d mode=19 c7=12
+0e1  op=1.3 dst=0 r7=1.02.1 class=2  rB=4e mode=19 c7=13
+0e2  op=1.4 dst=3 r7=2.01.0 class=2  d[103] rB=53 mode=3d c7=11
+0e3  op=0.0 dst=0 r7=1.01.0 class=2  rA=52 rB=7f mode=03 b=2   ; VCO2 Pitch, VCO2 Fine
+0e4  op=0.0 dst=0 r7=0.08.1 class=2  rB=19 c7=12
+0e5  op=0.0 dst=0 r7=1.0a.0 class=2  rA=19 mode=1b c7=12
+0e6  op=0.0 dst=0 r7=0.02.1 class=2  rB=52 mode=08 b=3
+0e7  op=4.1 dst=2 r7=1.02.0 class=2  rA=54 mode=16 k=2000(+0.2500) b=2   ; VCO2 Pitch, VCO2 Fine
+0e8  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+0e9  op=0.0 dst=0 r7=0.03.1 class=2  mode=1b c7=11
+0ea  op=0.0 dst=0 r7=1.02.0 class=2  mem2[slot 3a] mode 68 rA=4e mode=03 c7=13
+0eb  op=0.0 dst=0 r7=0.08.1 class=2  rB=1e c7=12
+0ec  op=0.0 dst=0 r7=1.0a.0 class=2  rA=1e mode=03 c7=12
+0ed  op=0.0 dst=0 r7=1.01.1 class=2  rA=4e rB=4e c7=14
+0ee  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 3b] mode 30 rB=52 mode=09 b=4
+0ef  op=4.2 dst=2 r7=1.02.0 class=2  d[103] rA=55 mode=17 c7=11 k=4001(+0.5000) b=1
+0f0  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+0f1  op=0.0 dst=0 r7=0.01.1 class=2  rA=53 rB=7f b=1   ; VCO2 PW
+0f2  op=0.0 dst=3 r7=0.02.0 class=2  mem2[slot 3c] mode 68 rA=57 mode=3f b=3   ; VCO2 PWM Dp v0, VCO2 PWM Src v0
+0f3  op=1.3 dst=0 r7=0.03.1 class=2  d[103] mode=03 c7=12
+0f4  op=0.0 dst=3 r7=0.02.1 class=2  rA=58 rB=53 mode=3f b=4   ; VCO2 PWM Dp v1, VCO2 PWM Src v1
+0f5  op=0.0 dst=3 r7=0.02.1 class=2  rA=59 rB=53 mode=3f b=5   ; VCO2 PWM Dp v2, VCO2 PWM Src v2
+0f6  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 3d] mode 30 rB=52 mode=0a b=5
+0f7  op=4.0 dst=2 r7=1.02.0 class=2  d[103] rA=56 mode=18 c7=11
+0f8  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+0f9  op=0.0 dst=0 r7=0.02.1 class=2  d[183] rA=1f rB=1f mode=03 c7=13
+0fa  op=0.0 dst=3 r7=0.02.1 class=2  mem2[slot 3e] mode 68 rA=57 rB=53 mode=3f b=6   ; VCO2 PWM Dp v3, VCO2 PWM Src v3
+0fb  op=1.3 dst=0 r7=0.03.1 class=2  d[102] mode=03 c7=12
+0fc  op=0.0 dst=0 r7=0.0a.1 class=3  d[184] rB=57 mode=03
+0fd  op=0.0 dst=3 r7=0.02.1 class=2  d[0c8] rA=5a rB=53 mode=3f b=7   ; VCO2 PWM Dp v4, VCO2 PWM Src v4
+0fe  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 3f] mode 30 d[08b] rB=52 mode=0b b=6
+0ff  op=4.0 dst=2 r7=1.02.0 class=2  d[102] rA=53 mode=19 c7=11
+100  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+101  op=0.0 dst=0 r7=0.02.1 class=2  d[182] rA=20 rB=20 mode=02 c7=13
+102  op=0.0 dst=3 r7=2.01.0 class=2  mem2[slot 40] mode 68 rA=54 rB=54 mode=3e k=e148(-0.2400)
+103  op=1.3 dst=0 r7=0.03.1 class=2  d[105] mode=02 c7=12
+104  op=0.0 dst=0 r7=0.0a.1 class=3  d[186] rB=58 mode=02
+105  op=1.1 dst=0 r7=1.01.1 class=2  rB=54 k=3852(+0.4400) b=3   ; VCO2 Edge v0
+106  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 41] mode 30 d[09a] rB=52 mode=0c b=7
+107  op=4.0 dst=2 r7=1.02.0 class=2  d[105] rA=52 mode=1a c7=11
+108  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+109  op=0.0 dst=0 r7=0.02.1 class=2  d[185] rA=21 rB=21 mode=05 c7=13
+10a  op=0.0 dst=3 r7=2.01.0 class=2  mem2[slot 42] mode 68 rA=54 rB=55 mode=3e k=e148(-0.2400)
+10b  op=1.3 dst=0 r7=0.03.1 class=2  d[109] mode=05 c7=12
+10c  op=0.0 dst=0 r7=0.0a.1 class=3  d[189] rB=59 mode=05
+10d  op=0.0 dst=3 r7=2.01.0 class=2  rA=55 rB=56 mode=3e k=e148(-0.2400)
+10e  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 43] mode 30 d[183] rA=22 rB=22 mode=09 c7=13
+10f  op=4.0 dst=1 r7=0.01.0 class=2  d[104] rB=24 mode=03 c7=11
+110  op=4.0 dst=1 r7=0.01.0 class=2  rB=29 mode=04 c7=11
+111  op=1.1 dst=0 r7=1.01.1 class=2  rB=54 k=3852(+0.4400) b=4   ; VCO2 Edge v1
+112  op=1.2 dst=0 r7=0.03.1 class=2  mem2[slot 44] mode 28 mode=04 c7=12
+113  op=1.3 dst=0 r7=1.01.1 class=2  d[104] rB=55 k=3852(+0.4400) b=5   ; VCO2 Edge v2
+114  op=0.2 dst=0 r7=0.0a.1 class=3  d[184] rB=57 mode=03 k=35c3(+0.4200) b=3
+115  op=0.0 dst=3 r7=2.01.0 class=2  rA=53 rB=53 mode=3e k=e148(-0.2400)
+116  op=0.0 dst=0 r7=0.02.1 class=2  mem2[slot 45] mode 28 d[182] rA=23 rB=23 mode=04 c7=12
+117  op=4.0 dst=1 r7=0.01.0 class=2  d[106] rB=25 mode=02 c7=11
+118  op=4.0 dst=1 r7=0.01.0 class=2  rB=2a mode=06 c7=11
+119  op=0.0 dst=0 r7=0.08.1 class=2  rB=24 c7=12
+11a  op=0.0 dst=0 r7=1.0a.0 class=2  mem2[slot 46] mode 28 rA=24 mode=06 c7=12
+11b  op=0.0 dst=3 r7=2.01.0 class=2  d[10a] rA=52 rB=52 mode=3e k=e148(-0.2400)
+11c  op=0.0 dst=0 r7=0.0a.1 class=3  d[18c] rB=5a mode=02
+11d  op=0.0 dst=0 r7=0.08.1 class=2  rB=29 c7=12
+11e  op=0.1 dst=0 r7=1.0a.0 class=2  mem2[slot 47] mode 28 d[0c9] rA=29 mode=0a c7=12 k=35c3(+0.4200) b=4
+11f  op=4.0 dst=1 r7=0.01.0 class=2  d[105] rB=26 mode=05 c7=13
+120  op=4.0 dst=1 r7=0.01.0 class=2  rB=2b mode=09 c7=13
+121  op=0.0 dst=0 r7=0.08.1 class=2  rB=25 c7=11
+122  op=0.0 dst=0 r7=1.0a.0 class=2  mem2[slot 48] mode 28 rA=25 mode=05 c7=11
+123  op=1.2 dst=0 r7=1.01.1 class=2  d[11b] rB=53 k=3852(+0.4400) b=6   ; VCO2 Edge v3
+124  op=1.3 dst=0 r7=1.01.1 class=2  rB=52 k=3852(+0.4400) b=7   ; VCO2 Edge v4
+125  op=0.0 dst=0 r7=0.08.1 class=2  rB=2a c7=11
+126  op=0.1 dst=0 r7=1.0a.0 class=2  mem2[slot 49] mode 28 rA=2a mode=1b c7=11 k=35c3(+0.4200) b=5
+127  op=4.0 dst=1 r7=0.01.0 class=2  d[103] rB=27 mode=03 c7=12
+128  op=4.0 dst=1 r7=0.01.0 class=2  rB=2c mode=04 c7=12
+129  op=0.5 dst=0 r7=0.08.1 class=2  rB=26 c7=11 k=f000(-0.1250) b=1
+12a  op=0.0 dst=0 r7=1.0a.0 class=2  mem2[slot 4a] mode 28 rA=26 mode=03 c7=11
+12b  op=0.6 dst=0 r7=0.03.1 class=2  d[104] mode=06 k=f000(-0.1250) b=1
+12c  op=1.1 dst=0 r7=1.02.0 class=2  rA=52 mode=0a c7=15
+12d  op=0.0 dst=0 r7=0.08.1 class=2  rB=2b c7=11
+12e  op=0.2 dst=0 r7=1.0a.0 class=2  mem2[slot 4b] mode 28 rA=2b mode=04 c7=11 k=35c3(+0.4200) b=6
+12f  op=4.0 dst=1 r7=0.01.0 class=2  d[102] rB=28 mode=02 c7=13
+130  op=4.0 dst=1 r7=0.01.0 class=2  rB=2d mode=0c c7=13
+131  op=0.0 dst=0 r7=0.08.1 class=2  rB=27 c7=12
+132  op=0.0 dst=0 r7=1.0a.0 class=2  mem2[slot 4c] mode 28 rA=27 mode=02 c7=12
+133  op=0.0 dst=0 r7=0.03.1 class=2  d[105] mode=05 c7=16
+134  op=1.2 dst=0 r7=1.02.0 class=2  rA=53 mode=1b c7=15
+135  op=0.0 dst=0 r7=0.08.1 class=2  rB=2c c7=12
+136  op=0.4 dst=0 r7=1.0a.0 class=2  mem2[slot 4d] mode 28 rA=2c mode=05 c7=12 k=35c3(+0.4200) b=7
+137  op=0.0 dst=0 r7=0.03.1 class=2  d[103] mode=03 c7=16
+138  op=1.3 dst=0 r7=1.02.0 class=2  rA=54 mode=04 c7=15
+139  op=0.0 dst=0 r7=0.08.1 class=2  rB=28 c7=14
+13a  op=0.0 dst=0 r7=1.0a.0 class=2  rA=28 mode=03 c7=14
+13b  op=0.0 dst=0 r7=0.03.1 class=2  d[102] mode=02 c7=16
+13c  op=1.4 dst=0 r7=1.02.0 class=2  rA=55 mode=05 c7=15
+13d  op=0.0 dst=0 r7=0.08.1 class=2  rB=2d c7=14
+13e  op=0.0 dst=0 r7=1.0a.0 class=2  d[0ca] rA=2d mode=02 c7=14
+13f  op=0.0 dst=0 r7=0.03.1 class=2  d[084] mode=03 c7=16
+140  op=1.1 dst=0 r7=1.02.0 class=2  rA=56 mode=02 c7=15
+141  op=0.0 dst=2 r7=1.01.1 class=2  rA=57 rB=4f mode=2f c7=11
+142  op=0.0 dst=2 r7=1.01.1 class=2  rA=58 rB=50 c7=12
+143  op=0.0 dst=2 r7=1.01.1 class=2  rA=59 rB=51 c7=13
+144  op=0.0 dst=2 r7=1.01.1 class=2  rA=5a rB=4d c7=14
+145  op=0.0 dst=2 r7=1.01.1 class=2  rA=57 rB=4e c7=11
+146  op=0.1 dst=2 r7=1.01.1 class=2  rB=5c b=1   ; VCA Feedback
+147  op=0.0 dst=0 r7=0.00.0 class=2  d[142] rB=57 b=3   ; Ring Mod v0
+148  op=0.0 dst=0 r7=0.00.0 class=2  rB=4f b=3   ; VCO1 Level v0
+149  op=0.0 dst=0 r7=0.00.0 class=2  rB=52 b=3   ; VCO2 Level v0
+14a  op=0.0 dst=0 r7=1.02.0 class=2  d[182] mode=02 b=3   ; Noise Level v0
+14b  op=0.0 dst=2 r7=1.01.1 class=2  rB=5d c7=11
+14c  op=0.0 dst=0 r7=0.00.0 class=2  d[143] rB=58 b=4   ; Ring Mod v1
+14d  op=0.0 dst=0 r7=0.00.0 class=2  rB=50 b=4   ; VCO1 Level v1
+14e  op=0.0 dst=0 r7=0.00.0 class=2  rB=53 b=4   ; VCO2 Level v1
+14f  op=0.0 dst=0 r7=1.02.0 class=2  d[183] mode=03 b=4   ; Noise Level v1
+150  op=0.0 dst=2 r7=1.01.1 class=2  rB=5e c7=11
+151  op=0.0 dst=0 r7=0.00.0 class=2  d[145] rB=59 b=5   ; Ring Mod v2
+152  op=0.0 dst=0 r7=0.00.0 class=2  rB=51 b=5   ; VCO1 Level v2
+153  op=0.0 dst=0 r7=0.00.0 class=2  rB=54 b=5   ; VCO2 Level v2
+154  op=0.0 dst=0 r7=1.02.0 class=2  d[186] mode=05 b=5   ; Noise Level v2
+155  op=0.0 dst=2 r7=1.01.1 class=2  rB=5f c7=11
+156  op=0.0 dst=0 r7=0.00.0 class=2  d[145] rB=5a b=6   ; Ring Mod v3
+157  op=0.0 dst=0 r7=0.00.0 class=2  d[085] rB=4d b=6   ; VCO1 Level v3
+158  op=0.0 dst=0 r7=0.00.0 class=2  rB=55 b=6   ; VCO2 Level v3
+159  op=0.0 dst=0 r7=1.02.0 class=2  d[19b] mode=05 b=6   ; Noise Level v3
+15a  op=0.0 dst=2 r7=1.01.1 class=2  rB=60 c7=11
+15b  op=0.0 dst=0 r7=0.00.0 class=2  d[14c] rB=57 b=7   ; Ring Mod v4
+15c  op=0.0 dst=0 r7=0.00.0 class=2  rB=4e b=7   ; VCO1 Level v4
+15d  op=0.0 dst=0 r7=0.00.0 class=2  d[0c2] rB=56 b=7   ; VCO2 Level v4
+15e  op=0.0 dst=0 r7=1.02.0 class=2  d[183] mode=0c b=7   ; Noise Level v4
+15f  op=0.0 dst=0 r7=1.0a.1 class=2  d[18c] rB=2e mode=02 k=2000(+0.2500) b=3
+160  op=0.0 dst=0 r7=1.0a.1 class=2  d[19b] rB=2f mode=03 k=2000(+0.2500) b=4
+161  op=0.0 dst=0 r7=1.0a.1 class=2  d[19d] rB=30 mode=06 k=2000(+0.2500) b=5
+162  op=0.0 dst=0 r7=1.0a.1 class=2  d[192] rB=31 mode=1b k=2000(+0.2500) b=6
+163  op=0.0 dst=0 r7=0.02.1 class=2  rB=4c mode=0d b=3
+164  op=0.3 dst=0 r7=0.02.0 class=2  mode=12 b=1
+165  op=4.0 dst=2 r7=1.00.0 class=1  r[00] = k k=7fff(+1.0000) b=3   ; VCF Cutoff v0
+166  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+167  op=0.0 dst=0 r7=1.0a.1 class=2  d[19e] rB=32 mode=03 k=2000(+0.2500) b=7
+168  op=0.0 dst=0 r7=1.02.1 class=2  mem2[slot 5a] mode 68 rA=2e rB=2e mode=0c k=0148(+0.0100) b=3
+169  op=0.0 dst=0 r7=1.02.1 class=2  rA=2f rB=2f mode=1b k=0148(+0.0100) b=4
+16a  op=0.0 dst=0 r7=1.02.1 class=2  rA=30 rB=30 mode=1d k=0148(+0.0100) b=5
+16b  op=0.0 dst=0 r7=0.02.1 class=2  rB=4c mode=0e b=4
+16c  op=0.0 dst=0 r7=0.02.0 class=2  mem2[slot 5b] mode 30 mode=13 c7=13
+16d  op=4.0 dst=2 r7=1.00.0 class=1  d[103] r[00] = k k=7fff(+1.0000) b=4   ; VCF Cutoff v1
+16e  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+16f  op=0.0 dst=0 r7=1.02.1 class=2  rA=31 rB=31 mode=12 k=0148(+0.0100) b=6
+170  op=0.0 dst=0 r7=1.02.1 class=2  mem2[slot 5c] mode 68 rA=32 rB=32 mode=1e k=0148(+0.0100) b=7
+171  op=1.1 dst=0 r7=0.03.1 class=2  d[103] mode=03 k=7c00(+0.9688) b=3
+172  op=0.0 dst=0 r7=0.02.1 class=2  rB=4c mode=0f b=5
+173  op=0.0 dst=0 r7=0.02.0 class=2  mode=14 c7=13
+174  op=4.0 dst=2 r7=1.00.0 class=1  mem2[slot 5d] mode 34 r[00] = k k=7fff(+1.0000) b=5   ; VCF Cutoff v2
+175  op=6.0 dst=3 r7=0.00.1 class=1  d[103] r[00] = k
+176  op=1.1 dst=0 r7=1.02.1 class=2  d[086] rA=4d rB=7d mode=03 c7=11
+177  op=0.0 dst=0 r7=0.01.1 class=2  d[193] rB=38 k=4000(+0.5000)
+178  op=1.2 dst=0 r7=0.03.1 class=2  mem2[slot 5e] mode 68 mode=03 k=7c00(+0.9688) b=4
+179  op=0.0 dst=0 r7=1.01.1 class=2  d[183] rB=4d c7=11
+17a  op=0.0 dst=0 r7=0.02.1 class=2  d[114] rB=4c mode=10 b=6
+17b  op=0.1 dst=0 r7=0.02.0 class=2  mode=15 c7=13 k=c000(-0.5000) b=3
+17c  op=4.0 dst=2 r7=1.00.0 class=1  mem2[slot 5f] mode 34 r[00] = k k=7fff(+1.0000) b=6   ; VCF Cutoff v3
+17d  op=6.0 dst=3 r7=0.00.1 class=1  d[114] r[00] = k
+17e  op=1.4 dst=0 r7=1.02.1 class=2  d[0c3] rA=4d rB=7d mode=14 c7=12
+17f  op=1.2 dst=0 r7=2.02.1 class=2  rB=4d mode=03 c7=11
+180  op=1.5 dst=2 r7=2.02.1 class=2  mem2[slot 60] mode 68 rB=4d mode=03 k=9df8(-0.7659)
+181  op=1.4 dst=0 r7=0.03.1 class=2  d[107] mode=14 k=7c00(+0.9688) b=5
+182  op=0.0 dst=0 r7=1.01.1 class=2  d[18b] rB=4d mode=07 c7=14
+183  op=0.0 dst=0 r7=0.02.1 class=2  rB=4c mode=11 b=7
+184  op=0.0 dst=0 r7=0.02.0 class=2  mem2[slot 61] mode 30 mode=0b c7=13
+185  op=4.0 dst=2 r7=1.00.0 class=1  d[10c] r[00] = k k=7fff(+1.0000) b=7   ; VCF Cutoff v4
+186  op=6.0 dst=3 r7=0.00.1 class=1  r[00] = k
+187  op=0.1 dst=1 r7=1.01.0 class=2  rA=4c rB=33 mode=0c c7=11 k=c000(-0.5000) b=4
+188  op=0.0 dst=0 r7=1.00.0 class=2  mem2[slot 62] mode 68 rA=51 rB=38 k=8000(-1.0000)
+189  op=1.8 dst=0 r7=0.03.1 class=2  d[10c] mode=0c k=7c00(+0.9688) b=6
+18a  op=0.0 dst=0 r7=0.01.1 class=2  d[194] rB=39 k=4000(+0.5000)
+18b  op=1.3 dst=0 r7=2.02.1 class=2  rB=4d mode=0b c7=11
+18c  op=0.0 dst=0 r7=0.01.1 class=2  mem2[slot 63] mode 30 rB=33 k=4000(+0.5000)
+18d  op=5.9 dst=1 r7=1.00.0 class=2  d[107] rB=51 c7=12
+18e  op=1.6 dst=2 r7=2.02.1 class=2  rB=4d mode=0b k=9df8(-0.7659)
+18f  op=1.1 dst=0 r7=1.02.1 class=2  rA=4e rB=7d mode=07 c7=14
+190  op=1.a dst=0 r7=0.03.1 class=2  mem2[slot 64] mode 28 mode=07 k=7c00(+0.9688) b=7
+191  op=0.0 dst=1 r7=1.01.0 class=2  d[107] rA=4d rB=34 mode=1b c7=11
+192  op=0.0 dst=0 r7=1.00.0 class=2  rA=52 rB=39 k=8000(-1.0000)
+193  op=0.1 dst=0 r7=1.01.1 class=2  d[18b] rB=4e c7=11 k=c000(-0.5000) b=5
+194  op=0.0 dst=0 r7=0.01.1 class=2  mem4[slot 65] mode 28 rB=34 k=4000(+0.5000)
+195  op=5.b dst=1 r7=1.00.0 class=2  d[115] rB=52 c7=13
+196  op=0.0 dst=0 r7=0.01.1 class=2  d[19b] rB=3a k=4000(+0.5000)
+197  op=1.4 dst=0 r7=2.02.1 class=2  rB=4e mode=0b c7=11
+198  op=1.7 dst=2 r7=2.02.1 class=2  mem2[slot 66] mode 28 rB=4e mode=0b k=9df8(-0.7659)
+199  op=0.0 dst=1 r7=1.01.0 class=2  d[10b] rA=4e rB=35 mode=1d c7=11
+19a  op=0.0 dst=0 r7=1.00.0 class=2  rA=53 rB=3a k=8000(-1.0000)
+19b  op=1.1 dst=0 r7=1.02.1 class=2  rA=4f rB=7d mode=0c c7=18
+19c  op=0.0 dst=0 r7=0.01.1 class=2  mem4[slot 67] mode 28 rB=35 k=4000(+0.5000)
+19d  op=5.9 dst=1 r7=1.00.0 class=2  d[10c] rB=53 c7=14
+19e  op=0.0 dst=0 r7=0.0b.0 class=2  d[0cb] mode=15 c7=19
+19f  op=0.0 dst=0 r7=1.0a.0 class=2  d[087] rA=33 mode=0b c7=19
+1a0  op=0.0 dst=0 r7=0.01.1 class=2  mem2[slot 68] mode 28 d[195] rB=3b k=4000(+0.5000)
+1a1  op=1.8 dst=0 r7=1.02.1 class=2  d[10c] rA=50 rB=7d mode=07 c7=1a
+1a2  op=0.0 dst=0 r7=1.01.1 class=2  d[18c] rB=4f c7=11
+1a3  op=0.1 dst=0 r7=0.0b.0 class=2  mode=0c c7=1b k=c000(-0.5000) b=6
+1a4  op=0.0 dst=0 r7=1.0a.0 class=2  mem4[slot 69] mode 28 rA=34 mode=0c c7=1b
+1a5  op=5.a dst=1 r7=1.01.0 class=2  d[112] rB=33 mode=13 c7=12
+1a6  op=1.2 dst=0 r7=2.02.1 class=2  rB=4f mode=0c c7=11
+1a7  op=0.0 dst=1 r7=1.01.0 class=2  rA=4f rB=36 mode=12 c7=11
+1a8  op=0.0 dst=0 r7=1.00.0 class=2  mem2[slot 6a] mode 28 rA=54 rB=3b k=8000(-1.0000)
+1a9  op=1.8 dst=2 r7=2.02.1 class=2  d[10c] rB=4f mode=0c k=9df8(-0.7659)
+1aa  op=0.0 dst=0 r7=1.01.1 class=2  d[18c] rB=50 c7=18
+1ab  op=0.0 dst=0 r7=0.0b.0 class=2  mode=12 c7=19
+1ac  op=0.1 dst=0 r7=1.0a.0 class=2  mem4[slot 6b] mode 28 rA=35 mode=0c c7=19 k=c000(-0.5000) b=7
+1ad  op=5.b dst=1 r7=1.01.0 class=2  d[112] rB=34 mode=14 c7=13
+1ae  op=0.0 dst=0 r7=0.01.1 class=2  d[193] rB=3c k=4000(+0.5000)
+1af  op=1.3 dst=0 r7=2.02.1 class=2  rB=50 mode=0c c7=11
+1b0  op=1.9 dst=2 r7=2.02.1 class=2  mem2[slot 6c] mode 28 rB=50 mode=0c k=9df8(-0.7659)
+1b1  op=0.0 dst=0 r7=0.01.1 class=2  d[10c] rB=36 k=4000(+0.5000)
+1b2  op=5.a dst=1 r7=1.00.0 class=2  rB=54 c7=12
+1b3  op=0.0 dst=0 r7=0.0b.0 class=2  mode=12 c7=1a
+1b4  op=0.0 dst=0 r7=1.0a.0 class=2  mem4[slot 6d] mode 28 rA=38 mode=0c c7=1a
+1b5  op=0.0 dst=1 r7=1.01.0 class=2  d[10c] rA=50 rB=37 mode=1e c7=11
+1b6  op=0.0 dst=0 r7=1.00.0 class=2  rA=55 rB=3c k=8000(-1.0000)
+1b7  op=0.0 dst=0 r7=0.08.1 class=2  rB=3d c7=15
+1b8  op=0.0 dst=0 r7=1.08.0 class=2  mem2[slot 6e] mode 28 rA=3d rB=38 c7=15
+1b9  op=0.0 dst=0 r7=0.01.1 class=2  d[10c] rB=37 k=4000(+0.5000)
+1ba  op=5.1 dst=1 r7=1.00.0 class=2  rB=55 c7=13
+1bb  op=0.0 dst=0 r7=0.0b.0 class=2  mode=0c c7=1b
+1bc  op=0.0 dst=0 r7=1.0a.0 class=2  mem4[slot 6f] mode 28 rA=39 mode=0c c7=1b
+1bd  op=0.0 dst=0 r7=0.08.1 class=2  d[112] rB=42 c7=15
+1be  op=0.0 dst=0 r7=1.08.0 class=2  d[0cc] rA=42 rB=3d c7=15
+1bf  op=0.0 dst=0 r7=0.08.1 class=2  rB=3e c7=16
+1c0  op=0.0 dst=0 r7=1.08.0 class=2  mem2[slot 70] mode 28 rA=3e rB=39 c7=16
+1c1  op=1.5 dst=1 r7=2.03.1 class=2  d[101] mode=01 k=745a(+0.9090)
+1c2  op=1.a dst=1 r7=2.03.1 class=2  mode=02 k=745a(+0.9090)
+1c3  op=0.0 dst=0 r7=0.0b.0 class=2  mode=12 c7=1a
+1c4  op=0.4 dst=0 r7=1.0a.0 class=2  mem4[slot 71] mode 28 rA=36 mode=01 c7=1a k=7fff(+1.0000) b=3
+1c5  op=5.6 dst=1 r7=1.01.0 class=2  d[101] rB=35 mode=1b c7=14
+1c6  op=0.0 dst=0 r7=0.08.1 class=2  rB=43 c7=16
+1c7  op=0.0 dst=0 r7=1.08.0 class=2  rA=43 rB=3e c7=16
+1c8  op=0.0 dst=0 r7=0.08.1 class=2  mem2[slot 72] mode 28 rB=47 c7=14
+1c9  op=0.4 dst=0 r7=1.08.0 class=2  d[101] rA=4c rB=42 c7=14
+1ca  op=1.b+ dst=1 r7=2.03.1 class=2  rA=47 mode=03 k=745a(+0.9090)
+1cb  op=0.1 dst=0 r7=0.0b.0 class=2  mode=01 c7=11 k=7fff(+1.0000) b=4
+1cc  op=0.0 dst=0 r7=1.0a.0 class=2  mem4[slot 73] mode 28 rA=37 mode=01 c7=11
+1cd  op=5.1 dst=1 r7=1.01.0 class=2  d[101] rB=36 mode=15 c7=12
+1ce  op=0.0 dst=0 r7=0.08.1 class=2  rB=48 c7=11
+1cf  op=0.4 dst=0 r7=1.08.0 class=2  rA=4d rB=43 c7=11
+1d0  op=1.2+ dst=1 r7=2.03.1 class=2  mem2[slot 74] mode 28 rA=48 mode=0b k=745a(+0.9090)
+1d1  op=1.5 dst=1 r7=2.03.1 class=2  d[101] mode=0c k=745a(+0.9090)
+1d2  op=0.0 dst=0 r7=1.01.1 class=2  rA=5c rB=4c c7=15
+1d3  op=0.0 dst=0 r7=0.0b.0 class=2  mode=01 c7=16
+1d4  op=0.0 dst=0 r7=1.0a.0 class=2  mem4[slot 75] mode 28 d[0c1] rA=3a mode=01 c7=16
+1d5  op=5.3 dst=1 r7=1.01.0 class=2  d[102] rB=37 mode=13 c7=13
+1d6  op=0.0 dst=0 r7=0.08.1 class=2  rB=3f c7=17
+1d7  op=0.0 dst=0 r7=1.08.0 class=2  d[081] rA=3f rB=3a c7=17
+1d8  op=1.6 dst=1 r7=2.03.0 class=1  mem2[slot 76] mode 28 r[00] = k k=0da3(+0.1065)
+1d9  op=0.0 dst=0 r7=0.08.1 class=2  d[102] rB=44 c7=17
+1da  op=0.0 dst=0 r7=1.08.0 class=2  rA=44 rB=3f c7=17
+1db  op=0.0 dst=0 r7=0.0b.0 class=2  mode=02 c7=11
+1dc  op=0.0 dst=0 r7=1.0a.0 class=2  mem4[slot 77] mode 28 rA=3b mode=02 c7=11
+1dd  op=0.0 dst=0 r7=1.01.1 class=2  d[103] rA=5d rB=4d c7=1a
+1de  op=0.0 dst=0 r7=0.08.1 class=2  rB=40 c7=18
+1df  op=0.0 dst=0 r7=1.08.0 class=2  rA=40 rB=3b c7=18
+1e0  op=0.0 dst=0 r7=1.03.1 class=2  d[182] mode=01 c7=16
+1e1  op=0.0 dst=0 r7=0.08.1 class=2  d[103] rB=45 c7=18
+1e2  op=0.1 dst=0 r7=1.08.0 class=2  rA=45 rB=40 c7=18 k=7fff(+1.0000) b=5
+1e3  op=0.0 dst=0 r7=0.0b.0 class=2  mode=03 c7=13
+1e4  op=0.0 dst=0 r7=1.0a.0 class=2  rA=3c mode=03 c7=13
+1e5  op=0.1 dst=0 r7=0.08.1 class=2  rB=49 c7=11 k=7fff(+1.0000) b=6
+1e6  op=0.4 dst=0 r7=1.08.0 class=2  rA=4c rB=44 c7=11
+1e7  op=0.0+ dst=0 r7=0.08.1 class=2  rA=49 rB=41 c7=19
+1e8  op=0.0 dst=0 r7=1.08.0 class=2  rA=41 rB=3c c7=19
+1e9  op=0.0 dst=0 r7=0.08.1 class=2  rB=4a c7=11
+1ea  op=0.4 dst=0 r7=1.08.0 class=2  rA=4d rB=45 c7=11
+1eb  op=0.0+ dst=0 r7=0.08.1 class=2  rA=4a rB=46 c7=19
+1ec  op=0.1 dst=0 r7=1.08.0 class=2  rA=46 rB=41 c7=19 k=7fff(+1.0000) b=7
+1ed  op=0.0 dst=0 r7=0.02.1 class=2  rB=7f mode=01 b=1   ; VCA Mod Dp
+1ee  op=1.1 dst=1 r7=2.02.0 class=2  mode=02 b=1   ; VCA Mod Dp
+1ef  op=0.0 dst=0 r7=0.08.1 class=2  rB=4b c7=11
+1f0  op=0.4 dst=0 r7=1.08.0 class=2  rA=4e rB=46 c7=11
+1f1  op=0.0+ dst=0 r7=0.03.1 class=2  rA=4b mode=01 b=1   ; VCF Mod Dp
+1f2  op=0.0 dst=0 r7=1.02.0 class=2  rA=4c mode=02 b=1   ; VCF Mod Dp
+1f3  op=0.0 dst=0 r7=1.01.1 class=2  rA=5e rB=4c c7=1b
+1f4  op=0.0 dst=0 r7=1.01.1 class=2  rA=5f rB=4d c7=12
+1f5  op=0.0 dst=0 r7=1.01.1 class=2  rA=60 rB=4e c7=15
+1f6  op=0.0 dst=0 r7=1.01.1 class=2  rA=4d rB=5c c7=11
+1f7  op=0.0 dst=0 r7=1.01.1 class=2  d[092] rA=4e rB=5d c7=11
+1f8  op=0.0 dst=0 r7=1.01.1 class=2  rA=4f rB=5e c7=11
+1f9  op=0.0 dst=0 r7=1.01.1 class=2  rA=4d rB=5f c7=11
+1fa  op=0.0 dst=0 r7=1.01.1 class=2  rA=4e rB=60 c7=11
+1fb  op=0.0 dst=1 r7=1.01.1 class=2  d[183] rB=4d k=7fff(+1.0000) b=3
+1fc  op=0.0 dst=1 r7=1.01.1 class=2  d[1ae] rB=4e k=7fff(+1.0000) b=4
+1fd  op=0.0 dst=1 r7=1.01.1 class=2  d[19b] rB=4f k=7fff(+1.0000) b=5
+1fe  op=0.0 dst=0 r7=0.01.1 class=2  d[0cb] rB=4d k=7fff(+1.0000) b=6
+1ff  op=0.0 dst=0 r7=1.00.0 class=2  d[1af] rB=4e k=7fff(+1.0000) b=7

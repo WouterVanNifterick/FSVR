@@ -1,40 +1,40 @@
-0e8  op9=00 r7=0.0.01.1 r6t=3  rB=3d
-0e9  op9=00 r7=1.0.04.0 r6t=2  rA=3d rB=1f b=1
-0ea  op9=00 r7=1.1.0a.1 r6t=3  rA=1f rB=3d c6=01
+0e8  op=0.0 dst=0 r7=0.01.1 class=3  rB=3d
+0e9  op=0.0 dst=0 r7=1.04.0 class=2  rA=3d rB=1f b=1
+0ea  op=0.0 dst=1 r7=1.0a.1 class=3  rA=1f rB=3d mode=01
 0eb  nop
-0ec  op9=00 r7=0.0.01.1 r6t=3  rB=3e
-0ed  op9=00 r7=1.0.04.0 r6t=2  rA=3e rB=2b b=1
-0ee  op9=00 r7=1.1.0a.1 r6t=3  rA=2b rB=3e c6=06
+0ec  op=0.0 dst=0 r7=0.01.1 class=3  rB=3e
+0ed  op=0.0 dst=0 r7=1.04.0 class=2  rA=3e rB=2b b=1
+0ee  op=0.0 dst=1 r7=1.0a.1 class=3  rA=2b rB=3e mode=06
 0ef  nop
-0f0  op9=00 r7=0.0.01.1 r6t=3  rB=3f
-0f1  op9=00 r7=1.0.04.0 r6t=2  rA=3f rB=20 b=1
-0f2  op9=00 r7=1.1.0a.1 r6t=3  rA=20 rB=3f c6=02
+0f0  op=0.0 dst=0 r7=0.01.1 class=3  rB=3f
+0f1  op=0.0 dst=0 r7=1.04.0 class=2  rA=3f rB=20 b=1
+0f2  op=0.0 dst=1 r7=1.0a.1 class=3  rA=20 rB=3f mode=02
 0f3  nop
-0f4  op9=00 r7=0.0.01.1 r6t=3  rB=40
-0f5  op9=00 r7=1.0.04.0 r6t=2  rA=40 rB=2c b=1
-0f6  op9=00 r7=1.1.0a.1 r6t=3  rA=2c rB=40 c6=05
+0f4  op=0.0 dst=0 r7=0.01.1 class=3  rB=40
+0f5  op=0.0 dst=0 r7=1.04.0 class=2  rA=40 rB=2c b=1
+0f6  op=0.0 dst=1 r7=1.0a.1 class=3  rA=2c rB=40 mode=05
 0f7  nop
-0f8  op9=00 r7=0.0.01.1 r6t=3  rB=41
-0f9  op9=00 r7=1.0.04.0 r6t=2  rA=41 rB=21 b=1
-0fa  op9=00 r7=1.1.0a.1 r6t=3  rA=21 rB=41 c6=03
+0f8  op=0.0 dst=0 r7=0.01.1 class=3  rB=41
+0f9  op=0.0 dst=0 r7=1.04.0 class=2  rA=41 rB=21 b=1
+0fa  op=0.0 dst=1 r7=1.0a.1 class=3  rA=21 rB=41 mode=03
 0fb  nop
-0fc  op9=00 r7=0.0.01.1 r6t=3  rB=42
-0fd  op9=00 r7=1.0.04.0 r6t=2  rA=42 rB=2d b=1
-0fe  op9=00 r7=1.1.0a.1 r6t=3  rA=2d rB=42 c6=28
+0fc  op=0.0 dst=0 r7=0.01.1 class=3  rB=42
+0fd  op=0.0 dst=0 r7=1.04.0 class=2  rA=42 rB=2d b=1
+0fe  op=0.0 dst=1 r7=1.0a.1 class=3  rA=2d rB=42 mode=28
 0ff  nop
-100  op9=00 r7=0.0.01.1 r6t=3  rB=65
-101  op9=00 r7=1.0.04.0 r6t=2  rA=65 rB=22 b=1
-102  op9=00 r7=1.1.0a.1 r6t=3  rA=22 rB=65 c6=04
+100  op=0.0 dst=0 r7=0.01.1 class=3  rB=65
+101  op=0.0 dst=0 r7=1.04.0 class=2  rA=65 rB=22 b=1
+102  op=0.0 dst=1 r7=1.0a.1 class=3  rA=22 rB=65 mode=04
 103  nop
-104  op9=00 r7=0.0.01.1 r6t=3  rB=66
-105  op9=00 r7=1.0.04.0 r6t=2  rA=66 rB=2e b=1
-106  op9=00 r7=1.1.0a.1 r6t=3  rA=2e rB=66 c6=29
+104  op=0.0 dst=0 r7=0.01.1 class=3  rB=66
+105  op=0.0 dst=0 r7=1.04.0 class=2  rA=66 rB=2e b=1
+106  op=0.0 dst=1 r7=1.0a.1 class=3  rA=2e rB=66 mode=29
 107  nop
 108  nop
 109  nop
-10a  op9=00 r7=0.0.01.1 r6t=2  rB=07 b=3
-10b  op9=00 r7=1.3.00.0 r6t=2  d[1a8] rB=11 b=3
-10c  op9=00 r7=0.0.01.1 r6t=2  rB=08 b=3
-10d  op9=00 r7=1.3.00.0 r6t=2  d[1a9] rB=12 b=3
-10e  op9=00 r7=0.0.00.0 r6t=0  c6=51
+10a  op=0.0 dst=0 r7=0.01.1 class=2  rB=07 b=3
+10b  op=0.0 dst=3 r7=1.00.0 class=2  d[1a8] rB=11 b=3
+10c  op=0.0 dst=0 r7=0.01.1 class=2  rB=08 b=3
+10d  op=0.0 dst=3 r7=1.00.0 class=2  d[1a9] rB=12 b=3
+10e  op=0.0 dst=0 r7=0.00.0 class=0  mode=11
 10f  nop
