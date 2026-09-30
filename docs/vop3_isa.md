@@ -81,18 +81,24 @@ r10 [15:3] ?        [2:0] mem
 
 ## 3. Operations (`op` = `r7[8:6]`)
 
-| op | on the cutoff MAC (`098`: rA=62 rB=61 -> w[3e]) | at the output tap (session 10) | MEG counterpart |
-|---|---|---|---|
-| 0 | runaway | passes rA | `p =s ... + p` accumulate |
-| 1 | closed | floor (~0.02): does not pass rA; 100% carry a read | `p = m` / `p = r` forward move |
-| 2 | **corner follows rA x rB** | passes rA | `p = c * r` multiply |
-| 3 | closed | passes rA | `p = (c<<8) + (p>>15)` mul-acc |
-| 4 | closed | passes rA | mul-acc with memory |
-| 5 | runaway | floor (~0.02): does not pass rA; lowest read rate | `p = c * r` fresh product (discards accumulator) |
-| 6 | closed | passes rA; 100% carry a read | accumulate-forward |
-| 7 | closed | passes rA | shifted mul-acc |
+| op | on the cutoff MAC (`098`: rA=62 rB=61 -> w[3e]) | at the output tap (session 10) | MEG counterpart | VOP3-2 `0d3`, measured gain on real audio (session 11 `held`; s = running value, k signed 1.15) |
+|---|---|---|---|---|
+| 0 | runaway | passes rA | `p =s ... + p` accumulate | **y = s + k*s** (accumulate the product) |
+| 1 | closed | floor (~0.02): does not pass rA; 100% carry a read | `p = m` / `p = r` forward move | **y = k*s** |
+| 2 | **corner follows rA x rB** | passes rA | `p = c * r` multiply | **y = k*s** |
+| 3 | closed | passes rA | `p = (c<<8) + (p>>15)` mul-acc | **y = k*s** |
+| 4 | closed | passes rA | mul-acc with memory | **y = s**, k ignored |
+| 5 | runaway | floor (~0.02): does not pass rA; lowest read rate | `p = c * r` fresh product (discards accumulator) | s shifted out: output is the sign only ({-2^-17, 0}), k ignored |
+| 6 | closed | passes rA; 100% carry a read | accumulate-forward | 0 |
+| 7 | closed | passes rA | shifted mul-acc | 0 (op 7 starts a chain; the running value is not its source) |
 
-**The op field is an ALU-op selector, but its arithmetic cannot be read from one probed step.**
+**On a step with no feedback the arithmetic is readable** (last column; VOP3-2's DRAM writer `0d3`, every
+fit a pure gain of the same signal, residual equal to the reference's): the constant only multiplies, op 0
+adds the product to the running value, ops 1..3 replace it with the product, op 4 passes it, op 5 shifts it
+out. With the note off every op and k gives exact zero (take 2), so no op loads or adds k. Whether ops 0..3
+multiply the running value or rA/rB is not split yet (on `0d3` they are the same signal).
+
+**On VOP3-1 the op's arithmetic cannot be read from one probed step.**
 Session 10 used the output stage's op-1 move as a DC voltmeter on a silenced channel; the tap is
 AC-coupled, so `dc` read converter offset (-2e-5) on all 122 segments and the DC plan is dead. What the
 level *did* show: the output passes `rA` alone, identically for ops {0,2,3,4,6,7}; ops 1 and 5 drop to a
