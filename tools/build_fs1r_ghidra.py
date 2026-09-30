@@ -27,6 +27,7 @@ GHIDRA_INSTALL_DIR = os.environ.get("GHIDRA_INSTALL_DIR", r"E:\ghidra_12.1.2_PUB
 ROOT = Path(os.environ.get("FS1R_DISASM", Path(__file__).resolve().parents[1].parent / "FS1R_DISASM"))
 ROMS = ROOT / "roms"
 LANG = "SuperH:BE:32:SH-2"
+LANG_H8 = "h8s:BE:32:advanced"     # HD6413002 (H8/3002) advanced mode; H8S is object-code compatible and the only H8 .sla shipped compiled
 
 # SH7040-series address map (SH7044: 256 KB on-chip flash, 4 KB on-chip RAM, 4 external CS areas of 4 MB).
 # blocks: (name, start, size, file|None, volatile)
@@ -56,6 +57,14 @@ VERSIONS = [
          blocks=SH704X_COMMON,
          vectors=[0x0],
          proj=ROOT / "PLG100SG_GHIDRA_PROJ", analysis=ROOT / "PLG100SG_GHIDRA_ANALYSIS"),
+    dict(key="plg150an", proj_name="PLG150AN", program="plg150an", lang=LANG_H8,
+         base=ROMS / "PLG150-AN_cpuview.bin",              # HD6413002 (H8/3002) mode 3, external ROM at 0; byte pairs swapped from PLG150-AN.BIN
+         blocks=[("ram", 0x00200000, 0x20000, None, False),   # external SRAM (guess: CS area 1)
+                 ("cs2", 0x00400000, 0x200000, None, False),  # VOP3s and other peripherals: refine from decomp
+                 ("cs3", 0x00600000, 0x200000, None, False),
+                 ("io", 0x00FFFF00, 0x100, None, True)],      # on-chip registers; the pspec already defines on-chip RAM
+         vectors=[0x0], nvec=64,
+         proj=ROOT / "PLG150AN_GHIDRA_PROJ", analysis=ROOT / "PLG150AN_GHIDRA_ANALYSIS"),
     dict(key="fs1r_v11", proj_name="FS1R_V11", program="fs1r_v11",
          base=ROMS / "fs1r_sh7044_flash_1.20_256k.bin",   # no v1.1 flash dump exists; the loader part is version independent
          blocks=[("eprom", 0x00200000, 0x200000, ROMS / "fs1r_v11_eprom_cpuview.bin", False)] + SH704X_COMMON,
@@ -143,13 +152,13 @@ def build_memory(api, program, v):
     ptr = Pointer32DataType()
     nfun = 0
     for tbl in v["vectors"]:
-        for i in range(256):
+        for i in range(v.get("nvec", 256)):
             a = api.toAddr(f"0x{tbl + i * 4:x}")
             try:
                 api.createData(a, ptr)
             except Exception:
                 pass
-            if i in (1, 3):
+            if i in (1, 3) and v.get("nvec", 256) == 256:   # SH-2 stack pointer slots; H8 vectors are all code
                 continue
             target = mem.getInt(a) & 0xFFFFFFFF
             blk = mem.getBlock(api.toAddr(f"0x{target:x}"))
@@ -263,7 +272,7 @@ def process(v, redecomp=False):
     with pyghidra.open_program(
         str(v["base"]) if first_import else None,
         project_location=str(v["proj"]), project_name=v["proj_name"],
-        analyze=False, language=LANG if first_import else None, compiler="default" if first_import else None,
+        analyze=False, language=v.get("lang", LANG) if first_import else None, compiler="default" if first_import else None,
         program_name=v["base"].name if not first_import else None,   # the domain file keeps the imported file's name
         nested_project_location=False,
     ) as flat_api:
@@ -289,7 +298,7 @@ def process(v, redecomp=False):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--only", default="", help="comma list of keys: fs1r,plg150dx,plg100sg,fs1r_v11")
+    ap.add_argument("--only", default="", help="comma list of keys: fs1r,plg150dx,plg100sg,plg150an,fs1r_v11")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--redecomp", action="store_true", help="throw away decomp.db and decompile again")
     args = ap.parse_args()
