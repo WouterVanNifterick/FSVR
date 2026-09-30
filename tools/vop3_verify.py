@@ -72,6 +72,25 @@ def const_liveness(steps, coef, patched):
     return k[0] / n[0], k[1] / max(n[1], 1)
 
 
+def input_window(steps, voices=5, stride=5, first=1, last=0x3c):
+    """AN1x: every lower-half read r[first + stride*k + v] should be read by the same step shape in all
+    `voices` voices (op and operand side); returns (consistent input groups, total groups)."""
+    F = [fields(*s) for s in steps]
+    shape = collections.defaultdict(set)
+    for f, s in zip(F, steps):
+        if f["f6a"] in (2, 3) and any(s):
+            for side in ("ra", "rb"):
+                r = f[side]
+                if first <= r <= last:
+                    k, v = divmod(r - first, stride)
+                    shape[(k, v)].add((side, f["op7"]))
+    ok = tot = 0
+    for k in range((last - first + 1) // stride):
+        tot += 1
+        ok += len({frozenset(shape[(k, v)]) for v in range(voices)}) == 1
+    return ok, tot
+
+
 def meg_coverage(path):
     wr = set(); rd = collections.Counter()
     for line in open(path):
@@ -102,6 +121,9 @@ def main():
             F = [fields(*s) for s in steps]
             tagged = [F[s] for s in pat[name] if F[s]["f6a"] == 2]
             assert tagged and all(f["rd_en"] == 0 for f in tagged), name   # the firmware never patches k into an rd-en step
+    ok, tot = input_window(images()["an1x"][0])
+    print(f"an1x      input window r[1+5k+v]: {ok}/{tot} inputs read by one step shape in all 5 voices")
+    assert ok == tot
     print("ok")
 
 

@@ -45,7 +45,15 @@ def fields(r10, r9, r8, r7, r6):
     )
 
 
-def disasm(step, words, coef=None, byt=None, labels=None):
+def reg(n, voices=0):
+    """Register name: r[40..7f] program results; r[01..3f] the input window, in[k].v with `voices` per input."""
+    if voices and 0 < n < 0x40:
+        k, v = divmod(n - 1, voices)
+        return "in[%d].%d" % (k, v)
+    return "r[%02x]" % n
+
+
+def disasm(step, words, coef=None, byt=None, labels=None, voices=0):
     r10, r9, r8, r7, r6 = words
     f = fields(r10, r9, r8, r7, r6)
     lab = ("   ; " + labels[step]) if labels and step in labels else ""
@@ -60,9 +68,9 @@ def disasm(step, words, coef=None, byt=None, labels=None):
         parts.append("r[%02x] = k" % f["ra"])            # constant load: r9[7:0] names the destination register
     else:
         if f["ra"]:
-            parts.append("rA=%02x" % f["ra"])
+            parts.append("rA=" + reg(f["ra"], voices))
         if f["rb"]:
-            parts.append("rB=%02x" % f["rb"])
+            parts.append("rB=" + reg(f["rb"], voices))
         if f["f6c"]:
             parts.append("-> r[%02x]" % (0x40 | f["f6c"]))   # the write slot is the upper half of the register file
     if f["rd_en"]:
@@ -111,6 +119,7 @@ def main():
     ap.add_argument("--byte", help="per-step byte table (reg 0xC)")
     ap.add_argument("--first", type=lambda x: int(x, 0), default=0, help="program address of the first step")
     ap.add_argument("--labels", help="parameter->step map (docs/an1x_param_map.md) to annotate steps")
+    ap.add_argument("--voices", type=int, default=0, help="name r[01..3f] as in[k].v with this many voices per input (AN1x: 5)")
     a = ap.parse_args()
     labels = load_labels(a.labels) if a.labels else None
     steps, coef, byt = load(a.program, a.an)
@@ -123,7 +132,7 @@ def main():
     if byt is not None and len(byt) < a.first + len(steps):
         byt = [0] * a.first + list(byt)
     for i, w in enumerate(steps):
-        print(disasm(a.first + i, w, coef, byt, labels))
+        print(disasm(a.first + i, w, coef, byt, labels, a.voices))
 
 
 def demo():
@@ -137,6 +146,7 @@ def demo():
     assert f["op7"] == 2 and f["r7sel"] == 0 and f["rd_en"] == 0
     assert fields(0, 0, 0, 0x8291, 0)["rd_en"] == 1 and fields(0, 0, 0, 0x8291, 0)["rd"] == 1
     assert "-> r[7e]" in disasm(0x98, (0, 0x1162, 0, 0x9280, 0xb0be)) and "rd r[41]" in disasm(0x9c, (0, 0x1162, 0, 0x8291, 0xb13d))
+    assert "rA=in[2].1" in disasm(0x58, (0, 0x000c, 0, 0x0140, 0x8615), voices=5)   # AN1x 058: r[0c] = input 2, voice 1
     # PLG150-AN step 0x11: r10=2 marks a memory access, r8 low bits carry the mode
     f = fields(2, 0x0017, 0x0068, 0x4112, 0x800A)
     assert f["mem"] == 2 and f["mmode"] == 0x68 and f["daddr"] == 0 and f["f7e"] == 0x12

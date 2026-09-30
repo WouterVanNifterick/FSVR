@@ -1,12 +1,12 @@
 0e8  path=0.0 route=0 op=3 r7=0.01 class=0   b=3
 0e9  path=0.0 route=0 op=3 r7=0.01 class=0   b=3
 0ea  path=0.0 route=0 op=3 r7=0.01 class=0  
-0eb  path=2.0 route=0 op=3 r7=0.01 class=0  mem1[slot 3a] mode 40 rA=3d
-0ec  path=0.0 route=0 op=3 r7=0.01 class=0  rA=3e
-0ed  path=0.0 route=0 op=3 r7=0.01 class=0  rA=3f
-0ee  path=0.0 route=0 op=3 r7=0.01 class=0  rA=40
-0ef  path=2.0 route=0 op=3 r7=0.01 class=0  mem1[slot 3b] mode 40 d[1a8] rA=41
-0f0  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a9] rA=42
+0eb  path=2.0 route=0 op=3 r7=0.01 class=0  mem1[slot 3a] mode 40 rA=r[3d]
+0ec  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[3e]
+0ed  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[3f]
+0ee  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[40]
+0ef  path=2.0 route=0 op=3 r7=0.01 class=0  mem1[slot 3b] mode 40 d[1a8] rA=r[41]
+0f0  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a9] rA=r[42]
 0f1  path=0.0 route=0 op=3 r7=0.01 class=0   b=3
 0f2  path=0.0 route=0 op=3 r7=0.01 class=0  
 0f3  path=2.0 route=0 op=3 r7=0.01 class=0  mem1[slot 3c] mode 40

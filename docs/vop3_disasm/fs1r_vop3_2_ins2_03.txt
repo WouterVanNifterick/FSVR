@@ -1,19 +1,19 @@
-158  path=0.0 route=0 op=3 r7=0.01 class=2  d[002] rB=05 b=3
-159  path=0.0 route=1 op=0 r7=1.00 class=2  d[046] rA=67 rB=06 b=3
-15a  path=0.0 route=0 op=3 r7=0.01 class=2  rB=67
-15b  path=0.0+ route=0 op=0 r7=0.00 class=2  mem2[slot 56] mode 40 rA=68 rB=68
-15c  path=0.0 route=0 op=0 r7=0.00 class=2  rB=69
-15d  path=0.0+ route=0 op=0 r7=0.00 class=2  rA=6a rB=6a
-15e  path=0.0 route=1 op=0 r7=1.04 class=2  rA=69 rB=67
-15f  path=0.0 route=1 op=3 r7=1.01 class=2  mem2[slot 57] mode 40 rA=6b rB=06 b=3
-160  path=0.0 route=0 op=3 r7=0.01 class=2  d[11c] rB=6b
-161  path=0.0+ route=0 op=0 r7=0.00 class=2  rA=6c rB=6c
-162  path=0.0 route=0 op=0 r7=0.00 class=2  rB=6d
-163  path=0.0+ route=0 op=0 r7=0.00 class=2  mem2[slot 58] mode 40 rA=6e rB=6e
-164  path=0.0 route=1 op=0 r7=1.04 class=2  d[11d] rA=6d rB=6b
-165  path=0.0 route=0 op=7 r7=1.03 class=2  rA=7e -> r[77] b=1
-166  path=0.0 route=1 op=3 r7=1.01 class=2  d[08b] rA=01 rB=69 b=1
-167  path=0.0 route=1 op=3 r7=1.01 class=2  rA=02 rB=6d b=1
+158  path=0.0 route=0 op=3 r7=0.01 class=2  d[002] rB=r[05] b=3
+159  path=0.0 route=1 op=0 r7=1.00 class=2  d[046] rA=r[67] rB=r[06] b=3
+15a  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[67]
+15b  path=0.0+ route=0 op=0 r7=0.00 class=2  mem2[slot 56] mode 40 rA=r[68] rB=r[68]
+15c  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[69]
+15d  path=0.0+ route=0 op=0 r7=0.00 class=2  rA=r[6a] rB=r[6a]
+15e  path=0.0 route=1 op=0 r7=1.04 class=2  rA=r[69] rB=r[67]
+15f  path=0.0 route=1 op=3 r7=1.01 class=2  mem2[slot 57] mode 40 rA=r[6b] rB=r[06] b=3
+160  path=0.0 route=0 op=3 r7=0.01 class=2  d[11c] rB=r[6b]
+161  path=0.0+ route=0 op=0 r7=0.00 class=2  rA=r[6c] rB=r[6c]
+162  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[6d]
+163  path=0.0+ route=0 op=0 r7=0.00 class=2  mem2[slot 58] mode 40 rA=r[6e] rB=r[6e]
+164  path=0.0 route=1 op=0 r7=1.04 class=2  d[11d] rA=r[6d] rB=r[6b]
+165  path=0.0 route=0 op=7 r7=1.03 class=2  rA=r[7e] -> r[77] b=1
+166  path=0.0 route=1 op=3 r7=1.01 class=2  d[08b] rA=r[01] rB=r[69] b=1
+167  path=0.0 route=1 op=3 r7=1.01 class=2  rA=r[02] rB=r[6d] b=1
 168  path=0.0 route=0 op=1 r7=2.00 class=1  d[11e] r[77] = k b=1
 169  path=0.0 route=0 op=1 r7=2.00 class=1  r[78] = k b=1
 16a  path=0.0 route=0 op=1 r7=2.00 class=1  r[79] = k b=1
@@ -22,48 +22,48 @@
 16d  path=0.0 route=0 op=1 r7=2.00 class=1  r[7c] = k b=1
 16e  path=0.0 route=0 op=1 r7=2.00 class=1  r[7d] = k b=1
 16f  path=0.0 route=0 op=1 r7=2.00 class=1  r[7e] = k b=1
-170  path=0.0 route=1 op=3 r7=0.01 class=2  rB=77 b=1
-171  path=0.0 route=1 op=0 r7=0.00 class=2  rB=79 b=1
-172  path=0.0 route=1 op=0 r7=0.00 class=2  rB=7a b=1
-173  path=0.0 route=1 op=0 r7=0.00 class=2  rB=78 b=1
-174  path=0.0 route=1 op=0 r7=0.00 class=2  rB=7b b=1
-175  path=0.0 route=2 op=0 r7=0.00 class=2  rB=7c b=1
-176  path=0.0 route=0 op=0 r7=0.00 class=2  rB=7d b=1
-177  path=0.0 route=0 op=0 r7=0.00 class=2  rB=7e b=1
+170  path=0.0 route=1 op=3 r7=0.01 class=2  rB=r[77] b=1
+171  path=0.0 route=1 op=0 r7=0.00 class=2  rB=r[79] b=1
+172  path=0.0 route=1 op=0 r7=0.00 class=2  rB=r[7a] b=1
+173  path=0.0 route=1 op=0 r7=0.00 class=2  rB=r[78] b=1
+174  path=0.0 route=1 op=0 r7=0.00 class=2  rB=r[7b] b=1
+175  path=0.0 route=2 op=0 r7=0.00 class=2  rB=r[7c] b=1
+176  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[7d] b=1
+177  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[7e] b=1
 178  path=0.0 route=0 op=0 r7=2.00 class=1  r[73] = k b=1
-179  path=0.0 route=0 op=3 r7=0.01 class=2  rB=73
-17a  path=0.0 route=0 op=0 r7=0.00 class=2  rB=74
-17b  path=1.9 route=0 op=0 r7=1.04 class=2  rA=74 rB=73
-17c  path=0.0 route=0 op=3 r7=0.01 class=2  rB=01 b=1
-17d  path=0.0 route=3 op=0 r7=3.00 class=2  rA=77 rB=02 b=1
+179  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[73]
+17a  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[74]
+17b  path=1.9 route=0 op=0 r7=1.04 class=2  rA=r[74] rB=r[73]
+17c  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[01] b=1
+17d  path=0.0 route=3 op=0 r7=3.00 class=2  rA=r[77] rB=r[02] b=1
 17e  path=0.0 route=0 op=4s r7=2.0a class=2  d[1b6] -> r[76] b=1
-17f  path=1.a route=0 op=3 r7=1.01 class=2  rA=78 rB=01 rd r[49]
-180  path=1.b route=0 op=3 r7=1.01 class=2  rA=79 rB=02 rd r[49]
-181  path=0.0 route=0 op=2 r7=1.01 class=3  d[1b6] rB=77 -> r[76]
+17f  path=1.a route=0 op=3 r7=1.01 class=2  rA=r[78] rB=r[01] rd r[49]
+180  path=1.b route=0 op=3 r7=1.01 class=2  rA=r[79] rB=r[02] rd r[49]
+181  path=0.0 route=0 op=2 r7=1.01 class=3  d[1b6] rB=r[77] -> r[76]
 182  path=0.0 route=0 op=7 r7=0.03 class=2  -> r[77] b=1
 183  path=0.0 route=0 op=5 r7=0.02 class=2  -> r[77] b=1
-184  path=0.0 route=0 op=0s r7=0.08 class=3  rB=77
+184  path=0.0 route=0 op=0s r7=0.08 class=3  rB=r[77]
 185  path=0.0 route=0 op=4s r7=2.0a class=2  -> r[76] b=1
-186  path=0.0 route=0 op=0 r7=1.00 class=3  d[1b7] rB=77
-187  path=0.0 route=0 op=3 r7=1.01 class=2  d[08c] rA=7a rB=01 rd r[4a]
-188  path=0.0 route=0 op=3 r7=1.01 class=2  rA=7b rB=02 rd r[4b]
-189  path=0.0 route=0 op=3 r7=0.01 class=2  rB=01 b=1
-18a  path=0.0 route=0 op=0 r7=0.00 class=2  rB=78 b=1
-18b  path=0.0 route=3 op=0 r7=1.00 class=2  rA=6f rB=7a b=1
-18c  path=0.0 route=0 op=3 r7=0.01 class=2  rB=6f
-18d  path=0.0 route=0 op=0 r7=0.00 class=2  rB=70
-18e  path=0.0 route=1 op=0 r7=1.04 class=2  rA=70 rB=6f
-18f  path=0.0 route=0 op=3 r7=0.01 class=2  mem2[slot 63] mode 40 rB=02 b=1
-190  path=0.0 route=0 op=0 r7=0.00 class=2  rB=79 b=1
-191  path=0.0 route=3 op=0 r7=1.00 class=2  rA=71 rB=7b b=1
-192  path=0.0 route=0 op=3 r7=0.01 class=2  rB=71
-193  path=0.0 route=0 op=0 r7=0.00 class=2  mem2[slot 64] mode 40 rB=72
-194  path=0.0 route=1 op=0 r7=1.04 class=2  d[11f] rA=72 rB=71
-195  path=0.0 route=0 op=3 r7=0.01 class=2  rB=05 b=1
-196  path=0.0 route=2 op=0 r7=1.00 class=2  rA=0f rB=70 b=1
-197  path=0.0 route=0 op=3 r7=0.01 class=2  mem2[slot 65] mode 40 rB=06 b=1
-198  path=0.0 route=0 op=0 r7=0.00 class=2  d[120] rB=70 b=1
-199  path=0.0 route=2 op=0 r7=1.00 class=2  rA=10 rB=72 b=1
+186  path=0.0 route=0 op=0 r7=1.00 class=3  d[1b7] rB=r[77]
+187  path=0.0 route=0 op=3 r7=1.01 class=2  d[08c] rA=r[7a] rB=r[01] rd r[4a]
+188  path=0.0 route=0 op=3 r7=1.01 class=2  rA=r[7b] rB=r[02] rd r[4b]
+189  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[01] b=1
+18a  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[78] b=1
+18b  path=0.0 route=3 op=0 r7=1.00 class=2  rA=r[6f] rB=r[7a] b=1
+18c  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[6f]
+18d  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[70]
+18e  path=0.0 route=1 op=0 r7=1.04 class=2  rA=r[70] rB=r[6f]
+18f  path=0.0 route=0 op=3 r7=0.01 class=2  mem2[slot 63] mode 40 rB=r[02] b=1
+190  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[79] b=1
+191  path=0.0 route=3 op=0 r7=1.00 class=2  rA=r[71] rB=r[7b] b=1
+192  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[71]
+193  path=0.0 route=0 op=0 r7=0.00 class=2  mem2[slot 64] mode 40 rB=r[72]
+194  path=0.0 route=1 op=0 r7=1.04 class=2  d[11f] rA=r[72] rB=r[71]
+195  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[05] b=1
+196  path=0.0 route=2 op=0 r7=1.00 class=2  rA=r[0f] rB=r[70] b=1
+197  path=0.0 route=0 op=3 r7=0.01 class=2  mem2[slot 65] mode 40 rB=r[06] b=1
+198  path=0.0 route=0 op=0 r7=0.00 class=2  d[120] rB=r[70] b=1
+199  path=0.0 route=2 op=0 r7=1.00 class=2  rA=r[10] rB=r[72] b=1
 19a  nop
 19b  nop
 19c  path=0.0 route=0 op=0 r7=0.00 class=0  d[121]

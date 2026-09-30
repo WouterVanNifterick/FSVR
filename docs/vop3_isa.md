@@ -30,8 +30,17 @@ not marked is an inference and says so. The disassembler's output over every ima
   for the same reads taken as class-1 destinations; the leftovers are `r[40]`, read and never written on
   all three machines (the zero register, as the MEG wires `r00`/`m00` to 0), and `r[6b]/r[6c]`, `r[63]/
   r[64]` written by a class-3 step. Reads below 0x40 hit class-1 destinations only, and on the AN1x every
-  one of `r[01..3f]` is read twice or three times by the voice mixer with no writer in the image: they are
-  the CPU-written voice state (pitch, EG, LFO) the driver's handlers keep, not program results.
+  one of `r[01..3f]` is read with no writer in the image. **They are hardware inputs, not CPU state** (FW:
+  no driver path writes them; the AN1x's only sub-0x40 targets are class-1 loads to `r[00]` and the boot
+  register block `0x24..0x2a`). The layout is per voice: `r[1 + 5k + v]` for input k (0..11) of voice v
+  (0..4), each input read by the same step shape in every voice (k=0: `rA=rB` op 5 squared at 040/057/06c/
+  081/096; k=2,3: op 5 then op 7 at 041/04b; k=4,5: op 2/1/4 in the filter block; k=9: op 5 in the mixer;
+  k=10,11: op 2/3/4/0 in the output block), and `r[3d..3f]` three globals read by the final mix. The FS1R
+  filter's lower half has the same stride: the class-1 control word (`100`: k=8000 mutes) of channel c lands
+  in `r[6c]`, which no step reads, and the reads sit at `r[6c+1..6c+5]` of the channel's own group (63 of
+  160 lower reads are the reading channel's own block, the rest a neighbour's in the same 4-channel group).
+  So the lower half is the chip's I/O window: inputs the serial ports and internal generators fill, control
+  words the hardware consumes.
 * The FS1R filter runs **four channels interleaved in a 124-step group**: channel c owns steps
   `base+3c..base+3c+2` (gain, mode, cutoff constant) and every step `base+0x0c+c+4n`; four groups from
   0x010 cover sixteen channels. CHIP: clearing any of a channel's 31 steps changes its output,
@@ -169,9 +178,11 @@ constant from "class 1 only" to "class-2 operand unless `rd-en`".
 * **Pipeline latency.** The MEG delays register writes by 3 steps; on the AN1x every `rd-en` read sits
   1..14 steps after its writer with 1 and 2 both common, so if the VOP3 has a write delay it is at most
   one step. Not measured.
-* **Lower-half registers on the AN1x** (`r[01..3f]`, all read, none written): CPU-side voice state. Which
-  handler writes which register is readable from the driver (`FUN_000564a0` writes `base | 0x16` = reg 0xB
-  at the step in `er1`); not yet mapped.
+* **Which generator feeds which input.** `r[1+5k+v]` is settled as the input window (above); what k=0..11
+  carry (audio in, LFO1/2, noise, EG) is inferred from the reader shape only. The PLG150-AN, with fewer
+  voices, reads `r[07..1a]` in the same pattern and would pin the stride if its handlers were mapped.
+* **`r[40]` on the chip**: read on all three machines, written by none; a take clearing its FS1R readers
+  (`170`, `171`, `179`) should change nothing if it is the zero register.
 * `r9[12]`, `r7[11]`, `r10[15:3]`, `mmode` values, `path-hi`: inert on every pass step probed; unswept
   inside the loop.
 * Delay memory (VOP3-2, AN): structure read from the uploaders only.
