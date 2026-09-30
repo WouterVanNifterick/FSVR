@@ -8,8 +8,8 @@ What is modelled (CHIP-measured, see the ISA doc, section 2-3; VOP3-1 and VOP3-2
   class 1   r[rA] = k                       (k signed 1.15)
   class 2   g = w[rsrc] if rd-en else k     (the gain; FS1R.unlock session 11: the constant only ever multiplies)
             s = the running value (the previous class-2 step's result)
-            x = s when rB = 0 (session 12: rA alone is ignored by op 1), r[rA] * r[rB] when both are set
-            (VOP3-1's cutoff MAC), r[rB] when only rB is
+            x = s when rB = 0 (session 12: rA alone is ignored by op 1), r[rB] when only rB is (session 13:
+            a class-1 load read through op 1's rB), r[rA] * r[rB] when both are set (VOP3-1's cutoff MAC)
             s' = -s if sel else s                     (session 12: sel negates the running-value term)
             op 0: y = s' + g*x  op 1..3: y = g*x  op 4: y = s'  op 5: y = sign of s (-2^-17 or 0)
             op 6: y = 0         op 7: y = g * input, 0 on route 3   (session 11 `held`, 12 `op7pos`: the
@@ -28,10 +28,10 @@ channel and the bank must come from the step's position, since the loads differ 
 `Interp.bank_of(step)` returns that bank; the default is the FS1R filter's layout (sixteen channels,
 four groups of four interleaved, ISA doc section 1). Replace it for another chip.
 
-OPEN (docs/vop3_isa.md section 3): what r[rB] holds on VOP3-2 (rB set drives the output to full scale
-even after a class-1 load of 0.5, so the load does not land there); why rA changes op 0 (gain 1.74, not
-2) but not op 1; rd-en: inert on VOP3-2's op-1 0d3 (gain stays k for rsrc 0..f), yet VOP3-1's 0f8 ignores
-its k (session 9); the model keeps the VOP3-1 reading. Measured inert on VOP3-2, not modelled: path
+OPEN (docs/vop3_isa.md section 8): the scale from a class-1 value to the operand; r[rA] * r[rB] with both
+set; op 0 with rA alone partly takes in a live r[rA] (session 13), modelled as s; rd-en with rB set:
+inert on VOP3-2's op-1 0d3 with rB clear (gain stays k), yet VOP3-1's 0f8 (rB set) ignores its k
+(session 9); the model keeps the VOP3-1 reading. Measured inert on VOP3-2, not modelled: path
 r9[11:8], r8[6:0], r10, 0e9's daddr, the DRAM offset registers (image 0 has no delay line). Not modelled: `route`'s scale on
 the value a step sends out (session 12, relative: 3 : 2 : 1 : 0 = 1 : 1/4 : 1/8 : 1/16), the output's
 18-bit word (LSB 2^-17), delay memory. `Interp.ops` maps op -> f(s', g, x).

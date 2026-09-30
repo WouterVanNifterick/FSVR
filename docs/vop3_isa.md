@@ -96,10 +96,15 @@ r10 [15:3] ?        [2:0] mem
 (LSB 2^-17); the pipeline lag is 2 samples; `sel` negates the running-value term (op 0 `-s + g*x`, op 4
 `-s`, ops 1..3 unchanged); `route` scales the step's output 3 : 2 : 1 : 0 = 1 : 1/4 : 1/8 : 1/16; op 7
 reads the input at any step (session 11's zero at `0d3` was on route 3); `path`, `r8[6:0]`, `r10` and the
-DRAM offset registers are inert on a step of a program without a delay line. **Still open:** what `r[rB]`
-holds (rB set drives the output to full scale; a class-1 load does not reach it, nor does rA alone reach
-op 1's operand), the internal accumulator width, and why `rd-en` leaves `k` as the gain on VOP3-2's op-1
-`0d3` while VOP3-1's `0f8` ignores its `k`.
+DRAM offset registers are inert on a step of a program without a delay line.
+
+**Session 13 (`captures/2026-10-01-0441-s13/README.md`) closes the operand files:** rA/rB address `r[]`,
+never `w[]` (w[n] loaded with 0.5 x input reads the same through rB = n or 40|n as with nothing
+loaded; `w[]` is reached only through `rd-en`/`rsrc`). A class-1 load lands in `r[]` and op 1 reads it
+through rB (`r[30]` = 0x4000 -> a constant, zero-variance output). op 1 ignores rA. op 0 with rA alone:
+rA = 7f gives exactly `s + k*s` (as rA = 0), rA = 10..70 give 1.82..1.88 at coherence 0.97, so there the
+operand takes in part of a live register. Unloaded `r[]` registers carry a live
+chip-written signal (the input window, section 1).
 
 **On a step with no feedback the arithmetic is readable** (last column; VOP3-2's DRAM writer `0d3`, every
 fit a pure gain of the same signal, residual equal to the reference's): the constant only multiplies, op 0
@@ -180,19 +185,26 @@ the constant is live on class-2 steps and dead on `rd-en` steps, `r[]` has the p
 (FS1R 444/444, AN1x 13/13), which is what pins `w[]` as a separate file. An earlier reading of `w[n]` as
 `r[0x40 | n]` passed a writer-coverage count at 97% and was wrong; the stride test is the one to trust.
 
-## 8. Open (not closable on this hardware)
+## 8. Open
 
-* **Exact per-op arithmetic** (which shift, signed/unsigned, what the read subtracts) is fixed only up
-  to the MEG mapping above; the FS1R exposes no accumulator, so the last bits are inferred from the MEG,
-  not measured on the FS1R. Good enough to interpret; not a gate-level truth for the FS1R silicon.
-* **Pipeline latency.** The MEG delays register writes by 3 steps; on the AN1x every `rd-en` read sits
-  1..14 steps after its writer with 1 and 2 both common, so if the VOP3 has a write delay it is at most
-  one step. Not measured.
-* **Which generator feeds which input.** `r[1+5k+v]` is settled as the input window (above); what k=0..12
-  carry (audio in, LFO1/2, noise, EG) is inferred from the reader shape only (k=0: squared by op 5 at the
-  oscillator start; k=4,5,7,8: the filter block's op 2/1/4 trio; k=9: the mixer; k=10,11: the output block).
-  The PLG150-AN reads `r[07..1a]` in the same pattern with fewer voices and would pin the stride if its
-  handlers were mapped.
-* `r9[12]`, `r7[11]`, `r10[15:3]`, `mmode` values, `path-hi`: inert on every pass step probed; unswept
-  inside the loop.
-* Delay memory (VOP3-2, AN): structure read from the uploaders only.
+* **Operand arithmetic with rA/rB set.** Measured: op 1 reads `r[rB]` and ignores rA; op 0 with rA alone mixes a live
+  `r[rA]` into `x` (session 13). Not measured: the scale from a class-1 value to the operand (a 0x4000 load reads past full scale), and
+  whether op 0/2/3 multiply `r[rA] x r[rB]` when both are set (VOP3-1's cutoff MAC behaves as if so).
+  Next: a 0x0400 class-1 load read through rB and rA at an output gain of 2^-4.
+* **`rd-en` with rB set.** VOP3-2's op-1 `0d3` keeps `k` as the gain with rB clear (session 12, rsrc
+  0..f); VOP3-1's `0f8` (rB set) ignores its `k` (session 9). Session 13's split read an unloaded rB whose
+  live signal masked the result. Next: load the rB register by class 1 first, then sweep the read.
+* **Accumulator width and saturation.** The running value is not carried from a free step (0c1) to
+  `0d3`, so session 13's doubler chain did not double. Next: the chain from `0d0`.
+* **Pipeline latency.** VOP3-2's right path trails its left by 2 samples through identical chains
+  (sessions 11-13); the register write delay between steps is not measured. On the AN1x every `rd-en`
+  read sits 1..14 steps after its writer, so a write delay is at most one step.
+* **Which generator feeds which input.** `r[1+5k+v]` is settled as the input window (above; session 13
+  sees the same live window from VOP3-2); what k=0..12 carry (audio in, LFO1/2, noise, EG) is inferred
+  from the reader shape only (k=0: squared by op 5 at the oscillator start; k=4,5,7,8: the filter
+  block's op 2/1/4 trio; k=9: the mixer; k=10,11: the output block). The PLG150-AN reads `r[07..1a]` in
+  the same pattern with fewer voices and would pin the stride if its handlers were mapped.
+* `r9[12]`, `r7[11]`: unswept. `path` `r9[11:8]`, `r8[6:0]`, `r10`: inert on every step probed (VOP3-1
+  pass steps, session 10; VOP3-2 `0d3`/`0e9`, session 12), unswept inside a feedback loop.
+* **Delay memory.** `daddr` and the DRAM offset registers are inert on test image 0, which has no delay
+  line (session 12); their effect needs a program that has one (an effect program's delay).
