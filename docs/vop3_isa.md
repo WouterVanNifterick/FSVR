@@ -137,13 +137,13 @@ MEG program does with an exp table); VCO pitch 4096/octave with a key term; mixe
 
 ## 6. Interpreter
 
-`tools/vop3_interp.py` runs a program over the measured fields: class-1 loads, class-2 `op 2`/`op 5` =
-`rA x rB`, `op 1`/`op 6` = forward-move, `op 0`/`3`/`4`/`7` = `rA x rB + c` (multiply-accumulate) with
-`c` the `rd-en` read or, when it is clear, the step's constant; `wdst` writes into `w[]`; route 0
-of an op-1 step onto the output bus.
-The op arithmetic is the MEG mapping of section 7, not FS1R gate-level truth (`Interp.ops` takes
-replacements to test an alternative). Its self-check reproduces session 8/9 qualitatively: clearing the cutoff load zeroes the MAC, `sel=0`
-on the output stage emits DC, a class-2 constant changes nothing, and the per-channel step ownership.
+`tools/vop3_interp.py` runs a program with the op arithmetic measured on VOP3-2 (section 3, last column;
+the same chip as VOP3-1): gain `g` = the `rd-en` read or else the constant, running value `s`, operand
+`x` = `rA x rB` (`s` when both fields are 0); op 0 `s + g*x`, ops 1..3 `g*x`, op 4 `s`, op 5 sign of `s`,
+op 6 zero, op 7 `g x` the chip's input at that step. `wdst` writes into `w[]`; route 0 of an op-1 step goes
+onto the output bus. Its self-check reproduces session 11's `held` table and `dc dram` silence on VOP3-2's
+0d0..0d3 chain, and session 8's cutoff MAC (clearing the load zeroes it) and per-channel step ownership.
+Inferred, not yet split on the chip: `x` with non-zero operand fields, and which steps have an input port.
 
 ## 7. Model check against the EX5 MEG (the close for the op arithmetic)
 
