@@ -10,12 +10,13 @@ What is modelled (CHIP-measured, see the ISA doc, section 2-3; VOP3-1 and VOP3-2
                                              multiplies; session 14: with rB set the read drops k, and
                                              w[rsrc] never enters; with rB clear k stays, session 12)
             s = the running value (the previous class-2 step's result)
-            x = s when rB = 0 (session 12: rA alone is ignored by op 1), r[rB] when only rB is (session 13:
-            a class-1 load read through op 1's rB), r[rA] * r[rB] when both are set (VOP3-1's cutoff MAC)
+            x = s when rB = 0 (rA alone is ignored, sessions 12/14/15), r[rB] when only rB is (session 13),
+            r[rA] + r[rB] when both are set (session 15: a sum, for ops 0..3)
             s' = -s if sel else s                     (session 12: sel negates the running-value term)
             op 0: y = s' + g*x  op 1: y = g*x (+ x if rB)  op 2, 3: y = g*x  op 4: y = s'  op 5: sign of s
             op 6: y = 0         op 7: y = g * input, 0 on route 3   (session 11 `held`, 12 `op7pos`: the
             input port reads at any step; `dc dram`: a zero input gives exact zero for every op and k)
+            y = |y| if r7[11] (session 15: 0.9997 x |s|, resid -51 dB)
             y clamps at +-8 (session 14); the running value carries from step to step unscaled by route
             w[wdst] = y; route 0 on an op-1 step adds y to the output bus
   class 0/3 nothing
@@ -30,9 +31,9 @@ channel and the bank must come from the step's position, since the loads differ 
 `Interp.bank_of(step)` returns that bank; the default is the FS1R filter's layout (sixteen channels,
 four groups of four interleaved, ISA doc section 1). Replace it for another chip.
 
-OPEN (docs/vop3_isa.md section 8): r[rA] * r[rB] with both set (the scale of the product; session 14's
-loads clipped); op 0 with an unloaded rA alone partly takes in a live r[rA] (session 13), a loaded one
-does not (session 14), modelled as s. Measured inert on VOP3-2, not modelled: path
+OPEN (docs/vop3_isa.md section 8): the chain-head effect (a non-op-7 step
+right after the head, or no head, brings the previous pass's value in); delay memory. Measured inert on
+VOP3-2, not modelled: r9[12], path
 r9[11:8], r8[6:0], r10, 0e9's daddr, the DRAM offset registers (image 0 has no delay line). Not modelled: `route`'s scale on
 the value a step sends out (session 12, relative: 3 : 2 : 1 : 0 = 1 : 1/4 : 1/8 : 1/16), the output's
 18-bit word (LSB 2^-17), delay memory. `Interp.ops` maps op -> f(s', g, x).
@@ -94,11 +95,13 @@ class Interp:
             return
         k = s16(self.coef[self.first + i]) if self.coef else 0.0
         g = 0.0 if f["rd_en"] and f["rb"] else k      # sessions 9/12/14: rd-en drops k only when rB is set; w[] is never the gain
-        x = self.acc if not f["rb"] else r[f["ra"]] * r[f["rb"]] if f["ra"] else r[f["rb"]]
+        x = self.acc if not f["rb"] else r[f["ra"]] + r[f["rb"]] if f["ra"] else r[f["rb"]]
         op = f["op7"]
         self.route = f["f7b"]              # r7[13:12]
         s = -self.acc if f["r7sel"] else self.acc
         y = self.ops[op](s, g, x) + (x if op == 1 and f["rb"] else 0.0)   # session 14: op 1 with rB adds r[rB]
+        if self.steps[i][3] >> 11 & 1:
+            y = abs(y)                                            # session 15: r7[11] rectifies
         y = max(-SAT, min(SAT, y))
         self.acc = y
         if f["f6c"]:
@@ -138,8 +141,8 @@ def demo():
     # 0d3 (op 4, writes DRAM d[18b]). `held` swept 0d3's op and k with audio on the input.
     chain = [(0, 0, 0, 0x01C0, 0x8001), (0, 0, 0, 0x0100, 0x8002), (0, 0, 0, 0x0100, 0x8003), (0, 0, 0xC580, 0x7100, 0x8004)]
 
-    def d3(op, k, inp, sel=0, ra=0):
-        st = chain[:3] + [(0, ra, chain[3][2], (chain[3][3] & ~0x5C0) | op << 6 | sel << 10, chain[3][4])]
+    def d3(op, k, inp, sel=0, ra=0, abs_=0):
+        st = chain[:3] + [(0, ra, chain[3][2], (chain[3][3] & ~0xDC0) | op << 6 | sel << 10 | abs_ << 11, chain[3][4])]
         it = Interp(st, [0x7FFF, 0, 0, k], bank_of=lambda _: 0)
         it.trace = []
         it.sample(inp=inp)
@@ -170,6 +173,20 @@ def demo():
                              (0x1000, op1, 0x7FFF, 8.0), (0x0400, op1rd, 0x2000, 4.000), (0x0400, op1rd, 0x7FFF, 4.000),
                              (0x0400, (0, 0, 0, 0, 0x9800), 0x7FFF, 4.000), (0x1000, (0, 0, 0, 0, 0x9800), 0x7FFF, 8.0)):
         assert abs(s14(v, word, k) - want) < 0.001, (hex(v), word, hex(k), s14(v, word, k), want)
+    # session 15 (note off): r[30] = 1.0, r[31] = 0.5/1/2, k 0x4000; op 1 rB=30 with k 0xc000/0/0x4000
+    def s15(r31, word, k, r30=0x0100):
+        it = Interp([(0, 0x30, 0, 0x8000, 0x4000), (0, 0x31, 0, 0x8000, 0x4000), word], [r30, r31, k], bank_of=lambda _: 0)
+        it.trace = []
+        it.sample()
+        return dict(it.trace)[2]
+    both = lambda o: (0, 0x31, 0, o << 6, 0x9800)                 # rA = 31, rB = 30
+    for r31, want in ((0x0080, 0.75), (0x0100, 1.0), (0x0200, 1.5)):
+        for o in (2, 0):
+            assert abs(s15(r31, both(o), 0x4000) - want) < 1e-6, (o, hex(r31), s15(r31, both(o), 0x4000))
+    assert abs(s15(0x0100, both(3), 0x4000) - 1.0) < 1e-6 and abs(s15(0x0100, both(1), 0x4000) - 3.0) < 1e-6
+    for k, want in ((0xC000, 0.5), (0x0000, 1.0), (0x4000, 1.5)):
+        assert abs(s15(0, op1, k) - want) < 1e-6, (hex(k), s15(0, op1, k))
+    assert d3(1, 0xC000, 0.5) < 0 and abs(d3(1, 0xC000, 0.5, abs_=1) + d3(1, 0xC000, 0.5)) < 1e-9   # r7[11]: |y|
 
     steps, _ = load(Path(__file__).resolve().parents[1] / "docs/vop3/program_0.bin")
     coef = list(struct.unpack(">512H", (Path(__file__).resolve().parents[1] / "docs/vop3/coefficients_0.bin").read_bytes()))
@@ -179,14 +196,12 @@ def demo():
     assert all(fs1r_bank(st) == 4 for st in own) and fs1r_bank(0x97) == 7 and fs1r_bank(0x99) == 5 and fs1r_bank(0x12) == 0
     it = Interp(steps, coef)
     it.trace = []
-    it.rb[4][0x62] = 0.5
-    it.sample()
-    y098 = dict(it.trace)[0x98]                                  # op 2: k * r[62] * r[61]
-    assert abs(y098 - max(-SAT, min(SAT, s16(coef[0x98]) * 0.5 * LOAD_SCALE * s16(coef[0x8E])))) < 1e-9 and y098 != 0.0
+    it.sample()                                                  # r[62] unloaded: 0 (session 15, r[2c..7f])
+    y098 = dict(it.trace)[0x98]                                  # op 2: k * (r[62] + r[61]) = k * r[61]
+    assert abs(y098 - max(-SAT, min(SAT, s16(coef[0x98]) * LOAD_SCALE * s16(coef[0x8E])))) < 1e-9 and y098 != 0.0
     # clear the cutoff load (session 8 take 3 nop_08e): the MAC's result vanishes
     it2 = Interp([(0, 0, 0, 0, 0) if i == 0x8E else s for i, s in enumerate(steps)], coef)
     it2.trace = []
-    it2.rb[4][0x62] = 0.5
     it2.sample()
     assert dict(it2.trace)[0x98] == 0.0
     # channel 4 (group 3, block 6) is the one session 9 ran on: its output stage is 0x174, constant 0x17c

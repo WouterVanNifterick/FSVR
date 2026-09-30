@@ -63,19 +63,20 @@ r10 [15:3] ?        [2:0] mem
 | field | role | evidence |
 |---|---|---|
 | `class` `r6[15:14]` | **1** constant load; **2** compute; **0** no output from this step; **3** loop runs away | CHIP: 1->0 and 2->0 silence the step's contribution, 2->3 runaway; on class 1 every other bit of r6 is inert |
-| `rA` `r9[6:0]` | class 2: **source register A**; class 1: **destination register** of the constant | CHIP: exact-match, every bit: any other rA retunes (smaller operand), any other destination loses the constant |
-| `rB` `r6[13:7]` | class 2: **source register B** | CHIP: exact-match |
-| `path` `r9[11:8]` | **exact-match per data path**: 1..0xb across a group, channel 0's compute steps carry 1, channel 1's 2 | CHIP: all 15 other values close the filter identically. A bus/accumulator id, not an opcode |
+| `rA` `r9[6:0]` | class 2: source register A, **added to `r[rB]`** when rB is set, ignored when rB is 0 (sessions 14/15); class 1: **destination register** of the constant | CHIP: VOP3-1 exact-match on every bit; VOP3-2 `x = r[rA] + r[rB]` (session 15) |
+| `rB` `r6[13:7]` | class 2: **source register B**: `x = r[rB]` (+ `r[rA]`); 0 = the running value | CHIP: VOP3-1 exact-match; VOP3-2 sessions 13-15 |
+| `path` `r9[11:8]` | exact-match per data path on VOP3-1's feedback loop (1..0xb across a group); inert on a feed-forward step | CHIP: VOP3-1 all 15 other values close the filter; VOP3-2 `0d3` 0..15 gain 1.000 (session 12) |
 | `op` `r7[8:6]` | **3-bit operation**, section 3 | CHIP: swept 0..7 on two steps |
-| `sel` `r7[10]` | modifier: on the cutoff MAC, set alone opens the filter with the peak intact; on the output move, 1 = audio, 0 = a constant | CHIP |
-| `route` `r7[13:12]` | **result destination**. Output stage: 0 = the output bus, 1/2 = elsewhere (DC leaks), 3 = constant. Cutoff MAC: 1 shipped, 0 drops the corner an octave, 2/3 runaway | CHIP |
-| `rd-en` `r7[4]`, `rsrc` `r7[3:0]` | **read enable + 4-bit read source**: rd-en clear makes all 16 rsrc values inert; enabled, 0..0xb replace an operand with something useless (closed), 0xc..0xf with a scaled copy (retuned); on the output stage the read flattens the response (a subtraction) | CHIP. FW: the field is 0 or 0x11..0x1b on every FS1R/AN1x step |
+| `sel` `r7[10]` | **negates the running value** `s` (op 0 `-s + k*x`, op 4 `-s`; ops 1..3 unaffected) | CHIP: VOP3-2 session 12; VOP3-1's opened filter / constant output are the same sign flip inside the loop |
+| `route` `r7[13:12]` | **scale of what the step writes out** (DRAM / bus): 3 = 1, 2 = 1/4, 1 = 1/8, 0 = 1/16; the value handed to the next step is not scaled; op 7 on route 3 gives 0 | CHIP: VOP3-2 sessions 12/14 |
+| `rd-en` `r7[4]`, `rsrc` `r7[3:0]` | **with rB set: drops the gain `k`** (`y = x`); `w[rsrc]` never enters the arithmetic; with rB clear: inert | CHIP: VOP3-2 sessions 12/14; VOP3-1 `0f8` (session 9) |
 | `wdst` `r6[5:0]` | **write slot** `w[wdst]` of the step's result; `rsrc` reads the same slots | CHIP: exact-match, 55/63 alternatives run away, bit-3 neighbours retune |
 | `mod` `r9[7]`, `r9[15]`, `r7[9]` | modifiers: `r7[9]` ignored on the MAC probed; `r9[7]` and `r9[15]` share one signature (partial loss) | CHIP |
-| `r9[12]` | one flip (0x11->0x01) opened the filter; not swept | CHIP |
+| `abs` `r7[11]` | **rectify: `y = abs(y)`** | CHIP: VOP3-2 session 15 (0.9997 x abs(output), residual -51 dB) |
+| `r9[12]` | inert on a feed-forward step; one flip opened VOP3-1's filter | CHIP: VOP3-2 session 15 (gain 1.000, -62 dB); VOP3-1 session 8 |
 | `daddr` `r8[15:7]` | 9-bit data-memory address: lookup-table pointers into other steps' constants | FW: the firmware patches table indices here; the four channel copies differ only in these bits |
 | `mmode` `r8[6:0]` | delay-memory access mode: 0x40 on VOP3-2 reads, 0x28/0x30/0x68 on the AN; 0 on VOP3-1 (no DRAM) | FW |
-| `mem` `r10[2:0]` | non-zero = delay-memory access this step, slot = step >> 2 | FW: the AN uploaders write 0x1A/0x1C for exactly these steps; VOP3-2's slot lists match |
+| `mem` `r10[2:0]` | delay-memory access: 2 on a step stops its value continuing down the chain (a store); 1 on a reading step inert on test image 0 | CHIP: VOP3-2 session 15; FW: the AN uploaders write 0x1A/0x1C for exactly these steps |
 | constant (reg 0xB) | class 2: signed 1.15 **gain**; `rd-en` with rB set drops it (and `w[rsrc]` does not enter), with rB clear it stays (session 14). Class 1: the loaded value, 8.8 fixed point (`r = v/256`, session 14) | FW: the firmware patches k into class-2 steps on all three machines (FS1R gain `x120`, mode `x7c`, resonance A/B, type; AN1x mixer levels `x67`, pitch, PW, edge, sync; 69 of 69 AN1x handler targets and 112/112 FS1R targets are class 2 with `rd-en` clear), and a live constant on an `rd-en` step is rare: FS1R 0 of 240, AN1x 20 of 276 (7%, against 86% of the others), PLG150-AN 24% against 43%. So the read replaces the constant on the FS1R and nearly always on the AN; where both are present (the AN's 0x35c3 mixer group) the step has four sources and the MEG's `const * reg + reg` form is the reading. CHIP: session 9's 13 values on `0f8` changed nothing, and `0f8` is an `rd-en` step, so the two agree; the class-1 mute above 0x8000 stands. CHIP (VOP3-2, session 11): on the output step and the DRAM writer the constant is a signed 1.15 **gain** (linear, 0x4000 = half scale, sign follows k); with a zero input every op 0..7 and every k gives exact digital zero, so it is never an addend |
 | tag (reg 0xC) | write-group id the firmware uses to patch steps by parameter: 3..7 = voice 0..4 on the AN1x, 1 = global; 0/1 on the FS1R filter | FW |
 
@@ -101,10 +102,8 @@ DRAM offset registers are inert on a step of a program without a delay line.
 **Session 13 (`captures/2026-10-01-0441-s13/README.md`) closes the operand files:** rA/rB address `r[]`,
 never `w[]` (w[n] loaded with 0.5 x input reads the same through rB = n or 40|n as with nothing
 loaded; `w[]` is reached only through `rd-en`/`rsrc`). A class-1 load lands in `r[]` and op 1 reads it
-through rB (`r[30]` = 0x4000 -> a constant, zero-variance output). op 1 ignores rA. op 0 with rA alone:
-rA = 7f gives exactly `s + k*s` (as rA = 0), rA = 10..70 give 1.82..1.88 at coherence 0.97, so there the
-operand takes in part of a live register. Unloaded `r[]` registers carry a live
-chip-written signal (the input window, section 1).
+through rB (`r[30]` = 0x4000 -> a constant, zero-variance output). (Its "live `r[]`" reading is withdrawn by
+session 15, below.)
 
 **Session 14 (`captures/2026-10-01-0454-s14/README.md`), class-1 loads as known operands:** a class-1 load
 is 8.8 fixed point (`r = v / 256`); the running value / DRAM word clips at +-8 (seen at two output gains);
@@ -112,6 +111,15 @@ the running value carries from step to step unscaled by route (op 0 `s + k*x` gi
 `0d1`, `0d2` or `0d3`); op 1 reading `r[rB]` gives `x + k*x`; `rd-en` with rB set drops `k` and never
 brings `w[rsrc]` in (`x` alone, 4.000 for w[0e] live or w[0f] unwritten), with rB clear `k` stays (session
 12): VOP3-1's `0f8` (session 9) and VOP3-2 agree. op 0 ignores a loaded `r[rA]` alone.
+
+**Session 15 (`captures/2026-10-01-0509-s15/README.md`) closes the operand and the remaining fields:**
+with rA and rB both set the operand is the **sum** `x = r[rA] + r[rB]` (r[30] = 1, r[31] = 0.5/1/2, k = 0.5:
+ops 0, 2 store 0.75/1.00/1.50, op 3 1.00, op 1 3.00); op 1 with rB is `x + k*x` (k = 0xc000/0/0x4000 store
+0.5/1.0/1.5); op 0 ignores rA alone, loaded or not; `r7[11]` rectifies (`abs(y)`, 0.9997, residual -51 dB);
+`r9[12]` is inert. Unloaded `r[]` registers hold constants left by earlier programs (96/127 zero, the rest
+fixed values, none carries audio). A step's result reaches the next step in the same pass: there is no
+write delay; when the chain head is missing the next step reads the value the previous step in program
+order left (the other chain's end), which is what sessions 12/13 saw as a "live" register.
 
 **On a step with no feedback the arithmetic is readable** (last column; VOP3-2's DRAM writer `0d3`, every
 fit a pure gain of the same signal, residual equal to the reference's): the constant only multiplies, op 0
@@ -160,13 +168,15 @@ MEG program does with an exp table); VCO pitch 4096/octave with a key term; mixe
 
 `tools/vop3_interp.py` runs a program with the arithmetic measured on VOP3-2 (sections 3 and 8; the same
 chip as VOP3-1). Class 1: `r[rA] = v/256` (8.8). Class 2: gain `g` = `k` (signed 1.15), 0 when `rd-en` and
-rB are both set; running value `s` (`-s` with `sel`); operand `x` = `s` when rB = 0, `r[rB]` when only rB
-is set, `r[rA] x r[rB]` when both are; op 0 `s + g*x`, op 1 `g*x` (`+ x` when rB is set), ops 2/3 `g*x`,
-op 4 `s`, op 5 sign of `s`, op 6 zero, op 7 `g x` the chip's input (0 on route 3); every result clips at
-+-8. `wdst` writes into `w[]`; route 0 of an op-1 step goes onto the output bus. Its self-check reproduces
-session 11's `held` table and `dc dram` silence, session 12's `sel` gains, session 14's eight stored
-values, and session 8's cutoff MAC and per-channel step ownership. Not modelled: route's scale on a
-step's DRAM write, the 2-sample output lag, the 18-bit output word, delay memory.
+rB are both set; running value `s` (`-s` with `sel`), one register passed step to step in program order;
+operand `x` = `s` when rB = 0, `r[rB]` when only rB is set, `r[rA] + r[rB]` when both are; op 0 `s + g*x`,
+op 1 `g*x` (`+ x` when rB is set), ops 2/3 `g*x`, op 4 `s`, op 5 sign of `s`, op 6 zero, op 7 `g x` the
+chip's input (0 on route 3); `r7[11]` takes `|y|`; every result clips at +-8. `wdst` writes into `w[]`;
+route 0 of an op-1 step goes onto the output bus. Its self-check reproduces session 11's `held` table and
+`dc dram` silence, session 12's `sel` gains, session 14's eight stored values, session 15's sum, op-1 and
+`r7[11]` results, and session 8's cutoff load (clearing it zeroes the MAC) and per-channel step ownership.
+Not modelled: route's scale on a step's DRAM write, the 2-sample output lag, the 18-bit output word, and
+the delay memory (section 8).
 
 ## 7. Model check against the EX5 MEG (the close for the op arithmetic)
 
@@ -196,20 +206,9 @@ the constant is live on class-2 steps and dead on `rd-en` steps, `r[]` has the p
 
 ## 8. Open
 
-* **`r[rA] x r[rB]` with both set.** Session 14's product loads clipped at 8; the scale of the product (and
-  whether op 0/2/3 form it, as VOP3-1's cutoff MAC suggests) needs loads near 0x0010.
-* **op 1 with rB: `x + k*x`.** Fits session 14's four op-1 points; not split from other forms that give the
-  same numbers at k = 0x2000 and ~1 (a k = 0xc000 point would split it).
-* **op 0 with an unloaded rA alone** gives 1.82..1.88 (session 13) where a loaded rA is ignored (session 14).
-* **Pipeline latency.** VOP3-2's right path trails its left by 2 samples through identical chains
-  (sessions 11-13); the register write delay between steps is not measured. On the AN1x every `rd-en`
-  read sits 1..14 steps after its writer, so a write delay is at most one step.
-* **Which generator feeds which input.** `r[1+5k+v]` is settled as the input window (above; session 13
-  sees the same live window from VOP3-2); what k=0..12 carry (audio in, LFO1/2, noise, EG) is inferred
-  from the reader shape only (k=0: squared by op 5 at the oscillator start; k=4,5,7,8: the filter
-  block's op 2/1/4 trio; k=9: the mixer; k=10,11: the output block). The PLG150-AN reads `r[07..1a]` in
-  the same pattern with fewer voices and would pin the stride if its handlers were mapped.
-* `r9[12]`, `r7[11]`: unswept. `path` `r9[11:8]`, `r8[6:0]`, `r10`: inert on every step probed (VOP3-1
-  pass steps, session 10; VOP3-2 `0d3`/`0e9`, session 12), unswept inside a feedback loop.
-* **Delay memory.** `daddr` and the DRAM offset registers are inert on test image 0, which has no delay
-  line (session 12); their effect needs a program that has one (an effect program's delay).
+* **Delay memory (DRAM).** Measured: the stored/DRAM word is 18 bits and clips at +-8 (sessions 12/14);
+  `r10` = 2 on a step is live (its value no longer continues down the chain, session 15); `r10` bits on a
+  step that reads (`0d3`), `daddr` and the per-slot offset registers (0xd/0xe after reg 0 = slot) are inert
+  on test image 0 (sessions 12/15). Not measured: how a step reads the DRAM back and what the offset does,
+  i.e. a working delay line. The rig for it is an effect program that has one (the shipped reverb with one
+  tap's offset moved), not test image 0.
