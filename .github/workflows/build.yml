@@ -144,13 +144,30 @@ jobs:
       # The release body is the annotated tag's message (AGENTS.md, "Releases"). generate_release_notes
       # alone left v0.4.6 with nothing but a compare link, and actions/checkout peels a tag ref to its
       # commit, which handed v0.4.7 the commit message, so the tag object is read off the API instead.
-      # A lightweight tag has no tag object and fails here on purpose.
+      # A lightweight tag has no tag object and fails here on purpose. The Download table of the three
+      # installers goes above it, as v0.5.0's was written by hand, its links on this tag.
       - name: Release notes from the tag
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${GITHUB_REF_NAME}" --jq .object.sha)
-          gh api "repos/${GITHUB_REPOSITORY}/git/tags/$sha" --jq .message > notes.md && test -s notes.md
+          gh api "repos/${GITHUB_REPOSITORY}/git/tags/$sha" --jq .message > tag.md && test -s tag.md
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+          {
+            echo "## Download"
+            echo
+            echo "| | Installer | |"
+            echo "|---|---|---|"
+            echo "| **Windows** | [FSVR-Windows-Installer.exe]($url/FSVR-Windows-Installer.exe) | Run it; it asks for admin rights to install into Program Files |"
+            echo "| **macOS** | [FSVR-MacOS-Installer.zip]($url/FSVR-MacOS-Installer.zip) | Unzip and open FSVR-MacOS-Installer; it is not signed, so right-click it and choose Open the first time |"
+            echo "| **Linux** | [FSVR-Linux-Installer]($url/FSVR-Linux-Installer) | \`chmod +x FSVR-Linux-Installer\`, then run it |"
+            echo
+            echo "The installer puts every format in place (VST3, CLAP, VST2, the 32-bit VST2 with its DXi, AU and the standalone) and can keep FSVR up to date. To install one format by hand instead, take its own zip from the list below, \`FSVR-<OS>-<format>.zip\`. \`FSVR-MacOS-Update\` is for the updater, not for downloading."
+            echo
+            echo "---"
+            echo
+            cat tag.md
+          } > notes.md
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
