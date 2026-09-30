@@ -9,6 +9,16 @@ not marked is an inference and says so. The disassembler's output over every ima
 Each line gives the raw fields, then the step as its measured operation (`y = s + k*(r[31] + r[30])`,
 `dram[34] = y`, `d[0b] <- xfer(slot 36, else 37)`, ...); `python tools/vop3_disasm.py --listings` regenerates them.
 
+## One chip
+
+**VOP3-1 and VOP3-2 are the same chip; a result measured on either applies to both** (and to the PLG150-AN's
+and AN1x's VOP3). No measurement on one contradicts one on the other. Where this doc gives a field two
+descriptions (`path`, `r9[12]`, op table columns "VOP3-1 filter" vs "VOP3-2"), they describe the same
+behaviour in two contexts: a step inside the FS1R filter's feedback loop, where a change closes, opens or
+runs the loop away, and a step in VOP3-2's feed-forward test chain, where the same change reads out as plain
+arithmetic. The one board difference is external: the FS1R's VOP3-1 has no DRAM attached, so its programs
+carry no `mem` marks. The disassembler and interpreter decode every image with the one set of meanings.
+
 ## 1. The machine
 
 * A program is **512 steps**, run in order once per sample. FW: every uploader (FS1R `FUN_0000BC8C`,

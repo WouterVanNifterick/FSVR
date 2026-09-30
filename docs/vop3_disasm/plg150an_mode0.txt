@@ -84,7 +84,7 @@
 057  path=1.5 route=0 op=2 r7=0.01 class=2  y = 0 -> w[27] d[2a] <- xfer(slot 13, else 14)
 058  path=0.0 route=0 op=0 r7=0.00 class=1  r[6b] = k/256 d[1a8] k=8000(-1.0000)
 059  path=0.0 route=0 op=0 r7=1.00 class=2  y = s + k*r[6b] d[2b] = y/16
-05a  path=1.6+ route=3 op=6 r7=1.03 class=2  y = 0 -> w[20] rd w[6] d[2c] <- xfer(slot 14, else 15) mem2(phase 2: no xfer, s16)
+05a  path=1.6+ route=3 op=6 r7=1.03 class=2  y = 0 -> w[20] rd w[6] d[2c] <- xfer(slot 14, else 15) mem2(phase 2: no xfer)
 05b  path=0.0 route=3 op=5 r7=2.02 class=2  y = sgn(s) -> w[27] d[48] <- xfer(slot 14, else 15) k=1400(+0.1562)
 05c  path=4.0 route=0 op=3 r7=2.01 class=2  y = k*r[09] d[021] k=0800(+0.0625)
 05d  path=0.0^ route=0 op=2 r7=0.01 class=1  r[00] = k/256 rB=r[3e] d[0c8]
@@ -96,7 +96,7 @@
 063  path=1.5 route=0 op=7 r7=0.03 class=2  y = k*in -> w[2c] k=4000(+0.5000)
 064  path=0.0^ route=0 op=2 r7=0.01 class=1  r[00] = k/256 rB=r[4c] d[20] <- xfer(slot 17, else 18)
 065  path=0.1 route=3 op=7 r7=1.03 class=2  y = k*d[25] -> w[26] rd w[5] k=0800(+0.0625)
-066  path=0.1 route=3 op=2 r7=2.01 class=2  y = 0 -> w[3e] mem2(phase 2: no xfer, s16)
+066  path=0.1 route=3 op=2 r7=2.01 class=2  y = 0 -> w[3e] mem2(phase 2: no xfer)
 067  path=4.1 route=2 op=5 r7=1.02 class=2  y = sgn(s) -> w[23]
 068  path=6.0 route=3 op=1 r7=0.00 class=1  r[00] = k/256
 069  path=1.6 route=0 op=5 r7=0.02 class=2  y = sgn(s) -> w[2b] d[2c] = y/16
@@ -110,7 +110,7 @@
 071  path=4.0 route=0 op=3 r7=2.01 class=2  y = k*r[0a] k=0800(+0.0625)
 072  path=0.0^ route=0 op=2 r7=0.01 class=1  r[00] = k/256 rB=r[68]
 073  path=0.1 route=3 op=7 r7=1.03 class=2  y = k*d[2e] -> w[0e] rd w[6] k=0800(+0.0625)
-074  path=0.0 route=0 op=5s r7=0.0a class=3  rB=r[15] -> w[2d] d[30] <- xfer(slot 1b, else 1c) mem2(phase 0: no xfer, s16)
+074  path=0.0 route=0 op=5s r7=0.0a class=3  rB=r[15] -> w[2d] d[30] <- xfer(slot 1b, else 1c) mem2(phase 0: no xfer)
 075  path=0.0 route=3 op=5 r7=2.02 class=2  y = sgn(s) -> w[30] k=1400(+0.1562)
 076  path=4.0 route=0 op=0s r7=2.08 class=3  rB=r[13] d[0a0]
 077  path=1.5 route=3 op=7 r7=3.03 class=2  y = k*in -> w[20] rd w[5] d[66] <- xfer(slot 1b, else 1c)
@@ -122,11 +122,11 @@
 07d  path=6.0 route=3 op=1 r7=0.00 class=1  r[00] = k/256 d[0ce]
 07e  path=1.5 route=0 op=5 r7=0.02 class=2  y = sgn(s) -> w[30] d[23] = y/16
 07f  path=0.0 route=0 op=5 r7=0.02 class=2  y = sgn(s) -> w[24] d[31] = y/16 k=4000(+0.5000)
-080  path=0.0 route=0 op=5 r7=0.02 class=2  y = sgn(s) -> w[24] d[22] = y/16 mem2(phase 0: no xfer, s16) k=4000(+0.5000)
+080  path=0.0 route=0 op=5 r7=0.02 class=2  y = sgn(s) -> w[24] d[22] = y/16 mem2(phase 0: no xfer) k=4000(+0.5000)
 081  path=1.4 route=0 op=2 r7=0.01 class=2  y = 0 -> w[23] d[32] <- xfer(slot 1e, else 1f)
 082  path=0.0 route=0 op=0 r7=0.00 class=1  r[69] = k/256 d[1b0] k=8000(-1.0000)
 083  path=0.0 route=0 op=0 r7=1.00 class=2  y = s + k*r[69] d[33] = y/16
-084  path=1.5+ route=3 op=6 r7=1.03 class=2  y = 0 -> w[26] rd w[5] d[75] <- xfer(slot 1f, else 20) mem2(phase 0: no xfer, s16)
+084  path=1.5+ route=3 op=6 r7=1.03 class=2  y = 0 -> w[26] rd w[5] d[75] <- xfer(slot 1f, else 20) mem2(phase 0: no xfer)
 085  path=0.0 route=3 op=5 r7=2.02 class=2  y = sgn(s) -> w[23] d[34] <- xfer(slot 1f, else 20) k=1400(+0.1562)
 086  path=4.0 route=0 op=3 r7=2.01 class=2  y = k*r[0d] k=0800(+0.0625)
 087  path=0.0^ route=0 op=2 r7=0.01 class=2  y = k*r[12]
@@ -138,7 +138,7 @@
 08d  path=1.5 route=0 op=7 r7=0.03 class=2  y = k*in -> w[34] k=4000(+0.5000)
 08e  path=0.4^ route=0 op=2 r7=0.01 class=2  y = k*r[20] d[35] <- xfer(slot 21, else 22) k=4000(+0.5000)
 08f  path=0.1 route=3 op=7 r7=1.03 class=2  y = k*d[22] -> w[24] rd w[4] k=0800(+0.0625)
-090  path=0.1 route=3 op=2 r7=2.01 class=2  y = 0 -> w[3e] mem2(phase 0: no xfer, s16)
+090  path=0.1 route=3 op=2 r7=2.01 class=2  y = 0 -> w[3e] mem2(phase 0: no xfer)
 091  path=1.6 route=0 op=5 r7=0.02 class=2  y = sgn(s) -> w[33] d[33] = y/16
 092  path=0.0 route=0 op=5 r7=0.02 class=2  y = sgn(s) -> w[1d] d[38] = y/16 k=4000(+0.5000)
 093  path=0.0 route=0 op=5 r7=0.02 class=2  y = sgn(s) -> w[1d] d[24] = y/16 k=4000(+0.5000)
@@ -206,15 +206,15 @@
 0d1  path=4.1 route=2 op=3 r7=0.01 class=2  y = 0
 0d2  path=1.9 route=0 op=3 r7=1.01 class=2  y = k*r[0e] k=3852(+0.4400) b=7
 0d3  path=1.4 route=0 op=3 r7=1.01 class=2  y = 0 d[2c] = y/16
-0d4  path=1.a route=0 op=5 r7=1.02 class=2  y = sgn(s) -> w[3a] mem2(phase 0: no xfer, s16)
+0d4  path=1.a route=0 op=5 r7=1.02 class=2  y = sgn(s) -> w[3a] mem2(phase 0: no xfer)
 0d5  path=4.1 route=1 op=2 r7=0.01 class=2  y = 0 -> w[33] d[22] <- xfer(slot 33, else 34) k=599a(+0.7000)
 0d6  path=1.b route=0 op=5 r7=1.02 class=2  y = sgn(s) -> w[3a]
 0d7  path=0.0 route=0 op=1s r7=0.08 class=2  y = r[55] bus += y
-0d8  path=0.0 route=0 op=4s r7=1.0a class=2  y = -s -> w[22] rd w[8] mem2(phase 0: no xfer, s16)
+0d8  path=0.0 route=0 op=4s r7=1.0a class=2  y = -s -> w[22] rd w[8] mem2(phase 0: no xfer)
 0d9  path=4.1 route=1 op=2 r7=0.01 class=2  y = 0 -> w[39] d[38] <- xfer(slot 34, else 35)
 0da  path=1.9 route=3 op=2 r7=2.01 class=2  y = 0 -> w[3d]
 0db  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[19] rd w[a] d[02e]
-0dc  path=0.8 route=0 op=4 r7=1.02 class=2  y = s -> w[22] rd w[b] d[0e2] mem2(phase 0: no xfer, s16) k=35c3(+0.4200) b=7
+0dc  path=0.8 route=0 op=4 r7=1.02 class=2  y = s -> w[22] rd w[b] d[0e2] mem2(phase 0: no xfer) k=35c3(+0.4200) b=7
 0dd  path=0.1 route=0 op=1s r7=0.08 class=2  y = r[5a] bus += y d[23] <- xfer(slot 35, else 36) k=6ccd(+0.8500)
 0de  path=0.1 route=0 op=4s r7=1.0a class=2  y = -s -> w[19] d[099] k=6ccd(+0.8500)
 0df  path=1.5 route=0 op=3 r7=1.01 class=2  y = 0 d[30] = y/16

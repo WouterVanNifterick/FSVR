@@ -3,6 +3,7 @@
 FS1R (docs/vop3_isa.md, sessions 8-16): s = the running value, k = the step's constant, x = r[rB] (+ r[rA]),
 y = the result (clipped at +-8; the next step's s). `d[n] = y/4` is a route-scaled write to data cell n,
 `dram[slot] = y` a delay-memory write, `xfer = dram[slot]` a read, `d[n] <- xfer(...)` a capture.
+VOP3-1 and VOP3-2 are one chip: every decode here applies to every image (FS1R, PLG150-AN, AN1x) alike.
 
     python tools/vop3_disasm.py --listings        regenerate every listing in docs/vop3_disasm/
 
@@ -21,17 +22,18 @@ import struct
 
 def fields(r10, r9, r8, r7, r6):
     # Meanings are from docs/vop3_isa.md: CHIP = measured on the FS1R (VOP3-1 filter, sessions 8-10; VOP3-2 digital
-    # out, sessions 11-16), FW = read from the firmwares. Key names are kept for tools/vop3_interp.py.
+    # out, sessions 11-16), FW = read from the firmwares. VOP3-1 and VOP3-2 are the same chip (ISA doc "One chip"):
+    # a result from either applies to every VOP3 image. Key names are kept for tools/vop3_interp.py.
     return dict(
         mem=r10 & 7,            # CHIP s16: DRAM access, only on steps 3 mod 4, slot = step >> 2: 1 write, 2/3 read, 4/6 read one older
         r10hi=r10 >> 3,
-        op9=(r9 >> 8) & 0xf,    # CHIP r9[11:8] `path`: exact-match on VOP3-1's feedback loop; inert on a VOP3-2 feed-forward step
-        op9hi=(r9 >> 12) & 7,   # r9[14:12]: bit 12 opened VOP3-1's filter, inert on VOP3-2 (s15); 13/14 inert
+        op9=(r9 >> 8) & 0xf,    # CHIP r9[11:8] `path`: exact-match on a feedback-loop step (s8); no effect on a feed-forward step (s12)
+        op9hi=(r9 >> 12) & 7,   # r9[14:12]: bit 12 opened a filter loop (s8), no effect feed-forward (s15); 13/14 inert
         ra=r9 & 0x7f,           # CHIP r9[6:0]: class 2 operand A (added to r[rB], ignored when rB = 0); class 1 destination
-        r9b7=(r9 >> 7) & 1,     # CHIP r9[7]: a mode bit of its own (same effect as r9[15] on VOP3-1)
+        r9b7=(r9 >> 7) & 1,     # CHIP r9[7]: a mode bit of its own (same effect as r9[15], s8)
         r9b15=r9 >> 15,
         daddr=r8 >> 7,          # CHIP s16: 0x180|n = the step writes d[n] (op 7 reads it); 0x100|n = capture DRAM xfer into d[n];
-                                # below 0x100: VOP3-1 table pointers (FW)
+                                # below 0x100: lookup-table pointers into other steps' constants (FW)
         mmode=r8 & 0x7f,        # CHIP s12/s16: inert, the DRAM read and write included
         f7a=r7 >> 14,           # CHIP r7[15:14]: no effect on any probed step
         f7b=(r7 >> 12) & 3,     # CHIP s12/s16 r7[13:12] `route`: scale of what the step writes out (d[], DRAM): 1/16, 1/8, 1/4, 1
@@ -79,7 +81,7 @@ def operation(step, f, voices=0):
             out.append("bus += y")
         if f["rd_en"] and not b:
             out.append("rd w[%x]" % f["rd"])          # s12: 0d3 keeps k for every rsrc; s11: on 0e9 it changed the level
-    else:                                              # class 0 (no arithmetic) / 3 (runaway on VOP3-1, unmeasured on VOP3-2)
+    else:                                              # class 0 (no arithmetic) / 3 (made a filter loop run away, s8; not decoded)
         for n, nm in ((f["ra"], "rA="), (f["rb"], "rB=")):
             if n:
                 out.append(nm + reg(n, voices))
@@ -91,12 +93,14 @@ def operation(step, f, voices=0):
     if d >> 7 == 2:
         out.append("d[%02x] <- xfer(slot %02x, else %02x)" % (d & 0x7f, (step >> 2) - 2, (step >> 2) - 1))
     elif d and d >> 8 == 0:
-        out.append("d[%03x]" % d)                      # VOP3-1 / AN table pointer
+        out.append("d[%03x]" % d)                      # table pointer
     elif d >> 7 == 3 and f["f6a"] != 2:
         out.append("d[%03x]" % d)
     m, slot = f["mem"], step >> 2
     if m and step & 3 != 3:
-        out.append("mem%d(phase %d: %s)" % (m, step & 3, "no xfer, s16" if step & 3 in (0, 2) and m in (2, 3) else "untested"))
+        # s16: a read on phase 0/2 transfers nothing. That is the chip, so it holds for the AN images' off-phase marks
+        # too; phase 1 and off-phase writes are the only cases no take has tried.
+        out.append("mem%d(phase %d: %s)" % (m, step & 3, "no xfer" if step & 3 in (0, 2) and m in (2, 3) else "untested"))
     elif m == 1:
         out.append("dram[%02x] = y%s" % (slot, ROUTE[f["f7b"]]))
     elif m in (2, 3):
@@ -245,7 +249,7 @@ def demo():
     assert "xfer = dram[36]" in disasm(0xdb, (0x0002, 0, 0x0040, 0, 0))
     assert "d[0b] <- xfer(slot 36, else 37)" in disasm(0xe0, (0, 0, 0x8580, 0, 0))
     assert "y = k*d[0b]" in disasm(0xe9, encode(op=7, route=1, daddr=0x18b))
-    assert "no xfer" in disasm(0xd8, (0x0002, 0, 0x0040, 0, 0))
+    assert "mem2(phase 0: no xfer)" in disasm(0xd8, (0x0002, 0, 0x0040, 0, 0))
     assert "y = |-s + k*s|" in disasm(0, encode(op=0, sel=1, r7x=0x800)) and "d[0b] = y/16" in disasm(0, encode(op=4, daddr=0x18b))
     assert "y = s + k*(r[31] + r[30])" in disasm(0xd3, encode(op=0, ra=0x31, rb=0x30))       # s15 sum
     assert "y = r[30] + k*r[30]" in disasm(0xd3, encode(op=1, rb=0x30, route=3))            # s14 op 1

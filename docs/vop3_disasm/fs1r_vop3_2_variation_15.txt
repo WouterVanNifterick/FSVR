@@ -46,7 +46,7 @@
 1cd  path=0.0 route=0 op=0 r7=0.00 class=0  rA=r[01]
 1ce  path=0.0 route=0 op=0 r7=0.00 class=0  -> w[01] b=80
 1cf  path=0.1 route=0 op=4 r7=0.02 class=0  rA=r[01] d[002] dram[73] = y/16
-1d0  path=0.0 route=0 op=0 r7=0.00 class=0  rB=r[06] -> w[03] mem3(phase 0: no xfer, s16) b=64
+1d0  path=0.0 route=0 op=0 r7=0.00 class=0  rB=r[06] -> w[03] mem3(phase 0: no xfer) b=64
 1d1  path=0.0 route=0 op=4 r7=0.02 class=0  rB=r[02] -> w[01]
 1d2  path=0.1 route=0 op=0 r7=0.00 class=0  rA=r[01] -> w[01]
 1d3  path=0.1 route=0 op=0 r7=0.00 class=0  d[002]
