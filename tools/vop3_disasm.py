@@ -48,7 +48,7 @@ def fields(r10, r9, r8, r7, r6):
 def reg(n, voices=0):
     """Register name. With --voices V, r[1 + V*k + v] is input/state k of voice v (AN1x: V=5; the FS1R filter
     is V=6 per channel with r[6c] the class-1 control word, so its stride starts at 0, not 1)."""
-    if voices and 0 < n < 0x7f:
+    if voices and 0 < n <= 13 * voices:      # AN1x: k = 0..12 verified per-voice (tools/vop3_verify.py); above that, scheduler temporaries
         k, v = divmod(n - 1, voices)
         return "in[%d].%d" % (k, v)
     return "r[%02x]" % n
