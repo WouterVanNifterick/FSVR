@@ -76,7 +76,7 @@ r10 [15:3] ?        [2:0] mem
 | `daddr` `r8[15:7]` | 9-bit data-memory address: lookup-table pointers into other steps' constants | FW: the firmware patches table indices here; the four channel copies differ only in these bits |
 | `mmode` `r8[6:0]` | delay-memory access mode: 0x40 on VOP3-2 reads, 0x28/0x30/0x68 on the AN; 0 on VOP3-1 (no DRAM) | FW |
 | `mem` `r10[2:0]` | non-zero = delay-memory access this step, slot = step >> 2 | FW: the AN uploaders write 0x1A/0x1C for exactly these steps; VOP3-2's slot lists match |
-| constant (reg 0xB) | signed 1.15; **the third operand of a class-2 step when `rd-en` is clear** (`rd-en` set swaps `w[rsrc]` in for it), the loaded value on class 1 | FW: the firmware patches k into class-2 steps on all three machines (FS1R gain `x120`, mode `x7c`, resonance A/B, type; AN1x mixer levels `x67`, pitch, PW, edge, sync; 69 of 69 AN1x handler targets and 112/112 FS1R targets are class 2 with `rd-en` clear), and a live constant on an `rd-en` step is rare: FS1R 0 of 240, AN1x 20 of 276 (7%, against 86% of the others), PLG150-AN 24% against 43%. So the read replaces the constant on the FS1R and nearly always on the AN; where both are present (the AN's 0x35c3 mixer group) the step has four sources and the MEG's `const * reg + reg` form is the reading. CHIP: session 9's 13 values on `0f8` changed nothing, and `0f8` is an `rd-en` step, so the two agree; the class-1 mute above 0x8000 stands. CHIP (VOP3-2, session 11): on the output step and the DRAM writer the constant is a signed 1.15 **gain** (linear, 0x4000 = half scale, sign follows k); with a zero input every op 0..7 and every k gives exact digital zero, so it is never an addend |
+| constant (reg 0xB) | class 2: signed 1.15 **gain**; `rd-en` with rB set drops it (and `w[rsrc]` does not enter), with rB clear it stays (session 14). Class 1: the loaded value, 8.8 fixed point (`r = v/256`, session 14) | FW: the firmware patches k into class-2 steps on all three machines (FS1R gain `x120`, mode `x7c`, resonance A/B, type; AN1x mixer levels `x67`, pitch, PW, edge, sync; 69 of 69 AN1x handler targets and 112/112 FS1R targets are class 2 with `rd-en` clear), and a live constant on an `rd-en` step is rare: FS1R 0 of 240, AN1x 20 of 276 (7%, against 86% of the others), PLG150-AN 24% against 43%. So the read replaces the constant on the FS1R and nearly always on the AN; where both are present (the AN's 0x35c3 mixer group) the step has four sources and the MEG's `const * reg + reg` form is the reading. CHIP: session 9's 13 values on `0f8` changed nothing, and `0f8` is an `rd-en` step, so the two agree; the class-1 mute above 0x8000 stands. CHIP (VOP3-2, session 11): on the output step and the DRAM writer the constant is a signed 1.15 **gain** (linear, 0x4000 = half scale, sign follows k); with a zero input every op 0..7 and every k gives exact digital zero, so it is never an addend |
 | tag (reg 0xC) | write-group id the firmware uses to patch steps by parameter: 3..7 = voice 0..4 on the AN1x, 1 = global; 0/1 on the FS1R filter | FW |
 
 ## 3. Operations (`op` = `r7[8:6]`)
@@ -105,6 +105,13 @@ through rB (`r[30]` = 0x4000 -> a constant, zero-variance output). op 1 ignores 
 rA = 7f gives exactly `s + k*s` (as rA = 0), rA = 10..70 give 1.82..1.88 at coherence 0.97, so there the
 operand takes in part of a live register. Unloaded `r[]` registers carry a live
 chip-written signal (the input window, section 1).
+
+**Session 14 (`captures/2026-10-01-0454-s14/README.md`), class-1 loads as known operands:** a class-1 load
+is 8.8 fixed point (`r = v / 256`); the running value / DRAM word clips at +-8 (seen at two output gains);
+the running value carries from step to step unscaled by route (op 0 `s + k*x` gives the same 4.000 at
+`0d1`, `0d2` or `0d3`); op 1 reading `r[rB]` gives `x + k*x`; `rd-en` with rB set drops `k` and never
+brings `w[rsrc]` in (`x` alone, 4.000 for w[0e] live or w[0f] unwritten), with rB clear `k` stays (session
+12): VOP3-1's `0f8` (session 9) and VOP3-2 agree. op 0 ignores a loaded `r[rA]` alone.
 
 **On a step with no feedback the arithmetic is readable** (last column; VOP3-2's DRAM writer `0d3`, every
 fit a pure gain of the same signal, residual equal to the reference's): the constant only multiplies, op 0
@@ -151,13 +158,15 @@ MEG program does with an exp table); VCO pitch 4096/octave with a key term; mixe
 
 ## 6. Interpreter
 
-`tools/vop3_interp.py` runs a program with the op arithmetic measured on VOP3-2 (section 3, last column;
-the same chip as VOP3-1): gain `g` = the `rd-en` read or else the constant, running value `s`, operand
-`x` = `rA x rB` (`s` when both fields are 0); op 0 `s + g*x`, ops 1..3 `g*x`, op 4 `s`, op 5 sign of `s`,
-op 6 zero, op 7 `g x` the chip's input at that step. `wdst` writes into `w[]`; route 0 of an op-1 step goes
-onto the output bus. Its self-check reproduces session 11's `held` table and `dc dram` silence on VOP3-2's
-0d0..0d3 chain, and session 8's cutoff MAC (clearing the load zeroes it) and per-channel step ownership.
-Inferred, not yet split on the chip: `x` with non-zero operand fields, and which steps have an input port.
+`tools/vop3_interp.py` runs a program with the arithmetic measured on VOP3-2 (sections 3 and 8; the same
+chip as VOP3-1). Class 1: `r[rA] = v/256` (8.8). Class 2: gain `g` = `k` (signed 1.15), 0 when `rd-en` and
+rB are both set; running value `s` (`-s` with `sel`); operand `x` = `s` when rB = 0, `r[rB]` when only rB
+is set, `r[rA] x r[rB]` when both are; op 0 `s + g*x`, op 1 `g*x` (`+ x` when rB is set), ops 2/3 `g*x`,
+op 4 `s`, op 5 sign of `s`, op 6 zero, op 7 `g x` the chip's input (0 on route 3); every result clips at
++-8. `wdst` writes into `w[]`; route 0 of an op-1 step goes onto the output bus. Its self-check reproduces
+session 11's `held` table and `dc dram` silence, session 12's `sel` gains, session 14's eight stored
+values, and session 8's cutoff MAC and per-channel step ownership. Not modelled: route's scale on a
+step's DRAM write, the 2-sample output lag, the 18-bit output word, delay memory.
 
 ## 7. Model check against the EX5 MEG (the close for the op arithmetic)
 
@@ -187,15 +196,11 @@ the constant is live on class-2 steps and dead on `rd-en` steps, `r[]` has the p
 
 ## 8. Open
 
-* **Operand arithmetic with rA/rB set.** Measured: op 1 reads `r[rB]` and ignores rA; op 0 with rA alone mixes a live
-  `r[rA]` into `x` (session 13). Not measured: the scale from a class-1 value to the operand (a 0x4000 load reads past full scale), and
-  whether op 0/2/3 multiply `r[rA] x r[rB]` when both are set (VOP3-1's cutoff MAC behaves as if so).
-  Next: a 0x0400 class-1 load read through rB and rA at an output gain of 2^-4.
-* **`rd-en` with rB set.** VOP3-2's op-1 `0d3` keeps `k` as the gain with rB clear (session 12, rsrc
-  0..f); VOP3-1's `0f8` (rB set) ignores its `k` (session 9). Session 13's split read an unloaded rB whose
-  live signal masked the result. Next: load the rB register by class 1 first, then sweep the read.
-* **Accumulator width and saturation.** The running value is not carried from a free step (0c1) to
-  `0d3`, so session 13's doubler chain did not double. Next: the chain from `0d0`.
+* **`r[rA] x r[rB]` with both set.** Session 14's product loads clipped at 8; the scale of the product (and
+  whether op 0/2/3 form it, as VOP3-1's cutoff MAC suggests) needs loads near 0x0010.
+* **op 1 with rB: `x + k*x`.** Fits session 14's four op-1 points; not split from other forms that give the
+  same numbers at k = 0x2000 and ~1 (a k = 0xc000 point would split it).
+* **op 0 with an unloaded rA alone** gives 1.82..1.88 (session 13) where a loaded rA is ignored (session 14).
 * **Pipeline latency.** VOP3-2's right path trails its left by 2 samples through identical chains
   (sessions 11-13); the register write delay between steps is not measured. On the AN1x every `rd-en`
   read sits 1..14 steps after its writer, so a write delay is at most one step.

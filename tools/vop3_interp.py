@@ -5,16 +5,18 @@
     python tools/vop3_interp.py                                     # self-check against the chip data
 
 What is modelled (CHIP-measured, see the ISA doc, section 2-3; VOP3-1 and VOP3-2 are the same chip):
-  class 1   r[rA] = k                       (k signed 1.15)
-  class 2   g = w[rsrc] if rd-en else k     (the gain; FS1R.unlock session 11: the constant only ever multiplies)
+  class 1   r[rA] = k / 256                 (k the raw 16-bit constant; session 14: 8.8 fixed point)
+  class 2   g = 0 if rd-en and rB else k    (the gain, k signed 1.15; session 11: the constant only ever
+                                             multiplies; session 14: with rB set the read drops k, and
+                                             w[rsrc] never enters; with rB clear k stays, session 12)
             s = the running value (the previous class-2 step's result)
             x = s when rB = 0 (session 12: rA alone is ignored by op 1), r[rB] when only rB is (session 13:
             a class-1 load read through op 1's rB), r[rA] * r[rB] when both are set (VOP3-1's cutoff MAC)
             s' = -s if sel else s                     (session 12: sel negates the running-value term)
-            op 0: y = s' + g*x  op 1..3: y = g*x  op 4: y = s'  op 5: y = sign of s (-2^-17 or 0)
+            op 0: y = s' + g*x  op 1: y = g*x (+ x if rB)  op 2, 3: y = g*x  op 4: y = s'  op 5: sign of s
             op 6: y = 0         op 7: y = g * input, 0 on route 3   (session 11 `held`, 12 `op7pos`: the
             input port reads at any step; `dc dram`: a zero input gives exact zero for every op and k)
-            y clamps at 1.15 (not measured: session 12's `sat` shows only write transients)
+            y clamps at +-8 (session 14); the running value carries from step to step unscaled by route
             w[wdst] = y; route 0 on an op-1 step adds y to the output bus
   class 0/3 nothing
 Two files: r[0..7f] (7-bit, class-1 loads and the chip's per-voice I/O window, stride 6 per FS1R channel
@@ -28,10 +30,9 @@ channel and the bank must come from the step's position, since the loads differ 
 `Interp.bank_of(step)` returns that bank; the default is the FS1R filter's layout (sixteen channels,
 four groups of four interleaved, ISA doc section 1). Replace it for another chip.
 
-OPEN (docs/vop3_isa.md section 8): the scale from a class-1 value to the operand; r[rA] * r[rB] with both
-set; op 0 with rA alone partly takes in a live r[rA] (session 13), modelled as s; rd-en with rB set:
-inert on VOP3-2's op-1 0d3 with rB clear (gain stays k), yet VOP3-1's 0f8 (rB set) ignores its k
-(session 9); the model keeps the VOP3-1 reading. Measured inert on VOP3-2, not modelled: path
+OPEN (docs/vop3_isa.md section 8): r[rA] * r[rB] with both set (the scale of the product; session 14's
+loads clipped); op 0 with an unloaded rA alone partly takes in a live r[rA] (session 13), a loaded one
+does not (session 14), modelled as s. Measured inert on VOP3-2, not modelled: path
 r9[11:8], r8[6:0], r10, 0e9's daddr, the DRAM offset registers (image 0 has no delay line). Not modelled: `route`'s scale on
 the value a step sends out (session 12, relative: 3 : 2 : 1 : 0 = 1 : 1/4 : 1/8 : 1/16), the output's
 18-bit word (LSB 2^-17), delay memory. `Interp.ops` maps op -> f(s', g, x).
@@ -47,7 +48,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vop3_disasm import fields, disasm  # noqa: E402
 
-SAT = 32767 / 32768.0
+SAT = 8.0                # session 14: the running value / DRAM word clips at +-8 (seen at two output gains)
+LOAD_SCALE = 128.0       # session 14: a class-1 load v reads back as v/256 (8.8), i.e. 128 x its 1.15 value
 
 
 def s16(x):
@@ -86,17 +88,18 @@ class Interp:
         f = fields(*self.steps[i])
         r = self.rb[self.bank_of(self.first + i)]
         if f["f6a"] == 1:
-            r[f["ra"]] = s16(self.coef[self.first + i]) if self.coef else 0.0
+            r[f["ra"]] = LOAD_SCALE * s16(self.coef[self.first + i]) if self.coef else 0.0
             return
         if f["f6a"] != 2:
             return
         k = s16(self.coef[self.first + i]) if self.coef else 0.0
-        g = self.w[f["rd"]] if f["rd_en"] else k       # exclusive on the FS1R (0/240 rd-en steps carry k); the AN's few k+rd steps are not modelled
+        g = 0.0 if f["rd_en"] and f["rb"] else k      # sessions 9/12/14: rd-en drops k only when rB is set; w[] is never the gain
         x = self.acc if not f["rb"] else r[f["ra"]] * r[f["rb"]] if f["ra"] else r[f["rb"]]
         op = f["op7"]
         self.route = f["f7b"]              # r7[13:12]
         s = -self.acc if f["r7sel"] else self.acc
-        y = max(-SAT, min(SAT, self.ops[op](s, g, x)))
+        y = self.ops[op](s, g, x) + (x if op == 1 and f["rb"] else 0.0)   # session 14: op 1 with rB adds r[rB]
+        y = max(-SAT, min(SAT, y))
         self.acc = y
         if f["f6c"]:
             self.w[f["f6c"]] = y
@@ -155,6 +158,19 @@ def demo():
         assert abs(d3(op, 0x4000, 0.5, sel=1) - want) < 0.006, (op, d3(op, 0x4000, 0.5, sel=1), want)
     assert abs(d3(1, 0x7FFF, 0.5, ra=0x61) - 1.0022) < 0.006
 
+    # session 14: class-1 r[30] = v, then one step reading it; stored value = right channel / 0e9's gain
+    def s14(v, word, k):
+        it = Interp([(0, 0x30, 0, 0x8000, 0x4000), word], [v, k], bank_of=lambda _: 0)
+        it.trace = []
+        it.sample()
+        return dict(it.trace)[1]
+    op1 = (0, 0, 0, 0x0040, 0x9800)                              # op 1, rB = 30
+    op1rd = (0, 0, 0, 0x005E, 0x9800)                            # the same with rd-en, rsrc e
+    for v, word, k, want in ((0x0100, op1, 0x7FFF, 2.000), (0x0400, op1, 0x2000, 5.000), (0x0400, op1, 0x7FFF, 8.0),
+                             (0x1000, op1, 0x7FFF, 8.0), (0x0400, op1rd, 0x2000, 4.000), (0x0400, op1rd, 0x7FFF, 4.000),
+                             (0x0400, (0, 0, 0, 0, 0x9800), 0x7FFF, 4.000), (0x1000, (0, 0, 0, 0, 0x9800), 0x7FFF, 8.0)):
+        assert abs(s14(v, word, k) - want) < 0.001, (hex(v), word, hex(k), s14(v, word, k), want)
+
     steps, _ = load(Path(__file__).resolve().parents[1] / "docs/vop3/program_0.bin")
     coef = list(struct.unpack(">512H", (Path(__file__).resolve().parents[1] / "docs/vop3/coefficients_0.bin").read_bytes()))
     # channel 0 of group 2: the cutoff load 08e goes to r[61]; the MAC 098 reads r[62] * r[61] -> w[3e]
@@ -166,7 +182,7 @@ def demo():
     it.rb[4][0x62] = 0.5
     it.sample()
     y098 = dict(it.trace)[0x98]                                  # op 2: k * r[62] * r[61]
-    assert abs(y098 - s16(coef[0x98]) * 0.5 * s16(coef[0x8E])) < 1e-9 and y098 != 0.0
+    assert abs(y098 - max(-SAT, min(SAT, s16(coef[0x98]) * 0.5 * LOAD_SCALE * s16(coef[0x8E])))) < 1e-9 and y098 != 0.0
     # clear the cutoff load (session 8 take 3 nop_08e): the MAC's result vanishes
     it2 = Interp([(0, 0, 0, 0, 0) if i == 0x8E else s for i, s in enumerate(steps)], coef)
     it2.trace = []
