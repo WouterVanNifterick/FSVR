@@ -1,174 +1,129 @@
-# VOP3 (YSS236) instruction word: what is settled, what is not (2026-09-30)
+# VOP3 (Yamaha YSS236) instruction set, as measured
 
-Companion to `tools/vop3_disasm.py`. Every claim here names its evidence. The programs under
-`docs/vop3_disasm/` are the disassembler's output over every VOP3 image we have: FS1R VOP3-1
-(filter, 2 variants), FS1R VOP3-2 (base + 4 reverb + 16 variation + 2x12 insertion), PLG150-AN
-(3 voice modes + base).
+Reference for `tools/vop3_disasm.py` and `tools/vop3_interp.py`. Every claim names its evidence:
+**FW** = read from the FS1R, PLG150-AN or AN1x firmware; **CHIP** = measured on rgwan's FS1R through the
+debug monitor (FS1R.unlock `captures/2026-09-30-9`, `-10`; per-take tables in those READMEs). Anything
+not marked is an inference and says so. The disassembler's output over every image we have is in
+`docs/vop3_disasm/`: FS1R VOP3-1 (filter, 2 variants), FS1R VOP3-2 (base + 4 reverb + 16 variation +
+2x12 insertion), PLG150-AN (3 voice modes + base), AN1x (voice + boot, parameter-labelled).
 
-## Per-step upload, both chips, both drivers
+## 1. The machine
 
-A step is five 16-bit words written to registers 10, 9, 8, 7, 6 after register 0 selects the step
-(FS1R `FUN_0000B600`/`FUN_0003C9C4`, PLG150-AN `FUN_0007f87c`). Alongside, indexed by the same step
-address: register 0xB = 16-bit constant (1.15), register 0xC = a byte, registers 0xD/0xE (VOP3-2)
-or 0x1A/0x1C (AN) = a delay-memory address at slot `step >> 2`.
+* A program is **512 steps**, run in order once per sample. FW: every uploader (FS1R `FUN_0000BC8C`,
+  PLG150-AN `FUN_0007f87c`, AN1x `FUN_00056028`) writes 512 rows.
+* A step is **five 16-bit words**, chip registers 10, 9, 8, 7, 6 (`r10 r9 r8 r7 r6` here), plus a
+  **constant** in register 0xB and a **tag byte** in register 0xC, all addressed by the step number in
+  register 0. FW: all three uploaders. The AN1x's image packs the tag into the `r10` word
+  (`r10 | tag<<4`), so it is part of the instruction, not a side table.
+* **Register 0 is an address latch shared with everything.** The FS1R's 192 Hz tick writes cutoff
+  constants through it with interrupts masked (`FUN_0000B6A4`); a step written from outside that
+  critical section lands on whatever step the tick last named. CHIP: two takes lost to exactly this.
+  The only safe write is the firmware's own patch path from the CPU shadow (`FUN_0000B600`).
+* State the word addresses: a **register file `r[0..0x7f]`** (7-bit addresses in `r9`/`r6`), a
+  **write area `w[0..0x3f]`** (6-bit addresses in `r6`/`r7`), **data memory `d[0..0x1ff]`** (9-bit
+  address in `r8`, one entry per step: the constant table seen as memory, used for lookup tables),
+  and on chips with DRAM a **delay memory** by slot (`r10[2:0]` marks the access, slot = step >> 2,
+  base/length in registers 0x1A/0x1C per slot at upload). FW: AN uploaders, FS1R VOP3-2.
+* The FS1R filter runs **four channels interleaved in a 124-step group**: channel c owns steps
+  `base+3c..base+3c+2` (gain, mode, cutoff constant) and every step `base+0x0c+c+4n`; four groups from
+  0x010 cover sixteen channels. CHIP: clearing any of a channel's 31 steps changes its output,
+  clearing any other step of the group does not.
+* **The register file is banked per filter channel** (inferred): clearing channel 4's cutoff load
+  `08e` closes channel 4 although `012`, `097`, `10a`, `186` load the same `r[61]` with the same word
+  in the same pass; the bank must follow the step's position. `tools/vop3_interp.py` models it as
+  sixteen banks selected by the interleave.
+* A filter type change does not re-upload: the firmware patches steps into the shadow and uploads
+  those (`FUN_0000D050` -> `FUN_0000C6C0` -> `FUN_0000B600`), muting the channel around it via
+  register 0x2B. CHIP: LPF24 patches two steps per channel (`r7 40d1 -> 50d1`, `r6 low bits`).
 
-The FS1R's VOP3-2 upload (`FUN_0003C9C4`) walks `step*10 + k*2`, the same interleave as VOP3-1.
-`tools/extract_vop3_2.py` had this as word-major and produced a scrambled image; fixed, and it now
-also extracts the effect programs that `FUN_00039C8A` uploads (the boot image is a skeleton).
-
-## Fields with a settled meaning
-
-| field | bits | meaning | evidence |
-|---|---|---|---|
-| `r10[2:0]` | 3 | delay-memory access; slot = `step >> 2` | AN driver writes regs 0x1A/0x1C only when `r10 & 7`; VOP3-2 effect programs have `r10 != 0` exactly on the steps whose `step >> 2` is in the effect's DRAM slot list (`FUN_000397F4` arg) |
-| `r8[6:0]` | 7 | memory-access mode; 0x40 on every VOP3-2 read, 0x48/0x4C/0x04/0x08 variants, 0x28/0x30/0x68 on the AN | non-zero on exactly the `r10 != 0` steps in VOP3-2 (plus 2 outliers per effect); always 0 on VOP3-1 |
-| `r8[15:7]` | 9 | data address into the 512-entry constant/byte tables | FS1R filter: `r8 >> 7` points at steps whose constant is non-zero (47/147); the 4 per-channel copies of the filter block differ in exactly these bits (block-diff bit map below) |
-| `r9[6:0]` | 7 | register address A, per-channel | block diff: only `r9[6:3]` changes between the four channel copies (0x61,0x62,0x63 -> 0x69,0x6a,0x6b ...) |
-| `r6[13:7]` | 7 | register address B, per-channel | block diff: `r6[13:10]` changes between channel copies |
-| `r6[15:14]` | 2 | step class: 1 = parameter-load step (every firmware-patched constant slot has it), 2 = compute step, 0 = idle/const, 3 = rare (VOP3-2 reverb write-back, FS1R 0x046..0x053) | FS1R type/cutoff/reso/gain tables all land on `r6t=1` or `r6t=2 & byte=1` steps |
-| `r7[5:0]`, `r6[6:0]` | 6/7 | share value ranges (0x11..0x1b, 0x25..0x2a, 0x3d..0x3f, 0x61..0x63): a third register/port index | value sets coincide across all three program families |
-
-Block-diff bit map (FS1R filter, channel copies at 0x010/0x08C/0x108/0x184, 124 steps), bits that
-ever differ between copies:
+## 2. The word
 
 ```
-r10 0000000000000000   r9 0000000001111000   r8 0111111110000000
-r7  0000000000000000   r6 0011110001111111
+r6  [15:14] class   [13:7] rB              [6] -      [5:0] wdst
+r9  [15] mod        [14:13] -   [12] ?     [11:8] path   [7] mod   [6:0] rA / load destination
+r7  [15:14] -       [13:12] route   [11] ?   [10] sel   [9] mod   [8:6] op   [5] -   [4] rd-en   [3:0] rsrc
+r8  [15:7] daddr    [6:0] mmode
+r10 [15:3] ?        [2:0] mem
 ```
+`-` = inert on every step it was flipped on (CHIP). `?` = never probed.
 
-Everything in r7, r10, `r9[15:7]`, `r9[2:0]`, `r8[6:0]` and `r6[15:14]` is identical across the
-four copies: those are opcode/mode bits. `r6[6:0]` changing per copy means it is an address too
-(or an address-like port index), not an opcode.
+| field | role | evidence |
+|---|---|---|
+| `class` `r6[15:14]` | **1** constant load; **2** compute; **0** no output from this step; **3** loop runs away | CHIP: 1->0 and 2->0 silence the step's contribution, 2->3 runaway; on class 1 every other bit of r6 is inert |
+| `rA` `r9[6:0]` | class 2: **source register A**; class 1: **destination register** of the constant | CHIP: exact-match, every bit: any other rA retunes (smaller operand), any other destination loses the constant |
+| `rB` `r6[13:7]` | class 2: **source register B** | CHIP: exact-match |
+| `path` `r9[11:8]` | **exact-match per data path**: 1..0xb across a group, channel 0's compute steps carry 1, channel 1's 2 | CHIP: all 15 other values close the filter identically. A bus/accumulator id, not an opcode |
+| `op` `r7[8:6]` | **3-bit operation**, section 3 | CHIP: swept 0..7 on two steps |
+| `sel` `r7[10]` | modifier: on the cutoff MAC, set alone opens the filter with the peak intact; on the output move, 1 = audio, 0 = a constant | CHIP |
+| `route` `r7[13:12]` | **result destination**. Output stage: 0 = the output bus, 1/2 = elsewhere (DC leaks), 3 = constant. Cutoff MAC: 1 shipped, 0 drops the corner an octave, 2/3 runaway | CHIP |
+| `rd-en` `r7[4]`, `rsrc` `r7[3:0]` | **read enable + 4-bit read source**: rd-en clear makes all 16 rsrc values inert; enabled, 0..0xb replace an operand with something useless (closed), 0xc..0xf with a scaled copy (retuned); on the output stage the read flattens the response (a subtraction) | CHIP. FW: the field is 0 or 0x11..0x1b on every FS1R/AN1x step |
+| `wdst` `r6[5:0]` | **write slot** of the step's result; takes the values `rsrc` reads | CHIP: exact-match, 55/63 alternatives run away, bit-3 neighbours retune |
+| `mod` `r9[7]`, `r9[15]`, `r7[9]` | modifiers: `r7[9]` ignored on the MAC probed; `r9[7]` and `r9[15]` share one signature (partial loss) | CHIP |
+| `r9[12]` | one flip (0x11->0x01) opened the filter; not swept | CHIP |
+| `daddr` `r8[15:7]` | 9-bit data-memory address: lookup-table pointers into other steps' constants | FW: the firmware patches table indices here; the four channel copies differ only in these bits |
+| `mmode` `r8[6:0]` | delay-memory access mode: 0x40 on VOP3-2 reads, 0x28/0x30/0x68 on the AN; 0 on VOP3-1 (no DRAM) | FW |
+| `mem` `r10[2:0]` | non-zero = delay-memory access this step, slot = step >> 2 | FW: the AN uploaders write 0x1A/0x1C for exactly these steps; VOP3-2's slot lists match |
+| constant (reg 0xB) | **read only by class 1**, signed; a class-2 step ignores it | CHIP: 13 values on a class-2 step, no change; on a class-1 step 0..0x7fff no change, 0x8000..0xffff mute (a control word to its consumer) |
+| tag (reg 0xC) | write-group id the firmware uses to patch steps by parameter: 3..7 = voice 0..4 on the AN1x, 1 = global; 0/1 on the FS1R filter | FW |
 
-## Opcode bits, not yet decoded
+## 3. Operations (`op` = `r7[8:6]`)
 
-`r9[15:8]` (values 0x11..0x18 in the filter's biquad section, 0x40/0x41/0x60 on the AN, 0x19/0x1a/0x59/0x5b on
-effects), `r7[15:6]` (`4480`, `00c0`, `0140`, `1100`, `8000`, `9280`, `82d1/82d2`, `40c0`, `01c0`,
-`6100`, `4100`, `4000`, `a140`, `8040` are the filter's whole vocabulary) and `r9[7]`.
+| op | on the cutoff MAC (`098`: rA=62 rB=61 -> w[3e]) | on the output stage (`0f8`: rd w[1], sel=1) |
+|---|---|---|
+| 0 | runaway | nothing |
+| 1 | closed | **output move**: audio to the bus at 0 dB; sel=0 or route 3: a constant (DC) instead |
+| 2 | **shipped**: the corner follows rA x rB | nothing |
+| 3 | closed | nothing |
+| 4 | closed | nothing |
+| 5 | runaway | **+10 dB, V-shaped**: the unfiltered input; identical to rd-en cleared |
+| 6 | closed | nothing |
+| 7 | closed | nothing |
 
-## Hard block
+op 2 is multiply-class, op 1 move-class, op 5 on the output stage bypasses the read. The arithmetic of
+each op (multiply vs multiply-accumulate, shifts, what the read subtracts) is **not measured**: every
+probe so far reads through the filter loop or the output bus, both nonlinear in the step's result.
+The FS1R program uses ops {0, 2, 3, 4, 5, 7} on class-2 steps, the AN1x {0, 2..7}.
 
-The MEG's per-step semantics (`p = a*b + c` with source/destination selectors) cannot be mapped onto
-these bits without a ground truth. Three things would settle it, none available here:
+## 4. The FS1R filter's cutoff path, channel 0, read off the chip
 
-1. **Register captures from the unit** while a filter parameter sweeps: FSVR's `fs1r_uart_probe.py`
-   register sessions already log the CPU side; a companion audio capture with cutoff at two known
-   settings lets the constant-table entries be tied to biquad coefficients and from there the
-   `op9`/`r7` words to MAC operations. This is the FS1R.unlock path.
-2. **The AN1x/AN200 firmware**: same chip, and the AN200's service manual (`docs/`) plus a ROM dump
-   would give a third driver with its own comments-in-tables.
-3. **An emulator diff**: run the EX5 MEG AN program (decoded, `docs/ex5_meg.md`) and the PLG150-AN
-   VOP3 program side by side with identical constants once fields 1-6 above are pinned; the MEG
-   listing says what each of the 45 memory slots and 230 steps must compute.
+```
+08c  class 2  op 5  -> w[13]  rB=7f                  gain term: cleared, the loop runs away (+83 dB HF)
+08d  class 2  op 4  route 1 -> w[05]                 mode: cleared, the resonance peak moves to 80-160 Hz
+08e  class 1  r[61] = k                              staged cutoff constant (log frequency, tick-driven)
+098  class 2  op 2  path 1  rA=62 rB=61 -> w[3e]     the MAC whose result the corner follows
+09c  class 2  op 2  path 1  rA=62 rB=62 -> w[3d]  rd w[1]
+0a8  class 2  op 2s        rA=62 rB=61 -> w[3f]      the resonance peak (cleared: -19 dB at 320-1280 Hz only)
+0c4..0c7, 0d4..0d7                                   the two biquad sections: a state write (silence when
+                                                     cleared), a feedback term (+19/+24 dB blow-up), a runaway
+0e8  op 5  rA=1b rB=1b -> w[17] rd w[1]              state write (silence when cleared)
+0f0  op 1  sel  rB=1c -> w[23] rd w[1]               output stage, bus A (-16 dB flat when cleared)
+0f8  op 1  sel  rB=1d          rd w[1]               output stage, bus B (-16 dB flat when cleared)
+100  class 1  r[1e] = k (k=8000)                     control word: a negative value mutes the output stages
+```
+Channel c adds c to every step address from 0x098 on and 3c to the first three, with its own registers.
+The cutoff-byte-to-corner law is `docs/filter.md` (`15_filter`).
 
-Until one of those lands, the disassembler prints fields, not operations.
+## 5. AN1x parameter labels
 
-## AN1x (an1x_v104.bin, H8/3002) — third driver, and the first with parameter labels
+`docs/an1x_param_map.md` (from the scene-parameter table at `0xCFCEC`) names, for each of 56 knobs,
+the steps whose constant it rewrites; `docs/vop3_disasm/an1x_voice.txt` carries them. Cutoff is a
+class-1 load followed by a `path 6, op 0, class 1` step (a log->linear conversion, as the EX5 MEG program
+does with an exp table); VCO pitch 4096/octave with a key term; mixer levels `level*0x67`.
 
-`tools/extract_an1x_vop3.py` → `docs/vop3_an1x/{voice,boot}.bin`; listing in `docs/vop3_disasm/an1x_voice.txt`
-(annotated). Uploader `FUN_00056028` uses the identical register protocol (reset via reg 1, mode 5 = 0x1004,
-regs 0xC/0xB/10..6 per step, 0x1A/0x1C delay slots when `r10&7`). Image row = 6 words: coef, `r10 | byte<<4`,
-r9, r8, r7, r6 — so **reg 0xC (the "byte table") is packed into the r10 word by Yamaha's own tooling**, i.e.
-it is part of the instruction, not a side table.
+## 6. Interpreter
 
-The AN1x scene-parameter table at `0xCFCEC` (0x22 bytes/entry, index = scene sysex address, see
-`docs/an1x_param_map.md`) names, for every knob, the VOP3 step(s) whose constant it rewrites (`FUN_000564a0`
-writes reg 0xB at a step; `FUN_000564f4`/`FUN_00056562` write reg 0xB + reg 0xC). That gives:
+`tools/vop3_interp.py` runs a program over exactly the fields above and nothing further: class-1 loads,
+class-2 `op 2` = `rA x rB`, `op 1` = move (audio with `sel`, a constant without), `op 5` = pass, the
+`rd-en` read as a subtraction, `wdst` writes, route 0 of an op-1 step onto the output bus. Ops 0, 3, 4,
+6, 7 return 0 until measured (`Interp.ops` takes replacements to test a hypothesis against the takes).
+Its self-check reproduces session 8/9 qualitatively: clearing the cutoff load zeroes the MAC, `sel=0`
+on the output stage emits DC, a class-2 constant changes nothing, and the per-channel step ownership.
 
-| parameter | steps (5 voices) | step shape | what the constant is |
-|---|---|---|---|
-| VCF Cutoff | 165 16d 174 17c 185 | `r6t=1 op9=40 r7=1.2.00.0`, k | log-frequency, table `0xCADB0`: 85.3 units/step = 1024/octave |
-| VCO1/2 Pitch+Fine | 004/009, 0e3/0e7 | 009: `op9=01 rA=4f r7=1.0.02.0` | 341/semitone (4096/octave) + fine 3/cent, + key/PB term `((note&0x7f)+(oct&7)*0x80-0x200)` |
-| Mixer VCO1/VCO2/Ring/Noise | 148.. 149.. 147.. 14a.. (stride 5) | `r6t=2 op9=00 r7=0.0.00.0 rB=..`, byte=voice+3 | `level*0x67` (linear gain, 0x7f→0x3339) |
-| VCO Edge, PWM depth/src, Sync pitch/depth/src, FM src | see map | `r6t=2` steps in the oscillator blocks | — |
-| VCA Feedback | 146 | `op9=01 rB=5c r7=1.2.01.1` | — |
-| VCF Mod / VCA Mod depth | 1f2/1f1, 1ee/1ed | — | — |
+## 7. Open
 
-So: the step following every cutoff constant is `op9=60 r7=0.3.00.1 r6t=1` — a log→linear conversion (the EX5
-MEG AN program does the same with an exp table in reverb RAM). The FS1R filter has the same *semantic* (per-channel
-cutoff/reso/gain constants patched by the firmware into `r6t=1` steps 0x12/0x15/0x18, 0x8e/0x91/0x94, …) with a
-different opcode word (`r7=8000`), consistent with the FS1R computing its coefficients on the H8S and the AN
-computing them on the DSP.
-
-**Reg 0xC ("byte")**: on the AN1x it is 3..7 on exactly the 5×23 per-voice parameter-patchable steps and 1 on
-the global ones (VCA feedback, pitch mod), 0 elsewhere; on the FS1R filter it is 0/1 per step. It is a per-step
-tag the firmware uses to select which steps a patch applies to — a write-group id, not data.
-
-Still open (the hard block for an interpreter): the mapping of `r7[15:6]`, `r9[15:7]` and `r8[6:0]` to the
-multiplier/accumulator/table operations. Next lever: the AN1x per-voice step lists give 23 labelled steps per
-voice × 5 voices; aligning those labelled steps against the EX5 MEG AN program (`docs/ex5_meg.md`, whose
-operations are known) is now a labelled matching problem rather than a blind one.
-
-## Measured on the chip (2026-09-30, FS1R.unlock `captures/2026-09-30-9`)
-
-Four takes on rgwan's unit through the firmware's own patch path (`FUN_0000B600` from the CPU shadow,
-which is the only safe write: VOP3 register 0 is an address latch the 192 Hz tick also uses). One
-held note through the filter, one program step rewritten at a time, octave bands against the reference.
-Full tables in that folder's README; what they settle for the instruction word:
-
-**Program layout.** In a 124-step group, the four filter channels are interleaved: channel c owns steps
-`base+3c..base+3c+2` (gain, mode, cutoff constant) and then every step `base+0x0c+c+4n`. Clearing any of
-a channel's 31 steps changes its output; clearing any other step of the group does not.
-
-**Field roles, as measured (the disassembler's `fields()` carries the same notes):**
-
-| field | measured role |
-|---|---|
-| `r6[15:14]` | step class. 1 = constant load: the staged reg-0xB value goes to register `r9[7:0]`, and **no other bit of r6 matters**. 2 = MAC. Flipping the class to 0 silences the step's contribution, to 3 makes the loop run away |
-| `r9[7:0]` on class 1 | destination register (0x61 for channel 0's cutoff). Every bit matters |
-| `r9[6:0]` on class 2 | source register A. Every bit matters: any other register gives a smaller operand and the corner retunes to ~200 Hz |
-| `r9[7]` | a mode bit of its own on the MAC step (partial loss); same signature as `r9[15]` |
-| `r9[11:8]` | the operation. All four bits of `0x1` on the cutoff MAC lose the corner |
-| `r9[12]` | changes the operation (`0x11 -> 0x01`: +14 dB above 640 Hz, the filter opens). `r9[14:13]` inert |
-| `r6[13:7]` on class 2 | source register B (0x61 = where the cutoff constant was loaded). Bits 7-10, 12, 13 all lose the corner; bit 11 is inert on this step |
-| `r6[5:0]` | six-bit mode. Bits 0, 1 lose the corner; 2, 4, 5 run away; 3 retunes; **bit 6 inert** |
-| `r7[15:14]` | **inert on all three probed steps.** Not an opcode bit the chip acts on here |
-| `r7[13:12]` | result destination select. Either bit set on any of the three steps breaks the loop, usually as the gain-step-lost runaway |
-| `r7[10]`, `r7[7]`, `r7[6]` | break every step they were probed on |
-| `r7[4]`, `r7[8]` | break the MAC step; `r7[4]` also the constant load |
-| `r7[3:0]`, `r7[5]`, `r7[9]`, `r7[11]` | inert where probed (all zero on those steps) |
-
-**The cutoff data path, read off the chip:** step `08e` loads the staged cutoff constant into register
-0x61; step `098` is `op 1, mode 0x3e: reg 0x62 * reg 0x61` and the corner follows its result; step `08c`
-(`r7=0140, mode 0x13`) supplies the term without which the loop runs away, i.e. the unity/gain term of
-the ladder. The cutoff byte to corner law itself is `15_filter`'s and is in `docs/filter.md`.
-
-**Next take** (`fs1r_capture_session8.py values`, 2.8 min): every value of `r9[11:8]`, `r7[13:12]` and
-`r6[5:0]` on the MAC step, so the operation and mode fields get a table instead of a bit mask.
-
-### Value sweeps (take 5, channel 1's MAC step 0x099)
-
-* `r9[11:8]`: **exact-match**. All 15 other values close the filter identically. Channel 0's MAC steps
-  carry 1, channel 1's 2, and the field runs 1..0xb across the group: a per-data-path id (bus,
-  accumulator or pipeline slot), not an opcode menu. The disassembler prints it as `path=`.
-* `r7[13:12]`: 1 is right; 0 drops the corner an octave and the loop lives; 2, 3 run away. Printed
-  as `route=`.
-* `r6[5:0]`: **exact-match**; 55 of 63 other values run away, five close, 0x34/0x36 retune. So it is an
-  address, and the values it takes on class-2 steps (0x13, 0x15..0x17, 0x1c, 0x20, 0x21, 0x23, 0x3d..0x3f)
-  are the same range `r7[5:0]` takes on later steps (0x11..0x13, 0x18..0x1b), with `r7[5:0]` mostly the
-  channel's own tag. Read: `r6[5:0]` is the write address of the step's result, `r7[5:0]` the read
-  address. Printed as `-> w[..]` and `rd w[..]`.
-
-Still unswept by value: `r7[10:6]` (bits 10, 7, 6 break every step) and `r7[5:0]` itself; that is the
-next run (`fs1r_capture_session8.py`, default `r7values`, 3.1 min).
-
-### r7 value sweeps (take 6, channel 2's MAC step 0x09a, `r7=9280`)
-
-* `r7[5:0]`: **bit 4 is a read enable; with it clear all sixteen values of `r7[3:0]` are inert, and
-  bit 5 changes nothing either way.** Enabled, `r7[3:0]` = 0..0xb close the filter (an operand replaced
-  by a register the corner cannot use) and 0xc..0xf retune it (a register holding a scaled copy).
-  Matches the programs: the field is 0 or 0x11..0x1b on every FS1R and AN1x step, never 0x20+.
-  Printed as `rd w[n]` only when enabled.
-* `r7[10:6]`: 0x02 and 0x0a (the step's own) are interchangeable, 0x10 and 0x18 both open the filter
-  with the peak intact, so **`r7[9]` is a modifier this step ignores**. `r7[10]` alone opens the filter.
-  Of the remaining codes, 0x00 (and most odd values) run away, the rest close. Read as `r7[10]` a
-  selector plus **`r7[8:6]` a 3-bit MAC operation, code 2 on the cutoff MAC**: printed as `op=2`,
-  with `s` appended when `r7[10]` is set. The FS1R program uses op codes {0,2,3,4,5,7} and the AN1x
-  {0,2..7}; op 0 appears on class-0 and gain-type steps.
-
-What the instruction word now reads as, per class-2 step:
-`path=r9[11:8] rA=r9[6:0] rB=r6[13:7] op=r7[8:6] route=r7[13:12] -> w[r6[5:0]] [rd w[r7[3:0]]]`
-with `r9[7]`, `r9[15]`, `r7[10]`, `r7[9]` modifiers and `r7[15:14]`, `r9[14:13]`, `r6[6]`, `r7[5]`
-inert on the probed steps. Still not measured: what each op code computes (needs a step whose two
-operands are both known constants, i.e. a constant-load pair feeding a MAC into an output stage), and
-the memory word r8 (nothing in the filter reads it except the d[] table pointers).
+* **Arithmetic per op**: feed the output stage's op 1 from a register a class-1 step just loaded, and
+  sweep the loader's k and the stage's op; the bus is linear in what op 1 moves.
+* `r9[12]`, `r7[11]`, `r10[15:3]`, `mmode` values, `path-hi`: unprobed or single flips.
+* Delay memory (VOP3-2, AN): read from the uploaders only.
+* The EX5 MEG AN program (`docs/ex5_meg.md`) computes the same algorithm with a decoded ISA and is the
+  check for any AN interpretation once the op arithmetic is in.
