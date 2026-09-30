@@ -31,15 +31,15 @@ channel and the bank must come from the step's position, since the loads differ 
 `Interp.bank_of(step)` returns that bank; the default is the FS1R filter's layout (sixteen channels,
 four groups of four interleaved, ISA doc section 1). Replace it for another chip.
 
-OPEN (docs/vop3_isa.md section 8): the chain-head effect (a non-op-7 step
-right after the head, or no head, brings the previous pass's value in); delay memory. Measured inert on
-VOP3-2, not modelled: r9[12], path
-r9[11:8], r8[6:0], r10, 0e9's daddr, the DRAM offset registers (image 0 has no delay line). Not modelled: `route`'s scale on
-the value a step sends out (session 12, relative: 3 : 2 : 1 : 0 = 1 : 1/4 : 1/8 : 1/16), the output's
-18-bit word (LSB 2^-17), delay memory. `Interp.ops` maps op -> f(s', g, x).
+Delay memory (session 16, test image 1): on a step 3 mod 4 (slot = step >> 2) r10 = 1 writes the step's
+route-scaled output, 2/3 read the word written N passes ago (N = read offset - write offset), 4/6 one pass
+older; `Interp.offs` holds the slot offsets into one 2^18-word ring. A step with daddr 0x180|n writes d[n]
+(op 7 there reads it); daddr 0x100|n captures the DRAM transfer of slot s - 2 (else s - 1, else holds).
+Measured inert, so not modelled: r9[12], path on a feed-forward step, mmode r8[6:0]. Not modelled: the
+output's 2-sample lag and 18-bit word (LSB 2^-17), both of the DAC path. `Interp.ops` maps op -> f(s', g, x).
 
-The self-check reproduces session 11's `held` table on VOP3-2's 0d0..0d3 chain, take 2's silence, and
-session 8's cutoff MAC and per-channel step ownership.
+The self-check reproduces sessions 11-16 on VOP3-2 (`held`, silence, sel, the 8.8 loads, the rA + rB sum,
+r7[11], test image 1's delay line) and session 8's cutoff MAC and per-channel step ownership.
 """
 import argparse
 import struct
@@ -51,6 +51,9 @@ from vop3_disasm import fields, disasm  # noqa: E402
 
 SAT = 8.0                # session 14: the running value / DRAM word clips at +-8 (seen at two output gains)
 LOAD_SCALE = 128.0       # session 14: a class-1 load v reads back as v/256 (8.8), i.e. 128 x its 1.15 value
+ROUTE = (1 / 16, 1 / 8, 1 / 4, 1.0)   # session 12: route r7[13:12] scales what a step writes out (d[] / DRAM)
+MEM = 1 << 18            # session 16: one ring of 2^18 words, address = pointer + slot offset (18-bit offsets;
+                         # off_-15 = 0x3fff1 read the left's line 2^17 - 15 back; no alias at 2^14..2^16 + 17)
 
 
 def s16(x):
@@ -75,19 +78,47 @@ class Interp:
         self.bus = 0.0
         self.acc = 0.0          # s, the running value
         self.inp = 0.0          # the chip's audio input, op 7's source
+        self.d = [0.0] * 128    # d[n]: written by a step with daddr 0x180|n, read by op 7 there, captured into by 0x100|n
+        self.mem = [0.0] * MEM
+        self.d_next = {}        # d[] writes by a step land at the end of the pass (session 16: N=1 == image 0)
+        self.offs = {}          # DRAM slot -> 18-bit offset (registers 0xd/0xe after register 0 = slot)
+        self.ptr = 0            # the delay-line pointer, one word per pass
+        self.bus_hist = []      # (slot, value) of each DRAM transfer this pass: what a capture picks up
         self.trace = None
         self.ops = {0: lambda s, g, x: s + g * x, 1: lambda s, g, x: g * x, 2: lambda s, g, x: g * x,
                     3: lambda s, g, x: g * x, 4: lambda s, g, x: s,
                     5: lambda s, g, x: -2.0 ** -17 if s < 0 else 0.0,
-                    6: lambda s, g, x: 0.0, 7: lambda s, g, x: 0.0 if self.route == 3 else g * self.inp}
+                    6: lambda s, g, x: 0.0, 7: lambda s, g, x: g * self.src}
 
     @property
     def r(self):
         return self.rb[0]
 
+    def addr(self, slot, older=0):
+        """The word written `offset(slot) - offset(write slot) + older` passes ago (the pointer steps down)."""
+        return (self.ptr + self.offs.get(slot, 0) + older) & (MEM - 1)
+
+    def captured(self, slot, old):
+        """Session 16: a capture in slot s takes the DRAM transfer of slot s-2, else of s-1, else keeps its
+        old value: 0e0..0e3 take 0db's read; with slot 36 empty (read moved or r10 = 0/1) 0e0 takes the
+        left's read, R == L to the bit; 0e8 (slots 38, 39 empty) freezes to a constant."""
+        for want in (slot - 2, slot - 1):
+            for sl, v in reversed(self.bus_hist):
+                if sl == want:
+                    return v
+        return old
+        # ponytail: captures at 0dc..0de and 0e5 measured one-sample offsets not modelled here (README s16)
+
     def run_step(self, i):
+        st = self.first + i
         f = fields(*self.steps[i])
-        r = self.rb[self.bank_of(self.first + i)]
+        r = self.rb[self.bank_of(st)]
+        dram = st & 3 == 3                     # session 16: DRAM transfers happen only on steps 3 mod 4
+        if dram and f["mem"] in (2, 3, 4, 6):  # read (session 16: 2, 3 alike; 4, 6 one word older)
+            self.bus_hist.append((st >> 2, self.mem[self.addr(st >> 2, 1 if f["mem"] & 4 else 0)]))
+        if f["daddr"] & 0x180 == 0x100:        # capture into d[n], seen by later steps this pass
+            n = f["daddr"] & 0x7F
+            self.d[n] = self.captured(st >> 2, self.d[n])
         if f["f6a"] == 1:
             r[f["ra"]] = LOAD_SCALE * s16(self.coef[self.first + i]) if self.coef else 0.0
             return
@@ -97,13 +128,19 @@ class Interp:
         g = 0.0 if f["rd_en"] and f["rb"] else k      # sessions 9/12/14: rd-en drops k only when rB is set; w[] is never the gain
         x = self.acc if not f["rb"] else r[f["ra"]] + r[f["rb"]] if f["ra"] else r[f["rb"]]
         op = f["op7"]
-        self.route = f["f7b"]              # r7[13:12]
+        self.src = self.d[f["daddr"] & 0x7F] if f["daddr"] & 0x180 == 0x180 else self.inp
         s = -self.acc if f["r7sel"] else self.acc
         y = self.ops[op](s, g, x) + (x if op == 1 and f["rb"] else 0.0)   # session 14: op 1 with rB adds r[rB]
         if self.steps[i][3] >> 11 & 1:
             y = abs(y)                                            # session 15: r7[11] rectifies
         y = max(-SAT, min(SAT, y))
         self.acc = y
+        out = ROUTE[f["f7b"]] * y
+        if f["daddr"] & 0x180 == 0x180 and op != 7:
+            self.d_next[f["daddr"] & 0x7F] = out
+        if dram and f["mem"] == 1:             # write (r10 = 1; 0, 2, 3, 4 write nothing, session 16)
+            self.mem[self.addr(st >> 2)] = out
+            self.bus_hist.append((st >> 2, out))
         if f["f6c"]:
             self.w[f["f6c"]] = y
         if op == 1 and f["f7b"] == 0:
@@ -119,6 +156,10 @@ class Interp:
             self.rb[bank][reg] = v
         for i in range(len(self.steps)):
             self.run_step(i)
+        for n, v in self.d_next.items():
+            self.d[n] = v
+        self.d_next, self.bus_hist = {}, []
+        self.ptr = (self.ptr - 1) & (MEM - 1)
         return self.bus
 
 
@@ -187,6 +228,46 @@ def demo():
     for k, want in ((0xC000, 0.5), (0x0000, 1.0), (0x4000, 1.5)):
         assert abs(s15(0, op1, k) - want) < 1e-6, (hex(k), s15(0, op1, k))
     assert d3(1, 0xC000, 0.5) < 0 and abs(d3(1, 0xC000, 0.5, abs_=1) + d3(1, 0xC000, 0.5)) < 1e-9   # r7[11]: |y|
+
+    # session 16: test image 1, Yamaha's delay line. Right chain: 0d3 writes slot 34, 0db reads slot 36, 0e0
+    # captures into d[0b], 0e9 plays it. Delay = N - 1 passes for read offset N; 2^17 wrap; the read only
+    # works on a step 3 mod 4.
+    img1, _ = load(Path(__file__).resolve().parents[1] / "docs/vop3_2/program_1.bin")
+    k1 = [0] * 512
+    for st in range(0xD0, 0xD8):
+        k1[st] = 0x7FFF
+    k1[0xE9] = k1[0xEB] = 0x4000
+
+    def delay(n, prog=img1):
+        it = Interp(prog, k1, bank_of=lambda _: 0)
+        it.offs = {0x34: 0, 0x36: n}
+        it.trace = []
+        out = []
+        for t in range(40):
+            it.trace = []
+            it.sample(inp=1.0 if t == 3 else 0.0)
+            out.append(dict(it.trace)[0xE9])
+        return [t - 3 for t, v in enumerate(out) if v]
+    # a read offset N (from the write) delays N passes; image 0's d[18b] hop takes one, so the lag against
+    # the untouched left moves by N - 1: off_0 -1, img1 0, off_2 +1, off_17 +16 (session 16; 257, 4097 and
+    # 16385 likewise, +254/+4094/+16382 against the -2 reference)
+    img0, _ = load(Path(__file__).resolve().parents[1] / "docs/vop3_2/program_0.bin")
+    assert delay(0, img0) == [1]
+    assert [delay(n)[0] - 1 for n in (0, 1, 2, 17)] == [-1, 0, 1, 16]
+    it = Interp(img1, k1, bank_of=lambda _: 0)
+    it.offs = {0x36: 0x3FFF1}                                    # off_-15: the left's line, 2^17 - 15 on
+    it.offs[0x35] = 0x20000
+    assert it.addr(0x36) - it.addr(0x35) == (1 << 17) - 15
+    moved = [s if i not in (0xDB, 0xD8) else img1[0xDB] if i == 0xD8 else (0, 0, 0, 0, 0) for i, s in enumerate(img1)]
+    # the read word at 0d8 (not 3 mod 4) reads nothing; the capture then takes the left chain's write (slot
+    # 35): the right channel equals the left exactly (session 16 `slot_rd_0d8`, `rd_r10_0`: R = L, -300 dB)
+    it = Interp(moved, k1, bank_of=lambda _: 0)
+    it.offs = {0x34: 0, 0x36: 2, 0x35: 0x20000, 0x37: 0x20001}   # the left: N = 1
+    for t in range(8):
+        it.trace = []
+        it.sample(inp=0.1 * (t + 1))
+        tr = dict(it.trace)
+        assert tr[0xE9] == tr[0xEB] and (t < 2 or tr[0xE9] != 0.0), (t, tr[0xE9], tr[0xEB])
 
     steps, _ = load(Path(__file__).resolve().parents[1] / "docs/vop3/program_0.bin")
     coef = list(struct.unpack(">512H", (Path(__file__).resolve().parents[1] / "docs/vop3/coefficients_0.bin").read_bytes()))

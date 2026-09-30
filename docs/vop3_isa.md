@@ -74,9 +74,9 @@ r10 [15:3] ?        [2:0] mem
 | `mod` `r9[7]`, `r9[15]`, `r7[9]` | modifiers: `r7[9]` ignored on the MAC probed; `r9[7]` and `r9[15]` share one signature (partial loss) | CHIP |
 | `abs` `r7[11]` | **rectify: `y = abs(y)`** | CHIP: VOP3-2 session 15 (0.9997 x abs(output), residual -51 dB) |
 | `r9[12]` | inert on a feed-forward step; one flip opened VOP3-1's filter | CHIP: VOP3-2 session 15 (gain 1.000, -62 dB); VOP3-1 session 8 |
-| `daddr` `r8[15:7]` | 9-bit data-memory address: lookup-table pointers into other steps' constants | FW: the firmware patches table indices here; the four channel copies differ only in these bits |
-| `mmode` `r8[6:0]` | delay-memory access mode: 0x40 on VOP3-2 reads, 0x28/0x30/0x68 on the AN; 0 on VOP3-1 (no DRAM) | FW |
-| `mem` `r10[2:0]` | delay-memory access: 2 on a step stops its value continuing down the chain (a store); 1 on a reading step inert on test image 0 | CHIP: VOP3-2 session 15; FW: the AN uploaders write 0x1A/0x1C for exactly these steps |
+| `daddr` `r8[15:7]` | 9-bit data-memory address. On the FS1R filter: lookup-table pointers into other steps' constants. On VOP3-2: `d[]` cell `n` = bits 6:0; bit 8 set addresses `d[]`: bit 7 = 1 the step writes `d[n]` (its route-scaled output; op 7 reads it), bit 7 = 0 **captures** into `d[n]` the DRAM transfer of slot s - 2 (else s - 1, else it holds) | FW: table indices; CHIP: VOP3-2 session 16 (`d[10a]` / 0e8 captures freeze, 0e0 with slot 36 empty takes slot 37, R == L bit-exact) |
+| `mmode` `r8[6:0]` | inert on every step tried (VOP3-2 sessions 12 and 16, the DRAM read and write included) | CHIP |
+| `mem` `r10[2:0]` | **delay-memory access, only on steps 3 mod 4, slot = step >> 2:** 1 = write the step's route-scaled output; 2, 3 = read the word written N passes ago (N = this slot's offset - the writing slot's); 4, 6 = one pass older; 0 = none. Offsets (reg 0 = slot, 0xd/0xe = 18-bit offset) index one 2^18-word ring whose pointer steps once per pass | CHIP: VOP3-2 session 16, lag = N to the sample for N = 0..16385, both-offsets shift inert, 2^14..2^16 + 17 no alias, off 0x3fff1 reads the other line 2^17 - 15 back; FW: test image 1 |
 | constant (reg 0xB) | class 2: signed 1.15 **gain**; `rd-en` with rB set drops it (and `w[rsrc]` does not enter), with rB clear it stays (session 14). Class 1: the loaded value, 8.8 fixed point (`r = v/256`, session 14) | FW: the firmware patches k into class-2 steps on all three machines (FS1R gain `x120`, mode `x7c`, resonance A/B, type; AN1x mixer levels `x67`, pitch, PW, edge, sync; 69 of 69 AN1x handler targets and 112/112 FS1R targets are class 2 with `rd-en` clear), and a live constant on an `rd-en` step is rare: FS1R 0 of 240, AN1x 20 of 276 (7%, against 86% of the others), PLG150-AN 24% against 43%. So the read replaces the constant on the FS1R and nearly always on the AN; where both are present (the AN's 0x35c3 mixer group) the step has four sources and the MEG's `const * reg + reg` form is the reading. CHIP: session 9's 13 values on `0f8` changed nothing, and `0f8` is an `rd-en` step, so the two agree; the class-1 mute above 0x8000 stands. CHIP (VOP3-2, session 11): on the output step and the DRAM writer the constant is a signed 1.15 **gain** (linear, 0x4000 = half scale, sign follows k); with a zero input every op 0..7 and every k gives exact digital zero, so it is never an addend |
 | tag (reg 0xC) | write-group id the firmware uses to patch steps by parameter: 3..7 = voice 0..4 on the AN1x, 1 = global; 0/1 on the FS1R filter | FW |
 
@@ -175,8 +175,11 @@ chip's input (0 on route 3); `r7[11]` takes `|y|`; every result clips at +-8. `w
 route 0 of an op-1 step goes onto the output bus. Its self-check reproduces session 11's `held` table and
 `dc dram` silence, session 12's `sel` gains, session 14's eight stored values, session 15's sum, op-1 and
 `r7[11]` results, and session 8's cutoff load (clearing it zeroes the MAC) and per-channel step ownership.
-Not modelled: route's scale on a step's DRAM write, the 2-sample output lag, the 18-bit output word, and
-the delay memory (section 8).
+The delay memory is modelled from session 16: `r10` read/write on steps 3 mod 4, slot offsets into one
+2^18-word ring stepping once per pass, route-scaled writes, `d[]` captures of slot s - 2; its self-check
+reproduces test image 1's lags (N - 1 against image 0 for N = 0, 1, 2, 17), the moved read that plays the
+left channel bit-exact, and the other line reached 2^17 - 15 back. Not modelled: the 2-sample output lag and
+the 18-bit output word (fixed properties of the DAC path, not of a program).
 
 ## 7. Model check against the EX5 MEG (the close for the op arithmetic)
 
@@ -206,9 +209,7 @@ the constant is live on class-2 steps and dead on `rd-en` steps, `r[]` has the p
 
 ## 8. Open
 
-* **Delay memory (DRAM).** Measured: the stored/DRAM word is 18 bits and clips at +-8 (sessions 12/14);
-  `r10` = 2 on a step is live (its value no longer continues down the chain, session 15); `r10` bits on a
-  step that reads (`0d3`), `daddr` and the per-slot offset registers (0xd/0xe after reg 0 = slot) are inert
-  on test image 0 (sessions 12/15). Not measured: how a step reads the DRAM back and what the offset does,
-  i.e. a working delay line. The rig for it is an effect program that has one (the shipped reverb with one
-  tap's offset moved), not test image 0.
+None. Session 16 (`captures/2026-10-01-0535-s16`, test image 1) closed the delay memory: the `mem` and `daddr`
+rows of section 2 and the interpreter's DRAM model are its measurements. Recorded but not modelled, because
+no shipped program uses them: a capture step at 0dc..0de or 0e5 (R == L at lag 0 / +1 on test image 1) and
+0e0 turned into a `d[18b]` step write (0e9 at 0.42 x L).
