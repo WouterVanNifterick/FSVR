@@ -1,0 +1,96 @@
+1a0  op9=01 r7=0.0.02.0 r6t=0  
+1a1  op9=00 r7=0.0.00.0 r6t=0  mem1[slot 68] mode 00 d[002] c6=06
+1a2  op9=00 r7=0.0.00.0 r6t=0  rB=0c c6=06
+1a3  op9=00 r7=0.0.00.0 r6t=0  mem3[slot 68] mode 00 b=124
+1a4  nop
+1a5  op9=00 r7=0.0.00.0 r6t=0  mem6[slot 69] mode 00 c7=03 b=128
+1a6  nop
+1a7  op9=00 r7=0.0.00.0 r6t=0  rB=02 c6=01 c7=01 b=128
+1a8  op9=01 r7=0.0.02.0 r6t=0  mem1[slot 6a] mode 01 d[002] rA=01 rB=02 c6=01 c7=01 b=64
+1a9  op9=01 r7=0.0.00.0 r6t=0  mem1[slot 6a] mode 01 d[002] rA=01 c6=01 b=12
+1aa  op9=01 r7=0.0.00.0 r6t=0  c7=01
+1ab  op9=00 r7=0.0.0c.0 r6t=0  
+1ac  op9=00 r7=0.0.00.0 r6t=0  d[00c]
+1ad  op9=06 r7=0.0.00.0 r6t=0  mem6[slot 6b] mode 00 d[00c] b=123
+1ae  op9=06 r7=0.0.00.0 r6t=0  mem6[slot 6b] mode 00 d[006] rA=03 b=34
+1af  op9=00 r7=0.0.06.0 r6t=0  c7=03 b=128
+1b0  nop
+1b1  op9=00 r7=0.0.00.0 r6t=0  c6=01 b=192
+1b2  op9=01 r7=0.0.02.0 r6t=0  mem1[slot 6c] mode 01 d[002] rA=01 rB=02 c6=01 c7=01 b=128
+1b3  op9=00 r7=0.0.00.0 r6t=0  mem1[slot 6c] mode 03 b=12
+1b4  op9=01 r7=0.0.00.0 r6t=0  d[006] rA=01
+1b5  op9=01 r7=0.0.02.0 r6t=0  mem1[slot 6d] mode 01 d[002] rA=01 rB=02 c6=01 c7=01
+1b6  op9=01 r7=0.0.00.0 r6t=0  mem1[slot 6d] mode 00 d[002] rA=01 rB=02 c6=01 c7=01
+1b7  op9=00 r7=0.0.02.0 r6t=0  rB=02 c7=01 b=125
+1b8  nop
+1b9  op9=00 r7=0.0.00.0 r6t=0  rB=02 c6=01 c7=01
+1ba  nop
+1bb  op9=00 r7=0.0.00.0 r6t=0  rB=02 c6=01
+1bc  op9=00 r7=0.0.00.0 r6t=0  mem1[slot 6f] mode 00 rB=06 c6=03 b=64
+1bd  nop
+1be  nop
+1bf  op9=00 r7=0.0.02.0 r6t=0  rB=02 c6=01 c7=01 b=2
+1c0  op9=01 r7=0.0.00.0 r6t=0  mem1[slot 70] mode 01 d[002] rA=01
+1c1  op9=00 r7=0.0.00.0 r6t=0  rB=02 c6=01
+1c2  op9=01 r7=0.0.02.0 r6t=0  mem1[slot 70] mode 01 d[002] rA=01 rB=02 c6=01 c7=01
+1c3  op9=00 r7=0.0.00.0 r6t=0  mem1[slot 70] mode 00 b=64
+1c4  op9=00 r7=0.0.02.0 r6t=0  c6=01 c7=01 b=192
+1c5  op9=00 r7=0.0.00.0 r6t=0  d[002] rA=01 b=192
+1c6  op9=00 r7=0.0.00.0 r6t=0  d[006] b=254
+1c7  op9=00 r7=0.0.00.0 r6t=0  mem3[slot 71] mode 00
+1c8  op9=00 r7=0.0.00.0 r6t=0  rB=02
+1c9  op9=01 r7=0.0.02.0 r6t=0  d[002] rB=02 c6=01
+1ca  op9=01 r7=0.0.00.0 r6t=0  mem1[slot 72] mode 00 d[002] c6=01 b=28
+1cb  op9=01 r7=0.0.02.0 r6t=0  mem1[slot 72] mode 00 rA=01 b=124
+1cc  op9=00 r7=0.0.00.0 r6t=0  d[002]
+1cd  op9=00 r7=0.0.00.0 r6t=0  rA=01
+1ce  op9=00 r7=0.0.00.0 r6t=0  c6=01 b=80
+1cf  op9=01 r7=0.0.02.0 r6t=0  mem1[slot 73] mode 01 d[002] rA=01
+1d0  op9=00 r7=0.0.00.0 r6t=0  mem3[slot 74] mode 00 rB=06 c6=03 c7=01 b=64
+1d1  op9=00 r7=0.0.02.0 r6t=0  rB=02 c6=01 c7=01
+1d2  op9=01 r7=0.0.00.0 r6t=0  rA=01 c6=01 c7=01
+1d3  op9=01 r7=0.0.00.0 r6t=0  d[002]
+1d4  op9=00 r7=0.0.00.0 r6t=0  d[002] rA=01
+1d5  nop
+1d6  op9=00 r7=0.0.00.0 r6t=0  rB=02 c6=01 c7=01
+1d7  nop
+1d8  op9=00 r7=0.0.02.0 r6t=0  rB=02 c6=01 c7=01 b=17
+1d9  op9=01 r7=0.0.06.0 r6t=0  mem1[slot 76] mode 01 d[002] c7=03 b=128
+1da  op9=00 r7=0.0.00.0 r6t=0  d[002] rB=02 c6=01 b=64
+1db  op9=01 r7=0.0.00.0 r6t=0  mem1[slot 76] mode 01 d[002] rA=01 b=12
+1dc  op9=01 r7=0.0.02.0 r6t=0  mem1[slot 77] mode 01 d[002] rA=01
+1dd  nop
+1de  nop
+1df  nop
+1e0  op9=00 r7=0.0.00.0 r6t=0  d[002] rA=01
+1e1  op9=00 r7=0.0.00.0 r6t=0  mem1[slot 78] mode 01 c6=01
+1e2  op9=00 r7=0.0.00.0 r6t=0  rA=01 c6=01 c7=01 b=16
+1e3  op9=01 r7=0.0.00.0 r6t=0  mem1[slot 78] mode 00 b=64
+1e4  op9=00 r7=0.0.00.0 r6t=0  rB=02 b=125
+1e5  op9=00 r7=0.0.00.0 r6t=0  rB=06 b=128
+1e6  nop
+1e7  op9=00 r7=0.0.00.0 r6t=0  d[006] b=2
+1e8  nop
+1e9  nop
+1ea  op9=01 r7=0.0.02.0 r6t=0  mem1[slot 7a] mode 01 d[002] rA=01 c6=01 c7=01 b=68
+1eb  op9=01 r7=0.0.00.0 r6t=0  mem1[slot 7a] mode 00 c6=01 b=64
+1ec  op9=01 r7=0.0.02.0 r6t=0  mem1[slot 7b] mode 01 rB=06 c6=03 c7=01 b=64
+1ed  op9=03 r7=0.0.00.0 r6t=0  mem3[slot 7b] mode 00 b=220
+1ee  op9=00 r7=0.0.00.0 r6t=0  d[002] rA=01 b=190
+1ef  op9=00 r7=0.0.00.0 r6t=0  mem1[slot 7b] mode 00 rB=02 c7=01
+1f0  op9=00 r7=0.0.00.0 r6t=0  rB=02 c6=01
+1f1  op9=00 r7=0.0.00.0 r6t=0  c6=01
+1f2  op9=00 r7=0.0.00.0 r6t=0  
+1f3  op9=00 r7=0.0.00.0 r6t=0  mem1[slot 7c] mode 00
+1f4  nop
+1f5  op9=01 r7=0.0.02.0 r6t=0  mem1[slot 7d] mode 01 d[002] rA=01
+1f6  op9=01 r7=0.0.00.0 r6t=0  d[006] rA=01 b=192
+1f7  op9=00 r7=0.0.00.0 r6t=0  d[002] b=192
+1f8  nop
+1f9  nop
+1fa  op9=03 r7=0.0.00.0 r6t=0  d[006] rA=03
+1fb  op9=00 r7=0.0.0a.0 r6t=0  mem1[slot 7e] mode 00 c6=05
+1fc  op9=05 r7=0.0.00.0 r6t=0  d[00a] rB=0a b=29
+1fd  op9=00 r7=0.0.0a.0 r6t=0  rA=05 c6=05 b=1
+1fe  op9=05 r7=0.0.00.0 r6t=0  d[00a] rB=0a
+1ff  op9=00 r7=0.0.00.0 r6t=0  rA=05 rB=02 c6=01

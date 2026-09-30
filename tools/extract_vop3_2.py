@@ -47,14 +47,33 @@ def main():
     BIN.mkdir(parents=True, exist_ok=True)
 
     steps = 512
-    # FUN_0003C9C4 loops the five words OUTER and the 512 steps INNER: word k of step n is at
-    # imagebase + k*0x400 + n*2, written to register 10 - k. (VOP3-1's images interleave the other
-    # way, step outer / word inner; the two chips' uploads are not the same walk.)
+    # FUN_0003C9C4 loops the five words OUTER and the 512 steps INNER, but the inner pointer steps
+    # by 5 words (psVar3 + 5): word k of step n is at imagebase + n*10 + k*2, written to register
+    # 10 - k. Same interleave as VOP3-1. (An earlier version of this file read it word-major,
+    # base + k*0x400 + n*2, which scrambled the image into 36 non-empty steps.)
     prog_addr = {0: 0x373604, 1: 0x372204}
     for v, base in prog_addr.items():
-        rows = [words(rom, base + k * 0x400 + n * 2, 1)[0]
+        rows = [words(rom, base + n * 10 + k * 2, 1)[0]
                 for n in range(steps) for k in range(5)]
         (BIN / f"program_{v}.bin").write_bytes(struct.pack(">%dH" % len(rows), *rows))
+
+    # The effect programs proper (FUN_00039C8A): the boot image above is a near-blank skeleton; the
+    # real DSP code is the 0xE8-step base program at 0x3658D4 plus one block per effect type, each
+    # uploaded at a fixed program address with a per-step byte table (reg 0xC) from 0x3661E4 /
+    # per-type tables. Block k of a table sits at base + k*steps*10.
+    effects = {   # name: (program base, byte-table base, steps per type, number of types, upload address)
+        "base":      (0x3658D4, 0x3661E4, 0xE8, 1, 0x000),
+        "reverb":    (0x3663B4, 0x3669F4, 0x28, 4, 0x0E8),
+        "variation": (0x366A94, 0x36A2D4, 0x60, 16, 0x1A0),
+        "ins1":      (0x36A874, 0x36EBF4, 0x48, 12, 0x110),
+        "ins2":      (0x36CA34, 0x36EBF4, 0x48, 12, 0x158),
+    }
+    for name, (pb, bb, n, types, _) in effects.items():
+        for t in range(types):
+            rows = [x for st in range(n) for x in words(rom, pb + t * n * 10 + st * 10, 5)]
+            fn = name if types == 1 else "%s_%02d" % (name, t)
+            (BIN / f"{fn}.bin").write_bytes(struct.pack(">%dH" % len(rows), *rows))
+            (BIN / f"{fn}_bytes.bin").write_bytes(rd(rom, bb + t * n, n))
 
     # The RAM-side tables the upload finishes with: register 0xB's coefficient addresses out of
     # DAT_0106842c (populated from EPROM as the parameter path runs) and the DRAM address pairs out
@@ -91,8 +110,8 @@ def main():
     w("")
     w("## The upload (FUN_0003C9C4)")
     w("")
-    w("512 steps of five 16-bit words each. The walk is word-major: word k of step n sits at")
-    w("`base + k*0x400 + n*2` and goes to register 10 - k (so the five words of a step land on")
+    w("512 steps of five 16-bit words each. Word k of step n sits at")
+    w("`base + n*10 + k*2` and goes to register 10 - k (so the five words of a step land on")
     w("registers 10, 9, 8, 7 and 6, as on VOP3-1). Before each pass it writes register 0 with")
     w("0x8000. Image 0 at 0x373604 is uploaded on the normal boot; image 1 at 0x372204 from the")
     w("diagnostic entry, alongside VOP3-1's variant 1.")
@@ -101,7 +120,7 @@ def main():
     w("")
     w("| step | r10 | r9 | r8 | r7 | r6 |")
     w("|---|---|---|---|---|---|")
-    progRows = {v: [[words(rom, base + k * 0x400 + n * 2, 1)[0] for k in range(5)]
+    progRows = {v: [[words(rom, base + n * 10 + k * 2, 1)[0] for k in range(5)]
                     for n in range(steps)] for v, base in prog_addr.items()}
     for n in range(steps):
         w("| %3d | %s |" % (n, " | ".join("%04X" % x for x in progRows[0][n])))
@@ -131,6 +150,20 @@ def main():
     w("The two address words at 0x3721FC are 0x%04X, 0x%04X and the four selectors at 0x372200"
       % initTail)
     w("are %s." % ", ".join("0x%04X" % x for x in dramSel))
+    w("")
+    w("## The effect programs (FUN_00039C8A)")
+    w("")
+    w("The boot image is a skeleton. The DSP code the unit runs is uploaded per effect type by")
+    w("`FUN_00039C8A(kind, force)` into fixed program windows, and `docs/vop3_2/*.bin` holds it raw")
+    w("(5 words per step, plus `*_bytes.bin` for register 0xC):")
+    w("")
+    w("| kind | steps | types | program address | EPROM program | EPROM byte table |")
+    w("|---|---|---|---|---|---|")
+    for name, (pb, bb, n, types, ua) in effects.items():
+        w("| %s | 0x%02X | %d | 0x%03X | 0x%06X | 0x%06X |" % (name, n, types, ua, pb, bb))
+    w("")
+    w("The upload address per kind is the register-0 write before each pass (0x8000 | address).")
+    w("Reverb types: 4 (Hall 1/2, Room, Plate ...); variation 16; insertion 12 per slot.")
     w("")
     (OUT / "vop3_2_microcode.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     print("wrote %s (%d steps; image 1 differs in %d)" % (OUT / "vop3_2_microcode.md", steps, diff))

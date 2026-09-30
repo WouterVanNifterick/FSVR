@@ -1,0 +1,96 @@
+1a0  op9=00 r7=1.3.03.1 r6t=2  rA=77 c6=2a b=1
+1a1  op9=00 r7=0.0.01.1 r6t=2  rB=07 b=3
+1a2  op9=00 r7=1.1.00.0 r6t=2  d[003] rA=44 rB=08 b=3
+1a3  op9=00 r7=0.0.01.1 r6t=2  d[047] rB=45
+1a4  op9=00 r7=0.0.00.0 r6t=2  mem2[slot 69] mode 40 rB=44
+1a5  op9=00 r7=0.0.00.0 r6t=2  rA=45 rB=44
+1a6  op9=00 r7=0.0.00.0 r6t=2  rB=47
+1a7  op9=00 r7=1.1.04.0 r6t=2  rA=46 rB=46
+1a8  op9=00 r7=1.3.01.1 r6t=2  mem2[slot 6a] mode 40 d[1bc] rA=47 rB=77 b=1
+1a9  op9=00 r7=0.0.00.0 r6t=0  d[138]
+1aa  op9=00 r7=1.1.01.1 r6t=2  rA=7c rB=46 b=1
+1ab  op9=00 r7=1.3.03.1 r6t=2  rA=77 c6=3c b=1
+1ac  op9=00 r7=0.0.01.1 r6t=2  mem2[slot 6b] mode 40 rA=4b rB=4a
+1ad  op9=00 r7=0.0.00.0 r6t=2  d[139] rB=4b
+1ae  op9=19 r7=1.0.04.0 r6t=2  rA=4c rB=4c
+1af  op9=00 r7=1.3.01.1 r6t=2  rA=78 rB=77 b=1
+1b0  op9=00 r7=3.3.01.1 r6t=2  mem2[slot 6c] mode 40 d[1bc] rB=7c
+1b1  op9=19 r7=1.0.01.1 r6t=2  d[13a] rA=7d rB=7c c7=19
+1b2  op9=00 r7=1.3.01.1 r6t=2  rA=79 rB=78 b=1
+1b3  op9=00 r7=2.0.09.0 r6t=2  rB=48 c6=3c b=1
+1b4  op9=00 r7=1.0.02.0 r6t=2  rA=48 c6=3c
+1b5  op9=00 r7=1.3.01.1 r6t=2  d[13b] rA=7a rB=79 b=1
+1b6  op9=00 r7=1.0.01.1 r6t=2  rA=7e rB=7c c7=19
+1b7  op9=00 r7=0.0.01.1 r6t=2  rB=7c
+1b8  op9=00 r7=0.0.00.0 r6t=2  rB=7d
+1b9  op9=00 r7=1.3.00.0 r6t=2  rA=4d rB=7e
+1ba  op9=00 r7=1.3.01.1 r6t=2  rA=7b rB=7a b=1
+1bb  op9=00 r7=0.0.01.1 r6t=2  rB=4d
+1bc  op9=00 r7=0.0.00.0 r6t=2  rB=4d
+1bd  op9=00 r7=1.1.02.0 r6t=2  d[1aa] c6=2a
+1be  op9=00 r7=0.0.01.1 r6t=2  rB=49 b=1
+1bf  op9=00 r7=0.0.01.0 r6t=2  rB=49 b=1
+1c0  op9=00 r7=0.0.0a.0 r6t=2  c6=3c
+1c1  op9=00 r7=2.0.08.0 r6t=2  rB=48 b=1
+1c2  op9=00 r7=1.0.02.0 r6t=2  rA=49 c6=3c
+1c3  op9=00 r7=1.3.01.1 r6t=2  d[004] rA=77 rB=7b b=1
+1c4  op9=00 r7=0.0.01.1 r6t=2  rB=77
+1c5  op9=00 r7=0.0.00.0 r6t=2  rB=78
+1c6  op9=00 r7=0.0.00.0 r6t=2  rB=79
+1c7  op9=00 r7=0.0.00.0 r6t=2  rB=7a
+1c8  op9=00 r7=0.0.00.0 r6t=2  rB=7b
+1c9  op9=00 r7=1.0.00.0 r6t=2  rA=77 rB=77
+1ca  op9=00 r7=1.0.01.1 r6t=2  rA=78 rB=49 b=1
+1cb  nop
+1cc  op9=00 r7=1.0.01.1 r6t=2  rA=4e rB=77 b=1
+1cd  op9=00 r7=0.0.01.1 r6t=2  rB=4f
+1ce  op9=00 r7=0.0.00.0 r6t=2  rB=4e
+1cf  op9=00 r7=0.0.00.0 r6t=2  rA=4f rB=4e
+1d0  op9=00 r7=0.0.00.0 r6t=2  rB=50
+1d1  op9=00 r7=1.1.04.0 r6t=2  rA=50 rB=51
+1d2  op9=00 r7=0.0.01.1 r6t=2  rB=51
+1d3  op9=00 r7=0.0.00.0 r6t=2  rB=50
+1d4  op9=00 r7=0.0.00.0 r6t=2  rA=51 rB=50
+1d5  op9=00 r7=0.0.00.0 r6t=2  rB=52
+1d6  op9=00 r7=1.1.04.0 r6t=2  rA=52 rB=53
+1d7  op9=00 r7=0.0.01.1 r6t=2  rB=53
+1d8  op9=00 r7=0.0.00.0 r6t=2  rB=52
+1d9  op9=00 r7=0.0.00.0 r6t=2  rA=53 rB=52
+1da  op9=00 r7=0.0.00.0 r6t=2  rB=55
+1db  op9=00 r7=1.3.04.0 r6t=2  rA=54 rB=54
+1dc  op9=00 r7=0.0.03.1 r6t=2  rA=55 c6=38
+1dd  op9=00 r7=0.0.02.0 r6t=2  d[1eb] c6=2b
+1de  op9=00 r7=1.1.04.0 r6t=2  rA=56 rB=56
+1df  op9=00 r7=0.0.01.1 r6t=2  rB=07 b=1
+1e0  op9=00 r7=1.2.00.0 r6t=2  rA=79 rB=54 b=1
+1e1  op9=00 r7=0.0.01.1 r6t=2  rB=08 b=1
+1e2  op9=00 r7=1.2.00.0 r6t=2  rA=7a rB=54 b=1
+1e3  op9=00 r7=0.0.03.1 r6t=2  c6=3b b=1
+1e4  op9=00 r7=1.0.02.0 r6t=2  rA=7b c6=3a b=1
+1e5  op9=00 r7=0.0.03.1 r6t=2  c6=3a b=1
+1e6  op9=00 r7=1.0.02.0 r6t=2  rA=7c c6=39 b=1
+1e7  op9=00 r7=0.0.01.1 r6t=2  rB=79 b=3
+1e8  op9=00 r7=0.1.00.0 r6t=2  rB=7a b=3
+1e9  op9=20 r7=1.0.00.0 r6t=2  mem1[slot 7a] mode 40 rB=56 b=1
+1ea  op9=00 r7=0.0.01.1 r6t=2  rB=79 b=1
+1eb  op9=00 r7=1.2.00.0 r6t=2  rA=11 rB=7b b=1
+1ec  op9=00 r7=0.0.01.1 r6t=2  rB=7a b=1
+1ed  op9=00 r7=1.2.00.0 r6t=2  rA=12 rB=7c b=1
+1ee  op9=00 r7=2.0.00.1 r6t=1  rA=77 rB=78
+1ef  op9=00 r7=2.0.00.1 r6t=1  rA=79 rB=78
+1f0  op9=00 r7=2.0.00.1 r6t=1  rA=7a rB=78
+1f1  op9=00 r7=2.0.00.1 r6t=1  rA=7b rB=78
+1f2  op9=00 r7=2.0.00.1 r6t=1  rA=7c rB=78
+1f3  op9=00 r7=2.0.00.1 r6t=1  rA=7d rB=78
+1f4  op9=00 r7=2.0.00.1 r6t=1  rA=7e rB=78
+1f5  op9=00 r7=2.0.00.1 r6t=1  rA=7f rB=78
+1f6  op9=00 r7=0.1.01.1 r6t=2  rB=77 b=1
+1f7  op9=00 r7=0.1.00.0 r6t=2  rB=79 b=1
+1f8  op9=00 r7=0.1.00.0 r6t=2  rB=7a b=1
+1f9  op9=00 r7=0.1.00.0 r6t=2  rB=7b b=1
+1fa  op9=00 r7=0.1.00.0 r6t=2  rB=7c b=1
+1fb  op9=00 r7=0.2.00.0 r6t=2  rB=7d b=1
+1fc  op9=00 r7=0.0.00.0 r6t=2  rB=7e b=1
+1fd  op9=00 r7=0.0.00.0 r6t=2  rB=7f b=1
+1fe  op9=00 r7=2.0.00.0 r6t=1  rA=4a
+1ff  nop
