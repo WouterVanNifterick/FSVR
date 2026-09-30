@@ -173,7 +173,7 @@ static std::vector<uint8_t> vowelWav() {
 }
 
 int main() {
-    const fs::path tmp = fs::temp_directory_path() / "fsvr_check_plugin";
+    const fs::path tmp = fs::temp_directory_path() / ("fsvr_check_plugin_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));   // runs side by side
     std::error_code ec;
     fs::remove_all(tmp, ec);
     fs::create_directories(tmp / "Library");
@@ -323,7 +323,7 @@ int main() {
     // on its name, and the save makes a new bank holding it as a user performance.
     auto lineOf = [&](const char* key, const std::string& first) { return rowOf(a, key, first); };   // 1 + the line whose first field is first, 0 if none
     auto request = [&](const char* key, const std::string& v) { a.st->setData("fsvr.message", ""); a.st->setData(key, v); };
-    auto settle = [&] { a.until([] { return false; }, 150); };   // a right-click's row reaches the worker before its modal opens
+    auto settle = [&] { a.until([] { return false; }, 400); };   // a right-click's row reaches the worker before its modal opens
     a.set("perf.program", 1);
     CHECK(a.until([&] { return a.is("perf.category", 19) && a.is("gui.edited", 0); }), "A002 did not load clean");
     a.set("perf.volume", 90);
@@ -496,8 +496,8 @@ int main() {
 
         // Another bank opens on All: a category left from the factory bank never hides a bank's presets.
         a.set("browse.bank", 0);
-        a.set("browse.category", 7);   // Bass
-        a.until([] { return false; }, 150);
+        CHECK(a.until([&] { return a.lines("browse.perf.list") == 0; }), "the factory bank did not open");   // the worker has seen the change
+        a.set("browse.category", 7);   // Guitar
         a.set("browse.bank", lineOf("bank.list", "Unit"));
         CHECK(a.until([&] { return a.is("browse.category", 0) && a.lines("browse.perf.list") == 1; }), "the bank opened on category %g with %d rows",
               a.get("browse.category"), a.lines("browse.perf.list"));
@@ -596,6 +596,7 @@ int main() {
         b.st->load(session);
         b.proc->saving();
         CHECK(b.data("fsvr.engine") == a.data("fsvr.engine"), "the engine did not come back with the session");
+        b.set("browse.category", 0);
         b.set("browse.bank", rowOf(b, "bank.list", "Unit Two"));
         CHECK(b.until([&] { return b.lines("browse.perf.list") == 2; }), "the reopened instance lists %d performances in Unit Two", b.lines("browse.perf.list"));
         // The session came back with the saved row lit, so the original first: the copy is then a pick, not
