@@ -22,7 +22,7 @@ def fields(r10, r9, r8, r7, r6):
     return dict(
         mem=r10 & 7,            # delay-memory access this step (slot = step >> 2); 0 on FS1R VOP3-1, which has no DRAM
         r10hi=r10 >> 3,
-        op9=(r9 >> 8) & 0xf,    # CHIP r9[11:8]: the operation; every bit of 0x1 on the cutoff MAC loses the corner
+        op9=(r9 >> 8) & 0xf,    # CHIP r9[11:8]: exact-match, all 15 other values close the filter; per-channel 1/2/.., a path/slot id, not an opcode
         op9hi=(r9 >> 12) & 7,   # r9[14:12]: bit 12 changes the operation (0x11 -> 0x01 opens the filter), 13/14 inert
         ra=r9 & 0x7f,           # CHIP r9[6:0]: source register A on a MAC step; destination register on a constant load
         r9b7=(r9 >> 7) & 1,     # CHIP r9[7]: a mode bit of its own (same effect as r9[15])
@@ -30,13 +30,13 @@ def fields(r10, r9, r8, r7, r6):
         daddr=r8 >> 7,          # r8[15:7]: 9-bit data-memory address (points at other steps' constants / voice state)
         mmode=r8 & 0x7f,        # r8[6:0]: memory-access mode bits (0x40 on VOP3-2 reads, 0x28/0x30/0x68 on the AN)
         f7a=r7 >> 14,           # CHIP r7[15:14]: no effect on any of three probed steps
-        f7b=(r7 >> 12) & 3,     # CHIP r7[13:12]: result destination select; either bit set on a step breaks the loop
+        f7b=(r7 >> 12) & 3,     # CHIP r7[13:12]: result routing; 0 = corner drops an octave, 1 = right, 2/3 = runaway
         f7c=(r7 >> 7) & 0x1f,   # CHIP bits 10 and 7 break every step; 11, 9, 8 step-dependent
         f7d=(r7 >> 6) & 1,      # CHIP breaks every step
-        f7e=r7 & 0x3f,          # CHIP bit 4 breaks; bits 3:0 untested (zero on the probed steps)
+        f7e=r7 & 0x3f,          # CHIP bit 4 breaks; bits 3:0 untested. Values 0x11.. per channel: the read address (see f6c)
         f6a=r6 >> 14,           # CHIP r6[15:14] class: 1 = constant load (rest of r6 unused), 2 = MAC, 0 = no output, 3 = runaway
         rb=(r6 >> 7) & 0x7f,    # CHIP r6[13:7]: source register B on a MAC step (0x61 = where the cutoff constant is loaded)
-        f6c=r6 & 0x3f,          # CHIP r6[5:0]: six-bit mode; bit 6 unused
+        f6c=r6 & 0x3f,          # CHIP r6[5:0]: exact-match (55/63 other values run away): the result's write address; r7[5:0] reads it back
     )
 
 
@@ -59,11 +59,11 @@ def disasm(step, words, coef=None, byt=None, labels=None):
         if f["rb"]:
             parts.append("rB=%02x" % f["rb"])
         if f["f6c"]:
-            parts.append("mode=%02x" % f["f6c"])
+            parts.append("-> w[%02x]" % f["f6c"])
     if f["f7e"]:
-        parts.append("c7=%02x" % f["f7e"])
-    op = "op=%x.%x%s%s dst=%d r7=%d.%02x.%d class=%d" % (f["op9hi"], f["op9"], "+" if f["r9b7"] else "", "^" if f["r9b15"] else "",
-                                                          f["f7b"], f["f7a"], f["f7c"], f["f7d"], f["f6a"])
+        parts.append("rd w[%02x]" % f["f7e"])
+    op = "path=%x.%x%s%s route=%d r7=%d.%02x.%d class=%d" % (f["op9hi"], f["op9"], "+" if f["r9b7"] else "", "^" if f["r9b15"] else "",
+                                                             f["f7b"], f["f7a"], f["f7c"], f["f7d"], f["f6a"])
     k = ""
     if coef is not None and coef[step]:
         k += " k=%04x(%+.4f)" % (coef[step], struct.unpack(">h", struct.pack(">H", coef[step]))[0] / 32768.0)

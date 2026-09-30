@@ -135,3 +135,19 @@ the ladder. The cutoff byte to corner law itself is `15_filter`'s and is in `doc
 
 **Next take** (`fs1r_capture_session8.py values`, 2.8 min): every value of `r9[11:8]`, `r7[13:12]` and
 `r6[5:0]` on the MAC step, so the operation and mode fields get a table instead of a bit mask.
+
+### Value sweeps (take 5, channel 1's MAC step 0x099)
+
+* `r9[11:8]`: **exact-match**. All 15 other values close the filter identically. Channel 0's MAC steps
+  carry 1, channel 1's 2, and the field runs 1..0xb across the group: a per-data-path id (bus,
+  accumulator or pipeline slot), not an opcode menu. The disassembler prints it as `path=`.
+* `r7[13:12]`: 1 is right; 0 drops the corner an octave and the loop lives; 2, 3 run away. Printed
+  as `route=`.
+* `r6[5:0]`: **exact-match**; 55 of 63 other values run away, five close, 0x34/0x36 retune. So it is an
+  address, and the values it takes on class-2 steps (0x13, 0x15..0x17, 0x1c, 0x20, 0x21, 0x23, 0x3d..0x3f)
+  are the same range `r7[5:0]` takes on later steps (0x11..0x13, 0x18..0x1b), with `r7[5:0]` mostly the
+  channel's own tag. Read: `r6[5:0]` is the write address of the step's result, `r7[5:0]` the read
+  address. Printed as `-> w[..]` and `rd w[..]`.
+
+Still unswept by value: `r7[10:6]` (bits 10, 7, 6 break every step) and `r7[5:0]` itself; that is the
+next run (`fs1r_capture_session8.py`, default `r7values`, 3.1 min).

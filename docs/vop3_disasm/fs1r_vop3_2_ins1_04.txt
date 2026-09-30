@@ -1,51 +1,51 @@
-110  op=0.0 dst=1 r7=1.01.1 class=2  rA=57 rB=03 b=3
-111  op=0.0 dst=0 r7=0.01.1 class=2  rB=57
-112  op=0.0 dst=0 r7=0.00.0 class=2  rB=58
-113  op=0.0 dst=1 r7=1.04.0 class=2  mem2[slot 44] mode 40 rA=58 rB=57
-114  op=0.0 dst=0 r7=0.01.1 class=2  d[001] rB=58
-115  op=0.0 dst=0 r7=0.00.0 class=2  d[045] rB=59
-116  op=0.0 dst=2 r7=1.04.0 class=2  d[088] rA=59 rB=58
-117  op=0.0 dst=1 r7=1.01.1 class=2  mem2[slot 45] mode 40 rA=5a rB=04 b=3
-118  op=0.0 dst=0 r7=0.01.1 class=2  d[116] rB=5a
-119  op=0.0 dst=0 r7=0.00.0 class=2  rB=5b
-11a  op=0.0 dst=1 r7=1.04.0 class=2  rA=5b rB=5a
-11b  op=0.0 dst=0 r7=0.01.1 class=2  mem2[slot 46] mode 40 rB=5b
-11c  op=0.0 dst=0 r7=0.00.0 class=2  d[117] rB=5c
-11d  op=0.0 dst=2 r7=1.04.0 class=2  rA=5c rB=5b
-11e  op=0.0 dst=0 r7=0.01.1 class=1  r[00] = k b=1
-11f  op=0.0 dst=0 r7=0.02.0 class=2  mode=0c b=1
-120  op=1.9 dst=0 r7=1.00.0 class=2  d[118] rA=77 rB=61 b=1
-121  op=0.0 dst=0 r7=0.01.1 class=2  rB=59
-122  op=0.0 dst=0 r7=1.00.0 class=2  rA=5d rB=5c
-123  op=0.0 dst=0 r7=0.01.1 class=2  rB=5d
-124  op=0.0 dst=0 r7=0.00.0 class=2  rB=5e
-125  op=0.0 dst=1 r7=1.04.0 class=2  rA=5e rB=5d
-126  op=1.9 dst=0 r7=0.01.1 class=2  rA=77 rB=77 c7=19
-127  op=0.0 dst=0 r7=0.0a.1 class=2  d[089] rB=59 mode=34
-128  op=0.0 dst=0 r7=1.08.0 class=2  d[1b8] rB=62 b=1
-129  op=0.0 dst=3 r7=3.01.1 class=2  d[1ba] rB=5e b=1
-12a  op=0.0 dst=0 r7=0.01.1 class=2  rB=77 c7=19
-12b  op=1.9 dst=0 r7=1.00.0 class=1  r[00] = k
-12c  op=0.0 dst=0 r7=0.0a.1 class=2  rB=5c mode=35
-12d  op=0.0 dst=0 r7=1.08.0 class=2  d[1b9] rB=63 b=1
-12e  op=0.0 dst=0 r7=2.09.0 class=2  rB=5f mode=3a b=1
-12f  op=0.0 dst=0 r7=1.02.0 class=2  rA=5f mode=3a
-130  op=0.0 dst=0 r7=1.06.1 class=2  rA=62 rB=62 mode=38 c7=19
-131  op=0.0 dst=0 r7=1.06.1 class=2  rA=63 rB=63 mode=39 c7=19
-132  op=0.0 dst=0 r7=0.01.1 class=2  rB=60 b=1
-133  op=0.0 dst=0 r7=0.01.0 class=2  rB=60 b=1
-134  op=0.0 dst=0 r7=0.0a.0 class=2  mode=3a
-135  op=0.0 dst=0 r7=2.08.0 class=2  rB=5f b=1
-136  op=0.0 dst=0 r7=1.02.0 class=2  rA=60 mode=3a
-137  op=0.0 dst=0 r7=0.01.1 class=2  rB=60
-138  op=0.0 dst=0 r7=0.00.0 class=2  rB=61
-139  op=0.0 dst=0 r7=1.04.0 class=2  rA=61 rB=60
-13a  op=0.0 dst=0 r7=1.05.0 class=2  d[1b4] rB=62 mode=34 c7=19
-13b  op=0.0 dst=0 r7=1.05.0 class=2  d[1b5] rB=63 mode=35 c7=19
-13c  op=0.0 dst=0 r7=0.01.1 class=2  rB=62 b=1
-13d  op=0.0 dst=2 r7=1.00.0 class=2  rA=0d rB=59 b=1
-13e  op=0.0 dst=0 r7=0.01.1 class=2  rB=63 b=1
-13f  op=0.0 dst=2 r7=1.00.0 class=2  rA=0e rB=5c b=1
+110  path=0.0 route=1 r7=1.01.1 class=2  rA=57 rB=03 b=3
+111  path=0.0 route=0 r7=0.01.1 class=2  rB=57
+112  path=0.0 route=0 r7=0.00.0 class=2  rB=58
+113  path=0.0 route=1 r7=1.04.0 class=2  mem2[slot 44] mode 40 rA=58 rB=57
+114  path=0.0 route=0 r7=0.01.1 class=2  d[001] rB=58
+115  path=0.0 route=0 r7=0.00.0 class=2  d[045] rB=59
+116  path=0.0 route=2 r7=1.04.0 class=2  d[088] rA=59 rB=58
+117  path=0.0 route=1 r7=1.01.1 class=2  mem2[slot 45] mode 40 rA=5a rB=04 b=3
+118  path=0.0 route=0 r7=0.01.1 class=2  d[116] rB=5a
+119  path=0.0 route=0 r7=0.00.0 class=2  rB=5b
+11a  path=0.0 route=1 r7=1.04.0 class=2  rA=5b rB=5a
+11b  path=0.0 route=0 r7=0.01.1 class=2  mem2[slot 46] mode 40 rB=5b
+11c  path=0.0 route=0 r7=0.00.0 class=2  d[117] rB=5c
+11d  path=0.0 route=2 r7=1.04.0 class=2  rA=5c rB=5b
+11e  path=0.0 route=0 r7=0.01.1 class=1  r[00] = k b=1
+11f  path=0.0 route=0 r7=0.02.0 class=2  -> w[0c] b=1
+120  path=1.9 route=0 r7=1.00.0 class=2  d[118] rA=77 rB=61 b=1
+121  path=0.0 route=0 r7=0.01.1 class=2  rB=59
+122  path=0.0 route=0 r7=1.00.0 class=2  rA=5d rB=5c
+123  path=0.0 route=0 r7=0.01.1 class=2  rB=5d
+124  path=0.0 route=0 r7=0.00.0 class=2  rB=5e
+125  path=0.0 route=1 r7=1.04.0 class=2  rA=5e rB=5d
+126  path=1.9 route=0 r7=0.01.1 class=2  rA=77 rB=77 rd w[19]
+127  path=0.0 route=0 r7=0.0a.1 class=2  d[089] rB=59 -> w[34]
+128  path=0.0 route=0 r7=1.08.0 class=2  d[1b8] rB=62 b=1
+129  path=0.0 route=3 r7=3.01.1 class=2  d[1ba] rB=5e b=1
+12a  path=0.0 route=0 r7=0.01.1 class=2  rB=77 rd w[19]
+12b  path=1.9 route=0 r7=1.00.0 class=1  r[00] = k
+12c  path=0.0 route=0 r7=0.0a.1 class=2  rB=5c -> w[35]
+12d  path=0.0 route=0 r7=1.08.0 class=2  d[1b9] rB=63 b=1
+12e  path=0.0 route=0 r7=2.09.0 class=2  rB=5f -> w[3a] b=1
+12f  path=0.0 route=0 r7=1.02.0 class=2  rA=5f -> w[3a]
+130  path=0.0 route=0 r7=1.06.1 class=2  rA=62 rB=62 -> w[38] rd w[19]
+131  path=0.0 route=0 r7=1.06.1 class=2  rA=63 rB=63 -> w[39] rd w[19]
+132  path=0.0 route=0 r7=0.01.1 class=2  rB=60 b=1
+133  path=0.0 route=0 r7=0.01.0 class=2  rB=60 b=1
+134  path=0.0 route=0 r7=0.0a.0 class=2  -> w[3a]
+135  path=0.0 route=0 r7=2.08.0 class=2  rB=5f b=1
+136  path=0.0 route=0 r7=1.02.0 class=2  rA=60 -> w[3a]
+137  path=0.0 route=0 r7=0.01.1 class=2  rB=60
+138  path=0.0 route=0 r7=0.00.0 class=2  rB=61
+139  path=0.0 route=0 r7=1.04.0 class=2  rA=61 rB=60
+13a  path=0.0 route=0 r7=1.05.0 class=2  d[1b4] rB=62 -> w[34] rd w[19]
+13b  path=0.0 route=0 r7=1.05.0 class=2  d[1b5] rB=63 -> w[35] rd w[19]
+13c  path=0.0 route=0 r7=0.01.1 class=2  rB=62 b=1
+13d  path=0.0 route=2 r7=1.00.0 class=2  rA=0d rB=59 b=1
+13e  path=0.0 route=0 r7=0.01.1 class=2  rB=63 b=1
+13f  path=0.0 route=2 r7=1.00.0 class=2  rA=0e rB=5c b=1
 140  nop
 141  nop
 142  nop
@@ -53,20 +53,20 @@
 144  nop
 145  nop
 146  nop
-147  op=0.0 dst=0 r7=0.00.0 class=0  mem2[slot 51] mode 40 d[08a]
+147  path=0.0 route=0 r7=0.00.0 class=0  mem2[slot 51] mode 40 d[08a]
 148  nop
 149  nop
 14a  nop
-14b  op=0.0 dst=0 r7=0.00.0 class=0  mem2[slot 52] mode 40
-14c  op=0.0 dst=0 r7=0.00.0 class=0  d[119]
+14b  path=0.0 route=0 r7=0.00.0 class=0  mem2[slot 52] mode 40
+14c  path=0.0 route=0 r7=0.00.0 class=0  d[119]
 14d  nop
 14e  nop
-14f  op=0.0 dst=0 r7=0.00.0 class=0  mem2[slot 53] mode 40
-150  op=0.0 dst=0 r7=0.00.0 class=0  d[11a]
+14f  path=0.0 route=0 r7=0.00.0 class=0  mem2[slot 53] mode 40
+150  path=0.0 route=0 r7=0.00.0 class=0  d[11a]
 151  nop
 152  nop
 153  nop
-154  op=0.0 dst=0 r7=0.00.0 class=0  d[11b]
+154  path=0.0 route=0 r7=0.00.0 class=0  d[11b]
 155  nop
 156  nop
 157  nop
