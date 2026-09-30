@@ -40,14 +40,15 @@ def fields(r10, r9, r8, r7, r6):
         f7e=r7 & 0x3f,
         f6a=r6 >> 14,           # CHIP r6[15:14] class: 1 = constant load (rest of r6 unused), 2 = MAC, 0 = no output, 3 = runaway
         rb=(r6 >> 7) & 0x7f,    # CHIP r6[13:7]: source register B on a MAC step (0x61 = where the cutoff constant is loaded)
-        f6c=r6 & 0x3f,          # CHIP r6[5:0]: exact-match (55/63 other values run away): the result's write address = r[0x40 | f6c]
-                                # FW: 97% of rA/rB reads >= 0x40 name a slot a class-2 step writes; r[40] is read and never written (zero register)
+        f6c=r6 & 0x3f,          # CHIP r6[5:0]: exact-match (55/63 other values run away): the result's write slot w[]; r7[3:0] reads it back
+                                # FW: w[] is not r[40..7f]: the FS1R's stride-6 per-channel registers run through 0x40 (tools/vop3_verify.py)
     )
 
 
 def reg(n, voices=0):
-    """Register name: r[40..7f] program results; r[01..3f] the input window, in[k].v with `voices` per input."""
-    if voices and 0 < n < 0x40:
+    """Register name. With --voices V, r[1 + V*k + v] is input/state k of voice v (AN1x: V=5; the FS1R filter
+    is V=6 per channel with r[6c] the class-1 control word, so its stride starts at 0, not 1)."""
+    if voices and 0 < n < 0x7f:
         k, v = divmod(n - 1, voices)
         return "in[%d].%d" % (k, v)
     return "r[%02x]" % n
@@ -66,15 +67,17 @@ def disasm(step, words, coef=None, byt=None, labels=None, voices=0):
         parts.append("d[%03x]" % f["daddr"])
     if f["f6a"] == 1:
         parts.append("r[%02x] = k" % f["ra"])            # constant load: r9[7:0] names the destination register
+        if f["rb"]:
+            parts.append("rB=" + reg(f["rb"], voices))   # the r9[15] variant (AN uploads: k=0, rA=0) carries an rB; role unknown
     else:
         if f["ra"]:
             parts.append("rA=" + reg(f["ra"], voices))
         if f["rb"]:
             parts.append("rB=" + reg(f["rb"], voices))
         if f["f6c"]:
-            parts.append("-> r[%02x]" % (0x40 | f["f6c"]))   # the write slot is the upper half of the register file
+            parts.append("-> w[%02x]" % f["f6c"])
     if f["rd_en"]:
-        parts.append("rd r[%02x]" % (0x40 | f["rd"]))       # replaces k as the operand (k is dead on every rd-en step, FW)
+        parts.append("rd w[%x]" % f["rd"])        # replaces k as the third operand (k is dead on every FS1R rd-en step, FW)
     op = "path=%x.%x%s%s route=%d op=%d%s r7=%d.%02x class=%d" % (f["op9hi"], f["op9"], "+" if f["r9b7"] else "", "^" if f["r9b15"] else "",
                                                                  f["f7b"], f["op7"], "s" if f["r7sel"] else "", f["f7a"], f["f7c"], f["f6a"])
     k = ""
@@ -145,7 +148,7 @@ def demo():
     assert f["op9"] == 1 and f["ra"] == 0x62 and f["rb"] == 0x61 and f["f6c"] == 0x3e and f["f6a"] == 2
     assert f["op7"] == 2 and f["r7sel"] == 0 and f["rd_en"] == 0
     assert fields(0, 0, 0, 0x8291, 0)["rd_en"] == 1 and fields(0, 0, 0, 0x8291, 0)["rd"] == 1
-    assert "-> r[7e]" in disasm(0x98, (0, 0x1162, 0, 0x9280, 0xb0be)) and "rd r[41]" in disasm(0x9c, (0, 0x1162, 0, 0x8291, 0xb13d))
+    assert "-> w[3e]" in disasm(0x98, (0, 0x1162, 0, 0x9280, 0xb0be)) and "rd w[1]" in disasm(0x9c, (0, 0x1162, 0, 0x8291, 0xb13d))
     assert "rA=in[2].1" in disasm(0x58, (0, 0x000c, 0, 0x0140, 0x8615), voices=5)   # AN1x 058: r[0c] = input 2, voice 1
     # PLG150-AN step 0x11: r10=2 marks a memory access, r8 low bits carry the mode
     f = fields(2, 0x0017, 0x0068, 0x4112, 0x800A)

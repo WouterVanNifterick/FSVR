@@ -130,4 +130,4 @@
 081  path=0.0 route=0 op=3 r7=0.01 class=1  r[7e] = k k=1400(+0.1562)
 082  path=0.0 route=0 op=3 r7=0.01 class=1  d[1be] r[00] = k k=1bed(+0.2182)
 083  path=0.0 route=0 op=3 r7=0.01 class=1  d[1bd] r[00] = k k=35c3(+0.4200)
-084  path=0.0 route=0 op=7 r7=0.03 class=2  rA=r[7d] -> r[7f] k=0001(+0.0000)
+084  path=0.0 route=0 op=7 r7=0.03 class=2  rA=r[7d] -> w[3f] k=0001(+0.0000)

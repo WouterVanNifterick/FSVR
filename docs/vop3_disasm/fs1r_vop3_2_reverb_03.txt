@@ -36,5 +36,5 @@
 10b  path=2.0 route=0 op=3 r7=0.01 class=0  mem1[slot 42] mode 40
 10c  path=0.0 route=0 op=3 r7=0.01 class=0  
 10d  path=0.0 route=0 op=3 r7=0.01 class=0  
-10e  path=0.0 route=0 op=3 r7=0.01 class=0  -> r[51] b=3
-10f  path=2.0 route=0 op=3 r7=0.01 class=0  mem1[slot 43] mode 40 -> r[51]
+10e  path=0.0 route=0 op=3 r7=0.01 class=0  -> w[11] b=3
+10f  path=2.0 route=0 op=3 r7=0.01 class=0  mem1[slot 43] mode 40 -> w[11]
