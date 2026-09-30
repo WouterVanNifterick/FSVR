@@ -34,42 +34,42 @@
 021  path=0.0 route=0 op=0 r7=0.00 class=0  d[044]
 022  path=0.0 route=0 op=0 r7=0.00 class=0  -> w[30]
 023  nop
-024  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[05] k=4000(+0.5000)
-025  path=0.0 route=1 op=4 r7=1.02 class=2  d[1a1] -> w[06] k=4000(+0.5000)
-026  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[07] k=4000(+0.5000)
-027  path=0.0 route=1 op=4 r7=1.02 class=2  d[1a2] -> w[08] k=4000(+0.5000)
-028  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[09] k=4000(+0.5000)
-029  path=0.0 route=1 op=4 r7=1.02 class=2  d[1a3] -> w[0a] k=4000(+0.5000)
-02a  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[0b] k=4000(+0.5000)
-02b  path=0.0 route=1 op=4 r7=1.02 class=2  d[1a4] -> w[0c] k=4000(+0.5000)
-02c  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[0d] k=4000(+0.5000) b=1
-02d  path=0.0 route=1 op=4 r7=1.02 class=2  d[1a5] -> w[0e] k=4000(+0.5000) b=1
-02e  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[0f] k=4000(+0.5000) b=1
-02f  path=0.0 route=1 op=4 r7=1.02 class=2  d[1a6] -> w[10] k=4000(+0.5000) b=1
-030  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[11] k=4000(+0.5000) b=1
-031  path=0.0 route=1 op=4 r7=1.02 class=2  d[1a7] -> w[12] k=4000(+0.5000) b=1
-032  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[13] k=4000(+0.5000) b=1
-033  path=0.0 route=1 op=4 r7=1.02 class=2  d[1a8] -> w[14] k=4000(+0.5000) b=1
-034  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[15] k=4000(+0.5000)
-035  path=0.0 route=1 op=4 r7=1.02 class=2  d[1a9] -> w[16] k=4000(+0.5000)
-036  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[17] k=4000(+0.5000)
-037  path=0.0 route=1 op=4 r7=1.02 class=2  d[1aa] -> w[18] k=4000(+0.5000)
-038  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[19] k=4000(+0.5000)
-039  path=0.0 route=1 op=4 r7=1.02 class=2  d[1ab] -> w[1a] k=4000(+0.5000)
-03a  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[1b] k=4000(+0.5000)
-03b  path=0.0 route=1 op=4 r7=1.02 class=2  d[1ac] -> w[1c] k=4000(+0.5000)
-03c  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[1d] k=4000(+0.5000)
-03d  path=0.0 route=1 op=4 r7=1.02 class=2  d[1ad] -> w[1e] k=4000(+0.5000)
-03e  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[1f] k=4000(+0.5000)
-03f  path=0.0 route=1 op=4 r7=1.02 class=2  d[1ae] -> w[20] k=4000(+0.5000)
+024  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[05] k=4000(+0.5000)
+025  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[06] d[21] = y/8 k=4000(+0.5000)
+026  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[07] k=4000(+0.5000)
+027  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[08] d[22] = y/8 k=4000(+0.5000)
+028  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[09] k=4000(+0.5000)
+029  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[0a] d[23] = y/8 k=4000(+0.5000)
+02a  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[0b] k=4000(+0.5000)
+02b  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[0c] d[24] = y/8 k=4000(+0.5000)
+02c  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[0d] k=4000(+0.5000) b=1
+02d  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[0e] d[25] = y/8 k=4000(+0.5000) b=1
+02e  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[0f] k=4000(+0.5000) b=1
+02f  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[10] d[26] = y/8 k=4000(+0.5000) b=1
+030  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[11] k=4000(+0.5000) b=1
+031  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[12] d[27] = y/8 k=4000(+0.5000) b=1
+032  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[13] k=4000(+0.5000) b=1
+033  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[14] d[28] = y/8 k=4000(+0.5000) b=1
+034  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[15] k=4000(+0.5000)
+035  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[16] d[29] = y/8 k=4000(+0.5000)
+036  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[17] k=4000(+0.5000)
+037  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[18] d[2a] = y/8 k=4000(+0.5000)
+038  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[19] k=4000(+0.5000)
+039  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[1a] d[2b] = y/8 k=4000(+0.5000)
+03a  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[1b] k=4000(+0.5000)
+03b  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[1c] d[2c] = y/8 k=4000(+0.5000)
+03c  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[1d] k=4000(+0.5000)
+03d  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[1e] d[2d] = y/8 k=4000(+0.5000)
+03e  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[1f] k=4000(+0.5000)
+03f  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[20] d[2e] = y/8 k=4000(+0.5000)
 040  path=0.0 route=0 op=0 r7=0.00 class=0  d[005]
 041  path=0.0 route=0 op=0 r7=0.00 class=0  d[046]
 042  path=0.0 route=0 op=0 r7=0.00 class=0  -> w[21]
 043  nop
-044  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[01] k=4000(+0.5000) b=1
-045  path=0.0 route=1 op=4 r7=1.02 class=2  d[1af] -> w[02] k=4000(+0.5000) b=1
-046  path=0.0 route=0 op=7 r7=0.03 class=2  -> w[03] k=4000(+0.5000) b=1
-047  path=0.0 route=1 op=4 r7=1.02 class=2  d[1b0] -> w[04] k=4000(+0.5000)
+044  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[01] k=4000(+0.5000) b=1
+045  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[02] d[2f] = y/8 k=4000(+0.5000) b=1
+046  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[03] k=4000(+0.5000) b=1
+047  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[04] d[30] = y/8 k=4000(+0.5000)
 048  nop
 049  nop
 04a  nop

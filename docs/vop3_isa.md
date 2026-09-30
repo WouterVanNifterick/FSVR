@@ -5,7 +5,9 @@ Reference for `tools/vop3_disasm.py` and `tools/vop3_interp.py`. Every claim nam
 debug monitor (FS1R.unlock `captures/2026-09-30-9`, `-10`; per-take tables in those READMEs). Anything
 not marked is an inference and says so. The disassembler's output over every image we have is in
 `docs/vop3_disasm/`: FS1R VOP3-1 (filter, 2 variants), FS1R VOP3-2 (base + 4 reverb + 16 variation +
-2x12 insertion), PLG150-AN (3 voice modes + base), AN1x (voice + boot, parameter-labelled).
+2x12 insertion + test images 0 and 1), PLG150-AN (3 voice modes + base), AN1x (voice + boot, parameter-labelled).
+Each line gives the raw fields, then the step as its measured operation (`y = s + k*(r[31] + r[30])`,
+`dram[34] = y`, `d[0b] <- xfer(slot 36, else 37)`, ...); `python tools/vop3_disasm.py --listings` regenerates them.
 
 ## 1. The machine
 

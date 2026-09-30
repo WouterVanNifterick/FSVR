@@ -1,72 +1,72 @@
-110  path=0.0 route=1 op=6 r7=0.03 class=1  d[001] r[7c] = k b=1
-111  path=0.0 route=3 op=7 r7=0.03 class=2  d[045] rA=r[7b] -> w[0c]
-112  path=0.0 route=1 op=0 r7=0.00 class=1  r[7d] = k b=1
-113  path=0.0 route=0 op=3 r7=3.01 class=3  mem2[slot 44] mode 40 rB=r[7c]
-114  path=1.c route=1 op=0 r7=1.00 class=1  r[7c] = k
-115  path=0.0 route=1 op=6 r7=0.03 class=1  r[01] = k b=1
-116  path=0.0 route=1 op=1 r7=0.00 class=1  r[02] = k rB=r[7b] b=1
-117  path=0.0 route=0 op=3 r7=1.01 class=2  mem2[slot 45] mode 40 d[088] rA=r[7f] rB=r[7c] rd w[c]
-118  path=0.0 route=0 op=3 r7=3.01 class=3  d[116] rB=r[01]
-119  path=1.d route=1 op=0 r7=1.00 class=1  r[01] = k
-11a  path=0.0 route=0 op=3 r7=1.01 class=2  rA=r[7f] rB=r[7f] rd w[c]
-11b  path=0.0 route=1 op=6 r7=0.03 class=1  mem2[slot 46] mode 40 r[7e] = k b=1
-11c  path=0.0 route=3 op=3 r7=1.01 class=2  d[117] rB=r[7c]
-11d  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[7f]
-11e  path=0.0 route=0 op=0 r7=2.00 class=1  r[7c] = k
-11f  path=0.0 route=0 op=3 r7=1.01 class=2  rA=r[77] rB=r[01] rd w[d]
-120  path=0.0 route=0 op=3 r7=3.01 class=3  d[118] rB=r[7e]
-121  path=1.c route=1 op=0 r7=1.00 class=1  r[7e] = k
-122  path=0.0 route=0 op=3 r7=1.01 class=2  rA=r[77] rB=r[77] rd w[d]
-123  path=0.0 route=0 op=3 r7=3.01 class=2  rB=r[7d] b=6
-124  path=5.9 route=0 op=0 r7=2.00 class=2  rB=r[7c] b=6
-125  path=0.0 route=3 op=3 r7=1.01 class=2  rB=r[01]
-126  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[77]
-127  path=0.0 route=0 op=0 r7=2.00 class=1  mem2[slot 49] mode 48 d[089] r[01] = k
-128  path=0.0 route=0 op=3 r7=1.01 class=2  rA=r[7c] rB=r[7e] rd w[c]
-129  path=0.0 route=1 op=1 r7=0.00 class=1  r[7f] = k rB=r[7b] b=1
-12a  path=0.0 route=0 op=3 r7=3.01 class=2  rB=r[02] b=6
-12b  path=5.b route=0 op=0 r7=2.00 class=2  mem4[slot 4a] mode 4c rB=r[01] b=6
-12c  path=0.0 route=0 op=3 r7=1.01 class=2  d[138] rA=r[7c] rB=r[7c] rd w[c]
-12d  path=0.0 route=1 op=3 r7=1.01 class=2  rA=r[57] rB=r[03] b=3
-12e  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[58]
-12f  path=0.0 route=0 op=0 r7=0.00 class=2  mem2[slot 4b] mode 48 rB=r[57]
-130  path=0.0 route=1 op=0 r7=1.04 class=2  d[139] rA=r[58] rB=r[57]
-131  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[59]
-132  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[58]
-133  path=0.0 route=2 op=0 r7=1.04 class=2  mem4[slot 4c] mode 48 rA=r[59] rB=r[58]
-134  path=0.0 route=3 op=3 r7=1.01 class=2  d[13c] rB=r[7e]
-135  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[7c]
-136  path=0.0 route=0 op=0 r7=2.00 class=1  r[7e] = k
-137  path=0.0 route=0 op=6s r7=0.0b class=2  mem2[slot 4d] mode 48 -> w[38] rd w[9]
-138  path=0.0 route=0 op=4s r7=1.0a class=2  d[13d] rA=r[77] -> w[39] rd w[9]
-139  path=0.0 route=0 op=3 r7=3.01 class=2  rB=r[7f] b=6
-13a  path=5.a route=0 op=0 r7=2.00 class=2  rB=r[7e] b=6
-13b  path=0.0 route=0 op=6s r7=0.0b class=2  mem4[slot 4e] mode 48 -> w[3c] rd w[b]
-13c  path=0.0 route=0 op=4s r7=1.0a class=2  d[13e] rA=r[79] -> w[3d] rd w[b]
-13d  path=0.0 route=1 op=3 r7=1.01 class=2  rA=r[5a] rB=r[04] b=3
-13e  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[5b]
-13f  path=0.0 route=0 op=0 r7=0.00 class=2  mem2[slot 4f] mode 48 rB=r[5a]
-140  path=0.0 route=1 op=0 r7=1.04 class=2  d[13f] rA=r[5b] rB=r[5a]
-141  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[5c]
-142  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[5b]
-143  path=0.0 route=2 op=0 r7=1.04 class=2  mem4[slot 50] mode 48 rA=r[5c] rB=r[5b]
-144  path=0.0 route=0 op=3 r7=0.01 class=2  d[13a] rB=r[77] b=1
-145  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[59] b=1
-146  path=2.0 route=0 op=0 r7=1.00 class=2  rB=r[5c] b=1
-147  path=0.0 route=0 op=6s r7=0.0b class=2  mem2[slot 51] mode 40 d[08a] -> w[3e] rd w[b]
-148  path=0.0 route=0 op=4s r7=1.0a class=2  d[13b] rA=r[7a] -> w[3f] rd w[b]
-149  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[77] b=1
-14a  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[79] b=1
-14b  path=0.0 route=0 op=0 r7=1.00 class=2  mem2[slot 52] mode 40 rA=r[7c] rB=r[7a] b=1
-14c  path=0.0 route=0 op=6s r7=0.0b class=2  d[119] -> w[3a] rd w[a]
-14d  path=0.0 route=0 op=4s r7=1.0a class=2  rA=r[78] -> w[3b] rd w[a]
-14e  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[59] b=1
-14f  path=0.0 route=2 op=0 r7=1.00 class=2  mem2[slot 53] mode 40 rA=r[0d] rB=r[7c] b=1
-150  path=0.0 route=0 op=3 r7=0.01 class=2  d[11a] rB=r[79] b=1
-151  path=0.0 route=0 op=0 r7=0.00 class=2  rB=r[7a] b=1
-152  path=0.0 route=0 op=0 r7=1.00 class=2  rA=r[7d] rB=r[78] b=1
-153  path=0.0 route=0 op=0 r7=0.00 class=0  mem1[slot 54] mode 40
-154  path=0.0 route=0 op=3 r7=0.01 class=2  d[11b] rB=r[5c] b=1
-155  path=0.0 route=2 op=0 r7=1.00 class=2  rA=r[0e] rB=r[7d] b=1
-156  path=0.0 route=0 op=3 r7=0.01 class=2  rB=r[5c] -> w[29] b=1
-157  path=2.0 route=0 op=0 r7=1.00 class=2  mem1[slot 55] mode 40 rB=r[78] b=1
+110  path=0.0 route=1 op=6 r7=0.03 class=1  r[7c] = k/256 d[001] b=1
+111  path=0.0 route=3 op=7 r7=0.03 class=2  y = k*in -> w[0c] d[045]
+112  path=0.0 route=1 op=0 r7=0.00 class=1  r[7d] = k/256 b=1
+113  path=0.0 route=0 op=3 r7=3.01 class=3  rB=r[7c] xfer = dram[44]
+114  path=1.c route=1 op=0 r7=1.00 class=1  r[7c] = k/256
+115  path=0.0 route=1 op=6 r7=0.03 class=1  r[01] = k/256 b=1
+116  path=0.0 route=1 op=1 r7=0.00 class=1  r[02] = k/256 rB=r[7b] b=1
+117  path=0.0 route=0 op=3 r7=1.01 class=2  y = 0 d[088] xfer = dram[45]
+118  path=0.0 route=0 op=3 r7=3.01 class=3  rB=r[01] d[16] <- xfer(slot 44, else 45)
+119  path=1.d route=1 op=0 r7=1.00 class=1  r[01] = k/256
+11a  path=0.0 route=0 op=3 r7=1.01 class=2  y = 0
+11b  path=0.0 route=1 op=6 r7=0.03 class=1  r[7e] = k/256 xfer = dram[46] b=1
+11c  path=0.0 route=3 op=3 r7=1.01 class=2  y = k*r[7c] d[17] <- xfer(slot 45, else 46)
+11d  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[7f]
+11e  path=0.0 route=0 op=0 r7=2.00 class=1  r[7c] = k/256
+11f  path=0.0 route=0 op=3 r7=1.01 class=2  y = 0
+120  path=0.0 route=0 op=3 r7=3.01 class=3  rB=r[7e] d[18] <- xfer(slot 46, else 47)
+121  path=1.c route=1 op=0 r7=1.00 class=1  r[7e] = k/256
+122  path=0.0 route=0 op=3 r7=1.01 class=2  y = 0
+123  path=0.0 route=0 op=3 r7=3.01 class=2  y = k*r[7d] b=6
+124  path=5.9 route=0 op=0 r7=2.00 class=2  y = s + k*r[7c] b=6
+125  path=0.0 route=3 op=3 r7=1.01 class=2  y = k*r[01]
+126  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[77]
+127  path=0.0 route=0 op=0 r7=2.00 class=1  r[01] = k/256 d[089] xfer = dram[49]
+128  path=0.0 route=0 op=3 r7=1.01 class=2  y = 0
+129  path=0.0 route=1 op=1 r7=0.00 class=1  r[7f] = k/256 rB=r[7b] b=1
+12a  path=0.0 route=0 op=3 r7=3.01 class=2  y = k*r[02] b=6
+12b  path=5.b route=0 op=0 r7=2.00 class=2  y = s + k*r[01] xfer = dram[4a] older b=6
+12c  path=0.0 route=0 op=3 r7=1.01 class=2  y = 0 d[38] <- xfer(slot 49, else 4a)
+12d  path=0.0 route=1 op=3 r7=1.01 class=2  y = k*(r[57] + r[03]) b=3
+12e  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[58]
+12f  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[57] xfer = dram[4b]
+130  path=0.0 route=1 op=0 r7=1.04 class=2  y = s + k*(r[58] + r[57]) d[39] <- xfer(slot 4a, else 4b)
+131  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[59]
+132  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[58]
+133  path=0.0 route=2 op=0 r7=1.04 class=2  y = s + k*(r[59] + r[58]) xfer = dram[4c] older
+134  path=0.0 route=3 op=3 r7=1.01 class=2  y = k*r[7e] d[3c] <- xfer(slot 4b, else 4c)
+135  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[7c]
+136  path=0.0 route=0 op=0 r7=2.00 class=1  r[7e] = k/256
+137  path=0.0 route=0 op=6s r7=0.0b class=2  y = 0 -> w[38] rd w[9] xfer = dram[4d]
+138  path=0.0 route=0 op=4s r7=1.0a class=2  y = -s -> w[39] rd w[9] d[3d] <- xfer(slot 4c, else 4d)
+139  path=0.0 route=0 op=3 r7=3.01 class=2  y = k*r[7f] b=6
+13a  path=5.a route=0 op=0 r7=2.00 class=2  y = s + k*r[7e] b=6
+13b  path=0.0 route=0 op=6s r7=0.0b class=2  y = 0 -> w[3c] rd w[b] xfer = dram[4e] older
+13c  path=0.0 route=0 op=4s r7=1.0a class=2  y = -s -> w[3d] rd w[b] d[3e] <- xfer(slot 4d, else 4e)
+13d  path=0.0 route=1 op=3 r7=1.01 class=2  y = k*(r[5a] + r[04]) b=3
+13e  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[5b]
+13f  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[5a] xfer = dram[4f]
+140  path=0.0 route=1 op=0 r7=1.04 class=2  y = s + k*(r[5b] + r[5a]) d[3f] <- xfer(slot 4e, else 4f)
+141  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[5c]
+142  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[5b]
+143  path=0.0 route=2 op=0 r7=1.04 class=2  y = s + k*(r[5c] + r[5b]) xfer = dram[50] older
+144  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[77] d[3a] <- xfer(slot 4f, else 50) b=1
+145  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[59] b=1
+146  path=2.0 route=0 op=0 r7=1.00 class=2  y = s + k*r[5c] b=1
+147  path=0.0 route=0 op=6s r7=0.0b class=2  y = 0 -> w[3e] rd w[b] d[08a] xfer = dram[51]
+148  path=0.0 route=0 op=4s r7=1.0a class=2  y = -s -> w[3f] rd w[b] d[3b] <- xfer(slot 50, else 51)
+149  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[77] b=1
+14a  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[79] b=1
+14b  path=0.0 route=0 op=0 r7=1.00 class=2  y = s + k*(r[7c] + r[7a]) xfer = dram[52] b=1
+14c  path=0.0 route=0 op=6s r7=0.0b class=2  y = 0 -> w[3a] rd w[a] d[19] <- xfer(slot 51, else 52)
+14d  path=0.0 route=0 op=4s r7=1.0a class=2  y = -s -> w[3b] rd w[a]
+14e  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[59] b=1
+14f  path=0.0 route=2 op=0 r7=1.00 class=2  y = s + k*(r[0d] + r[7c]) xfer = dram[53] b=1
+150  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[79] d[1a] <- xfer(slot 52, else 53) b=1
+151  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[7a] b=1
+152  path=0.0 route=0 op=0 r7=1.00 class=2  y = s + k*(r[7d] + r[78]) b=1
+153  path=0.0 route=0 op=0 r7=0.00 class=0  dram[54] = y/16
+154  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[5c] d[1b] <- xfer(slot 53, else 54) b=1
+155  path=0.0 route=2 op=0 r7=1.00 class=2  y = s + k*(r[0e] + r[7d]) b=1
+156  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[5c] -> w[29] b=1
+157  path=2.0 route=0 op=0 r7=1.00 class=2  y = s + k*r[78] dram[55] = y/16 b=1
