@@ -151,3 +151,24 @@ the ladder. The cutoff byte to corner law itself is `15_filter`'s and is in `doc
 
 Still unswept by value: `r7[10:6]` (bits 10, 7, 6 break every step) and `r7[5:0]` itself; that is the
 next run (`fs1r_capture_session8.py`, default `r7values`, 3.1 min).
+
+### r7 value sweeps (take 6, channel 2's MAC step 0x09a, `r7=9280`)
+
+* `r7[5:0]`: **bit 4 is a read enable; with it clear all sixteen values of `r7[3:0]` are inert, and
+  bit 5 changes nothing either way.** Enabled, `r7[3:0]` = 0..0xb close the filter (an operand replaced
+  by a register the corner cannot use) and 0xc..0xf retune it (a register holding a scaled copy).
+  Matches the programs: the field is 0 or 0x11..0x1b on every FS1R and AN1x step, never 0x20+.
+  Printed as `rd w[n]` only when enabled.
+* `r7[10:6]`: 0x02 and 0x0a (the step's own) are interchangeable, 0x10 and 0x18 both open the filter
+  with the peak intact, so **`r7[9]` is a modifier this step ignores**. `r7[10]` alone opens the filter.
+  Of the remaining codes, 0x00 (and most odd values) run away, the rest close. Read as `r7[10]` a
+  selector plus **`r7[8:6]` a 3-bit MAC operation, code 2 on the cutoff MAC**: printed as `op=2`,
+  with `s` appended when `r7[10]` is set. The FS1R program uses op codes {0,2,3,4,5,7} and the AN1x
+  {0,2..7}; op 0 appears on class-0 and gain-type steps.
+
+What the instruction word now reads as, per class-2 step:
+`path=r9[11:8] rA=r9[6:0] rB=r6[13:7] op=r7[8:6] route=r7[13:12] -> w[r6[5:0]] [rd w[r7[3:0]]]`
+with `r9[7]`, `r9[15]`, `r7[10]`, `r7[9]` modifiers and `r7[15:14]`, `r9[14:13]`, `r6[6]`, `r7[5]`
+inert on the probed steps. Still not measured: what each op code computes (needs a step whose two
+operands are both known constants, i.e. a constant-load pair feeding a MAC into an output stage), and
+the memory word r8 (nothing in the filter reads it except the d[] table pointers).

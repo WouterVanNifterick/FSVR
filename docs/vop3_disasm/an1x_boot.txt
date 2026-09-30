@@ -1,133 +1,133 @@
-000  path=0.0 route=0 r7=0.01.1 class=0  d[181] rA=01
-001  path=0.0 route=0 r7=0.01.1 class=0  d[182] rA=02
-002  path=0.0 route=0 r7=0.01.1 class=0  d[183] rA=03
-003  path=0.0 route=0 r7=0.01.1 class=0  d[184] rA=04
-004  path=0.0 route=0 r7=0.01.1 class=0  d[185] rA=05
-005  path=0.0 route=0 r7=0.01.1 class=0  d[186] rA=06
-006  path=0.0 route=0 r7=0.01.1 class=0  d[187] rA=07
-007  path=0.0 route=0 r7=0.01.1 class=0  d[188] rA=08
-008  path=0.0 route=0 r7=0.01.1 class=0  d[189] rA=09
-009  path=0.0 route=0 r7=0.01.1 class=0  d[18a] rA=0a
-00a  path=0.0 route=0 r7=0.01.1 class=0  d[18b] rA=0b
-00b  path=0.0 route=0 r7=0.01.1 class=0  d[18c] rA=0c
-00c  path=0.0 route=0 r7=0.01.1 class=0  d[18d] rA=0d
-00d  path=0.0 route=0 r7=0.01.1 class=0  d[18e] rA=0e
-00e  path=0.0 route=0 r7=0.01.1 class=0  d[18f] rA=0f
-00f  path=0.0 route=0 r7=0.01.1 class=0  d[190] rA=10
-010  path=0.0 route=0 r7=0.01.1 class=0  d[191] rA=11
-011  path=0.0 route=0 r7=0.01.1 class=0  d[192] rA=12
-012  path=0.0 route=0 r7=0.01.1 class=0  d[193] rA=13
-013  path=0.0 route=0 r7=0.01.1 class=0  d[194] rA=14
-014  path=0.0 route=0 r7=0.01.1 class=0  d[195] rA=15
-015  path=0.0 route=0 r7=0.01.1 class=0  d[196] rA=16
-016  path=0.0 route=0 r7=0.01.1 class=0  d[197] rA=17
-017  path=0.0 route=0 r7=0.01.1 class=0  d[198] rA=18
-018  path=0.0 route=0 r7=0.01.1 class=0  d[199] rA=19
-019  path=0.0 route=0 r7=0.01.1 class=0  d[19a] rA=1a
-01a  path=0.0 route=0 r7=0.01.1 class=0  d[19b] rA=1b
-01b  path=0.0 route=0 r7=0.01.1 class=0  d[19c] rA=1c
-01c  path=0.0 route=0 r7=0.01.1 class=0  d[19d] rA=1d
-01d  path=0.0 route=0 r7=0.01.1 class=0  d[19e] rA=1e
-01e  path=0.0 route=0 r7=0.01.1 class=0  d[19f] rA=1f
-01f  path=0.0 route=0 r7=0.01.1 class=0  d[1a0] rA=20
-020  path=0.0 route=0 r7=0.01.1 class=0  d[1a1] rA=21
-021  path=0.0 route=0 r7=0.01.1 class=0  d[1a2] rA=22
-022  path=0.0 route=0 r7=0.01.1 class=0  d[1a3] rA=23
-023  path=0.0 route=0 r7=0.01.1 class=0  d[1a4] rA=24
-024  path=0.0 route=0 r7=0.01.1 class=0  d[1a5] rA=25
-025  path=0.0 route=0 r7=0.01.1 class=0  d[1a6] rA=26
-026  path=0.0 route=0 r7=0.01.1 class=0  d[1a7] rA=27
-027  path=0.0 route=0 r7=0.01.1 class=0  d[1a8] rA=28
-028  path=0.0 route=0 r7=0.01.1 class=0  d[1a9] rA=29
-029  path=0.0 route=0 r7=0.01.1 class=0  d[1aa] rA=2a
-02a  path=0.0 route=0 r7=0.01.1 class=0  d[1ab] rA=2b
-02b  path=0.0 route=0 r7=0.01.1 class=0  d[1ac] rA=2c
-02c  path=0.0 route=0 r7=0.01.1 class=0  d[1ad] rA=2d
-02d  path=0.0 route=0 r7=0.01.1 class=0  d[1ae] rA=2e
-02e  path=0.0 route=0 r7=0.01.1 class=0  d[1af] rA=2f
-02f  path=0.0 route=0 r7=0.01.1 class=0  d[1b0] rA=30
-030  path=0.0 route=0 r7=0.01.1 class=0  d[1b1] rA=31
-031  path=0.0 route=0 r7=0.01.1 class=0  d[1b2] rA=32
-032  path=0.0 route=0 r7=0.01.1 class=0  d[1b3] rA=33
-033  path=0.0 route=0 r7=0.01.1 class=0  d[1b4] rA=34
-034  path=0.0 route=0 r7=0.01.1 class=0  d[1b5] rA=35
-035  path=0.0 route=0 r7=0.01.1 class=0  d[1b6] rA=36
-036  path=0.0 route=0 r7=0.01.1 class=0  d[1b7] rA=37
-037  path=0.0 route=0 r7=0.01.1 class=0  d[1b8] rA=38
-038  path=0.0 route=0 r7=0.01.1 class=0  d[1b9] rA=39
-039  path=0.0 route=0 r7=0.01.1 class=0  d[1ba] rA=3a
-03a  path=0.0 route=0 r7=0.01.1 class=0  d[1bb] rA=3b
-03b  path=0.0 route=0 r7=0.01.1 class=0  d[1bc] rA=3c
-03c  path=0.0 route=0 r7=0.01.1 class=0  d[1bd] rA=3d
-03d  path=0.0 route=0 r7=0.01.1 class=0  d[1be] rA=3e
-03e  path=0.0 route=0 r7=0.01.1 class=0  d[1bf] rA=3f
-03f  path=0.0 route=0 r7=0.01.1 class=0  rA=40
-040  path=0.0 route=0 r7=0.01.1 class=0  rA=41
-041  path=0.0 route=0 r7=0.01.1 class=0  rA=42
-042  path=0.0 route=0 r7=0.01.1 class=0  rA=43
-043  path=0.0 route=0 r7=0.01.1 class=0  rA=44
-044  path=0.0 route=0 r7=0.01.1 class=0  rA=45
-045  path=0.0 route=0 r7=0.01.1 class=0  rA=46
-046  path=0.0 route=0 r7=0.01.1 class=0  rA=47
-047  path=0.0 route=0 r7=0.01.1 class=0  rA=48
-048  path=0.0 route=0 r7=0.01.1 class=0  rA=49
-049  path=0.0 route=0 r7=0.01.1 class=0  rA=4a
-04a  path=0.0 route=0 r7=0.01.1 class=0  rA=4b
-04b  path=0.0 route=0 r7=0.01.1 class=0  rA=4c
-04c  path=0.0 route=0 r7=0.01.1 class=0  rA=4d
-04d  path=0.0 route=0 r7=0.01.1 class=0  rA=4e
-04e  path=0.0 route=0 r7=0.01.1 class=0  rA=4f
-04f  path=0.0 route=0 r7=0.01.1 class=0  rA=50
-050  path=0.0 route=0 r7=0.01.1 class=0  rA=51
-051  path=0.0 route=0 r7=0.01.1 class=0  rA=52
-052  path=0.0 route=0 r7=0.01.1 class=0  rA=53
-053  path=0.0 route=0 r7=0.01.1 class=0  rA=54
-054  path=0.0 route=0 r7=0.01.1 class=0  rA=55
-055  path=0.0 route=0 r7=0.01.1 class=0  rA=56
-056  path=0.0 route=0 r7=0.01.1 class=0  rA=57
-057  path=0.0 route=0 r7=0.01.1 class=0  rA=58
-058  path=0.0 route=0 r7=0.01.1 class=0  rA=59
-059  path=0.0 route=0 r7=0.01.1 class=0  rA=5a
-05a  path=0.0 route=0 r7=0.01.1 class=0  rA=5b
-05b  path=0.0 route=0 r7=0.01.1 class=0  rA=5c
-05c  path=0.0 route=0 r7=0.01.1 class=0  rA=5d
-05d  path=0.0 route=0 r7=0.01.1 class=0  rA=5e
-05e  path=0.0 route=0 r7=0.01.1 class=0  rA=5f
-05f  path=0.0 route=0 r7=0.01.1 class=0  rA=60
-060  path=0.0 route=0 r7=0.01.1 class=0  rA=61
-061  path=0.0 route=0 r7=0.01.1 class=0  rA=62
-062  path=0.0 route=0 r7=0.01.1 class=0  rA=63
-063  path=0.0 route=0 r7=0.01.1 class=0  rA=64
-064  path=0.0 route=0 r7=0.01.1 class=0  rA=65
-065  path=0.0 route=0 r7=0.01.1 class=0  rA=66
-066  path=0.0 route=0 r7=0.01.1 class=0  rA=67
-067  path=0.0 route=0 r7=0.01.1 class=0  rA=68
-068  path=0.0 route=0 r7=0.01.1 class=0  rA=69
-069  path=0.0 route=0 r7=0.01.1 class=0  rA=6a
-06a  path=0.0 route=0 r7=0.01.1 class=0  rA=6b
-06b  path=0.0 route=0 r7=0.01.1 class=0  rA=6c
-06c  path=0.0 route=0 r7=0.01.1 class=0  rA=6d
-06d  path=0.0 route=0 r7=0.01.1 class=0  rA=6e
-06e  path=0.0 route=0 r7=0.01.1 class=0  rA=6f
-06f  path=0.0 route=0 r7=0.01.1 class=0  rA=70
-070  path=0.0 route=0 r7=0.01.1 class=0  rA=71
-071  path=0.0 route=0 r7=0.01.1 class=0  rA=72
-072  path=0.0 route=0 r7=0.01.1 class=0  rA=73
-073  path=0.0 route=0 r7=0.01.1 class=0  rA=74
-074  path=0.0 route=0 r7=0.01.1 class=0  rA=75
-075  path=0.0 route=0 r7=0.01.1 class=0  rA=76
-076  path=0.0 route=0 r7=0.01.1 class=0  rA=77
-077  path=0.0 route=0 r7=0.01.1 class=0  rA=78
-078  path=0.0 route=0 r7=0.01.1 class=0  rA=79
-079  path=0.0 route=0 r7=0.01.1 class=0  rA=7a
-07a  path=0.0 route=0 r7=0.01.1 class=0  rA=7b
-07b  path=0.0 route=0 r7=0.01.1 class=0  rA=7c
-07c  path=0.0 route=0 r7=0.01.1 class=0  rA=7d
-07d  path=0.0 route=0 r7=0.01.1 class=0  rA=7e
-07e  path=0.0 route=0 r7=0.01.1 class=0  rA=7f
-07f  path=0.0 route=0 r7=0.01.1 class=1  d[1bf] r[00] = k k=4000(+0.5000)
-080  path=0.0 route=0 r7=0.01.1 class=1  r[7f] = k k=2000(+0.2500)
-081  path=0.0 route=0 r7=0.01.1 class=1  r[7e] = k k=1400(+0.1562)
-082  path=0.0 route=0 r7=0.01.1 class=1  d[1be] r[00] = k k=1bed(+0.2182)
-083  path=0.0 route=0 r7=0.01.1 class=1  d[1bd] r[00] = k k=35c3(+0.4200)
-084  path=0.0 route=0 r7=0.03.1 class=2  rA=7d -> w[3f] k=0001(+0.0000)
+000  path=0.0 route=0 op=3 r7=0.01 class=0  d[181] rA=01
+001  path=0.0 route=0 op=3 r7=0.01 class=0  d[182] rA=02
+002  path=0.0 route=0 op=3 r7=0.01 class=0  d[183] rA=03
+003  path=0.0 route=0 op=3 r7=0.01 class=0  d[184] rA=04
+004  path=0.0 route=0 op=3 r7=0.01 class=0  d[185] rA=05
+005  path=0.0 route=0 op=3 r7=0.01 class=0  d[186] rA=06
+006  path=0.0 route=0 op=3 r7=0.01 class=0  d[187] rA=07
+007  path=0.0 route=0 op=3 r7=0.01 class=0  d[188] rA=08
+008  path=0.0 route=0 op=3 r7=0.01 class=0  d[189] rA=09
+009  path=0.0 route=0 op=3 r7=0.01 class=0  d[18a] rA=0a
+00a  path=0.0 route=0 op=3 r7=0.01 class=0  d[18b] rA=0b
+00b  path=0.0 route=0 op=3 r7=0.01 class=0  d[18c] rA=0c
+00c  path=0.0 route=0 op=3 r7=0.01 class=0  d[18d] rA=0d
+00d  path=0.0 route=0 op=3 r7=0.01 class=0  d[18e] rA=0e
+00e  path=0.0 route=0 op=3 r7=0.01 class=0  d[18f] rA=0f
+00f  path=0.0 route=0 op=3 r7=0.01 class=0  d[190] rA=10
+010  path=0.0 route=0 op=3 r7=0.01 class=0  d[191] rA=11
+011  path=0.0 route=0 op=3 r7=0.01 class=0  d[192] rA=12
+012  path=0.0 route=0 op=3 r7=0.01 class=0  d[193] rA=13
+013  path=0.0 route=0 op=3 r7=0.01 class=0  d[194] rA=14
+014  path=0.0 route=0 op=3 r7=0.01 class=0  d[195] rA=15
+015  path=0.0 route=0 op=3 r7=0.01 class=0  d[196] rA=16
+016  path=0.0 route=0 op=3 r7=0.01 class=0  d[197] rA=17
+017  path=0.0 route=0 op=3 r7=0.01 class=0  d[198] rA=18
+018  path=0.0 route=0 op=3 r7=0.01 class=0  d[199] rA=19
+019  path=0.0 route=0 op=3 r7=0.01 class=0  d[19a] rA=1a
+01a  path=0.0 route=0 op=3 r7=0.01 class=0  d[19b] rA=1b
+01b  path=0.0 route=0 op=3 r7=0.01 class=0  d[19c] rA=1c
+01c  path=0.0 route=0 op=3 r7=0.01 class=0  d[19d] rA=1d
+01d  path=0.0 route=0 op=3 r7=0.01 class=0  d[19e] rA=1e
+01e  path=0.0 route=0 op=3 r7=0.01 class=0  d[19f] rA=1f
+01f  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a0] rA=20
+020  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a1] rA=21
+021  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a2] rA=22
+022  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a3] rA=23
+023  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a4] rA=24
+024  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a5] rA=25
+025  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a6] rA=26
+026  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a7] rA=27
+027  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a8] rA=28
+028  path=0.0 route=0 op=3 r7=0.01 class=0  d[1a9] rA=29
+029  path=0.0 route=0 op=3 r7=0.01 class=0  d[1aa] rA=2a
+02a  path=0.0 route=0 op=3 r7=0.01 class=0  d[1ab] rA=2b
+02b  path=0.0 route=0 op=3 r7=0.01 class=0  d[1ac] rA=2c
+02c  path=0.0 route=0 op=3 r7=0.01 class=0  d[1ad] rA=2d
+02d  path=0.0 route=0 op=3 r7=0.01 class=0  d[1ae] rA=2e
+02e  path=0.0 route=0 op=3 r7=0.01 class=0  d[1af] rA=2f
+02f  path=0.0 route=0 op=3 r7=0.01 class=0  d[1b0] rA=30
+030  path=0.0 route=0 op=3 r7=0.01 class=0  d[1b1] rA=31
+031  path=0.0 route=0 op=3 r7=0.01 class=0  d[1b2] rA=32
+032  path=0.0 route=0 op=3 r7=0.01 class=0  d[1b3] rA=33
+033  path=0.0 route=0 op=3 r7=0.01 class=0  d[1b4] rA=34
+034  path=0.0 route=0 op=3 r7=0.01 class=0  d[1b5] rA=35
+035  path=0.0 route=0 op=3 r7=0.01 class=0  d[1b6] rA=36
+036  path=0.0 route=0 op=3 r7=0.01 class=0  d[1b7] rA=37
+037  path=0.0 route=0 op=3 r7=0.01 class=0  d[1b8] rA=38
+038  path=0.0 route=0 op=3 r7=0.01 class=0  d[1b9] rA=39
+039  path=0.0 route=0 op=3 r7=0.01 class=0  d[1ba] rA=3a
+03a  path=0.0 route=0 op=3 r7=0.01 class=0  d[1bb] rA=3b
+03b  path=0.0 route=0 op=3 r7=0.01 class=0  d[1bc] rA=3c
+03c  path=0.0 route=0 op=3 r7=0.01 class=0  d[1bd] rA=3d
+03d  path=0.0 route=0 op=3 r7=0.01 class=0  d[1be] rA=3e
+03e  path=0.0 route=0 op=3 r7=0.01 class=0  d[1bf] rA=3f
+03f  path=0.0 route=0 op=3 r7=0.01 class=0  rA=40
+040  path=0.0 route=0 op=3 r7=0.01 class=0  rA=41
+041  path=0.0 route=0 op=3 r7=0.01 class=0  rA=42
+042  path=0.0 route=0 op=3 r7=0.01 class=0  rA=43
+043  path=0.0 route=0 op=3 r7=0.01 class=0  rA=44
+044  path=0.0 route=0 op=3 r7=0.01 class=0  rA=45
+045  path=0.0 route=0 op=3 r7=0.01 class=0  rA=46
+046  path=0.0 route=0 op=3 r7=0.01 class=0  rA=47
+047  path=0.0 route=0 op=3 r7=0.01 class=0  rA=48
+048  path=0.0 route=0 op=3 r7=0.01 class=0  rA=49
+049  path=0.0 route=0 op=3 r7=0.01 class=0  rA=4a
+04a  path=0.0 route=0 op=3 r7=0.01 class=0  rA=4b
+04b  path=0.0 route=0 op=3 r7=0.01 class=0  rA=4c
+04c  path=0.0 route=0 op=3 r7=0.01 class=0  rA=4d
+04d  path=0.0 route=0 op=3 r7=0.01 class=0  rA=4e
+04e  path=0.0 route=0 op=3 r7=0.01 class=0  rA=4f
+04f  path=0.0 route=0 op=3 r7=0.01 class=0  rA=50
+050  path=0.0 route=0 op=3 r7=0.01 class=0  rA=51
+051  path=0.0 route=0 op=3 r7=0.01 class=0  rA=52
+052  path=0.0 route=0 op=3 r7=0.01 class=0  rA=53
+053  path=0.0 route=0 op=3 r7=0.01 class=0  rA=54
+054  path=0.0 route=0 op=3 r7=0.01 class=0  rA=55
+055  path=0.0 route=0 op=3 r7=0.01 class=0  rA=56
+056  path=0.0 route=0 op=3 r7=0.01 class=0  rA=57
+057  path=0.0 route=0 op=3 r7=0.01 class=0  rA=58
+058  path=0.0 route=0 op=3 r7=0.01 class=0  rA=59
+059  path=0.0 route=0 op=3 r7=0.01 class=0  rA=5a
+05a  path=0.0 route=0 op=3 r7=0.01 class=0  rA=5b
+05b  path=0.0 route=0 op=3 r7=0.01 class=0  rA=5c
+05c  path=0.0 route=0 op=3 r7=0.01 class=0  rA=5d
+05d  path=0.0 route=0 op=3 r7=0.01 class=0  rA=5e
+05e  path=0.0 route=0 op=3 r7=0.01 class=0  rA=5f
+05f  path=0.0 route=0 op=3 r7=0.01 class=0  rA=60
+060  path=0.0 route=0 op=3 r7=0.01 class=0  rA=61
+061  path=0.0 route=0 op=3 r7=0.01 class=0  rA=62
+062  path=0.0 route=0 op=3 r7=0.01 class=0  rA=63
+063  path=0.0 route=0 op=3 r7=0.01 class=0  rA=64
+064  path=0.0 route=0 op=3 r7=0.01 class=0  rA=65
+065  path=0.0 route=0 op=3 r7=0.01 class=0  rA=66
+066  path=0.0 route=0 op=3 r7=0.01 class=0  rA=67
+067  path=0.0 route=0 op=3 r7=0.01 class=0  rA=68
+068  path=0.0 route=0 op=3 r7=0.01 class=0  rA=69
+069  path=0.0 route=0 op=3 r7=0.01 class=0  rA=6a
+06a  path=0.0 route=0 op=3 r7=0.01 class=0  rA=6b
+06b  path=0.0 route=0 op=3 r7=0.01 class=0  rA=6c
+06c  path=0.0 route=0 op=3 r7=0.01 class=0  rA=6d
+06d  path=0.0 route=0 op=3 r7=0.01 class=0  rA=6e
+06e  path=0.0 route=0 op=3 r7=0.01 class=0  rA=6f
+06f  path=0.0 route=0 op=3 r7=0.01 class=0  rA=70
+070  path=0.0 route=0 op=3 r7=0.01 class=0  rA=71
+071  path=0.0 route=0 op=3 r7=0.01 class=0  rA=72
+072  path=0.0 route=0 op=3 r7=0.01 class=0  rA=73
+073  path=0.0 route=0 op=3 r7=0.01 class=0  rA=74
+074  path=0.0 route=0 op=3 r7=0.01 class=0  rA=75
+075  path=0.0 route=0 op=3 r7=0.01 class=0  rA=76
+076  path=0.0 route=0 op=3 r7=0.01 class=0  rA=77
+077  path=0.0 route=0 op=3 r7=0.01 class=0  rA=78
+078  path=0.0 route=0 op=3 r7=0.01 class=0  rA=79
+079  path=0.0 route=0 op=3 r7=0.01 class=0  rA=7a
+07a  path=0.0 route=0 op=3 r7=0.01 class=0  rA=7b
+07b  path=0.0 route=0 op=3 r7=0.01 class=0  rA=7c
+07c  path=0.0 route=0 op=3 r7=0.01 class=0  rA=7d
+07d  path=0.0 route=0 op=3 r7=0.01 class=0  rA=7e
+07e  path=0.0 route=0 op=3 r7=0.01 class=0  rA=7f
+07f  path=0.0 route=0 op=3 r7=0.01 class=1  d[1bf] r[00] = k k=4000(+0.5000)
+080  path=0.0 route=0 op=3 r7=0.01 class=1  r[7f] = k k=2000(+0.2500)
+081  path=0.0 route=0 op=3 r7=0.01 class=1  r[7e] = k k=1400(+0.1562)
+082  path=0.0 route=0 op=3 r7=0.01 class=1  d[1be] r[00] = k k=1bed(+0.2182)
+083  path=0.0 route=0 op=3 r7=0.01 class=1  d[1bd] r[00] = k k=35c3(+0.4200)
+084  path=0.0 route=0 op=7 r7=0.03 class=2  rA=7d -> w[3f] k=0001(+0.0000)
