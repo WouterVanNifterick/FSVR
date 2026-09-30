@@ -68,21 +68,26 @@ r10 [15:3] ?        [2:0] mem
 
 ## 3. Operations (`op` = `r7[8:6]`)
 
-| op | on the cutoff MAC (`098`: rA=62 rB=61 -> w[3e]) | on the output stage (`0f8`: rd w[1], sel=1) |
-|---|---|---|
-| 0 | runaway | nothing |
-| 1 | closed | **output move**: audio to the bus at 0 dB; sel=0 or route 3: a constant (DC) instead |
-| 2 | **shipped**: the corner follows rA x rB | nothing |
-| 3 | closed | nothing |
-| 4 | closed | nothing |
-| 5 | runaway | **+10 dB, V-shaped**: the unfiltered input; identical to rd-en cleared |
-| 6 | closed | nothing |
-| 7 | closed | nothing |
+| op | on the cutoff MAC (`098`: rA=62 rB=61 -> w[3e]) | at the output tap (session 10) | MEG counterpart |
+|---|---|---|---|
+| 0 | runaway | passes rA | `p =s ... + p` accumulate |
+| 1 | closed | floor (~0.02): does not pass rA; 100% carry a read | `p = m` / `p = r` forward move |
+| 2 | **corner follows rA x rB** | passes rA | `p = c * r` multiply |
+| 3 | closed | passes rA | `p = (c<<8) + (p>>15)` mul-acc |
+| 4 | closed | passes rA | mul-acc with memory |
+| 5 | runaway | floor (~0.02): does not pass rA; lowest read rate | `p = c * r` fresh product (discards accumulator) |
+| 6 | closed | passes rA; 100% carry a read | accumulate-forward |
+| 7 | closed | passes rA | shifted mul-acc |
 
-op 2 is multiply-class, op 1 move-class, op 5 on the output stage bypasses the read. The arithmetic of
-each op (multiply vs multiply-accumulate, shifts, what the read subtracts) is **not measured**: every
-probe so far reads through the filter loop or the output bus, both nonlinear in the step's result.
-The FS1R program uses ops {0, 2, 3, 4, 5, 7} on class-2 steps, the AN1x {0, 2..7}.
+**The op field is an ALU-op selector, but its arithmetic cannot be read from one probed step.**
+Session 10 used the output stage's op-1 move as a DC voltmeter on a silenced channel; the tap is
+AC-coupled, so `dc` read converter offset (-2e-5) on all 122 segments and the DC plan is dead. What the
+level *did* show: the output passes `rA` alone, identically for ops {0,2,3,4,6,7}; ops 1 and 5 drop to a
+fixed floor (they start/forward without passing the probed operand); `rB`, the read source, `path` (bar
+the reserved slot 3), and every remaining `r7/r9/r10/r8` bit are all inert on a pass step. The op only
+manifests through the recursive filter loop, which the FS1R never exposes. The MEG column is the close
+(see section 7): the same operation *mix and ordering*, on a chip whose ISA MAME decodes to explicit
+arithmetic. The FS1R program uses ops {0, 2, 3, 4, 5, 7} on class-2 steps, the AN1x {0..7}.
 
 ## 4. The FS1R filter's cutoff path, channel 0, read off the chip
 
@@ -112,18 +117,38 @@ does with an exp table); VCO pitch 4096/octave with a key term; mixer levels `le
 
 ## 6. Interpreter
 
-`tools/vop3_interp.py` runs a program over exactly the fields above and nothing further: class-1 loads,
-class-2 `op 2` = `rA x rB`, `op 1` = move (audio with `sel`, a constant without), `op 5` = pass, the
-`rd-en` read as a subtraction, `wdst` writes, route 0 of an op-1 step onto the output bus. Ops 0, 3, 4,
-6, 7 return 0 until measured (`Interp.ops` takes replacements to test a hypothesis against the takes).
-Its self-check reproduces session 8/9 qualitatively: clearing the cutoff load zeroes the MAC, `sel=0`
+`tools/vop3_interp.py` runs a program over the measured fields: class-1 loads, class-2 `op 2`/`op 5` =
+`rA x rB`, `op 1`/`op 6` = forward-move, `op 0`/`3`/`4`/`7` = `rA x rB + read` (multiply-accumulate),
+the `rd-en` read as the accumulator input, `wdst` writes, route 0 of an op-1 step onto the output bus.
+The op arithmetic is the MEG mapping of section 7, not FS1R gate-level truth (`Interp.ops` takes
+replacements to test an alternative). Its self-check reproduces session 8/9 qualitatively: clearing the cutoff load zeroes the MAC, `sel=0`
 on the output stage emits DC, a class-2 constant changes nothing, and the per-channel step ownership.
 
-## 7. Open
+## 7. Model check against the EX5 MEG (the close for the op arithmetic)
 
-* **Arithmetic per op**: feed the output stage's op 1 from a register a class-1 step just loaded, and
-  sweep the loader's k and the stage's op; the bus is linear in what op 1 moves.
-* `r9[12]`, `r7[11]`, `r10[15:3]`, `mmode` values, `path-hi`: unprobed or single flips.
-* Delay memory (VOP3-2, AN): read from the uploaders only.
-* The EX5 MEG AN program (`docs/ex5_meg.md`) computes the same algorithm with a decoded ISA and is the
-  check for any AN interpretation once the op arithmetic is in.
+The FS1R VOP3 and the EX5 SWP30 MEG run the *same* AN algorithm; MAME decodes the MEG to explicit
+arithmetic (`docs/ex5_meg_an.txt`, the AN program, 254 steps), so it is value-transparent where the
+FS1R is not. `tools/vop3_meg_check.py` classifies every step of both into one vocabulary
+(multiply / accumulate / load-constant / move / memory / lookup) and compares:
+
+* **Operation mix matches.** MEG: 82% multiply-class, 4% load-constant, 13% memory. VOP3 AN1x voice:
+  63% MAC-class, 7% load-constant, 19% memory. Both are MAC-dominated with a small constant-load
+  population and a comparable memory fraction.
+* **Step count is ~2x** (VOP3 512 vs MEG 254): the FS1R runs the engine at a higher internal rate.
+* **The op-1/op-5 pairing reconciles.** Session 10 found ops 1 and 5 do not pass the probed operand at
+  the output tap. In the VOP3 program op 1 and op 6 carry a read 100% of the time (operand-forward /
+  accumulate, MEG's `p = m`), while op 5 is the largest op with the *lowest* read rate (a fresh product
+  `p = c * r` that discards the running accumulator, MEG's most common op). So op 5's "does not pass the
+  preloaded a" is exactly a new-product-start, and op 1's is a forward-move: both consistent with the MEG.
+
+This validates the operation field as a genuine ALU-op selector with the MEG's operation semantics,
+without needing the FS1R accumulator to be observable. Reproduce: `python tools/vop3_meg_check.py`.
+
+## 8. Open (not closable on this hardware)
+
+* **Exact per-op arithmetic** (which shift, signed/unsigned, what the read subtracts) is fixed only up
+  to the MEG mapping above; the FS1R exposes no accumulator, so the last bits are inferred from the MEG,
+  not measured on the FS1R. Good enough to interpret; not a gate-level truth for the FS1R silicon.
+* `r9[12]`, `r7[11]`, `r10[15:3]`, `mmode` values, `path-hi`: inert on every pass step probed; unswept
+  inside the loop.
+* Delay memory (VOP3-2, AN): structure read from the uploaders only.

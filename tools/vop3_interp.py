@@ -62,9 +62,13 @@ class Interp:
         self.w = [0.0] * 64
         self.bus = 0.0
         self.trace = None
-        # ponytail: unmeasured ops return 0; replace entries to test hypotheses against the chip takes
-        self.ops = {0: lambda a, b, c: 0.0, 3: lambda a, b, c: 0.0, 4: lambda a, b, c: 0.0,
-                    6: lambda a, b, c: 0.0, 7: lambda a, b, c: 0.0}
+        # op semantics from the MEG cross-check (docs/vop3_isa.md section 7); the FS1R exposes no
+        # accumulator, so these are the MEG's operations, not gate-level FS1R truth.
+        # 2/5 = fresh product a*b (MEG p=c*r); 1/6 = forward-move a (MEG p=m, read-carrying);
+        # 0/3/4/7 = multiply-accumulate a*b + c (MEG p = c*r + p).
+        self.ops = {0: lambda a, b, c: a * b + c, 3: lambda a, b, c: a * b + c,
+                    4: lambda a, b, c: a * b + c, 7: lambda a, b, c: a * b + c,
+                    6: lambda a, b, c: a}
 
     @property
     def r(self):
@@ -81,12 +85,10 @@ class Interp:
         a, b = r[f["ra"]], r[f["rb"]]
         c = self.w[f["rd"]] if f["rd_en"] else 0.0
         op = f["op7"]
-        if op == 2:
-            y = a * b
+        if op == 2 or op == 5:
+            y = a * b                                # fresh product (MEG p = c*r); op 5 discards the accumulator
         elif op == 1:
-            y = a if f["r7sel"] else 1.0            # sel=0: a constant on the route (DC at full scale)
-        elif op == 5:
-            y = a
+            y = a if f["r7sel"] else 1.0            # forward-move a; sel=0 puts a constant on the route
         else:
             y = self.ops[op](a, b, c)
         if f["rd_en"]:
