@@ -221,7 +221,7 @@ the constant is live on class-2 steps and dead on `rd-en` steps, `r[]` has the p
 
 ## 8. Open
 
-**The decode does not yet run a shipped program.** Every field above is measured on a feed-forward test chain, and `tools/vop3_gaps.py` runs the shipped programs through the interpreter and asserts three gaps that block a C++ rewrite from the decode:
+**The decode does not yet run a shipped program** (full list: `docs/vop3_blockers.md`). Every field above is measured on a feed-forward test chain, and `tools/vop3_gaps.py` runs the shipped programs through the interpreter and asserts three gaps that block a C++ rewrite from the decode:
 
 * **VOP3-1 has no memory.** An impulse on any register filter channel 0 reads and does not load leaves in the same pass with no tail, so the filter as decoded has no pole. Routing class-2 results back into `r[n]` or `r[40|n]`, same pass or next, changes nothing. The state path is undecoded; `path` (exact-match on the feedback loop, inert feed-forward) and class 3 are the candidates.
 * **VOP3-2 reaches no output.** Base image plus reverb 0, variation 0 and insertion 0/0, audio on the input port, every constant 0.5: zero non-zero output samples in 4096. Only test image 1 names its output steps (0e9/0eb); which steps of the shipped program feed the DAC is unknown.
