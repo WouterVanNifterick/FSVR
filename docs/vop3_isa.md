@@ -446,3 +446,26 @@ Measured, not explained:
 Open: what 0x57 / 0x157 / 0x19f (op 0, k 0, mem 1, rB 78 / 7a) write into DRAM. Writing r[rB] makes the tail
 worse (`B13X`, rejected). Swapping the capture source order (`CAPORDER`) breaks 0..613: rejected.
 
+
+**Session 34: all 128 slot offsets; r9[13] is the DRAM write-data select.** (`tools/vop3_board.py` scores every
+dynamic take on disk through the C++ core, `src/fs1r/chips/vop3_core.h`, which `tools/vop3_core_check.py` holds
+bit-identical to `tools/vop3_interp.py`.)
+
+* **The chip has 128 delay slots.** FUN_000397F4's slot lists run to 127 (0x35E23C, 0x35E398) and the area table
+  at 0x3720A4 has 128 bytes; every dump before s34 read 64. The rig dump (FS1R.unlock
+  `captures/2026-10-02-035714-s25`, Hall1 and Hall9) gives the upper 64 with their area bases (0x10000 / 0x20000 /
+  0x30000) and the lower 64 identical to s28. s31's mmode `REGION` guess was standing in for those bases; the model
+  now indexes `offs[slot & 0x7f]` and the guess applies only to a 64-slot dump.
+* **r9[13] on a step makes its output the data of the next DRAM write; a writer carrying r9[13] writes its own.**
+  This replaces s30's "op 5 with rB loads the write latch" (every shipped op-5 comb step carries r9[13]) and s33's
+  "class-0 mem-1 steps write nothing": Hall1's 0x153 / 0x19b / 0x1d3 / 0x1eb are class 0 and write the value the
+  preceding r9[13] step latched (0x146, 0x18e, 0x1cc, 0x1ea). Unmarked writers (0x57, 0x9b) write their own result
+  after a marked step's write has consumed the latch. Census over every VOP3-2 window: r9[13] on 178 steps, 109 of
+  them on a mem-1 step.
+* Scoreboard, 114 step-up segments (s28 and s30-s33 takes): Hall1 step response exact (1 LSB) to sample 5131 L /
+  5002 R (was 2088 / 2228), Hall9 5657 / 5656 (was 1905 / 2039); 102 segments clean past 5000. Python self-check
+  384 / 384.
+
+Open: every Hall1 take still misses at 5002 on R and the segments of the s33 08c-08f / 054-05b round (FS1R.unlock
+`2026-10-02-024751-s25`) at 3065 / 3066; ua4k0800 (0a4 k = 0x0800 after 0a4 = 0x7fff drove the loop to the clip)
+does not recover in the model the way the unit does, which points at the clip / overflow rule inside the comb loop.

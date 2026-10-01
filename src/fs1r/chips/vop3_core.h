@@ -18,7 +18,6 @@
 struct Vop3 {
     // ---------------------------------------------------------------- constants (session that set them)
     static constexpr int    MEMSZ = 1 << 18;   // s16: one 2^18-word delay ring, pointer steps once per pass
-    static constexpr int    REGION = 1 << 16;  // s31: mmode bits 3:2 pick a region. ponytail: size guessed
     static constexpr int    LAT = 3;           // s24 r10: a register written at step n is read from n + 3
     static constexpr int    DLAT = 3;          // s30/s31: d[] writes and captures land 3 steps later
     static constexpr double RANGE = 128.0;     // s24: registers span [-128, 128), word / 256
@@ -35,7 +34,7 @@ struct Vop3 {
     struct Step { uint16_t w[5]; };            // r10 r9 r8 r7 r6
     std::vector<Step> prog = std::vector<Step>(512);
     std::vector<uint16_t> coef = std::vector<uint16_t>(512);
-    int offs[64] = {};                         // DRAM slot offsets (registers 0xD/0xE)
+    int offs[128] = {};                        // s34: DRAM slot offsets incl. area base (regs 0xD/0xE), 128 slots
 
     // ---------------------------------------------------------------- state
     double r[128] = {}, d[128] = {}, acc = 0, inp = 0, dprev = 0;
@@ -63,9 +62,7 @@ struct Vop3 {
     static double accmode(double y, int m) { return m == 0 ? pymod(y + ACC, 2 * ACC) - ACC : mode(y, m); }
     static double clip(double v, double c) { return std::fmax(-c, std::fmin(c, v)); }
 
-    int addr(int slot, int older, int mm) const {
-        return (ptr + offs[slot & 0x3F] + older + REGION * (mm >> 2 & 3)) & (MEMSZ - 1);
-    }
+    int addr(int slot, int older) const { return (ptr + offs[slot & 0x7F] + older) & (MEMSZ - 1); }
     double captured(int slot, double old) const {   // s16: the transfer of slot s - 2, else s - 1, else hold
         for (int want = slot - 2; want <= slot - 1; want++)
             for (size_t i = hist.size(); i-- > 0;)
@@ -84,13 +81,13 @@ struct Vop3 {
         drain(rq, n);
         drain(dq, n);
         const uint16_t *w = prog[st].w, r10 = w[0], r9 = w[1], r8 = w[2], r7 = w[3], r6 = w[4];
-        const int mem_ = r10 & 7, ra = r9 & 0x7F, daddr = r8 >> 7, mm = r8 & 0x7F, route = r7 >> 12 & 3;
+        const int mem_ = r10 & 7, ra = r9 & 0x7F, daddr = r8 >> 7, route = r7 >> 12 & 3;
         const int op = r7 >> 6 & 7, cls = r6 >> 14, rb = r6 >> 7 & 0x7F, f6c = r6 & 0x3F, m = r7 >> 14;
         const int hi = st >= 0x100 ? 0x40 : 0;  // s31: steps >= 0x100 use the upper 64 d[] cells
         const bool xfer = (st & 3) == 3 || (st & 3) == 1;   // s16 phase 3, s17/s30 phase 1 too
         const int slot = st >> 2;
         if (xfer && (mem_ == 2 || mem_ == 3 || mem_ == 4 || mem_ == 6))   // s16: read (4/6 one word older)
-            hist.push_back({slot, mem[addr(slot, mem_ & 4 ? 1 : 0, mm)]});
+            hist.push_back({slot, mem[addr(slot, mem_ & 4 ? 1 : 0)]});
         if ((daddr & 0x180) == 0x100) {          // s16/s30: capture into d[n]
             int c = (daddr & 0x3F) | hi;
             dq.push_back({n + DLAT, &d[c], captured(slot, d[c])});
@@ -106,7 +103,10 @@ struct Vop3 {
                 dput((daddr & 0x3F) | hi, clip(acc, DSAT));
             return;
         }
-        if (cls == 0) return;                    // s33: class 0 (mem 1 included) writes nothing
+        if (cls == 0) {                          // s34: a class-0 mem-1 step writes the latched value (none: nothing)
+            if (xfer && mem_ == 1 && haswl) { mem[addr(slot, 0)] = wlatch; hist.push_back({slot, wlatch}); haswl = false; }
+            return;
+        }
         double k = s16(coef[st]);
         bool rden = r7 >> 4 & 1;
         double g = cls == 3 ? 1.0 : (rden && rb) ? G[r7 & 0xF] : k;   // s19 class 3 = unity; s18 G[rsrc]
@@ -137,10 +137,15 @@ struct Vop3 {
         double out = clip(y, SAT);
         if ((daddr & 0x1C0) == 0x1C0) dput((daddr & 0x3F) | hi, psrc);   // s32/s33: bit 6 writes prev d[f6c]
         else if ((daddr & 0x180) == 0x180 && (op != 7 || (daddr & 0x3F) != f6c)) dput((daddr & 0x3F) | hi, clip(y, DSAT));
-        if (op == 5 && rb) { wlatch = out; haswl = true; }   // s30: op 5 with rB loads the DRAM write latch
+        // s34: r9[13] makes this step's output the data of the next DRAM write (a writer marked so writes its
+        // own). Replaces s30's "op 5 with rB loads the latch" and s33's "class 0 writes nothing".
+        if (r9 >> 13 & 1) {
+            if (xfer && mem_ == 1) haswl = false;
+            else { wlatch = out; haswl = true; }
+        }
         if (xfer && mem_ == 1) {                 // s16: write
             if (haswl) { out = wlatch; haswl = false; }
-            mem[addr(slot, 0, mm)] = out;
+            mem[addr(slot, 0)] = out;
             hist.push_back({slot, out});
         }
     }

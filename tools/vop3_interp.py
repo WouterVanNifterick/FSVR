@@ -63,8 +63,6 @@ QUANT = lambda y: y if QBITS is None else math.floor(y * 2 ** QBITS) / 2 ** QBIT
 DHI = lambda st: 0x40 if st >= 0x100 and DSPLIT else 0
 DSPLIT = True
 REGION = 1 << 16          # ponytail: region size guessed (offsets < 2^16 on Hall1); measure when a 0x1xx program uses memory
-CLS0W = None             # s33: class-0 mem-1 steps write nothing (Hall1 0x153 would clobber 0xd1's line; d[39] onset 3066)
-B13X = False             # s33 H (rejected): op-0 k-0 mem-1 writes of r[rB]; R tail rms err 0.00127 -> 0.00215
 TAPKILL = False           # s33: 03f tap still writes DRAM (1367 echo at 1980); 08f result was the capture order
 DLAT = 3                 # s31: steps from a d[] write to d[n] (d[3e] / d[22] / d[3b] taps), not pass end
 CAPLAT = 3               # s30: steps from a capture (daddr 0x100|n) to d[n] (Hall1 tail onsets 1346 / 346 exact)
@@ -143,7 +141,12 @@ class Interp:
         """The word written `offset(slot) - offset(write slot) + older` passes ago (the pointer steps down).
         s31: mmode bits 3:2 pick a region (base 0x40, the 0x1xx programs 0x44 / 0x48); without it Hall1's 0x1d3
         zeroes 0xd1's comb line and d[26] / d[27] / d[39] / d[3c] stay silent."""
-        return (self.ptr + self.offs.get(slot & 0x3F, 0) + older + REGION * (mmode >> 2 & 3)) & (MEM - 1)   # ponytail: 64 offset registers (firmware), slot & 0x3f assumed for steps >= 0x100
+        # s34: 128 slot offsets (FUN_000397F4 slot lists run to 127); the upper slots carry the area bases
+        # (0x10000 / 0x20000 / 0x30000) that s31's mmode REGION guess stood in for. With only 64 dumped, the
+        # upper slots fall back to the old guess.
+        if slot & 0x7F in self.offs:
+            return (self.ptr + self.offs[slot & 0x7F] + older) & (MEM - 1)
+        return (self.ptr + self.offs.get(slot & 0x3F, 0) + older + REGION * (mmode >> 2 & 3)) & (MEM - 1)
 
     def captured(self, slot, old):
         """Session 16: a capture in slot s takes the DRAM transfer of slot s-2, else of s-1, else keeps its
@@ -203,8 +206,8 @@ class Interp:
                 self.dput(f["daddr"] & 0x3F | DHI(st), max(-DSAT, min(DSAT, self.acc)))
             return
         if cls not in (2, 3):
-            if CLS0W and cls == 0 and (dram or st & 3 == 1) and f["mem"] == 1:
-                v = CLS0W(self)                                    # (Hall1 0x153 feeds the 1452-sample line read at 0xa3)
+            if cls == 0 and (dram or st & 3 == 1) and f["mem"] == 1 and self.wlatch is not None:
+                v, self.wlatch = self.wlatch, None                 # s34: class 0 mem 1 writes the latched value
                 self.mem[self.addr(st >> 2, 0, f["mmode"])] = v
                 self.bus_hist.append((st >> 2, v))
             return
@@ -244,10 +247,11 @@ class Interp:
             self.dput(f["daddr"] & 0x3F | DHI(st), self.psrc)   # whatever this step's op / k or the previous k (s32a, cumulative)
         elif f["daddr"] & 0x180 == 0x180 and (op != 7 or f["daddr"] & 0x3F != f["f6c"]):   # s30: op 7 writes d[] too (not onto its own source cell)
             self.dput(f["daddr"] & 0x3F | DHI(st), max(-DSAT, min(DSAT, y)))   # s27: d[] is wider than the DRAM word
-        if op == 5 and f["rb"]:
-            self.wlatch = out                    # s30 H: op 5 with rB loads the DRAM write latch
-        elif B13X and f["mem"] == 1 and f["rb"] and op == 0 and not k:
-            self.wlatch = max(-SAT, min(SAT, x))   # s33 H: r9 bit 13 on a plain write stores r[rB] (0x157 / 0x19f: r78, the FIR sum)
+        if self.steps[i][1] >> 13 & 1:          # s34: r9[13] = this output is the next DRAM write's data;
+            if (dram or st & 3 == 1) and f["mem"] == 1:   # a writer marked so writes its own (replaces s30's
+                self.wlatch = None                 # op-5 latch and s33's class-0-writes-nothing)
+            else:
+                self.wlatch = out
         if (dram or st & 3 == 1) and f["mem"] == 1 and not (TAPKILL and f["daddr"] & 0x180 == 0x180):   # write (r10 = 1; s16); s17 / s30: phase-1 writes live
             # s33 H: a step that also writes d[] (daddr 0x180|n) does not write DRAM
             if self.wlatch is not None:

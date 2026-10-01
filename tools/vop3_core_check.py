@@ -20,6 +20,7 @@ import vop3_step as S  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 TAKE = ROOT.parent / "FS1R.unlock/captures/2026-10-01-215125-s25"
+OFFS = ROOT.parent / "FS1R.unlock/captures/2026-10-02-035714-s25/session.json"   # s34: all 128 slot offsets
 DRIVER = r"""
 #include "fs1r/chips/vop3_core.h"
 #include <cstdio>
@@ -28,7 +29,7 @@ int main(int, char** a) {
     std::scanf("%d %d %d %d", &settle, &n, &k, &kv);
     for (auto& s : v.prog) for (auto& w : s.w) std::scanf("%hu", &w);
     for (auto& c : v.coef) std::scanf("%hu", &c);
-    for (int& o : v.offs) std::scanf("%d", &o);
+    for (int& o : v.offs) std::scanf("%d", &o);   // 128
     double L, R;
     for (int i = 0; i < settle; i++) { v.pass(); v.dac(L, R); }
     v.coef[k] = kv;
@@ -47,7 +48,7 @@ def build():
 
 def cpp(exe, load, n, settle=200):
     prog, coef = S.patched(load)
-    offs = (list(load["offsets"]) + [0] * 64)[:64]
+    offs = (list(load["offsets"]) + [0] * 128)[:128]
     words = [settle, n, 0x1F1, 0x10] + [w for s in prog for w in s] + list(coef) + offs
     out = subprocess.run([str(exe)], input=" ".join(map(str, words)), capture_output=True, text=True, check=True).stdout
     return np.array([list(map(float, l.split())) for l in out.splitlines()])
@@ -56,6 +57,10 @@ def cpp(exe, load, n, settle=200):
 if __name__ == "__main__":
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 3000
     loads = json.loads((TAKE / "session.json").read_text())["results"]["probe"]["loads"]
+    full = json.loads(OFFS.read_text())["results"]["probe"]["loads"]
+    for cfg in full:
+        assert full[cfg]["offsets"][:64] == loads[cfg]["offsets"]
+        loads[cfg]["offsets"] = full[cfg]["offsets"]
     exe = build()
     for cfg in ("rev1", "rev9", "var1"):
         c, p = cpp(exe, loads[cfg], n), S.model(loads[cfg], n)
