@@ -28,7 +28,7 @@ struct State::Impl {
     Msg midi[256];
     std::atomic<uint32_t> midiHead{0}, midiTail{0};   // head: next write, tail: next read
     // What the audio side reports (written on the audio thread, read by the GUI).
-    std::atomic<bool> held[128] = {}, sustained[128] = {}, pedal{false};
+    std::atomic<bool> held[128] = {};
     std::atomic<int> bend{0}, voices{-1}, learnParam{-1};
     std::atomic<int> ccs[128], ccMap[128];   // last value (-1 = never), assigned param (-1 = none)
     std::atomic<unsigned> midiCount{0};
@@ -194,23 +194,18 @@ void State::midiIn(const uint8_t* b, int count) {
     m.midiCount.fetch_add(1, std::memory_order_relaxed);
     if (count < 2) return;
     int status = b[0] & 0xf0, d1 = b[1] & 127, d2 = count > 2 ? b[2] & 127 : 0;
+    // A key is lit from its note on to its note off. A sustain pedal is not followed: a keyboard
+    // showing every key played since the pedal went down says nothing about what is being played.
     if (status == 0x90 && d2 > 0) {
         m.held[d1].store(true);
-        m.sustained[d1].store(false);
     } else if (status == 0x80 || status == 0x90) {
-        if (m.pedal.load()) m.sustained[d1].store(true);   // the pedal keeps it sounding
-        else m.held[d1].store(false);
+        m.held[d1].store(false);
     } else if (status == 0xe0) {
         m.bend.store((d1 | d2 << 7) - 8192);
     } else if (status == 0xb0) {
         m.ccs[d1].store(d2);
-        if (d1 == 64) {
-            m.pedal.store(d2 >= 64);
-            for (int n = 0; n < 128 && d2 < 64; ++n)
-                if (m.sustained[n].exchange(false)) m.held[n].store(false);
-        }
         if (d1 == 120 || d1 == 123)
-            for (int n = 0; n < 128; ++n) { m.held[n].store(false); m.sustained[n].store(false); }
+            for (int n = 0; n < 128; ++n) m.held[n].store(false);
         int learning = m.learnParam.exchange(-1);
         if (learning >= 0) {   // one parameter, one controller: learning moves an older assignment
             for (int c = 0; c < 128; ++c)

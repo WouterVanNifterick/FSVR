@@ -279,7 +279,7 @@ Further `menu` fields:
 
 ### MIDI in and MIDI learn
 
-- The piano marks keys held by incoming MIDI as pressed. Its fields: `"velocity"` (a fixed velocity; without it the height on the key decides), `"glide": false` (dragging across keys does not retrigger).
+- The piano marks keys held by incoming MIDI as pressed, each from its note on to its note off. A sustain pedal is not followed: a keyboard showing every key played since the pedal went down says nothing about what is being played. Its fields: `"velocity"` (a fixed velocity; without it the height on the key decides), `"glide": false` (dragging across keys does not retrigger).
 - A dial with `"midi"` also shows incoming MIDI of that kind (pitch bend, CC n): dragging and incoming messages move the same value.
 - MIDI learn: while the internal param named by `skin.json` `"learn": { "param": "gui.midi_learn", "outline": "#ff000099" }` is on, clicking a widget with a host `param` makes it the learn target (drawn with a 1 px outline in that colour on its rect); the next incoming CC is assigned to that param. Assignments are saved with the instance; an assigned CC moves its param. `learn.defaults` (`{ "7": "master.volume", ... }`, CC number to param id) are the assignments a fresh instance starts with. A `"source": "midi_map"` list shows them (`cc | param name`), then its `"fixed"` rows unless already listed: `{ "param": "<id>" }` (that param's assigned CC, or -1) and `{ "label": "<text>", "ccParam": "<internal param>" }` (a row whose CC cell shows and edits that param), its CC cells editable, and its `context` items may use the actions `{ "midi_map": "remove" }` and `{ "midi_map": "reset" }`.
 

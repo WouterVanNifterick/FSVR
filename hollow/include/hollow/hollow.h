@@ -99,7 +99,7 @@ public:
     void midiIn(const uint8_t* bytes, int size);   // key and wheel display, MIDI learn, assigned CCs
     void setLoad(double fraction);                 // time spent in process() / block duration
     void setVoices(int voices);
-    bool noteHeld(int note) const;
+    bool noteHeld(int note) const;                  // from a note on to its note off; a sustain pedal is not followed
     int pitchBend() const;                          // -8192..8191
     int cc(int number) const;                       // last value 0..127, -1 if never received
     unsigned midiInCount() const;                   // grows with every incoming message
