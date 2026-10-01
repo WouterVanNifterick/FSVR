@@ -233,3 +233,216 @@ Session 16 (`captures/2026-10-01-0535-s16`, test image 1) closed the delay memor
 rows of section 2 and the interpreter's DRAM model are its measurements. Recorded but not modelled, because
 no shipped program uses them: a capture step at 0dc..0de or 0e5 (R == L at lag 0 / +1 on test image 1) and
 0e0 turned into a `d[18b]` step write (0e9 at 0.42 x L).
+
+**Sessions 17-19 (remote rig, 2026-10-01; folders on the rig under `~/FS1R.unlock/captures/2026-10-01-17*`):**
+
+* **op 0 with rA and rB both set, below route 3: rA is a destination, not an operand.** x = r[rB], y = s + k x,
+  and r[rA] = y (scaled x16 by route, as the d[]/DRAM writes are: route 0 x1, route 1 x2). With rA = rB this
+  is a recursive integrator: r[32] settles to s / (1 - k) at route 0 (s = 0.375 / 0.5, k = 0..0.25: 0.375 /
+  0.3999 / 0.4285 / 0.5 and 0.5 / 0.5333 / 0.5714 / 0.6666, all to 1e-4) and 2s / (1 - 2k) at route 1
+  (s18: s = 0.25, k = 0.25 / 0.125: 1.0 / 0.667). The
+  register keeps its value across passes: this is the chip's state, the comb's damping pole (base 0a5) and the
+  missing VOP3-1 filter memory. Route 3 still sums (session 15). Interpreter: in, with its self-check.
+* **Class 3 is class 2 at unity gain with rA as destination.** k is ignored; op 0 gives s + r[rB], op 1 2 r[rB]
+  (x + x), ops 2/3 r[rB], op 4 s, op 5 r[rB] (not sgn); r[rA] and the running value both take y (s19,
+  s = 0.5, r[33] = 0.25, all six exact). Clearing the reverb window's 16 class-3 steps silences the reverb
+  (s17 `c3_off`, R exact zero). Interpreter: in.
+* **rd-en with rB set: the gain is a 16-entry file G[rsrc], not k and not zero.** Op 2, x = 1.0, k 0.5:
+  G = 0.99988, 0.10144, -0.07422, 0, -0.33203, 0, 0.99988, 0, -0.50757, 0, 0, 0, -1, -1, 0, 0 (rsrc 0..f),
+  linear in x (x = 0.5 halves it), the same on ops 0/2/3; op 1 adds x (1.10144). A step writing w[02] in the
+  same pass does not change G[2], so G is not this pass's w[]. Its writer is open (blocker 4 narrowed):
+  the values are what the effect programs left. Interpreter: the measured table, as a constant.
+* **Class 1 with rB set adds:** r[rA] = k/256 + r[rB], r[rB] unchanged (2.0 + 0.5 = 2.5, both r7 forms).
+* **Comb 1 (Hall1, time 0.8 s) on the unit:** period 4974 samples = read slot 22 - write slot 2a (+1000 on
+  either moves it by 1000, slot 28 inert), echo ratio 0.412 = the loop 2 (x3 + x4 z^-1) / (1 - 2 p z^-1) of
+  0a3/0a4/0a5's words at its peak (`tools/vop3_comb_check.py`, five segments). Zeroing 0a9's word kills the
+  comb (0a9 is the input gain).
+* **Off-phase DRAM marks are live:** the write moved to phase 2 still writes; to phases 1 / 0 it changes the
+  line (gain 1.1, lag 0); a read on phase 1 also reads. r10 = 5/6/7 on the write and 5/7 on the read are
+  not the shipped meanings (uncorrelated / unchanged).
+* **Output path (s17 `walk`, Hall1, noise held):** the dry note (L, part panned hard left) drops 25-35 dB
+  only when 002, 0e0, 0e7 or 0ea is cleared; the reverb (R) goes to exact zero only when 0d5 or 0d9 is cleared.
+  Clearing 12d left R dead for the rest of the take (state latched at zero), so steps after 12d were not
+  measured on R, and the note clipped L near 0 dBFS. Needs a re-walk at a lower level with a state reset.
+* **EQ frequency:** the dumped coefficients evaluated at 48 kHz fit the measured responses better than at
+  44.1 kHz on all three (1.37 / 1.45 / 1.38 dB rms against 1.42 / 1.55 / 1.60), the measured peaks sitting
+  at 539 / 1131 / 2150 Hz for words designed at 500 / 1000 / 2000 Hz at 44.1 kHz. Leaning 48 kHz; the
+  fit is not decisive.
+
+**Sessions 20-23 (remote rig): VOP3-2's buses, and a reset that needs no power-cycle.**
+
+* **Output:** the left / right DAC words are r[09] / r[0a] after the last step (a class-1 load of 0.25 into
+  either at the free step 10f reads 0.5 x 1/16 on that channel only; DAC = r / 8). The base program writes them
+  last at 0e7 / 0df (op 0, route 2, rA the destination).
+* **Inputs (s22, all 127 registers read into L per bus configuration):** the reverb send pair arrives in
+  r[03] / r[04] (and r[57..5c]), the variation send pair in r[05] / r[06] (and r[67..6c]), the insertion pair
+  in r[07] / r[08] (and r[43..4e]); each at the same level (-49.5 dB on a -42 dB send). The dry part reaches
+  the output already mixed: with the effects off, r[09] / r[0a] and the output-EQ chain r[23..2a] carry it at
+  the DAC level, 1-3 samples ahead. So the chip's audio inputs are register writes by the hardware before the
+  pass, which is where the "read, never written" registers of the program come from.
+* **Reset:** FUN_0003AAC8 (the boot's VOP3-2 sequence: init, every effect handler, programs, unmute) plus
+  all-notes-off clears latched state; FUN_0003A064 + FUN_0003A110 alone leave the chip muted.
+  FS1R.unlock `tools/vop2_reset.py`.
+* **End-to-end (s23):** the effect input r[03] (or r[05]) and the output r[0a] recorded together for reverb
+  0/1/9/13/16 and variation 1/9, with the constants, offsets and selectors dumped. The interpreter fed that
+  input does not reproduce the output yet: the reverb program saturates (+-8) inside the comb section and
+  r[0a] stays 0. That run is the acceptance test the C++ rewrite needs; it is not passed.
+
+**Session 24 (remote rig, rounds 1-4, 80 DC probes; `docs/vop3_probes.json`, `tools/vop3_probe.py check`).** One
+rule set reproduces 79 of them and session 11's op table; it replaces the session 18/19 readings above (they were
+the special cases rA = rB and route 0 of it):
+
+* x = r[rB]; **rB = 0 names r[0], the chip input**, not the running value (rB 0 on a silent input gives 0 on
+  ops 1/2/3; op 0 then passes s).
+* y = op(s, k, x), then **y is scaled by the route, x1 / x2 / x4 / x16 (route 0..3)**, and s = y.
+* **rA != 0 writes r[rA] = y** on every class-2/3 step, any route (route 3 included: the session 15 "sum"
+  was this write plus the next step's read).
+* Class 3 is class 2 with k = 1. Class 1 loads r[rA] = k/256 plus r[rB] (rB set) or plus s (rB 0), scaled by
+  the route, and s takes the value.
+* Open: one probe (`G5_op6_r30_r`, class 1 r7 = 0x1180, the shipped op-6 load form) stores -8 where the rule
+  gives +8; and nothing tried writes the rd-en gain file G[] (op-6 loads with wdst 5/7, a plain load and a
+  class-2 step with wdst 5: G[5] stays 0).
+
+**End-to-end (`tools/vop3_e2e.py`, session 23's recorded input):** still 0 on r[0a] for var1, rev1, rev9; the
+insertion-1 window saturates within one pass (its steps lean on G[12] / G[13] and the op-6 loads, both open).
+
+**Sessions 24-27 (remote rig): number formats, latency, z^-1 registers, the real DAC taps.**
+Measured on the unit; every rule is asserted by `tools/vop3_interp.py` (349 probes in `docs/vop3_probes.json`)
+or `tools/vop3_ship.py` (shipped program, `docs/vop3_ship/`, 41 of 41).
+
+* Registers hold [-128, 128) (word / 256); the running value s is [-256, 256). r7[15:14] picks the overflow
+  rule: 0 wraps, 1 saturates, 2 clamps negatives to 0, 3 takes |y|.
+* A register written at step n is readable from step n + 3; steps n + 1, n + 2 see the old value.
+* Class 1: r[rA] = k/256 + s (rB does not replace s), times the route.
+* Op 5 with rB set (class 2): max(r[rB], 0), k only gates; the comb input steps use it.
+* rd-en gain file G[rsrc]: a fixed table (same on a blank image and under the insertion program; no step writes it).
+* rA with bit 7 set (word 1 bit 7) is a z^-1 write: the register gets the previous step's x operand (r[rB] of
+  the step before), not this step's result; after a step with rB = 0 it gets its own x. The base program's
+  biquads (066-074, 0b6-0c4) keep their delay state this way.
+* d[] holds at least +-32 (it is not clipped to the DRAM word's +-8).
+* The DAC plays d[0x10] (L) and d[0x11] (R), written by base steps 0cf / 0d0 (route 3, x16); unit readout =
+  d / 4 in the s25 units (DAC full scale = d 32). Session 22's "r[09] / r[0a] after the last step" was only
+  what the base program reads into them. Steps 06a / 0ba are where the output biquads read r09 / r0a.
+* Input registers change mid-pass: r0e tapped at 0x010 and at 0x110+ differ by one sample (boundary between
+  0x108 and 0x110), r0d by two; the external (VOP3-1 to VOP3-2) bus writes land partway through the pass.
+* Still open: probes that break the output biquad loop (06a-06e, 0b9-0bb) settle at +-8 on the unit with a
+  sign the model does not reproduce (unstable loops, history-dependent); the end-to-end replay needs a fresh
+  paired take using the tap method above and the mid-pass input timing.
+
+**Session 28 (remote rig): step responses on the shipped programs, sample-exact.**
+`tools/vop3_step.py`, `tools/vop3_seq.py`; kept-patch probes (s25 runner `keep`), data in FS1R.unlock s28 folders.
+
+* Base program inputs (steps 000-007) re-pointed at a loaded register and stepped 0 -> 1/16: the dry path of
+  every shipped program (none, Hall1, variation 1, Hall 9) matches the model to the bit: DAC word 18-bit,
+  value floor(d / 4 x 2^14) / 2^14 (readout units), R leaves the chip in the pass the input changes, L one pass
+  later (`Interp.dac()`).
+* 24 register taps (0cf re-pointed) on Hall1 with the step held: all match the model.
+* The reverb tail does NOT appear in the model: on the unit, L (tapped at r77/r78/r1d/r29) starts moving
+  1346 / 1473 samples after the step (r37/r3c: 5112 / 5619), with exact first samples 0.000977, 0.002319,
+  0.002869, 0.003052. The model's delay memory stays empty: its comb feed is op 7 / op 4 steps with rB = 0
+  (0x2a-0x2e, 0xa3-0xb3, 0xd2-0xd3) whose source is not modelled. Probes so far:
+  - op 7 / op 4 source is not d[] when daddr bit 8 is clear, not w[r6 slot], not the register x (rounds 13-15,
+    all read 0 on test image 0, where no DRAM transfer runs).
+  - Hypotheses tried against the 1346-sample onset and rejected: op 7 = k x previous step's x (right sample
+    values, but no delay: tail at sample 0); op 7 / op 4 = k x the DRAM transfer of slot s - 2 / s - 1 (no
+    tail at all, the memory is never written).
+  - Next: a probe on the shipped program that writes a known value into one comb's DRAM write step and reads
+    the op 7 chain's result through 0cf, to find which transfer op 7 multiplies.
+
+**Session 29 (remote rig): the shipped Hall1 step by step; op 7's operand; class-1 d[] writes.**
+Shipped Hall1 with every DRAM write cut (r10 = 0) and the inputs held at 1/16, each of its 380 live steps tapped
+in turn to d[10] (daddr 190, the left DAC): **378 / 380 match the model** (`docs/vop3_ship/29c.*`). Rules added:
+
+* **Op 7's operand is d[r6[5:0]]** (the step's `f6c` field), not daddr: probe D_o7_10 (f6c 0x10) reads the
+  left's d[10]; daddr 18d with f6c 0 reads 0 (s24 round 14). Test image 0's own op-7 steps (0d0 f6c 01, 0d4 f6c
+  05) read the audio input, so the input arrives in d[1] / d[5] (`INPUT_D`, test-image layout only).
+* **Class 1 with r9[12:8] set writes d[n]** for daddr 0x180|n (the 8 Hall1 taps on its `1c7c` / `1d01` / `1c7e`
+  loads); plain, op-6 and op-1 loads write nothing there.
+* Memory probes need test image 1 (`{"image": 1}` in the s24 runner) or a shipped program; on test image 0 no
+  DRAM transfer is observable (every round-16/17 memory probe read 0 on both images, so the transfer path of
+  hand-built steps is still not understood; image 1 as shipped (J_ship) does round-trip a value).
+
+Still open, blocking the reverb tail (the model's delay memory stays empty on Hall1, the unit's L tail starts
+1346 samples after the step: read slot 0 (offset 29998) minus write slot 0xd (28652), moved 1:1 by slot 0xd's
+and slot 0's offsets (346 / 1614 after +-1000), so the tail is the delay line written at slot 0xd (step 0x37,
+op 4 rB 0, mem 1) and read at slot 0 (step 0x03)):
+* what the comb write steps (op 4 / op 5 / op 7 with rB = 0 and mem 1) carry: tapping them on the unit gives 0
+  with memory writes cut, while tapping 0x29 / 0x34 (op 5 rB 34 / 31, k 0) with memory live gives a rising
+  non-zero value (0.0065, 0.0156, 0.0191, 0.0208 readout) that the model's op-5 gate (k 0 -> 0) does not produce.
+
+**Session 30 (remote rig): the reverb tail starts in the model, to the sample.**
+Hall1 step response, input 0 -> 1/16 (s28 takes; s29a offset-moved takes; s30a: sixteen d[] cells tapped through
+an op-7 step at 0cf). Rules added to `tools/vop3_interp.py`, all against unit data:
+
+* **Op 5 with rB: max(r[rB], 0) + k x d[f6c]** (the comb write: feedback plus input gain); k does not gate
+  (K_o5_k0 on image 1 writes 0.25 with k 0). **Op 4: s + k x d[f6c]** (the FIR taps).
+* **Captures land three steps late** (`CAPLAT = 3`): with it the L tail of every Hall1 take starts on the
+  unit's sample (1346 as shipped, 346 with slot 0xd + 1000; taps r77 / r1d / 02b / 02c / 02e / 036 / 037 / 03f
+  match their first ~100 tail samples to the LSB).
+* **DRAM reads and writes also run on phase 1** (step & 3 == 1; the shipped comb writes 0a9..0b5, 0d1).
+* **Op 7 writes d[daddr]** like the other ops, except onto its own source cell.
+* **d[] has 64 cells: the cell is daddr & 0x3f** (Hall1's comb outputs at daddr 1e2..1e7 land in d[22..27];
+  their onsets 5587 / 4880 / 4200 / 3763 match the model within one sample).
+
+Measured and not yet matched (`docs/vop3_ship/30a.probes.json`, takes in FS1R.unlock s30 folders):
+* tail amplitude: d[3e] (op-4 FIR at 04c-04f) is 0.46 x the model from its first sample; the rest of the tail
+  follows it, so the late tail (beyond ~1490 samples on L, ~1487 on R) drifts by 1-30 LSB.
+* d[26], d[27], d[39], d[3c] stay 0 in the model but carry the tail on the unit (onsets 3066, 5080, 3066, 1487);
+  d[17] moves in the model (614) and stays 0 on the unit.
+* o0p1000 (slot 0 + 1000): unit 1614, model 1997.
+
+**Session 31: d[] write timing, DRAM regions, the upper d[] bank.** Checked against the s30a d[]-cell taps and
+s31a step taps (steps 040, 041, 04c..04f with memory live; `docs/vop3_ship/31a.probes.json`).
+
+* **A step's d[] write lands 3 steps later in the same pass** (`DLAT = 3`), not at pass end. This was the
+  0.46 "gain" on d[3e]: with it d[3e] matches the unit to 1 LSB over its first 400 samples (it was 0.46 x).
+  Steps 040..04f themselves match to 1 LSB.
+* **mmode bits 3:2 select a DRAM region** (`REGION`, size assumed 2^16; Hall1 0x1d3 / 0x177 carry 0x44 / 0x48).
+  Without it 0x1d3 overwrote 0xd1's comb line. d[3c] now starts on the unit's sample (1487).
+* **Class-0 steps with mem 1 write the running value** (Hall1 0x153, the 1452-sample line read at 0xa3).
+* **Steps >= 0x100 use the upper 64 d[] cells** (`DHI`): d[17] (written by 0x11c) stays 0 on the unit; now in
+  the model too.
+* Regression: 384 / 384 s24 probes, s28a dry takes bit-exact.
+
+Open:
+* **daddr bit 6 (0x1e2..0x1e7, the comb outputs):** onsets match (d22..d25 to the sample), level is ~4-5.6 x the
+  model and not a plain gain; a lag -1 fit gives y = 3.99 x(read at 0xa3, one step earlier), i.e. close to a x4 copy
+  of the DRAM read. Four simple variants (4 x previous operand, 4 x running value, now / pass end) do not fit.
+* d[26], d[27], d[39] still silent in the model (unit onsets 3066, 5080, 3066).
+
+**Session 32: daddr bit 6 (the Hall1 comb-output writes 0x1e2..0x1e7).** Probes edit step 0a4 / 0a3 of shipped
+Hall1 and tap d[22] (`docs/vop3_ship/32a.probes.json`, `32b.probes.json`). Capture check: the takes carry 18
+effective bits, left-justified (low 14 bits zero in all 587k non-zero samples of the s31 take, no dither).
+
+* With bit 6 set and k != 0, the step writes d[n] = the previous step's operand (d[f6c] of 0a3), not its own
+  result: d[22] = 3.987 x the op-7 read, lag 1, residue 1 LSB (`base`). The op and the value of k do not
+  matter (k 0x0800 / 0x4000 / 0xc000 and op 0 all give the same take). k = 0 gives the plain write
+  (`k0`: d[22] = 0a4's result, 1 LSB), as does clearing bit 6 (`b6off`, 1 LSB).
+* Now in the model: d[22] matches 1 LSB for its first 9 samples, then drifts.
+
+Measured, not explained:
+* Step 0a3 with k = 0: the unit's d[22] is 0, the model's is not. So the written value does depend on
+  0a3's k after all. The 3.99 x operand fit is a coincidence of this k, or the value is 0a3's product times
+  a fixed gain (0.17834 x 22.36).
+* 0a3 k = 0x4000: d[22] alternates +8 / -8 every sample on the unit (a sign-flipping loop through d[38]).
+* 0a4 k = 0x7fff: d[22] = -8 constant.
+* d[23..27], d[38..3f] drift after 4..40 samples; d[26], d[27], d[39] stay silent in the model.
+
+**Session 33: bit-6 rule settled, Hall1 step taps with memory live.** (`docs/vop3_ship/33a.probes.json`,
+`33c.probes.json`; s32a / s33b probes ran with `keep`, so each probe carries the earlier patches: the s32
+"0a3 k = 0 silences d[22]" result was 0a4 k = 0 plus 0a3 k = 0, not a dependence on 0a3's k.)
+
+* **daddr bit 6 writes d[n] = the previous step's operand d[f6c]**, one pass later, whatever this step's op,
+  k or the previous step's k: 0a3 k = 0x0400 / 0x0b6a / 0x16d4 / 0x2000 / 0xe92c all give the identical d[22]
+  take (gain 3.987 on the model's d[38] read, residue 1 LSB). Without bit 6 it is the plain result write.
+* **Class-0 steps with mem 1 write nothing** (s31's "running value" rule withdrawn; it zeroed 0xd1's line).
+  d[26] and d[39] now start on the unit's sample (3066).
+* 28 Hall1 step taps with memory live (01d..08f): 27 match to 1 LSB over 2400 samples; 08f drifts at 2389.
+* d[] cells: d16, d17, d22 exact over 6000 samples; the others start on time and match for 1060 samples,
+  then miss a negative step (d3c at 2549 = 1487 + 1062: the 0x57 -> 0x33 line, written with 0 in the model).
+* Step-response takes (s28a, 8000 samples): Hall1 exact to sample 2088, Hall9 to 1905; tail rms error 1.3x
+  (Hall1) and 1.1x (Hall9) the unit's tail rms.
+
+Open: what 0x57 / 0x157 / 0x19f (op 0, k 0, mem 1, rB 78 / 7a) write into DRAM. Writing r[rB] makes the tail
+worse (`B13X`, rejected). Swapping the capture source order (`CAPORDER`) breaks 0..613: rejected.
+

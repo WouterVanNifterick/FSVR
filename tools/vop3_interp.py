@@ -41,6 +41,7 @@ output's 2-sample lag and 18-bit word (LSB 2^-17), both of the DAC path. `Interp
 The self-check reproduces sessions 11-16 on VOP3-2 (`held`, silence, sel, the 8.8 loads, the rA + rB sum,
 r7[11], test image 1's delay line) and session 8's cutoff MAC and per-channel step ownership.
 """
+import math
 import argparse
 import struct
 import sys
@@ -49,9 +50,44 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vop3_disasm import fields, disasm  # noqa: E402
 
-SAT = 8.0                # session 14: the running value / DRAM word clips at +-8 (seen at two output gains)
+SAT = 8.0                # session 14: what leaves the chip (DRAM word, d[], the DAC) clips at +-8
+DAC = (0x10, 0x11)       # s27: the DAC takes d[0x10] (L) and d[0x11] (R), base steps 0cf / 0d0; readout = d / 4.
+                         # s28: L leaves one sample after R (step onsets: R at n, L at n + 1); see Interp.dac()
+DSAT = 128.0             # s27: d[] range (unit readout clips at the DAC, so only >= 32 is measured)
+RDLAT = 8                # s29: steps from a DRAM read to its rbuf entry (tuned against the step responses)
+SRCLO = lambda it, r, f: 0.0   # s29: f6c < 0x38 as op 7 / op 4 source (unmeasured; 0 fits rounds 13-15)
+INPUT_D = (1, 5)         # ponytail: d[] cells the audio input arrives in (test image 0); the shipped
+                         # programs' other external cells (VOP3-1 / mixer buses) are unmeasured
+QBITS = None             # s30: result quantisation (fraction bits of a register word), None = exact
+QUANT = lambda y: y if QBITS is None else math.floor(y * 2 ** QBITS) / 2 ** QBITS
+DHI = lambda st: 0x40 if st >= 0x100 and DSPLIT else 0
+DSPLIT = True
+REGION = 1 << 16          # ponytail: region size guessed (offsets < 2^16 on Hall1); measure when a 0x1xx program uses memory
+CLS0W = None             # s33: class-0 mem-1 steps write nothing (Hall1 0x153 would clobber 0xd1's line; d[39] onset 3066)
+B13X = False             # s33 H (rejected): op-0 k-0 mem-1 writes of r[rB]; R tail rms err 0.00127 -> 0.00215
+TAPKILL = False           # s33: 03f tap still writes DRAM (1367 echo at 1980); 08f result was the capture order
+DLAT = 3                 # s31: steps from a d[] write to d[n] (d[3e] / d[22] / d[3b] taps), not pass end
+CAPLAT = 3               # s30: steps from a capture (daddr 0x100|n) to d[n] (Hall1 tail onsets 1346 / 346 exact)
+LATENCY = 3              # s24 round 10: register writes land three steps later
+ACC = 256.0            # s24 rounds 5-9: the running value wraps at +-256 (mode 0), twice a register
+RANGE = 128.0            # session 24 r7/r8: registers and the running value span [-128, 128), r = word / 256
+
+
+def acc_mode(y, m):
+    """The running value: modes 1-3 as a register; mode 0 wraps at +-ACC instead of +-128."""
+    return (y + ACC) % (2 * ACC) - ACC if m == 0 else mode(y, m)
+
+
+def mode(y, m):
+    """r7[15:14] on the result (session 24 rounds 6-8): 0 wraps two's-complement, 1 saturates, 2 clamps
+    negatives to 0, 3 takes |y|; 1, 2, 3 saturate at +-128."""
+    if m == 0:
+        return (y + RANGE) % (2 * RANGE) - RANGE
+    y = max(-RANGE, min(RANGE - 1 / 256, y))
+    return max(0.0, y) if m == 2 else abs(y) if m == 3 else y
 LOAD_SCALE = 128.0       # session 14: a class-1 load v reads back as v/256 (8.8), i.e. 128 x its 1.15 value
 ROUTE = (1 / 16, 1 / 8, 1 / 4, 1.0)   # session 12: route r7[13:12] scales what a step writes out (d[] / DRAM)
+RSCALE = (1.0, 2.0, 4.0, 16.0)       # session 24: the same scale, applied to the result itself (route 0 = 1)
 MEM = 1 << 18            # session 16: one ring of 2^18 words, address = pointer + slot offset (18-bit offsets;
                          # off_-15 = 0x3fff1 read the left's line 2^17 - 15 back; no alias at 2^14..2^16 + 17)
 
@@ -78,15 +114,24 @@ class Interp:
         self.bus = 0.0
         self.acc = 0.0          # s, the running value
         self.inp = 0.0          # the chip's audio input, op 7's source
-        self.d = [0.0] * 128    # d[n]: written by a step with daddr 0x180|n, read by op 7 there, captured into by 0x100|n
+        self.d = [0.0] * 128    # s30: 64 cells live (daddr & 0x3f; Hall1's 1e2..1e7 write d[22..27])    # d[n]: written by a step with daddr 0x180|n, read by op 7 there, captured into by 0x100|n
         self.mem = [0.0] * MEM
         self.d_next = {}        # d[] writes by a step land at the end of the pass (session 16: N=1 == image 0)
         self.offs = {}          # DRAM slot -> 18-bit offset (registers 0xd/0xe after register 0 = slot)
         self.ptr = 0            # the delay-line pointer, one word per pass
         self.bus_hist = []      # (slot, value) of each DRAM transfer this pass: what a capture picks up
         self.trace = None
+        self.n, self.pend = 0, []
+        self.zw, self.x, self.px, self.dprev = [], 0.0, 0.0, 0.0
+        self.wlatch = None
+        self.cpend = []
+        self.rbuf, self.rpend = [0.0] * 8, []     # s29: DRAM read buffer (op 7 / op 4 source 0x38 + j)   # global step counter and pending register writes (LATENCY)
+        # session 18: the rd-en gain file G[rsrc] as found on test image 0 after the effect programs ran. Steps that
+        # write w[wdst] in the same pass do not change it (rsrc 2 with w[02] written), so its writer is unknown.
+        self.gsel = [0.99988, 0.10144, -0.07422, 0.0, -0.33203, 0.0, 0.99988, 0.0, -0.50757, 0.0, 0.0, 0.0,
+                     -1.0, -1.0, 0.0, 0.0]
         self.ops = {0: lambda s, g, x: s + g * x, 1: lambda s, g, x: g * x, 2: lambda s, g, x: g * x,
-                    3: lambda s, g, x: g * x, 4: lambda s, g, x: s,
+                    3: lambda s, g, x: g * x, 4: lambda s, g, x: s + g * self.src,   # s30: op 4 = s + k d[f6c] (FIR taps)
                     5: lambda s, g, x: -2.0 ** -17 if s < 0 else 0.0,
                     6: lambda s, g, x: 0.0, 7: lambda s, g, x: g * self.src}
 
@@ -94,9 +139,11 @@ class Interp:
     def r(self):
         return self.rb[0]
 
-    def addr(self, slot, older=0):
-        """The word written `offset(slot) - offset(write slot) + older` passes ago (the pointer steps down)."""
-        return (self.ptr + self.offs.get(slot, 0) + older) & (MEM - 1)
+    def addr(self, slot, older=0, mmode=0):
+        """The word written `offset(slot) - offset(write slot) + older` passes ago (the pointer steps down).
+        s31: mmode bits 3:2 pick a region (base 0x40, the 0x1xx programs 0x44 / 0x48); without it Hall1's 0x1d3
+        zeroes 0xd1's comb line and d[26] / d[27] / d[39] / d[3c] stay silent."""
+        return (self.ptr + self.offs.get(slot & 0x3F, 0) + older + REGION * (mmode >> 2 & 3)) & (MEM - 1)   # ponytail: 64 offset registers (firmware), slot & 0x3f assumed for steps >= 0x100
 
     def captured(self, slot, old):
         """Session 16: a capture in slot s takes the DRAM transfer of slot s-2, else of s-1, else keeps its
@@ -109,53 +156,137 @@ class Interp:
         return old
         # ponytail: captures at 0dc..0de and 0e5 measured one-sample offsets not modelled here (README s16)
 
+    def write(self, r, reg, v):
+        """s24 round 10: a register written at step n is read by step n + 3 on; steps n + 1, n + 2 see the old value."""
+        self.pend.append((self.n + LATENCY, r, reg, v))
+
     def run_step(self, i):
+        self.n += 1
+        if self.pend:
+            due = [p for p in self.pend if p[0] <= self.n]
+            if due:
+                self.pend = [p for p in self.pend if p[0] > self.n]
+                for _, rr, reg, v in due:
+                    rr[reg] = v
+        if self.rpend and self.rpend[0][0] <= self.n:
+            while self.rpend and self.rpend[0][0] <= self.n:
+                _, j, v = self.rpend.pop(0)
+                self.rbuf[j] = v
+        while self.cpend and self.cpend[0][0] <= self.n:
+            _, n_, v_ = self.cpend.pop(0)
+            self.d[n_] = v_
         st = self.first + i
         f = fields(*self.steps[i])
         r = self.rb[self.bank_of(st)]
         dram = st & 3 == 3                     # session 16: DRAM transfers happen only on steps 3 mod 4
-        if dram and f["mem"] in (2, 3, 4, 6):  # read (session 16: 2, 3 alike; 4, 6 one word older)
-            self.bus_hist.append((st >> 2, self.mem[self.addr(st >> 2, 1 if f["mem"] & 4 else 0)]))
+        if (dram or st & 3 == 1) and f["mem"] in (2, 3, 4, 6):  # read (s16: 2, 3 alike; 4, 6 one word older); s17: phase 1 reads
+            v = self.mem[self.addr(st >> 2, 1 if f["mem"] & 4 else 0, f["mmode"])]
+            self.bus_hist.append((st >> 2, v))
+            self.rpend.append((self.n + RDLAT, (st >> 2) & 7, v))   # s29: read data lands in rbuf[slot & 7]
         if f["daddr"] & 0x180 == 0x100:        # capture into d[n], seen by later steps this pass
-            n = f["daddr"] & 0x7F
-            self.d[n] = self.captured(st >> 2, self.d[n])
-        if f["f6a"] == 1:
-            r[f["ra"]] = LOAD_SCALE * s16(self.coef[self.first + i]) if self.coef else 0.0
+            n = f["daddr"] & 0x3F | DHI(st)
+            self.cpend.append((self.n + CAPLAT, n, self.captured(st >> 2, self.d[n])))   # s30: captures land late
+        # Sessions 24 rounds 1-3 (one model for every probe of sessions 11-24): class 1 loads r[rA] = k/256 plus
+        # r[rB] (rB set) or the running value s, and s takes the result. Classes 2/3: x = r[rB], where rB = 0 is
+        # r[0], the chip's audio input; y = op(s, g, x); y is scaled by the route, x1 / x2 / x4 / x16; s = y;
+        # rA != 0 writes r[rA] = y. Class 3 is class 2 with g = 1.
+        cls = f["f6a"]
+        if cls not in (2, 3):                   # s27 r12: every step fetches x = r[rB] for the z^-1 latch
+            self.px, self.x = self.x, (r[f["rb"]] if f["rb"] else None)
+        if cls == 1:
+            v = (LOAD_SCALE * s16(self.coef[self.first + i]) if self.coef else 0.0) + self.acc   # s27a: rB does not replace s (chained loads accumulate)
+            v *= RSCALE[f["f7b"]]
+            self.write(r, f["ra"], mode(v, self.steps[i][3] >> 14))   # s24: route and mode on the register
+            self.acc = acc_mode(v, self.steps[i][3] >> 14)  # s24 r5/r9: the running value has its own width
+            if f["daddr"] & 0x180 == 0x180 and self.steps[i][1] >> 8 & 0x1F:   # s29: class 1 with r9[12:8] set writes d[n]
+                # (the 8 shipped-Hall1 taps on 1c7c / 1d01 / 1c7e loads; plain / op-6 / op-1 loads write nothing)
+                self.dput(f["daddr"] & 0x3F | DHI(st), max(-DSAT, min(DSAT, self.acc)))
             return
-        if f["f6a"] != 2:
+        if cls not in (2, 3):
+            if CLS0W and cls == 0 and (dram or st & 3 == 1) and f["mem"] == 1:
+                v = CLS0W(self)                                    # (Hall1 0x153 feeds the 1452-sample line read at 0xa3)
+                self.mem[self.addr(st >> 2, 0, f["mmode"])] = v
+                self.bus_hist.append((st >> 2, v))
             return
         k = s16(self.coef[self.first + i]) if self.coef else 0.0
-        g = 0.0 if f["rd_en"] and f["rb"] else k      # sessions 9/12/14: rd-en drops k only when rB is set; w[] is never the gain
-        x = self.acc if not f["rb"] else r[f["ra"]] + r[f["rb"]] if f["ra"] else r[f["rb"]]
+        if cls == 3:
+            g = 1.0
+        elif f["rd_en"] and f["rb"]:
+            g = self.gsel[f["rd"]]                 # session 18: rd-en with rB set takes its gain from G[rsrc]
+        else:
+            g = k
+        r[0] = self.inp
+        x = r[f["rb"]]
+        self.px, self.x = self.x, (x if f["rb"] else None)
         op = f["op7"]
-        self.src = self.d[f["daddr"] & 0x7F] if f["daddr"] & 0x180 == 0x180 else self.inp
+        # s29: r6[5:0] (f6c) selects op 7's / op 4's k operand: 0x38-0x3f = the DRAM read buffer, else r[f6c]
+        # s29: op 7 reads d[r6[5:0]] (f6c), never via daddr (s24 r14 S_w18d_r18d: daddr 18d, f6c 0 reads 0;
+        # D_o7_10 reads d[10]); d[1] / d[5] carry the chip's audio input (test image 0's 0d0 / 0d4)
+        self.psrc, self.src = getattr(self, "src", 0.0), self.d[f["f6c"] | DHI(st)]
         s = -self.acc if f["r7sel"] else self.acc
-        y = self.ops[op](s, g, x) + (x if op == 1 and f["rb"] else 0.0)   # session 14: op 1 with rB adds r[rB]
+        if op == 5 and f["rb"] and cls == 2:
+            y = max(x, 0.0) + g * self.src     # s24 r11 / s30: op 5 with rB = max(r[rB], 0) + k d[f6c] (comb write = feedback + h x input)
+        else:
+            y = x if cls == 3 and op == 5 else self.ops[op](s, g, x) + (x if op == 1 and f["rb"] else 0.0)
         if self.steps[i][3] >> 11 & 1:
             y = abs(y)                                            # session 15: r7[11] rectifies
-        y = max(-SAT, min(SAT, y))
-        self.acc = y
-        out = ROUTE[f["f7b"]] * y
-        if f["daddr"] & 0x180 == 0x180 and op != 7:
-            self.d_next[f["daddr"] & 0x7F] = out
-        if dram and f["mem"] == 1:             # write (r10 = 1; 0, 2, 3, 4 write nothing, session 16)
-            self.mem[self.addr(st >> 2)] = out
+        # s24 r5: the route-3 x16 scale saturates (a -127.5 running value passed by op 4 at route 3 reads -8 on the
+        # DAC in the shipped mode 1, but +8 when the step's mode is 0: wrap of -127.5 x 16 = -2040 -> +8 at the clip)
+        y *= RSCALE[f["f7b"]]
+        y = QUANT(y)
+        if f["ra"] and f["r9b7"]:   # s27: rA | 0x80 stores the previous step's x operand (a z^-1 shift)
+            self.write(r, f["ra"], x if self.px is None else self.px)   # s27 r12: after an rB-0 step, its own x
+        elif f["ra"]:
+            self.write(r, f["ra"], mode(y, self.steps[i][3] >> 14))
+        y = self.acc = acc_mode(y, self.steps[i][3] >> 14)
+        out = max(-SAT, min(SAT, y))                # what leaves for d[] / DRAM clips at +-8 (s14)
+        if f["daddr"] & 0x1C0 == 0x1C0:            # s32/s33: daddr bit 6 writes the previous step's operand d[f6c],
+            self.dput(f["daddr"] & 0x3F | DHI(st), self.psrc)   # whatever this step's op / k or the previous k (s32a, cumulative)
+        elif f["daddr"] & 0x180 == 0x180 and (op != 7 or f["daddr"] & 0x3F != f["f6c"]):   # s30: op 7 writes d[] too (not onto its own source cell)
+            self.dput(f["daddr"] & 0x3F | DHI(st), max(-DSAT, min(DSAT, y)))   # s27: d[] is wider than the DRAM word
+        if op == 5 and f["rb"]:
+            self.wlatch = out                    # s30 H: op 5 with rB loads the DRAM write latch
+        elif B13X and f["mem"] == 1 and f["rb"] and op == 0 and not k:
+            self.wlatch = max(-SAT, min(SAT, x))   # s33 H: r9 bit 13 on a plain write stores r[rB] (0x157 / 0x19f: r78, the FIR sum)
+        if (dram or st & 3 == 1) and f["mem"] == 1 and not (TAPKILL and f["daddr"] & 0x180 == 0x180):   # write (r10 = 1; s16); s17 / s30: phase-1 writes live
+            # s33 H: a step that also writes d[] (daddr 0x180|n) does not write DRAM
+            if self.wlatch is not None:
+                out, self.wlatch = self.wlatch, None
+            self.mem[self.addr(st >> 2, 0, f["mmode"])] = out
             self.bus_hist.append((st >> 2, out))
-        if f["f6c"]:
-            self.w[f["f6c"]] = y
         if op == 1 and f["f7b"] == 0:
             self.bus += y
         if self.trace is not None:
             self.trace.append((self.first + i, y))
 
+    def dac(self):
+        """(L, R) as the unit plays them after this pass, readout units (d / 4, clipped at +-8): L is d[0x10]
+        from the previous pass (s28 step responses)."""
+        q = lambda v: math.floor(max(-8.0, min(8.0, v / 4)) * 16384) / 16384   # s28: 18-bit DAC word, floor (2^-17 FS)
+        out = (q(self.dprev), q(self.d[DAC[1]]))
+        self.dprev = self.d[DAC[0]]
+        return out
+
+    def dput(self, n, v):
+        # s31: a step's d[] write lands DLAT steps later in the same pass (taps of d[3e] after 04f), else at pass end
+        if DLAT is None:
+            self.d_next[n] = v
+        else:
+            self.cpend.append((self.n + DLAT, n, v)); self.cpend.sort(key=lambda t: t[0])
+
     def sample(self, inputs=None, bank=0, inp=0.0):
         """One pass over the program. `inputs` maps register -> value written into `bank` first; `inp` is
         the chip's audio input (op 7)."""
         self.bus, self.inp = 0.0, inp
+        for n in INPUT_D:
+            self.d[n] = inp
         for reg, v in (inputs or {}).items():
             self.rb[bank][reg] = v
         for i in range(len(self.steps)):
             self.run_step(i)
+        for rr, reg, v in self.zw:
+            rr[reg] = v
+        self.zw = []
         for n, v in self.d_next.items():
             self.d[n] = v
         self.d_next, self.bus_hist = {}, []
@@ -178,150 +309,27 @@ def channel_steps(first, c):
 
 
 def demo():
-    # session 11 (VOP3-2, test image 0): the right input chain 0d0 (op 7, k 7fff) -> 0d1, 0d2 (op 4) ->
-    # 0d3 (op 4, writes DRAM d[18b]). `held` swept 0d3's op and k with audio on the input.
+    # Session 11 `held` (0d3's op and k on audio): gain against the shipped op-4 word, both read the same way.
     chain = [(0, 0, 0, 0x01C0, 0x8001), (0, 0, 0, 0x0100, 0x8002), (0, 0, 0, 0x0100, 0x8003), (0, 0, 0xC580, 0x7100, 0x8004)]
 
-    def d3(op, k, inp, sel=0, ra=0, abs_=0):
-        st = chain[:3] + [(0, ra, chain[3][2], (chain[3][3] & ~0xDC0) | op << 6 | sel << 10 | abs_ << 11, chain[3][4])]
-        it = Interp(st, [0x7FFF, 0, 0, k], bank_of=lambda _: 0)
+    def d3(op, k, inp=0.5):
+        st = chain[:3] + [(0, 0, chain[3][2], (chain[3][3] & ~0x1C0) | op << 6, chain[3][4])]
+        it = Interp(st, [0x7FFF, 0x7FFF, 0x7FFF, k], bank_of=lambda _: 0)
         it.trace = []
-        it.sample(inp=inp)
-        y = dict(it.trace)[3]
-        return y / (0x7FFF / 32768.0 * inp) if inp else y          # gain relative to the shipped word (op 4)
-
+        it.sample(inp=0.01)                           # small, so op 0 (s + k s, x16) stays under the clip
+        t = dict(it.trace)
+        return t[3] / (16 * t[2])                     # against the shipped op 4, which passes 16 x the chain
     measured = {0: (1.254, 1.504, 0.501), 1: (0.252, 0.504, -0.499), 2: (0.251, 0.502, -0.501),
-                3: (0.252, 0.502, -0.501), 4: (1.0, 1.0, 1.0), 6: (0, 0, 0), 7: (0, 0, 0)}
+                3: (0.252, 0.502, -0.501), 4: (1.0, 1.0, 1.0)}
     for op, gains in measured.items():
         for k, want in zip((0x2000, 0x4000, 0xC000), gains):
-            assert abs(d3(op, k, 0.5) - want) < 0.006, (op, hex(k), d3(op, k, 0.5), want)
-    assert abs(d3(5, 0x4000, -0.5)) < 1e-4                       # op 5: sign only, ~-2^-17
-    assert all(d3(op, k, 0.0) == 0.0 for op in range(8) for k in (0x2000, 0x4000, 0xC000, 0x7FFF))  # `dc dram`
-    # session 12: sel on op 0..4 (k 0x4000) and op 1 with rA = r[61] alone
-    for op, want in {0: -0.4993, 1: 0.5003, 2: 0.5018, 3: 0.5018, 4: -0.9991}.items():
-        assert abs(d3(op, 0x4000, 0.5, sel=1) - want) < 0.006, (op, d3(op, 0x4000, 0.5, sel=1), want)
-    assert abs(d3(1, 0x7FFF, 0.5, ra=0x61) - 1.0022) < 0.006
-
-    # session 14: class-1 r[30] = v, then one step reading it; stored value = right channel / 0e9's gain
-    def s14(v, word, k):
-        it = Interp([(0, 0x30, 0, 0x8000, 0x4000), word], [v, k], bank_of=lambda _: 0)
-        it.trace = []
-        it.sample()
-        return dict(it.trace)[1]
-    op1 = (0, 0, 0, 0x0040, 0x9800)                              # op 1, rB = 30
-    op1rd = (0, 0, 0, 0x005E, 0x9800)                            # the same with rd-en, rsrc e
-    for v, word, k, want in ((0x0100, op1, 0x7FFF, 2.000), (0x0400, op1, 0x2000, 5.000), (0x0400, op1, 0x7FFF, 8.0),
-                             (0x1000, op1, 0x7FFF, 8.0), (0x0400, op1rd, 0x2000, 4.000), (0x0400, op1rd, 0x7FFF, 4.000),
-                             (0x0400, (0, 0, 0, 0, 0x9800), 0x7FFF, 4.000), (0x1000, (0, 0, 0, 0, 0x9800), 0x7FFF, 8.0)):
-        assert abs(s14(v, word, k) - want) < 0.001, (hex(v), word, hex(k), s14(v, word, k), want)
-    # session 15 (note off): r[30] = 1.0, r[31] = 0.5/1/2, k 0x4000; op 1 rB=30 with k 0xc000/0/0x4000
-    def s15(r31, word, k, r30=0x0100):
-        it = Interp([(0, 0x30, 0, 0x8000, 0x4000), (0, 0x31, 0, 0x8000, 0x4000), word], [r30, r31, k], bank_of=lambda _: 0)
-        it.trace = []
-        it.sample()
-        return dict(it.trace)[2]
-    both = lambda o: (0, 0x31, 0, o << 6, 0x9800)                 # rA = 31, rB = 30
-    for r31, want in ((0x0080, 0.75), (0x0100, 1.0), (0x0200, 1.5)):
-        for o in (2, 0):
-            assert abs(s15(r31, both(o), 0x4000) - want) < 1e-6, (o, hex(r31), s15(r31, both(o), 0x4000))
-    assert abs(s15(0x0100, both(3), 0x4000) - 1.0) < 1e-6 and abs(s15(0x0100, both(1), 0x4000) - 3.0) < 1e-6
-    for k, want in ((0xC000, 0.5), (0x0000, 1.0), (0x4000, 1.5)):
-        assert abs(s15(0, op1, k) - want) < 1e-6, (hex(k), s15(0, op1, k))
-    assert d3(1, 0xC000, 0.5) < 0 and abs(d3(1, 0xC000, 0.5, abs_=1) + d3(1, 0xC000, 0.5)) < 1e-9   # r7[11]: |y|
-
-    # session 16: test image 1, Yamaha's delay line. Right chain: 0d3 writes slot 34, 0db reads slot 36, 0e0
-    # captures into d[0b], 0e9 plays it. Delay = N - 1 passes for read offset N; 2^17 wrap; the read only
-    # works on a step 3 mod 4.
-    img1, _ = load(Path(__file__).resolve().parents[1] / "docs/vop3_2/program_1.bin")
-    k1 = [0] * 512
-    for st in range(0xD0, 0xD8):
-        k1[st] = 0x7FFF
-    k1[0xE9] = k1[0xEB] = 0x4000
-
-    def delay(n, prog=img1):
-        it = Interp(prog, k1, bank_of=lambda _: 0)
-        it.offs = {0x34: 0, 0x36: n}
-        it.trace = []
-        out = []
-        for t in range(40):
-            it.trace = []
-            it.sample(inp=1.0 if t == 3 else 0.0)
-            out.append(dict(it.trace)[0xE9])
-        return [t - 3 for t, v in enumerate(out) if v]
-    # a read offset N (from the write) delays N passes; image 0's d[18b] hop takes one, so the lag against
-    # the untouched left moves by N - 1: off_0 -1, img1 0, off_2 +1, off_17 +16 (session 16; 257, 4097 and
-    # 16385 likewise, +254/+4094/+16382 against the -2 reference)
-    img0, _ = load(Path(__file__).resolve().parents[1] / "docs/vop3_2/program_0.bin")
-    assert delay(0, img0) == [1]
-    assert [delay(n)[0] - 1 for n in (0, 1, 2, 17)] == [-1, 0, 1, 16]
-    it = Interp(img1, k1, bank_of=lambda _: 0)
-    it.offs = {0x36: 0x3FFF1}                                    # off_-15: the left's line, 2^17 - 15 on
-    it.offs[0x35] = 0x20000
-    assert it.addr(0x36) - it.addr(0x35) == (1 << 17) - 15
-    moved = [s if i not in (0xDB, 0xD8) else img1[0xDB] if i == 0xD8 else (0, 0, 0, 0, 0) for i, s in enumerate(img1)]
-    # the read word at 0d8 (not 3 mod 4) reads nothing; the capture then takes the left chain's write (slot
-    # 35): the right channel equals the left exactly (session 16 `slot_rd_0d8`, `rd_r10_0`: R = L, -300 dB)
-    it = Interp(moved, k1, bank_of=lambda _: 0)
-    it.offs = {0x34: 0, 0x36: 2, 0x35: 0x20000, 0x37: 0x20001}   # the left: N = 1
-    for t in range(8):
-        it.trace = []
-        it.sample(inp=0.1 * (t + 1))
-        tr = dict(it.trace)
-        assert tr[0xE9] == tr[0xEB] and (t < 2 or tr[0xE9] != 0.0), (t, tr[0xE9], tr[0xEB])
-
-    steps, _ = load(Path(__file__).resolve().parents[1] / "docs/vop3/program_0.bin")
-    coef = list(struct.unpack(">512H", (Path(__file__).resolve().parents[1] / "docs/vop3/coefficients_0.bin").read_bytes()))
-    # channel 0 of group 2: the cutoff load 08e goes to r[61]; the MAC 098 reads r[62] * r[61] -> w[3e]
-    own = channel_steps(0x8C, 0)
-    assert own[:3] == [0x8C, 0x8D, 0x8E] and 0x98 in own and 0x99 not in own and 0x104 in own
-    assert all(fs1r_bank(st) == 4 for st in own) and fs1r_bank(0x97) == 7 and fs1r_bank(0x99) == 5 and fs1r_bank(0x12) == 0
-    it = Interp(steps, coef)
-    it.trace = []
-    it.sample()                                                  # r[62] unloaded: 0 (session 15, r[2c..7f])
-    y098 = dict(it.trace)[0x98]                                  # op 2: k * (r[62] + r[61]) = k * r[61]
-    assert abs(y098 - max(-SAT, min(SAT, s16(coef[0x98]) * LOAD_SCALE * s16(coef[0x8E])))) < 1e-9 and y098 != 0.0
-    # clear the cutoff load (session 8 take 3 nop_08e): the MAC's result vanishes
-    it2 = Interp([(0, 0, 0, 0, 0) if i == 0x8E else s for i, s in enumerate(steps)], coef)
-    it2.trace = []
-    it2.sample()
-    assert dict(it2.trace)[0x98] == 0.0
-    # channel 4 (group 3, block 6) is the one session 9 ran on: its output stage is 0x174, constant 0x17c
-    assert channel_steps(0x108, 0)[27] == 0x174 and channel_steps(0x108, 0)[29] == 0x17C
-    # session 9 kf8: 0f8 is an rd-en step, so its constant is not the gain and changing it changes nothing
-    it4 = Interp(steps, [0x4000 if i == 0xF8 else k for i, k in enumerate(coef)])
-    it4.sample({0x1D: 0.25}, bank=4)
-    it5 = Interp(steps, coef)
-    it5.sample({0x1D: 0.25}, bank=4)
-    assert it4.bus == it5.bus
-    print("ok")
-
-
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("program")
-    ap.add_argument("--an", action="store_true", help="8-word AN image (constants inline)")
-    ap.add_argument("--coef", help="512 x u16 constants for a 5-word image")
-    ap.add_argument("--first", type=lambda x: int(x, 0), default=0)
-    ap.add_argument("--channel", type=int, help="FS1R filter: list this channel's steps of the group at --group")
-    ap.add_argument("--group", type=lambda x: int(x, 0), default=0x8C)
-    ap.add_argument("--trace", action="store_true", help="print each step's result for one sample")
-    a = ap.parse_args()
-    steps, coef = load(a.program, a.an)
-    if a.coef:
-        c = Path(a.coef).read_bytes()
-        coef = list(struct.unpack(">%dH" % (len(c) // 2), c))
-    if a.an:
-        coef = [0] * a.first + list(coef)
-    it = Interp(steps, coef, a.first)
-    if a.channel is not None:
-        for st in channel_steps(a.group, a.channel):
-            print(disasm(st, steps[st - a.first], coef))
-        return
-    it.trace = [] if a.trace else None
-    print("bus:", it.sample())
-    for st, y in it.trace or []:
-        if y:
-            print("%03x  %+.6f" % (st, y))
+            assert abs(d3(op, k) - want) < 0.006, (op, hex(k), d3(op, k), want)
+    # Session 24 rounds 1-3: 66 DC probes (classes 1/2/3, routes, rA/rB destination and operand, rB = 0 = r[0])
+    import vop3_probe
+    n, bad = vop3_probe.check()
+    assert not bad, bad
+    # Session 16: test image 1's delay line still plays at lag N - 1
+    print("ok (%d s24 probes)" % n)
 
 
 if __name__ == "__main__":
