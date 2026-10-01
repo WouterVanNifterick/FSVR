@@ -37,6 +37,20 @@ int main(int, char** a) {
 }
 """
 
+MODDRV = r"""
+#include "fs1r/chips/vop3_modules.h"
+#include <cstdio>
+#include <cstdlib>
+#include <vector>
+int main(int, char** a) {
+    FILE* f = std::fopen(a[1], "rb"); std::vector<uint8_t> rom(0x200000);
+    std::fread(rom.data(), 1, rom.size(), f);
+    int sel[4]; for (int i = 0; i < 4; i++) sel[i] = std::atoi(a[2 + i]);
+    static uint16_t c[512]; static int o[128]; static Vop3Effects fx; fx.load(rom.data(), sel, c, o);
+    for (auto& s : fx.chip.prog) std::printf("%d %d %d %d %d\n", s.w[0], s.w[1], s.w[2], s.w[3], s.w[4]);
+}
+"""
+
 
 def build():
     d = Path(tempfile.mkdtemp())
@@ -74,4 +88,15 @@ if __name__ == "__main__":
             bad = np.nonzero(np.abs(hw[:k] - m[:k]).max(1) > 2e-5)[0]
             msg += f"; unit exact to sample {bad[0] if len(bad) else k} of {k}"
         print(msg)
+    # Vop3Effects::load assembles the same 512 steps as tools/vop3_e2e.program (window addresses, strides).
+    import vop3_e2e as E
+    d = Path(tempfile.mkdtemp())
+    (d / "m.cpp").write_text(MODDRV)
+    subprocess.run(["g++", "-O2", "-std=c++17", "-I", str(ROOT / "src"), str(d / "m.cpp"), "-o", str(d / "m")], check=True)
+    rom = ROOT.parent / "FS1R_DISASM/roms/fs1r_v120_eprom_cpuview.bin"
+    for cfg in full:
+        sel = full[cfg]["selectors"]
+        out = subprocess.run([str(d / "m"), str(rom)] + [str(v) for v in sel], capture_output=True, text=True, check=True).stdout
+        assert [tuple(map(int, l.split())) for l in out.splitlines()] == [tuple(w) for w in E.program(sel)], cfg
+    print("Vop3Effects::load == vop3_e2e.program")
     print("ok")
