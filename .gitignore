@@ -2,6 +2,7 @@ build/
 bin/
 *.wav
 *.obj
+.vscode/
 
 # capture working files: the requests are tracked, recordings and analysis are not
 captures/engine/

@@ -23,10 +23,10 @@ These are Yamaha's data. They are included because the emulation is worthless wi
 
 **In `hollow/third_party/`, under their own licences:** `stb/` (stb_image and stb_image_write, public domain or MIT), `strmbase/` (Microsoft's DirectShow BaseClasses, MIT, for the DXi), and `vst2/`, a minimal VST 2.4 ABI header written for this project from the public interface description.
 
-**Downloaded by the plug-in build, not redistributed here:** the CLAP SDK and [clap-wrapper](https://github.com/free-audio/clap-wrapper) (MIT), which fetches Steinberg's VST3 SDK (GPL-3 or proprietary), Apple's AudioUnitSDK (Apache License 2.0), RtAudio and RtMidi (MIT-style); and Import Audio's decoders, [dr_libs](https://github.com/mackron/dr_libs) (dr_wav and dr_mp3) and [stb_vorbis](https://github.com/nothings/stb), both public domain or MIT No Attribution. Release binaries contain them.
+**Downloaded by the plug-in build, not redistributed here:** the CLAP SDK and [clap-wrapper](https://github.com/free-audio/clap-wrapper) (MIT), which fetches Steinberg's VST3 SDK (GPL-3 or proprietary), Apple's AudioUnitSDK (Apache License 2.0), RtAudio and RtMidi (MIT-style, and RtAudio carries Steinberg's ASIO SDK, which the Windows standalone builds for its ASIO back end); and Import Audio's decoders, [dr_libs](https://github.com/mackron/dr_libs) (dr_wav and dr_mp3) and [stb_vorbis](https://github.com/nothings/stb), both public domain or MIT No Attribution. Release binaries contain them.
 
 **Import Audio's method** follows [fseq-flash](https://github.com/zkarcher/fseq-flash) by Zach Archer (MIT): its pitch detector, spectral analysis and formant picking, rewritten here in C++ with the engine's own byte scales.
 
 ## Trademarks
 
-Yamaha and FS1R are trademarks of Yamaha Corporation; VST is a trademark of Steinberg Media Technologies GmbH. This project is not affiliated with, endorsed by, or connected to any of them in any way.
+Yamaha and FS1R are trademarks of Yamaha Corporation; VST and ASIO are trademarks of Steinberg Media Technologies GmbH. This project is not affiliated with, endorsed by, or connected to any of them in any way.
