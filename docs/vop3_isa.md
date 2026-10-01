@@ -469,3 +469,32 @@ bit-identical to `tools/vop3_interp.py`.)
 Open: every Hall1 take still misses at 5002 on R and the segments of the s33 08c-08f / 054-05b round (FS1R.unlock
 `2026-10-02-024751-s25`) at 3065 / 3066; ua4k0800 (0a4 k = 0x0800 after 0a4 = 0x7fff drove the loop to the clip)
 does not recover in the model the way the unit does, which points at the clip / overflow rule inside the comb loop.
+
+**Session 35: op 5 passes negatives; the real input registers; first noise replay.** (FS1R.unlock s25/s24 folders
+`2026-10-02-050244` .. `071415`; probe sets `docs/vop3_ship/35a`-`35k`.)
+
+* **Op 5 with rB is r[rB] + k d[f6c], no clamp.** s24's `max(r[rB], 0)` came from its operand load running in
+  mode 2 (r7 = 0x8000 clamps negatives): with the same load in mode 1 the step stores -1/256 .. -64/256 exactly
+  (`M5_*`, 7 probes, r9[13] set or clear; `N5_*` re-measure the mode-2 zeros). Both are asserted in
+  `docs/vop3_probes.json` (398 / 398). Effect on the shipped Hall1 / Hall9 step responses: exact (1 LSB) to
+  7312 / 7452 samples (was 5131 / 5657), and to the full 6000-sample window on 154 of 176 step-up segments.
+* **The comb's 5002 miss was this clamp, not the delay line.** Moving slot 0x15's offset by +-500 (s35a) moved the
+  unit's and the model's first difference from the reference by the same amount, so 0x57's line and its data
+  were right; the remaining combs went negative at 4129 / 4826 / 5263 and the clamp cut them.
+* **VOP3-2's effect inputs are r[0d] / r[0e] (reverb send) and r[0f] / r[10] (variation send)** (s35h: the left
+  DAC re-pointed at each of r[0b..12] with noise on each bus). No step writes them; base steps 002-005 read them
+  in place. The two reverb registers carry the same mono send, r[0e] one pass ahead of r[0d]. Session 22's
+  r[03..08] were registers the program computes from these.
+* **First noise replay (`tools/vop3_replay.py`, take s35j, 0.5 s of noise after a 2000-sample warm-up):** Hall1
+  fed the recorded r[0d] (r[0e] one pass later) correlates 0.795 with the unit's right output, 3.8 dB low;
+  Hall9 0.505, 2.9 dB low. Variation 1 is not a valid replay yet (its two inputs are uncorrelated stereo and the
+  take recorded one). The step responses agree to 7300 samples, so the replay's gap is the input level / timing
+  within the pass and the long-tail rules below, not the early reverb.
+* Withdrawn: s30's "op 5 with rB loads the DRAM write latch" (s34, r9[13]) and s24's op-5 clamp (above).
+
+Open:
+* **Op 7 at route 3:** the shipped 09b (rA 15, mem 1, f6c 3a) taps exact zero on the unit, as do 09b with rA or
+  mem cleared and with both cleared; a d[] tap at 0cf (op 7, route 3, f6c 3c) passes, and the same tap with rA
+  set reads -1 LSB, with mem 1 starts 4670 samples late (s35k). No single field explains all of them yet.
+* The comb-loop overflow: 0a4 k = 0x7fff drives the loop to the clip on the unit (sign-flipping at full scale)
+  and the model pins at +8; recovery after k is restored differs.

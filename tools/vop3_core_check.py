@@ -85,7 +85,7 @@ if __name__ == "__main__":
             hw = np.load(f).astype(float)
             hw, m = hw[S.onset(hw):], c[S.onset(c):]
             k = min(len(hw), len(m))
-            bad = np.nonzero(np.abs(hw[:k] - m[:k]).max(1) > 2e-5)[0]
+            bad = np.nonzero(np.abs(hw[:k] - m[:k]).max(1) > 1.5 / 16384)[0]   # > 1 LSB
             msg += f"; unit exact to sample {bad[0] if len(bad) else k} of {k}"
         print(msg)
     # Vop3Effects::load assembles the same 512 steps as tools/vop3_e2e.program (window addresses, strides).

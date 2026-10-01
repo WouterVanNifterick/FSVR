@@ -7,9 +7,9 @@
 // program and requires bit-identical DAC output, so a rule changes in the Python first, then here.
 // Constants carry the session that set them; the ISA doc has the evidence.
 //
-// Not modelled yet (open in docs/vop3_isa.md section 8): the w[] / rd-en gain file's writer (G is the
-// measured table), VOP3-1's per-channel register banks (one bank here; VOP3-2 needs one), the mid-pass
-// arrival of the external input buses, and what the op-0 k-0 mem-1 steps (Hall1 0x57/0x157/0x19f) write.
+// Not modelled yet (open in docs/vop3_isa.md section 8): op 7 on route 3 with rA or mem 1 set (Hall1 09b),
+// VOP3-1's per-channel register banks (one bank here; VOP3-2 needs one), the mid-pass arrival of the input
+// buses, and the overflow recovery of a comb loop driven to the clip.
 #pragma once
 #include <cmath>
 #include <cstdint>
@@ -116,7 +116,9 @@ struct Vop3 {
         psrc = src; src = d[f6c | hi];           // s29: op 4 / op 5 / op 7 source is d[r6[5:0]]
         double s = (r7 >> 10 & 1) ? -acc : acc;  // s12: sel negates s
         double y;
-        if (op == 5 && rb && cls == 2) y = std::fmax(xv, 0.0) + g * src;   // s30: comb write
+        // s30/s35: op 5 with rB = r[rB] + k d[f6c] (comb write). s24's max(r[rB], 0) was the operand load's
+        // own mode 2 (0c8 r7 = 0x8000); Hall1 / Hall9 step responses exact to 6000 without it.
+        if (op == 5 && rb && cls == 2) y = xv + g * src;
         else if (cls == 3 && op == 5) y = xv;
         else switch (op) {
             case 0: y = s + g * xv; break;
@@ -125,7 +127,7 @@ struct Vop3 {
             case 4: y = s + g * src; break;      // s30: FIR tap
             case 5: y = s < 0 ? -std::ldexp(1.0, -17) : 0.0; break;
             case 6: y = 0; break;
-            default: y = g * src; break;         // op 7
+            default: y = g * src; break;         // op 7. OPEN (s35k): on route 3, rA set nearly zeroes it, mem 1 delays it
         }
         if (r7 >> 11 & 1) y = std::fabs(y);      // s15: r7[11] rectifies
         y *= RSCALE[route];

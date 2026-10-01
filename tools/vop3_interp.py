@@ -228,7 +228,7 @@ class Interp:
         self.psrc, self.src = getattr(self, "src", 0.0), self.d[f["f6c"] | DHI(st)]
         s = -self.acc if f["r7sel"] else self.acc
         if op == 5 and f["rb"] and cls == 2:
-            y = max(x, 0.0) + g * self.src     # s24 r11 / s30: op 5 with rB = max(r[rB], 0) + k d[f6c] (comb write = feedback + h x input)
+            y = x + g * self.src     # s30/s35: op 5 with rB = r[rB] + k d[f6c] (comb write); s24 r11's max(., 0) was the x load's mode 2
         else:
             y = x if cls == 3 and op == 5 else self.ops[op](s, g, x) + (x if op == 1 and f["rb"] else 0.0)
         if self.steps[i][3] >> 11 & 1:

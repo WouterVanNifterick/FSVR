@@ -5,16 +5,18 @@
 // says whether it is MEASURED, FW (read from the firmware) or OPEN.
 //
 // VOP3-2, per sample:
-//   inputs   MEASURED s22: the hardware writes the reverb send pair into r[03]/r[04], variation r[05]/r[06],
-//            insertion r[07]/r[08] before the pass, in register units (DAC = r / 8).
-//            OPEN: s25 saw r0d/r0e land partway through the pass (between 0x108 and 0x110); written at pass
+//   inputs   MEASURED s35h: the hardware writes the reverb send pair into r[0d]/r[0e] and the variation pair
+//            into r[0f]/r[10]; no step writes them, steps 002-005 read them in place (s22's r[03..08] were
+//            values the program computes). Register units: r = 8 x full scale. OPEN: the insertion pair, and
+//            the mid-pass arrival (r[0e] carries the mono reverb send one pass ahead of r[0d]); written at pass
 //            start here. The dry mix reaches the output bus already summed (s22), not modelled here.
 //   program  FW: base image + one type per window at the upload function's addresses (tools/vop3_e2e.py WIN),
 //            selectors from the performance's effect types (docs/vop3_2_params.md, Dispatch).
 //   consts   FW: DAT_0106842C as the effect handlers leave it; offsets DAT_0106882C + area base (FUN_000397F4).
-//            OPEN: docs/vop3_2/params.json (firmware run in Ghidra) and the unit's dump differ on 50 of Hall1's
-//            94 listed steps; until that is settled, feed the unit's dump (FS1R.unlock session.json) when exact
-//            output matters.
+//            docs/vop3_2/params.json holds each type's preset-block defaults; a performance's own parameters
+//            change them (the rig's Hall1 load, a factory performance's block, differs on 50 of 94 steps).
+//            OPEN: computing these words from the parameters in C++ (the handlers' soft-float designer); feed
+//            a dump (FS1R.unlock session.json) when exact output matters.
 //   output   MEASURED s27/s28: DAC = d[10] (L, one pass late) / d[11] (R), readout d / 4, 18-bit floor.
 // VOP3-1: the same core on docs/vop3/program_N.bin; OPEN: per-channel register banks, the voice input
 // registers and the output cells are not measured, so Vop3Filter is not wired into the voice yet (VFilter in
@@ -45,9 +47,9 @@ struct Vop3Effects {
     }
     // Sends in DAC units (full scale 1); out in DAC units.
     void run(const double rev[2], const double var[2], const double ins[2], double& L, double& R) {
-        chip.r[3] = 8 * rev[0]; chip.r[4] = 8 * rev[1];
-        chip.r[5] = 8 * var[0]; chip.r[6] = 8 * var[1];
-        chip.r[7] = 8 * ins[0]; chip.r[8] = 8 * ins[1];
+        chip.r[0x0D] = 8 * rev[0]; chip.r[0x0E] = 8 * rev[1];
+        chip.r[0x0F] = 8 * var[0]; chip.r[0x10] = 8 * var[1];
+        (void)ins;                               // OPEN: insertion input registers not mapped yet
         chip.pass();
         chip.dac(L, R);
         L /= 8; R /= 8;                          // readout units -> full scale 1
