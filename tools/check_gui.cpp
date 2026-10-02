@@ -1,7 +1,7 @@
 // check_gui: the FSVR editor end to end without a window. The real skin and the real processor, one Hollow
 // Gui over them, driven as a mouse and a keyboard would drive it: widgets found by name, clicks, drags,
 // right-clicks and typing, then the params, text data, menus and modals checked. The top bar's menus and
-// toggles, every Navigator page, the browser and its right-click menus, every dialog, the modal's veil,
+// toggles, the keyboard's lit keys, every Navigator page, the browser and its right-click menus, every dialog, the modal's veil,
 // Escape and close X, the close prompt, the LCD's scale menu and the About box; then a sweep of every page's
 // dials, faders, dropdowns and toggles. Exits non-zero on any failure.
 //   build/<dir>/Release/check_gui      (ctest runs it as "gui")
@@ -181,6 +181,17 @@ int main() {
         CHECK(u.get("gui.hide_keys") == 1 && u.gui.height() < tall, "Keys did not hide the keyboard");
         u.click("topbar/show_keys");
         CHECK(u.gui.height() == tall, "Keys did not bring it back");
+
+        // The keyboard lights a key from its note on to its note off and follows no sustain pedal.
+        {
+            const uint8_t pedalDown[3] = {0xb0, 64, 127}, on[3] = {0x90, 60, 100}, off[3] = {0x80, 60, 0}, pedalUp[3] = {0xb0, 64, 0};
+            u.st->midiIn(pedalDown, 3);
+            u.st->midiIn(on, 3);
+            CHECK(u.st->noteHeld(60), "a note on did not light its key");
+            u.st->midiIn(off, 3);
+            CHECK(!u.st->noteHeld(60), "a key stayed lit past its note off while the sustain pedal was down");
+            u.st->midiIn(pedalUp, 3);
+        }
 
         u.click("topbar/part_3");
         CHECK(u.ui().find("\"part\":\"p3\"") != std::string::npos, "Part 3 did not select part 3");
