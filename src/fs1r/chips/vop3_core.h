@@ -38,6 +38,7 @@ struct Vop3 {
 
     // ---------------------------------------------------------------- state
     double r[128] = {}, d[128] = {}, acc = 0, inp = 0, dprev = 0;
+    double trace[512] = {};                      // each step's result in the last pass (tooling only)
     double x = 0, px = 0, src = 0, psrc = 0, wlatch = 0;
     bool hasx = true, haspx = false, haswl = false;
     std::vector<double> mem = std::vector<double>(MEMSZ);
@@ -45,7 +46,7 @@ struct Vop3 {
     long n = 0;
     struct Pend { long due; double* p; double v; };
     std::vector<Pend> rq, dq;                  // register writes, d[] writes (FIFO: one latency each)
-    struct Xfer { int slot; double v; };
+    struct Xfer { int slot; double v; int st; };
     std::vector<Xfer> hist;                    // this pass's DRAM transfers, what a capture picks up
 
     static double s16(uint16_t k) { return (int16_t)k / 32768.0; }
@@ -63,10 +64,12 @@ struct Vop3 {
     static double clip(double v, double c) { return std::fmax(-c, std::fmin(c, v)); }
 
     int addr(int slot, int older) const { return (ptr + offs[slot & 0x7F] + older) & (MEMSZ - 1); }
-    double captured(int slot, double old) const {   // s16: the transfer of slot s - 2, else s - 1, else hold
-        for (int want = slot - 2; want <= slot - 1; want++)
-            for (size_t i = hist.size(); i-- > 0;)
-                if (hist[i].slot == want) return hist[i].v;
+    // s36k: a capture at step st takes the latest DRAM transfer of this pass made 3..11 steps earlier, else keeps
+    // its old value. Replaces s16's "slot s - 2, else s - 1" (0ce must take 0c9's read, not 0c5's: Hall1 / Hall9
+    // click replays 63 -> 0.6 LSB rms; d[12] at 0be reads 0 on the unit as this predicts).
+    double captured(double old, int st) const {
+        for (size_t i = hist.size(); i-- > 0;)
+            if (hist[i].st <= st - 3 && hist[i].st > st - 12) return hist[i].v;
         return old;
     }
     void dput(int c, double v) { dq.push_back({n + DLAT, &d[c], v}); }
@@ -87,10 +90,10 @@ struct Vop3 {
         const bool xfer = (st & 3) == 3 || (st & 3) == 1;   // s16 phase 3, s17/s30 phase 1 too
         const int slot = st >> 2;
         if (xfer && (mem_ == 2 || mem_ == 3 || mem_ == 4 || mem_ == 6))   // s16: read (4/6 one word older)
-            hist.push_back({slot, mem[addr(slot, mem_ & 4 ? 1 : 0)]});
+            hist.push_back({slot, mem[addr(slot, mem_ & 4 ? 1 : 0)], st});
         if ((daddr & 0x180) == 0x100) {          // s16/s30: capture into d[n]
             int c = (daddr & 0x3F) | hi;
-            dq.push_back({n + DLAT, &d[c], captured(slot, d[c])});
+            dq.push_back({n + DLAT, &d[c], captured(d[c], st)});
         }
         if (cls != 2 && cls != 3) {              // s27 r12: every step fetches x = r[rB] for the z^-1 latch
             px = x; haspx = hasx; hasx = rb != 0; x = rb ? r[rb] : 0;
@@ -104,7 +107,7 @@ struct Vop3 {
             return;
         }
         if (cls == 0) {                          // s34: a class-0 mem-1 step writes the latched value (none: nothing)
-            if (xfer && mem_ == 1 && haswl) { mem[addr(slot, 0)] = wlatch; hist.push_back({slot, wlatch}); haswl = false; }
+            if (xfer && mem_ == 1 && haswl) { mem[addr(slot, 0)] = wlatch; hist.push_back({slot, wlatch, st}); haswl = false; }
             return;
         }
         double k = s16(coef[st]);
@@ -127,7 +130,8 @@ struct Vop3 {
             case 4: y = s + g * src; break;      // s30: FIR tap
             case 5: y = s < 0 ? -std::ldexp(1.0, -17) : 0.0; break;
             case 6: y = 0; break;
-            default: y = g * src; break;         // op 7. OPEN (s35k): on route 3, rA set nearly zeroes it, mem 1 delays it
+            default: y = g * src;                // op 7. OPEN (s35k): on route 3, rA set nearly zeroes it, mem 1 delays it
+                break;
         }
         if (r7 >> 11 & 1) y = std::fabs(y);      // s15: r7[11] rectifies
         y *= RSCALE[route];
@@ -136,6 +140,7 @@ struct Vop3 {
         else if (ra)
             rq.push_back({n + LAT, &r[ra], mode(y, m)});
         y = acc = accmode(y, m);
+        trace[st] = y;
         double out = clip(y, SAT);
         if ((daddr & 0x1C0) == 0x1C0) dput((daddr & 0x3F) | hi, psrc);   // s32/s33: bit 6 writes prev d[f6c]
         else if ((daddr & 0x180) == 0x180 && (op != 7 || (daddr & 0x3F) != f6c)) dput((daddr & 0x3F) | hi, clip(y, DSAT));
@@ -148,7 +153,7 @@ struct Vop3 {
         if (xfer && mem_ == 1) {                 // s16: write
             if (haswl) { out = wlatch; haswl = false; }
             mem[addr(slot, 0)] = out;
-            hist.push_back({slot, out});
+            hist.push_back({slot, out, st});
         }
     }
 

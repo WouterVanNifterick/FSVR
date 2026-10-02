@@ -78,7 +78,7 @@ def check():
     """Hall1 / Hall9 fed the recorded click: exact to the reverb's first echoes, then correlated. Fails when a rule
     change breaks the input path or the early reverb (the numbers the current model gives; raise them as it improves)."""
     load = json.loads((CLICK / "session.json").read_text())["results"]["probe"]["loads"]
-    for cfg, exact, corr in (("rev1c", 1920, 0.975), ("rev9c", 2200, 0.965)):
+    for cfg, exact, corr in (("rev1c", 1920, 0.99999), ("rev9c", 2200, 0.99999)):
         s = click(cfg)
         L = np.concatenate([np.zeros(4), s[:, 0] / K])
         cmds = [c for p in range(20000) for c in (f"G 13 {float(L[p + 5])!r}", f"G 14 {float(L[p + 6])!r}", "R 1")]
@@ -86,8 +86,9 @@ def check():
         hw = s[:20000, 1]
         fb = int(np.argmax(np.abs(hw - m) > 1.5 / 16384))
         c = np.corrcoef(hw[2000:], m[2000:])[0, 1]
-        print(f"{cfg}: exact to sample {fb}, corr {c:.4f}, level {20 * np.log10(m[2000:].std() / hw[2000:].std()):+.2f} dB")
-        assert fb >= exact and c >= corr, (cfg, fb, c)
+        mx = np.abs(hw - m).max() * 16384
+        print(f"{cfg}: exact to sample {fb}, max err {mx:.0f} LSB, corr {c:.6f}, level {20 * np.log10(m[2000:].std() / hw[2000:].std()):+.2f} dB")
+        assert fb >= exact and c >= corr and mx <= 8, (cfg, fb, c, mx)   # s36k: what's left is rounding (<= 6 LSB)
     print("ok")
 
 

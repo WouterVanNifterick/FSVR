@@ -540,3 +540,21 @@ the replay fed the segment's own L must reproduce R. With r[0d] = tap[p + 1] / 0
 (the 0cf tap reads r[0d] a pass after it holds the value the program sees), every tapped read step (003, 013, 017,
 01b, 0a3) matches the unit to 1 LSB over 9000 samples, so the DRAM line timing, slot offsets and write rules on the
 input lines are right. The replay check (`tools/vop3_replay.py`) moves to Hall1 exact to 1927 samples.
+
+**Session 36g-k: capture source is step distance, not slot; Hall1 / Hall9 click replays exact to rounding.**
+(FS1R.unlock `2026-10-02-090236-s25`, `-092531-s25`, `-093836-s25`, `-103008-s25`.)
+
+* Method: one shipped step at a time re-pointed into d[11] (R), with r[0d] on L, under the s36d click; the replay
+  fed L must reproduce R. 30 of the first 32 taps (02a..088) and 0a3..0b5 exact over 12000 samples; the first
+  divergences cluster on paths through d[38] (0d2 reads it) and d[27] (0d3), both fed by capture 0ce.
+* **Rule (adopted):** a capture (daddr 0x100|n) at step st takes the latest DRAM transfer of this pass made 3..11
+  steps earlier, else holds. s16's "slot s-2, else s-1" picked 0c5 (a class-0 read of slot 0x31, offset 0x10000)
+  for 0ce; the unit takes 0c9's read. Discriminator: d[12] at 0be reads exact 0 on the unit (s36k) as the rule
+  predicts; the alternative "slots parked at >= 0x10000 make no transfer" predicts a 7766 LSB peak there.
+* Result: Hall1 click replay error rms 63 -> 0.6 LSB (40000 samples, max 5 LSB, corr 0.999996, +0.01 dB); Hall9
+  114 -> 0.9 LSB (max 6, corr 0.999998). `tools/vop3_replay.py` asserts max error <= 8 LSB. Self-check 398/398.
+* Board: 2 takes better (u3c, ud27), 3 worse: us098 / d77 by 1 LSB of rounding, d3c by 15 LSB late in a
+  segment that follows u3c (u3c's 14 LSB miss moves to d3c: the same tail, now on the other side of a keep). OPEN.
+* Noise replays (s35j / s36a) stay at corr 0.67..0.89: those takes start mid-stream with the unit's DRAM full of
+  earlier noise, which the replay cannot know. The click takes start from silence and are the exactness test.
+* Remaining at <= 6 LSB: rounding (output / accumulator LSB conventions), first at Hall1 1927 / Hall9 2236.

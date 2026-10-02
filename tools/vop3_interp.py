@@ -148,16 +148,14 @@ class Interp:
             return (self.ptr + self.offs[slot & 0x7F] + older) & (MEM - 1)
         return (self.ptr + self.offs.get(slot & 0x3F, 0) + older + REGION * (mmode >> 2 & 3)) & (MEM - 1)
 
-    def captured(self, slot, old):
-        """Session 16: a capture in slot s takes the DRAM transfer of slot s-2, else of s-1, else keeps its
-        old value: 0e0..0e3 take 0db's read; with slot 36 empty (read moved or r10 = 0/1) 0e0 takes the
-        left's read, R == L to the bit; 0e8 (slots 38, 39 empty) freezes to a constant."""
-        for want in (slot - 2, slot - 1):
-            for sl, v in reversed(self.bus_hist):
-                if sl == want:
-                    return v
+    def captured(self, old, st):
+        """s36k: a capture at step st takes the latest DRAM transfer of this pass made 3..11 steps earlier, else
+        keeps its old value (replaces s16's slot s-2 / s-1: 0ce takes 0c9's read; Hall1 / Hall9 click replays
+        63 -> 0.6 LSB rms; d[12] at 0be reads 0 on the unit as predicted)."""
+        for sl, v, t in reversed(self.bus_hist):
+            if st - 12 < t <= st - 3:
+                return v
         return old
-        # ponytail: captures at 0dc..0de and 0e5 measured one-sample offsets not modelled here (README s16)
 
     def write(self, r, reg, v):
         """s24 round 10: a register written at step n is read by step n + 3 on; steps n + 1, n + 2 see the old value."""
@@ -184,11 +182,11 @@ class Interp:
         dram = st & 3 == 3                     # session 16: DRAM transfers happen only on steps 3 mod 4
         if (dram or st & 3 == 1) and f["mem"] in (2, 3, 4, 6):  # read (s16: 2, 3 alike; 4, 6 one word older); s17: phase 1 reads
             v = self.mem[self.addr(st >> 2, 1 if f["mem"] & 4 else 0, f["mmode"])]
-            self.bus_hist.append((st >> 2, v))
+            self.bus_hist.append((st >> 2, v, st))
             self.rpend.append((self.n + RDLAT, (st >> 2) & 7, v))   # s29: read data lands in rbuf[slot & 7]
         if f["daddr"] & 0x180 == 0x100:        # capture into d[n], seen by later steps this pass
             n = f["daddr"] & 0x3F | DHI(st)
-            self.cpend.append((self.n + CAPLAT, n, self.captured(st >> 2, self.d[n])))   # s30: captures land late
+            self.cpend.append((self.n + CAPLAT, n, self.captured(self.d[n], st)))   # s30: captures land late
         # Sessions 24 rounds 1-3 (one model for every probe of sessions 11-24): class 1 loads r[rA] = k/256 plus
         # r[rB] (rB set) or the running value s, and s takes the result. Classes 2/3: x = r[rB], where rB = 0 is
         # r[0], the chip's audio input; y = op(s, g, x); y is scaled by the route, x1 / x2 / x4 / x16; s = y;
@@ -209,7 +207,7 @@ class Interp:
             if cls == 0 and (dram or st & 3 == 1) and f["mem"] == 1 and self.wlatch is not None:
                 v, self.wlatch = self.wlatch, None                 # s34: class 0 mem 1 writes the latched value
                 self.mem[self.addr(st >> 2, 0, f["mmode"])] = v
-                self.bus_hist.append((st >> 2, v))
+                self.bus_hist.append((st >> 2, v, st))
             return
         k = s16(self.coef[self.first + i]) if self.coef else 0.0
         if cls == 3:
@@ -257,7 +255,7 @@ class Interp:
             if self.wlatch is not None:
                 out, self.wlatch = self.wlatch, None
             self.mem[self.addr(st >> 2, 0, f["mmode"])] = out
-            self.bus_hist.append((st >> 2, out))
+            self.bus_hist.append((st >> 2, out, st))
         if op == 1 and f["f7b"] == 0:
             self.bus += y
         if self.trace is not None:
