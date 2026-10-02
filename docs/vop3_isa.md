@@ -498,3 +498,19 @@ Open:
   set reads -1 LSB, with mem 1 starts 4670 samples late (s35k). No single field explains all of them yet.
 * The comb-loop overflow: 0a4 k = 0x7fff drives the loop to the clip on the unit (sign-flipping at full scale)
   and the model pins at +8; recovery after k is restored differs.
+
+**Session 36 (in progress): insertion input, mono reverb pair.** (FS1R.unlock `2026-10-02-073531-s25`, `-075023-s25`.)
+
+* The insertion send lands in r[11] / r[12] (r[12] the same signal as r[0x0f+..] taps, corr 1.000 with the right
+  output's input); r[01] / r[02] read large offsets (+6.5 / +5.2 readout) under the insertion load. Base steps
+  000-007 scale r[0b..12] in place (op 3, k 0x5a82 on the live pairs), so "read, never written" missed them: they
+  are rA = rB steps.
+* With the part panned hard left, the reverb pair is r[0e] = 0.1532 x r[0d] two passes later (resid 1.6%);
+  the variation pair is r[10] = 0.5 x r[0f] same pass (resid 0.1%). These are the send-level pan law, not chip
+  rules.
+* rev1L replay (exact mono input, both registers driven): corr 0.75, level -5.3 dB. Program step 0x14f writes
+  r[0d] (and 0x155 r[0e]) every pass, so when in the pass the hardware's write lands decides what step 002 reads;
+  that timing is the next measurement.
+* d[] cells read but written by no step (01, 02, 03, 05, 06, 07, 17, 28 and the upper 44/48/4c): only d[03] and
+  d[28] carry signal under variation 1, d[02] and d[05] under insertion 1, r[04]-high (d[44]) under reverb. These
+  are the hardware's per-bus d[] inputs; not yet in the model.

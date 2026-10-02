@@ -25,7 +25,7 @@ DRIVER = r"""
 #include <cstdio>
 #include <cstring>
 // stdin: 512x5 words, 512 coefs, 128 offsets, then commands: S st w0..w4 | K st v | O slot off | R n (print n DAC
-// samples) | Q n (run n, no output) | B (restore the base program, coefs and offsets) | G reg value
+// samples) | Q n (run n, no output) | B (restore the base program, coefs and offsets) | G reg value | H at ra va rb vb
 int main() {
     static Vop3 v; static Vop3::Step p0[512]; static uint16_t c0[512]; static int o0[128];
     for (auto& s : p0) for (auto& w : s.w) std::scanf("%hu", &w);
@@ -42,6 +42,13 @@ int main() {
         else if (*cmd == 'O') { std::scanf("%d %d", &a, &b); v.offs[a] = b; }
         else if (*cmd == 'B') base();
         else if (*cmd == 'G') { double x; std::scanf("%d %lf", &a, &x); v.r[a] = x; }   // set a register (an input)
+        else if (*cmd == 'H') {                  // H at ra va rb vb: one pass, inputs written just before step `at`
+            int at, ra, rb; double va, vb; std::scanf("%d %d %lf %d %lf", &at, &ra, &va, &rb, &vb);
+            v.inp = 0; v.d[1] = v.d[5] = 0;
+            for (int st = 0; st < 512; st++) { if (st == at) { v.r[ra] = va; v.r[rb] = vb; } v.step(st); }
+            v.hist.clear(); v.ptr = (v.ptr - 1) & (Vop3::MEMSZ - 1);
+            v.dac(L, R); std::printf("%.17g %.17g\n", L, R);
+        }
         else if (*cmd == 'R' || *cmd == 'Q') {
             std::scanf("%d", &a);
             for (int i = 0; i < a; i++) { v.pass(); v.dac(L, R); if (*cmd == 'R') std::printf("%.17g %.17g\n", L, R); }

@@ -7,8 +7,8 @@
 // VOP3-2, per sample:
 //   inputs   MEASURED s35h: the hardware writes the reverb send pair into r[0d]/r[0e] and the variation pair
 //            into r[0f]/r[10]; no step writes them, steps 002-005 read them in place (s22's r[03..08] were
-//            values the program computes). Register units: r = 8 x full scale. OPEN: the insertion pair, and
-//            the mid-pass arrival (r[0e] carries the mono reverb send one pass ahead of r[0d]); written at pass
+//            values the program computes). s36: the insertion pair lands in r[11]/r[12] (steps 006/007 scale
+//            r[0b..12] in place by 0x5a82). Register units: r = 8 x full scale. OPEN: the mid-pass arrival (r[0e] carries the mono reverb send one pass ahead of r[0d]); written at pass
 //            start here. The dry mix reaches the output bus already summed (s22), not modelled here.
 //   program  FW: base image + one type per window at the upload function's addresses (tools/vop3_e2e.py WIN),
 //            selectors from the performance's effect types (docs/vop3_2_params.md, Dispatch).
@@ -49,7 +49,7 @@ struct Vop3Effects {
     void run(const double rev[2], const double var[2], const double ins[2], double& L, double& R) {
         chip.r[0x0D] = 8 * rev[0]; chip.r[0x0E] = 8 * rev[1];
         chip.r[0x0F] = 8 * var[0]; chip.r[0x10] = 8 * var[1];
-        (void)ins;                               // OPEN: insertion input registers not mapped yet
+        chip.r[0x11] = 8 * ins[0]; chip.r[0x12] = 8 * ins[1];   // s36
         chip.pass();
         chip.dac(L, R);
         L /= 8; R /= 8;                          // readout units -> full scale 1
