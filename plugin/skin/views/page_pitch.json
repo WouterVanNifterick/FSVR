@@ -1084,7 +1084,7 @@
    },
    "text": {
     "text": "L0",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1108,7 +1108,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1137,7 +1137,7 @@
    },
    "text": {
     "text": "T1",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1161,7 +1161,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1190,7 +1190,7 @@
    },
    "text": {
     "text": "L1",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1214,7 +1214,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1243,7 +1243,7 @@
    },
    "text": {
     "text": "T2",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1267,7 +1267,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1296,7 +1296,7 @@
    },
    "text": {
     "text": "L2",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1320,7 +1320,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1349,7 +1349,7 @@
    },
    "text": {
     "text": "T3",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1373,7 +1373,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1402,7 +1402,7 @@
    },
    "text": {
     "text": "L3",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1426,7 +1426,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1455,7 +1455,7 @@
    },
    "text": {
     "text": "T4",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1479,7 +1479,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1508,7 +1508,7 @@
    },
    "text": {
     "text": "L4",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1532,7 +1532,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
