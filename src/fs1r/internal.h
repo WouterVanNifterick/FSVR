@@ -462,6 +462,10 @@ struct Synth {
     void fseq_keys();
     void release(Chan& C);
     void set_sustain(int part, bool on) { Part& pt = perf.part[part]; pt.sustain = on; if (!on) for (auto& c : ch) if (c.active && c.part == part && c.sustained) { c.sustained = false; release(c); } }
+    // What the polyphony readout shows. A channel is a voice for exactly as long as the allocator owns
+    // it, which is the free-channel test note_on itself reads, so a released note keeps counting until
+    // its release is over rather than until the key comes up.
+    int active_chans() const { int n = 0; for (auto& c : ch) n += c.active; return n; }
     void all_off() { for (auto& c : ch) c.active = false; for (auto& p : perf.part) { p.nheld = 0; } fseqRun = false; fseqHeld = false; }
     void all_release() { for (auto& c : ch) if (c.active && (c.held || c.sustained)) { c.held = c.sustained = false; release(c); } for (auto& p : perf.part) p.nheld = 0; }
 

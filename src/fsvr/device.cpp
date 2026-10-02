@@ -149,11 +149,9 @@ double Device::fseqFrameSeconds(int s) { return (VELW[clampi(s, 0, 127)] * 84.0 
 // the chip attenuates LEVEL_DB per register step (ymp706.cpp).
 int Device::fseqWord(double hz) { return hz > 0 ? clampi((int)lround(26861 + 1024 * log2(hz / 440.0)), 0, 0x7FFE) : 0; }
 int Device::fseqLevel(double gain) { return gain > 0 ? clampi((int)lround(-20 * log10(gain) / (2 * LEVEL_DB)), 0, 127) : 127; }
-int Device::activeNotes() const {
+int Device::activeVoices() const {
     std::lock_guard<std::mutex> lk(p->s.mtx);
-    int n = 0;
-    for (auto& c : p->s.ch) n += c.active && (c.held || c.sustained);
-    return n;
+    return p->s.active_chans();
 }
 
 int Device::selfTest() {

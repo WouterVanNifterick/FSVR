@@ -503,6 +503,24 @@ int selftest(Synth& S) {
       ck("the 33rd note steals the channel the unit stole (ch 2)", took == 2 && before == 2);
       S.all_off(); init_perf(S.perf); }
 
+    // The polyphony readout counts channels, not keys. It used to count notes held or sustained, so a
+    // voice with a long release left the display the moment the key came up while the channel was still
+    // sounding and still unavailable to the allocator.
+    { init_perf(S.perf); Voice& V = S.perf.part[0].voice;
+      init_default_voice(V);
+      S.perf.part[0].p[1] = 2; S.perf.part[0].p[4] = 0x10;
+      V.v[0].form = 0; V.v[0].level = 99; V.v[0].fixed = 0; V.v[0].coarse = 1; V.v[0].keysync = 1;
+      for (int i = 0; i < 4; i++) { V.v[0].L[i] = i == 3 ? 0 : 99; V.v[0].T[i] = i == 3 ? 36 : 0; }   // release runs about half a second
+      S.all_off();
+      std::vector<float> l(1024), r(1024);
+      S.midi_in(0x90, 60, 100); S.render(l.data(), r.data(), 1024);
+      ck("a sounding note counts as one voice", S.active_chans() == 1);
+      S.midi_in(0x80, 60, 0); S.render(l.data(), r.data(), 1024);
+      ck("a released note goes on counting while its release runs", S.active_chans() == 1);
+      int blocks = 0; while (S.active_chans() && ++blocks < 200) S.render(l.data(), r.data(), 1024);
+      ck("and stops counting once the release is over", S.active_chans() == 0);
+      S.all_off(); init_perf(S.perf); }
+
     // fsvr/display.h, the transcribed display tables, against values the Data List and the manual give.
     { using namespace display;
       ck("fixed frequency: 440.2 at coarse 16, fine 0", !strcmp(FIXED_FREQUENCY[0][15], "440.2"));
