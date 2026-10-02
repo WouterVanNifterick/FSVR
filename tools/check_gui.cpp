@@ -1,7 +1,8 @@
 // check_gui: the FSVR editor end to end without a window. The real skin and the real processor, one Hollow
 // Gui over them, driven as a mouse and a keyboard would drive it: widgets found by name, clicks, drags,
 // right-clicks and typing, then the params, text data, menus and modals checked. The top bar's menus and
-// toggles, the keyboard's lit keys, every Navigator page, the browser and its right-click menus, every dialog, the modal's veil,
+// toggles, the keyboard's lit keys, every Navigator page, the skin's keyboard shortcuts and the tooltips that name them,
+// the browser and its right-click menus, every dialog, the modal's veil,
 // Escape and close X, the close prompt, the LCD's scale menu and the About box; then a sweep of every page's
 // dials, faders, dropdowns and toggles. Exits non-zero on any failure.
 //   build/<dir>/Release/check_gui      (ctest runs it as "gui")
@@ -121,6 +122,24 @@ struct Ui {   // one instance and its editor, run a block and a GUI tick at a ti
         gui.keyDown(KeyEnter, false, false);
         run(2);
     }
+    // One chord on a letter or a digit, as a platform would deliver it. True when the editor used the key;
+    // false means it stays the host's.
+    bool chord(char ch, bool shift, bool alt) {
+        const bool used = gui.keyDown(KeyNone, shift, false, alt, (unsigned char)ch);
+        run(2);
+        return used;
+    }
+    bool altKey(char ch) { return chord(ch, false, true); }
+    bool shiftKey(char ch) { return chord(ch, true, false); }
+    // One press of an Alt chord delivered twice, as a host that both forwards through its plug-in API and
+    // lets the key reach the window sends it. Back to back with nothing in between, so the window the second
+    // copy has to fall inside is not a race against however long a paint takes. True when both were ours.
+    bool altKeyTwice(char ch) {
+        const bool a = gui.keyDown(KeyNone, false, false, true, (unsigned char)ch, false);
+        const bool b = gui.keyDown(KeyNone, false, false, true, (unsigned char)ch, true);
+        run(2);
+        return a && b;
+    }
     bool menuIs(const std::vector<std::string>& want, const char* what) {
         const auto got = gui.menuLabels();
         std::string g;
@@ -228,6 +247,78 @@ int main() {
                   "%s did not open %s", p.first, p.second);
         }
 
+        // ---- the keyboard shortcuts (skin.json "keys", issue #11) -------------------------------------
+        {
+            auto opened = [&](const char* view) {
+                return u.ui().find(std::string("\"view\":\"") + view + "\"") != std::string::npos ||
+                       (std::string(view) == "page_library" && u.shows("pages/library"));
+            };
+            const std::pair<char, const char*> chords[] = {
+                {'E', "page_all_envs"},   {'O', "page_all_ops"}, {'M', "page_mod_matrix"}, {'K', "page_key_scaling"},
+                {'F', "page_filter"},     {'P', "page_pitch"},   {'X', "page_fx"},         {'S', "page_fseq"},
+                {'Z', "page_quick"},      {'T', "page_parts"},   {'R', "page_master"},     {'B', "page_library"}};
+            for (auto& c : chords) {
+                CHECK(u.altKey(c.first), "Alt+%c was not used", c.first);
+                CHECK(opened(c.second), "Alt+%c did not open %s", c.first, c.second);
+            }
+            for (char n = '1'; n <= '8'; ++n) {   // the operator pages
+                CHECK(u.altKey(n), "Alt+%c was not used", n);
+                CHECK(opened("page_operator") && u.ui().find(std::string("\"op\":\"") + n + "\"") != std::string::npos,
+                      "Alt+%c did not open operator %c's page", n, n);
+            }
+            // Alt+N steps the voiced/unvoiced var and wraps back on the second press, N being the unit's own
+            // mark for an unvoiced operator.
+            CHECK(u.altKey('N') && u.ui().find("\"layer\":\"u\"") != std::string::npos, "Alt+N did not show the unvoiced operators");
+            CHECK(u.altKey('N') && u.ui().find("\"layer\":\"v\"") != std::string::npos, "Alt+N twice did not go back to the voiced ones");
+            for (char n = '1'; n <= '4'; ++n) {   // Shift+1..4 pick the part, whatever page is up
+                CHECK(u.shiftKey(n), "Shift+%c was not used", n);
+                CHECK(u.ui().find(std::string("\"part\":\"p") + n + "\"") != std::string::npos, "Shift+%c did not select part %c", n, n);
+            }
+            u.shiftKey('1');
+            // A host that forwards a chord through its plug-in API and also lets it reach the window delivers
+            // one press twice (seen with Shift+digit). Alt+N cycles, so acting twice would land back
+            // where it started and look like nothing happened: the second copy is ours but must not act.
+            CHECK(u.altKeyTwice('N'), "a copy of Alt+N was handed back to the host");
+            CHECK(u.ui().find("\"layer\":\"u\"") != std::string::npos, "one press of Alt+N delivered twice cycled twice");
+            CHECK(u.altKey('N') && u.ui().find("\"layer\":\"v\"") != std::string::npos,
+                  "the press after a doubled one did not act, so the guard swallowed a real press");
+
+            // What the skin does not bind stays the host's, so a DAW keeps its own keys.
+            CHECK(!u.altKey('U'), "Alt+U was taken though the voiced/unvoiced chord is Alt+N");
+            CHECK(!u.altKey('Q'), "Alt+Q was taken though nothing binds it");
+            CHECK(!u.chord('F', false, false), "a bare F was taken for Alt+F");
+            CHECK(!u.chord('F', true, false), "Shift+F was taken for Alt+F");
+            CHECK(!u.chord('5', true, false), "Shift+5 was taken though only Shift+1 to 4 are bound");
+
+            // Every shortcut names itself in the tooltip of the control that does the same thing, so the chord
+            // is never written out twice and never hides. The wording of a tip is the skin's to change, so
+            // only the chord it ends with is checked here, and that it kept the words it had.
+            u.click("sidebar/nav_quick");
+            auto tipEnds = [&](const char* path, const char* chord) {
+                const std::string got = u.gui.tipOf(path), want = std::string(" (") + chord + ")";
+                CHECK(got.size() > want.size() && got.compare(got.size() - want.size(), want.size(), want) == 0,
+                      "%s reads \"%s\", not something ending \"%s\"", path, got.c_str(), want.c_str());
+            };
+            tipEnds("sidebar/nav_spectrum", "Alt+F");
+            tipEnds("sidebar/nav_fx", "Alt+X");
+            tipEnds("sidebar/nav_library", "Alt+B");
+            tipEnds("sidebar/nav_all_ops", "Alt+O");
+            tipEnds("sidebar/nav_all_envs", "Alt+E");
+            tipEnds("sidebar/nav_mod_matrix", "Alt+M");
+            tipEnds("sidebar/nav_key_scaling", "Alt+K");
+            tipEnds("sidebar/nav_pitch", "Alt+P");
+            tipEnds("sidebar/nav_arp", "Alt+S");
+            tipEnds("sidebar/nav_tags", "Alt+T");
+            tipEnds("sidebar/nav_master", "Alt+R");
+            tipEnds("sidebar/nav_quick", "Alt+Z");
+            tipEnds("sidebar/nav_op_3", "Alt+3");
+            tipEnds("topbar/part_2", "Shift+2");
+            // Alt+N cycles the var, so both buttons that set one of its values own the chord.
+            u.click("sidebar/nav_all_ops");
+            tipEnds("pages/voiced", "Alt+N");
+            tipEnds("pages/unvoiced", "Alt+N");
+        }
+
         // ---- sliders: the volume knob and Easy's attack fader drag, and a double-click resets ----------
         {
             Rect r;
@@ -272,7 +363,13 @@ int main() {
               "Save Current Preset did not open the Save modal (\"%s\")", u.data("save.name").c_str());
         u.row(M + "banks", 0);
         CHECK(u.get("save.bank") == 0 && u.shows(M + "bank_name"), "<New Bank> did not ask for the new bank's name");
+        // The shortcuts are inert while a modal is up, and while a text field has the keyboard: the dialog
+        // takes every key, space included, so Alt+F types nothing and moves no page behind it.
+        CHECK(u.altKey('F'), "a modal let Alt+F through to the host");
+        CHECK(u.ui().find("\"view\":\"page_filter\"") == std::string::npos, "Alt+F changed the page behind a modal");
         u.click(M + "name");
+        CHECK(u.altKey('F'), "a text field being edited let Alt+F through to the host");
+        CHECK(u.ui().find("\"view\":\"page_filter\"") == std::string::npos, "Alt+F changed the page while a text field was being edited");
         u.type("Zap Edit");
         u.click(M + "bank_name");
         u.type("GUI Bank");
@@ -416,6 +513,6 @@ int main() {
         u.proc.reset();
     }
     fs::remove_all(tmp, ec);
-    if (!fails) std::printf("check_gui: the top bar, its menus and toggles, every page, the browser's right-click menus, every dialog, the modal's veil, Escape and close X, the close prompt, the scale menu and About all pass\n");
+    if (!fails) std::printf("check_gui: the top bar, its menus and toggles, every page, the keyboard shortcuts and their tooltips, the browser's right-click menus, every dialog, the modal's veil, Escape and close X, the close prompt, the scale menu and About all pass\n");
     return fails ? 1 : 0;
 }

@@ -2113,5 +2113,164 @@
  },
  "standalone": {
   "settings": "dialog_audio"
- }
+ },
+ "keys": [
+  {
+   "chord": "alt+1",
+   "goto": "page_operator",
+   "stack": "pages",
+   "vars": {
+    "op": "1"
+   }
+  },
+  {
+   "chord": "alt+2",
+   "goto": "page_operator",
+   "stack": "pages",
+   "vars": {
+    "op": "2"
+   }
+  },
+  {
+   "chord": "alt+3",
+   "goto": "page_operator",
+   "stack": "pages",
+   "vars": {
+    "op": "3"
+   }
+  },
+  {
+   "chord": "alt+4",
+   "goto": "page_operator",
+   "stack": "pages",
+   "vars": {
+    "op": "4"
+   }
+  },
+  {
+   "chord": "alt+5",
+   "goto": "page_operator",
+   "stack": "pages",
+   "vars": {
+    "op": "5"
+   }
+  },
+  {
+   "chord": "alt+6",
+   "goto": "page_operator",
+   "stack": "pages",
+   "vars": {
+    "op": "6"
+   }
+  },
+  {
+   "chord": "alt+7",
+   "goto": "page_operator",
+   "stack": "pages",
+   "vars": {
+    "op": "7"
+   }
+  },
+  {
+   "chord": "alt+8",
+   "goto": "page_operator",
+   "stack": "pages",
+   "vars": {
+    "op": "8"
+   }
+  },
+  {
+   "chord": "alt+e",
+   "goto": "page_all_envs",
+   "stack": "pages"
+  },
+  {
+   "chord": "alt+o",
+   "goto": "page_all_ops",
+   "stack": "pages"
+  },
+  {
+   "chord": "alt+m",
+   "goto": "page_mod_matrix",
+   "stack": "pages"
+  },
+  {
+   "chord": "alt+k",
+   "goto": "page_key_scaling",
+   "stack": "pages"
+  },
+  {
+   "chord": "alt+f",
+   "goto": "page_filter",
+   "stack": "pages"
+  },
+  {
+   "chord": "alt+p",
+   "goto": "page_pitch",
+   "stack": "pages"
+  },
+  {
+   "chord": "alt+x",
+   "goto": "page_fx",
+   "stack": "pages"
+  },
+  {
+   "chord": "alt+s",
+   "goto": "page_fseq",
+   "stack": "pages"
+  },
+  {
+   "chord": "alt+b",
+   "goto": "page_library",
+   "stack": "pages"
+  },
+  {
+   "chord": "alt+z",
+   "goto": "page_quick",
+   "stack": "pages"
+  },
+  {
+   "chord": "alt+t",
+   "goto": "page_parts",
+   "stack": "pages"
+  },
+  {
+   "chord": "alt+r",
+   "goto": "page_master",
+   "stack": "pages"
+  },
+  {
+"chord": "alt+n",
+   "cycle": {
+    "layer": [
+     "v",
+     "u"
+    ]
+   }
+  },
+  {
+   "chord": "shift+1",
+   "set": {
+    "part": "p1"
+   }
+  },
+  {
+   "chord": "shift+2",
+   "set": {
+    "part": "p2"
+   }
+  },
+  {
+   "chord": "shift+3",
+   "set": {
+    "part": "p3"
+   }
+  },
+  {
+   "chord": "shift+4",
+   "set": {
+    "part": "p4"
+   }
+  }
+ ]
 }

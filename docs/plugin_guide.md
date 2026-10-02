@@ -43,6 +43,26 @@ The navigator on the left opens the pages: Browser, Parts, Performance, Effects,
 
 The expert pages share the algorithm matrix on the right. Its header holds the algorithm's number, with ▼ and ▲ to step it (or drag it, scroll it or double-click to type one), and the Feedback pot. **Select Algorithm** swaps the matrix for a browser of all 88, drawn as small matrices, 2x2, 3x3 or 4x4 at a time, scrolled with the wheel or the bar, and opened on the current one; click one to take it, or Cancel to keep the one you had.
 
+## Keyboard shortcuts
+
+Every page has a chord, so you can get around without the mouse. Hover any button and its tooltip names its own shortcut.
+
+| | |
+|---|---|
+| **Alt+1** to **Alt+8** | Operator 1 to 8 |
+| **Alt+O** / **Alt+E** | Ops / Env, all eight operators or envelopes at once |
+| **Alt+M** / **Alt+K** / **Alt+F** / **Alt+P** | Mod / KeySc / Filter / Pitch |
+| **Alt+X** / **Alt+S** | Effects / Fseq |
+| **Alt+B** / **Alt+Z** / **Alt+T** / **Alt+R** | Browser / Easy / Parts / Performance |
+| **Alt+N** | Voiced and unvoiced, back and forth (the V and N switches) |
+| **Shift+1** to **Shift+4** | The part the edit pages show |
+
+Only these chords are FSVR's; every other key goes to your host, so the transport bar and your own shortcuts keep working. While a dialog is open or you are typing a name, FSVR takes every key until you are done, so nothing you type goes astray. On macOS, Alt is Option.
+
+They work in every format, in the standalone and in a host, with nothing to configure and no need to click the editor first.
+
+While FSVR's editor has the keyboard, a chord listed above is FSVR's and your host does not see it, even if the host has that key bound to something of its own. Click away from the editor and the key is the host's again. Every key FSVR does not bind stays the host's throughout, so the transport bar and your own shortcuts keep working while you edit.
+
 ## The browser and your library
 
 The Bank column holds the factory bank, **Yamaha FS1R** (the 384 performances, 1408 voices and 90 Fseqs of the unit's ROM, built into the plug-in), then your own banks. The Performances, Voices and Fseqs tabs switch what the lists show, and the Category column narrows them. A performance loads all four parts with the voices and Fseq it names; a voice loads into the selected part; an Fseq plays on the performance's Fseq part.

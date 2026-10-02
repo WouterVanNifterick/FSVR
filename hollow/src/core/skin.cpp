@@ -477,6 +477,37 @@ struct Loader {
         return c;
     }
 
+    // "alt+f", "shift+1", "ctrl+alt+escape": the modifiers in any order, then one letter, one digit or
+    // one Key name. False when nothing names a key, so a typo drops that binding rather than the skin.
+    // On macOS "ctrl" is Command, which is the modifier mac.mm already reports as ctrl.
+    static bool chord(const std::string& s, Binding& b) {
+        size_t at = 0;
+        while (at < s.size()) {
+            size_t plus = s.find('+', at);
+            std::string tok = s.substr(at, plus == std::string::npos ? std::string::npos : plus - at);
+            for (char& c : tok) c = (char)std::tolower((unsigned char)c);
+            at = plus == std::string::npos ? s.size() : plus + 1;
+            if (tok == "shift") b.shift = true;
+            else if (tok == "ctrl" || tok == "cmd") b.ctrl = true;
+            else if (tok == "alt" || tok == "opt" || tok == "option") b.alt = true;
+            else if (tok.size() == 1 && (std::isalpha((unsigned char)tok[0]) || std::isdigit((unsigned char)tok[0])))
+                b.ch = (unsigned char)std::toupper((unsigned char)tok[0]);
+            else if (tok == "left") b.key = KeyLeft;
+            else if (tok == "right") b.key = KeyRight;
+            else if (tok == "up") b.key = KeyUp;
+            else if (tok == "down") b.key = KeyDown;
+            else if (tok == "home") b.key = KeyHome;
+            else if (tok == "end") b.key = KeyEnd;
+            else if (tok == "backspace") b.key = KeyBackspace;
+            else if (tok == "delete") b.key = KeyDelete;
+            else if (tok == "enter") b.key = KeyEnter;
+            else if (tok == "escape") b.key = KeyEscape;
+            else if (tok == "tab") b.key = KeyTab;
+            else return false;
+        }
+        return b.ch != 0 || b.key != KeyNone;
+    }
+
     static Action action(const Json& a) {
         Action r;
         if (a.has("value")) {   // a radio button, and with a goto a chooser that then shows that view
@@ -484,6 +515,13 @@ struct Loader {
         }
         else if (a.has("goto")) { r.type = Action::Goto; r.target = a["goto"].str(); r.stack = a["stack"].str(); r.vars = vars(a["vars"]); }
         else if (a.has("set")) { r.type = Action::Set; r.vars = vars(a["set"]); }
+        else if (a.has("cycle")) {   // { "cycle": { "layer": ["v", "u"] } }: that var to its next value, wrapping
+            r.type = Action::Cycle;
+            if (const Json& c = a["cycle"]; !c.members.empty()) {
+                r.target = c.members[0].first;
+                for (auto& v : c.members[0].second.items) r.values.push_back(valueText(v));
+            }
+        }
         else if (a.has("toggle")) { r.type = Action::Toggle; r.target = a["toggle"].str(); }
         else if (a.has("url")) { r.type = Action::Url; r.target = a["url"].str(); }
         else if (a.has("standalone")) { r.type = Action::Standalone; r.target = a["standalone"].str(); }
@@ -801,6 +839,12 @@ std::shared_ptr<Skin> loadFiles(const Files& files, std::string* error) {
     skin->closeModal = sj["close"]["modal"].str();
     skin->closeIf = Loader::cond(sj["close"]["if"]);
     skin->settingsView = sj["standalone"]["settings"].str();
+    for (auto& kj : sj["keys"].items) {   // "keys": [ { "chord": "alt+f", "goto": ..., "stack": ... }, ... ]
+        Binding b;
+        if (!Loader::chord(kj["chord"].str(), b)) continue;   // an unreadable chord is dropped, not fatal
+        b.action = Loader::action(kj);
+        if (b.action.type != Action::None) skin->keys.push_back(std::move(b));
+    }
     if (auto root = skin->views.find(skin->root); root != skin->views.end()) {
         View& v = root->second;
         Widget veil, box;

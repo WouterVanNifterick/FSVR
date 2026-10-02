@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <climits>
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <random>
@@ -1196,16 +1197,18 @@ Hit Gui::hit(Node& n, int x, int y) {
     return {};
 }
 
-// The topmost visible widget under the point that has a tip.
+// The topmost visible widget under the point that has something to show: a tip of its own, or a keyboard
+// shortcut that runs its action, which is a tooltip whether or not the skin wrote one.
 Hit Gui::tipAt(Node& n, int x, int y) {
     if (!n.view || !n.clip.contains(x, y)) return {};
     for (auto it = n.view->order.rbegin(); it != n.view->order.rend(); ++it) {
         Inst& s = n.w[*it];
         if (!visible(s) || !rectOf(n, *it).contains(x, y)) continue;
-        if (n.view->widgets[*it].kind == Kind::Veil) return {};   // nor shows its tip
+        const Widget& w = n.view->widgets[*it];
+        if (w.kind == Kind::Veil) return {};   // nor shows its tip
         if (s.child) {
             if (Hit h = tipAt(*s.child, x, y)) return h;
-        } else if (!n.view->widgets[*it].tip.empty()) {
+        } else if (!w.tip.empty() || bindingFor(w.action)) {
             return {&n, *it, gen_};
         }
     }
@@ -1289,6 +1292,15 @@ void Gui::runAction(Node& n, int i, const Action& action) {
         for (auto& kv : a.vars) setVar(vars_, kv.first, kv.second);
         resolve(root_);
         break;
+    case Action::Cycle: {   // the var to its next value, wrapping; from anywhere outside the list, the first
+        if (a.values.empty()) return;
+        const std::string* now = lookup(n, a.target);
+        size_t at = 0;
+        while (at < a.values.size() && (!now || a.values[at] != *now)) ++at;
+        setVar(vars_, a.target, a.values[at + 1 < a.values.size() ? at + 1 : 0]);
+        resolve(root_);
+        break;
+    }
     case Action::Toggle: {
         Hit t;
         if (!findWidget(n, a.target, t, false) && !findWidget(root_, a.target, t, true)) return;
@@ -1486,7 +1498,7 @@ void Gui::mouseDown(int x, int y, bool right, bool dbl, bool shift) {
     Hit h = hit(x, y);
     if (live(listFocus_) && !(h == listFocus_)) {
         listFocus_ = {};
-        if (window && !wantsKeys()) platformFocus(window, false);
+        releaseKeys();
     }
     if (right) {   // context menus open on the release; empty space has none (the scale menu is a skin's { "scale": "menu" })
         if (h && wid(h).kind == Kind::Custom && wid(h).ops && wid(h).ops->right) wid(h).ops->right(*this, h, rectOf(*h.node, h.i), x, y, shift, false);
@@ -1611,7 +1623,7 @@ void Gui::mouseMove(int x, int y, bool shift) {
         }
         if (tipShown_.empty()) tipStill_ = Clock::now();
     } else {
-        std::string text = tip ? wid(tip).tip : std::string();
+        std::string text = tipText(tip);
         if (text != tip_) {
             tip_ = text;
             if (window) platformTip(window, tip_);
@@ -1765,7 +1777,36 @@ void Gui::wheel(int x, int y, double notches, bool shift) {
 
 // ---- keyboard: text entry, menus, lists -------------------------------------------------------------
 
+// HOLLOW_KEYLOG=<path>: where the keyboard path went, appended a line at a time. Opened once, on the first
+// call, and left open; unset means every call is one pointer test.
+static std::FILE* keyLogFile() {
+    static std::FILE* f = [] {
+        const char* p = std::getenv("HOLLOW_KEYLOG");
+        return p && *p ? std::fopen(p, "a") : nullptr;
+    }();
+    return f;
+}
+
+bool keyLogOn() { return keyLogFile() != nullptr; }
+
+void keyLog(const char* fmt, ...) {
+    std::FILE* f = keyLogFile();
+    if (!f) return;
+    va_list a;
+    va_start(a, fmt);
+    std::vfprintf(f, fmt, a);
+    va_end(a);
+    std::fputc('\n', f);
+    std::fflush(f);
+}
+
 bool Gui::wantsKeys() const { return !menus_.empty() || editing_on_ || live(listFocus_) || !modalShown_.empty(); }
+
+// Text entry, a menu or a list is done with the keyboard. A skin with shortcuts keeps it anyway, since its
+// chords have to work without a click first; one without hands it back, as the editor always did.
+void Gui::releaseKeys() {
+    if (window && !wantsKeys() && skin_->keys.empty()) platformFocus(window, false);
+}
 
 void Gui::focusLost() {
     closeMenus();
@@ -1773,7 +1814,88 @@ void Gui::focusLost() {
     listFocus_ = {};
 }
 
-bool Gui::keyDown(Key k, bool shift, bool ctrl) {
+// A key nothing in the editor wanted: the skin's "keys" bindings get it, and the first chord that
+// matches wins. Running its action is what makes the key ours; an unmatched key goes back to the host.
+bool Gui::runKey(Key k, unsigned ch, bool shift, bool ctrl, bool alt, bool fromHost) {
+    const int mods = (shift ? 1 : 0) | (ctrl ? 2 : 0) | (alt ? 4 : 0);
+    for (const Binding& b : skin_->keys) {
+        if (b.shift != shift || b.ctrl != ctrl || b.alt != alt) continue;
+        if (b.ch ? b.ch != ch : b.key != k) continue;
+        // The same chord by the other route, this close behind, is the host sending one press two ways
+        // (seen with Shift+digit): it was acted on already, so this copy is ours and does nothing.
+        // The memory is then spent, so the next press acts whichever route it comes by; a repeat along one
+        // route is two presses and never matches, so holding a key still repeats.
+        const Time now = Clock::now();
+        if (lastChordMods_ == mods && lastChordCh_ == ch && lastChordKey_ == (int)k && lastChordFromHost_ != fromHost &&
+            now - lastChordAt_ < ms(50)) {
+            lastChordMods_ = -1;
+            return true;
+        }
+        lastChordAt_ = now;
+        lastChordCh_ = ch;
+        lastChordKey_ = (int)k;
+        lastChordMods_ = mods;
+        lastChordFromHost_ = fromHost;
+        runAction(root_, 0, b.action);   // Goto, Set and Cycle read no widget, so the root stands in for one
+        return true;
+    }
+    return false;
+}
+
+// A chord as a tooltip shows it: "Alt+F", "Shift+1", "Ctrl+Alt+Esc". ASCII on every platform, including
+// macOS, because a skin's fonts are bitmap strips and have no ⌥ or ⌘ glyph in them.
+std::string Gui::chordName(const Binding& b) {
+    std::string s;
+    if (b.ctrl) s += "Ctrl+";
+    if (b.alt) s += "Alt+";
+    if (b.shift) s += "Shift+";
+    if (b.ch) return s + (char)b.ch;
+    switch (b.key) {
+    case KeyLeft: return s + "Left";
+    case KeyRight: return s + "Right";
+    case KeyUp: return s + "Up";
+    case KeyDown: return s + "Down";
+    case KeyHome: return s + "Home";
+    case KeyEnd: return s + "End";
+    case KeyBackspace: return s + "Backspace";
+    case KeyDelete: return s + "Delete";
+    case KeyEnter: return s + "Enter";
+    case KeyEscape: return s + "Esc";
+    case KeyTab: return s + "Tab";
+    default: return {};
+    }
+}
+
+// The binding that does what this widget's action does, so a tooltip can name the shortcut without the
+// skin writing it out twice. Goto matches on view, stack and vars, Set on the vars it writes, and a
+// Cycle matches any Set of one of its values, which is how the V and N buttons both show Alt+U.
+const Binding* Gui::bindingFor(const Action& a) const {
+    if (a.type == Action::None) return nullptr;
+    for (const Binding& b : skin_->keys) {
+        const Action& x = b.action;
+        if (x.type == a.type) {
+            if (x.type == Action::Set ? x.vars == a.vars : x.target == a.target && x.stack == a.stack && x.vars == a.vars)
+                return &b;
+        } else if (x.type == Action::Cycle && a.type == Action::Set && a.vars.size() == 1 && a.vars[0].first == x.target &&
+                   std::find(x.values.begin(), x.values.end(), a.vars[0].second) != x.values.end()) {
+            return &b;
+        }
+    }
+    return nullptr;
+}
+
+// A widget's tooltip with its shortcut after it, or the shortcut alone when the widget has no tip of its
+// own, so a binding is never invisible.
+std::string Gui::tipText(const Hit& h) const {
+    if (!live(h)) return {};
+    const Widget& w = wid(h);
+    const Binding* b = bindingFor(w.action);
+    if (!b) return w.tip;
+    std::string chord = chordName(*b);
+    return w.tip.empty() ? chord : w.tip + " (" + chord + ")";
+}
+
+bool Gui::keyDown(Key k, bool shift, bool ctrl, bool alt, unsigned ch, bool fromHost) {
     if (!menus_.empty()) {   // arrows move over the top menu's items (skipping separators, wrapping), Enter picks
         Menu& m = menus_.back();
         size_t level = menus_.size() - 1;
@@ -1807,7 +1929,9 @@ bool Gui::keyDown(Key k, bool shift, bool ctrl) {
     }
     if (!editing_on_) {
         if (!live(listFocus_)) {
-            if (modalShown_.empty()) return false;
+            // Nothing in the editor owns the keyboard, so the skin's shortcuts get the key; a modal keeps
+            // them to itself, since its own controls are what the keyboard is for while it is up.
+            if (modalShown_.empty()) return runKey(k, ch, shift, ctrl, alt, fromHost);
             if (k == KeyEscape) setModal("");   // Escape closes a modal, as its Cancel would
             return true;
         }
@@ -2007,7 +2131,7 @@ void Gui::finishEdit(bool commit) {
         invalidate(e.r);
         if (commit && e.commit) e.commit(e.text);
     }
-    if (window && !wantsKeys()) platformFocus(window, false);
+    releaseKeys();
     updateStatus();
 }
 
@@ -2206,6 +2330,16 @@ bool Gui::widgetRect(const std::string& path, Rect& r) {
     return !r.empty();
 }
 
+// The tooltip a visible widget would show, its keyboard shortcut included, by embed path and name. For
+// tools and tests; the runtime itself reads it off the widget the pointer is over.
+std::string Gui::tipOf(const std::string& path) {
+    size_t slash = path.rfind('/');
+    Node* n = nodeAt(slash == std::string::npos ? "" : path.substr(0, slash));
+    Hit h;
+    if (!n || !findWidget(*n, path.substr(slash == std::string::npos ? 0 : slash + 1), h, false)) return {};
+    return tipText(h);
+}
+
 std::vector<Gui::Probe> Gui::probes() {
     std::vector<Probe> out;
     std::function<void(Node&)> walk = [&](Node& n) {
@@ -2279,7 +2413,7 @@ void Gui::closeMenus(size_t from) {
     menus_.resize(from);
     if (from > 0) return;
     pick_ = nullptr;
-    if (window && !wantsKeys()) platformFocus(window, false);
+    releaseKeys();
 }
 
 void Gui::pickMenu(int id) {
@@ -2399,7 +2533,7 @@ void Gui::paintMenu(Canvas& c, const Menu& m) {
 
 void Gui::showTip() {
     const TipStyle& t = skin_->tooltip;
-    const std::string& text = wid(tipHit_).tip;
+    const std::string text = tipText(tipHit_);
     int tw, th;
     textSize(skin_->fonts[t.font], text, tw, th);
     int b = skin_->lw(), w = tw + t.pad[0] + t.pad[2] + 2 * b, h = th + t.pad[1] + t.pad[3] + 2 * b;
@@ -2812,6 +2946,30 @@ void Editor::setScale(int s) {
     if (impl_->gui.window) platformHold(impl_->gui.window, true);
     impl_->gui.setScale(s);
     if (impl_->gui.window) platformHold(impl_->gui.window, false);
+}
+
+// A key from the host's own plug-in API, which is the only route in a host that keeps the keyboard. It runs
+// on the host's thread, so it takes the GUI's lock the way every other call from there does.
+bool Editor::key(Key k, unsigned character, bool shift, bool ctrl, bool alt) {
+    // Which key typed that character, and whether Shift was held to type it: only the layout knows either,
+    // and the bindings are on keys rather than on characters, so that Shift+2 is one chord wherever a layout
+    // puts the quote it types. The Shift it reports is taken on top of the host's, because a host may report
+    // no modifiers at all on the character, Shift having been spent producing it, and
+    // send the Shift press as an event of its own beforehand. Where the layout cannot be asked, a character
+    // stands for its own key, which is right for a letter or a digit and is all there is to go on anyway.
+    bool shiftTyped = false;
+    unsigned ch = platformKeyChar(character, &shiftTyped);
+    shift = shift || shiftTyped;
+    if (!ch) {
+        if ((character >= '0' && character <= '9') || (character >= 'A' && character <= 'Z')) ch = character;
+        else if (character >= 'a' && character <= 'z') ch = character - 'a' + 'A';
+    }
+    if (impl_->gui.window) platformHold(impl_->gui.window, true);
+    const bool used = impl_->gui.keyDown(k, shift, ctrl, alt, ch, true);
+    if (impl_->gui.window) platformHold(impl_->gui.window, false);
+    keyLog("host key char=%u ch=%c key=%d alt=%d ctrl=%d shift=%d used=%d", character, ch ? (char)ch : '.', (int)k, (int)alt, (int)ctrl,
+           (int)shift, (int)used);
+    return used;
 }
 
 bool renderView(const Skin& skin, const std::string& view, std::vector<uint8_t>& rgba, int& width, int& height, const std::string& stateBlob) {

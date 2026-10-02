@@ -248,6 +248,15 @@ Further `menu` fields:
 - Native menus check only `check` items (never the current value), and their column breaks draw no divider line.
 - `"context": [items]` on any widget: right-click (on release) opens a menu of those items at the pointer, in the widget's `menuStyle` (default the named style `"plain"` if it exists).
 
+### Keyboard shortcuts
+
+- `skin.json` `"keys"`: an array of bindings, each a `"chord"` and any action a button can carry. `[{ "chord": "alt+f", "goto": "page_filter", "stack": "pages" }, { "chord": "shift+1", "set": { "part": "p1" } }, { "chord": "alt+u", "cycle": { "layer": ["v", "u"] } }]`.
+- A chord is the modifiers `shift`, `ctrl` and `alt` in any order, then one key: a letter, a digit, or one of `left`, `right`, `up`, `down`, `home`, `end`, `backspace`, `delete`, `enter`, `escape`, `tab`. `cmd` is a synonym for `ctrl`, `opt` and `option` for `alt`. A chord naming no key is dropped and the rest of the skin loads.
+- Letters and digits match the **physical** key, not the character it types, so `shift+1` works where that types `!` and `alt+f` works on macOS where Option+F types `ƒ`. On macOS `ctrl` is Command, the modifier the runtime already reports as ctrl.
+- **A skin with bindings holds the keyboard while its window is up**, so its chords work without clicking the editor first. It consumes only what it has a use for and hands every other key on to the host, so a DAW keeps its own shortcuts. Text entry, an open menu, a focused list and a modal come first and take **every** key, space included, until they are done, so a chord never fires while a name is being typed or a dialog is up. A skin with no `"keys"` behaves as the runtime always did, taking the keyboard only while something in the editor wants it.
+- The `cycle` action sets one var to its next listed value, wrapping past the last; a value outside the list goes to the first. It is the action for a shortcut that flips between states no single button sets.
+- **Tooltips name the shortcut themselves.** A widget whose action a binding also runs shows the chord after its `tip`, as "The filter (Alt+F)", and shows the chord alone when it has no `tip`, so no binding hides. `goto` matches on view, stack and vars, `set` on the vars it writes, and a `cycle` matches any `set` of one of its values, so every button that reaches a state also names the chord that reaches it. Chords read as ASCII on every platform (`Alt+F`, not `⌥F`), since a skin's fonts are bitmap strips.
+
 ### Number and text details
 
 - `number` field `"reset"`: `"default"` (double-click resets to the default when not editable), `"zero"` (resets to 0 when the range spans 0, else nothing) or `false` (nothing). `dial` takes the same field (default `"default"`).
