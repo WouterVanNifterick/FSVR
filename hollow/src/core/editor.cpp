@@ -1862,7 +1862,9 @@ bool Gui::keyDown(Key k, bool shift, bool ctrl) {
         if (k == KeyUp ? ln == 0 : ln + 1 == lines) break;
         size_t a = e.caret;
         while (a > 0 && e.text[a - 1] != '\n') --a;
-        int top = tr.y + (e.style.valign == 1 ? (tr.h - f.height * lines) / 2 : e.style.valign == 2 ? tr.h - f.height * lines : 0);
+        int top = tr.y + (e.style.valign == 1 ? textTop(f, tr.h, lines)
+                        : e.style.valign == 2 ? tr.h - 1 - (f.height * (lines - 1) + f.ink1)
+                        : 0);   // the first line's box, as editLines places it
         size_t lineEnd = std::min(e.text.find('\n', a), size);
         int tw = f.width(e.text.substr(a, lineEnd - a));
         int x = tr.x + (e.style.align == 1 ? (tr.w - tw) / 2 : e.style.align == 2 ? tr.w - tw : 0) + f.width(e.text.substr(a, e.caret - a));
@@ -2028,8 +2030,10 @@ static std::vector<EditLine> editLines(const Font& f, const Text& style, const i
         if (b == s.size()) break;
         a = b + 1;
     }
-    int total = f.height * (int)lines.size();
-    int y = tr.y + (style.valign == 1 ? (tr.h - total) / 2 : style.valign == 2 ? tr.h - total : 0);
+    int n = (int)lines.size();
+    int y = tr.y + (style.valign == 1 ? textTop(f, tr.h, n)
+                  : style.valign == 2 ? tr.h - 1 - (f.height * (n - 1) + f.ink1)
+                  : 0);
     for (auto& l : lines) {
         int tw = f.width(s.substr(l.a, l.b - l.a));
         l.x = tr.x + (style.align == 1 ? (tr.w - tw) / 2 : style.align == 2 ? tr.w - tw : 0);
@@ -2364,9 +2368,10 @@ void Gui::paintMenu(Canvas& c, const Menu& m) {
         bool hot = k == m.sel;
         const Font& f = skin_->fonts[e.disabled && st.disabledFont >= 0 ? st.disabledFont : hot && st.hoverFont >= 0 ? st.hoverFont : st.font];
         int textX = row.x + m.indent;
+        int textY = row.y + textTop(f, row.h);   // the label centred in the row the way "middle" centres
         if (hot) {
             fillRect(c, row, st.hoverFill);
-            if (st.hoverBand >> 24) fillRect(c, {textX, row.y, row.w, f.height}, st.hoverBand);
+            if (st.hoverBand >> 24) fillRect(c, {textX, textY, row.w, f.height}, st.hoverBand);
         }
         if (e.checked) {
             if (st.check >= 0) {
@@ -2381,7 +2386,7 @@ void Gui::paintMenu(Canvas& c, const Menu& m) {
                 }
             }
         }
-        drawText(c, f, e.label, {textX, row.y, row.x + row.w - textX, f.height}, 0, 0, false);
+        drawText(c, f, e.label, {textX, textY, row.x + row.w - textX, f.height}, 0, 0, false);
         if (!e.items.empty()) {
             if (st.arrow >= 0) {
                 const Image& img = skin_->images[st.arrow];

@@ -331,6 +331,41 @@ std::string utf8(const fs::path& p) {   // generic_u8string is std::u8string fro
     return std::string(s.begin(), s.end());
 }
 
+// The font's cap band: the glyph box rows from the cap tops down to the baseline. A picture font's box
+// is whatever its export left around the glyphs - blank rows above the caps, and below them the
+// descenders and any drop shadow - and the two margins are rarely equal, so centring the box leaves
+// text looking high (or low) by a pixel or three, differently for each font. Centring this band reads
+// as centred whatever the export did. The band is measured over the characters that sit on the
+// baseline without dipping below it, counting only solid pixels so that a soft shadow is not read as
+// ink. A font with none of them - "empty", or an icon font - keeps the whole box and so is unchanged.
+void measureInk(Font& f) {
+    f.ink0 = 0;
+    f.ink1 = f.height - 1;
+    if (f.img.px.empty()) return;
+    static const char kBand[] =   // no Q or J, whose tails drop below the baseline, nor f, which can
+        "0123456789ABCDEFGHIKLMNOPRSTUVWXYZabcdehiklmnorstuvwxz";
+    uint32_t peak = 0;
+    for (const char* ch = kBand; *ch; ++ch) {
+        int g = (unsigned char)*ch;
+        for (int y = f.top; y < f.img.h; ++y)
+            for (int x = f.x[g]; x < f.x[g] + f.w[g]; ++x) peak = std::max(peak, f.img.px[(size_t)y * f.img.w + x] >> 24);
+    }
+    if (peak < 32) return;
+    uint32_t solid = peak / 2;
+    int first = f.height, last = -1;
+    for (const char* ch = kBand; *ch; ++ch) {
+        int g = (unsigned char)*ch;
+        for (int y = f.top; y < f.img.h; ++y)
+            for (int x = f.x[g]; x < f.x[g] + f.w[g]; ++x)
+                if (f.img.px[(size_t)y * f.img.w + x] >> 24 >= solid) {
+                    first = std::min(first, y - f.top);
+                    last = std::max(last, y - f.top);
+                    break;
+                }
+    }
+    if (last >= first) { f.ink0 = first; f.ink1 = last; }
+}
+
 struct Loader {
     const Files& files;
     Skin& skin;
@@ -407,6 +442,7 @@ struct Loader {
                 sum[0] += p >> 16 & 255; sum[1] += p >> 8 & 255; sum[2] += p & 255; ++n;
             }
             if (n) f.colour = 0xff000000u | (uint32_t)(sum[0] / n) << 16 | (uint32_t)(sum[1] / n) << 8 | (uint32_t)(sum[2] / n);
+            measureInk(f);
             id = (int)skin.fonts.size();
             skin.fonts.push_back(std::move(f));
             skin.fontNames.push_back(name);
