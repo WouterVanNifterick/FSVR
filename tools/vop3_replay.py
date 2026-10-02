@@ -40,9 +40,8 @@ def segment(d, name, pad=0.3):
 K = 0x5A82 / 32768        # s36: steps 002/003 scale r[0d]/r[0e] in place (op 3, rA = rB); the tap at 0cf reads after
 
 
-def replay(d, cfg, n, sa=0, sb=2, tap="_ia"):
-    """r[a] at pass p = tapped L[p + sa] / K; r[b] = the same signal two passes later (mono send, s36 click takes:
-    first-difference 4324 against 1863 for the other shifts tried)."""
+def replay(d, cfg, n, sa=1, sb=2, tap="_ia"):
+    """r[a] at pass p = tap[p + 1] / K, r[b] = tap[p + 2] / K (s36f: every tapped shipped read step exact to 1 LSB)."""
     spec = json.loads((d / "probes.json").read_text())
     load = json.loads((d / "session.json").read_text())["results"]["probe"]["loads"][cfg]
     io = segment(d, cfg + tap)[:n + 8]
@@ -79,10 +78,10 @@ def check():
     """Hall1 / Hall9 fed the recorded click: exact to the reverb's first echoes, then correlated. Fails when a rule
     change breaks the input path or the early reverb (the numbers the current model gives; raise them as it improves)."""
     load = json.loads((CLICK / "session.json").read_text())["results"]["probe"]["loads"]
-    for cfg, exact, corr in (("rev1c", 1880, 0.975), ("rev9c", 2200, 0.965)):
+    for cfg, exact, corr in (("rev1c", 1920, 0.975), ("rev9c", 2200, 0.965)):
         s = click(cfg)
         L = np.concatenate([np.zeros(4), s[:, 0] / K])
-        cmds = [c for p in range(20000) for c in (f"G 13 {float(L[p + 4])!r}", f"G 14 {float(L[p + 6])!r}", "R 1")]
+        cmds = [c for p in range(20000) for c in (f"G 13 {float(L[p + 5])!r}", f"G 14 {float(L[p + 6])!r}", "R 1")]
         m = C.run(E.program(load[cfg]["selectors"]), list(load[cfg]["coefs"]), load[cfg]["offsets"], cmds)[:, 1]
         hw = s[:20000, 1]
         fb = int(np.argmax(np.abs(hw - m) > 1.5 / 16384))

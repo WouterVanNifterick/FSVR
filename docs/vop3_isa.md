@@ -533,3 +533,10 @@ repeatable to the LSB through the early reverb.)
 
 Next: the LFO. Registers 0x24 (speed, 0x36EF54[v]), 0x25 (waveform bits 5-7), 0x26 (depth), 0x27 (direction) per
 LFO channel, four per effect block; which step field reads an LFO and how it moves a DRAM read is unmeasured.
+
+**Session 36e-f: input timing settled by tapping shipped read steps.** (FS1R.unlock `2026-10-02-084908-s25`,
+`-085439-s25`.) Each segment holds L = r[0d] (0cf re-pointed) and R = one shipped DRAM read step tapped into d[11];
+the replay fed the segment's own L must reproduce R. With r[0d] = tap[p + 1] / 0.7071 and r[0e] = tap[p + 2] / 0.7071
+(the 0cf tap reads r[0d] a pass after it holds the value the program sees), every tapped read step (003, 013, 017,
+01b, 0a3) matches the unit to 1 LSB over 9000 samples, so the DRAM line timing, slot offsets and write rules on the
+input lines are right. The replay check (`tools/vop3_replay.py`) moves to Hall1 exact to 1927 samples.
