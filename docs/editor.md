@@ -89,6 +89,26 @@ The Fseq page's Import Audio makes an Fseq of your own out of a WAV, AIFF, MP3, 
 - **The LCD's POLY** counts the channels the allocator still owns, out of the unit's 32: one per part a key plays, and a released note keeps counting until its release is over, which is the same test note-on reads when it looks for a free channel. CPU is the audio thread's load.
 - **MIDI/Aud**, above Volume in the standalone only, opens its audio and MIDI settings. On Windows they are a modal of the skin's (`dialog_audio`) that reads and drives clap-wrapper's own settings window, which stays hidden: the driver, output, input, sample rate and buffer size as dropdowns and the MIDI inputs as a list of lamps, each change applied and saved by the app as if its window had been used. On macOS the button opens clap-wrapper's window through its app menu's action; Linux's standalone has neither, so the button does nothing there.
 
+### Keybindings
+
+The unit has no keyboard, so these are ours (issue #11): a way to reach any page without the mouse. They are `skin.json`'s `"keys"`, a Hollow facility ([skin-format.md](../hollow/docs/skin-format.md)), so each binding carries the same action as its Navigator button and the two cannot drift apart.
+
+| Chord | Where it goes |
+|---|---|
+| Alt+1 to Alt+8 | Operator 1 to 8 |
+| Alt+O, Alt+E | Ops, Env (all eight at once) |
+| Alt+M, Alt+K, Alt+F, Alt+P | Mod, KeySc, Filter, Pitch |
+| Alt+X, Alt+S | Effects, Fseq |
+| Alt+B, Alt+Z, Alt+T, Alt+R | Browser, Easy, Parts, Performance |
+| Alt+N | Voiced and unvoiced, back and forth (the V and N switches) |
+| Shift+1 to Shift+4 | The part the edit pages show |
+
+- **The editor holds the keyboard while its window is up** and consumes only these chords; every other key goes on to the host, so a DAW keeps its own. A click in the editor takes the keyboard back after the host has had it.
+- **A dialog, or a field being typed into, takes every key**, space included, and no chord fires until it is done. That is what lets a preset be named "Hall 1 Pad" without a letter or a space going astray.
+- **Alt+1 to Alt+8 open the Operator page**, since `{op}` is read by that page alone; the other chords are their Navigator buttons. Alt+N steps the shared `layer` var, which the Operator, Ops and Env pages show, so pressing it elsewhere decides what those pages show when you next reach them. The issue asked for Alt+U; N is the mark the unit itself puts on an unvoiced operator, and the buttons say N, so the chord does too.
+- **Each chord names itself in the tooltip** of the control that does the same thing, which is where the Navigator's twelve page buttons got the tooltips they had been missing. Help > Keyboard Shortcuts, a page listing them all, is still to come: there is no Help menu yet to hang it on.
+- **Which format a host gives the keyboard to is the host's business, and they disagree.** Live and FL Studio let keys reach the plug-in's window, FL once it has been clicked. REAPER and Studio One take them off the window and offer them through the plug-in's interface instead, so only the VST2 build gets them there: Hollow answers `effEditKeyDown` (`hollow/src/formats/vst2/vst2.cpp`), while clap-wrapper's VST3 `onKeyDown` is a stub and CLAP has no key event at all. CLAP's omission is deliberate: keyboard focus is the window system's job in its view, and the key APIs of VST2 and VST3 are the mistake, hosts having taken the keyboard off a plug-in's window in the first place. So nothing will come from CLAP itself. The route for the VST3, confirmed by clap-wrapper's own maintainer, is a **private wrapper extension**: CLAP has no API to forward keys to, and the consensus upstream was that a wrapper extension may introduce one if it turns out to matter. clap-wrapper already has the shape to copy, `CLAP_PLUGIN_AS_VST3` in `include/clapwrapper/vst3.h` — a struct the plug-in returns from its own `get_extension` for the wrapper to ask it VST3-specific questions. The plug-in half is ready here: `Editor::key` is the entry point the VST2 layer already uses, and Hollow's CLAP layer would return the extension from `get_extension`. The wrapper half wants an upstream change, which costs a tag bump in `hollow/CMakeLists.txt` rather than vendoring, since clap-wrapper is fetched at a pinned commit. A plain CLAP in a host that takes keys off the window stays out of reach either way. Until that is done the shortcuts are a VST2 and standalone feature in those two hosts, and the plug-in guide says so.
+
 ### Modals
 
 Every dialog but the About box is a Hollow modal: a view named `dialog_*`, opened by a `modal` action or by the processor through the text data `hollow.modal`, drawn centred over the window behind a dimming veil, with the keyboard (Escape closes it). They share one frame: a dark title bar with the title and a close X, the page's hammered aqua around the browser's dark stripes, a dark rim, dark buttons along the bottom right, text fields dark on a thin light rim, and lists in the browser's colours. The window grows to hold a modal when the editor is hidden.

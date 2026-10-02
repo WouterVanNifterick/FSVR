@@ -22,6 +22,7 @@ struct PlatformWindow {
     Gui* gui = nullptr;
     bool tracking = false;
     wchar_t high = 0;           // WM_CHAR: the first half of a surrogate pair
+    bool ateKey = false;        // the last key down was ours, so its WM_CHAR / WM_SYSCHAR is ours too
     HWND root = nullptr;        // the standalone's window, while its close asks the GUI first
     WNDPROC rootProc = nullptr; // and its own procedure
     bool closing = false;       // platformCloseApp: it closes without asking
@@ -64,6 +65,16 @@ static void tool(PlatformWindow* w, UINT msg, const std::string& text) {
     SendMessageW(w->tip, msg, 0, (LPARAM)&ti);
 }
 
+// A key the editor had no use for goes on to the window the keyboard came from, so the host keeps its own
+// shortcuts while the editor holds focus. False when there is nowhere to send it, and the caller then lets
+// DefWindowProc have it, which is what keeps Alt+F4 and the system menu working.
+static bool forwardKey(PlatformWindow* w, UINT msg, WPARAM wp, LPARAM lp) {
+    HWND back = w->lastFocus && IsWindow(w->lastFocus) ? w->lastFocus : GetParent(w->hwnd);
+    if (!back || back == w->hwnd) return false;
+    PostMessageW(back, msg, wp, lp);
+    return true;
+}
+
 static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     auto* w = (PlatformWindow*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
     if (!w) return DefWindowProcW(hwnd, msg, wp, lp);
@@ -93,6 +104,10 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_LBUTTONDOWN:
     case WM_LBUTTONDBLCLK:
         SetCapture(hwnd);
+        if (!g.skin().keys.empty()) {   // a click takes the keyboard back after the host has had it
+            platformFocus(w, true);
+            if (keyLogOn()) keyLog("click focus-now=%p ours=%p active=%p", (void*)GetFocus(), (void*)hwnd, (void*)GetActiveWindow());
+        }
         g.mouseDown(x, y, false, msg == WM_LBUTTONDBLCLK, shift);
         return 0;
     case WM_RBUTTONDOWN:
@@ -128,14 +143,25 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_TIMER:
         g.tick();
         return 0;
-    // The keyboard, only while text entry or a skinned menu has it (platformFocus); otherwise keys
-    // stay with the host.
+    // The editor holds the keyboard while its window is up, so a skin's "keys" shortcuts work without a
+    // click first. It consumes only what it has a use for: text entry, a menu, a focused list, a modal, or
+    // a chord in the skin's bindings. Anything else goes on to the window focus came from, so the host
+    // keeps its own keys, the transport bar included.
     case WM_GETDLGCODE:
-        if (g.wantsKeys()) return DLGC_WANTALLKEYS | DLGC_WANTARROWS | DLGC_WANTCHARS | DLGC_WANTTAB;
+        if (g.wantsKeys() || !g.skin().keys.empty()) return DLGC_WANTALLKEYS | DLGC_WANTARROWS | DLGC_WANTCHARS | DLGC_WANTTAB;
         break;
-    case WM_KEYDOWN: {
-        if (!g.wantsKeys()) break;
-        bool ctrl = GetKeyState(VK_CONTROL) < 0;
+    // Alt on its own would take the window into menu mode, whose feedback for a chord it finds no mnemonic
+    // for is a beep and a flash of the title bar. A skin with shortcuts has already used the chord, so the
+    // modifier's press and release stop here rather than reaching DefWindowProc or the host.
+    case WM_SYSKEYUP:
+        if (!g.skin().keys.empty() && (wp == VK_MENU || wp == VK_F10)) return 0;
+        break;
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN: {   // Alt chords arrive as WM_SYSKEYDOWN, never WM_KEYDOWN
+        bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
+        if (!g.skin().keys.empty() && (wp == VK_MENU || wp == VK_SHIFT || wp == VK_CONTROL || wp == VK_F10))
+            return 0;   // a modifier alone is no keystroke for anyone, and Alt reaching DefWindowProc is the flash
+        unsigned ch = (wp >= 'A' && wp <= 'Z') || (wp >= '0' && wp <= '9') ? (unsigned)wp : 0;   // VK codes are ASCII there
         Key k = KeyNone;
         switch (wp) {
         case VK_LEFT: k = KeyLeft; break;
@@ -151,11 +177,26 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case VK_TAB: k = KeyTab; break;
         case 'A': k = ctrl ? KeySelectAll : KeyNone; break;
         }
-        if (k != KeyNone) g.keyDown(k, GetKeyState(VK_SHIFT) < 0, ctrl);
-        return 0;
+        // Whether this key was ours decides what happens to the WM_CHAR or WM_SYSCHAR that follows it.
+        w->ateKey = g.keyDown(k, GetKeyState(VK_SHIFT) < 0, ctrl, alt, ch);
+        keyLog("key msg=%04x wp=%02x ch=%c key=%d alt=%d ctrl=%d shift=%d used=%d focus=%p", (unsigned)msg, (unsigned)wp,
+               ch ? (char)ch : '.', (int)k, (int)alt, (int)ctrl, (int)(GetKeyState(VK_SHIFT) < 0), (int)w->ateKey, (void*)GetFocus());
+        if (w->ateKey) return 0;
+        if (forwardKey(w, msg, wp, lp)) return 0;
+        break;   // not ours and nowhere to send it: DefWindowProc, so Alt+F4 and the system menu still work
     }
-    case WM_CHAR: {
-        if (!g.wantsKeys()) break;
+    case WM_CHAR:
+    case WM_SYSCHAR: {
+        // The character of a key we used is used too: forwarding it is what beeps and flashes the title bar,
+        // and it would type Shift+1's "!" into the host as well.
+        if (w->ateKey) {
+            w->ateKey = false;
+            return 0;
+        }
+        if (!g.wantsKeys()) {   // no text entry: the character is the host's
+            if (forwardKey(w, msg, wp, lp)) return 0;
+            break;
+        }
         wchar_t c = (wchar_t)wp;
         if (c >= 0xd800 && c < 0xdc00) { w->high = c; return 0; }
         unsigned cp = c >= 0xdc00 && c < 0xe000 ? (w->high ? 0x10000 + ((w->high - 0xd800u) << 10) + (c - 0xdc00u) : 0) : c;
@@ -163,7 +204,11 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (cp) g.keyChar(cp);   // control characters are ignored there; their keys came as WM_KEYDOWN
         return 0;
     }
+    case WM_SETFOCUS:
+        keyLog("WM_SETFOCUS from=%p", (void*)wp);
+        break;
     case WM_KILLFOCUS:
+        keyLog("WM_KILLFOCUS to=%p", (void*)wp);
         g.focusLost();
         break;
     }
@@ -208,6 +253,13 @@ PlatformWindow* platformOpen(void* parent, Gui* gui) {
     w->tip = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, CW_USEDEFAULT,
                              CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, w->hwnd, nullptr, mod, nullptr);
     if (w->tip) tool(w, TTM_ADDTOOLW, "");
+    // A skin with shortcuts holds the keyboard while its window is up, so its chords work without a click first.
+    if (!gui->skin().keys.empty()) {
+        const HWND had = GetFocus();
+        platformFocus(w, true);
+        keyLog("open hwnd=%p parent=%p bindings=%d focus-was=%p focus-now=%p active=%p foreground=%p err=%lu", (void*)w->hwnd, parent,
+               (int)gui->skin().keys.size(), (void*)had, (void*)GetFocus(), (void*)GetActiveWindow(), (void*)GetForegroundWindow(), GetLastError());
+    }
     return w;
 }
 

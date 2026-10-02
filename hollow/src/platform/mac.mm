@@ -63,11 +63,13 @@ static void pickItem(id self, SEL, id sender) {
     if (PlatformWindow* w = windowOf(self)) w->pick = (int)[sender tag];
 }
 
-// The keyboard, only while text entry or a skinned menu has it (platformFocus makes the view first
-// responder then); otherwise the view refuses it and keys stay with the host.
+// The editor holds the keyboard while its window is up, so a skin's "keys" shortcuts work without a click
+// first. It consumes only what it has a use for; the rest goes to the next responder, so the host keeps its
+// own shortcuts. A skin with no bindings is as it was: the view takes the keyboard only while something in
+// the editor wants it.
 static BOOL acceptsFirstResponder(id self, SEL) {
     PlatformWindow* w = windowOf(self);
-    return w && w->gui->wantsKeys();
+    return w && (w->gui->wantsKeys() || !w->gui->skin().keys.empty());
 }
 
 static BOOL resignFirstResponder(id self, SEL) {
@@ -75,30 +77,47 @@ static BOOL resignFirstResponder(id self, SEL) {
     return YES;
 }
 
+// The keys the editor knows by name, by their virtual key code; a letter or a digit is not one of them.
+static Key keyOfCode(NSInteger code) {
+    switch (code) {
+    case 123: return KeyLeft;
+    case 124: return KeyRight;
+    case 126: return KeyUp;
+    case 125: return KeyDown;
+    case 115: return KeyHome;
+    case 119: return KeyEnd;
+    case 51: return KeyBackspace;
+    case 117: return KeyDelete;
+    case 36: case 76: return KeyEnter;
+    case 53: return KeyEscape;
+    case 48: return KeyTab;
+    default: return KeyNone;
+    }
+}
+
 // Shortcut: characters come from the key event itself, not the text input system, so there is no
 // input method (dead keys still compose, since the event carries the composed characters).
 static void keyDown(id self, SEL, NSEvent* e) {
     PlatformWindow* w = windowOf(self);
-    if (!w || !w->gui->wantsKeys()) {
+    if (!w) {
         [[self nextResponder] keyDown:e];
         return;
     }
     NSEventModifierFlags m = [e modifierFlags];
     bool shift = (m & NSEventModifierFlagShift) != 0;
     bool cmd = (m & (NSEventModifierFlagCommand | NSEventModifierFlagControl)) != 0;
-    Key k = KeyNone;
-    switch ([e keyCode]) {
-    case 123: k = KeyLeft; break;
-    case 124: k = KeyRight; break;
-    case 126: k = KeyUp; break;
-    case 125: k = KeyDown; break;
-    case 115: k = KeyHome; break;
-    case 119: k = KeyEnd; break;
-    case 51: k = KeyBackspace; break;
-    case 117: k = KeyDelete; break;
-    case 36: case 76: k = KeyEnter; break;
-    case 53: k = KeyEscape; break;
-    case 48: k = KeyTab; break;
+    bool alt = (m & NSEventModifierFlagOption) != 0;
+    Key k = keyOfCode([e keyCode]);
+    if (!w->gui->wantsKeys()) {   // only a chord in the skin's bindings is ours; the host gets everything else
+        // The physical key, so Alt+F is 'F' and not the ƒ that Option+F would type.
+        unsigned ch = 0;
+        NSString* bare = [e charactersIgnoringModifiers];
+        if ([bare length] == 1) {
+            unichar c = [[bare uppercaseString] characterAtIndex:0];
+            if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) ch = c;
+        }
+        if (!w->gui->keyDown(k, shift, cmd, alt, ch)) [[self nextResponder] keyDown:e];
+        return;
     }
     if (cmd && [[[e charactersIgnoringModifiers] lowercaseString] isEqualToString:@"a"]) k = KeySelectAll;
     if (k != KeyNone) {
@@ -195,6 +214,7 @@ PlatformWindow* platformOpen(void* parent, Gui* gui) {
     NSTimer* t = [NSTimer timerWithTimeInterval:1.0 / 30 repeats:YES block:^(NSTimer* timer) { (void)timer; gui->tick(); }];
     [[NSRunLoop currentRunLoop] addTimer:t forMode:NSRunLoopCommonModes];
     w->timer = (__bridge void*)t;
+    if (!gui->skin().keys.empty()) platformFocus(w, true);   // a skin with shortcuts holds the keyboard while it is up
     return w;
 }
 

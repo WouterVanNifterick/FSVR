@@ -104,9 +104,10 @@ struct Text {
     int align = 0, valign = 0;   // 0 left/top, 1 center/middle, 2 right/bottom
 };
 struct Action {
-    enum Type { None, Goto, Set, Toggle, Url, Step, MidiMap, Presets, Sequence, Data, File, Value, Standalone, Scale, Modal } type = None;
+    enum Type { None, Goto, Set, Cycle, Toggle, Url, Step, MidiMap, Presets, Sequence, Data, File, Value, Standalone, Scale, Modal } type = None;
     std::string target, stack;   // Goto: view and stack; Toggle: widget name; Url: the URL; MidiMap: remove / reset;
-                                 // Presets: the data table
+                                 // Presets: the data table; Cycle: the var it steps
+    std::vector<std::string> values;   // Cycle: the var's values in order, wrapping past the last
     Vars vars;                   // Goto and Set; Data and Modal: text key (may hold {vars}) to text
     double amount = 0;           // Step; Value: the value it sets
     std::string key, nameKey;    // Presets: the envelope data key, the text key of the name field
@@ -117,6 +118,15 @@ struct Action {
     int count = 0;               // Sequence: steps
     std::string title;           // File: the dialog's title (target: open / save, key: the text data key, nameKey:
                                  // a save's file name, vars: file types, name to extensions)
+};
+// skin.json "keys": a chord and what it does. `ch` is the physical key as an uppercase ASCII letter
+// or a digit, 0 when the chord names one of the Key commands instead. The action is any a button can
+// carry, so a binding reaches a page, a var or a modal without the skin repeating itself.
+struct Binding {
+    Key key = KeyNone;
+    unsigned ch = 0;
+    bool shift = false, ctrl = false, alt = false;
+    Action action;
 };
 struct Item {                    // dropdown and context menu entries
     std::string label, shortLabel;
@@ -302,6 +312,7 @@ public:
     std::string closeModal;                        // skin.json "close": the standalone's close asks this modal
     Cond closeIf;                                  // first, while this holds
     std::string settingsView;                      // skin.json "standalone": its audio and MIDI settings as a modal
+    std::vector<Binding> keys;                     // skin.json "keys": keyboard shortcuts, in the order given
     const View* view(const std::string& name) const;
     const Json& table(const std::string& name) const;   // Null when missing
 };
@@ -375,8 +386,6 @@ void platformCloseApp(PlatformWindow* w);
 // A native open or save dialog; types: (name, "ext;ext"). False when cancelled; path in UTF-8.
 bool platformFileDialog(PlatformWindow* w, bool save, const std::string& title, const Vars& types, const std::string& name, std::string& path);
 
-enum Key { KeyNone, KeyLeft, KeyRight, KeyUp, KeyDown, KeyHome, KeyEnd, KeyBackspace, KeyDelete, KeyEnter, KeyEscape, KeyTab, KeySelectAll };
-
 // ---- the GUI: one shown view tree, its input handling and painting --------------------------------
 
 struct Node;
@@ -443,9 +452,15 @@ public:
     void rightUp(int x, int y, bool shift);
     void mouseLeave();
     void wheel(int x, int y, double notches, bool shift);
-    bool keyDown(Key k, bool shift, bool ctrl);  // true when used (text entry, a menu or a list has the keys)
+    // True when the editor used the key: text entry, a menu, a focused list or a modal has them, or the
+    // key matched one of the skin's "keys" bindings. False means the key is the host's, and the platform
+    // hands it on. `ch` is the physical key as an uppercase ASCII letter or digit, 0 for anything else.
+    // fromHost marks a key the host delivered through its plug-in API rather than to the window, which is
+    // what tells a chord that arrived by both routes from two real presses.
+    bool keyDown(Key k, bool shift = false, bool ctrl = false, bool alt = false, unsigned ch = 0, bool fromHost = false);
     void keyChar(unsigned codepoint);
     bool wantsKeys() const;
+    void releaseKeys();                          // hands the keyboard back, unless the skin has shortcuts
     void focusLost();                            // commits text entry, closes menus, drops list focus
     void tick();                                 // about 30 Hz: automation, repeats, tooltips, caret, animation
 
@@ -464,6 +479,7 @@ public:
     bool closeRequested();                       // the standalone's window is closing: false when a modal asks first
     // For tests that drive the GUI without a window (tools/check_gui.cpp).
     bool widgetRect(const std::string& path, Rect& r);   // a visible widget's rect, by embed path and name
+    std::string tipOf(const std::string& path);           // the tooltip it would show, its shortcut included
     std::vector<std::string> menuLabels() const;          // the open (deepest) menu's items, "-" a separator
     bool chooseMenu(const std::string& label);           // picks an item of the open menu, as a click would
     const std::string& modal() const { return modalShown_; }
@@ -529,6 +545,13 @@ private:
     double anchorNorm_ = 0, wheelAcc_ = 0, zone_ = 0;   // zone_: a number drag's units per pixel from its zone, 0 = none
     using Time = std::chrono::steady_clock::time_point;
     Time nextRepeat_, tipStill_, statusUntil_, menuOpened_, blinkStart_, midiUntil_;
+    // A chord a host sends through its API and also lets reach the window arrives twice (REAPER does this
+    // with Shift+digit). The last one acted on, so the second copy can be dropped: same chord, other route,
+    // close enough in time. Two presses by the same route are two presses and always act.
+    Time lastChordAt_;
+    unsigned lastChordCh_ = 0;
+    int lastChordKey_ = 0, lastChordMods_ = -1;
+    bool lastChordFromHost_ = false;
     std::vector<Menu> menus_;                    // open skinned menus, the root first
     std::function<void(int)> pick_;
     bool menuPressed_ = false;                   // a press on the open menu cancels the release guard
@@ -622,6 +645,10 @@ private:
     void showTip();
     void hideTip(bool block);
     void paintTip(Canvas& c);
+    std::string tipText(const Hit& h) const;     // the widget's tip, and its shortcut when a binding runs its action
+    const Binding* bindingFor(const Action& a) const;
+    static std::string chordName(const Binding& b);
+    bool runKey(Key k, unsigned ch, bool shift, bool ctrl, bool alt, bool fromHost);
     void updateStatus();
     void invalidateStatus(Node& n);
     bool editing(const Node& n, int i) const { return editing_on_ && live(edit_.h) && edit_.h.node == &n && edit_.h.i == i; }

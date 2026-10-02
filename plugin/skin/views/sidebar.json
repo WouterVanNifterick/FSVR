@@ -284,6 +284,7 @@
   {
    "type": "button",
    "name": "nav_quick",
+   "tip": "Easy page - quick edit parameters",
    "rect": [
     23,
     246,
@@ -319,6 +320,7 @@
   {
    "type": "button",
    "name": "nav_expert",
+   "tip": "Expert mode - in-depth editing of all parameters",
    "rect": [
     23,
     285,
@@ -474,6 +476,7 @@
   {
    "type": "button",
    "name": "nav_master",
+   "tip": "Performance page - adjust global performance settings",
    "rect": [
     23,
     129,
@@ -549,6 +552,7 @@
   {
    "type": "button",
    "name": "nav_pitch",
+   "tip": "Pitch page - adjust tuning, portamento, pitch envelope",
    "rect": [
     97,
     453,
@@ -584,6 +588,7 @@
   {
    "type": "button",
    "name": "nav_fx",
+   "tip": "Effects page - insertion, variation, reverb and EQ",
    "rect": [
     23,
     168,
@@ -619,6 +624,7 @@
   {
    "type": "button",
    "name": "nav_arp",
+   "tip": "Format Sequencing (Fseq) page",
    "rect": [
     23,
     207,
@@ -654,6 +660,7 @@
   {
    "type": "button",
    "name": "nav_mod_matrix",
+   "tip": "Modulation page - LFOs, Formant/FM control and controller sets",
    "rect": [
     27,
     393,
@@ -689,6 +696,7 @@
   {
    "type": "button",
    "name": "nav_library",
+   "tip": "Preset browser - navigate Performances, Voices and Fseqs",
    "rect": [
     23,
     51,
@@ -724,6 +732,7 @@
   {
    "type": "button",
    "name": "nav_tags",
+   "tip": "Parts page - adjust settings for all 4 parts",
    "rect": [
     23,
     90,
@@ -759,6 +768,7 @@
   {
    "type": "button",
    "name": "nav_all_envs",
+   "tip": "Envelopes page - overview of all 8 envelopes",
    "rect": [
     27,
     363,
@@ -794,6 +804,7 @@
   {
    "type": "button",
    "name": "nav_all_ops",
+   "tip": "Operators page - overview of all 8 operators",
    "rect": [
     27,
     333,
@@ -860,7 +871,7 @@
     "goto": "page_filter",
     "stack": "pages"
    },
-   "tip": "The filter"
+   "tip": "Filter page"
   },
   {
    "type": "button",
@@ -1025,6 +1036,7 @@
   {
    "type": "button",
    "name": "nav_key_scaling",
+   "tip": "Keyboard scaling page",
    "rect": [
     27,
     423,

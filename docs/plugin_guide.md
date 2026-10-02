@@ -43,6 +43,28 @@ The navigator on the left opens the pages: Browser, Parts, Performance, Effects,
 
 The expert pages share the algorithm matrix on the right. Its header holds the algorithm's number, with ▼ and ▲ to step it (or drag it, scroll it or double-click to type one), and the Feedback pot. **Select Algorithm** swaps the matrix for a browser of all 88, drawn as small matrices, 2x2, 3x3 or 4x4 at a time, scrolled with the wheel or the bar, and opened on the current one; click one to take it, or Cancel to keep the one you had.
 
+## Keyboard shortcuts
+
+Every page has a chord, so you can get around without the mouse. Hover any button and its tooltip names its own shortcut.
+
+| | |
+|---|---|
+| **Alt+1** to **Alt+8** | Operator 1 to 8 |
+| **Alt+O** / **Alt+E** | Ops / Env, all eight operators or envelopes at once |
+| **Alt+M** / **Alt+K** / **Alt+F** / **Alt+P** | Mod / KeySc / Filter / Pitch |
+| **Alt+X** / **Alt+S** | Effects / Fseq |
+| **Alt+B** / **Alt+Z** / **Alt+T** / **Alt+R** | Browser / Easy / Parts / Performance |
+| **Alt+N** | Voiced and unvoiced, back and forth (the V and N switches) |
+| **Shift+1** to **Shift+4** | The part the edit pages show |
+
+Only these chords are FSVR's; every other key goes to your host, so the transport bar and your own shortcuts keep working. While a dialog is open or you are typing a name, FSVR takes every key until you are done, so nothing you type goes astray. On macOS, Alt is Option.
+
+**Some hosts want a click in FSVR's window first.** Windows sends keys to whatever window is active, so a host that opens the editor without activating its window leaves the keys with itself until you click the editor; FL Studio is like that. Ableton Live activates the window as it opens it, and the chords work straight away. Either way one click settles it, and they keep working until you click something else.
+
+**Your host decides whether a plug-in sees the keyboard at all**, and they differ. Ableton Live and FL Studio pass keys to the editor. REAPER keeps them for its own actions until you turn on **send all keyboard input to plugin** (the FX window's toggle, also per-plug-in in its context menu); without it, any chord REAPER has bound to something of its own stays REAPER's. If a host has a setting of that kind, the shortcuts need it on. The standalone has no host in the way and always works.
+
+**In REAPER and Studio One, use the VST2 build for the shortcuts.** Those two take the keyboard off the plug-in's window and hand keys over through the plug-in's own interface instead, and VST2 is the only one of the three formats with an interface for it that works: VST3's is stubbed out in the wrapper FSVR's VST3 is built with, and CLAP has no such interface at all, deliberately — its view is that keyboard focus is the operating system's business and that hosts should never have taken it away from a plug-in's window. That argument is right, and it does not help, because the hosts do it regardless.
+
 ## The browser and your library
 
 The Bank column holds the factory bank, **Yamaha FS1R** (the 384 performances, 1408 voices and 90 Fseqs of the unit's ROM, built into the plug-in), then your own banks. The Performances, Voices and Fseqs tabs switch what the lists show, and the Category column narrows them. A performance loads all four parts with the voices and Fseq it names; a voice loads into the selected part; an Fseq plays on the performance's Fseq part.
