@@ -59,11 +59,9 @@ Every page has a chord, so you can get around without the mouse. Hover any butto
 
 Only these chords are FSVR's; every other key goes to your host, so the transport bar and your own shortcuts keep working. While a dialog is open or you are typing a name, FSVR takes every key until you are done, so nothing you type goes astray. On macOS, Alt is Option.
 
-**Some hosts want a click in FSVR's window first.** Windows sends keys to whatever window is active, so a host that opens the editor without activating its window leaves the keys with itself until you click the editor; FL Studio is like that. Ableton Live activates the window as it opens it, and the chords work straight away. Either way one click settles it, and they keep working until you click something else.
+They work in every format, in the standalone and in a host, with nothing to configure and no need to click the editor first.
 
-**Your host decides whether a plug-in sees the keyboard at all**, and they differ. Ableton Live and FL Studio pass keys to the editor. REAPER keeps them for its own actions until you turn on **send all keyboard input to plugin** (the FX window's toggle, also per-plug-in in its context menu); without it, any chord REAPER has bound to something of its own stays REAPER's. If a host has a setting of that kind, the shortcuts need it on. The standalone has no host in the way and always works.
-
-**In REAPER and Studio One, use the VST2 build for the shortcuts.** Those two take the keyboard off the plug-in's window and hand keys over through the plug-in's own interface instead, and VST2 is the only one of the three formats with an interface for it that works: VST3's is stubbed out in the wrapper FSVR's VST3 is built with, and CLAP has no such interface at all, deliberately — its view is that keyboard focus is the operating system's business and that hosts should never have taken it away from a plug-in's window. That argument is right, and it does not help, because the hosts do it regardless.
+While FSVR's editor has the keyboard, a chord listed above is FSVR's and your host does not see it, even if the host has that key bound to something of its own. Click away from the editor and the key is the host's again. Every key FSVR does not bind stays the host's throughout, so the transport bar and your own shortcuts keep working while you edit.
 
 ## The browser and your library
 

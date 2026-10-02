@@ -368,6 +368,15 @@ extern const bool kNativeMenus;   // false: the platform has none, and a "native
 void platformTip(PlatformWindow* w, const std::string& text);        // tooltip of the whole window, "" = none
 void platformFocus(PlatformWindow* w, bool on);   // take the keyboard (text entry, menus, lists), or hand it back
 void platformOpenUrl(const std::string& url);
+// The key that types this character on the current layout, as an uppercase ASCII letter or digit, 0 when
+// that is not known, and in *shift whether typing it needs Shift held. A host's plug-in API hands over the
+// character a key produced rather than the key, so this is how a chord gets back to the key the window
+// itself would have reported: Shift+2 types a quote on some layouts, and only the layout knows both that
+// the quote came off the 2 key and that Shift was held to get it. The second half matters because a host
+// may report no modifiers at all on the character, Shift having been spent producing it.
+// Windows only, since its hosts are the ones that keep the keyboard; elsewhere 0, and the character is read
+// as the key as before.
+unsigned platformKeyChar(unsigned codepoint, bool* shift);
 // The standalone app's own audio and MIDI settings window (clap-wrapper's); kAudioSettings is false
 // where the platform's standalone has none.
 extern const bool kAudioSettings;
@@ -545,8 +554,8 @@ private:
     double anchorNorm_ = 0, wheelAcc_ = 0, zone_ = 0;   // zone_: a number drag's units per pixel from its zone, 0 = none
     using Time = std::chrono::steady_clock::time_point;
     Time nextRepeat_, tipStill_, statusUntil_, menuOpened_, blinkStart_, midiUntil_;
-    // A chord a host sends through its API and also lets reach the window arrives twice (REAPER does this
-    // with Shift+digit). The last one acted on, so the second copy can be dropped: same chord, other route,
+    // A chord a host sends through its API and also lets reach the window arrives twice (seen with
+    // Shift+digit). The last one acted on, so the second copy can be dropped: same chord, other route,
     // close enough in time. Two presses by the same route are two presses and always act.
     Time lastChordAt_;
     unsigned lastChordCh_ = 0;

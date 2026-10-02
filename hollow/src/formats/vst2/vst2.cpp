@@ -4,6 +4,7 @@
 // On 32-bit Windows the same DLL is also the DXi (formats/dxi), which hosts this AEffect.
 #include <vst2.h>
 #include <hollow/hollow.h>
+#include "../vst_keys.h"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -36,29 +37,6 @@ int midiSize(uint8_t status) {
     if (status >= 0xf8 || status == 0xf6) return 1;
     if ((status & 0xe0) == 0xc0 || status == 0xf1 || status == 0xf3) return 2;   // program, pressure
     return 3;
-}
-
-// effEditKeyDown's modifiers (VstModifierKey) and virtual keys (VstVirtualKey), neither of which the
-// trimmed vst2.h carries. Only the keys the editor knows by name are mapped; a letter or a digit is not in
-// the enum at all and arrives as the opcode's ASCII character instead.
-enum { kVstModShift = 1 << 0, kVstModAlternate = 1 << 1, kVstModCommand = 1 << 2, kVstModControl = 1 << 3 };
-
-Key keyOfVst(intptr_t vkey) {
-    switch (vkey) {
-    case 1: return KeyBackspace;   // VKEY_BACK
-    case 2: return KeyTab;
-    case 4: return KeyEnter;       // VKEY_RETURN
-    case 6: return KeyEscape;
-    case 9: return KeyEnd;
-    case 10: return KeyHome;
-    case 11: return KeyLeft;
-    case 12: return KeyUp;
-    case 13: return KeyRight;
-    case 14: return KeyDown;
-    case 19: return KeyEnter;      // VKEY_ENTER, the numeric pad's
-    case 22: return KeyDelete;
-    default: return KeyNone;
-    }
 }
 
 struct Effect final : Editor::Host {
@@ -191,19 +169,14 @@ struct Effect final : Editor::Host {
             case effEditIdle:
                 if (redisplay.exchange(false)) call(audioMasterUpdateDisplay);
                 return 1;
-            // A host that keeps the keyboard to itself offers keys only here (REAPER's "send all keyboard
-            // input to plugin"), and reads 0 as "not the plug-in's" and then acts on the key itself. idx is
+            // A host that keeps the keyboard to itself may offer keys only here, and reads 0 as "not the plug-in's" and then acts on the key itself. idx is
             // the ASCII character, val a VstVirtualKey, opt the VstModifierKey bits.
             case effEditKeyDown: {
                 keyLog("effEditKeyDown idx=%d val=%d opt=%g editor=%d", (int)idx, (int)val, (double)opt, editor ? 1 : 0);
                 if (!editor) return 0;
                 const int mods = (int)opt;
-                const unsigned ch = idx >= '0' && idx <= '9' ? (unsigned)idx
-                                  : idx >= 'A' && idx <= 'Z' ? (unsigned)idx
-                                  : idx >= 'a' && idx <= 'z' ? (unsigned)(idx - 'a' + 'A')
-                                                             : 0u;
-                return editor->key(keyOfVst(val), ch, (mods & kVstModShift) != 0, (mods & (kVstModControl | kVstModCommand)) != 0,
-                                   (mods & kVstModAlternate) != 0)
+                return editor->key(vstVirtualKey((int)val), (unsigned)idx, (mods & kVstModShift) != 0,
+                                   (mods & (kVstModControl | kVstModCommand)) != 0, (mods & kVstModAlternate) != 0)
                            ? 1 : 0;
             }
             case effEditKeyUp: return 0;   // nothing in the editor acts on a release

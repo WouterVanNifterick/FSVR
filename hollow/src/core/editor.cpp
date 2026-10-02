@@ -1822,7 +1822,7 @@ bool Gui::runKey(Key k, unsigned ch, bool shift, bool ctrl, bool alt, bool fromH
         if (b.shift != shift || b.ctrl != ctrl || b.alt != alt) continue;
         if (b.ch ? b.ch != ch : b.key != k) continue;
         // The same chord by the other route, this close behind, is the host sending one press two ways
-        // (REAPER does it with Shift+digit): it was acted on already, so this copy is ours and does nothing.
+        // (seen with Shift+digit): it was acted on already, so this copy is ours and does nothing.
         // The memory is then spent, so the next press acts whichever route it comes by; a repeat along one
         // route is two presses and never matches, so holding a key still repeats.
         const Time now = Clock::now();
@@ -2950,11 +2950,25 @@ void Editor::setScale(int s) {
 
 // A key from the host's own plug-in API, which is the only route in a host that keeps the keyboard. It runs
 // on the host's thread, so it takes the GUI's lock the way every other call from there does.
-bool Editor::key(Key k, unsigned ch, bool shift, bool ctrl, bool alt) {
+bool Editor::key(Key k, unsigned character, bool shift, bool ctrl, bool alt) {
+    // Which key typed that character, and whether Shift was held to type it: only the layout knows either,
+    // and the bindings are on keys rather than on characters, so that Shift+2 is one chord wherever a layout
+    // puts the quote it types. The Shift it reports is taken on top of the host's, because a host may report
+    // no modifiers at all on the character, Shift having been spent producing it, and
+    // send the Shift press as an event of its own beforehand. Where the layout cannot be asked, a character
+    // stands for its own key, which is right for a letter or a digit and is all there is to go on anyway.
+    bool shiftTyped = false;
+    unsigned ch = platformKeyChar(character, &shiftTyped);
+    shift = shift || shiftTyped;
+    if (!ch) {
+        if ((character >= '0' && character <= '9') || (character >= 'A' && character <= 'Z')) ch = character;
+        else if (character >= 'a' && character <= 'z') ch = character - 'a' + 'A';
+    }
     if (impl_->gui.window) platformHold(impl_->gui.window, true);
     const bool used = impl_->gui.keyDown(k, shift, ctrl, alt, ch, true);
     if (impl_->gui.window) platformHold(impl_->gui.window, false);
-    keyLog("host key ch=%c key=%d alt=%d ctrl=%d shift=%d used=%d", ch ? (char)ch : '.', (int)k, (int)alt, (int)ctrl, (int)shift, (int)used);
+    keyLog("host key char=%u ch=%c key=%d alt=%d ctrl=%d shift=%d used=%d", character, ch ? (char)ch : '.', (int)k, (int)alt, (int)ctrl,
+           (int)shift, (int)used);
     return used;
 }
 

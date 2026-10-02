@@ -186,10 +186,11 @@ public:
     int scale() const;                    // 1..4, remembered in State::ui()
     void setScale(int s);                 // resizes the window and calls Host::resize
     // A key the host delivered through its plug-in API rather than to the window, for the hosts that keep
-    // the keyboard to themselves (REAPER's "send all keyboard input to plugin"). `ch` is the physical key as
-    // an uppercase ASCII letter or digit, 0 for anything else. True when the editor used it, which is what
-    // such a host takes as "mine"; false leaves the key to the host.
-    bool key(Key k, unsigned ch, bool shift, bool ctrl, bool alt);
+    // the keyboard to themselves (REAPER's "send all keyboard input to plugin"). `character` is what the key
+    // typed, as the host reported it and so as the layout made it, 0 for a key that types nothing; which key
+    // that was is worked out here. True when the editor used it, which is what such a host takes as "mine";
+    // false leaves the key to the host.
+    bool key(Key k, unsigned character, bool shift, bool ctrl, bool alt);
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

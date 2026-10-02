@@ -276,7 +276,7 @@ int main() {
             }
             u.shiftKey('1');
             // A host that forwards a chord through its plug-in API and also lets it reach the window delivers
-            // one press twice (REAPER does, with Shift+digit). Alt+N cycles, so acting twice would land back
+            // one press twice (seen with Shift+digit). Alt+N cycles, so acting twice would land back
             // where it started and look like nothing happened: the second copy is ours but must not act.
             CHECK(u.altKeyTwice('N'), "a copy of Alt+N was handed back to the host");
             CHECK(u.ui().find("\"layer\":\"u\"") != std::string::npos, "one press of Alt+N delivered twice cycled twice");

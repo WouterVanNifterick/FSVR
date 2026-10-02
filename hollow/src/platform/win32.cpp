@@ -11,6 +11,8 @@
 #include <commdlg.h>
 #include <algorithm>
 #include <climits>
+#include <map>
+#include <mutex>
 #include <vector>
 #include <cwchar>
 
@@ -73,6 +75,108 @@ static bool forwardKey(PlatformWindow* w, UINT msg, WPARAM wp, LPARAM lp) {
     if (!back || back == w->hwnd) return false;
     PostMessageW(back, msg, wp, lp);
     return true;
+}
+
+// A WM_KEYDOWN or WM_SYSKEYDOWN offered to the editor, from the window's own procedure or from the keyboard
+// hook below. True when the editor used it. Modifier keys are not offered: alone they are nobody's keystroke.
+static bool offerKey(Gui& g, WPARAM wp) {
+    const bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
+    const unsigned ch = (wp >= 'A' && wp <= 'Z') || (wp >= '0' && wp <= '9') ? (unsigned)wp : 0;   // VK codes are ASCII there
+    Key k = KeyNone;
+    switch (wp) {
+    case VK_LEFT: k = KeyLeft; break;
+    case VK_RIGHT: k = KeyRight; break;
+    case VK_UP: k = KeyUp; break;
+    case VK_DOWN: k = KeyDown; break;
+    case VK_HOME: k = KeyHome; break;
+    case VK_END: k = KeyEnd; break;
+    case VK_BACK: k = KeyBackspace; break;
+    case VK_DELETE: k = KeyDelete; break;
+    case VK_RETURN: k = KeyEnter; break;
+    case VK_ESCAPE: k = KeyEscape; break;
+    case VK_TAB: k = KeyTab; break;
+    case 'A': k = ctrl ? KeySelectAll : KeyNone; break;
+    }
+    return g.keyDown(k, GetKeyState(VK_SHIFT) < 0, ctrl, alt, ch);
+}
+
+static bool modifierKey(WPARAM wp) {
+    return wp == VK_MENU || wp == VK_SHIFT || wp == VK_CONTROL || wp == VK_F10;
+}
+
+// ---- the keyboard hook ---------------------------------------------------------------------------
+//
+// A host may take keys off the plug-in's window by handling them in its own message loop, between
+// GetMessage and DispatchMessage, which is where a host puts its accelerators: the editor's window then
+// never sees them however well it holds focus, and this is the only way in. A WH_GETMESSAGE hook on the
+// host's own UI thread sees each message before its loop acts on it; a chord the editor uses is taken and
+// the message blanked so the host never sees it, and everything else is passed on untouched. JUCE answers
+// the same problem the same way (juce_WindowsHooks_windows.cpp), and on Windows only: macOS routes keys
+// through the responder chain and X11 through input focus, neither of which a host sits in front of.
+//
+// What is deliberately NOT taken: anything while text entry, a menu, a list or a modal has the keyboard,
+// since those need the message to go on and become a WM_CHAR, and any key no binding matches. So the hook
+// removes only keystrokes the editor has actually acted on.
+struct KeyHook {
+    HHOOK hook = nullptr;
+    int refs = 0;
+};
+static std::mutex hooksLock;                      // the maps below: editors may live on several host threads
+static std::map<DWORD, KeyHook> hooks;            // one hook per thread that has an editor on it
+static std::vector<PlatformWindow*> hookWindows;  // the editor windows a hook may offer a key to
+
+static PlatformWindow* windowForMessage(HWND hwnd) {
+    std::lock_guard<std::mutex> g(hooksLock);
+    for (PlatformWindow* w : hookWindows)
+        if (w->hwnd == hwnd) return w;
+    return nullptr;
+}
+
+static LRESULT CALLBACK keyHookProc(int code, WPARAM wp, LPARAM lp) {
+    DWORD thread = GetCurrentThreadId();
+    HHOOK self = nullptr;
+    {
+        std::lock_guard<std::mutex> g(hooksLock);
+        auto it = hooks.find(thread);
+        if (it != hooks.end()) self = it->second.hook;
+    }
+    MSG& msg = *(MSG*)lp;
+    // PM_REMOVE: the message is being taken off the queue, so this is its one pass through the loop.
+    if (code == HC_ACTION && wp == PM_REMOVE && (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN) &&
+        !modifierKey(msg.wParam)) {
+        if (PlatformWindow* w = windowForMessage(msg.hwnd)) {
+            Gui& g = *w->gui;
+            if (!g.wantsKeys() && !g.skin().keys.empty() && offerKey(g, msg.wParam)) {
+                keyLog("hook took msg=%04x wp=%02x hwnd=%p", (unsigned)msg.message, (unsigned)msg.wParam, (void*)msg.hwnd);
+                msg = {};                 // the host's loop sees nothing, so no accelerator and no WM_CHAR
+                msg.message = WM_USER;
+                return 0;
+            }
+        }
+    }
+    return CallNextHookEx(self, code, wp, lp);
+}
+
+// Installed while an editor with shortcuts is open on this thread, and removed with the last of them, so a
+// product without bindings never hooks anything.
+static void addKeyHook(PlatformWindow* w) {
+    const DWORD thread = GetCurrentThreadId();
+    std::lock_guard<std::mutex> g(hooksLock);
+    hookWindows.push_back(w);
+    KeyHook& h = hooks[thread];
+    if (h.refs++ == 0) h.hook = SetWindowsHookExW(WH_GETMESSAGE, keyHookProc, thisModule(), thread);
+    keyLog("hook installed thread=%lu hwnd=%p refs=%d ok=%d", thread, (void*)w->hwnd, h.refs, h.hook != nullptr);
+}
+
+static void removeKeyHook(PlatformWindow* w) {
+    const DWORD thread = GetCurrentThreadId();
+    std::lock_guard<std::mutex> g(hooksLock);
+    hookWindows.erase(std::remove(hookWindows.begin(), hookWindows.end(), w), hookWindows.end());
+    auto it = hooks.find(thread);
+    if (it == hooks.end()) return;
+    if (--it->second.refs > 0) return;
+    if (it->second.hook) UnhookWindowsHookEx(it->second.hook);
+    hooks.erase(it);
 }
 
 static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -158,29 +262,11 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         break;
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN: {   // Alt chords arrive as WM_SYSKEYDOWN, never WM_KEYDOWN
-        bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
-        if (!g.skin().keys.empty() && (wp == VK_MENU || wp == VK_SHIFT || wp == VK_CONTROL || wp == VK_F10))
+        if (!g.skin().keys.empty() && modifierKey(wp))
             return 0;   // a modifier alone is no keystroke for anyone, and Alt reaching DefWindowProc is the flash
-        unsigned ch = (wp >= 'A' && wp <= 'Z') || (wp >= '0' && wp <= '9') ? (unsigned)wp : 0;   // VK codes are ASCII there
-        Key k = KeyNone;
-        switch (wp) {
-        case VK_LEFT: k = KeyLeft; break;
-        case VK_RIGHT: k = KeyRight; break;
-        case VK_UP: k = KeyUp; break;
-        case VK_DOWN: k = KeyDown; break;
-        case VK_HOME: k = KeyHome; break;
-        case VK_END: k = KeyEnd; break;
-        case VK_BACK: k = KeyBackspace; break;
-        case VK_DELETE: k = KeyDelete; break;
-        case VK_RETURN: k = KeyEnter; break;
-        case VK_ESCAPE: k = KeyEscape; break;
-        case VK_TAB: k = KeyTab; break;
-        case 'A': k = ctrl ? KeySelectAll : KeyNone; break;
-        }
         // Whether this key was ours decides what happens to the WM_CHAR or WM_SYSCHAR that follows it.
-        w->ateKey = g.keyDown(k, GetKeyState(VK_SHIFT) < 0, ctrl, alt, ch);
-        keyLog("key msg=%04x wp=%02x ch=%c key=%d alt=%d ctrl=%d shift=%d used=%d focus=%p", (unsigned)msg, (unsigned)wp,
-               ch ? (char)ch : '.', (int)k, (int)alt, (int)ctrl, (int)(GetKeyState(VK_SHIFT) < 0), (int)w->ateKey, (void*)GetFocus());
+        w->ateKey = offerKey(g, wp);
+        keyLog("key msg=%04x wp=%02x used=%d focus=%p", (unsigned)msg, (unsigned)wp, (int)w->ateKey, (void*)GetFocus());
         if (w->ateKey) return 0;
         if (forwardKey(w, msg, wp, lp)) return 0;
         break;   // not ours and nowhere to send it: DefWindowProc, so Alt+F4 and the system menu still work
@@ -253,8 +339,10 @@ PlatformWindow* platformOpen(void* parent, Gui* gui) {
     w->tip = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, CW_USEDEFAULT,
                              CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, w->hwnd, nullptr, mod, nullptr);
     if (w->tip) tool(w, TTM_ADDTOOLW, "");
-    // A skin with shortcuts holds the keyboard while its window is up, so its chords work without a click first.
+    // A skin with shortcuts holds the keyboard while its window is up, so its chords work without a click first,
+    // and hooks this thread's message loop for the hosts that take keys off the window before it is dispatched.
     if (!gui->skin().keys.empty()) {
+        addKeyHook(w);
         const HWND had = GetFocus();
         platformFocus(w, true);
         keyLog("open hwnd=%p parent=%p bindings=%d focus-was=%p focus-now=%p active=%p foreground=%p err=%lu", (void*)w->hwnd, parent,
@@ -264,6 +352,7 @@ PlatformWindow* platformOpen(void* parent, Gui* gui) {
 }
 
 void platformClose(PlatformWindow* w) {
+    if (!w->gui->skin().keys.empty()) removeKeyHook(w);   // before the window goes, so the hook sees no stale one
     if (w->root && IsWindow(w->root)) {   // the standalone's close goes back to its own procedure
         if (GetPropW(w->root, L"HollowClose") == w) RemovePropW(w->root, L"HollowClose");
         if ((WNDPROC)GetWindowLongPtrW(w->root, GWLP_WNDPROC) == rootProc) SetWindowLongPtrW(w->root, GWLP_WNDPROC, (LONG_PTR)w->rootProc);
@@ -352,6 +441,22 @@ void platformFocus(PlatformWindow* w, bool on) {
     HWND back = w->lastFocus && IsWindow(w->lastFocus) ? w->lastFocus : GetParent(w->hwnd);
     w->lastFocus = nullptr;
     SetFocus(back);
+}
+
+// VkKeyScanW inverts the layout: the low byte of what it returns is the virtual key that types this
+// character, which for a letter or a digit is that character's own ASCII code, so "2" comes back off a
+// quote typed with Shift on a layout that puts it there, and the high byte's first bit says Shift was what
+// it took. -1 means no key on this layout types it. Only the Shift bit is read; a character that needs
+// AltGr sets the Ctrl and Alt bits too, and those are the host's to report rather than the layout's.
+unsigned platformKeyChar(unsigned codepoint, bool* shift) {
+    if (shift) *shift = false;
+    if (codepoint > 0xffff) return 0;
+    const SHORT s = VkKeyScanW((WCHAR)codepoint);
+    if (s == -1) return 0;
+    const unsigned vk = (unsigned)(s & 0xff);
+    if (!((vk >= 'A' && vk <= 'Z') || (vk >= '0' && vk <= '9'))) return 0;
+    if (shift) *shift = (s & 0x100) != 0;
+    return vk;
 }
 
 void platformOpenUrl(const std::string& url) {

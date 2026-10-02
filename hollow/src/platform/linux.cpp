@@ -323,6 +323,13 @@ static int spawn(const std::vector<std::string>& args, std::string* out) {
     return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 
+// Not inverted here: no host on this platform offers keys through its plug-in API instead of the window, so
+// the character is read as the key, as it always was.
+unsigned platformKeyChar(unsigned, bool* shift) {
+    if (shift) *shift = false;
+    return 0;
+}
+
 void platformOpenUrl(const std::string& url) {
     if (url.compare(0, 7, "http://") == 0 || url.compare(0, 8, "https://") == 0) spawn({"xdg-open", url}, nullptr);
 }

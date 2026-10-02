@@ -296,6 +296,13 @@ void platformFocus(PlatformWindow* w, bool on) {
     else if ([win firstResponder] == v) [win makeFirstResponder:nil];
 }
 
+// Not inverted here: the view reads the physical key off charactersIgnoringModifiers already, so a chord
+// does not have to be recovered from the character a host handed over.
+unsigned platformKeyChar(unsigned, bool* shift) {
+    if (shift) *shift = false;
+    return 0;
+}
+
 void platformOpenUrl(const std::string& url) {
     if (url.compare(0, 7, "http://") != 0 && url.compare(0, 8, "https://") != 0) return;
     NSString* s = [NSString stringWithUTF8String:url.c_str()];
