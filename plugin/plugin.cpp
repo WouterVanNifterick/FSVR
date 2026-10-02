@@ -275,7 +275,7 @@ public:
         const size_t r = ringAt;
         for (int i = 0; i < frames; ++i) ring[(r + (size_t)i) % ring.size()] = 0.5f * (out[0][i] + out[1][i]);
         ringAt = (r + (size_t)frames) % ring.size();
-        st.setVoices(dev.activeNotes());
+        st.setVoices(dev.activeVoices());
         while (dev.nextMidiOut(outMsg))
             if (sendMidi) sendMidi(std::max(frames - 1, 0), outMsg.data(), (int)outMsg.size());
     }

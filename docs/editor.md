@@ -86,7 +86,7 @@ The Fseq page's Import Audio makes an Fseq of your own out of a WAV, AIFF, MP3, 
 
 - **The monitor** shows the last note's first 32 harmonics in the output, at the numbers printed under them, and the output's peak level per channel, -60 to 0 dB.
 - **Panic** (the bezel's top button) is all notes off while held.
-- **The LCD's POLY** counts the voices sounding, one per part a key plays, out of the unit's 32. CPU is the audio thread's load.
+- **The LCD's POLY** counts the channels the allocator still owns, out of the unit's 32: one per part a key plays, and a released note keeps counting until its release is over, which is the same test note-on reads when it looks for a free channel. CPU is the audio thread's load.
 - **MIDI/Aud**, above Volume in the standalone only, opens its audio and MIDI settings. On Windows they are a modal of the skin's (`dialog_audio`) that reads and drives clap-wrapper's own settings window, which stays hidden: the driver, output, input, sample rate and buffer size as dropdowns and the MIDI inputs as a list of lamps, each change applied and saved by the app as if its window had been used. On macOS the button opens clap-wrapper's window through its app menu's action; Linux's standalone has neither, so the button does nothing there.
 
 ### Modals
