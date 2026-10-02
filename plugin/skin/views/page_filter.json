@@ -1263,7 +1263,7 @@
    },
    "text": {
     "text": "T1",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1287,7 +1287,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1306,7 +1306,7 @@
    "type": "plate",
    "name": "feg_t2_label",
    "rect": [
-    153,
+    244,
     474,
     34,
     18
@@ -1316,7 +1316,7 @@
    },
    "text": {
     "text": "T2",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1330,7 +1330,7 @@
    "type": "number",
    "name": "feg_t2",
    "rect": [
-    187,
+    278,
     474,
     49,
     18
@@ -1340,7 +1340,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1359,7 +1359,7 @@
    "type": "plate",
    "name": "feg_t3_label",
    "rect": [
-    244,
+    426,
     474,
     34,
     18
@@ -1369,7 +1369,7 @@
    },
    "text": {
     "text": "T3",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1383,7 +1383,7 @@
    "type": "number",
    "name": "feg_t3",
    "rect": [
-    278,
+    460,
     474,
     49,
     18
@@ -1393,7 +1393,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1412,7 +1412,7 @@
    "type": "plate",
    "name": "feg_t4_label",
    "rect": [
-    335,
+    608,
     474,
     34,
     18
@@ -1422,7 +1422,7 @@
    },
    "text": {
     "text": "T4",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1436,7 +1436,7 @@
    "type": "number",
    "name": "feg_t4",
    "rect": [
-    369,
+    642,
     474,
     49,
     18
@@ -1446,7 +1446,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1465,7 +1465,7 @@
    "type": "plate",
    "name": "feg_l1_label",
    "rect": [
-    426,
+    153,
     474,
     34,
     18
@@ -1475,7 +1475,7 @@
    },
    "text": {
     "text": "L1",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1489,7 +1489,7 @@
    "type": "number",
    "name": "feg_l1",
    "rect": [
-    460,
+    187,
     474,
     49,
     18
@@ -1499,7 +1499,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1518,7 +1518,7 @@
    "type": "plate",
    "name": "feg_l2_label",
    "rect": [
-    517,
+    335,
     474,
     34,
     18
@@ -1528,7 +1528,7 @@
    },
    "text": {
     "text": "L2",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1542,7 +1542,7 @@
    "type": "number",
    "name": "feg_l2",
    "rect": [
-    551,
+    369,
     474,
     49,
     18
@@ -1552,7 +1552,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1571,7 +1571,7 @@
    "type": "plate",
    "name": "feg_l3_label",
    "rect": [
-    608,
+    517,
     474,
     34,
     18
@@ -1581,7 +1581,7 @@
    },
    "text": {
     "text": "L3",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1595,7 +1595,7 @@
    "type": "number",
    "name": "feg_l3",
    "rect": [
-    642,
+    551,
     474,
     49,
     18
@@ -1605,7 +1605,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1634,7 +1634,7 @@
    },
    "text": {
     "text": "L4",
-    "font": "caption_grey_12_inv",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1658,7 +1658,7 @@
    },
    "text": {
     "text": "",
-    "font": "value_dark_12_inv",
+    "font": "value_dark_12",
     "align": "center",
     "valign": "middle"
    },

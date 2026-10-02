@@ -1307,10 +1307,10 @@
   },
   "panels/inset_light": {
    "slice": [
-    15,
-    15,
-    15,
-    15
+    2,
+    2,
+    2,
+    2
    ]
   },
   "panels/label_plate": {

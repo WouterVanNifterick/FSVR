@@ -81,6 +81,7 @@ struct Surface {
 struct Font {
     Image img;
     int top = 0, height = 0;     // glyph rows in img
+    int ink0 = 0, ink1 = 0;      // the cap band: glyph box rows from the cap tops down to the baseline
     int x[256] = {}, w[256] = {};
     uint32_t colour = 0xffffffff; // average colour of its opaque pixels
     uint32_t caret = 0, selection = 0x803c78d8;   // text entry; caret 0 = colour (skin.json "fonts")
@@ -338,6 +339,11 @@ void drawImage(Canvas& c, const Image& img, int tile, Rect dst, bool stretch = f
 void bakeSurface(Image& img, int x, int y, const Surface& sf);
 // Text layout: lines stacked from valign, each aligned in r and clipped to r's right/bottom.
 void drawText(Canvas& c, const Font& f, const std::string& s, Rect r, int align, int valign, bool multiline);
+// Where the first line's glyph box goes in a rect of height h so that the text reads as vertically
+// centred: it is the cap band that is centred, not the glyph box, whose blank rows above the caps and
+// below the descenders differ from font to font. Callers that place rows themselves (menus, lists)
+// use this to agree with drawText's "middle".
+int textTop(const Font& f, int h, int lines = 1);
 
 // ---- platform window (platform/win32.cpp, platform/mac.mm) ---------------------------------------
 
