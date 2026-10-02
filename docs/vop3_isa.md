@@ -514,3 +514,22 @@ Open:
 * d[] cells read but written by no step (01, 02, 03, 05, 06, 07, 17, 28 and the upper 44/48/4c): only d[03] and
   d[28] carry signal under variation 1, d[02] and d[05] under insertion 1, r[04]-high (d[44]) under reverb. These
   are the hardware's per-bus d[] inputs; not yet in the model.
+
+**Session 36d: click replay of shipped Hall1 / Hall9 against the unit.** (FS1R.unlock `2026-10-02-082621-s25`; the
+s25 runner gained a per-probe `retrig`, a fresh note after the patch, so each tap segment holds the same click,
+repeatable to the LSB through the early reverb.)
+
+* **The input tap reads r[0d] after steps 002/003 scale it in place** (op 3, rA = rB, k 0x5a82 = 0.7071), so the
+  replay must inject tap / 0.7071. That was the whole 3 dB of the s35 noise replays.
+* **r[0e] carries the same mono send two passes after r[0d].** Shifts tried (0..2 / -1..3): only (0, 2) holds
+  past the first echoes (first >30 LSB at 4324 vs 1880).
+* Result (`python tools/vop3_replay.py`, asserted): Hall1 exact to sample 1888 then corr 0.978 over 0.4 s, level
+  -0.2 dB; Hall9 exact to 2236, corr 0.971, -0.6 dB. The step responses agree further (7312 / 7452) because a DC
+  step never exercises the modulated taps: a 256-sample local fit puts the click tail 0.75-1.1 samples late in
+  the model, the signature of a modulated delay read (VOP3-2's LFO registers 0x24-0x27, which the model has none
+  of; the depth words read 0x7fff for blocks 1-3 on the unit).
+* d[44] (seen live under reverb) is only read by the class-3 parameter smoothers at 0f0-106, which the model
+  treats as pass-throughs: not an audio input.
+
+Next: the LFO. Registers 0x24 (speed, 0x36EF54[v]), 0x25 (waveform bits 5-7), 0x26 (depth), 0x27 (direction) per
+LFO channel, four per effect block; which step field reads an LFO and how it moves a DRAM read is unmeasured.
