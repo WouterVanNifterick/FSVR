@@ -1,0 +1,4672 @@
+{
+ "size": [
+  366,
+  2288
+ ],
+ "widgets": [
+  {
+   "type": "button",
+   "name": "alg_1",
+   "rect": [
+    2,
+    2,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "1",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 1,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_1",
+   "rect": [
+    6,
+    17,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 1,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_2",
+   "rect": [
+    93,
+    2,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "2",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 2,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_2",
+   "rect": [
+    97,
+    17,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 2,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_3",
+   "rect": [
+    184,
+    2,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "3",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 3,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_3",
+   "rect": [
+    188,
+    17,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 3,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_4",
+   "rect": [
+    275,
+    2,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "4",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 4,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_4",
+   "rect": [
+    279,
+    17,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 4,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_5",
+   "rect": [
+    2,
+    106,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "5",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 5,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_5",
+   "rect": [
+    6,
+    121,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 5,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_6",
+   "rect": [
+    93,
+    106,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "6",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 6,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_6",
+   "rect": [
+    97,
+    121,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 6,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_7",
+   "rect": [
+    184,
+    106,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "7",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 7,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_7",
+   "rect": [
+    188,
+    121,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 7,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_8",
+   "rect": [
+    275,
+    106,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "8",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 8,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_8",
+   "rect": [
+    279,
+    121,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 8,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_9",
+   "rect": [
+    2,
+    210,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "9",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 9,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_9",
+   "rect": [
+    6,
+    225,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 9,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_10",
+   "rect": [
+    93,
+    210,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "10",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 10,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_10",
+   "rect": [
+    97,
+    225,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 10,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_11",
+   "rect": [
+    184,
+    210,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "11",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 11,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_11",
+   "rect": [
+    188,
+    225,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 11,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_12",
+   "rect": [
+    275,
+    210,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "12",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 12,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_12",
+   "rect": [
+    279,
+    225,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 12,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_13",
+   "rect": [
+    2,
+    314,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "13",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 13,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_13",
+   "rect": [
+    6,
+    329,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 13,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_14",
+   "rect": [
+    93,
+    314,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "14",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 14,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_14",
+   "rect": [
+    97,
+    329,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 14,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_15",
+   "rect": [
+    184,
+    314,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "15",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 15,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_15",
+   "rect": [
+    188,
+    329,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 15,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_16",
+   "rect": [
+    275,
+    314,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "16",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 16,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_16",
+   "rect": [
+    279,
+    329,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 16,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_17",
+   "rect": [
+    2,
+    418,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "17",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 17,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_17",
+   "rect": [
+    6,
+    433,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 17,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_18",
+   "rect": [
+    93,
+    418,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "18",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 18,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_18",
+   "rect": [
+    97,
+    433,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 18,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_19",
+   "rect": [
+    184,
+    418,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "19",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 19,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_19",
+   "rect": [
+    188,
+    433,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 19,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_20",
+   "rect": [
+    275,
+    418,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "20",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 20,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_20",
+   "rect": [
+    279,
+    433,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 20,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_21",
+   "rect": [
+    2,
+    522,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "21",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 21,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_21",
+   "rect": [
+    6,
+    537,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 21,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_22",
+   "rect": [
+    93,
+    522,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "22",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 22,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_22",
+   "rect": [
+    97,
+    537,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 22,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_23",
+   "rect": [
+    184,
+    522,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "23",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 23,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_23",
+   "rect": [
+    188,
+    537,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 23,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_24",
+   "rect": [
+    275,
+    522,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "24",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 24,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_24",
+   "rect": [
+    279,
+    537,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 24,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_25",
+   "rect": [
+    2,
+    626,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "25",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 25,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_25",
+   "rect": [
+    6,
+    641,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 25,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_26",
+   "rect": [
+    93,
+    626,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "26",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 26,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_26",
+   "rect": [
+    97,
+    641,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 26,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_27",
+   "rect": [
+    184,
+    626,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "27",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 27,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_27",
+   "rect": [
+    188,
+    641,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 27,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_28",
+   "rect": [
+    275,
+    626,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "28",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 28,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_28",
+   "rect": [
+    279,
+    641,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 28,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_29",
+   "rect": [
+    2,
+    730,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "29",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 29,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_29",
+   "rect": [
+    6,
+    745,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 29,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_30",
+   "rect": [
+    93,
+    730,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "30",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 30,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_30",
+   "rect": [
+    97,
+    745,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 30,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_31",
+   "rect": [
+    184,
+    730,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "31",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 31,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_31",
+   "rect": [
+    188,
+    745,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 31,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_32",
+   "rect": [
+    275,
+    730,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "32",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 32,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_32",
+   "rect": [
+    279,
+    745,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 32,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_33",
+   "rect": [
+    2,
+    834,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "33",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 33,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_33",
+   "rect": [
+    6,
+    849,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 33,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_34",
+   "rect": [
+    93,
+    834,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "34",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 34,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_34",
+   "rect": [
+    97,
+    849,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 34,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_35",
+   "rect": [
+    184,
+    834,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "35",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 35,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_35",
+   "rect": [
+    188,
+    849,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 35,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_36",
+   "rect": [
+    275,
+    834,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "36",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 36,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_36",
+   "rect": [
+    279,
+    849,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 36,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_37",
+   "rect": [
+    2,
+    938,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "37",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 37,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_37",
+   "rect": [
+    6,
+    953,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 37,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_38",
+   "rect": [
+    93,
+    938,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "38",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 38,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_38",
+   "rect": [
+    97,
+    953,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 38,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_39",
+   "rect": [
+    184,
+    938,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "39",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 39,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_39",
+   "rect": [
+    188,
+    953,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 39,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_40",
+   "rect": [
+    275,
+    938,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "40",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 40,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_40",
+   "rect": [
+    279,
+    953,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 40,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_41",
+   "rect": [
+    2,
+    1042,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "41",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 41,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_41",
+   "rect": [
+    6,
+    1057,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 41,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_42",
+   "rect": [
+    93,
+    1042,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "42",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 42,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_42",
+   "rect": [
+    97,
+    1057,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 42,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_43",
+   "rect": [
+    184,
+    1042,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "43",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 43,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_43",
+   "rect": [
+    188,
+    1057,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 43,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_44",
+   "rect": [
+    275,
+    1042,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "44",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 44,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_44",
+   "rect": [
+    279,
+    1057,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 44,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_45",
+   "rect": [
+    2,
+    1146,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "45",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 45,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_45",
+   "rect": [
+    6,
+    1161,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 45,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_46",
+   "rect": [
+    93,
+    1146,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "46",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 46,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_46",
+   "rect": [
+    97,
+    1161,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 46,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_47",
+   "rect": [
+    184,
+    1146,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "47",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 47,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_47",
+   "rect": [
+    188,
+    1161,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 47,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_48",
+   "rect": [
+    275,
+    1146,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "48",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 48,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_48",
+   "rect": [
+    279,
+    1161,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 48,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_49",
+   "rect": [
+    2,
+    1250,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "49",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 49,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_49",
+   "rect": [
+    6,
+    1265,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 49,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_50",
+   "rect": [
+    93,
+    1250,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "50",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 50,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_50",
+   "rect": [
+    97,
+    1265,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 50,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_51",
+   "rect": [
+    184,
+    1250,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "51",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 51,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_51",
+   "rect": [
+    188,
+    1265,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 51,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_52",
+   "rect": [
+    275,
+    1250,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "52",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 52,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_52",
+   "rect": [
+    279,
+    1265,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 52,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_53",
+   "rect": [
+    2,
+    1354,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "53",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 53,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_53",
+   "rect": [
+    6,
+    1369,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 53,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_54",
+   "rect": [
+    93,
+    1354,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "54",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 54,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_54",
+   "rect": [
+    97,
+    1369,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 54,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_55",
+   "rect": [
+    184,
+    1354,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "55",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 55,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_55",
+   "rect": [
+    188,
+    1369,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 55,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_56",
+   "rect": [
+    275,
+    1354,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "56",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 56,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_56",
+   "rect": [
+    279,
+    1369,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 56,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_57",
+   "rect": [
+    2,
+    1458,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "57",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 57,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_57",
+   "rect": [
+    6,
+    1473,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 57,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_58",
+   "rect": [
+    93,
+    1458,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "58",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 58,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_58",
+   "rect": [
+    97,
+    1473,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 58,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_59",
+   "rect": [
+    184,
+    1458,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "59",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 59,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_59",
+   "rect": [
+    188,
+    1473,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 59,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_60",
+   "rect": [
+    275,
+    1458,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "60",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 60,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_60",
+   "rect": [
+    279,
+    1473,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 60,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_61",
+   "rect": [
+    2,
+    1562,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "61",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 61,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_61",
+   "rect": [
+    6,
+    1577,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 61,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_62",
+   "rect": [
+    93,
+    1562,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "62",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 62,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_62",
+   "rect": [
+    97,
+    1577,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 62,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_63",
+   "rect": [
+    184,
+    1562,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "63",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 63,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_63",
+   "rect": [
+    188,
+    1577,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 63,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_64",
+   "rect": [
+    275,
+    1562,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "64",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 64,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_64",
+   "rect": [
+    279,
+    1577,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 64,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_65",
+   "rect": [
+    2,
+    1666,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "65",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 65,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_65",
+   "rect": [
+    6,
+    1681,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 65,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_66",
+   "rect": [
+    93,
+    1666,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "66",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 66,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_66",
+   "rect": [
+    97,
+    1681,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 66,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_67",
+   "rect": [
+    184,
+    1666,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "67",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 67,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_67",
+   "rect": [
+    188,
+    1681,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 67,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_68",
+   "rect": [
+    275,
+    1666,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "68",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 68,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_68",
+   "rect": [
+    279,
+    1681,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 68,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_69",
+   "rect": [
+    2,
+    1770,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "69",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 69,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_69",
+   "rect": [
+    6,
+    1785,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 69,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_70",
+   "rect": [
+    93,
+    1770,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "70",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 70,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_70",
+   "rect": [
+    97,
+    1785,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 70,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_71",
+   "rect": [
+    184,
+    1770,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "71",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 71,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_71",
+   "rect": [
+    188,
+    1785,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 71,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_72",
+   "rect": [
+    275,
+    1770,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "72",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 72,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_72",
+   "rect": [
+    279,
+    1785,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 72,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_73",
+   "rect": [
+    2,
+    1874,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "73",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 73,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_73",
+   "rect": [
+    6,
+    1889,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 73,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_74",
+   "rect": [
+    93,
+    1874,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "74",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 74,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_74",
+   "rect": [
+    97,
+    1889,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 74,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_75",
+   "rect": [
+    184,
+    1874,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "75",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 75,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_75",
+   "rect": [
+    188,
+    1889,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 75,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_76",
+   "rect": [
+    275,
+    1874,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "76",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 76,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_76",
+   "rect": [
+    279,
+    1889,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 76,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_77",
+   "rect": [
+    2,
+    1978,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "77",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 77,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_77",
+   "rect": [
+    6,
+    1993,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 77,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_78",
+   "rect": [
+    93,
+    1978,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "78",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 78,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_78",
+   "rect": [
+    97,
+    1993,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 78,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_79",
+   "rect": [
+    184,
+    1978,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "79",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 79,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_79",
+   "rect": [
+    188,
+    1993,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 79,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_80",
+   "rect": [
+    275,
+    1978,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "80",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 80,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_80",
+   "rect": [
+    279,
+    1993,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 80,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_81",
+   "rect": [
+    2,
+    2082,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "81",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 81,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_81",
+   "rect": [
+    6,
+    2097,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 81,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_82",
+   "rect": [
+    93,
+    2082,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "82",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 82,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_82",
+   "rect": [
+    97,
+    2097,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 82,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_83",
+   "rect": [
+    184,
+    2082,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "83",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 83,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_83",
+   "rect": [
+    188,
+    2097,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 83,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_84",
+   "rect": [
+    275,
+    2082,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "84",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 84,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_84",
+   "rect": [
+    279,
+    2097,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 84,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_85",
+   "rect": [
+    2,
+    2186,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "85",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 85,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_85",
+   "rect": [
+    6,
+    2201,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 85,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_86",
+   "rect": [
+    93,
+    2186,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "86",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 86,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_86",
+   "rect": [
+    97,
+    2201,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 86,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_87",
+   "rect": [
+    184,
+    2186,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "87",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 87,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_87",
+   "rect": [
+    188,
+    2201,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 87,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  },
+  {
+   "type": "button",
+   "name": "alg_88",
+   "rect": [
+    275,
+    2186,
+    87,
+    100
+   ],
+   "layer": 3,
+   "fill": {
+    "image": "buttons/alg_cell"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "text": {
+    "text": "88",
+    "font": "caption_white_12"
+   },
+   "pad": [
+    5,
+    2,
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "value": 88,
+    "goto": "fm_matrix",
+    "stack": "fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "wires_88",
+   "rect": [
+    279,
+    2201,
+    79,
+    84
+   ],
+   "layer": 4,
+   "kind": "matrix_wires",
+   "number": 88,
+   "table": "algorithms",
+   "first": 1,
+   "scale": 0.1891,
+   "box": "#677a7cff",
+   "boxSize": [
+    21,
+    18
+   ]
+  }
+ ]
+}

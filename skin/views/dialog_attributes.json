@@ -1,0 +1,536 @@
+{
+ "size": [
+  480,
+  236
+ ],
+ "fill": {
+  "image": "backgrounds/page"
+ },
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "title_bar",
+   "rect": [
+    0,
+    0,
+    480,
+    30
+   ],
+   "layer": 1,
+   "fill": {
+    "colour": "#232a2bff"
+   },
+   "text": {
+    "text": "Attributes",
+    "font": "caption_white_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    12,
+    1,
+    40,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "title_line",
+   "rect": [
+    0,
+    30,
+    480,
+    1
+   ],
+   "layer": 1,
+   "fill": {
+    "colour": "#5d6d6eff"
+   }
+  },
+  {
+   "type": "button",
+   "name": "close_x",
+   "rect": [
+    450,
+    2,
+    26,
+    26
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/dark_part"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "X",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    1,
+    0,
+    0
+   ],
+   "action": {
+    "modal": ""
+   },
+   "tip": "Close"
+  },
+  {
+   "type": "plate",
+   "name": "body",
+   "rect": [
+    12,
+    40,
+    456,
+    146
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "backgrounds/library_stripes"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "rim_top",
+   "rect": [
+    0,
+    0,
+    480,
+    1
+   ],
+   "layer": 7,
+   "fill": {
+    "colour": "#1b2425ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "rim_bottom",
+   "rect": [
+    0,
+    235,
+    480,
+    1
+   ],
+   "layer": 7,
+   "fill": {
+    "colour": "#1b2425ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "rim_left",
+   "rect": [
+    0,
+    0,
+    1,
+    236
+   ],
+   "layer": 7,
+   "fill": {
+    "colour": "#1b2425ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "rim_right",
+   "rect": [
+    479,
+    0,
+    1,
+    236
+   ],
+   "layer": 7,
+   "fill": {
+    "colour": "#1b2425ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "name_label",
+   "rect": [
+    28,
+    52,
+    90,
+    20
+   ],
+   "layer": 3,
+   "text": {
+    "text": "Name",
+    "font": "library_header_white_11",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "name",
+   "rect": [
+    120,
+    52,
+    330,
+    20
+   ],
+   "layer": 3,
+   "text": {
+    "text": "{data:item.name|}",
+    "font": "library_row_white_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "category_label",
+   "rect": [
+    28,
+    84,
+    90,
+    20
+   ],
+   "layer": 3,
+   "text": {
+    "text": "Category",
+    "font": "library_header_white_11",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "showIf": {
+    "param": "item.kind",
+    "atMost": 1
+   }
+  },
+  {
+   "type": "dropdown",
+   "name": "category",
+   "rect": [
+    120,
+    85,
+    190,
+    18
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "captionFromItem": true,
+   "param": "item.category",
+   "items": [
+    {
+     "label": "--",
+     "value": 0
+    },
+    {
+     "label": "Piano",
+     "value": 1
+    },
+    {
+     "label": "Chromatic",
+     "value": 2
+    },
+    {
+     "label": "Organ",
+     "value": 3
+    },
+    {
+     "label": "Guitar",
+     "value": 4
+    },
+    {
+     "label": "Bass",
+     "value": 5
+    },
+    {
+     "label": "Strings",
+     "value": 6
+    },
+    {
+     "label": "Ensemble",
+     "value": 7
+    },
+    {
+     "label": "Brass",
+     "value": 8
+    },
+    {
+     "label": "Reed",
+     "value": 9
+    },
+    {
+     "label": "Pipe",
+     "value": 10
+    },
+    {
+     "label": "Synth Lead",
+     "value": 11
+    },
+    {
+     "label": "Synth Pad",
+     "value": 12
+    },
+    {
+     "label": "Synth FX",
+     "value": 13
+    },
+    {
+     "label": "Ethnic",
+     "value": 14
+    },
+    {
+     "label": "Percussive",
+     "value": 15
+    },
+    {
+     "label": "Sound FX",
+     "value": 16
+    },
+    {
+     "label": "Drums",
+     "value": 17
+    },
+    {
+     "label": "Synth Comp",
+     "value": 18
+    },
+    {
+     "label": "Vocal",
+     "value": 19
+    },
+    {
+     "label": "Combination",
+     "value": 20
+    },
+    {
+     "label": "Material Wave",
+     "value": 21
+    },
+    {
+     "label": "Sequence",
+     "value": 22
+    }
+   ],
+   "showIf": {
+    "param": "item.kind",
+    "atMost": 1
+   },
+   "enableIf": {
+    "param": "item.readonly",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "no_attributes",
+   "rect": [
+    28,
+    84,
+    420,
+    20
+   ],
+   "layer": 3,
+   "text": {
+    "text": "An Fseq or a DX voice has no attributes.",
+    "font": "library_row_white_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "showIf": {
+    "param": "item.kind",
+    "equals": 2
+   }
+  },
+  {
+   "type": "plate",
+   "name": "read_only",
+   "rect": [
+    28,
+    122,
+    420,
+    32
+   ],
+   "layer": 3,
+   "text": {
+    "text": "A Yamaha FS1R preset: read only.\\nCopy Attributes still copies them to paste onto your own.",
+    "font": "library_text_grey_10",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "showIf": {
+    "param": "item.readonly",
+    "equals": 1
+   }
+  },
+  {
+   "type": "button",
+   "name": "copy",
+   "rect": [
+    116,
+    198,
+    112,
+    24
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "Copy Attributes",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    1,
+    2,
+    0
+   ],
+   "action": {
+    "data": {
+     "item.request": "copy"
+    }
+   },
+   "tip": "Copy these attributes, to paste onto another preset",
+   "showIf": {
+    "param": "item.kind",
+    "atMost": 1
+   }
+  },
+  {
+   "type": "button",
+   "name": "ok",
+   "rect": [
+    236,
+    198,
+    112,
+    24
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "OK",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    1,
+    2,
+    0
+   ],
+   "action": {
+    "modal": "",
+    "data": {
+     "item.request": "attributes"
+    }
+   },
+   "showIf": {
+    "param": "item.readonly",
+    "equals": 0
+   }
+  },
+  {
+   "type": "button",
+   "name": "cancel",
+   "rect": [
+    356,
+    198,
+    112,
+    24
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "Cancel",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    1,
+    2,
+    0
+   ],
+   "action": {
+    "modal": ""
+   }
+  }
+ ]
+}

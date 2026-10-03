@@ -1,0 +1,513 @@
+{
+ "size": [
+  560,
+  380
+ ],
+ "fill": {
+  "image": "backgrounds/page"
+ },
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "title_bar",
+   "rect": [
+    0,
+    0,
+    560,
+    30
+   ],
+   "layer": 1,
+   "fill": {
+    "colour": "#232a2bff"
+   },
+   "text": {
+    "text": "Save to Bank",
+    "font": "caption_white_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    12,
+    1,
+    40,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "title_line",
+   "rect": [
+    0,
+    30,
+    560,
+    1
+   ],
+   "layer": 1,
+   "fill": {
+    "colour": "#5d6d6eff"
+   }
+  },
+  {
+   "type": "button",
+   "name": "close_x",
+   "rect": [
+    530,
+    2,
+    26,
+    26
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/dark_part"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "X",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    1,
+    0,
+    0
+   ],
+   "action": {
+    "modal": ""
+   },
+   "tip": "Close"
+  },
+  {
+   "type": "plate",
+   "name": "body",
+   "rect": [
+    12,
+    40,
+    536,
+    290
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "backgrounds/library_stripes"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "rim_top",
+   "rect": [
+    0,
+    0,
+    560,
+    1
+   ],
+   "layer": 7,
+   "fill": {
+    "colour": "#1b2425ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "rim_bottom",
+   "rect": [
+    0,
+    379,
+    560,
+    1
+   ],
+   "layer": 7,
+   "fill": {
+    "colour": "#1b2425ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "rim_left",
+   "rect": [
+    0,
+    0,
+    1,
+    380
+   ],
+   "layer": 7,
+   "fill": {
+    "colour": "#1b2425ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "rim_right",
+   "rect": [
+    559,
+    0,
+    1,
+    380
+   ],
+   "layer": 7,
+   "fill": {
+    "colour": "#1b2425ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "banks_frame",
+   "rect": [
+    26,
+    48,
+    234,
+    283
+   ],
+   "layer": 2,
+   "fill": {
+    "image": "library/column_frame"
+   },
+   "text": {
+    "text": "Bank",
+    "font": "library_header_white_11"
+   },
+   "pad": [
+    5,
+    0,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "banks_bed",
+   "rect": [
+    28,
+    69,
+    230,
+    260
+   ],
+   "layer": 2,
+   "fill": {
+    "colour": "#3a4546ff"
+   }
+  },
+  {
+   "type": "list",
+   "name": "banks",
+   "rect": [
+    28,
+    69,
+    230,
+    260
+   ],
+   "layer": 4,
+   "param": "save.bank",
+   "rows": [
+    [
+     "<New Bank>"
+    ]
+   ],
+   "dataRows": {
+    "key": "bank.list",
+    "row": [
+     "{1}"
+    ],
+    "first": 1
+   },
+   "tip": "The Yamaha FS1R bank is read only, so it is not listed",
+   "rowHeight": 23,
+   "rowGap": 2,
+   "rowFill": "#434f50ff",
+   "gapFill": "#3a4546ff",
+   "selectFill": "#82ca9cff",
+   "row": {
+    "font": "library_row_white_12",
+    "valign": "middle"
+   },
+   "selectRow": {
+    "font": "library_row_black_12",
+    "valign": "middle"
+   },
+   "pad": [
+    6,
+    0,
+    0,
+    0
+   ],
+   "scroll": {
+    "track": "scrollbars/list_track",
+    "thumb": "scrollbars/library_thumb_flat",
+    "width": 14
+   }
+  },
+  {
+   "type": "plate",
+   "name": "name_label",
+   "rect": [
+    280,
+    52,
+    256,
+    16
+   ],
+   "layer": 3,
+   "text": {
+    "text": "Preset name",
+    "font": "library_header_white_11",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "name_rim",
+   "rect": [
+    279,
+    69,
+    258,
+    28
+   ],
+   "layer": 2,
+   "fill": {
+    "colour": "#6f8081ff"
+   }
+  },
+  {
+   "type": "textbox",
+   "name": "name",
+   "rect": [
+    280,
+    70,
+    256,
+    26
+   ],
+   "layer": 3,
+   "fill": {
+    "colour": "#1e2728ff"
+   },
+   "key": "save.name",
+   "editable": true,
+   "editOn": "click",
+   "text": {
+    "text": "",
+    "font": "library_field_white_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    7,
+    2,
+    7,
+    0
+   ],
+   "tip": "The performance's name, 12 characters at most"
+  },
+  {
+   "type": "plate",
+   "name": "name_hint",
+   "rect": [
+    280,
+    96,
+    256,
+    16
+   ],
+   "layer": 3,
+   "text": {
+    "text": "12 characters at most",
+    "font": "library_text_grey_10",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "bank_label",
+   "rect": [
+    280,
+    128,
+    256,
+    16
+   ],
+   "layer": 3,
+   "text": {
+    "text": "New bank name",
+    "font": "library_header_white_11",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "showIf": {
+    "param": "save.bank",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "bank_name_rim",
+   "rect": [
+    279,
+    145,
+    258,
+    28
+   ],
+   "layer": 2,
+   "fill": {
+    "colour": "#6f8081ff"
+   },
+   "showIf": {
+    "param": "save.bank",
+    "equals": 0
+   }
+  },
+  {
+   "type": "textbox",
+   "name": "bank_name",
+   "rect": [
+    280,
+    146,
+    256,
+    26
+   ],
+   "layer": 3,
+   "fill": {
+    "colour": "#1e2728ff"
+   },
+   "key": "save.bank_name",
+   "editable": true,
+   "editOn": "click",
+   "text": {
+    "text": "",
+    "font": "library_field_white_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    7,
+    2,
+    7,
+    0
+   ],
+   "showIf": {
+    "param": "save.bank",
+    "equals": 0
+   },
+   "tip": "The new bank's file name in the library"
+  },
+  {
+   "type": "plate",
+   "name": "replace_hint",
+   "rect": [
+    280,
+    186,
+    256,
+    32
+   ],
+   "layer": 3,
+   "text": {
+    "text": "A preset of the same name in the\\nbank is replaced.",
+    "font": "library_text_grey_10",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "showIf": {
+    "param": "save.bank",
+    "atLeast": 1
+   }
+  },
+  {
+   "type": "button",
+   "name": "save",
+   "rect": [
+    316,
+    342,
+    112,
+    24
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "Save",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    1,
+    2,
+    0
+   ],
+   "action": {
+    "modal": "",
+    "data": {
+     "save.request": "1"
+    }
+   }
+  },
+  {
+   "type": "button",
+   "name": "cancel",
+   "rect": [
+    436,
+    342,
+    112,
+    24
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "Cancel",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    1,
+    2,
+    0
+   ],
+   "action": {
+    "modal": ""
+   }
+  }
+ ]
+}

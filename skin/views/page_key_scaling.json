@@ -1,0 +1,2645 @@
+{
+ "size": [
+  1235,
+  536
+ ],
+ "fill": {
+  "image": "backgrounds/page"
+ },
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "matrix_title",
+   "rect": [
+    827,
+    15,
+    104,
+    23
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Algorithm",
+    "font": "caption_white_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab_dark"
+   }
+  },
+  {
+   "type": "embed",
+   "name": "fm_matrix",
+   "rect": [
+    821,
+    35,
+    408,
+    472
+   ],
+   "view": "fm_matrix",
+   "layer": 3
+  },
+  {
+   "type": "plate",
+   "name": "ks_title",
+   "rect": [
+    20,
+    16,
+    122,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Level Scaling",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "head_break",
+   "rect": [
+    411,
+    15,
+    80,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Break",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "head_l_depth",
+   "rect": [
+    459,
+    15,
+    80,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "L Depth",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "head_l_curve",
+   "rect": [
+    519,
+    15,
+    80,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "L Curve",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "head_r_depth",
+   "rect": [
+    583,
+    15,
+    80,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "R Depth",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "head_r_curve",
+   "rect": [
+    643,
+    15,
+    80,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "R Curve",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "head_noise",
+   "rect": [
+    717,
+    15,
+    80,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Noise",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "row_1_bg",
+   "rect": [
+    14,
+    36,
+    778,
+    53
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "op_1",
+   "rect": [
+    16,
+    50,
+    34,
+    24
+   ],
+   "text": {
+    "text": "1",
+    "font": "title_dark_bold_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "press": "up",
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "1"
+    }
+   },
+   "tip": "Operator 1's page"
+  },
+  {
+   "type": "plate",
+   "name": "curve_1_screen",
+   "rect": [
+    57,
+    42,
+    360,
+    41
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "curve_1",
+   "rect": [
+    57,
+    42,
+    360,
+    41
+   ],
+   "kind": "level_scale",
+   "surface": false,
+   "breakPoint": "op.1.v.ls_break.{part}",
+   "leftDepth": "op.1.v.ls_left_depth.{part}",
+   "rightDepth": "op.1.v.ls_right_depth.{part}",
+   "leftCurve": "op.1.v.ls_left_curve.{part}",
+   "rightCurve": "op.1.v.ls_right_curve.{part}",
+   "line": "#879ea0ff",
+   "grid": "#5f7172ff",
+   "dots": "#c80800ff"
+  },
+  {
+   "type": "plate",
+   "name": "ks_1_frame",
+   "rect": [
+    424,
+    41,
+    299,
+    43
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/inset_light_inv"
+   }
+  },
+  {
+   "type": "number",
+   "name": "break_1",
+   "rect": [
+    428,
+    53,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.1.v.ls_break.{part}",
+   "tip": "Break point"
+  },
+  {
+   "type": "number",
+   "name": "left_depth_1",
+   "rect": [
+    478,
+    53,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.1.v.ls_left_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "left_curve_1",
+   "rect": [
+    524,
+    53,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.1.v.ls_left_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "right_depth_1",
+   "rect": [
+    602,
+    53,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.1.v.ls_right_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "right_curve_1",
+   "rect": [
+    648,
+    53,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.1.v.ls_right_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "noise_key_1",
+   "rect": [
+    733,
+    53,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.1.u.level_key_scale.{part}",
+   "tip": "The unvoiced (noise) operator's level key scaling, its only key scaling"
+  },
+  {
+   "type": "plate",
+   "name": "row_2_bg",
+   "rect": [
+    14,
+    95,
+    778,
+    53
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "op_2",
+   "rect": [
+    16,
+    109,
+    34,
+    24
+   ],
+   "text": {
+    "text": "2",
+    "font": "title_dark_bold_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "press": "up",
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "2"
+    }
+   },
+   "tip": "Operator 2's page"
+  },
+  {
+   "type": "plate",
+   "name": "curve_2_screen",
+   "rect": [
+    57,
+    101,
+    360,
+    41
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "curve_2",
+   "rect": [
+    57,
+    101,
+    360,
+    41
+   ],
+   "kind": "level_scale",
+   "surface": false,
+   "breakPoint": "op.2.v.ls_break.{part}",
+   "leftDepth": "op.2.v.ls_left_depth.{part}",
+   "rightDepth": "op.2.v.ls_right_depth.{part}",
+   "leftCurve": "op.2.v.ls_left_curve.{part}",
+   "rightCurve": "op.2.v.ls_right_curve.{part}",
+   "line": "#879ea0ff",
+   "grid": "#5f7172ff",
+   "dots": "#c80800ff"
+  },
+  {
+   "type": "plate",
+   "name": "ks_2_frame",
+   "rect": [
+    424,
+    100,
+    299,
+    43
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/inset_light_inv"
+   }
+  },
+  {
+   "type": "number",
+   "name": "break_2",
+   "rect": [
+    428,
+    112,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.2.v.ls_break.{part}",
+   "tip": "Break point"
+  },
+  {
+   "type": "number",
+   "name": "left_depth_2",
+   "rect": [
+    478,
+    112,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.2.v.ls_left_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "left_curve_2",
+   "rect": [
+    524,
+    112,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.2.v.ls_left_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "right_depth_2",
+   "rect": [
+    602,
+    112,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.2.v.ls_right_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "right_curve_2",
+   "rect": [
+    648,
+    112,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.2.v.ls_right_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "noise_key_2",
+   "rect": [
+    733,
+    112,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.2.u.level_key_scale.{part}",
+   "tip": "The unvoiced (noise) operator's level key scaling, its only key scaling"
+  },
+  {
+   "type": "plate",
+   "name": "row_3_bg",
+   "rect": [
+    14,
+    153,
+    778,
+    53
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "op_3",
+   "rect": [
+    16,
+    167,
+    34,
+    24
+   ],
+   "text": {
+    "text": "3",
+    "font": "title_dark_bold_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "press": "up",
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "3"
+    }
+   },
+   "tip": "Operator 3's page"
+  },
+  {
+   "type": "plate",
+   "name": "curve_3_screen",
+   "rect": [
+    57,
+    159,
+    360,
+    41
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "curve_3",
+   "rect": [
+    57,
+    159,
+    360,
+    41
+   ],
+   "kind": "level_scale",
+   "surface": false,
+   "breakPoint": "op.3.v.ls_break.{part}",
+   "leftDepth": "op.3.v.ls_left_depth.{part}",
+   "rightDepth": "op.3.v.ls_right_depth.{part}",
+   "leftCurve": "op.3.v.ls_left_curve.{part}",
+   "rightCurve": "op.3.v.ls_right_curve.{part}",
+   "line": "#879ea0ff",
+   "grid": "#5f7172ff",
+   "dots": "#c80800ff"
+  },
+  {
+   "type": "plate",
+   "name": "ks_3_frame",
+   "rect": [
+    424,
+    158,
+    299,
+    43
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/inset_light_inv"
+   }
+  },
+  {
+   "type": "number",
+   "name": "break_3",
+   "rect": [
+    428,
+    170,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.3.v.ls_break.{part}",
+   "tip": "Break point"
+  },
+  {
+   "type": "number",
+   "name": "left_depth_3",
+   "rect": [
+    478,
+    170,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.3.v.ls_left_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "left_curve_3",
+   "rect": [
+    524,
+    170,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.3.v.ls_left_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "right_depth_3",
+   "rect": [
+    602,
+    170,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.3.v.ls_right_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "right_curve_3",
+   "rect": [
+    648,
+    170,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.3.v.ls_right_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "noise_key_3",
+   "rect": [
+    733,
+    170,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.3.u.level_key_scale.{part}",
+   "tip": "The unvoiced (noise) operator's level key scaling, its only key scaling"
+  },
+  {
+   "type": "plate",
+   "name": "row_4_bg",
+   "rect": [
+    14,
+    212,
+    778,
+    53
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "op_4",
+   "rect": [
+    16,
+    226,
+    34,
+    24
+   ],
+   "text": {
+    "text": "4",
+    "font": "title_dark_bold_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "press": "up",
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "4"
+    }
+   },
+   "tip": "Operator 4's page"
+  },
+  {
+   "type": "plate",
+   "name": "curve_4_screen",
+   "rect": [
+    57,
+    218,
+    360,
+    41
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "curve_4",
+   "rect": [
+    57,
+    218,
+    360,
+    41
+   ],
+   "kind": "level_scale",
+   "surface": false,
+   "breakPoint": "op.4.v.ls_break.{part}",
+   "leftDepth": "op.4.v.ls_left_depth.{part}",
+   "rightDepth": "op.4.v.ls_right_depth.{part}",
+   "leftCurve": "op.4.v.ls_left_curve.{part}",
+   "rightCurve": "op.4.v.ls_right_curve.{part}",
+   "line": "#879ea0ff",
+   "grid": "#5f7172ff",
+   "dots": "#c80800ff"
+  },
+  {
+   "type": "plate",
+   "name": "ks_4_frame",
+   "rect": [
+    424,
+    217,
+    299,
+    43
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/inset_light_inv"
+   }
+  },
+  {
+   "type": "number",
+   "name": "break_4",
+   "rect": [
+    428,
+    229,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.4.v.ls_break.{part}",
+   "tip": "Break point"
+  },
+  {
+   "type": "number",
+   "name": "left_depth_4",
+   "rect": [
+    478,
+    229,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.4.v.ls_left_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "left_curve_4",
+   "rect": [
+    524,
+    229,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.4.v.ls_left_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "right_depth_4",
+   "rect": [
+    602,
+    229,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.4.v.ls_right_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "right_curve_4",
+   "rect": [
+    648,
+    229,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.4.v.ls_right_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "noise_key_4",
+   "rect": [
+    733,
+    229,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.4.u.level_key_scale.{part}",
+   "tip": "The unvoiced (noise) operator's level key scaling, its only key scaling"
+  },
+  {
+   "type": "plate",
+   "name": "row_5_bg",
+   "rect": [
+    14,
+    270,
+    778,
+    53
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "op_5",
+   "rect": [
+    16,
+    284,
+    34,
+    24
+   ],
+   "text": {
+    "text": "5",
+    "font": "title_dark_bold_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "press": "up",
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "5"
+    }
+   },
+   "tip": "Operator 5's page"
+  },
+  {
+   "type": "plate",
+   "name": "curve_5_screen",
+   "rect": [
+    57,
+    276,
+    360,
+    41
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "curve_5",
+   "rect": [
+    57,
+    276,
+    360,
+    41
+   ],
+   "kind": "level_scale",
+   "surface": false,
+   "breakPoint": "op.5.v.ls_break.{part}",
+   "leftDepth": "op.5.v.ls_left_depth.{part}",
+   "rightDepth": "op.5.v.ls_right_depth.{part}",
+   "leftCurve": "op.5.v.ls_left_curve.{part}",
+   "rightCurve": "op.5.v.ls_right_curve.{part}",
+   "line": "#879ea0ff",
+   "grid": "#5f7172ff",
+   "dots": "#c80800ff"
+  },
+  {
+   "type": "plate",
+   "name": "ks_5_frame",
+   "rect": [
+    424,
+    275,
+    299,
+    43
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/inset_light_inv"
+   }
+  },
+  {
+   "type": "number",
+   "name": "break_5",
+   "rect": [
+    428,
+    287,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.5.v.ls_break.{part}",
+   "tip": "Break point"
+  },
+  {
+   "type": "number",
+   "name": "left_depth_5",
+   "rect": [
+    478,
+    287,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.5.v.ls_left_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "left_curve_5",
+   "rect": [
+    524,
+    287,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.5.v.ls_left_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "right_depth_5",
+   "rect": [
+    602,
+    287,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.5.v.ls_right_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "right_curve_5",
+   "rect": [
+    648,
+    287,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.5.v.ls_right_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "noise_key_5",
+   "rect": [
+    733,
+    287,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.5.u.level_key_scale.{part}",
+   "tip": "The unvoiced (noise) operator's level key scaling, its only key scaling"
+  },
+  {
+   "type": "plate",
+   "name": "row_6_bg",
+   "rect": [
+    14,
+    329,
+    778,
+    53
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "op_6",
+   "rect": [
+    16,
+    343,
+    34,
+    24
+   ],
+   "text": {
+    "text": "6",
+    "font": "title_dark_bold_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "press": "up",
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "6"
+    }
+   },
+   "tip": "Operator 6's page"
+  },
+  {
+   "type": "plate",
+   "name": "curve_6_screen",
+   "rect": [
+    57,
+    335,
+    360,
+    41
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "curve_6",
+   "rect": [
+    57,
+    335,
+    360,
+    41
+   ],
+   "kind": "level_scale",
+   "surface": false,
+   "breakPoint": "op.6.v.ls_break.{part}",
+   "leftDepth": "op.6.v.ls_left_depth.{part}",
+   "rightDepth": "op.6.v.ls_right_depth.{part}",
+   "leftCurve": "op.6.v.ls_left_curve.{part}",
+   "rightCurve": "op.6.v.ls_right_curve.{part}",
+   "line": "#879ea0ff",
+   "grid": "#5f7172ff",
+   "dots": "#c80800ff"
+  },
+  {
+   "type": "plate",
+   "name": "ks_6_frame",
+   "rect": [
+    424,
+    334,
+    299,
+    43
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/inset_light_inv"
+   }
+  },
+  {
+   "type": "number",
+   "name": "break_6",
+   "rect": [
+    428,
+    346,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.6.v.ls_break.{part}",
+   "tip": "Break point"
+  },
+  {
+   "type": "number",
+   "name": "left_depth_6",
+   "rect": [
+    478,
+    346,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.6.v.ls_left_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "left_curve_6",
+   "rect": [
+    524,
+    346,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.6.v.ls_left_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "right_depth_6",
+   "rect": [
+    602,
+    346,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.6.v.ls_right_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "right_curve_6",
+   "rect": [
+    648,
+    346,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.6.v.ls_right_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "noise_key_6",
+   "rect": [
+    733,
+    346,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.6.u.level_key_scale.{part}",
+   "tip": "The unvoiced (noise) operator's level key scaling, its only key scaling"
+  },
+  {
+   "type": "plate",
+   "name": "row_7_bg",
+   "rect": [
+    14,
+    388,
+    778,
+    53
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "op_7",
+   "rect": [
+    16,
+    402,
+    34,
+    24
+   ],
+   "text": {
+    "text": "7",
+    "font": "title_dark_bold_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "press": "up",
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "7"
+    }
+   },
+   "tip": "Operator 7's page"
+  },
+  {
+   "type": "plate",
+   "name": "curve_7_screen",
+   "rect": [
+    57,
+    394,
+    360,
+    41
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "curve_7",
+   "rect": [
+    57,
+    394,
+    360,
+    41
+   ],
+   "kind": "level_scale",
+   "surface": false,
+   "breakPoint": "op.7.v.ls_break.{part}",
+   "leftDepth": "op.7.v.ls_left_depth.{part}",
+   "rightDepth": "op.7.v.ls_right_depth.{part}",
+   "leftCurve": "op.7.v.ls_left_curve.{part}",
+   "rightCurve": "op.7.v.ls_right_curve.{part}",
+   "line": "#879ea0ff",
+   "grid": "#5f7172ff",
+   "dots": "#c80800ff"
+  },
+  {
+   "type": "plate",
+   "name": "ks_7_frame",
+   "rect": [
+    424,
+    393,
+    299,
+    43
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/inset_light_inv"
+   }
+  },
+  {
+   "type": "number",
+   "name": "break_7",
+   "rect": [
+    428,
+    405,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.7.v.ls_break.{part}",
+   "tip": "Break point"
+  },
+  {
+   "type": "number",
+   "name": "left_depth_7",
+   "rect": [
+    478,
+    405,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.7.v.ls_left_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "left_curve_7",
+   "rect": [
+    524,
+    405,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.7.v.ls_left_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "right_depth_7",
+   "rect": [
+    602,
+    405,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.7.v.ls_right_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "right_curve_7",
+   "rect": [
+    648,
+    405,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.7.v.ls_right_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "noise_key_7",
+   "rect": [
+    733,
+    405,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.7.u.level_key_scale.{part}",
+   "tip": "The unvoiced (noise) operator's level key scaling, its only key scaling"
+  },
+  {
+   "type": "plate",
+   "name": "row_8_bg",
+   "rect": [
+    14,
+    447,
+    778,
+    53
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "op_8",
+   "rect": [
+    16,
+    461,
+    34,
+    24
+   ],
+   "text": {
+    "text": "8",
+    "font": "title_dark_bold_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "press": "up",
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "8"
+    }
+   },
+   "tip": "Operator 8's page"
+  },
+  {
+   "type": "plate",
+   "name": "curve_8_screen",
+   "rect": [
+    57,
+    453,
+    360,
+    41
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "curve_8",
+   "rect": [
+    57,
+    453,
+    360,
+    41
+   ],
+   "kind": "level_scale",
+   "surface": false,
+   "breakPoint": "op.8.v.ls_break.{part}",
+   "leftDepth": "op.8.v.ls_left_depth.{part}",
+   "rightDepth": "op.8.v.ls_right_depth.{part}",
+   "leftCurve": "op.8.v.ls_left_curve.{part}",
+   "rightCurve": "op.8.v.ls_right_curve.{part}",
+   "line": "#879ea0ff",
+   "grid": "#5f7172ff",
+   "dots": "#c80800ff"
+  },
+  {
+   "type": "plate",
+   "name": "ks_8_frame",
+   "rect": [
+    424,
+    452,
+    299,
+    43
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/inset_light_inv"
+   }
+  },
+  {
+   "type": "number",
+   "name": "break_8",
+   "rect": [
+    428,
+    464,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.8.v.ls_break.{part}",
+   "tip": "Break point"
+  },
+  {
+   "type": "number",
+   "name": "left_depth_8",
+   "rect": [
+    478,
+    464,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.8.v.ls_left_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "left_curve_8",
+   "rect": [
+    524,
+    464,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.8.v.ls_left_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "right_depth_8",
+   "rect": [
+    602,
+    464,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.8.v.ls_right_depth.{part}"
+  },
+  {
+   "type": "dropdown",
+   "name": "right_curve_8",
+   "rect": [
+    648,
+    464,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small_inv"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12_inv",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "-Lin",
+     "value": 0
+    },
+    {
+     "label": "-Exp",
+     "value": 1
+    },
+    {
+     "label": "+Exp",
+     "value": 2
+    },
+    {
+     "label": "+Lin",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.8.v.ls_right_curve.{part}"
+  },
+  {
+   "type": "number",
+   "name": "noise_key_8",
+   "rect": [
+    733,
+    464,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.8.u.level_key_scale.{part}",
+   "tip": "The unvoiced (noise) operator's level key scaling, its only key scaling"
+  }
+ ]
+}

@@ -1,0 +1,452 @@
+{
+ "size": [
+  640,
+  480
+ ],
+ "fill": {
+  "colour": "#ffffffff"
+ },
+ "widgets": [
+  {
+   "type": "button",
+   "name": "close_area",
+   "rect": [
+    0,
+    0,
+    640,
+    480
+   ],
+   "press": "up",
+   "param": "gui.about_open",
+   "action": {
+    "step": -1
+   }
+  },
+  {
+   "type": "plate",
+   "name": "frame_top",
+   "rect": [
+    0,
+    0,
+    640,
+    12
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#e8e8e8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "frame_bottom",
+   "rect": [
+    0,
+    468,
+    640,
+    12
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#e8e8e8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "frame_left",
+   "rect": [
+    0,
+    12,
+    12,
+    456
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#e8e8e8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "frame_right",
+   "rect": [
+    628,
+    12,
+    12,
+    456
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#e8e8e8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "edge_top",
+   "rect": [
+    0,
+    0,
+    640,
+    1
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#c8c8c8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "edge_bottom",
+   "rect": [
+    0,
+    479,
+    640,
+    1
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#c8c8c8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "edge_left",
+   "rect": [
+    0,
+    0,
+    1,
+    480
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#c8c8c8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "edge_right",
+   "rect": [
+    639,
+    0,
+    1,
+    480
+   ],
+   "layer": 0,
+   "fill": {
+    "colour": "#c8c8c8ff"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "version",
+   "rect": [
+    16,
+    16,
+    300,
+    26
+   ],
+   "layer": 0,
+   "text": {
+    "text": "FSVR v{data:fsvr.version|}",
+    "font": "aw_black_24",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "button",
+   "name": "publisher",
+   "rect": [
+    437,
+    15,
+    151,
+    21
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "branding/musica_studio"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "action": {
+    "url": "https://musica.studio"
+   },
+   "tip": "musica.studio"
+  },
+  {
+   "type": "button",
+   "name": "close_x",
+   "rect": [
+    596,
+    14,
+    32,
+    32
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "buttons/about_close"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "param": "gui.about_open",
+   "action": {
+    "step": -1
+   },
+   "text": {
+    "text": "x",
+    "font": "aw_black_24",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    3
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "logo",
+   "rect": [
+    24,
+    64,
+    162,
+    26
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "branding/fsvr_logo_black"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "tagline",
+   "rect": [
+    24,
+    100,
+    592,
+    30
+   ],
+   "layer": 0,
+   "text": {
+    "text": "A millennial FM monster, reborn.",
+    "font": "aw_grey_24",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credits",
+   "rect": [
+    24,
+    160,
+    300,
+    32
+   ],
+   "layer": 0,
+   "text": {
+    "text": "credits.",
+    "font": "aw_black_24",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_1_name",
+   "rect": [
+    24,
+    198,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Zhiyuan Wan",
+    "font": "aw_black_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_1_role",
+   "rect": [
+    24,
+    218,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "hardware reverse engineering, testing, development, algorithm improvements",
+    "font": "aw_grey_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_2_name",
+   "rect": [
+    24,
+    250,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "James Hansen",
+    "font": "aw_black_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_2_role",
+   "rect": [
+    24,
+    270,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "project lead, coordination, development and GUI design",
+    "font": "aw_grey_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "trademark",
+   "rect": [
+    24,
+    350,
+    592,
+    16
+   ],
+   "layer": 0,
+   "text": {
+    "text": "FS1R is a trademark of Yamaha Corporation. FSVR is not made by or affiliated with Yamaha.",
+    "font": "aw_grey_13",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "button",
+   "name": "site",
+   "rect": [
+    224,
+    396,
+    196,
+    45
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "buttons/about_button"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "action": {
+    "url": "https://musica.studio/code/fsvr"
+   },
+   "text": {
+    "text": "musica.studio.",
+    "font": "aw_black_24",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "tip": "musica.studio/code/fsvr"
+  },
+  {
+   "type": "button",
+   "name": "discord",
+   "rect": [
+    428,
+    396,
+    188,
+    45
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "buttons/about_button"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "action": {
+    "url": "https://discord.gg/6sXu3GmkNm"
+   },
+   "text": {
+    "text": "discord.",
+    "font": "aw_black_24",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "tip": "The FSVR Discord"
+  }
+ ]
+}

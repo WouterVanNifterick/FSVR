@@ -1,0 +1,3088 @@
+{
+ "size": [
+  1235,
+  536
+ ],
+ "fill": {
+  "image": "backgrounds/page"
+ },
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "freq_frame",
+   "rect": [
+    14,
+    36,
+    298,
+    104
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "osc_frame",
+   "rect": [
+    327,
+    36,
+    296,
+    104
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "amp_frame",
+   "rect": [
+    638,
+    36,
+    154,
+    236
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "sens_frame",
+   "rect": [
+    14,
+    153,
+    609,
+    119
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_frame",
+   "rect": [
+    14,
+    285,
+    778,
+    221
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "coarse_title",
+   "rect": [
+    20,
+    16,
+    86,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Coarse",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "fine_title",
+   "rect": [
+    174,
+    16,
+    70,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Fine",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "osc_title",
+   "rect": [
+    333,
+    16,
+    101,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Oscillator",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "amp_title",
+   "rect": [
+    644,
+    16,
+    107,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Amplitude",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "matrix_title",
+   "rect": [
+    827,
+    15,
+    104,
+    23
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Algorithm",
+    "font": "caption_white_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab_dark"
+   }
+  },
+  {
+   "type": "embed",
+   "name": "fm_matrix",
+   "rect": [
+    821,
+    35,
+    408,
+    472
+   ],
+   "view": "fm_matrix",
+   "layer": 3
+  },
+  {
+   "type": "plate",
+   "name": "op_number",
+   "rect": [
+    18,
+    44,
+    22,
+    19
+   ],
+   "text": {
+    "text": "{op}",
+    "font": "title_dark_bold_12",
+    "align": "right"
+   },
+   "pad": [
+    0,
+    2,
+    0,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "op_layer_v",
+   "rect": [
+    18,
+    64,
+    22,
+    19
+   ],
+   "layer": 1,
+   "text": {
+    "text": "V",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "op_layer_u",
+   "rect": [
+    18,
+    64,
+    22,
+    19
+   ],
+   "layer": 1,
+   "text": {
+    "text": "N",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "coarse_inset",
+   "rect": [
+    50,
+    63,
+    118,
+    50
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/inset_light"
+   }
+  },
+  {
+   "type": "number",
+   "name": "coarse_ratio",
+   "rect": [
+    54,
+    77,
+    108,
+    25
+   ],
+   "text": {
+    "text": "",
+    "font": "digits_grey_14",
+    "align": "right",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "format": "%.0f",
+   "sensitivity": 0.3,
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.coarse.{part}",
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.v.mode.{part}",
+      "equals": 0
+     }
+    ]
+   },
+   "tip": "Coarse, reading as the unit shows it",
+   "valueText": {
+    "table": "op_ratio",
+    "col": "op.{op}.{layer}.fine.{part}"
+   }
+  },
+  {
+   "type": "number",
+   "name": "coarse_fixed",
+   "rect": [
+    54,
+    77,
+    84,
+    25
+   ],
+   "text": {
+    "text": "",
+    "font": "digits_grey_14",
+    "align": "right",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "format": "%.0f",
+   "sensitivity": 0.3,
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.coarse.{part}",
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.v.mode.{part}",
+      "equals": 1
+     }
+    ]
+   },
+   "tip": "Coarse, reading as the unit shows it",
+   "valueText": {
+    "table": "fixed_freq",
+    "col": "op.{op}.{layer}.fine.{part}"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "coarse_fixed_unit",
+   "rect": [
+    140,
+    82,
+    24,
+    18
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Hz",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.v.mode.{part}",
+      "equals": 1
+     }
+    ]
+   }
+  },
+  {
+   "type": "number",
+   "name": "coarse_noise",
+   "rect": [
+    54,
+    77,
+    84,
+    25
+   ],
+   "text": {
+    "text": "",
+    "font": "digits_grey_14",
+    "align": "right",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "format": "%.0f",
+   "sensitivity": 0.3,
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.coarse.{part}",
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "u"
+     },
+     {
+      "param": "op.{op}.u.mode.{part}",
+      "equals": 0
+     }
+    ]
+   },
+   "tip": "Coarse, reading as the unit shows it",
+   "valueText": {
+    "table": "fixed_freq",
+    "col": "op.{op}.{layer}.fine.{part}"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "coarse_noise_unit",
+   "rect": [
+    140,
+    82,
+    24,
+    18
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Hz",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "u"
+     },
+     {
+      "param": "op.{op}.u.mode.{part}",
+      "equals": 0
+     }
+    ]
+   }
+  },
+  {
+   "type": "number",
+   "name": "coarse_linked",
+   "rect": [
+    54,
+    77,
+    108,
+    25
+   ],
+   "text": {
+    "text": "",
+    "font": "digits_grey_14",
+    "align": "right",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "format": "%.0f",
+   "sensitivity": 0.3,
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.coarse.{part}",
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "u"
+     },
+     {
+      "param": "op.{op}.u.mode.{part}",
+      "notEquals": 0
+     }
+    ]
+   },
+   "tip": "Coarse"
+  },
+  {
+   "type": "button",
+   "name": "coarse_up_1",
+   "rect": [
+    51,
+    41,
+    38,
+    18
+   ],
+   "fill": {
+    "image": "buttons/pill"
+   },
+   "press": "repeat",
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "action": {
+    "step": 1
+   },
+   "param": "op.{op}.{layer}.coarse.{part}",
+   "tip": "+1"
+  },
+  {
+   "type": "button",
+   "name": "coarse_down_1",
+   "rect": [
+    51,
+    117,
+    38,
+    18
+   ],
+   "fill": {
+    "image": "buttons/pill"
+   },
+   "press": "repeat",
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "action": {
+    "step": -1
+   },
+   "param": "op.{op}.{layer}.coarse.{part}",
+   "tip": "-1"
+  },
+  {
+   "type": "plate",
+   "name": "fine_inset",
+   "rect": [
+    180,
+    63,
+    118,
+    50
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/inset_light"
+   }
+  },
+  {
+   "type": "number",
+   "name": "fine",
+   "rect": [
+    184,
+    77,
+    108,
+    25
+   ],
+   "text": {
+    "text": "",
+    "font": "digits_grey_14",
+    "align": "right",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "format": "%.0f",
+   "sensitivity": 0.3,
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.fine.{part}"
+  },
+  {
+   "type": "button",
+   "name": "fine_up_10",
+   "rect": [
+    181,
+    41,
+    38,
+    18
+   ],
+   "fill": {
+    "image": "buttons/pill"
+   },
+   "press": "repeat",
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "action": {
+    "step": 10
+   },
+   "param": "op.{op}.{layer}.fine.{part}",
+   "tip": "+10"
+  },
+  {
+   "type": "button",
+   "name": "fine_down_10",
+   "rect": [
+    181,
+    117,
+    38,
+    18
+   ],
+   "fill": {
+    "image": "buttons/pill"
+   },
+   "press": "repeat",
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "action": {
+    "step": -10
+   },
+   "param": "op.{op}.{layer}.fine.{part}",
+   "tip": "-10"
+  },
+  {
+   "type": "button",
+   "name": "fine_up_1",
+   "rect": [
+    220,
+    41,
+    38,
+    18
+   ],
+   "fill": {
+    "image": "buttons/pill"
+   },
+   "press": "repeat",
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "action": {
+    "step": 1
+   },
+   "param": "op.{op}.{layer}.fine.{part}",
+   "tip": "+1"
+  },
+  {
+   "type": "button",
+   "name": "fine_down_1",
+   "rect": [
+    220,
+    117,
+    38,
+    18
+   ],
+   "fill": {
+    "image": "buttons/pill"
+   },
+   "press": "repeat",
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "action": {
+    "step": -1
+   },
+   "param": "op.{op}.{layer}.fine.{part}",
+   "tip": "-1"
+  },
+  {
+   "type": "dropdown",
+   "name": "form",
+   "rect": [
+    337,
+    44,
+    150,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Sine",
+     "value": 0
+    },
+    {
+     "label": "All 1",
+     "value": 1
+    },
+    {
+     "label": "All 2",
+     "value": 2
+    },
+    {
+     "label": "Odd 1",
+     "value": 3
+    },
+    {
+     "label": "Odd 2",
+     "value": 4
+    },
+    {
+     "label": "Res 1",
+     "value": 5
+    },
+    {
+     "label": "Res 2",
+     "value": 6
+    },
+    {
+     "label": "Formant",
+     "value": 7
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.{op}.v.form.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   },
+   "tip": "Spectral form"
+  },
+  {
+   "type": "dropdown",
+   "name": "mode",
+   "rect": [
+    493,
+    44,
+    120,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Ratio",
+     "value": 0
+    },
+    {
+     "label": "Fixed",
+     "value": 1
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.{op}.v.mode.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   },
+   "tip": "Ratio or fixed frequency"
+  },
+  {
+   "type": "dropdown",
+   "name": "pitch_mode",
+   "rect": [
+    337,
+    44,
+    150,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Normal",
+     "value": 0
+    },
+    {
+     "label": "Link FO",
+     "value": 1
+    },
+    {
+     "label": "Link FF",
+     "value": 2
+    }
+   ],
+   "captionFromItem": true,
+   "param": "op.{op}.u.mode.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   },
+   "tip": "Normal, or linked to the fundamental (FO) or to the voiced operator's formant (FF)"
+  },
+  {
+   "type": "plate",
+   "name": "osc_skirt_label",
+   "rect": [
+    335,
+    66,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Skirt",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "osc_skirt",
+   "rect": [
+    335,
+    86,
+    70,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.skirt.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "osc_transpose_label",
+   "rect": [
+    407,
+    66,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Transpose",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "osc_transpose",
+   "rect": [
+    407,
+    86,
+    70,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.transpose.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "osc_band_ratio_label",
+   "rect": [
+    479,
+    66,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Band",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "osc_band_ratio",
+   "rect": [
+    479,
+    86,
+    70,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.v.band_ratio.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "osc_detune_label",
+   "rect": [
+    551,
+    66,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Detune",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "osc_detune",
+   "rect": [
+    551,
+    86,
+    70,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.v.detune.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "osc_bandwidth_label",
+   "rect": [
+    479,
+    66,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Bandwidth",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
+   "type": "number",
+   "name": "osc_bandwidth",
+   "rect": [
+    479,
+    86,
+    70,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.u.bandwidth.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "osc_resonance_label",
+   "rect": [
+    551,
+    66,
+    70,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Resonance",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
+   "type": "number",
+   "name": "osc_resonance",
+   "rect": [
+    551,
+    86,
+    70,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.u.resonance.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
+   "type": "button",
+   "name": "key_sync",
+   "rect": [
+    337,
+    112,
+    136,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Key Sync",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.{op}.v.key_sync.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   },
+   "tip": "Restart the oscillator at each note"
+  },
+  {
+   "type": "button",
+   "name": "fseq_sw",
+   "rect": [
+    477,
+    112,
+    136,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Fseq",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "op.{op}.{layer}.fseq_sw.{part}",
+   "tip": "This operator follows the Fseq"
+  },
+  {
+   "type": "button",
+   "name": "voiced",
+   "rect": [
+    646,
+    40,
+    68,
+    21
+   ],
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "text": {
+    "text": "V",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "set": {
+     "layer": "v"
+    }
+   },
+   "tip": "Voiced operators"
+  },
+  {
+   "type": "button",
+   "name": "unvoiced",
+   "rect": [
+    718,
+    40,
+    68,
+    21
+   ],
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "text": {
+    "text": "N",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "set": {
+     "layer": "u"
+    }
+   },
+   "tip": "Unvoiced (noise) operators, N on the unit"
+  },
+  {
+   "type": "plate",
+   "name": "level_label",
+   "rect": [
+    718,
+    65,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Level",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "level_track",
+   "rect": [
+    748,
+    86,
+    20,
+    149
+   ],
+   "fill": {
+    "image": "faders/track_mid_narrow"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "level",
+   "rect": [
+    737,
+    86,
+    42,
+    149
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.09,
+   "reset": "default",
+   "param": "op.{op}.{layer}.level.{part}"
+  },
+  {
+   "type": "number",
+   "name": "level_value",
+   "rect": [
+    728,
+    237,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.level.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "amp_vel_label",
+   "rect": [
+    633,
+    67,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Amp Vel",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "amp_vel",
+   "rect": [
+    651,
+    88,
+    44,
+    44
+   ],
+   "image": "knobs/rotary_small",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "op.{op}.{layer}.amp_vel.{part}"
+  },
+  {
+   "type": "number",
+   "name": "amp_vel_value",
+   "rect": [
+    643,
+    133,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.amp_vel.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "eg_bias_label",
+   "rect": [
+    633,
+    151,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "EG Bias",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "eg_bias",
+   "rect": [
+    651,
+    172,
+    44,
+    44
+   ],
+   "image": "knobs/rotary_small",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "op.{op}.{layer}.eg_bias.{part}"
+  },
+  {
+   "type": "number",
+   "name": "eg_bias_value",
+   "rect": [
+    643,
+    217,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.eg_bias.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_title",
+   "rect": [
+    20,
+    167,
+    37,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Sens",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "feg_title",
+   "rect": [
+    20,
+    216,
+    37,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Freq",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "feg_title2",
+   "rect": [
+    20,
+    234,
+    37,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "EG",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "sens_pitch_mod_label",
+   "rect": [
+    62,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Pitch",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "sens_pitch_mod",
+   "rect": [
+    62,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.v.pitch_mod.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "sens_freq_mod_label",
+   "rect": [
+    126,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Freq",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "sens_freq_mod",
+   "rect": [
+    126,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.freq_mod.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_freq_vel_label",
+   "rect": [
+    190,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Fq Vel",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "sens_freq_vel",
+   "rect": [
+    190,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.freq_vel.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_amp_mod_label",
+   "rect": [
+    254,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Amp",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "sens_amp_mod",
+   "rect": [
+    254,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.amp_mod.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_freq_bias_label",
+   "rect": [
+    318,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Fq Bias",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "sens_freq_bias",
+   "rect": [
+    318,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.freq_bias.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_bw_bias_label",
+   "rect": [
+    382,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "BW Bias",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "sens_bw_bias",
+   "rect": [
+    382,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.bw_bias.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_note_scaling_label",
+   "rect": [
+    446,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Note Scl",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "sens_note_scaling",
+   "rect": [
+    446,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.note_scaling.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_eg_time_scale_label",
+   "rect": [
+    510,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Time Scl",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "sens_eg_time_scale",
+   "rect": [
+    510,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.eg_time_scale.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_feg_init_label",
+   "rect": [
+    62,
+    216,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Init",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "sens_feg_init",
+   "rect": [
+    62,
+    238,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.feg_init.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_feg_attack_level_label",
+   "rect": [
+    126,
+    216,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Atk Lvl",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "sens_feg_attack_level",
+   "rect": [
+    126,
+    238,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.feg_attack_level.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_feg_attack_label",
+   "rect": [
+    190,
+    216,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Attack",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "sens_feg_attack",
+   "rect": [
+    190,
+    238,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.feg_attack.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_feg_decay_label",
+   "rect": [
+    254,
+    216,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Decay",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "sens_feg_decay",
+   "rect": [
+    254,
+    238,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.feg_decay.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "sens_carrier_corr_label",
+   "rect": [
+    318,
+    216,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Carrier",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "sens_carrier_corr",
+   "rect": [
+    318,
+    238,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.v.carrier_corr.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "sens_level_key_scale_label",
+   "rect": [
+    318,
+    216,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Lvl Key",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
+   "type": "number",
+   "name": "sens_level_key_scale",
+   "rect": [
+    318,
+    238,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.u.level_key_scale.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "sens_fseq_track_label",
+   "rect": [
+    382,
+    216,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Fseq Trk",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "sens_fseq_track",
+   "rect": [
+    382,
+    238,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.v.fseq_track.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_title",
+   "rect": [
+    20,
+    299,
+    37,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Env",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_screen",
+   "rect": [
+    59,
+    303,
+    720,
+    130
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "envelope",
+   "rect": [
+    59,
+    303,
+    720,
+    130
+   ],
+   "kind": "stage_env",
+   "surface": false,
+   "start": "op.{op}.{layer}.eg_l4.{part}",
+   "sustain": 3,
+   "range": [
+    0,
+    99
+   ],
+   "points": [
+    [
+     "op.{op}.{layer}.eg_hold.{part}",
+     "op.{op}.{layer}.eg_l4.{part}"
+    ],
+    [
+     "op.{op}.{layer}.eg_t1.{part}",
+     "op.{op}.{layer}.eg_l1.{part}"
+    ],
+    [
+     "op.{op}.{layer}.eg_t2.{part}",
+     "op.{op}.{layer}.eg_l2.{part}"
+    ],
+    [
+     "op.{op}.{layer}.eg_t3.{part}",
+     "op.{op}.{layer}.eg_l3.{part}"
+    ],
+    [
+     "op.{op}.{layer}.eg_t4.{part}",
+     "op.{op}.{layer}.eg_l4.{part}"
+    ]
+   ],
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.{op}.{layer}.eg_l1.{part}",
+    "L2": "op.{op}.{layer}.eg_l2.{part}",
+    "L3": "op.{op}.{layer}.eg_l3.{part}",
+    "L4": "op.{op}.{layer}.eg_l4.{part}",
+    "T1": "op.{op}.{layer}.eg_t1.{part}",
+    "T2": "op.{op}.{layer}.eg_t2.{part}",
+    "T3": "op.{op}.{layer}.eg_t3.{part}",
+    "T4": "op.{op}.{layer}.eg_t4.{part}",
+    "hold": "op.{op}.{layer}.eg_hold.{part}",
+    "timeScale": "op.{op}.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "overlay": {
+    "var": "op",
+    "values": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "6",
+     "7",
+     "8"
+    ],
+    "param": "gui.eg_overlay"
+   },
+   "text": {
+    "font": "tiny_white_8"
+   },
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "grid": "#5f7172ff",
+   "area": "#879ea090",
+   "curve": "#879ea0ff",
+   "handle": "#394344ff",
+   "dots": "#f6f6f6ff",
+   "areaBottom": "#879ea005"
+  },
+  {
+   "type": "plate",
+   "name": "env_time_label",
+   "rect": [
+    59,
+    453,
+    48,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Time",
+    "font": "caption_grey_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_level_label",
+   "rect": [
+    59,
+    474,
+    48,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Level",
+    "font": "caption_grey_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_1",
+   "rect": [
+    110,
+    437,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Hold",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_2",
+   "rect": [
+    244,
+    437,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Attack",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_3",
+   "rect": [
+    378,
+    437,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Decay 1",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_4",
+   "rect": [
+    511,
+    437,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Decay 2",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_5",
+   "rect": [
+    645,
+    437,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Release",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "button",
+   "name": "env_db",
+   "rect": [
+    16,
+    330,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "dB",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.eg_db",
+   "tip": "The amplitude envelopes in dB (on) or as linear amplitude (off)"
+  },
+  {
+   "type": "button",
+   "name": "env_all",
+   "rect": [
+    16,
+    352,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "All",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.eg_overlay",
+   "tip": "Draw the other operators' amplitude envelopes faintly behind this one, on the same time axis"
+  },
+  {
+   "type": "number",
+   "name": "env_eg_hold",
+   "rect": [
+    152,
+    453,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.eg_hold.{part}",
+   "tip": "Hold: how long the envelope waits at the Release level before the attack starts"
+  },
+  {
+   "type": "number",
+   "name": "env_eg_t1",
+   "rect": [
+    286,
+    453,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.eg_t1.{part}"
+  },
+  {
+   "type": "number",
+   "name": "env_eg_t2",
+   "rect": [
+    420,
+    453,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.eg_t2.{part}"
+  },
+  {
+   "type": "number",
+   "name": "env_eg_t3",
+   "rect": [
+    553,
+    453,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.eg_t3.{part}"
+  },
+  {
+   "type": "number",
+   "name": "env_eg_t4",
+   "rect": [
+    687,
+    453,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.eg_t4.{part}"
+  },
+  {
+   "type": "number",
+   "name": "env_eg_l1",
+   "rect": [
+    286,
+    474,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.eg_l1.{part}"
+  },
+  {
+   "type": "number",
+   "name": "env_eg_l2",
+   "rect": [
+    420,
+    474,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.eg_l2.{part}"
+  },
+  {
+   "type": "number",
+   "name": "env_eg_l3",
+   "rect": [
+    553,
+    474,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.eg_l3.{part}"
+  },
+  {
+   "type": "number",
+   "name": "env_eg_l4",
+   "rect": [
+    687,
+    474,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.{layer}.eg_l4.{part}",
+   "tip": "Release level, where the release ends; also the level the envelope starts from"
+  }
+ ]
+}

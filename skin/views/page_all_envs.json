@@ -1,0 +1,1671 @@
+{
+ "size": [
+  1235,
+  536
+ ],
+ "fill": {
+  "image": "backgrounds/page"
+ },
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "matrix_title",
+   "rect": [
+    827,
+    15,
+    104,
+    23
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Algorithm",
+    "font": "caption_white_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab_dark"
+   }
+  },
+  {
+   "type": "embed",
+   "name": "fm_matrix",
+   "rect": [
+    821,
+    35,
+    408,
+    472
+   ],
+   "view": "fm_matrix",
+   "layer": 3
+  },
+  {
+   "type": "button",
+   "name": "voiced",
+   "rect": [
+    14,
+    11,
+    34,
+    21
+   ],
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "text": {
+    "text": "V",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "set": {
+     "layer": "v"
+    }
+   },
+   "tip": "Voiced operators"
+  },
+  {
+   "type": "button",
+   "name": "unvoiced",
+   "rect": [
+    52,
+    11,
+    34,
+    21
+   ],
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "text": {
+    "text": "N",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "action": {
+    "set": {
+     "layer": "u"
+    }
+   },
+   "tip": "Unvoiced (noise) operators, N on the unit"
+  },
+  {
+   "type": "plate",
+   "name": "envs_title",
+   "rect": [
+    92,
+    16,
+    108,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Envelopes",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab"
+   }
+  },
+  {
+   "type": "button",
+   "name": "envs_db",
+   "rect": [
+    206,
+    15,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "dB",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.eg_db",
+   "tip": "The amplitude envelopes in dB (on) or as linear amplitude (off)"
+  },
+  {
+   "type": "button",
+   "name": "envs_sync",
+   "rect": [
+    256,
+    15,
+    58,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Sync",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.eg_sync",
+   "tip": "All eight plots on one time axis, fitted to the longest envelope and zoomed together"
+  },
+  {
+   "type": "plate",
+   "name": "env_1_frame",
+   "rect": [
+    14,
+    36,
+    386,
+    112
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "env_1_op",
+   "rect": [
+    22,
+    42,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 1",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "press": "up",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "1"
+    }
+   },
+   "tip": "Operator 1's page"
+  },
+  {
+   "type": "number",
+   "name": "env_1_level",
+   "rect": [
+    330,
+    42,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.1.{layer}.level.{part}",
+   "tip": "Operator 1 level"
+  },
+  {
+   "type": "plate",
+   "name": "env_1_level_label",
+   "rect": [
+    270,
+    42,
+    58,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Level",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_1_screen",
+   "rect": [
+    22,
+    64,
+    370,
+    78
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "env_1",
+   "rect": [
+    22,
+    64,
+    370,
+    78
+   ],
+   "kind": "stage_env",
+   "surface": false,
+   "start": "op.1.{layer}.eg_l4.{part}",
+   "sustain": 3,
+   "range": [
+    0,
+    99
+   ],
+   "points": [
+    [
+     "op.1.{layer}.eg_hold.{part}",
+     "op.1.{layer}.eg_l4.{part}"
+    ],
+    [
+     "op.1.{layer}.eg_t1.{part}",
+     "op.1.{layer}.eg_l1.{part}"
+    ],
+    [
+     "op.1.{layer}.eg_t2.{part}",
+     "op.1.{layer}.eg_l2.{part}"
+    ],
+    [
+     "op.1.{layer}.eg_t3.{part}",
+     "op.1.{layer}.eg_l3.{part}"
+    ],
+    [
+     "op.1.{layer}.eg_t4.{part}",
+     "op.1.{layer}.eg_l4.{part}"
+    ]
+   ],
+   "grid": "#5f7172ff",
+   "area": "#879ea090",
+   "curve": "#879ea0ff",
+   "handle": "#394344ff",
+   "dots": "#f6f6f6ff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.1.{layer}.eg_l1.{part}",
+    "L2": "op.1.{layer}.eg_l2.{part}",
+    "L3": "op.1.{layer}.eg_l3.{part}",
+    "L4": "op.1.{layer}.eg_l4.{part}",
+    "T1": "op.1.{layer}.eg_t1.{part}",
+    "T2": "op.1.{layer}.eg_t2.{part}",
+    "T3": "op.1.{layer}.eg_t3.{part}",
+    "T4": "op.1.{layer}.eg_t4.{part}",
+    "hold": "op.1.{layer}.eg_hold.{part}",
+    "timeScale": "op.1.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "text": {
+    "font": "tiny_white_8"
+   },
+   "areaBottom": "#879ea005"
+  },
+  {
+   "type": "plate",
+   "name": "env_2_frame",
+   "rect": [
+    406,
+    36,
+    386,
+    112
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "env_2_op",
+   "rect": [
+    414,
+    42,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 2",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "press": "up",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "2"
+    }
+   },
+   "tip": "Operator 2's page"
+  },
+  {
+   "type": "number",
+   "name": "env_2_level",
+   "rect": [
+    722,
+    42,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.2.{layer}.level.{part}",
+   "tip": "Operator 2 level"
+  },
+  {
+   "type": "plate",
+   "name": "env_2_level_label",
+   "rect": [
+    662,
+    42,
+    58,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Level",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_2_screen",
+   "rect": [
+    414,
+    64,
+    370,
+    78
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "env_2",
+   "rect": [
+    414,
+    64,
+    370,
+    78
+   ],
+   "kind": "stage_env",
+   "surface": false,
+   "start": "op.2.{layer}.eg_l4.{part}",
+   "sustain": 3,
+   "range": [
+    0,
+    99
+   ],
+   "points": [
+    [
+     "op.2.{layer}.eg_hold.{part}",
+     "op.2.{layer}.eg_l4.{part}"
+    ],
+    [
+     "op.2.{layer}.eg_t1.{part}",
+     "op.2.{layer}.eg_l1.{part}"
+    ],
+    [
+     "op.2.{layer}.eg_t2.{part}",
+     "op.2.{layer}.eg_l2.{part}"
+    ],
+    [
+     "op.2.{layer}.eg_t3.{part}",
+     "op.2.{layer}.eg_l3.{part}"
+    ],
+    [
+     "op.2.{layer}.eg_t4.{part}",
+     "op.2.{layer}.eg_l4.{part}"
+    ]
+   ],
+   "grid": "#5f7172ff",
+   "area": "#879ea090",
+   "curve": "#879ea0ff",
+   "handle": "#394344ff",
+   "dots": "#f6f6f6ff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.2.{layer}.eg_l1.{part}",
+    "L2": "op.2.{layer}.eg_l2.{part}",
+    "L3": "op.2.{layer}.eg_l3.{part}",
+    "L4": "op.2.{layer}.eg_l4.{part}",
+    "T1": "op.2.{layer}.eg_t1.{part}",
+    "T2": "op.2.{layer}.eg_t2.{part}",
+    "T3": "op.2.{layer}.eg_t3.{part}",
+    "T4": "op.2.{layer}.eg_t4.{part}",
+    "hold": "op.2.{layer}.eg_hold.{part}",
+    "timeScale": "op.2.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "text": {
+    "font": "tiny_white_8"
+   },
+   "areaBottom": "#879ea005"
+  },
+  {
+   "type": "plate",
+   "name": "env_3_frame",
+   "rect": [
+    14,
+    154,
+    386,
+    112
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "env_3_op",
+   "rect": [
+    22,
+    160,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 3",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "press": "up",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "3"
+    }
+   },
+   "tip": "Operator 3's page"
+  },
+  {
+   "type": "number",
+   "name": "env_3_level",
+   "rect": [
+    330,
+    160,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.3.{layer}.level.{part}",
+   "tip": "Operator 3 level"
+  },
+  {
+   "type": "plate",
+   "name": "env_3_level_label",
+   "rect": [
+    270,
+    160,
+    58,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Level",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_3_screen",
+   "rect": [
+    22,
+    182,
+    370,
+    78
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "env_3",
+   "rect": [
+    22,
+    182,
+    370,
+    78
+   ],
+   "kind": "stage_env",
+   "surface": false,
+   "start": "op.3.{layer}.eg_l4.{part}",
+   "sustain": 3,
+   "range": [
+    0,
+    99
+   ],
+   "points": [
+    [
+     "op.3.{layer}.eg_hold.{part}",
+     "op.3.{layer}.eg_l4.{part}"
+    ],
+    [
+     "op.3.{layer}.eg_t1.{part}",
+     "op.3.{layer}.eg_l1.{part}"
+    ],
+    [
+     "op.3.{layer}.eg_t2.{part}",
+     "op.3.{layer}.eg_l2.{part}"
+    ],
+    [
+     "op.3.{layer}.eg_t3.{part}",
+     "op.3.{layer}.eg_l3.{part}"
+    ],
+    [
+     "op.3.{layer}.eg_t4.{part}",
+     "op.3.{layer}.eg_l4.{part}"
+    ]
+   ],
+   "grid": "#5f7172ff",
+   "area": "#879ea090",
+   "curve": "#879ea0ff",
+   "handle": "#394344ff",
+   "dots": "#f6f6f6ff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.3.{layer}.eg_l1.{part}",
+    "L2": "op.3.{layer}.eg_l2.{part}",
+    "L3": "op.3.{layer}.eg_l3.{part}",
+    "L4": "op.3.{layer}.eg_l4.{part}",
+    "T1": "op.3.{layer}.eg_t1.{part}",
+    "T2": "op.3.{layer}.eg_t2.{part}",
+    "T3": "op.3.{layer}.eg_t3.{part}",
+    "T4": "op.3.{layer}.eg_t4.{part}",
+    "hold": "op.3.{layer}.eg_hold.{part}",
+    "timeScale": "op.3.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "text": {
+    "font": "tiny_white_8"
+   },
+   "areaBottom": "#879ea005"
+  },
+  {
+   "type": "plate",
+   "name": "env_4_frame",
+   "rect": [
+    406,
+    154,
+    386,
+    112
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "env_4_op",
+   "rect": [
+    414,
+    160,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 4",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "press": "up",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "4"
+    }
+   },
+   "tip": "Operator 4's page"
+  },
+  {
+   "type": "number",
+   "name": "env_4_level",
+   "rect": [
+    722,
+    160,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.4.{layer}.level.{part}",
+   "tip": "Operator 4 level"
+  },
+  {
+   "type": "plate",
+   "name": "env_4_level_label",
+   "rect": [
+    662,
+    160,
+    58,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Level",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_4_screen",
+   "rect": [
+    414,
+    182,
+    370,
+    78
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "env_4",
+   "rect": [
+    414,
+    182,
+    370,
+    78
+   ],
+   "kind": "stage_env",
+   "surface": false,
+   "start": "op.4.{layer}.eg_l4.{part}",
+   "sustain": 3,
+   "range": [
+    0,
+    99
+   ],
+   "points": [
+    [
+     "op.4.{layer}.eg_hold.{part}",
+     "op.4.{layer}.eg_l4.{part}"
+    ],
+    [
+     "op.4.{layer}.eg_t1.{part}",
+     "op.4.{layer}.eg_l1.{part}"
+    ],
+    [
+     "op.4.{layer}.eg_t2.{part}",
+     "op.4.{layer}.eg_l2.{part}"
+    ],
+    [
+     "op.4.{layer}.eg_t3.{part}",
+     "op.4.{layer}.eg_l3.{part}"
+    ],
+    [
+     "op.4.{layer}.eg_t4.{part}",
+     "op.4.{layer}.eg_l4.{part}"
+    ]
+   ],
+   "grid": "#5f7172ff",
+   "area": "#879ea090",
+   "curve": "#879ea0ff",
+   "handle": "#394344ff",
+   "dots": "#f6f6f6ff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.4.{layer}.eg_l1.{part}",
+    "L2": "op.4.{layer}.eg_l2.{part}",
+    "L3": "op.4.{layer}.eg_l3.{part}",
+    "L4": "op.4.{layer}.eg_l4.{part}",
+    "T1": "op.4.{layer}.eg_t1.{part}",
+    "T2": "op.4.{layer}.eg_t2.{part}",
+    "T3": "op.4.{layer}.eg_t3.{part}",
+    "T4": "op.4.{layer}.eg_t4.{part}",
+    "hold": "op.4.{layer}.eg_hold.{part}",
+    "timeScale": "op.4.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "text": {
+    "font": "tiny_white_8"
+   },
+   "areaBottom": "#879ea005"
+  },
+  {
+   "type": "plate",
+   "name": "env_5_frame",
+   "rect": [
+    14,
+    272,
+    386,
+    112
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "env_5_op",
+   "rect": [
+    22,
+    278,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 5",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "press": "up",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "5"
+    }
+   },
+   "tip": "Operator 5's page"
+  },
+  {
+   "type": "number",
+   "name": "env_5_level",
+   "rect": [
+    330,
+    278,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.5.{layer}.level.{part}",
+   "tip": "Operator 5 level"
+  },
+  {
+   "type": "plate",
+   "name": "env_5_level_label",
+   "rect": [
+    270,
+    278,
+    58,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Level",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_5_screen",
+   "rect": [
+    22,
+    300,
+    370,
+    78
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "env_5",
+   "rect": [
+    22,
+    300,
+    370,
+    78
+   ],
+   "kind": "stage_env",
+   "surface": false,
+   "start": "op.5.{layer}.eg_l4.{part}",
+   "sustain": 3,
+   "range": [
+    0,
+    99
+   ],
+   "points": [
+    [
+     "op.5.{layer}.eg_hold.{part}",
+     "op.5.{layer}.eg_l4.{part}"
+    ],
+    [
+     "op.5.{layer}.eg_t1.{part}",
+     "op.5.{layer}.eg_l1.{part}"
+    ],
+    [
+     "op.5.{layer}.eg_t2.{part}",
+     "op.5.{layer}.eg_l2.{part}"
+    ],
+    [
+     "op.5.{layer}.eg_t3.{part}",
+     "op.5.{layer}.eg_l3.{part}"
+    ],
+    [
+     "op.5.{layer}.eg_t4.{part}",
+     "op.5.{layer}.eg_l4.{part}"
+    ]
+   ],
+   "grid": "#5f7172ff",
+   "area": "#879ea090",
+   "curve": "#879ea0ff",
+   "handle": "#394344ff",
+   "dots": "#f6f6f6ff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.5.{layer}.eg_l1.{part}",
+    "L2": "op.5.{layer}.eg_l2.{part}",
+    "L3": "op.5.{layer}.eg_l3.{part}",
+    "L4": "op.5.{layer}.eg_l4.{part}",
+    "T1": "op.5.{layer}.eg_t1.{part}",
+    "T2": "op.5.{layer}.eg_t2.{part}",
+    "T3": "op.5.{layer}.eg_t3.{part}",
+    "T4": "op.5.{layer}.eg_t4.{part}",
+    "hold": "op.5.{layer}.eg_hold.{part}",
+    "timeScale": "op.5.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "text": {
+    "font": "tiny_white_8"
+   },
+   "areaBottom": "#879ea005"
+  },
+  {
+   "type": "plate",
+   "name": "env_6_frame",
+   "rect": [
+    406,
+    272,
+    386,
+    112
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "env_6_op",
+   "rect": [
+    414,
+    278,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 6",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "press": "up",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "6"
+    }
+   },
+   "tip": "Operator 6's page"
+  },
+  {
+   "type": "number",
+   "name": "env_6_level",
+   "rect": [
+    722,
+    278,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.6.{layer}.level.{part}",
+   "tip": "Operator 6 level"
+  },
+  {
+   "type": "plate",
+   "name": "env_6_level_label",
+   "rect": [
+    662,
+    278,
+    58,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Level",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_6_screen",
+   "rect": [
+    414,
+    300,
+    370,
+    78
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "env_6",
+   "rect": [
+    414,
+    300,
+    370,
+    78
+   ],
+   "kind": "stage_env",
+   "surface": false,
+   "start": "op.6.{layer}.eg_l4.{part}",
+   "sustain": 3,
+   "range": [
+    0,
+    99
+   ],
+   "points": [
+    [
+     "op.6.{layer}.eg_hold.{part}",
+     "op.6.{layer}.eg_l4.{part}"
+    ],
+    [
+     "op.6.{layer}.eg_t1.{part}",
+     "op.6.{layer}.eg_l1.{part}"
+    ],
+    [
+     "op.6.{layer}.eg_t2.{part}",
+     "op.6.{layer}.eg_l2.{part}"
+    ],
+    [
+     "op.6.{layer}.eg_t3.{part}",
+     "op.6.{layer}.eg_l3.{part}"
+    ],
+    [
+     "op.6.{layer}.eg_t4.{part}",
+     "op.6.{layer}.eg_l4.{part}"
+    ]
+   ],
+   "grid": "#5f7172ff",
+   "area": "#879ea090",
+   "curve": "#879ea0ff",
+   "handle": "#394344ff",
+   "dots": "#f6f6f6ff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.6.{layer}.eg_l1.{part}",
+    "L2": "op.6.{layer}.eg_l2.{part}",
+    "L3": "op.6.{layer}.eg_l3.{part}",
+    "L4": "op.6.{layer}.eg_l4.{part}",
+    "T1": "op.6.{layer}.eg_t1.{part}",
+    "T2": "op.6.{layer}.eg_t2.{part}",
+    "T3": "op.6.{layer}.eg_t3.{part}",
+    "T4": "op.6.{layer}.eg_t4.{part}",
+    "hold": "op.6.{layer}.eg_hold.{part}",
+    "timeScale": "op.6.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "text": {
+    "font": "tiny_white_8"
+   },
+   "areaBottom": "#879ea005"
+  },
+  {
+   "type": "plate",
+   "name": "env_7_frame",
+   "rect": [
+    14,
+    390,
+    386,
+    112
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "env_7_op",
+   "rect": [
+    22,
+    396,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 7",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "press": "up",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "7"
+    }
+   },
+   "tip": "Operator 7's page"
+  },
+  {
+   "type": "number",
+   "name": "env_7_level",
+   "rect": [
+    330,
+    396,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.7.{layer}.level.{part}",
+   "tip": "Operator 7 level"
+  },
+  {
+   "type": "plate",
+   "name": "env_7_level_label",
+   "rect": [
+    270,
+    396,
+    58,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Level",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_7_screen",
+   "rect": [
+    22,
+    418,
+    370,
+    78
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "env_7",
+   "rect": [
+    22,
+    418,
+    370,
+    78
+   ],
+   "kind": "stage_env",
+   "surface": false,
+   "start": "op.7.{layer}.eg_l4.{part}",
+   "sustain": 3,
+   "range": [
+    0,
+    99
+   ],
+   "points": [
+    [
+     "op.7.{layer}.eg_hold.{part}",
+     "op.7.{layer}.eg_l4.{part}"
+    ],
+    [
+     "op.7.{layer}.eg_t1.{part}",
+     "op.7.{layer}.eg_l1.{part}"
+    ],
+    [
+     "op.7.{layer}.eg_t2.{part}",
+     "op.7.{layer}.eg_l2.{part}"
+    ],
+    [
+     "op.7.{layer}.eg_t3.{part}",
+     "op.7.{layer}.eg_l3.{part}"
+    ],
+    [
+     "op.7.{layer}.eg_t4.{part}",
+     "op.7.{layer}.eg_l4.{part}"
+    ]
+   ],
+   "grid": "#5f7172ff",
+   "area": "#879ea090",
+   "curve": "#879ea0ff",
+   "handle": "#394344ff",
+   "dots": "#f6f6f6ff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.7.{layer}.eg_l1.{part}",
+    "L2": "op.7.{layer}.eg_l2.{part}",
+    "L3": "op.7.{layer}.eg_l3.{part}",
+    "L4": "op.7.{layer}.eg_l4.{part}",
+    "T1": "op.7.{layer}.eg_t1.{part}",
+    "T2": "op.7.{layer}.eg_t2.{part}",
+    "T3": "op.7.{layer}.eg_t3.{part}",
+    "T4": "op.7.{layer}.eg_t4.{part}",
+    "hold": "op.7.{layer}.eg_hold.{part}",
+    "timeScale": "op.7.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "text": {
+    "font": "tiny_white_8"
+   },
+   "areaBottom": "#879ea005"
+  },
+  {
+   "type": "plate",
+   "name": "env_8_frame",
+   "rect": [
+    406,
+    390,
+    386,
+    112
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "button",
+   "name": "env_8_op",
+   "rect": [
+    414,
+    396,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Op 8",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "press": "up",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "8"
+    }
+   },
+   "tip": "Operator 8's page"
+  },
+  {
+   "type": "number",
+   "name": "env_8_level",
+   "rect": [
+    722,
+    396,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.8.{layer}.level.{part}",
+   "tip": "Operator 8 level"
+  },
+  {
+   "type": "plate",
+   "name": "env_8_level_label",
+   "rect": [
+    662,
+    396,
+    58,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Level",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_8_screen",
+   "rect": [
+    414,
+    418,
+    370,
+    78
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "env_8",
+   "rect": [
+    414,
+    418,
+    370,
+    78
+   ],
+   "kind": "stage_env",
+   "surface": false,
+   "start": "op.8.{layer}.eg_l4.{part}",
+   "sustain": 3,
+   "range": [
+    0,
+    99
+   ],
+   "points": [
+    [
+     "op.8.{layer}.eg_hold.{part}",
+     "op.8.{layer}.eg_l4.{part}"
+    ],
+    [
+     "op.8.{layer}.eg_t1.{part}",
+     "op.8.{layer}.eg_l1.{part}"
+    ],
+    [
+     "op.8.{layer}.eg_t2.{part}",
+     "op.8.{layer}.eg_l2.{part}"
+    ],
+    [
+     "op.8.{layer}.eg_t3.{part}",
+     "op.8.{layer}.eg_l3.{part}"
+    ],
+    [
+     "op.8.{layer}.eg_t4.{part}",
+     "op.8.{layer}.eg_l4.{part}"
+    ]
+   ],
+   "grid": "#5f7172ff",
+   "area": "#879ea090",
+   "curve": "#879ea0ff",
+   "handle": "#394344ff",
+   "dots": "#f6f6f6ff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.8.{layer}.eg_l1.{part}",
+    "L2": "op.8.{layer}.eg_l2.{part}",
+    "L3": "op.8.{layer}.eg_l3.{part}",
+    "L4": "op.8.{layer}.eg_l4.{part}",
+    "T1": "op.8.{layer}.eg_t1.{part}",
+    "T2": "op.8.{layer}.eg_t2.{part}",
+    "T3": "op.8.{layer}.eg_t3.{part}",
+    "T4": "op.8.{layer}.eg_t4.{part}",
+    "hold": "op.8.{layer}.eg_hold.{part}",
+    "timeScale": "op.8.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "text": {
+    "font": "tiny_white_8"
+   },
+   "areaBottom": "#879ea005"
+  }
+ ]
+}

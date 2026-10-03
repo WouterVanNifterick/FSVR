@@ -1,0 +1,4323 @@
+{
+ "size": [
+  408,
+  536
+ ],
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "matrix_bg",
+   "rect": [
+    0,
+    0,
+    408,
+    473
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "backgrounds/fm_matrix"
+   }
+  },
+  {
+   "type": "custom",
+   "name": "op_1",
+   "rect": [
+    17,
+    61,
+    40,
+    29
+   ],
+   "layer": 4,
+   "kind": "matrix_op",
+   "image": "buttons/matrix_op_1",
+   "letter": "1",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "1"
+    }
+   },
+   "tip": "Operator 1"
+  },
+  {
+   "type": "custom",
+   "name": "op_2",
+   "rect": [
+    59,
+    103,
+    40,
+    29
+   ],
+   "layer": 4,
+   "kind": "matrix_op",
+   "image": "buttons/matrix_op_2",
+   "letter": "2",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "2"
+    }
+   },
+   "tip": "Operator 2"
+  },
+  {
+   "type": "custom",
+   "name": "op_3",
+   "rect": [
+    101,
+    145,
+    40,
+    29
+   ],
+   "layer": 4,
+   "kind": "matrix_op",
+   "image": "buttons/matrix_op_3",
+   "letter": "3",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "3"
+    }
+   },
+   "tip": "Operator 3"
+  },
+  {
+   "type": "custom",
+   "name": "op_4",
+   "rect": [
+    143,
+    187,
+    40,
+    29
+   ],
+   "layer": 4,
+   "kind": "matrix_op",
+   "image": "buttons/matrix_op_4",
+   "letter": "4",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "4"
+    }
+   },
+   "tip": "Operator 4"
+  },
+  {
+   "type": "custom",
+   "name": "op_5",
+   "rect": [
+    185,
+    229,
+    40,
+    29
+   ],
+   "layer": 4,
+   "kind": "matrix_op",
+   "image": "buttons/matrix_op_5",
+   "letter": "5",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "5"
+    }
+   },
+   "tip": "Operator 5"
+  },
+  {
+   "type": "custom",
+   "name": "op_6",
+   "rect": [
+    227,
+    271,
+    40,
+    29
+   ],
+   "layer": 4,
+   "kind": "matrix_op",
+   "image": "buttons/matrix_op_6",
+   "letter": "6",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "6"
+    }
+   },
+   "tip": "Operator 6"
+  },
+  {
+   "type": "custom",
+   "name": "op_7",
+   "rect": [
+    269,
+    313,
+    40,
+    29
+   ],
+   "layer": 4,
+   "kind": "matrix_op",
+   "image": "buttons/matrix_op_7",
+   "letter": "7",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "7"
+    }
+   },
+   "tip": "Operator 7"
+  },
+  {
+   "type": "custom",
+   "name": "op_8",
+   "rect": [
+    311,
+    355,
+    40,
+    29
+   ],
+   "layer": 4,
+   "kind": "matrix_op",
+   "image": "buttons/matrix_op_8",
+   "letter": "8",
+   "action": {
+    "goto": "page_operator",
+    "stack": "pages",
+    "vars": {
+     "op": "8"
+    }
+   },
+   "tip": "Operator 8"
+  },
+  {
+   "type": "custom",
+   "name": "wires",
+   "rect": [
+    0,
+    22,
+    408,
+    451
+   ],
+   "kind": "matrix_wires",
+   "layer": 3,
+   "algorithm": "voice.alg.{part}",
+   "table": "algorithms",
+   "first": 1
+  },
+  {
+   "type": "dial",
+   "name": "fb_1_1",
+   "rect": [
+    17,
+    39,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_7_inv",
+   "param": "voice.feedback.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 1
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 2
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 3
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 6
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 7
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 8
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 31
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 32
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 33
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 35
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 36
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 55
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 67
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 68
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 69
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 70
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 71
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 72
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 74
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 75
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 76
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 77
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 78
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 79
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 80
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 81
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 82
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 83
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 85
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Feedback",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "fb_2_2",
+   "rect": [
+    59,
+    81,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_7_inv",
+   "param": "voice.feedback.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 73
+     }
+    ]
+   },
+   "tip": "Feedback",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "fb_3_3",
+   "rect": [
+    101,
+    123,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_7_inv",
+   "param": "voice.feedback.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 9
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 11
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 13
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 15
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 18
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 20
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 22
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 24
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 27
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 30
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 37
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 38
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 39
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 40
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 41
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 42
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 43
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 44
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 46
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 49
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 52
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 54
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 64
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 65
+     }
+    ]
+   },
+   "tip": "Feedback",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "fb_4_3",
+   "rect": [
+    143,
+    145,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_7_inv",
+   "param": "voice.feedback.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 14
+     }
+    ]
+   },
+   "tip": "Feedback",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "fb_4_4",
+   "rect": [
+    143,
+    165,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_7_inv",
+   "param": "voice.feedback.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 34
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 56
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 57
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 58
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 59
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 60
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 61
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 63
+     }
+    ]
+   },
+   "tip": "Feedback",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "fb_5_3",
+   "rect": [
+    185,
+    145,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_7_inv",
+   "param": "voice.feedback.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 12
+     }
+    ]
+   },
+   "tip": "Feedback",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "fb_5_5",
+   "rect": [
+    185,
+    207,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_7_inv",
+   "param": "voice.feedback.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 16
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 21
+     }
+    ]
+   },
+   "tip": "Feedback",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "fb_6_6",
+   "rect": [
+    227,
+    249,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_7_inv",
+   "param": "voice.feedback.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 26
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 28
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 29
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 45
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 51
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     }
+    ]
+   },
+   "tip": "Feedback",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "fb_7_7",
+   "rect": [
+    269,
+    291,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_7_inv",
+   "param": "voice.feedback.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 10
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 17
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 19
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 23
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 25
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 47
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 48
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 50
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 53
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 62
+     }
+    ]
+   },
+   "tip": "Feedback",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "1_to_2",
+   "rect": [
+    17,
+    103,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.1.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 2
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 5
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 6
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 7
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 8
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 31
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 32
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 35
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 36
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 66
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 67
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 69
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 72
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 74
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 75
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 76
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 81
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 82
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 83
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 85
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     }
+    ]
+   },
+   "tip": "Operator 1 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "1_to_3",
+   "rect": [
+    17,
+    145,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.1.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 3
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 7
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 31
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 32
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 33
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 34
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 70
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 75
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 78
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 79
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 80
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Operator 1 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "1_to_4",
+   "rect": [
+    17,
+    187,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.1.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 4
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 7
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 71
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 77
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     }
+    ]
+   },
+   "tip": "Operator 1 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "1_to_5",
+   "rect": [
+    17,
+    229,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.1.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     }
+    ]
+   },
+   "tip": "Operator 1 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "1_to_8",
+   "rect": [
+    17,
+    355,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.1.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 68
+     }
+    ]
+   },
+   "tip": "Operator 1 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "1_to_out",
+   "rect": [
+    17,
+    439,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.1.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 1
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 9
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 10
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 11
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 12
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 13
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 14
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 15
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 16
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 17
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 18
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 19
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 20
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 21
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 22
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 23
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 24
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 25
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 26
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 27
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 28
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 29
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 30
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 37
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 38
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 39
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 40
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 41
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 42
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 43
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 44
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 45
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 46
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 47
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 48
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 49
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 50
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 51
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 52
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 53
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 54
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 55
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 56
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 57
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 58
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 59
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 60
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 61
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 62
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 63
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 64
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 65
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 73
+     }
+    ]
+   },
+   "tip": "Operator 1 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "2_to_3",
+   "rect": [
+    59,
+    145,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.2.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 2
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 3
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 4
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 33
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 34
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 35
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 36
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 66
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 69
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 70
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 71
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 73
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 76
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 78
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 79
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 80
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 82
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Operator 2 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "2_to_4",
+   "rect": [
+    59,
+    187,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.2.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 5
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 72
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 77
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 82
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     }
+    ]
+   },
+   "tip": "Operator 2 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "2_to_5",
+   "rect": [
+    59,
+    229,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.2.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     }
+    ]
+   },
+   "tip": "Operator 2 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "2_to_6",
+   "rect": [
+    59,
+    271,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.2.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     }
+    ]
+   },
+   "tip": "Operator 2 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "2_to_7",
+   "rect": [
+    59,
+    313,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.2.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     }
+    ]
+   },
+   "tip": "Operator 2 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "2_to_8",
+   "rect": [
+    59,
+    355,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.2.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 68
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     }
+    ]
+   },
+   "tip": "Operator 2 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "2_to_out",
+   "rect": [
+    59,
+    439,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.2.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 1
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 6
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 7
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 8
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 9
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 10
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 11
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 12
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 13
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 14
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 15
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 16
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 17
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 18
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 19
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 20
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 21
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 22
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 23
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 24
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 25
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 26
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 27
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 28
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 29
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 30
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 31
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 32
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 37
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 38
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 39
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 40
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 41
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 42
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 43
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 44
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 45
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 46
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 47
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 48
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 49
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 50
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 51
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 52
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 53
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 54
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 55
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 56
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 57
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 58
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 59
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 60
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 61
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 62
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 63
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 64
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 65
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 67
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 74
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 75
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 81
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 83
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 85
+     }
+    ]
+   },
+   "tip": "Operator 2 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "3_to_4",
+   "rect": [
+    101,
+    187,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.3.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 2
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 3
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 4
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 5
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 6
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 9
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 10
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 11
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 12
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 13
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 14
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 15
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 16
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 17
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 18
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 19
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 20
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 21
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 24
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 25
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 26
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 27
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 29
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 30
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 37
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 43
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 46
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 66
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 67
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 69
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 70
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 71
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 72
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 74
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 77
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 79
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 81
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Operator 3 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "3_to_5",
+   "rect": [
+    101,
+    229,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.3.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 22
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 23
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 27
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 28
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 29
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 30
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 38
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 45
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 47
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 51
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 53
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 64
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 65
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 83
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Operator 3 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "3_to_6",
+   "rect": [
+    101,
+    271,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.3.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 30
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 39
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 42
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 48
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 50
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Operator 3 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "3_to_7",
+   "rect": [
+    101,
+    313,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.3.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 40
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 44
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 49
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Operator 3 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "3_to_8",
+   "rect": [
+    101,
+    355,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.3.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 41
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 52
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 54
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 68
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 85
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Operator 3 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "3_to_out",
+   "rect": [
+    101,
+    439,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.3.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 1
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 7
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 8
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 31
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 32
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 33
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 34
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 35
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 36
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 55
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 56
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 57
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 58
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 59
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 60
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 61
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 62
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 63
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 73
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 75
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 76
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 78
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 80
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 82
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     }
+    ]
+   },
+   "tip": "Operator 3 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "4_to_5",
+   "rect": [
+    143,
+    229,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.4.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 9
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 10
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 11
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 12
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 18
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 19
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 22
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 23
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 26
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 28
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 31
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 33
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 34
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 35
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 37
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 38
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 39
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 40
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 41
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 45
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 47
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 48
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 51
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 53
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 55
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 60
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 64
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 65
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 66
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 73
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 75
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 76
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 78
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 81
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 83
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 85
+     }
+    ]
+   },
+   "tip": "Operator 4 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "4_to_6",
+   "rect": [
+    143,
+    271,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.4.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 15
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 16
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 17
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 42
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 50
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 56
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 62
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 73
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 76
+     }
+    ]
+   },
+   "tip": "Operator 4 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "4_to_7",
+   "rect": [
+    143,
+    313,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.4.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 43
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 44
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 49
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 57
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 59
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 73
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 76
+     }
+    ]
+   },
+   "tip": "Operator 4 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "4_to_8",
+   "rect": [
+    143,
+    355,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.4.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 24
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 25
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 46
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 52
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 54
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 58
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 61
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 63
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 68
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 73
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 76
+     }
+    ]
+   },
+   "tip": "Operator 4 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "4_to_out",
+   "rect": [
+    143,
+    439,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.4.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 1
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 2
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 3
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 4
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 5
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 6
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 7
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 8
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 13
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 14
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 20
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 21
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 27
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 29
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 30
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 32
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 36
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 67
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 69
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 70
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 71
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 72
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 74
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 77
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 79
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 80
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 82
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Operator 4 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "5_to_6",
+   "rect": [
+    185,
+    271,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.5.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 9
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 10
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 13
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 14
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 15
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 16
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 17
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 22
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 23
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 24
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 25
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 37
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 38
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 39
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 40
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 41
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 42
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 43
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 44
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 46
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 47
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 48
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 50
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 55
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 56
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 57
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 58
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 62
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 66
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 67
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 69
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 72
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 74
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 79
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 82
+     }
+    ]
+   },
+   "tip": "Operator 5 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "5_to_7",
+   "rect": [
+    185,
+    313,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.5.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 45
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 49
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 59
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 70
+     }
+    ]
+   },
+   "tip": "Operator 5 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "5_to_8",
+   "rect": [
+    185,
+    355,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.5.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 20
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 21
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 26
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 51
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 52
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 53
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 54
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 60
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 61
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 63
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 68
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 71
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 75
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 77
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 85
+     }
+    ]
+   },
+   "tip": "Operator 5 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "5_to_out",
+   "rect": [
+    185,
+    439,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.5.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 1
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 2
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 3
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 4
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 5
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 6
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 7
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 8
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 11
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 12
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 18
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 19
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 27
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 28
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 29
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 30
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 31
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 32
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 33
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 34
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 35
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 36
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 64
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 65
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 73
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 76
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 78
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 80
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 81
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 83
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Operator 5 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "6_to_7",
+   "rect": [
+    227,
+    313,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.6.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 11
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 12
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 27
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 28
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 29
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 37
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 38
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 39
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 40
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 41
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 42
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 43
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 44
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 45
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 46
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 49
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 51
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 52
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 55
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 56
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 57
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 58
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 59
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 60
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 61
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 66
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 69
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 70
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 71
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 75
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 78
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 79
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 81
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 82
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 85
+     }
+    ]
+   },
+   "tip": "Operator 6 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "6_to_8",
+   "rect": [
+    227,
+    355,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.6.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 18
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 19
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 20
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 21
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 24
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 25
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 26
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 28
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 29
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 47
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 48
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 50
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 53
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 54
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 62
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 63
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 64
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 68
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 72
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 74
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 77
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 82
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 83
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     }
+    ]
+   },
+   "tip": "Operator 6 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "6_to_out",
+   "rect": [
+    227,
+    439,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.6.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 1
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 2
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 3
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 4
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 5
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 6
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 7
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 8
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 9
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 10
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 13
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 14
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 15
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 16
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 17
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 22
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 23
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 30
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 31
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 32
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 33
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 34
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 35
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 36
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 65
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 67
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 73
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 76
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 80
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Operator 6 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "7_to_8",
+   "rect": [
+    269,
+    355,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.7.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 9
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 10
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 11
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 12
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 13
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 14
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 15
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 16
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 17
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 18
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 19
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 20
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 21
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 22
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 23
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 24
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 25
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 26
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 27
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 30
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 37
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 38
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 39
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 40
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 41
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 42
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 43
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 44
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 45
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 46
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 47
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 48
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 49
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 50
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 51
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 52
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 53
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 54
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 55
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 56
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 57
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 58
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 59
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 60
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 61
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 62
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 63
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 64
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 66
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 67
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 68
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 69
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 70
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 71
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 72
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 74
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 75
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 77
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 79
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 81
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 83
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 85
+     }
+    ]
+   },
+   "tip": "Operator 7 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "7_to_out",
+   "rect": [
+    269,
+    439,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.7.v.level.{part}",
+   "showIf": {
+    "any": [
+     {
+      "param": "voice.alg.{part}",
+      "equals": 1
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 2
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 3
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 4
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 5
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 6
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 7
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 8
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 28
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 29
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 31
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 32
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 33
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 34
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 35
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 36
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 65
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 73
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 76
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 78
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 80
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 82
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 84
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 86
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 87
+     },
+     {
+      "param": "voice.alg.{part}",
+      "equals": 88
+     }
+    ]
+   },
+   "tip": "Operator 7 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "dial",
+   "name": "8_to_out",
+   "rect": [
+    311,
+    439,
+    40,
+    29
+   ],
+   "image": "displays/amount_tag_99_inv",
+   "param": "op.8.v.level.{part}",
+   "tip": "Operator 8 level",
+   "sensitivity": 2.2,
+   "fine": 0.2,
+   "wheel": 0.02,
+   "margin": 12,
+   "layer": 4
+  },
+  {
+   "type": "plate",
+   "name": "alg_frame",
+   "rect": [
+    14,
+    5,
+    266,
+    32
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/plate_slate"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "alg_label",
+   "rect": [
+    18,
+    6,
+    30,
+    30
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Alg",
+    "font": "caption_white_12",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "number",
+   "name": "algorithm",
+   "rect": [
+    46,
+    6,
+    30,
+    30
+   ],
+   "layer": 4,
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ],
+   "sensitivity": 0.1,
+   "fine": 0.2,
+   "wheel": 0.011494,
+   "reset": false,
+   "editable": true,
+   "param": "voice.alg.{part}",
+   "tip": "The algorithm: drag, scroll or type one"
+  },
+  {
+   "type": "button",
+   "name": "alg_down",
+   "rect": [
+    78,
+    12,
+    17,
+    17
+   ],
+   "fill": {
+    "image": "buttons/dark_down"
+   },
+   "layer": 4,
+   "press": "repeat",
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "step": -1
+   },
+   "tip": "Previous algorithm"
+  },
+  {
+   "type": "button",
+   "name": "alg_up",
+   "rect": [
+    97,
+    12,
+    17,
+    17
+   ],
+   "fill": {
+    "image": "buttons/dark_up"
+   },
+   "layer": 4,
+   "press": "repeat",
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "voice.alg.{part}",
+   "action": {
+    "step": 1
+   },
+   "tip": "Next algorithm"
+  },
+  {
+   "type": "button",
+   "name": "select_algorithm",
+   "rect": [
+    118,
+    6,
+    160,
+    30
+   ],
+   "fill": {
+    "image": "buttons/dark_square"
+   },
+   "layer": 4,
+   "text": {
+    "text": "Select Algorithm",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ],
+   "pressedTiles": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "press": "up",
+   "action": {
+    "goto": "alg_browser",
+    "stack": "fm_matrix"
+   },
+   "tip": "Browse the 88 algorithms"
+  },
+  {
+   "type": "plate",
+   "name": "feedback_label",
+   "rect": [
+    284,
+    10,
+    68,
+    20
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Feedback",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    0,
+    2,
+    0,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "feedback_value",
+   "rect": [
+    284,
+    29,
+    68,
+    22
+   ],
+   "layer": 4,
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.feedback.{part}"
+  },
+  {
+   "type": "dial",
+   "name": "feedback_pot",
+   "rect": [
+    354,
+    8,
+    44,
+    44
+   ],
+   "layer": 4,
+   "image": "knobs/rotary_small",
+   "sensitivity": 1,
+   "fine": 0.2,
+   "wheel": 0.142857,
+   "reset": "default",
+   "param": "voice.feedback.{part}",
+   "tip": "Feedback level"
+  }
+ ]
+}

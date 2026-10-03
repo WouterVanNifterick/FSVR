@@ -1,0 +1,1521 @@
+{
+ "size": [
+  1235,
+  536
+ ],
+ "fill": {
+  "image": "backgrounds/page"
+ },
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "matrix_title",
+   "rect": [
+    827,
+    15,
+    104,
+    23
+   ],
+   "layer": 4,
+   "text": {
+    "text": "Algorithm",
+    "font": "caption_white_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab_dark"
+   }
+  },
+  {
+   "type": "embed",
+   "name": "fm_matrix",
+   "rect": [
+    821,
+    35,
+    408,
+    472
+   ],
+   "view": "fm_matrix",
+   "layer": 3
+  },
+  {
+   "type": "plate",
+   "name": "pitch_frame",
+   "rect": [
+    14,
+    36,
+    330,
+    104
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "porta_frame",
+   "rect": [
+    359,
+    36,
+    264,
+    104
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "peg_frame",
+   "rect": [
+    638,
+    36,
+    154,
+    236
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "part_frame",
+   "rect": [
+    14,
+    153,
+    609,
+    119
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_frame",
+   "rect": [
+    14,
+    285,
+    778,
+    221
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "pitch_title",
+   "rect": [
+    20,
+    16,
+    75,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Pitch",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "porta_title",
+   "rect": [
+    365,
+    16,
+    119,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Portamento",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "peg_title",
+   "rect": [
+    644,
+    16,
+    94,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Pitch EG",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "pitch_0_label",
+   "rect": [
+    24,
+    50,
+    76,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Note Shift",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "pitch_0",
+   "rect": [
+    24,
+    72,
+    76,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.note_shift.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "pitch_1_label",
+   "rect": [
+    104,
+    50,
+    76,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Bend Up",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "pitch_1",
+   "rect": [
+    104,
+    72,
+    76,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.bend_up.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "pitch_2_label",
+   "rect": [
+    184,
+    50,
+    76,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Bend Down",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "pitch_2",
+   "rect": [
+    184,
+    72,
+    76,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.bend_down.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "pitch_3_label",
+   "rect": [
+    264,
+    50,
+    76,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Detune",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "pitch_3",
+   "rect": [
+    264,
+    72,
+    76,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.detune.{part}"
+  },
+  {
+   "type": "button",
+   "name": "porta",
+   "rect": [
+    369,
+    50,
+    110,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "On",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "part.porta.{part}",
+   "tip": "Portamento"
+  },
+  {
+   "type": "dropdown",
+   "name": "porta_mode",
+   "rect": [
+    369,
+    76,
+    110,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "Fingered",
+     "value": 0
+    },
+    {
+     "label": "Fulltime",
+     "value": 1
+    }
+   ],
+   "captionFromItem": true,
+   "param": "part.porta_mode.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "porta_time_label",
+   "rect": [
+    511,
+    41,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Time",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "porta_time",
+   "rect": [
+    523,
+    62,
+    56,
+    56
+   ],
+   "image": "knobs/rotary_large",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "part.porta_time.{part}"
+  },
+  {
+   "type": "number",
+   "name": "porta_time_value",
+   "rect": [
+    521,
+    119,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "label_white_13",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.porta_time.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "peg_range_label",
+   "rect": [
+    648,
+    50,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Range",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "dropdown",
+   "name": "peg_range",
+   "rect": [
+    700,
+    50,
+    82,
+    18
+   ],
+   "fill": {
+    "image": "buttons/dropdown_small"
+   },
+   "text": {
+    "text": "...",
+    "font": "value_dark_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    21,
+    2
+   ],
+   "pressOffset": [
+    2,
+    2
+   ],
+   "items": [
+    {
+     "label": "8 oct",
+     "value": 0
+    },
+    {
+     "label": "2 oct",
+     "value": 1
+    },
+    {
+     "label": "1 oct",
+     "value": 2
+    },
+    {
+     "label": "1/2 oct",
+     "value": 3
+    }
+   ],
+   "captionFromItem": true,
+   "param": "voice.peg.range.{part}",
+   "tip": "Pitch EG range"
+  },
+  {
+   "type": "plate",
+   "name": "peg_vel_label",
+   "rect": [
+    633,
+    83,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Velocity",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "peg_vel",
+   "rect": [
+    651,
+    104,
+    44,
+    44
+   ],
+   "image": "knobs/rotary_small",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "voice.peg.vel.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_vel_value",
+   "rect": [
+    643,
+    149,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.peg.vel.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "peg_time_scale_label",
+   "rect": [
+    703,
+    83,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Time Scl",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "dial",
+   "name": "peg_time_scale",
+   "rect": [
+    721,
+    104,
+    44,
+    44
+   ],
+   "image": "knobs/rotary_small",
+   "sensitivity": 1.61111,
+   "fine": 0.2,
+   "wheel": 0.029,
+   "reset": "default",
+   "param": "voice.peg.time_scale.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_time_scale_value",
+   "rect": [
+    713,
+    149,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.peg.time_scale.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "part_title",
+   "rect": [
+    20,
+    167,
+    37,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Part",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "part_title2",
+   "rect": [
+    20,
+    185,
+    37,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "PEG",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "part_0_label",
+   "rect": [
+    62,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Init",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "part_0",
+   "rect": [
+    62,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.peg_init.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "part_1_label",
+   "rect": [
+    126,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Attack",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "part_1",
+   "rect": [
+    126,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.peg_attack.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "part_2_label",
+   "rect": [
+    190,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Rel Lvl",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "part_2",
+   "rect": [
+    190,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.peg_release_level.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "part_3_label",
+   "rect": [
+    254,
+    167,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Release",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "part_3",
+   "rect": [
+    254,
+    189,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.peg_release.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "env_title",
+   "rect": [
+    20,
+    299,
+    37,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Env",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_screen",
+   "rect": [
+    59,
+    303,
+    720,
+    130
+   ],
+   "fill": {
+    "colour": "#384243ff"
+   },
+   "surface": false
+  },
+  {
+   "type": "custom",
+   "name": "envelope",
+   "rect": [
+    59,
+    303,
+    720,
+    130
+   ],
+   "kind": "stage_env",
+   "surface": false,
+   "start": "voice.peg.l0.{part}",
+   "sustain": 2,
+   "range": [
+    -50,
+    50
+   ],
+   "points": [
+    [
+     "voice.peg.t1.{part}",
+     "voice.peg.l1.{part}"
+    ],
+    [
+     "voice.peg.t2.{part}",
+     "voice.peg.l2.{part}"
+    ],
+    [
+     "voice.peg.t3.{part}",
+     "voice.peg.l3.{part}"
+    ],
+    [
+     "voice.peg.t4.{part}",
+     "voice.peg.l4.{part}"
+    ]
+   ],
+   "grid": "#5f7172ff",
+   "area": "#879ea090",
+   "curve": "#879ea0ff",
+   "handle": "#394344ff",
+   "dots": "#f6f6f6ff",
+   "model": "fs1r.peg",
+   "inputs": {
+    "init": "voice.peg.l0.{part}",
+    "L1": "voice.peg.l1.{part}",
+    "L2": "voice.peg.l2.{part}",
+    "L3": "voice.peg.l3.{part}",
+    "L4": "voice.peg.l4.{part}",
+    "T1": "voice.peg.t1.{part}",
+    "T2": "voice.peg.t2.{part}",
+    "T3": "voice.peg.t3.{part}",
+    "T4": "voice.peg.t4.{part}",
+    "velocity": "voice.peg.vel.{part}",
+    "range": "voice.peg.range.{part}",
+    "timeScale": "voice.peg.time_scale.{part}",
+    "initOffset": "part.peg_init.{part}",
+    "attackOffset": "part.peg_attack.{part}",
+    "releaseLevelOffset": "part.peg_release_level.{part}",
+    "releaseOffset": "part.peg_release.{part}"
+   },
+   "text": {
+    "font": "tiny_white_8"
+   },
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64; the levels are in semitones",
+   "areaBottom": "#879ea005"
+  },
+  {
+   "type": "plate",
+   "name": "env_time_label",
+   "rect": [
+    59,
+    453,
+    48,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Time",
+    "font": "caption_grey_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_level_label",
+   "rect": [
+    59,
+    474,
+    48,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Level",
+    "font": "caption_grey_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_1",
+   "rect": [
+    110,
+    437,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Init",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_2",
+   "rect": [
+    244,
+    437,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Attack",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_3",
+   "rect": [
+    378,
+    437,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Decay 1",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_4",
+   "rect": [
+    511,
+    437,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Decay 2",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_5",
+   "rect": [
+    645,
+    437,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Release",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "number",
+   "name": "peg_l0",
+   "rect": [
+    152,
+    474,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.peg.l0.{part}",
+   "tip": "Init level: where the pitch envelope starts"
+  },
+  {
+   "type": "number",
+   "name": "peg_t1",
+   "rect": [
+    286,
+    453,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.peg.t1.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_l1",
+   "rect": [
+    286,
+    474,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.peg.l1.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_t2",
+   "rect": [
+    420,
+    453,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.peg.t2.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_l2",
+   "rect": [
+    420,
+    474,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.peg.l2.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_t3",
+   "rect": [
+    553,
+    453,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.peg.t3.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_l3",
+   "rect": [
+    553,
+    474,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.peg.l3.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_t4",
+   "rect": [
+    687,
+    453,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.peg.t4.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_l4",
+   "rect": [
+    687,
+    474,
+    50,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "voice.peg.l4.{part}"
+  }
+ ]
+}
