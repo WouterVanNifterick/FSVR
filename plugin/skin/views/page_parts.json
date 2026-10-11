@@ -15,14 +15,14 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
    "type": "plate",
    "name": "part_1_tab",
    "rect": [
-    20,
+    14,
     16,
     97,
     20
@@ -1793,14 +1793,14 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
    "type": "plate",
    "name": "part_2_tab",
    "rect": [
-    325,
+    319,
     16,
     100,
     20
@@ -3571,14 +3571,14 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
    "type": "plate",
    "name": "part_3_tab",
    "rect": [
-    630,
+    624,
     16,
     100,
     20
@@ -5295,14 +5295,14 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
    "type": "plate",
    "name": "part_4_tab",
    "rect": [
-    935,
+    929,
     16,
     101,
     20

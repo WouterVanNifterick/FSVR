@@ -19,7 +19,7 @@ These are Yamaha's data. They are included because the emulation is worthless wi
 
 **Documentation quoted from:** the FS1R owner's manual and Data List (Yamaha, 1998) and US patent 5,610,354. The text files under `docs/` are conversions kept for reference while working; the parameter tables in `plugin/generated/parameterDescriptions_fs1r.json` are derived from them. `src/fsvr/display.h` is transcribed from K_Take's freeware FS1R Editor, with credit in the file.
 
-**The editor** features aspects under their own licences: glyphs of the [Saira](https://fonts.google.com/specimen/Saira) typeface (SIL Open Font License 1.1) and icons from Google's [Material Symbols](https://fonts.google.com/icons) (Apache License 2.0). The layouts in `plugin/skin/views` and the tables in `plugin/skin/data` are this project's.
+**The editor** features aspects under their own licences: glyphs of the [Saira](https://fonts.google.com/specimen/Saira) typeface (SIL Open Font License 1.1), icons from Google's [Material Symbols](https://fonts.google.com/icons) (Apache License 2.0), and the expert pages' icons, rendered from [Fontaudio](https://github.com/fefanto/fontaudio)'s `fad-cpu`, `fad-ADSR`, `fad-modsine`, `fad-keyboard`, `fad-filter-lowpass` and `fad-arpup` by fefanto (CC BY 4.0, the SVGs unchanged in `blender/icons/`). The layouts in `plugin/skin/views` and the tables in `plugin/skin/data` are this project's.
 
 **In `hollow/third_party/`, under their own licences:** `stb/` (stb_image and stb_image_write, public domain or MIT), `strmbase/` (Microsoft's DirectShow BaseClasses, MIT, for the DXi), and `vst2/`, a minimal VST 2.4 ABI header written for this project from the public interface description.
 

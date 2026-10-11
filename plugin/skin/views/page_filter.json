@@ -19,7 +19,7 @@
    "type": "plate",
    "name": "matrix_title",
    "rect": [
-    827,
+    821,
     45,
     104,
     23
@@ -63,7 +63,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box"
+    "image": "panels/group_box_tab"
    }
   },
   {
@@ -77,7 +77,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box"
+    "image": "panels/group_box_tab"
    }
   },
   {
@@ -91,7 +91,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
@@ -126,7 +126,7 @@
    "type": "plate",
    "name": "filter_title",
    "rect": [
-    20,
+    14,
     46,
     77,
     20
@@ -151,7 +151,7 @@
    "type": "plate",
    "name": "key_title",
    "rect": [
-    333,
+    327,
     46,
     146,
     20
@@ -176,7 +176,7 @@
    "type": "plate",
    "name": "feg_title",
    "rect": [
-    644,
+    638,
     46,
     96,
     20

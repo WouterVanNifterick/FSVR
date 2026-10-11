@@ -42,8 +42,12 @@ M = {}
 
 # ---- shapes ---------------------------------------------------------------------------------------------
 
-def body(c, x, y, w, h, r, height, mat, bevel=1.0, name='Body'):
-    o = kit.prism(name, kit.rounded_rect(x, y, w, h, r, 8), 0, height, mat, collection=c)
+def body(c, x, y, w, h, r, height, mat, bevel=1.0, name='Body', square=False):
+    """A rounded slab; square leaves its top left corner square, for a box with a group tab standing there."""
+    pts = kit.rounded_rect(x, y, w, h, r, 8)
+    if square and r > 0:
+        pts = pts[:-9] + [(x, y)]   # the top left arc is the outline's last 9 points
+    o = kit.prism(name, pts, 0, height, mat, collection=c)
     if bevel:
         kit.bevel(o, bevel, 3)
     return o
@@ -58,6 +62,8 @@ def catcher(c, w, h):
 def glyph(c, name, x, y, size, mat, z=1.0):
     """Icon `name` from icons.py in the size x size square at (x, y), standing z px off the surface."""
     spec = ICONS[name]
+    if 'svg' in spec:
+        return svg_glyph(c, spec['svg'], x, y, size, mat, z)
     k = size / 24
     objs = []
     for i, line in enumerate(spec.get('lines', [])):
@@ -83,6 +89,29 @@ def glyph(c, name, x, y, size, mat, z=1.0):
     for (cx, cy, r) in spec.get('dots', []):
         objs.append(kit.prism(name + '_dot', [(x + (cx + r * math.cos(a / 8 * math.pi)) * k, y + (cy + r * math.sin(a / 8 * math.pi)) * k)
                                               for a in range(16)], z - 0.5, z + 0.5, mat, collection=c))
+    return objs
+
+
+def svg_glyph(c, file, x, y, size, mat, z):
+    """An SVG's filled outline fitted to the size x size square at (x, y), 1 px thick about z px up, as the
+    stroke icons' fills are."""
+    from render_logos import flat, fit
+    before = set(bpy.data.objects)
+    bpy.ops.import_curve.svg(filepath=os.path.join(kit.ROOT, 'blender', 'icons', file))
+    objs = [o for o in bpy.data.objects if o not in before and o.type == 'CURVE']
+    for o in objs:
+        for cc in o.users_collection:
+            cc.objects.unlink(o)
+        c.objects.link(o)
+    objs = flat(objs)
+    fit(objs, x, y, size, size)
+    for o in objs:
+        o.location.z += z * kit.PX
+        sol = o.modifiers.new('Solid', 'SOLIDIFY')
+        sol.thickness = 1.0 * kit.PX
+        sol.offset = 0   # centred, whichever way the import's normals face
+        o.data.materials.clear()
+        o.data.materials.append(mat)
     return objs
 
 
@@ -359,7 +388,7 @@ def tag(w, h):
     return build
 
 
-def plate(w, h, mat, r=3, height=1.2, bevel=0.6, inset=False):
+def plate(w, h, mat, r=3, height=1.2, bevel=0.6, inset=False, square=False):
     def build(c):
         lcd_mats()
         if inset:   # sunk: walls sloping 2 px down from the edge to a face
@@ -380,7 +409,7 @@ def plate(w, h, mat, r=3, height=1.2, bevel=0.6, inset=False):
             c.objects.link(o)
             o.data.materials.append(M[mat])
         else:
-            body(c, 0, 0, w, h, r, height, M[mat], bevel)
+            body(c, 0, 0, w, h, r, height, M[mat], bevel, square=square)
         return [None]
     return build
 
@@ -399,7 +428,7 @@ def matrix_bg(w, h):
     sources by eight destinations (op n's box at 17 + 42 (n - 1), 61 + 42 (n - 1)), and the output row."""
     def build(c):
         lcd_mats()
-        body(c, 0, 0, w, h, 6, 1.5, M['well_dark'], 1.0)
+        body(c, 0, 0, w, h, 6, 1.5, M['well_dark'], 1.0, square=True)   # under the Algorithm tab
         for col in range(8):
             for row in range(8):
                 body(c, 16 + 42 * col, 60 + 42 * row, 42, 31, 3, 1.8, M['slot'], 0.5, 'Slot')
@@ -421,6 +450,9 @@ PANELS = {
     'panels/graphite_pod': (30, 59, plate(30, 59, 'graphite', 8, 2.0, 1.2), {'slice': [10, 14, 10, 14]}),
     'panels/group_box': (48, 48, plate(48, 48, 'plate_glass', 6, 1.2, 0.8), {'slice': [8, 8, 8, 8]}),
     'panels/group_box_light': (48, 48, plate(48, 48, 'plate_glass_light', 6, 1.2, 0.8), {'slice': [8, 8, 8, 8]}),
+    # a box with its title's tab on its top left corner, which is square so the tab's foot runs into its edge
+    'panels/group_box_tab': (48, 48, plate(48, 48, 'plate_glass', 6, 1.2, 0.8, square=True), {'slice': [8, 8, 8, 8]}),
+    'panels/group_box_light_tab': (48, 48, plate(48, 48, 'plate_glass_light', 6, 1.2, 0.8, square=True), {'slice': [8, 8, 8, 8]}),
     'panels/group_tab': (44, 20, trapezoid_tab(44, 20, 'plate_glass'), {'slice': [0, 20, 0, 20]}),
     'panels/group_tab_light': (44, 20, trapezoid_tab(44, 20, 'plate_glass_light'), {'slice': [0, 20, 0, 20]}),
     'panels/group_tab_dark': (44, 23, trapezoid_tab(44, 23, 'graphite'), {'slice': [0, 20, 0, 20]}),
@@ -430,7 +462,7 @@ PANELS = {
     'panels/label_plate_inv': (50, 18, plate(50, 18, 'plate_dark', 3, 0.8, 0.4), {'slice': [3, 3, 3, 3]}),
     'panels/plate_slate': (15, 15, plate(15, 15, 'graphite', 3, 1.0, 0.5), {'slice': [4, 4, 4, 4]}),
     'panels/header_band': (60, 22, header(60, 22, menu=False), {'slice': [0, 6, 0, 6]}),   # buttons/dropdown_header with no menu
-    'panels/mesh_dark_large': (408, 473, plate(408, 473, 'well_dark', 6, 1.5, 1.0), {}),
+    'panels/mesh_dark_large': (408, 473, plate(408, 473, 'well_dark', 6, 1.5, 1.0, square=True), {}),   # under the Algorithm tab
     'backgrounds/fm_matrix': (408, 473, matrix_bg(408, 473), {}),
     'backgrounds/library_stripes': (48, 473, plate(48, 473, 'well_dark', 0, 0.5, 0), {'slice': [0, 0, 0, 15]}),
     'library/column_frame': (48, 68, plate(48, 68, 'plate_dark', 3, 0.8, 0.4), {'slice': [23, 3, 3, 3]}),

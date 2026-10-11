@@ -26,7 +26,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box"
+    "image": "panels/group_box_tab"
    }
   },
   {
@@ -40,7 +40,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box"
+    "image": "panels/group_box_tab"
    }
   },
   {
@@ -54,7 +54,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
@@ -89,7 +89,7 @@
    "type": "plate",
    "name": "coarse_title",
    "rect": [
-    20,
+    14,
     46,
     86,
     20
@@ -139,7 +139,7 @@
    "type": "plate",
    "name": "osc_title",
    "rect": [
-    333,
+    327,
     46,
     105,
     20
@@ -164,7 +164,7 @@
    "type": "plate",
    "name": "amp_title",
    "rect": [
-    644,
+    638,
     46,
     107,
     20
@@ -189,7 +189,7 @@
    "type": "plate",
    "name": "matrix_title",
    "rect": [
-    827,
+    821,
     45,
     104,
     23

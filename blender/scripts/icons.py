@@ -1,16 +1,13 @@
 # The skin's glyphs as strokes on a 24 x 24 grid, x right and y down: each a list of polylines (closed when the
 # last point repeats the first) and filled dots, drawn by sprites.py as rounded tubes so they light and shade
-# like everything else. Width is the stroke's in grid units.
+# like everything else. Width is the stroke's in grid units. An icon with 'svg' is instead a Fontaudio glyph
+# (blender/icons, CC BY 4.0, credited in NOTICE.md), its filled outline fitted to the square.
 import math
 
 
 def circle(cx, cy, r, n=24, a0=0, a1=360):
     return [(cx + r * math.cos(math.radians(a0 + (a1 - a0) * i / n)), cy + r * math.sin(math.radians(a0 + (a1 - a0) * i / n)))
             for i in range(n + 1)]
-
-
-def wave(x0, x1, cy, amp, cycles, n=40):
-    return [(x0 + (x1 - x0) * i / n, cy - amp * math.sin(2 * math.pi * cycles * i / n)) for i in range(n + 1)]
 
 
 def keyboard(held=(), sounds=(), arrow=0):
@@ -53,27 +50,12 @@ ICONS = {
     'down': {'width': 0, 'fill': [(5, 8), (19, 8), (12, 17)]},
     'chevron': {'width': 2.4, 'lines': [[(6, 9), (12, 15), (18, 9)]]},   # a header's menu
     # the expert pages
-    'page_all_ops': {'width': 1.5, 'lines': [
-        [(3, 3), (10, 3), (10, 9), (3, 9), (3, 3)], [(14, 3), (21, 3), (21, 9), (14, 9), (14, 3)],
-        [(8.5, 15), (15.5, 15), (15.5, 21), (8.5, 21), (8.5, 15)],
-        [(6.5, 9), (6.5, 12), (12, 12), (12, 15)], [(17.5, 9), (17.5, 12), (12, 12)]]},
-    'page_all_envs': {'width': 1.6, 'lines': [
-        [(2, 20), (7, 4), (11, 11), (17, 11), (22, 20)],
-        [(2, 21.5), (22, 21.5)]]},
-    'page_mod': {'width': 1.6, 'lines': [
-        wave(2, 22, 9, 5, 1.5),
-        [(4, 19), (20, 19)], [(16, 16), (20, 19), (16, 22)]]},
-    'page_keysc': {'width': 1.4, 'lines': [
-        [(2, 13), (22, 13), (22, 22), (2, 22), (2, 13)],
-        [(7, 13), (7, 22)], [(12, 13), (12, 22)], [(17, 13), (17, 22)],
-        [(2, 9), (12, 5), (22, 2)]]},
-    'page_filter': {'width': 1.6, 'lines': [
-        [(2, 9), (11, 9)] + [(11 + 3 * math.sin(math.radians(a)), 9 - 4 * math.sin(math.radians(2 * a)) * (a < 90))
-                             for a in range(0, 91, 15)] + [(15, 13), (18, 21)],
-        [(2, 21.5), (22, 21.5)]]},
-    'page_pitch': {'width': 1.6, 'lines': [
-        circle(9, 18, 3.5, 16), [(12.5, 18), (12.5, 3), (18, 6), (18, 9)],
-        [(17, 15), (21, 12), (21, 19)]]},
+    'page_all_ops': {'svg': 'fad-cpu.svg'},
+    'page_all_envs': {'svg': 'fad-ADSR.svg'},
+    'page_mod': {'svg': 'fad-modsine.svg'},
+    'page_keysc': {'svg': 'fad-keyboard.svg'},
+    'page_filter': {'svg': 'fad-filter-lowpass.svg'},
+    'page_pitch': {'svg': 'fad-arpup.svg'},
     'lock': {'width': 1.6, 'lines': [
         circle(12, 10, 4, 12, 180, 360) + [(16, 13)], [(8, 13), (8, 10)]],
         'fill': [(5, 13), (19, 13), (19, 22), (5, 22)]},

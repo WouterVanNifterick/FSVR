@@ -15,7 +15,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
@@ -29,7 +29,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
@@ -43,7 +43,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
@@ -57,7 +57,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
@@ -71,14 +71,14 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
    "type": "plate",
    "name": "lfo_title",
    "rect": [
-    234,
+    228,
     31,
     68,
     20
@@ -103,7 +103,7 @@
    "type": "plate",
    "name": "tone_title",
    "rect": [
-    427,
+    421,
     31,
     76,
     20
@@ -128,7 +128,7 @@
    "type": "plate",
    "name": "filter_title",
    "rect": [
-    675,
+    669,
     31,
     77,
     20
@@ -153,7 +153,7 @@
    "type": "plate",
    "name": "peg_title",
    "rect": [
-    234,
+    228,
     280,
     135,
     20
@@ -178,7 +178,7 @@
    "type": "plate",
    "name": "amp_title",
    "rect": [
-    620,
+    614,
     280,
     167,
     20

@@ -708,6 +708,24 @@
    ],
    "surface": false
   },
+  "panels/group_box_light_tab": {
+   "surface": false,
+   "slice": [
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  "panels/group_box_tab": {
+   "surface": false,
+   "slice": [
+    8,
+    8,
+    8,
+    8
+   ]
+  },
   "panels/group_tab": {
    "slice": [
     0,

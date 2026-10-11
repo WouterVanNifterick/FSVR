@@ -15,14 +15,14 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
    "type": "plate",
    "name": "title",
    "rect": [
-    6,
+    0,
     0,
     100,
     20

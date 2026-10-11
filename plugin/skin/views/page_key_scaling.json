@@ -19,7 +19,7 @@
    "type": "plate",
    "name": "matrix_title",
    "rect": [
-    827,
+    821,
     45,
     104,
     23
@@ -56,7 +56,7 @@
    "type": "plate",
    "name": "ks_title",
    "rect": [
-    20,
+    14,
     46,
     126,
     20
@@ -220,7 +220,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box"
+    "image": "panels/group_box_tab"
    }
   },
   {

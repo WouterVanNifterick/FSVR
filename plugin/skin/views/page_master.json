@@ -15,7 +15,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
@@ -29,7 +29,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
@@ -43,7 +43,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
@@ -57,7 +57,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
@@ -71,14 +71,14 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light"
+    "image": "panels/group_box_light_tab"
    }
   },
   {
    "type": "plate",
    "name": "perf_title",
    "rect": [
-    20,
+    14,
     31,
     124,
     20
@@ -103,7 +103,7 @@
    "type": "plate",
    "name": "midi_title",
    "rect": [
-    365,
+    359,
     31,
     73,
     20
@@ -128,7 +128,7 @@
    "type": "plate",
    "name": "master_title",
    "rect": [
-    20,
+    14,
     280,
     89,
     20
@@ -153,7 +153,7 @@
    "type": "plate",
    "name": "receive_title",
    "rect": [
-    365,
+    359,
     280,
     125,
     20
@@ -178,7 +178,7 @@
    "type": "plate",
    "name": "cc_title",
    "rect": [
-    813,
+    807,
     31,
     163,
     20

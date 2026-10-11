@@ -431,6 +431,29 @@
    ]
   },
   {
+   "type": "plate",
+   "name": "icons_credit",
+   "rect": [
+    24,
+    378,
+    592,
+    16
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Operator page icons from Fontaudio by fefanto, CC BY 4.0.",
+    "font": "aw_grey_13",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
    "type": "button",
    "name": "site",
    "rect": [
