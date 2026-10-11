@@ -2,7 +2,7 @@
 
 ![The FSVR standalone running](docs/fsvr_standalone.png)
 
-**FSVR**, Formant Synthesizer Virtual Rack, is a software reconstruction of the Yamaha FS1R as a plugin and a console synth: its firmware logic rewritten in C++ from the decompiled ROM, four parts, 32 channels, the filter, both LFOs, pan, the three effect blocks, performances and Fseq playback. CLAP, VST3, VST2 and standalone on Windows, macOS and Linux, an AU on macOS and a 32-bit VST2 with a DXi on Windows, with an editor for every parameter the unit has, a bank manager for your own .syx libraries, a morph square and Import Audio for Fseqs.
+**FSVR**, Formant Synthesizer Virtual Rack, is a software reconstruction of the Yamaha FS1R as a plugin and a console synth: its firmware logic rewritten in C++ from the decompiled ROM, four parts, 32 channels, the filter, both LFOs, pan, the three effect blocks, performances and Fseq playback. CLAP, VST3, VST2 and standalone on Windows, macOS and Linux, an AU on macOS and a 32-bit VST2 with a DXi on Windows, with an editor for every parameter the unit has, a bank manager for your own .syx libraries and Import Audio for Fseqs.
 
 Download the latest build: **https://github.com/musicastudio/FSVR/releases/latest** (no installer, no dependencies).
 
@@ -64,7 +64,7 @@ Three words carry the status of each piece below. **Read** is lifted out of the 
 
 The practical result is that patches, performances and Fseqs load and play with the same parameter interpretation the hardware uses, because the same logic computes them. What still differs from a real unit lives inside the two custom chips.
 
-A short list of places FSVR behaves differently **on purpose** is kept in [docs/Differences.md](docs/Differences.md), with the firmware address behind each one where there is one. The engine has one entry: a part's filter switch is live here, so turning the filter on or off reaches the notes already sounding, where the unit latches that switch per note at note-on and only its cutoff and resonance follow a held note. The rest are the plug-in's additions, things the unit never had: the morph square, user libraries without the unit's memory limits, and Import Audio.
+A short list of places FSVR behaves differently **on purpose** is kept in [docs/Differences.md](docs/Differences.md), with the firmware address behind each one where there is one. The engine has one entry: a part's filter switch is live here, so turning the filter on or off reaches the notes already sounding, where the unit latches that switch per note at note-on and only its cutoff and resonance follow a held note. The rest are the plug-in's additions, things the unit never had: user libraries without the unit's memory limits and Import Audio.
 
 ### The processors
 
@@ -210,7 +210,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 
 **Plugin.** The plug-in layer, which never models synthesis; it moves parameter values in and out of the engine as sysex, exactly as a hardware editor would.
 
-- `plugin/plugin.cpp` the processor: every param a sysex parameter change into `fs1r::Device`, the engine's own bulk dumps read back into the params, program change, the morph square, the monitor, and the Save and Import menus' and bank manager's requests
+- `plugin/plugin.cpp` the processor: every param a sysex parameter change into `fs1r::Device`, the engine's own bulk dumps read back into the params, program change, the monitor, and the Save and Import menus' and bank manager's requests
 - `plugin/library.cpp` the bank manager's data: .syx files as banks (FS1R bulks, DX7 single voices and 32-voice banks), the factory bank and the user library folder; `audio_decode.cpp` and `audio_fseq.cpp` Import Audio
 - `plugin/skin/` the editor, a [Hollow](hollow/) skin: views, params (`params.json`, 3,223 of them), images (at 1x in `images/`, at 0.5x, 0.75x, 1.5x and 2x in `scales/`) and its TrueType fonts, and `data/fs1r_sysex.json`, the address and packing of every param. This copy is the source: edit it with the web editor of the Hollow project (kept beside this repository, not published), which opens it by default and saves into it
 - `blender/` the skin's artwork as Blender components (the window's chrome, buttons, panels, displays, glyphs, logos, pots, faders, wheels and keys), `blender/scripts/` what builds and renders them into the skin at every scale, and `blender/textures/` the blue mottled chrome they share ([docs/editor.md](docs/editor.md), The art: Blender)
@@ -235,7 +235,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 
 - `tools/regress.py` renders the fixed preset list and diffs it against `regress_ref.json`: pitch, harmonic peaks, envelope, stereo width, centroid
 - `tools/test_effects.cpp` decodes and sweeps every effect type, and `fsvr_console -selftest` (`engine_selftest` away from Windows) is the engine check. Both run under `ctest`
-- `tools/check_plugin.cpp` drives the plug-in's processor the way a host does: factory banks, a saved session, Import SysEx, the bank browser, morph, Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, and the Init Patch and the standalone's Load Last Patch. `ctest` runs it in a plug-in build
+- `tools/check_plugin.cpp` drives the plug-in's processor the way a host does: factory banks, a saved session, Import SysEx, the bank browser, Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, and the Init Patch and the standalone's Load Last Patch. `ctest` runs it in a plug-in build
 - `tools/check_gui.cpp` drives the editor over the processor without a window, as a mouse and a keyboard would: the top bar's menus and toggles, every page by its tab or button, the operator panel and its waveform, the browser's right-click menus, every dialog, the modal's veil, Escape and close X, the close prompt, the Options page (every scale, both keyboards and each setting) and About, then every page's dials, faders, dropdowns and toggles. `ctest` runs it as "gui"
 - `tools/check_wav.py`, `check_formant.py` and `check_presets.py`, the rest of what `build.bat test` runs; `check_skirt.py` renders every harmonic form at every skirt against the register sweep
 
@@ -252,7 +252,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 - `docs/midi_dispatch.md` how a Note On, a Control Change and both aftertouches get from the SCI0 interrupt to the tone generator; `interface_from_firmware.md` the unit's screen tables, cursor stops and MIDI View, read out of the EPROM
 - `docs/vop3_microcode.md`, `vop3_2_microcode.md` and `vop3_pinout.md` the VOP3 reference
 - [docs/Differences.md](docs/Differences.md) the short list of places FSVR knowingly behaves differently from the unit, and why
-- [docs/plugin_guide.md](docs/plugin_guide.md) the plugin user guide, and [docs/editor.md](docs/editor.md) why the editor is the way it is: which of the unit's limits it drops, the morph square, the bank manager and what the processor answers for the GUI. The Data List and owner's manual text and the formant patent are here too.
+- [docs/plugin_guide.md](docs/plugin_guide.md) the plugin user guide, and [docs/editor.md](docs/editor.md) why the editor is the way it is: which of the unit's limits it drops, the bank manager and what the processor answers for the GUI. The Data List and owner's manual text and the formant patent are here too.
 - [hollow/docs/](hollow/docs/) the plug-in framework: `framework.md` how a product is built on it, `skin-format.md` the skin's contract
 - [STATUS.md](STATUS.md) what is known, what is modelled and what nobody knows, with the open work at the end
 - [docs/findings.md](docs/findings.md) the research log, newest first, and the evidence behind each constant
