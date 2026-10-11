@@ -2927,6 +2927,10 @@
    ],
    "fill": {
     "image": "panels/label_plate_inv"
+   },
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
    }
   },
   {
@@ -2952,6 +2956,10 @@
    ],
    "fill": {
     "image": "panels/label_plate_inv"
+   },
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
    }
   },
   {
@@ -2975,7 +2983,11 @@
     0,
     2,
     0
-   ]
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
+   }
   },
   {
    "type": "plate",
@@ -2998,7 +3010,11 @@
     0,
     2,
     0
-   ]
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
+   }
   },
   {
    "type": "plate",
@@ -3021,7 +3037,11 @@
     0,
     2,
     0
-   ]
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
+   }
   },
   {
    "type": "plate",
@@ -3044,7 +3064,11 @@
     0,
     2,
     0
-   ]
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
+   }
   },
   {
    "type": "plate",
@@ -3067,7 +3091,11 @@
     0,
     2,
     0
-   ]
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
+   }
   },
   {
    "type": "button",
@@ -3130,6 +3158,258 @@
    ],
    "param": "gui.eg_overlay",
    "tip": "Draw the other operators' amplitude envelopes faintly behind this one, on the same time axis"
+  },
+  {
+   "type": "plate",
+   "name": "env_eg_hold_label",
+   "rect": [
+    110,
+    483,
+    40,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "Hold",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_eg_t1_label",
+   "rect": [
+    252,
+    483,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "T1",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_eg_l1_label",
+   "rect": [
+    252,
+    504,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "L1",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_eg_t2_label",
+   "rect": [
+    386,
+    483,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "T2",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_eg_l2_label",
+   "rect": [
+    386,
+    504,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "L2",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_eg_t3_label",
+   "rect": [
+    519,
+    483,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "T3",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_eg_l3_label",
+   "rect": [
+    519,
+    504,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "L3",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_eg_t4_label",
+   "rect": [
+    653,
+    483,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "T4",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_eg_l4_label",
+   "rect": [
+    653,
+    504,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "L4",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
   }
  ]
 }

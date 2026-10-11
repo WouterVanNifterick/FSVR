@@ -364,7 +364,7 @@ private:
     // Options (page_options): kept for every instance, not with a session, in <Documents>/FSVR/Settings.json under
     // these keys, then "scale", the GUI scale a new window opens at
     static constexpr std::pair<const char*, const char*> kOptions[] = {
-        {"keysTop", "gui.keys_top"}, {"loadLast", "opt.load_last"}, {"speed", "opt.speed"}};
+        {"keysTop", "gui.keys_top"}, {"egModern", "gui.eg_modern"}, {"loadLast", "opt.load_last"}, {"speed", "opt.speed"}};
     static constexpr size_t kScale = sizeof kOptions / sizeof kOptions[0];
     double options[kScale + 1] = {};   // as Settings.json has them
     int loadLast = -1, speed = -1;

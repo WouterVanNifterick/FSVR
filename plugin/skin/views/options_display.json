@@ -1,7 +1,7 @@
 {
  "size": [
   740,
-  102
+  132
  ],
  "widgets": [
   {
@@ -11,7 +11,7 @@
     0,
     20,
     740,
-    82
+    112
    ],
    "layer": 0,
    "fill": {
@@ -272,6 +272,37 @@
    ],
    "param": "gui.keys_top",
    "tip": "88 keys with the pitch and mod wheels lying in a strip above them; off, 85 keys (C1 to C8) with the wheels standing at their left"
+  },
+  {
+   "type": "button",
+   "name": "eg_modern",
+   "rect": [
+    16,
+    98,
+    708,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Modern EG Labels",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    8,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.eg_modern",
+   "tip": "The envelopes' number boxes named Hold, Attack, Decay 1, Decay 2 and Release, with a Time and a Level row, instead of T1 to T4 and L1 to L4"
   }
  ]
 }

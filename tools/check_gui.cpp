@@ -4,7 +4,7 @@
 // toggles, the keyboard's lit keys, every page by its tab, the Operators tab's sub-tabs or the operator column's buttons, the operator panel,
 // the waveform the engine draws for it, its Form header and its frequency box, the skin's keyboard shortcuts and the tooltips that name them,
 // the Parts page's steppers, keyboard, velocity curve and Poly/Mono radios, the browser and its right-click menus, every dialog, the modal's veil,
-// Escape and close X, the close prompt, the Options page (the scales, the keyboard's two layouts, the Init
+// Escape and close X, the close prompt, the Options page (the scales, the keyboard's two layouts, Modern EG Labels, the Init
 // Patch, Turn off all Effects, Init All and Quality / Speed) and the About box; then a sweep of every page's
 // dials, faders, dropdowns and toggles. Exits non-zero on any failure.
 //   build/<dir>/Release/check_gui      (ctest runs it as "gui")
@@ -322,6 +322,18 @@ int main() {
             CHECK(u.until([&] { return has("\"keysTop\": 1"); }), "Settings.json did not follow More Keys");
             u.click("pages/list/display/keys_top");
             CHECK(u.gui.height() == compact && u.shows("keys") && !u.shows("keys_top"), "the compact keyboard did not come back (%d px)", u.gui.height());
+            // Modern EG Labels: the column names and the Time and Level rows, in place of the T1 and L1 tags
+            u.click("opcol/edit");
+            CHECK(u.shows("pages/env_eg_t1_label") && !u.shows("pages/env_col_2"), "the EG boxes are not tagged T1 and L1 by default");
+            u.click("tab_options");
+            u.click("pages/list/display/eg_modern");
+            u.click("opcol/edit");
+            CHECK(u.shows("pages/env_col_2") && u.shows("pages/env_time_label") && !u.shows("pages/env_eg_t1_label"), "Modern EG Labels did not name the columns");
+            u.click("opcol/page_pitch");
+            CHECK(u.shows("pages/env_col_1") && !u.shows("pages/peg_l0_label"), "Modern EG Labels did not reach the Pitch page");
+            u.click("tab_options");
+            u.click("pages/list/display/eg_modern");
+            CHECK(u.until([&] { return has("\"egModern\": 0"); }), "Settings.json did not follow Modern EG Labels");
             // Turn off all Effects
             u.set("fx.rev.type", 1), u.set("fx.var.type", 2), u.set("fx.ins.type", 3), u.set("fx.eq.low_gain", 6);
             u.click("pages/list/special/fx_off");

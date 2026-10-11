@@ -1533,6 +1533,10 @@
    ],
    "fill": {
     "image": "panels/label_plate_inv"
+   },
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
    }
   },
   {
@@ -1558,6 +1562,10 @@
    ],
    "fill": {
     "image": "panels/label_plate_inv"
+   },
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
    }
   },
   {
@@ -1581,7 +1589,11 @@
     0,
     2,
     0
-   ]
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
+   }
   },
   {
    "type": "plate",
@@ -1604,7 +1616,11 @@
     0,
     2,
     0
-   ]
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
+   }
   },
   {
    "type": "plate",
@@ -1627,7 +1643,11 @@
     0,
     2,
     0
-   ]
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
+   }
   },
   {
    "type": "plate",
@@ -1650,7 +1670,235 @@
     0,
     2,
     0
-   ]
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 1
+   }
+  },
+  {
+   "type": "plate",
+   "name": "feg_t1_label",
+   "rect": [
+    135,
+    483,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "T1",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "feg_l1_label",
+   "rect": [
+    135,
+    504,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "L1",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "feg_t2_label",
+   "rect": [
+    302,
+    483,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "T2",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "feg_l2_label",
+   "rect": [
+    302,
+    504,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "L2",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "feg_t3_label",
+   "rect": [
+    469,
+    483,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "T3",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "feg_l3_label",
+   "rect": [
+    469,
+    504,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "L3",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "feg_t4_label",
+   "rect": [
+    636,
+    483,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "T4",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
+  },
+  {
+   "type": "plate",
+   "name": "feg_l4_label",
+   "rect": [
+    636,
+    504,
+    32,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "L4",
+    "font": "caption_white_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "showIf": {
+    "param": "gui.eg_modern",
+    "equals": 0
+   }
   }
  ]
 }
