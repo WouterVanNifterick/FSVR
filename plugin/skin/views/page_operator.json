@@ -2551,7 +2551,7 @@
     59,
     333,
     720,
-    165
+    130
    ],
    "fill": {
     "image": "displays/op_screen"
@@ -2565,7 +2565,7 @@
     59,
     333,
     720,
-    165
+    130
    ],
    "kind": "stage_env",
    "surface": false,
@@ -2597,7 +2597,7 @@
      "op.{op}.{layer}.eg_l4.{part}"
     ]
    ],
-   "tip": "Drag a point: sideways its time, up and down its level",
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
    "grid": "#ffffff24",
    "area": "#86eac24d",
    "curve": "#86eac2ff",
@@ -2605,39 +2605,49 @@
    "dots": "#ffffff59",
    "area2": "#86eac205",
    "glow": "#86eac222",
-   "ring": "#25292cff"
-  },
-  {
-   "type": "plate",
-   "name": "env_eg_hold_label",
-   "rect": [
-    62,
-    504,
-    35,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
+   "ring": "#25292cff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.{op}.{layer}.eg_l1.{part}",
+    "L2": "op.{op}.{layer}.eg_l2.{part}",
+    "L3": "op.{op}.{layer}.eg_l3.{part}",
+    "L4": "op.{op}.{layer}.eg_l4.{part}",
+    "T1": "op.{op}.{layer}.eg_t1.{part}",
+    "T2": "op.{op}.{layer}.eg_t2.{part}",
+    "T3": "op.{op}.{layer}.eg_t3.{part}",
+    "T4": "op.{op}.{layer}.eg_t4.{part}",
+    "hold": "op.{op}.{layer}.eg_hold.{part}",
+    "timeScale": "op.{op}.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "overlay": {
+    "var": "op",
+    "values": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "6",
+     "7",
+     "8"
+    ],
+    "param": "gui.eg_overlay"
    },
    "text": {
-    "text": "Hold",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
+    "font": "plot_tiny"
+   }
   },
   {
    "type": "number",
    "name": "env_eg_hold",
    "rect": [
-    97,
-    504,
-    39,
+    152,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -2658,39 +2668,16 @@
    "fine": 0.2,
    "reset": false,
    "editable": true,
-   "param": "op.{op}.{layer}.eg_hold.{part}"
-  },
-  {
-   "type": "plate",
-   "name": "env_eg_t1_label",
-   "rect": [
-    142,
-    504,
-    35,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "T1",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
+   "param": "op.{op}.{layer}.eg_hold.{part}",
+   "tip": "Hold: how long the envelope waits at the Release level before the attack starts"
   },
   {
    "type": "number",
    "name": "env_eg_t1",
    "rect": [
-    177,
-    504,
-    39,
+    286,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -2714,36 +2701,12 @@
    "param": "op.{op}.{layer}.eg_t1.{part}"
   },
   {
-   "type": "plate",
-   "name": "env_eg_t2_label",
-   "rect": [
-    302,
-    504,
-    35,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "T2",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "env_eg_t2",
    "rect": [
-    337,
-    504,
-    39,
+    420,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -2767,36 +2730,12 @@
    "param": "op.{op}.{layer}.eg_t2.{part}"
   },
   {
-   "type": "plate",
-   "name": "env_eg_t3_label",
-   "rect": [
-    462,
-    504,
-    35,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "T3",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "env_eg_t3",
    "rect": [
-    497,
-    504,
-    39,
+    553,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -2820,36 +2759,12 @@
    "param": "op.{op}.{layer}.eg_t3.{part}"
   },
   {
-   "type": "plate",
-   "name": "env_eg_t4_label",
-   "rect": [
-    622,
-    504,
-    35,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "T4",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "env_eg_t4",
    "rect": [
-    657,
-    504,
-    39,
+    687,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -2873,36 +2788,12 @@
    "param": "op.{op}.{layer}.eg_t4.{part}"
   },
   {
-   "type": "plate",
-   "name": "env_eg_l1_label",
-   "rect": [
-    222,
-    504,
-    35,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L1",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "env_eg_l1",
    "rect": [
-    257,
+    286,
     504,
-    39,
+    50,
     18
    ],
    "fill": {
@@ -2926,36 +2817,12 @@
    "param": "op.{op}.{layer}.eg_l1.{part}"
   },
   {
-   "type": "plate",
-   "name": "env_eg_l2_label",
-   "rect": [
-    382,
-    504,
-    35,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L2",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "env_eg_l2",
    "rect": [
-    417,
+    420,
     504,
-    39,
+    50,
     18
    ],
    "fill": {
@@ -2979,36 +2846,12 @@
    "param": "op.{op}.{layer}.eg_l2.{part}"
   },
   {
-   "type": "plate",
-   "name": "env_eg_l3_label",
-   "rect": [
-    542,
-    504,
-    35,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L3",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "env_eg_l3",
    "rect": [
-    577,
+    553,
     504,
-    39,
+    50,
     18
    ],
    "fill": {
@@ -3032,36 +2875,12 @@
    "param": "op.{op}.{layer}.eg_l3.{part}"
   },
   {
-   "type": "plate",
-   "name": "env_eg_l4_label",
-   "rect": [
-    702,
-    504,
-    35,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L4",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "env_eg_l4",
    "rect": [
-    737,
+    687,
     504,
-    39,
+    50,
     18
    ],
    "fill": {
@@ -3082,7 +2901,235 @@
    "fine": 0.2,
    "reset": false,
    "editable": true,
-   "param": "op.{op}.{layer}.eg_l4.{part}"
+   "param": "op.{op}.{layer}.eg_l4.{part}",
+   "tip": "Release level, where the release ends; also the level the envelope starts from"
+  },
+  {
+   "type": "plate",
+   "name": "env_time_label",
+   "rect": [
+    59,
+    483,
+    48,
+    18
+   ],
+   "text": {
+    "text": "Time",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_level_label",
+   "rect": [
+    59,
+    504,
+    48,
+    18
+   ],
+   "text": {
+    "text": "Level",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_col_1",
+   "rect": [
+    110,
+    467,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Hold",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_2",
+   "rect": [
+    244,
+    467,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Attack",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_3",
+   "rect": [
+    378,
+    467,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Decay 1",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_4",
+   "rect": [
+    511,
+    467,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Decay 2",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_5",
+   "rect": [
+    645,
+    467,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Release",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "button",
+   "name": "env_db",
+   "rect": [
+    16,
+    360,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "dB",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.eg_db",
+   "tip": "The amplitude envelopes in dB (on) or as linear amplitude (off)"
+  },
+  {
+   "type": "button",
+   "name": "env_all",
+   "rect": [
+    16,
+    382,
+    42,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "All",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.eg_overlay",
+   "tip": "Draw the other operators' amplitude envelopes faintly behind this one, on the same time axis"
   }
  ]
 }

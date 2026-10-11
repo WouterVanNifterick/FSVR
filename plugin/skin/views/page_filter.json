@@ -1209,7 +1209,7 @@
     59,
     333,
     720,
-    165
+    130
    ],
    "fill": {
     "image": "displays/op_screen"
@@ -1223,7 +1223,7 @@
     59,
     333,
     720,
-    165
+    130
    ],
    "kind": "stage_env",
    "surface": false,
@@ -1258,39 +1258,32 @@
    "dots": "#ffffff59",
    "area2": "#86eac205",
    "glow": "#86eac222",
-   "ring": "#25292cff"
-  },
-  {
-   "type": "plate",
-   "name": "feg_t1_label",
-   "rect": [
-    62,
-    504,
-    34,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
+   "ring": "#25292cff",
+   "model": "fs1r.feg",
+   "inputs": {
+    "L1": "voice.filter.eg_l1.{part}",
+    "L2": "voice.filter.eg_l2.{part}",
+    "L3": "voice.filter.eg_l3.{part}",
+    "L4": "voice.filter.eg_l4.{part}",
+    "T1": "voice.filter.eg_t1.{part}",
+    "T2": "voice.filter.eg_t2.{part}",
+    "T3": "voice.filter.eg_t3.{part}",
+    "T4": "voice.filter.eg_t4.{part}",
+    "velocity": "voice.filter.eg_attack_vel.{part}",
+    "timeScale": "voice.filter.eg_time_scale.{part}"
    },
    "text": {
-    "text": "T1",
-    "font": "caption_white_12",
-    "align": "center"
+    "font": "plot_tiny"
    },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
   },
   {
    "type": "number",
    "name": "feg_t1",
    "rect": [
-    96,
-    504,
-    49,
+    169,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -1314,36 +1307,12 @@
    "param": "voice.filter.eg_t1.{part}"
   },
   {
-   "type": "plate",
-   "name": "feg_t2_label",
-   "rect": [
-    244,
-    504,
-    34,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "T2",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "feg_t2",
    "rect": [
-    278,
-    504,
-    49,
+    336,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -1367,36 +1336,12 @@
    "param": "voice.filter.eg_t2.{part}"
   },
   {
-   "type": "plate",
-   "name": "feg_t3_label",
-   "rect": [
-    426,
-    504,
-    34,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "T3",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "feg_t3",
    "rect": [
-    460,
-    504,
-    49,
+    503,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -1420,36 +1365,12 @@
    "param": "voice.filter.eg_t3.{part}"
   },
   {
-   "type": "plate",
-   "name": "feg_t4_label",
-   "rect": [
-    608,
-    504,
-    34,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "T4",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "feg_t4",
    "rect": [
-    642,
-    504,
-    49,
+    670,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -1473,36 +1394,12 @@
    "param": "voice.filter.eg_t4.{part}"
   },
   {
-   "type": "plate",
-   "name": "feg_l1_label",
-   "rect": [
-    153,
-    504,
-    34,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L1",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "feg_l1",
    "rect": [
-    187,
+    169,
     504,
-    49,
+    50,
     18
    ],
    "fill": {
@@ -1526,36 +1423,12 @@
    "param": "voice.filter.eg_l1.{part}"
   },
   {
-   "type": "plate",
-   "name": "feg_l2_label",
-   "rect": [
-    335,
-    504,
-    34,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L2",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "feg_l2",
    "rect": [
-    369,
+    336,
     504,
-    49,
+    50,
     18
    ],
    "fill": {
@@ -1579,36 +1452,12 @@
    "param": "voice.filter.eg_l2.{part}"
   },
   {
-   "type": "plate",
-   "name": "feg_l3_label",
-   "rect": [
-    517,
-    504,
-    34,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L3",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "feg_l3",
    "rect": [
-    551,
+    503,
     504,
-    49,
+    50,
     18
    ],
    "fill": {
@@ -1632,36 +1481,12 @@
    "param": "voice.filter.eg_l3.{part}"
   },
   {
-   "type": "plate",
-   "name": "feg_l4_label",
-   "rect": [
-    699,
-    504,
-    34,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L4",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "feg_l4",
    "rect": [
-    733,
+    670,
     504,
-    49,
+    50,
     18
    ],
    "fill": {
@@ -1682,7 +1507,150 @@
    "fine": 0.2,
    "reset": false,
    "editable": true,
-   "param": "voice.filter.eg_l4.{part}"
+   "param": "voice.filter.eg_l4.{part}",
+   "tip": "Release level, where the release ends; also the level the envelope starts from"
+  },
+  {
+   "type": "plate",
+   "name": "env_time_label",
+   "rect": [
+    59,
+    483,
+    48,
+    18
+   ],
+   "text": {
+    "text": "Time",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_level_label",
+   "rect": [
+    59,
+    504,
+    48,
+    18
+   ],
+   "text": {
+    "text": "Level",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_col_1",
+   "rect": [
+    110,
+    467,
+    167,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Attack",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_2",
+   "rect": [
+    277,
+    467,
+    167,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Decay 1",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_3",
+   "rect": [
+    444,
+    467,
+    167,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Decay 2",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_4",
+   "rect": [
+    612,
+    467,
+    167,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Release",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
   }
  ]
 }

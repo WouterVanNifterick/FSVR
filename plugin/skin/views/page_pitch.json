@@ -1058,7 +1058,7 @@
     59,
     333,
     720,
-    165
+    130
    ],
    "fill": {
     "image": "displays/op_screen"
@@ -1072,7 +1072,7 @@
     59,
     333,
     720,
-    165
+    130
    ],
    "kind": "stage_env",
    "surface": false,
@@ -1107,39 +1107,38 @@
    "dots": "#ffffff59",
    "area2": "#86eac205",
    "glow": "#86eac222",
-   "ring": "#25292cff"
-  },
-  {
-   "type": "plate",
-   "name": "peg_l0_label",
-   "rect": [
-    62,
-    504,
-    28,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
+   "ring": "#25292cff",
+   "model": "fs1r.peg",
+   "inputs": {
+    "init": "voice.peg.l0.{part}",
+    "L1": "voice.peg.l1.{part}",
+    "L2": "voice.peg.l2.{part}",
+    "L3": "voice.peg.l3.{part}",
+    "L4": "voice.peg.l4.{part}",
+    "T1": "voice.peg.t1.{part}",
+    "T2": "voice.peg.t2.{part}",
+    "T3": "voice.peg.t3.{part}",
+    "T4": "voice.peg.t4.{part}",
+    "velocity": "voice.peg.vel.{part}",
+    "range": "voice.peg.range.{part}",
+    "timeScale": "voice.peg.time_scale.{part}",
+    "initOffset": "part.peg_init.{part}",
+    "attackOffset": "part.peg_attack.{part}",
+    "releaseLevelOffset": "part.peg_release_level.{part}",
+    "releaseOffset": "part.peg_release.{part}"
    },
    "text": {
-    "text": "L0",
-    "font": "caption_white_12",
-    "align": "center"
+    "font": "plot_tiny"
    },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64; the levels are in semitones"
   },
   {
    "type": "number",
    "name": "peg_l0",
    "rect": [
-    90,
+    152,
     504,
-    45,
+    50,
     18
    ],
    "fill": {
@@ -1160,39 +1159,16 @@
    "fine": 0.2,
    "reset": false,
    "editable": true,
-   "param": "voice.peg.l0.{part}"
-  },
-  {
-   "type": "plate",
-   "name": "peg_t1_label",
-   "rect": [
-    142,
-    504,
-    28,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "T1",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
+   "param": "voice.peg.l0.{part}",
+   "tip": "Init level: where the pitch envelope starts"
   },
   {
    "type": "number",
    "name": "peg_t1",
    "rect": [
-    170,
-    504,
-    44,
+    286,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -1216,36 +1192,12 @@
    "param": "voice.peg.t1.{part}"
   },
   {
-   "type": "plate",
-   "name": "peg_l1_label",
-   "rect": [
-    222,
-    504,
-    28,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L1",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "peg_l1",
    "rect": [
-    250,
+    286,
     504,
-    45,
+    50,
     18
    ],
    "fill": {
@@ -1269,36 +1221,12 @@
    "param": "voice.peg.l1.{part}"
   },
   {
-   "type": "plate",
-   "name": "peg_t2_label",
-   "rect": [
-    302,
-    504,
-    28,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "T2",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "peg_t2",
    "rect": [
-    330,
-    504,
-    44,
+    420,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -1322,36 +1250,12 @@
    "param": "voice.peg.t2.{part}"
   },
   {
-   "type": "plate",
-   "name": "peg_l2_label",
-   "rect": [
-    382,
-    504,
-    28,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L2",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "peg_l2",
    "rect": [
-    410,
+    420,
     504,
-    45,
+    50,
     18
    ],
    "fill": {
@@ -1375,36 +1279,12 @@
    "param": "voice.peg.l2.{part}"
   },
   {
-   "type": "plate",
-   "name": "peg_t3_label",
-   "rect": [
-    462,
-    504,
-    28,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "T3",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "peg_t3",
    "rect": [
-    490,
-    504,
-    44,
+    553,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -1428,36 +1308,12 @@
    "param": "voice.peg.t3.{part}"
   },
   {
-   "type": "plate",
-   "name": "peg_l3_label",
-   "rect": [
-    542,
-    504,
-    28,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L3",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "peg_l3",
    "rect": [
-    570,
+    553,
     504,
-    45,
+    50,
     18
    ],
    "fill": {
@@ -1481,36 +1337,12 @@
    "param": "voice.peg.l3.{part}"
   },
   {
-   "type": "plate",
-   "name": "peg_t4_label",
-   "rect": [
-    622,
-    504,
-    28,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "T4",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "peg_t4",
    "rect": [
-    650,
-    504,
-    44,
+    687,
+    483,
+    50,
     18
    ],
    "fill": {
@@ -1534,36 +1366,12 @@
    "param": "voice.peg.t4.{part}"
   },
   {
-   "type": "plate",
-   "name": "peg_l4_label",
-   "rect": [
-    702,
-    504,
-    28,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate_inv"
-   },
-   "text": {
-    "text": "L4",
-    "font": "caption_white_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "peg_l4",
    "rect": [
-    730,
+    687,
     504,
-    45,
+    50,
     18
    ],
    "fill": {
@@ -1585,6 +1393,171 @@
    "reset": false,
    "editable": true,
    "param": "voice.peg.l4.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "env_time_label",
+   "rect": [
+    59,
+    483,
+    48,
+    18
+   ],
+   "text": {
+    "text": "Time",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_level_label",
+   "rect": [
+    59,
+    504,
+    48,
+    18
+   ],
+   "text": {
+    "text": "Level",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "env_col_1",
+   "rect": [
+    110,
+    467,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Init",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_2",
+   "rect": [
+    244,
+    467,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Attack",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_3",
+   "rect": [
+    378,
+    467,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Decay 1",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_4",
+   "rect": [
+    511,
+    467,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Decay 2",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "env_col_5",
+   "rect": [
+    645,
+    467,
+    134,
+    14
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Release",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
   }
  ]
 }

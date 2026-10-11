@@ -226,6 +226,12 @@
    "size": 15.0,
    "colour": "#e8f3effa",
    "tracking": 0.7
+  },
+  "plot_tiny": {
+   "file": "SairaSemiCondensed-Regular.ttf",
+   "size": 11.0,
+   "colour": "#ffffff8c",
+   "tracking": 0.3
   }
  },
  "images": {

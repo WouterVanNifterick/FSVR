@@ -281,7 +281,6 @@
     0,
     99
    ],
-   "minTime": 220,
    "points": [
     [
      "op.1.{layer}.eg_hold.{part}",
@@ -311,7 +310,29 @@
    "dots": "#ffffff59",
    "area2": "#86eac205",
    "glow": "#86eac222",
-   "ring": "#25292cff"
+   "ring": "#25292cff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.1.{layer}.eg_l1.{part}",
+    "L2": "op.1.{layer}.eg_l2.{part}",
+    "L3": "op.1.{layer}.eg_l3.{part}",
+    "L4": "op.1.{layer}.eg_l4.{part}",
+    "T1": "op.1.{layer}.eg_t1.{part}",
+    "T2": "op.1.{layer}.eg_t2.{part}",
+    "T3": "op.1.{layer}.eg_t3.{part}",
+    "T4": "op.1.{layer}.eg_t4.{part}",
+    "hold": "op.1.{layer}.eg_hold.{part}",
+    "timeScale": "op.1.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "text": {
+    "font": "plot_tiny"
+   },
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
   },
   {
    "type": "plate",
@@ -445,7 +466,6 @@
     0,
     99
    ],
-   "minTime": 220,
    "points": [
     [
      "op.2.{layer}.eg_hold.{part}",
@@ -475,7 +495,29 @@
    "dots": "#ffffff59",
    "area2": "#86eac205",
    "glow": "#86eac222",
-   "ring": "#25292cff"
+   "ring": "#25292cff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.2.{layer}.eg_l1.{part}",
+    "L2": "op.2.{layer}.eg_l2.{part}",
+    "L3": "op.2.{layer}.eg_l3.{part}",
+    "L4": "op.2.{layer}.eg_l4.{part}",
+    "T1": "op.2.{layer}.eg_t1.{part}",
+    "T2": "op.2.{layer}.eg_t2.{part}",
+    "T3": "op.2.{layer}.eg_t3.{part}",
+    "T4": "op.2.{layer}.eg_t4.{part}",
+    "hold": "op.2.{layer}.eg_hold.{part}",
+    "timeScale": "op.2.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "text": {
+    "font": "plot_tiny"
+   },
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
   },
   {
    "type": "plate",
@@ -609,7 +651,6 @@
     0,
     99
    ],
-   "minTime": 220,
    "points": [
     [
      "op.3.{layer}.eg_hold.{part}",
@@ -639,7 +680,29 @@
    "dots": "#ffffff59",
    "area2": "#86eac205",
    "glow": "#86eac222",
-   "ring": "#25292cff"
+   "ring": "#25292cff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.3.{layer}.eg_l1.{part}",
+    "L2": "op.3.{layer}.eg_l2.{part}",
+    "L3": "op.3.{layer}.eg_l3.{part}",
+    "L4": "op.3.{layer}.eg_l4.{part}",
+    "T1": "op.3.{layer}.eg_t1.{part}",
+    "T2": "op.3.{layer}.eg_t2.{part}",
+    "T3": "op.3.{layer}.eg_t3.{part}",
+    "T4": "op.3.{layer}.eg_t4.{part}",
+    "hold": "op.3.{layer}.eg_hold.{part}",
+    "timeScale": "op.3.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "text": {
+    "font": "plot_tiny"
+   },
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
   },
   {
    "type": "plate",
@@ -773,7 +836,6 @@
     0,
     99
    ],
-   "minTime": 220,
    "points": [
     [
      "op.4.{layer}.eg_hold.{part}",
@@ -803,7 +865,29 @@
    "dots": "#ffffff59",
    "area2": "#86eac205",
    "glow": "#86eac222",
-   "ring": "#25292cff"
+   "ring": "#25292cff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.4.{layer}.eg_l1.{part}",
+    "L2": "op.4.{layer}.eg_l2.{part}",
+    "L3": "op.4.{layer}.eg_l3.{part}",
+    "L4": "op.4.{layer}.eg_l4.{part}",
+    "T1": "op.4.{layer}.eg_t1.{part}",
+    "T2": "op.4.{layer}.eg_t2.{part}",
+    "T3": "op.4.{layer}.eg_t3.{part}",
+    "T4": "op.4.{layer}.eg_t4.{part}",
+    "hold": "op.4.{layer}.eg_hold.{part}",
+    "timeScale": "op.4.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "text": {
+    "font": "plot_tiny"
+   },
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
   },
   {
    "type": "plate",
@@ -937,7 +1021,6 @@
     0,
     99
    ],
-   "minTime": 220,
    "points": [
     [
      "op.5.{layer}.eg_hold.{part}",
@@ -967,7 +1050,29 @@
    "dots": "#ffffff59",
    "area2": "#86eac205",
    "glow": "#86eac222",
-   "ring": "#25292cff"
+   "ring": "#25292cff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.5.{layer}.eg_l1.{part}",
+    "L2": "op.5.{layer}.eg_l2.{part}",
+    "L3": "op.5.{layer}.eg_l3.{part}",
+    "L4": "op.5.{layer}.eg_l4.{part}",
+    "T1": "op.5.{layer}.eg_t1.{part}",
+    "T2": "op.5.{layer}.eg_t2.{part}",
+    "T3": "op.5.{layer}.eg_t3.{part}",
+    "T4": "op.5.{layer}.eg_t4.{part}",
+    "hold": "op.5.{layer}.eg_hold.{part}",
+    "timeScale": "op.5.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "text": {
+    "font": "plot_tiny"
+   },
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
   },
   {
    "type": "plate",
@@ -1101,7 +1206,6 @@
     0,
     99
    ],
-   "minTime": 220,
    "points": [
     [
      "op.6.{layer}.eg_hold.{part}",
@@ -1131,7 +1235,29 @@
    "dots": "#ffffff59",
    "area2": "#86eac205",
    "glow": "#86eac222",
-   "ring": "#25292cff"
+   "ring": "#25292cff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.6.{layer}.eg_l1.{part}",
+    "L2": "op.6.{layer}.eg_l2.{part}",
+    "L3": "op.6.{layer}.eg_l3.{part}",
+    "L4": "op.6.{layer}.eg_l4.{part}",
+    "T1": "op.6.{layer}.eg_t1.{part}",
+    "T2": "op.6.{layer}.eg_t2.{part}",
+    "T3": "op.6.{layer}.eg_t3.{part}",
+    "T4": "op.6.{layer}.eg_t4.{part}",
+    "hold": "op.6.{layer}.eg_hold.{part}",
+    "timeScale": "op.6.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "text": {
+    "font": "plot_tiny"
+   },
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
   },
   {
    "type": "plate",
@@ -1265,7 +1391,6 @@
     0,
     99
    ],
-   "minTime": 220,
    "points": [
     [
      "op.7.{layer}.eg_hold.{part}",
@@ -1295,7 +1420,29 @@
    "dots": "#ffffff59",
    "area2": "#86eac205",
    "glow": "#86eac222",
-   "ring": "#25292cff"
+   "ring": "#25292cff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.7.{layer}.eg_l1.{part}",
+    "L2": "op.7.{layer}.eg_l2.{part}",
+    "L3": "op.7.{layer}.eg_l3.{part}",
+    "L4": "op.7.{layer}.eg_l4.{part}",
+    "T1": "op.7.{layer}.eg_t1.{part}",
+    "T2": "op.7.{layer}.eg_t2.{part}",
+    "T3": "op.7.{layer}.eg_t3.{part}",
+    "T4": "op.7.{layer}.eg_t4.{part}",
+    "hold": "op.7.{layer}.eg_hold.{part}",
+    "timeScale": "op.7.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "text": {
+    "font": "plot_tiny"
+   },
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
   },
   {
    "type": "plate",
@@ -1429,7 +1576,6 @@
     0,
     99
    ],
-   "minTime": 220,
    "points": [
     [
      "op.8.{layer}.eg_hold.{part}",
@@ -1459,7 +1605,91 @@
    "dots": "#ffffff59",
    "area2": "#86eac205",
    "glow": "#86eac222",
-   "ring": "#25292cff"
+   "ring": "#25292cff",
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.8.{layer}.eg_l1.{part}",
+    "L2": "op.8.{layer}.eg_l2.{part}",
+    "L3": "op.8.{layer}.eg_l3.{part}",
+    "L4": "op.8.{layer}.eg_l4.{part}",
+    "T1": "op.8.{layer}.eg_t1.{part}",
+    "T2": "op.8.{layer}.eg_t2.{part}",
+    "T3": "op.8.{layer}.eg_t3.{part}",
+    "T4": "op.8.{layer}.eg_t4.{part}",
+    "hold": "op.8.{layer}.eg_hold.{part}",
+    "timeScale": "op.8.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "syncParam": "gui.eg_sync",
+   "text": {
+    "font": "plot_tiny"
+   },
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
+  },
+  {
+   "type": "button",
+   "name": "envs_db",
+   "rect": [
+    206,
+    45,
+    46,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "dB",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.eg_db",
+   "tip": "The amplitude envelopes in dB (on) or as linear amplitude (off)"
+  },
+  {
+   "type": "button",
+   "name": "envs_sync",
+   "rect": [
+    256,
+    45,
+    58,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Sync",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    3,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.eg_sync",
+   "tip": "All eight plots on one time axis, fitted to the longest envelope and zoomed together"
   }
  ]
 }
