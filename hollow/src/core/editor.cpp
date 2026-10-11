@@ -847,6 +847,7 @@ int Gui::buttonTile(const Node& n, int i) const {
               : w.source == Widget::MidiIn || w.source == Widget::Modified ? sourceValue(w) == "1"
               : w.action.type == Action::Goto || w.action.type == Action::Set ? active(n, i)
               : w.action.type == Action::Value ? n.w[i].param >= 0 && state_.get(n.w[i].param) == w.action.amount
+              : w.action.type == Action::Scale && w.action.amount > 0 ? std::fabs(w.action.amount - (base_->scales.empty() ? scale_ : zoom_)) < 1e-9
               : w.action.type == Action::Step ? 0 : index(n, i);
     return std::clamp(value, 0, states - 1) + states * group;
 }
@@ -1338,8 +1339,9 @@ void Gui::runAction(Node& n, int i, const Action& action) {
         for (auto& kv : a.vars) state_.setData(subst(n, kv.first), kv.second);
         setModal(a.target);
         return;
-    case Action::Scale:   // the window scale menu, under the widget
-        scaleMenu(rectOf(n, i));
+    case Action::Scale:   // a window scale, or the scale menu under the widget
+        if (a.amount > 0) setScale(a.amount);
+        else scaleMenu(rectOf(n, i));
         return;
     case Action::File: {   // a native dialog; the chosen path goes to text data, for the product to act on
         std::string path;
@@ -3019,10 +3021,26 @@ bool Gui::readDevices() {
     return true;
 }
 
-// While the settings modal shows: a choice made there goes to the app's settings window, and everything
-// is read back, since a new API or device changes what the others offer.
+// Whether the settings view is in sight: as the modal, or in any embed that shows.
+bool Gui::settingsShown(const Node& n) const {
+    for (size_t i = 0; n.view && i < n.w.size(); ++i) {
+        const Inst& s = n.w[i];
+        if (!s.child || s.hidden || !s.shown) continue;
+        if (s.child->viewName == skin_->settingsView || settingsShown(*s.child)) return true;
+    }
+    return false;
+}
+
+// While the settings view shows: it is read when it comes into sight, a choice made there goes to the
+// app's settings window, and everything is read back, since a new API or device changes what the others offer.
 void Gui::syncDevices() {
-    if (modalShown_.empty() || modalShown_ != skin_->settingsView || !window) return;
+    const bool shown = window && !skin_->settingsView.empty() && settingsShown(root_);
+    if (shown != devicesShown_) {
+        devicesShown_ = shown;
+        if (shown) readDevices();
+        return;
+    }
+    if (!shown) return;
     for (int k = 0; k < 6; ++k) {
         int p = state_.indexOf(std::string("standalone.") + kDevices[k]);
         if (p < 0 || state_.get((size_t)p) == deviceSent_[k]) continue;

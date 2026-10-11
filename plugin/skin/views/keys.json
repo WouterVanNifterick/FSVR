@@ -1,60 +1,60 @@
 {
  "size": [
   1514,
-  214
+  185
  ],
  "fill": {
-  "image": "backgrounds/keys"
+  "image": "backgrounds/keys_compact"
  },
  "widgets": [
   {
    "type": "plate",
    "name": "pitch_wheel_slot",
    "rect": [
-    68,
-    13,
-    100,
-    25
+    26,
+    53,
+    25,
+    100
    ],
    "layer": 2,
    "fill": {
-    "image": "faders/wheel_slot"
+    "image": "faders/wheel_slot_v"
    }
   },
   {
    "type": "plate",
    "name": "mod_wheel_slot",
    "rect": [
-    244,
-    13,
-    100,
-    25
+    61,
+    53,
+    25,
+    100
    ],
    "layer": 2,
    "fill": {
-    "image": "faders/wheel_slot"
+    "image": "faders/wheel_slot_v"
    }
   },
   {
    "type": "plate",
    "name": "pitch_wheel_label",
    "rect": [
-    24,
-    14,
-    44,
-    26
+    17,
+    35,
+    43,
+    16
    ],
    "layer": 2,
    "text": {
     "text": "Pitch",
     "font": "caption_white_12",
-    "align": "right",
+    "align": "center",
     "valign": "middle"
    },
    "pad": [
-    2,
     0,
-    4,
+    0,
+    0,
     0
    ]
   },
@@ -62,22 +62,22 @@
    "type": "plate",
    "name": "mod_wheel_label",
    "rect": [
-    200,
-    14,
-    44,
-    26
+    52,
+    35,
+    43,
+    16
    ],
    "layer": 2,
    "text": {
     "text": "Mod",
     "font": "caption_white_12",
-    "align": "right",
+    "align": "center",
     "valign": "middle"
    },
    "pad": [
-    2,
     0,
-    4,
+    0,
+    0,
     0
    ]
   },
@@ -85,12 +85,12 @@
    "type": "dial",
    "name": "pitch_wheel",
    "rect": [
-    72,
+    30,
+    57,
     17,
-    92,
-    17
+    92
    ],
-   "image": "faders/wheel_h",
+   "image": "faders/wheel_v",
    "sensitivity": 0.833333,
    "fine": 0.2,
    "wheel": 0.025,
@@ -99,41 +99,41 @@
    "param": "keys.pitch_wheel",
    "midi": "bend",
    "spring": 0.5,
-   "vertical": false,
-   "tip": "Pitch bend: right bends up, and it springs back"
+   "vertical": true,
+   "tip": "Pitch bend: up bends up, and it springs back"
   },
   {
    "type": "dial",
    "name": "mod_wheel",
    "rect": [
-    248,
+    65,
+    57,
     17,
-    92,
-    17
+    92
    ],
-   "image": "faders/wheel_h",
+   "image": "faders/wheel_v",
    "sensitivity": 0.833333,
    "fine": 0.2,
    "wheel": 0.025,
    "margin": 14,
    "param": "keys.mod_wheel",
    "midi": "cc1",
-   "vertical": false,
+   "vertical": true,
    "tip": "Modulation wheel (CC 1)"
   },
   {
    "type": "custom",
    "name": "piano",
    "rect": [
-    33,
-    43,
-    1448,
+    99,
+    14,
+    1393,
     161
    ],
    "kind": "piano",
    "layer": 3,
-   "first": 21,
-   "count": 88,
+   "first": 24,
+   "count": 85,
    "velocity": 64,
    "glide": false,
    "keyImages": {
@@ -145,8 +145,7 @@
     "a": "keyboard/key_a",
     "b": "keyboard/key_b",
     "black": "keyboard/key_black",
-    "top": "keyboard/key_c_top",
-    "low": "keyboard/key_a_low"
+    "top": "keyboard/key_c_top"
    }
   }
  ]

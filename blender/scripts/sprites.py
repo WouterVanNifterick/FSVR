@@ -440,6 +440,7 @@ PANELS = {
     'scrollbars/morph_thumb': (20, 35, plate(20, 35, 'silver', 4, 2, 0.8), {'slice': [5, 0, 5, 0]}),
     'scrollbars/morph_track': (20, 338, plate(20, 338, 'well_dark', 6, 0.5, 0, inset=True), {'slice': [12, 0, 12, 0]}),
     'faders/wheel_slot': (100, 25, plate(100, 25, 'silver', 5, inset=True), {}),
+    'faders/wheel_slot_v': (25, 100, plate(25, 100, 'silver', 5, inset=True), {}),   # the compact keyboard's, standing
 }
 DISPLAYS = {
     'displays/lcd_window': (330, 66, screen(330, 66, dots=(25, 3, 9, 9)), {}),   # the grid and its marks column centred in the glass

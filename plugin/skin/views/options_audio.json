@@ -1,188 +1,79 @@
 {
  "size": [
-  560,
-  521
+  740,
+  430
  ],
- "fill": {
-  "image": "backgrounds/page"
- },
  "widgets": [
   {
    "type": "plate",
-   "name": "title_bar",
+   "name": "frame",
    "rect": [
     0,
-    0,
-    560,
-    30
-   ],
-   "layer": 1,
-   "fill": {
-    "colour": "#232a2bff"
-   },
-   "text": {
-    "text": "Audio and MIDI",
-    "font": "caption_white_12",
-    "align": "left",
-    "valign": "middle"
-   },
-   "pad": [
-    12,
-    1,
-    40,
-    0
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "title_line",
-   "rect": [
-    0,
-    30,
-    560,
-    1
-   ],
-   "layer": 1,
-   "fill": {
-    "colour": "#5d6d6eff"
-   }
-  },
-  {
-   "type": "button",
-   "name": "close_x",
-   "rect": [
-    530,
-    2,
-    26,
-    26
-   ],
-   "layer": 4,
-   "fill": {
-    "image": "buttons/dark_part"
-   },
-   "press": "up",
-   "pressedTiles": true,
-   "pressOffset": [
-    1,
-    1
-   ],
-   "text": {
-    "text": "X",
-    "font": "caption_white_12",
-    "align": "center",
-    "valign": "middle"
-   },
-   "pad": [
-    1,
-    1,
-    0,
-    0
-   ],
-   "action": {
-    "modal": ""
-   },
-   "tip": "Close"
-  },
-  {
-   "type": "plate",
-   "name": "body",
-   "rect": [
-    12,
-    40,
-    536,
-    431
+    20,
+    740,
+    410
    ],
    "layer": 0,
    "fill": {
-    "image": "backgrounds/library_stripes"
+    "image": "panels/group_box_light"
    }
   },
   {
    "type": "plate",
-   "name": "rim_top",
+   "name": "title",
    "rect": [
+    6,
     0,
-    0,
-    560,
-    1
+    158,
+    20
    ],
-   "layer": 7,
-   "fill": {
-    "colour": "#1b2425ff"
-   }
-  },
-  {
-   "type": "plate",
-   "name": "rim_bottom",
-   "rect": [
-    0,
-    520,
-    560,
-    1
+   "layer": 0,
+   "text": {
+    "text": "Audio and MIDI",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
    ],
-   "layer": 7,
    "fill": {
-    "colour": "#1b2425ff"
-   }
-  },
-  {
-   "type": "plate",
-   "name": "rim_left",
-   "rect": [
-    0,
-    0,
-    1,
-    521
-   ],
-   "layer": 7,
-   "fill": {
-    "colour": "#1b2425ff"
-   }
-  },
-  {
-   "type": "plate",
-   "name": "rim_right",
-   "rect": [
-    559,
-    0,
-    1,
-    521
-   ],
-   "layer": 7,
-   "fill": {
-    "colour": "#1b2425ff"
+    "image": "panels/group_tab_light"
    }
   },
   {
    "type": "plate",
    "name": "api_label",
    "rect": [
-    28,
-    52,
-    110,
-    20
+    16,
+    38,
+    220,
+    18
    ],
-   "layer": 3,
+   "fill": {
+    "image": "panels/label_plate"
+   },
    "text": {
     "text": "Driver",
-    "font": "library_header_white_11",
-    "align": "left",
-    "valign": "middle"
+    "font": "caption_grey_12",
+    "align": "left"
    },
    "pad": [
-    0,
-    0,
-    0,
-    0
+    8,
+    2,
+    2,
+    2
    ]
   },
   {
    "type": "dropdown",
    "name": "api",
    "rect": [
-    140,
-    53,
-    390,
+    246,
+    38,
+    478,
     18
    ],
    "layer": 4,
@@ -212,32 +103,33 @@
    "type": "plate",
    "name": "output_label",
    "rect": [
-    28,
-    78,
-    110,
-    20
+    16,
+    68,
+    220,
+    18
    ],
-   "layer": 3,
+   "fill": {
+    "image": "panels/label_plate"
+   },
    "text": {
     "text": "Output",
-    "font": "library_header_white_11",
-    "align": "left",
-    "valign": "middle"
+    "font": "caption_grey_12",
+    "align": "left"
    },
    "pad": [
-    0,
-    0,
-    0,
-    0
+    8,
+    2,
+    2,
+    2
    ]
   },
   {
    "type": "dropdown",
    "name": "output",
    "rect": [
-    140,
-    79,
-    390,
+    246,
+    68,
+    478,
     18
    ],
    "layer": 4,
@@ -267,32 +159,33 @@
    "type": "plate",
    "name": "input_label",
    "rect": [
-    28,
-    104,
-    110,
-    20
+    16,
+    98,
+    220,
+    18
    ],
-   "layer": 3,
+   "fill": {
+    "image": "panels/label_plate"
+   },
    "text": {
     "text": "Input",
-    "font": "library_header_white_11",
-    "align": "left",
-    "valign": "middle"
+    "font": "caption_grey_12",
+    "align": "left"
    },
    "pad": [
-    0,
-    0,
-    0,
-    0
+    8,
+    2,
+    2,
+    2
    ]
   },
   {
    "type": "dropdown",
    "name": "input",
    "rect": [
-    140,
-    105,
-    390,
+    246,
+    98,
+    478,
     18
    ],
    "layer": 4,
@@ -322,32 +215,33 @@
    "type": "plate",
    "name": "rate_label",
    "rect": [
-    28,
-    130,
-    110,
-    20
+    16,
+    128,
+    220,
+    18
    ],
-   "layer": 3,
+   "fill": {
+    "image": "panels/label_plate"
+   },
    "text": {
     "text": "Sample rate",
-    "font": "library_header_white_11",
-    "align": "left",
-    "valign": "middle"
+    "font": "caption_grey_12",
+    "align": "left"
    },
    "pad": [
-    0,
-    0,
-    0,
-    0
+    8,
+    2,
+    2,
+    2
    ]
   },
   {
    "type": "dropdown",
    "name": "rate",
    "rect": [
-    140,
-    131,
-    390,
+    246,
+    128,
+    478,
     18
    ],
    "layer": 4,
@@ -377,32 +271,33 @@
    "type": "plate",
    "name": "buffer_label",
    "rect": [
-    28,
-    156,
-    110,
-    20
+    16,
+    158,
+    220,
+    18
    ],
-   "layer": 3,
+   "fill": {
+    "image": "panels/label_plate"
+   },
    "text": {
     "text": "Buffer size",
-    "font": "library_header_white_11",
-    "align": "left",
-    "valign": "middle"
+    "font": "caption_grey_12",
+    "align": "left"
    },
    "pad": [
-    0,
-    0,
-    0,
-    0
+    8,
+    2,
+    2,
+    2
    ]
   },
   {
    "type": "dropdown",
    "name": "buffer",
    "rect": [
-    140,
-    157,
-    390,
+    246,
+    158,
+    478,
     18
    ],
    "layer": 4,
@@ -432,10 +327,10 @@
    "type": "plate",
    "name": "midi_frame",
    "rect": [
-    26,
-    188,
-    506,
-    273
+    16,
+    186,
+    708,
+    200
    ],
    "layer": 2,
    "fill": {
@@ -456,10 +351,10 @@
    "type": "plate",
    "name": "midi_bed",
    "rect": [
-    28,
-    209,
-    502,
-    250
+    18,
+    207,
+    704,
+    177
    ],
    "layer": 2,
    "fill": {
@@ -470,10 +365,10 @@
    "type": "list",
    "name": "midi",
    "rect": [
-    28,
-    209,
-    502,
-    250
+    18,
+    207,
+    704,
+    177
    ],
    "layer": 4,
    "param": "standalone.midi",
@@ -485,7 +380,7 @@
      "tileCell": true
     },
     {
-     "width": 400
+     "width": 560
     }
    ],
    "dataRows": {
@@ -524,14 +419,13 @@
   },
   {
    "type": "button",
-   "name": "close",
+   "name": "devices",
    "rect": [
-    436,
-    483,
-    112,
+    584,
+    394,
+    140,
     24
    ],
-   "layer": 4,
    "fill": {
     "image": "buttons/dark_wide"
    },
@@ -542,7 +436,7 @@
     1
    ],
    "text": {
-    "text": "Close",
+    "text": "Device Window",
     "font": "caption_white_12",
     "align": "center",
     "valign": "middle"
@@ -554,8 +448,9 @@
     0
    ],
    "action": {
-    "modal": ""
-   }
+    "standalone": "settings"
+   },
+   "tip": "Reads the devices again; on macOS, opens the app's own audio and MIDI window"
   }
  ]
 }

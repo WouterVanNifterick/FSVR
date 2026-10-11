@@ -4,9 +4,11 @@
 // toggles, the keyboard's lit keys, every page by its tab, the Operators tab's sub-tabs or the operator column's buttons, the operator panel,
 // the waveform the engine draws for it, its Form header and its frequency box, the skin's keyboard shortcuts and the tooltips that name them,
 // the Parts page's steppers, keyboard, velocity curve and Poly/Mono radios, the browser and its right-click menus, every dialog, the modal's veil,
-// Escape and close X, the close prompt, the LCD's scale menu and the About box; then a sweep of every page's
+// Escape and close X, the close prompt, the Options page (the scales, the keyboard's two layouts, the Init
+// Patch, Turn off all Effects, Init All and Quality / Speed) and the About box; then a sweep of every page's
 // dials, faders, dropdowns and toggles. Exits non-zero on any failure.
 //   build/<dir>/Release/check_gui      (ctest runs it as "gui")
+// With FSVR_GUI_SHOTS set to a folder it also saves the window as a PNG at each u.shot("name"), to look at.
 #include <hollow/hollow.h>
 #include "core/core.h"
 #include <algorithm>
@@ -15,10 +17,21 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <string>
 #include <thread>
 #include <vector>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_STATIC
+#if defined(_MSC_VER)
+#pragma warning(push, 0)
+#endif
+#include "stb/stb_image_write.h"
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 using namespace hollow;
 namespace fs = std::filesystem;
@@ -68,6 +81,14 @@ struct Ui {   // one instance and its editor, run a block and a GUI tick at a ti
     std::string data(const std::string& k) const { return st->data(k); }
     int lines(const std::string& k) const { std::string d = st->data(k); return (int)std::count(d.begin(), d.end(), '\n'); }
     bool shows(const std::string& path) { Rect r; return gui.widgetRect(path, r); }
+    void shot(const char* name) {   // the window as a PNG in FSVR_GUI_SHOTS, when it is set
+        const char* dir = std::getenv("FSVR_GUI_SHOTS");
+        if (!dir) return;
+        const auto& px = gui.pixels();
+        std::vector<uint8_t> rgba;
+        for (uint32_t p : px) rgba.insert(rgba.end(), {uint8_t(p >> 16), uint8_t(p >> 8), uint8_t(p), 255});
+        stbi_write_png((fs::path(dir) / (std::string(name) + ".png")).string().c_str(), gui.width(), gui.height(), 4, rgba.data(), gui.width() * 4);
+    }
     std::string ui() const { return gui.uiJson(); }
 
     bool rect(const std::string& path, Rect& r) {
@@ -208,7 +229,6 @@ int main() {
         // With nothing of ours open, Escape is nobody's: the platform forwards exactly what keyDown refuses,
         // and a host closing the plug-in's window on Escape is what that forwarding is for.
         CHECK(!u.gui.keyDown(KeyEscape, false, false), "Escape with nothing open was taken from the host");
-        CHECK(!u.shows("topbar/audio_settings"), "MIDI/Aud shows outside the standalone");
 
         const int tall = u.gui.height();
         u.click("topbar/show_editor");
@@ -239,21 +259,26 @@ int main() {
         u.click("topbar/knobs_tone");
         CHECK(u.shows("topbar/attack") && !u.shows("topbar/kn1"), "Tone did not show the part's knobs");
 
-        // The scales are the skin's, each drawn at its own size rather than the 1x canvas magnified.
+        // The scales are the skin's, each drawn at its own size rather than the 1x canvas magnified, picked on the
+        // Options page, where the window's own is lit.
         const int wide = u.gui.width();
-        if (u.click("topbar/lcd_scale")) u.menuIs({"0.5x", "0.75x", "1x", "1.5x", "2x"}, "the LCD's scale");
-        u.choose("2x");
-        CHECK(u.gui.zoom() == 2 && u.gui.scale() == 1 && u.gui.width() == 2 * wide, "2x drew %d px wide at %gx (%d repeats), not %d",
+        u.click("tab_options");
+        u.click("pages/list/display/scale_200");
+        CHECK(u.gui.zoom() == 2 && u.gui.scale() == 1 && u.gui.width() == 2 * wide, "200%% drew %d px wide at %gx (%d repeats), not %d",
               u.gui.width(), u.gui.zoom(), u.gui.scale(), 2 * wide);
-        CHECK(u.ui().find("\"scale\":2,") != std::string::npos, "the session does not keep 2x");
-        u.click("topbar/lcd_scale");
-        u.choose("0.75x");
-        CHECK(u.gui.zoom() == 0.75 && u.shows("tab_parts"), "0.75x did not draw the window");
-        u.click("topbar/lcd_scale");
-        u.choose("1x");
-        CHECK(u.gui.zoom() == 1 && u.gui.width() == wide, "1x came back %d px wide, not %d", u.gui.width(), wide);
+        CHECK(u.ui().find("\"scale\":2,") != std::string::npos, "the session does not keep 200%%");
+        u.click("pages/list/display/scale_75");
+        CHECK(u.gui.zoom() == 0.75 && u.shows("tab_parts"), "75%% did not draw the window");
+        u.click("pages/list/display/scale_100");
+        CHECK(u.gui.zoom() == 1 && u.gui.width() == wide, "100%% came back %d px wide, not %d", u.gui.width(), wide);
+        {
+            Rect a, b;   // the radio pair's lit tile is darker than its raised one, at the same point of each
+            auto lum = [&](const Rect& r) { const uint32_t p = u.gui.pixels()[(size_t)(r.y + r.h / 2) * u.gui.width() + r.x + 4];
+                                             return (77 * (p >> 16 & 255) + 150 * (p >> 8 & 255) + 29 * (p & 255)) >> 8; };
+            CHECK(u.rect("pages/list/display/scale_100", a) && u.rect("pages/list/display/scale_50", b) && lum(a) != lum(b), "the window's scale is not lit apart from the others");
+        }
 
-        // Right-clicking empty space opens nothing: the scale is the LCD's.
+        // Right-clicking empty space opens nothing: the scales are the Options page's.
         u.rclickAt(3, 3);
         CHECK(u.gui.menuLabels().empty(), "a right-click on empty space opened a menu");
 
@@ -270,7 +295,7 @@ int main() {
             {"pages/subtabs/tab_key_scaling", "page_key_scaling"}, {"pages/subtabs/tab_filter", "page_filter"}, {"pages/subtabs/tab_pitch", "page_pitch"},
             {"pages/subtabs/tab_operator", "page_operator"}, {"opcol/page_all_ops", "page_all_ops"}, {"opcol/page_all_envs", "page_all_envs"},
             {"opcol/page_mod", "page_mod_matrix"}, {"opcol/page_keysc", "page_key_scaling"}, {"opcol/page_filter", "page_filter"},
-            {"opcol/page_pitch", "page_pitch"}, {"opcol/edit", "page_operator"}, {"tab_browser", "page_library"}};
+            {"opcol/page_pitch", "page_pitch"}, {"opcol/edit", "page_operator"}, {"tab_options", "page_options"}, {"tab_browser", "page_library"}};
         for (auto& p : pages) {
             u.click(p.first);
             CHECK(u.ui().find(std::string("\"view\":\"") + p.second + "\"") != std::string::npos || (std::string(p.second) == "page_library" && u.shows("pages/library")),
@@ -278,6 +303,61 @@ int main() {
             // The Operators tab stands for all seven of its pages, and sinks into the well for any of them.
             const bool expert = std::string(p.second) == "page_operator" || u.shows("pages/subtabs");
             CHECK(u.tabLit("tab_operators") == expert, "%s: the Operators tab is %s", p.second, expert ? "not lit" : "lit");
+        }
+
+        // ---- the Options page --------------------------------------------------------------------------
+        {
+            const fs::path dir = tmp;   // the library's parent, where the options live
+            auto has = [&](const char* text) {
+                std::ifstream f(dir / "Settings.json");
+                return std::string(std::istreambuf_iterator<char>(f), {}).find(text) != std::string::npos;
+            };
+            u.click("tab_options");
+            CHECK(u.shows("pages/list/display") && u.shows("pages/list/special") && !u.shows("pages/list/audio"), "Audio and MIDI shows outside the standalone");
+            const int compact = u.gui.height();
+            CHECK(u.shows("keys") && !u.shows("keys_top") && compact == 923, "the compact keyboard is not the default (%d px)", compact);
+            u.click("pages/list/display/keys_top");
+            CHECK(u.get("gui.keys_top") == 1 && u.gui.height() == 952 && u.shows("keys_top") && !u.shows("keys"),
+                  "More Keys did not put the wheels over 88 keys (%d px)", u.gui.height());
+            CHECK(u.until([&] { return has("\"keysTop\": 1"); }), "Settings.json did not follow More Keys");
+            u.click("pages/list/display/keys_top");
+            CHECK(u.gui.height() == compact && u.shows("keys") && !u.shows("keys_top"), "the compact keyboard did not come back (%d px)", u.gui.height());
+            // Turn off all Effects
+            u.set("fx.rev.type", 1), u.set("fx.var.type", 2), u.set("fx.ins.type", 3), u.set("fx.eq.low_gain", 6);
+            u.click("pages/list/special/fx_off");
+            CHECK(u.until([&] { return u.get("fx.rev.type") == 0 && u.get("fx.var.type") == 0 && u.get("fx.ins.type") == 0 && u.get("fx.eq.low_gain") == 0; }),
+                  "Turn off all Effects left reverb %g, variation %g, insertion %g, low EQ %g", u.get("fx.rev.type"), u.get("fx.var.type"),
+                  u.get("fx.ins.type"), u.get("fx.eq.low_gain"));
+            // The Init Patch: the performance playing, then the factory's again
+            CHECK(u.data("opt.init_name") == "A001 Zap ! (factory)", "the Init Patch reads \"%s\"", u.data("opt.init_name").c_str());
+            u.set("perf.program", 4);
+            CHECK(u.until([&] { return u.data("perf.name") == "Snow Decay"; }), "A005 did not load");
+            u.click("pages/list/startup/init_set");
+            CHECK(u.until([&] { return fs::exists(dir / "Init.fsvr") && u.data("opt.init_name") == "Snow Decay"; }),
+                  "Use Current did not make Snow Decay the Init Patch (\"%s\")", u.data("opt.init_name").c_str());
+            u.click("pages/list/startup/init_clear");
+            CHECK(u.until([&] { return !fs::exists(dir / "Init.fsvr") && u.data("opt.init_name") == "A001 Zap ! (factory)"; }), "Use Factory left the Init Patch");
+            // Init All asks first, then resets the system settings and loads the Init Patch
+            u.set("sys.pgm_mode", 1);
+            u.click("pages/list/special/init_all");
+            CHECK(u.gui.modal() == "dialog_init", "Init All did not ask (modal \"%s\")", u.gui.modal().c_str());
+            u.click(M + "init");
+            CHECK(u.until([&] { return u.gui.modal().empty() && u.get("sys.pgm_mode") == 0 && u.get("perf.program") == 0 && u.data("perf.name") == "Zap !"; }),
+                  "Init All left Multi %g and %s", u.get("sys.pgm_mode"), u.data("perf.name").c_str());
+            // Quality / Speed reaches the engine, which still plays at its cheapest
+            u.set("opt.speed", 3);
+            const uint8_t on[3] = {0x90, 60, 100}, off[3] = {0x80, 60, 0};
+            u.proc->midi(0, on, 3);
+            float peak = 0;
+            for (int k = 0; k < 40; ++k) {
+                u.run();
+                for (float v : u.l) peak = std::max(peak, std::fabs(v));
+            }
+            u.proc->midi(0, off, 3);
+            CHECK(peak > 1e-4f, "at Fastest the engine made no sound (peak %g)", peak);
+            CHECK(u.until([&] { return has("\"speed\": 3"); }), "Settings.json did not follow Quality / Speed");
+            u.set("opt.speed", 0);
+            u.shot("options");
         }
 
         // ---- the operator panel: it picks the operator the operator page shows, and draws the engine's wave
@@ -393,6 +473,7 @@ int main() {
             u.set("gui.eg_db", 1);
             u.set("gui.eg_overlay", 0);   // so only this operator sets the time axis
             u.run(3);
+            u.shot("eg_operator");
             Rect env;
             const uint32_t dot = 0xeffff8;   // the handles' inside, the page's "handle" colour
             auto handles = [&]() {   // centres of the handle dots, left to right
@@ -510,6 +591,8 @@ int main() {
             }
             // Overview page: with Sync on, the eight plots share one time axis.
             u.click("opcol/page_all_envs");
+            u.run(2);
+            u.shot("eg_all");
             Rect one;
             if (u.rect("pages/env_1", one) && u.rect("pages/env_2", env)) {   // picture() is operator 2's plot now
                 const int ox = one.x + one.w / 2, oy = one.y + one.h / 2;
@@ -787,6 +870,6 @@ int main() {
         u.proc.reset();
     }
     fs::remove_all(tmp, ec);
-    if (!fails) std::printf("check_gui: the top bar, its menus and toggles, every page and the Operators tab's sub-tabs, the keyboard shortcuts and their tooltips, the Parts page's steppers, keyboard, velocity curve and radios, the browser's right-click menus, every dialog, the modal's veil, Escape and close X, the close prompt, the scale menu and About all pass\n");
+    if (!fails) std::printf("check_gui: the top bar, its menus and toggles, every page and the Operators tab's sub-tabs, the keyboard shortcuts and their tooltips, the Parts page's steppers, keyboard, velocity curve and radios, the browser's right-click menus, every dialog, the modal's veil, Escape and close X, the close prompt, the Options page and About all pass\n");
     return fails ? 1 : 0;
 }

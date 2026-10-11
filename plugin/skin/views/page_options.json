@@ -1,0 +1,24 @@
+{
+ "size": [
+  1235,
+  566
+ ],
+ "widgets": [
+  {
+   "type": "embed",
+   "name": "list",
+   "rect": [
+    14,
+    14,
+    758,
+    538
+   ],
+   "view": "options_list",
+   "scroll": {
+    "track": "scrollbars/list_track",
+    "thumb": "scrollbars/library_thumb_flat",
+    "width": 14
+   }
+  }
+ ]
+}

@@ -101,6 +101,14 @@ def build(save=True):
     return sc
 
 
+def key_well(rect):
+    """Cuts the keyboard's well at rect in place of the one there (the compact keyboard's is shorter)."""
+    old = bpy.data.objects.get('KeyWell')
+    if old:
+        bpy.data.objects.remove(old, do_unlink=True)
+    well('KeyWell', rect, bpy.data.materials['Keybed'], bpy.data.collections['Cutters'])
+
+
 def sink(name):
     """Sinks tab `name` into the content well (None: every tab raised)."""
     cut_c, off_c = bpy.data.collections['Cutters'], bpy.data.collections['TabCutters']

@@ -44,46 +44,6 @@
    "layer": 0
   },
   {
-   "type": "button",
-   "name": "audio_settings",
-   "rect": [
-    22,
-    6,
-    76,
-    24
-   ],
-   "fill": {
-    "image": "buttons/dark_part"
-   },
-   "press": "up",
-   "pressedTiles": true,
-   "pressOffset": [
-    1,
-    1
-   ],
-   "text": {
-    "text": "MIDI/Aud",
-    "font": "caption_white_12",
-    "align": "center",
-    "valign": "middle"
-   },
-   "pad": [
-    2,
-    1,
-    2,
-    0
-   ],
-   "layer": 4,
-   "action": {
-    "standalone": "settings"
-   },
-   "tip": "Audio and MIDI settings",
-   "showIf": {
-    "var": "standalone",
-    "equals": "1"
-   }
-  },
-  {
    "type": "plate",
    "name": "volume_label",
    "rect": [
@@ -1063,35 +1023,6 @@
    "surface": false,
    "source": "cpu",
    "format": "%3d%%"
-  },
-  {
-   "type": "button",
-   "name": "lcd_scale",
-   "rect": [
-    374,
-    55,
-    60,
-    16
-   ],
-   "text": {
-    "text": "",
-    "font": "lcd_small_light",
-    "align": "right",
-    "valign": "top"
-   },
-   "pad": [
-    0,
-    0,
-    0,
-    0
-   ],
-   "surface": false,
-   "source": "scale",
-   "press": "up",
-   "action": {
-    "scale": "menu"
-   },
-   "tip": "Window size"
   },
   {
    "type": "dropdown",

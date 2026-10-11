@@ -12,7 +12,7 @@ OLD_W = 1422                     # the old window's width: the top bar's right-h
 # the page tabs across the top of the content well, each a raised plate with square ends until chosen, when it
 # is cut into the chrome with the well and opens into it; the first starts at the well's left edge, so sunk, its
 # wall runs straight down into the well's (whose corner there is square)
-TAB_Y, TAB_H, TAB_W, TAB_SLANT, TAB_GAP, TAB_X = 138, 34, 168, 0, 4, 8
+TAB_Y, TAB_H, TAB_W, TAB_SLANT, TAB_GAP, TAB_X = 138, 34, 150, 0, 4, 8
 TABS = [   # name, caption, the page it shows
     ('browser', 'Browser', 'page_library'),
     ('parts', 'Parts', 'page_parts'),
@@ -21,6 +21,7 @@ TABS = [   # name, caption, the page it shows
     ('effects', 'Effects', 'page_fx'),
     ('fseq', 'Fseq', 'page_fseq'),
     ('quick', 'Quick Control', 'page_quick'),
+    ('options', 'Options', 'page_options'),
 ]
 CONTENT = (8, TAB_Y + TAB_H, 1235, 566)          # the pages embed, and the well around it
 SUBTABS = 30                                      # the Operators tab's sub-tabs over its pages
@@ -28,6 +29,10 @@ OPCOL = (1251, TAB_Y, W - 8 - 1251, CONTENT[1] + CONTENT[3] - TAB_Y)   # the ope
 KEYWELL = (8, CONTENT[1] + CONTENT[3] + 6, W - 16, H - 4 - (CONTENT[1] + CONTENT[3] + 6))
 WHEEL_Y, WHEEL_H = KEYWELL[1] + DEPTH + 2, 26     # the pitch and mod wheels, lying across the strip over the keys
 KEYS_Y, KEYS_H = WHEEL_Y + WHEEL_H + 3, 161       # the keyboard: 88 keys, A0 to C8
+# The compact keyboard, the default (Options, Keys): no strip over the keys, the wheels stand at their left, so
+# its well is shorter by the strip and the window with it (keys.json; keys_top.json is the one above)
+KEYWELL_COMPACT = (KEYWELL[0], KEYWELL[1], KEYWELL[2], 2 * DEPTH + 2 + KEYS_H)
+H_COMPACT = KEYWELL_COMPACT[1] + KEYWELL_COMPACT[3] + 4
 
 
 def tab_rect(i):

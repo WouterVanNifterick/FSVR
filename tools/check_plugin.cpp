@@ -26,10 +26,14 @@ static int fails = 0;
 struct Rig {   // one instance, run a block at a time
     std::shared_ptr<Skin> skin = loadSkin();
     std::unique_ptr<State> st = std::make_unique<State>(skinParams(*skin));
-    std::unique_ptr<Processor> proc = createProcessor(*st);
+    std::unique_ptr<Processor> proc;
     std::vector<float> l = std::vector<float>(512), r = std::vector<float>(512);
     float peak = 0;
-    Rig() { proc->prepare(48000, 512); }
+    explicit Rig(bool standalone = false) {   // the format layer tells a standalone's processor so before it starts
+        if (standalone) st->setData("live.standalone", "1");
+        proc = createProcessor(*st);
+        proc->prepare(48000, 512);
+    }
     void run(int blocks = 1) {
         float* out[2] = {l.data(), r.data()};
         for (int b = 0; b < blocks; ++b) {
@@ -192,8 +196,10 @@ int main() {
     CHECK(a.until([&] { return a.is("part.bank.p1", 3) && a.is("part.program.p1", 21); }), "A001 did not load its part 1 voice B021 (bank %g, program %g)",
           a.get("part.bank.p1"), a.get("part.program.p1"));
     CHECK(a.is("perf.category", 16), "A001's category is %g, not Sound FX (16)", a.get("perf.category"));
+    // the worker publishes the voice's name a moment after its bank and number, once the voice's params are in
+    CHECK(a.until([&] { const std::string n = a.data("morph.p1.bl"); return !n.empty() && n != "InitEP"; }), "part 1's voice name is \"%s\"",
+          a.data("morph.p1.bl").c_str());
     const std::string zapVoice = a.data("morph.p1.bl");
-    CHECK(!zapVoice.empty() && zapVoice != "InitEP", "part 1's voice name is \"%s\"", zapVoice.c_str());
 
     // A note sounds, the monitor shows its harmonics, and panic silences it: B014 "Full Tines", a piano.
     a.set("perf.program", 141);
@@ -212,7 +218,7 @@ int main() {
     a.set("perf.program", 1);
     CHECK(a.until([&] { return a.is("part.bank.p1", 3) && a.is("part.program.p1", 95) && a.is("perf.category", 19); }),
           "A002 did not load (bank %g, program %g, category %g)", a.get("part.bank.p1"), a.get("part.program.p1"), a.get("perf.category"));
-    CHECK(a.data("morph.p1.bl") != zapVoice, "part 1 still holds %s", zapVoice.c_str());
+    CHECK(a.until([&] { return a.data("morph.p1.bl") != zapVoice; }), "part 1 still holds %s", zapVoice.c_str());
 
     // Program change: bank select Preset B (LSB 0x42) then program 6 is B006.
     a.midi({0xB0, 0, 0x3F});
@@ -622,7 +628,50 @@ int main() {
     }
 
     a.proc.reset();
+    // Options: a new instance plays the Init Patch. The standalone's app brings back the state it closed with, as a
+    // session, as it starts: Load Last Patch keeps it, and otherwise the Init Patch plays over it. A host's session stays.
+    {
+        std::string closed;   // a standalone's state as its app saves it at the close
+        {
+            Rig s(true);
+            s.set("perf.program", 4);
+            CHECK(s.until([&] { return s.data("perf.name") == "Snow Decay"; }), "A005 did not load in the standalone");
+            s.st->setData("opt.request", "init_set");
+            CHECK(s.until([&] { return fs::exists(tmp / "Init.fsvr") && s.data("opt.init_name") == "Snow Decay"; }), "Use Current wrote no Init.fsvr");
+            s.set("perf.program", 2);
+            CHECK(s.until([&] { return s.data("perf.name") == "Nightmare"; }), "A003 did not load in the standalone");
+            s.proc->saving();
+            closed = s.st->save();
+        }
+        {
+            Rig s;
+            CHECK(s.until([&] { return s.data("perf.user.name") == "Snow Decay" && s.is("perf.bank", 1); }), "a new instance did not play the Init Patch (\"%s\")",
+                  s.data("perf.user.name").c_str());
+        }
+        {
+            Rig s(true);
+            s.st->load(closed);
+            CHECK(s.until([&] { return s.data("perf.name") == "Snow Decay" && s.data("perf.user.name") == "Snow Decay"; }),
+                  "Load Last Patch off, the standalone reopened on \"%s\", not the Init Patch", s.data("perf.name").c_str());
+        }
+        std::string settings = "{\"loadLast\": 1}\n";
+        writeBytes(tmp / "Settings.json", std::vector<uint8_t>(settings.begin(), settings.end()));
+        {
+            Rig s(true);
+            CHECK(s.is("opt.load_last", 1), "Settings.json's Load Last Patch did not reach the instance");
+            s.st->load(closed);
+            s.until([] { return false; }, 400);
+            CHECK(s.data("perf.name") == "Nightmare", "Load Last Patch on, the standalone reopened on \"%s\"", s.data("perf.name").c_str());
+        }
+        {
+            Rig s;   // a host's session is the session
+            s.st->load(closed);
+            s.until([] { return false; }, 400);
+            CHECK(s.data("perf.name") == "Nightmare", "a host's session came back as \"%s\"", s.data("perf.name").c_str());
+        }
+    }
+
     fs::remove_all(tmp, ec);
-    if (!fails) std::printf("check_plugin: factory banks, sessions, Import SysEx, the bank browser, morph (off), Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus and a preset's Fseq after a reopen all pass\n");
+    if (!fails) std::printf("check_plugin: factory banks, sessions, Import SysEx, the bank browser, morph (off), Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, a preset's Fseq after a reopen, and the Init and last patches all pass\n");
     return fails ? 1 : 0;
 }

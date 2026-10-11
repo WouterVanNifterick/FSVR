@@ -114,7 +114,7 @@ struct Action {
     std::vector<std::string> values;   // Cycle: the var's values in order, wrapping past the last
     Vars vars;                   // Goto and Set; Data and Modal: text key (may hold {vars}) to text
     Vars set;                    // Goto and Value: skin-wide vars it sets before it shows the view
-    double amount = 0;           // Step; Value: the value it sets
+    double amount = 0;           // Step; Value: the value it sets; Scale: the scale it sets (0: the menu)
     std::string key, nameKey;    // Presets: the envelope data key, the text key of the name field
     bool save = false;           // Presets: store into the chosen slot instead of loading it
     int perColumn = 0;           // Presets: items per menu column
@@ -623,7 +623,8 @@ private:
     int modalVeil_ = -1, modalBox_ = -1;         // the root's veil and embed for a modal (skin.cpp adds them)
     std::string modalShown_;                     // the view it shows, "" when closed
     bool closing_ = false;                       // the standalone closes without asking
-    double deviceSent_[6] = {-1, -1, -1, -1, -1, -1};   // the settings modal: each device param as last read
+    double deviceSent_[6] = {-1, -1, -1, -1, -1, -1};   // the settings view: each device param as last read
+    bool devicesShown_ = false;                          // the settings view was in sight at the last tick
     int stepDir_ = 0;                            // a number's stepper held: -1 down, 1 up
     const Skin::Stepper* stepperOf(const Node& n, int i) const;
     void stepNumber(const Hit& h, int dir);      // one step of the param (or a hundredth of a continuous one)
@@ -734,6 +735,7 @@ private:
     void setModal(const std::string& view);
     void standaloneVar();
     bool readDevices();
+    bool settingsShown(const Node& n) const;
     void syncDevices();
     int listRowAt(const Hit& h, int y) const;
     void unlight(Node& n);                       // clears every list's right-clicked row    // the row of a list under y, -1 if none

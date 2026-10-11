@@ -28,6 +28,10 @@ public:
     double sampleRate() const;
     void process(float* outL, float* outR, int numSamples);
     void setGain(double g);
+    // The Options page's Quality / Speed, 0 Full (the default, the engine as measured) to 3 Fastest. Each step
+    // trades accuracy for CPU on purpose: quiet operators are gated sooner, the control maths runs less often and,
+    // from Fast on, the resampler to the host rate is linear. Call it from the audio thread, between process calls.
+    void setSpeed(int s);
 
     // ---- MIDI. One channel message or one complete sysex message per call.
     void sendMidi(const uint8_t* bytes, size_t len);

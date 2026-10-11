@@ -36633,5 +36633,46 @@
   "max": 1024,
   "steps": 1024,
   "host": false
+ },
+ {
+  "id": "gui.keys_top",
+  "name": "More Keys, Wheels on Top",
+  "min": 0,
+  "max": 1,
+  "steps": 1,
+  "labels": [
+   "Off",
+   "On"
+  ],
+  "default": 0,
+  "host": false
+ },
+ {
+  "id": "opt.load_last",
+  "name": "Load Last Patch in Standalone",
+  "min": 0,
+  "max": 1,
+  "steps": 1,
+  "labels": [
+   "Off",
+   "On"
+  ],
+  "default": 0,
+  "host": false
+ },
+ {
+  "id": "opt.speed",
+  "name": "Quality / Speed",
+  "min": 0,
+  "max": 3,
+  "steps": 3,
+  "labels": [
+   "Full",
+   "Good",
+   "Fast",
+   "Fastest"
+  ],
+  "default": 0,
+  "host": false
  }
 ]

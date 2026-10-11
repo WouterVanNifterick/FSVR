@@ -1,0 +1,62 @@
+{
+ "size": [
+  740,
+  10
+ ],
+ "flow": "column",
+ "gap": 12,
+ "widgets": [
+  {
+   "type": "embed",
+   "name": "display",
+   "rect": [
+    0,
+    0,
+    740,
+    10
+   ],
+   "view": "options_display",
+   "fit": true
+  },
+  {
+   "type": "embed",
+   "name": "startup",
+   "rect": [
+    0,
+    0,
+    740,
+    10
+   ],
+   "view": "options_startup",
+   "fit": true
+  },
+  {
+   "type": "embed",
+   "name": "special",
+   "rect": [
+    0,
+    0,
+    740,
+    10
+   ],
+   "view": "options_special",
+   "fit": true
+  },
+  {
+   "type": "embed",
+   "name": "audio",
+   "rect": [
+    0,
+    0,
+    740,
+    10
+   ],
+   "view": "options_audio",
+   "fit": true,
+   "showIf": {
+    "var": "standalone",
+    "equals": "1"
+   }
+  }
+ ]
+}

@@ -1,0 +1,203 @@
+{
+ "size": [
+  740,
+  102
+ ],
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "frame",
+   "rect": [
+    0,
+    20,
+    740,
+    82
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "title",
+   "rect": [
+    6,
+    0,
+    104,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Startup",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "init_label",
+   "rect": [
+    16,
+    38,
+    220,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Init Patch",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    8,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "textbox",
+   "name": "init_name",
+   "rect": [
+    246,
+    38,
+    230,
+    18
+   ],
+   "key": "opt.init_name",
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "A001 Zap ! (factory)",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    4,
+    2,
+    4,
+    2
+   ],
+   "tip": "What a new instance plays, and what Init All loads"
+  },
+  {
+   "type": "button",
+   "name": "init_set",
+   "rect": [
+    484,
+    36,
+    116,
+    24
+   ],
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "Use Current",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    1,
+    2,
+    0
+   ],
+   "action": {
+    "data": {
+     "opt.request": "init_set"
+    }
+   },
+   "tip": "Make the performance playing now, with its voices and its Fseq, the Init Patch"
+  },
+  {
+   "type": "button",
+   "name": "init_clear",
+   "rect": [
+    608,
+    36,
+    116,
+    24
+   ],
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "Use Factory",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    1,
+    2,
+    0
+   ],
+   "action": {
+    "data": {
+     "opt.request": "init_clear"
+    }
+   },
+   "tip": "The Init Patch back to the factory's A001 Zap !"
+  },
+  {
+   "type": "button",
+   "name": "load_last",
+   "rect": [
+    16,
+    68,
+    708,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Load Last Patch in Standalone",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    8,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "opt.load_last",
+   "tip": "The standalone opens on the patch it had when it was closed; off, on the Init Patch"
+  }
+ ]
+}

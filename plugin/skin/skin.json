@@ -241,6 +241,9 @@
   "backgrounds/keys": {
    "surface": false
   },
+  "backgrounds/keys_compact": {
+   "surface": false
+  },
   "backgrounds/library_stripes": {
    "slice": [
     0,
@@ -455,6 +458,10 @@
    "tiles": 4,
    "surface": false
   },
+  "buttons/tab_options": {
+   "tiles": 4,
+   "surface": false
+  },
   "buttons/tab_parts": {
    "tiles": 4,
    "surface": false
@@ -506,6 +513,9 @@
   "faders/pot_cap": {
    "surface": false
   },
+  "faders/track_h": {
+   "surface": false
+  },
   "faders/track_long_narrow": {
    "surface": false
   },
@@ -526,6 +536,13 @@
    "surface": false
   },
   "faders/wheel_slot": {
+   "surface": false
+  },
+  "faders/wheel_slot_v": {
+   "surface": false
+  },
+  "faders/wheel_v": {
+   "tiles": 128,
    "surface": false
   },
   "icons/kbd_mono": {
@@ -822,7 +839,7 @@
   "if": "gui.edited"
  },
  "standalone": {
-  "settings": "dialog_audio"
+  "settings": "options_audio"
  },
  "keys": [
   {

@@ -16,15 +16,15 @@ The plug-in's editor covers everything the Yamaha FS1R has, in hammered aqua chr
 
 ## The window
 
-The window is 1514 x 952 at 1x (`blender/scripts/layout.py` has every rect, and `plugin/skin/views/main.json` follows it).
+The window is 1514 x 923 at 1x with the compact keyboard, the default, and 1514 x 952 with the wheels on top (`blender/scripts/layout.py` has every rect, and `plugin/skin/views/main.json` follows it).
 
 - **The top bar** keeps its controls: Volume, the LCD, Save, Import, Editor and Keys in that order, the part buttons, the knob mode switch and its four pots, and the monitor, whose harmonic numbers are drawn text now. Its five groups stand with equal gaps between them and the same margin at each end.
-- **The LCD** shows the performance (a user one by its name), the part and its voice by name, the part's channel, POLY and CPU, on its 25 x 3 grid of dot cells, which with the marks column is centred in the glass. Every character stands on a cell: the rows are 16 px apart as the glass's are, and the window size takes the top row's last five cells (it used to end in the marks column, where the glass has none).
-- **The page tabs** run across the top of the content well: Browser, Parts, Operators, Performance, Effects, Fseq and Quick Control. They were the Navigator's page buttons; the chosen tab sinks into the well (above). The page itself is the well's floor, so pages draw no ground of their own.
+- **The LCD** shows the performance (a user one by its name), the part and its voice by name, the part's channel, POLY and CPU, on its 25 x 3 grid of dot cells, which with the marks column is centred in the glass. Every character stands on a cell: the rows are 16 px apart as the glass's are. The top row's last five cells held the window size until the scales moved to the Options page, and stand empty.
+- **The page tabs** run across the top of the content well: Browser, Parts, Operators, Performance, Effects, Fseq, Quick Control and Options, 150 px each since Options made them eight. They were the Navigator's page buttons; the chosen tab sinks into the well (above). The page itself is the well's floor, so pages draw no ground of their own.
 - **The Operators tab** holds the seven expert pages: Operator (the operator the panel picks, which Edit Operator opens), All Operators, Envelopes, Modulation, Key Scaling, Filter and Pitch, as sub-tabs along its top in the browser's style (`views/ops_tabs.json`, embedded at the top of each). The tab lights for any of them (its `onIf`), the sub-tab for the one showing.
 - **The operator column** on the right holds the operator panel and, under it, the expert pages as buttons with an icon and the page's full name: Operators, Envelopes, Modulation, Key Scaling, Filter and Pitch. They open the same pages as the Operators tab's sub-tabs, and light with them.
-- **The keyboard** spans the window: 88 keys, A0 to C8, in a well of its own, with the pitch and mod wheels lying on their sides in a strip above it. Dragging a wheel right raises it, so pitch bends up to the right; the pitch wheel springs back to the centre.
-- **Scales.** The LCD's window size, top right, opens the scales, 0.5x to 2x. Each is the skin loaded again with every rect, pad and font size multiplied and its art taken from `plugin/skin/scales/<scale>/`, and the choice is saved with the session.
+- **The keyboard** spans the window in a well of its own, in one of two layouts (Options, Display). By default it is 85 keys, C1 to C8, with the pitch and mod wheels standing at their left under their names (`keys.json`), dragged up to raise them; its well has no strip over the keys, so the window is 29 px shorter. With More Keys, move Mod/Pitch to top it is 88 keys, A0 to C8, with the wheels lying on their sides in a strip above them (`keys_top.json`), dragged right to raise them, so pitch bends up to the right. Either way the pitch wheel springs back to the centre. `main.json` holds both as embeds and shows one by `gui.keys_top`.
+- **Scales.** The Options page's GUI Scale picks them, 50% to 200% (0.5x to 2x), each a radio button that is lit while it is the window's (Hollow's `{ "scale": 1.5 }`). Each is the skin loaded again with every rect, pad and font size multiplied and its art taken from `plugin/skin/scales/<scale>/`. The choice is saved with the session, and a new window opens at the last one picked.
 
 ## The operator panel
 
@@ -44,9 +44,9 @@ The operator column's panel is the operator page's most used settings, on whiche
 
 | File | What it renders |
 |---|---|
-| `chrome.blend` | The window's chrome: the sheet, its wells, the page tabs raised and sunk (`build_chrome.py`, `render_chrome.py`) |
+| `chrome.blend` | The window's chrome: the sheet, its wells, the page tabs raised and sunk, and the compact keyboard's shorter well (`build_chrome.py`, `render_chrome.py`) |
 | `buttons.blend`, `panels.blend`, `displays.blend`, `glyphs.blend` | The buttons, plates, LCDs, meters, tags and icons (`sprites.py`, with the icons as strokes in `icons.py`) |
-| `pot.blend`, `slider.blend`, `wheel.blend`, `keys.blend` | The pots, the faders and tracks, the wheels and the 88 keys (`render_pot.py`, `render_slider.py`, `render_wheel.py`, `render_keys.py`) |
+| `pot.blend`, `slider.blend`, `wheel.blend`, `keys.blend` | The pots, the faders and tracks (one lying down, for the Options page), the wheels standing and lying, and the 88 keys (`render_pot.py`, `render_slider.py`, `render_wheel.py`, `render_keys.py`) |
 | `logos.blend` | The FSVR wordmark from `blender/logos/fsvr_wordmark.svg` and the musica.studio wordmark (`render_logos.py`) |
 
 - **The blue mottled texture** is the old skin's chrome, isolated: `extract_aqua.py` divided each of the old window's backgrounds by its panel's lightness, stitched them across their seams and filled the gaps, giving `aqua_mottle.png` (the texture over the old window), `aqua_env.png` (its soft part, the blurred room it reflects) and `aqua_grain.png` (its hammered speckle, tileable). The chrome material lays `aqua_env` across the window and bends it with the surface's slope, as the old runtime's surface did, and adds the grain as both colour and dents, so it stays sharp at 2x.
@@ -142,7 +142,16 @@ The unit draws an EG as its points with each stage's time laid end to end, and s
 - **The monitor** shows the last note's first 32 harmonics in the output, at the numbers printed under them, and the output's peak level per channel, -60 to 0 dB.
 - **Panic** (the bezel's top button) is all notes off while held.
 - **The LCD's POLY** counts the channels the allocator still owns, out of the unit's 32: one per part a key plays, and a released note keeps counting until its release is over, which is the same test note-on reads when it looks for a free channel. CPU is the audio thread's load.
-- **MIDI/Aud**, above Volume in the standalone only, opens its audio and MIDI settings. On Windows they are a modal of the skin's (`dialog_audio`) that reads and drives clap-wrapper's own settings window, which stays hidden: the driver, output, input, sample rate and buffer size as dropdowns and the MIDI inputs as a list of lamps, each change applied and saved by the app as if its window had been used. On macOS the button opens clap-wrapper's window through its app menu's action; Linux's standalone has neither, so the button does nothing there.
+
+### The Options page
+
+The last tab, `page_options`: one list, top to bottom, scrolled when it runs past the page (`options_list`, a column of the sections `options_display`, `options_startup`, `options_special` and, in the standalone, `options_audio`). Every option is kept for every instance rather than with a session, in `<Documents>/FSVR/Settings.json` (beside the library), which the processor reads as it starts and writes when an option changes; a session brings back its own values for them and the processor puts the file's back over them.
+
+- **Display.** GUI Scale, 50% to 200% (The window, above); More Keys, move Mod/Pitch to top, the keyboard's layout (`gui.keys_top`, The window).
+- **Startup.** The Init Patch is what a new instance plays and what Init All loads: the factory's A001 Zap ! until Use Current saves the performance playing, with its voices and its Fseq, as `<Documents>/FSVR/Init.fsvr`; Use Factory deletes it. It plays under its own name, in no bank. Load Last Patch in Standalone (`opt.load_last`, off by default): clap-wrapper's standalone saves the plug-in's whole state when it quits and loads it back as it starts (`settings.clapwrapper`, its `entry.cpp`), so the last patch comes back by itself; with the switch off the processor plays the Init Patch over that state. It tells the app's restore from a Load State the user chose by its timing, the first one within 3 s of the processor starting, and it knows it is in the standalone from the text data `live.standalone`, which Hollow's CLAP layer sets before it creates the processor.
+- **Special.** Turn off all Effects sets insertion, variation and reverb to no effect and the EQ's three gains to 0 dB, as edits the engine hears. Init All asks first (`dialog_init`), then sets every system param to its default and loads the Init Patch.
+- **Quality / Speed** (`opt.speed`, 0 Full to 3 Fastest, `fs1r::Device::setSpeed`) trades accuracy for CPU on purpose, which is why it is not in `src/fsvr/tuning.h`, whose knobs must not change the output. Full is the engine as measured, bit-identical to before the slider (the nineteen regression cases against a fingerprint of the tree before it, and a render's hash). Each step gates quiet operators sooner (-100, -90, -80, -72 dB), works out the frequency and level maths less often (every 16, 32, 48, 64 samples) and, from Fast on, resamples to the host rate linearly instead of cubically. Measured with eight held notes at 44.1 kHz, ten seconds rendered on one core: A020 Vox Morph 41 %, 35 %, 34 %, 33 %; A088 Fat Line 26 %, 17 %, 16 %, 16 %. The first step does most of it: it gates the operators sitting at output level 0 (-96 dB), which Full computes forever. Harder gates and slower control rates were tried (-60 dB and 128 samples) and buy a point or two more, so what is left is the operators that sound.
+- **Audio and MIDI**, in the standalone only (skin var `standalone`): on Windows the controls read and drive clap-wrapper's own settings window, which stays hidden: the driver, output, input, sample rate and buffer size as dropdowns and the MIDI inputs as a list of lamps, each change applied and saved by the app as if its window had been used. It is skin.json's `"standalone"` settings view, which Hollow reads whenever it comes into sight in a page as well as in a modal. Device Window reads them again, and on macOS, where the window cannot be read, opens clap-wrapper's window through its app menu's action; Linux's standalone has neither, so the section does not show there.
 
 ### Keybindings
 
@@ -175,7 +184,7 @@ Every dialog but the About box is a Hollow modal: a view named `dialog_*`, opene
 | `dialog_delete`, `dialog_rename`, `dialog_attributes` | A preset's right-click menu |
 | `dialog_bank_delete`, `dialog_bank_rename` | A bank's right-click menu |
 | `dialog_quit` | Closing the standalone with the performance edited (skin.json `close`) |
-| `dialog_audio` | MIDI/Aud (skin.json `standalone`) |
+| `dialog_init` | Options > Init All |
 
 ## Usability sweep
 

@@ -219,7 +219,7 @@ void Synth::render_chan(Chan& C, double& outL, double& outR) {
         outL = outR = 0.0; C.lastL = C.lastR = 0.0;
         return;
     }
-    if (C.ctlLeft-- <= 0) { C.ctlLeft = tuning::CTL_DECIMATION - 1; refresh_ctl(C); }
+    if (C.ctlLeft-- <= 0) { C.ctlLeft = ctlDecimation - 1; refresh_ctl(C); }
     const Voice& V = perf.part[C.part].voice; const unsigned char* alg = FS1R_ALG[V.alg];
     double partV = C.partV, partU = C.partU;
     double Cb = 0, H = 0, S = 0, fbNew = 0, mix = 0;
@@ -234,7 +234,7 @@ void Synth::render_chan(Chan& C, double& outL, double& outR) {
         // about a millisecond instead of cutting the waveform. A silenced operator still runs while a
         // grain it already fired is in flight, so the last one fades out under its own window.
         if (s.attS < -1e8) s.attS = s.att; else s.attS += (s.att - s.attS) * LEVEL_SLEW_K;
-        double gain = egdb - s.attS > -100 ? db2lin_fast(egdb - s.attS) : 0.0;
+        double gain = egdb - s.attS > gateDb ? db2lin_fast(egdb - s.attS) : 0.0;
         if (gain != 0.0 || s.g[0].on || s.g[1].on) {
             double fop = s.fop;
             // A FIXED-frequency operator gets no frequency EG. MEASURED 2026-09-25 off 24_onset's
@@ -254,7 +254,7 @@ void Synth::render_chan(Chan& C, double& outL, double& outR) {
         // unvoiced (noise formant) operator
         const OpU& u = V.u[o];
         double uegdb = s.ueg.tick();
-        if (uegdb - s.uatt > -100) {
+        if (uegdb - s.uatt > gateDb) {
             double nf = s.nf;
             if (s.ufeg.stage < 2) nf *= fm::exp2(s.ufeg.tick() / 12.0);
             s.rng ^= s.rng << 13; s.rng ^= s.rng >> 17; s.rng ^= s.rng << 5;

@@ -713,7 +713,7 @@ struct Loader {
         else if (a.has("toggle")) { r.type = Action::Toggle; r.target = a["toggle"].str(); }
         else if (a.has("url")) { r.type = Action::Url; r.target = a["url"].str(); }
         else if (a.has("standalone")) { r.type = Action::Standalone; r.target = a["standalone"].str(); }
-        else if (a.has("scale")) r.type = Action::Scale;
+        else if (a.has("scale")) { r.type = Action::Scale; r.amount = a["scale"].num(0); }   // "menu", or a scale to set
         else if (a.has("file")) {
             r.type = Action::File;
             r.target = a["file"].str();

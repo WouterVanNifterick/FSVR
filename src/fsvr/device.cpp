@@ -11,7 +11,7 @@ struct Device::Impl {
     double pos = 0;                          // fractional read position between engine samples
     float h[2][4] = {};                      // four-point history per channel for the interpolator
     float eng[2][256]; int engFill = 0, engRead = 0;
-    bool echo = false;
+    bool echo = false, linear = false;      // linear: Speed Fast or Fastest, the cheaper interpolator
     // ponytail: cubic interpolation between engine samples. Audible aliasing above ~15 kHz when the host
     // runs at 44.1; swap in a polyphase FIR if a spectrum measurement ever shows it matters.
     inline void pull() {
@@ -35,6 +35,15 @@ void Device::setSampleRate(double hostRate) { if (hostRate > 1000) p->hostRate =
 double Device::sampleRate() const { return p->hostRate; }
 void Device::setGain(double g) { p->s.gain = g; }
 void Device::setEchoParameters(bool on) { p->echo = on; }
+
+// Ours, a user's choice, so unlike fsvr/tuning.h's knobs every step but Full changes the output. Full gates at
+// -100 dB, under the 16-bit floor after OUT_GAIN; -90 dB was measured at 53 % to 46 % of a core on Vox Morph's
+// 8 notes (docs/performance.md), and the gates below it start to cut the tails of quiet modulators.
+void Device::setSpeed(int s) {
+    static const struct { double gateDb; int ctl; bool linear; } kS[4] = {{-100, tuning::CTL_DECIMATION, false}, {-90, 32, false}, {-80, 48, true}, {-72, 64, true}};
+    const auto& k = kS[s < 0 ? 0 : s > 3 ? 3 : s];
+    p->s.gateDb = k.gateDb, p->s.ctlDecimation = k.ctl, p->linear = k.linear;
+}
 void Device::forceChannel(int channel) { p->s.forceChannel = channel; }
 
 void Device::process(float* outL, float* outR, int n) {
@@ -46,6 +55,11 @@ void Device::process(float* outL, float* outR, int n) {
     for (int i = 0; i < n; i++) {
         p->pos += step;
         while (p->pos >= 1.0) { p->pos -= 1.0; p->pull(); }
+        if (p->linear) {
+            outL[i] = (float)(p->h[0][1] + (p->h[0][2] - p->h[0][1]) * p->pos);
+            outR[i] = (float)(p->h[1][1] + (p->h[1][2] - p->h[1][1]) * p->pos);
+            continue;
+        }
         outL[i] = Impl::cubic(p->h[0], p->pos);
         outR[i] = Impl::cubic(p->h[1], p->pos);
     }

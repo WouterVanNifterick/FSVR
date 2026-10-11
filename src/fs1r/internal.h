@@ -516,6 +516,9 @@ struct Synth {
     // One entry point for channel messages so the plugin layer can feed the engine the same way the
     // console does. Sysex goes through midi_sysex(); replies land in outQ.
     int forceChannel = -1;                       // console -c: every part listens on this channel
+    // Ours: the Options page's Quality / Speed (Device::setSpeed). At Full these are the engine as measured: an operator
+    // under gateDb is not computed, and the control maths runs every ctlDecimation samples.
+    double gateDb = -100; int ctlDecimation = tuning::CTL_DECIMATION;
     double senseTimer = 0;                       // active sensing: mute if 0xFE stops arriving
     int bankMsb = 0x3F, perfBank = -1;
     // FUN_000191C0 fills the source table from the system control numbers, in this order. The four knob

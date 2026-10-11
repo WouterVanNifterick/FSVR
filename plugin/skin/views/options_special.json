@@ -1,0 +1,361 @@
+{
+ "size": [
+  740,
+  166
+ ],
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "frame",
+   "rect": [
+    0,
+    20,
+    740,
+    146
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "title",
+   "rect": [
+    6,
+    0,
+    100,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Special",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "fx_label",
+   "rect": [
+    16,
+    38,
+    220,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Effects",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    8,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "fx_off",
+   "rect": [
+    246,
+    36,
+    180,
+    24
+   ],
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "Turn off all Effects",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    1,
+    2,
+    0
+   ],
+   "action": {
+    "data": {
+     "opt.request": "fx_off"
+    }
+   },
+   "tip": "Insertion, variation and reverb to no effect, and the EQ flat"
+  },
+  {
+   "type": "plate",
+   "name": "init_all_label",
+   "rect": [
+    16,
+    68,
+    220,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Reset",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    8,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "init_all",
+   "rect": [
+    246,
+    66,
+    180,
+    24
+   ],
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "Init All",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    1,
+    2,
+    0
+   ],
+   "action": {
+    "modal": "dialog_init"
+   },
+   "tip": "The system settings back to their defaults and the Init Patch loaded"
+  },
+  {
+   "type": "plate",
+   "name": "speed_label",
+   "rect": [
+    16,
+    109,
+    220,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Quality / Speed",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    8,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "speed_quality",
+   "rect": [
+    246,
+    108,
+    80,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Quality",
+    "font": "caption_grey_12",
+    "align": "right",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "speed_track",
+   "rect": [
+    330,
+    107,
+    240,
+    20
+   ],
+   "fill": {
+    "image": "faders/track_h"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "speed",
+   "rect": [
+    323,
+    96,
+    255,
+    42
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "vertical": false,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.34,
+   "reset": "default",
+   "param": "opt.speed",
+   "tip": "Full is the engine as measured. Each step towards Speed gates quiet operators sooner and works out pitch and level less often, for less CPU"
+  },
+  {
+   "type": "plate",
+   "name": "speed_speed",
+   "rect": [
+    578,
+    108,
+    80,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Speed",
+    "font": "caption_grey_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "speed_0",
+   "rect": [
+    314,
+    138,
+    60,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Full",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "speed_1",
+   "rect": [
+    385,
+    138,
+    60,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Good",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "speed_2",
+   "rect": [
+    455,
+    138,
+    60,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Fast",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "speed_3",
+   "rect": [
+    526,
+    138,
+    60,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Fastest",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    0,
+    2,
+    0
+   ]
+  }
+ ]
+}

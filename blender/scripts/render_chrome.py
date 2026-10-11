@@ -1,7 +1,8 @@
 # Renders the main window's chrome from chrome.blend into the skin, at every scale (kit.SCALES):
 #   backgrounds/main      the whole window, every tab raised: main.json's fill
-#   backgrounds/keys      the keyboard's strip of it, for the keys view, which moves up under the top bar when
-#                         the editor is hidden
+#   backgrounds/keys      the keyboard's strip of it, for the keys_top view, which moves up under the top bar
+#                         when the editor is hidden
+#   backgrounds/keys_compact  the same strip with the compact keyboard's shorter well, for the keys view
 #   backgrounds/page      the content well's floor behind the dialogs, as big as the biggest (dialog_audio)
 #   buttons/tab_<name>    x4 tiles: raised, sunk into the content well, raised under the pointer, sunk under it
 # In Blender (blender/scripts on sys.path): import render_chrome; render_chrome.run()
@@ -26,8 +27,15 @@ def run(scales=kit.SCALES):
         a = kit.render(0, L.KEYWELL[1] - 6, L.W, L.H - L.KEYWELL[1] + 6, s)
         a[..., 3] = 1
         kit.save(a, 'backgrounds/keys', s)
+    B.key_well(L.KEYWELL_COMPACT)
+    for s in scales:
+        a = kit.render(0, L.KEYWELL[1] - 6, L.W, L.H_COMPACT - L.KEYWELL[1] + 6, s)
+        a[..., 3] = 1
+        kit.save(a, 'backgrounds/keys_compact', s)
+    B.key_well(L.KEYWELL)
     kit.meta('backgrounds/main', surface=False)
     kit.meta('backgrounds/keys', surface=False)
+    kit.meta('backgrounds/keys_compact', surface=False)
     kit.tiles('backgrounds/page', (L.CONTENT[0] + 40, L.CONTENT[1] + 8, 560, 521), [None], scales=scales)
     for i, (name, caption, page) in enumerate(L.TABS):
         x, y, w, h = L.tab_rect(i)

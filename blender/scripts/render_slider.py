@@ -1,8 +1,9 @@
 # Renders the slider parts from slider.blend into the skin at every scale: faders/pot_cap (the grabber) and
 # the tracks, faders/track_narrow, track_long_narrow, track_mid_narrow, track_short_narrow and track_parts (the
-# Parts page's volume, as long as its fader travels).
+# Parts page's volume, as long as its fader travels), and faders/track_h, lying down for the Options page's
+# Quality: the same track turned a quarter clockwise, under the scene's own lamps.
 #   In Blender, with slider.blend open (blender/scripts on sys.path): import render_slider; render_slider.run()
-import bmesh, os, sys
+import bmesh, math, os, sys
 import bpy
 import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -18,7 +19,9 @@ TRACK_W = 20
 # first, middle and last ticks (the heavier ones): a tick every 4 px on whole rows at 1x. Height, first tick
 # row, ticks.
 TRACKS = {"track_narrow": (173, 14, 37), "track_long_narrow": (188, 17, 39),
-          "track_mid_narrow": (149, 14, 31), "track_short_narrow": (125, 14, 25), "track_parts": (170, 17, 35)}
+          "track_mid_narrow": (149, 14, 31), "track_short_narrow": (125, 14, 25), "track_parts": (170, 17, 35),
+          "track_h": (240, 14, 54)}
+LYING = {"track_h"}   # rendered turned, so its length runs across
 TICK_X = (6, 14)        # tick span, px from the left edge
 TICK_X_HEAVY = (4, 16)
 WELL_R = 9.8            # half width of the slot, px (the WellMat shader's W_PX)
@@ -82,9 +85,14 @@ def run(scales=kit.SCALES, only=None):
             f.material_index = 1 if heavy else 0
         bm.to_mesh(ticks.data)
         bm.free()
+        lying = name in LYING
+        for o in (well, ticks):
+            o.rotation_euler.z = -math.pi / 2 if lying else 0
         for s in scales:
-            kit.save(render(sc, cam, TRACK_W, h, s), "faders/" + name, s)
+            kit.save(render(sc, cam, h, TRACK_W, s) if lying else render(sc, cam, TRACK_W, h, s), "faders/" + name, s)
         kit.meta("faders/" + name, surface=False)
+        for o in (well, ticks):
+            o.rotation_euler.z = 0
     show(True)
     sc.render.resolution_x = sc.render.resolution_y = CAP
     cam.data.ortho_scale = CAP * PX

@@ -258,10 +258,13 @@ public:
             for (auto& c : corners[p]) std::memcpy(c.data(), model.voice[p], 608);
         pushModel();
         loadsSeen = st.loads();
-        // What the LCD and the browser name is what plays: the worker's first look loads that factory
-        // performance (A001 on a fresh instance), unless a session arrives first.
-        sel[(size_t)perfProgram] = std::nan("");
         lib.rescan(true);
+        readOptions();
+        // What the LCD and the browser name is what plays: the worker's first look loads the Init Patch (Options), else
+        // that factory performance (A001), unless a session arrives first. The standalone's app brings back the state
+        // it closed with as a session: Load Last Patch keeps it, and otherwise the Init Patch plays over it (restore).
+        if (std::filesystem::exists(std::filesystem::u8path(optionsFile("Init.fsvr")))) startup = optionsFile("Init.fsvr");
+        else sel[(size_t)perfProgram] = std::nan("");
         st.setData("library.dir", (std::filesystem::u8path(lib.dir) / "").u8string());
         st.setData("fsvr.version", FSVR_VERSION);   // the About box's header
         st.setData("fsvr.contributors", contributors());
@@ -294,6 +297,7 @@ public:
 
     void process(const float* const*, float* const* out, int frames) override {
         const NoDenormals flush;
+        if (const int s = (int)std::lround(get(speed)); s != speedSent) dev.setSpeed(speedSent = s);
         std::unique_lock<std::mutex> lk(ctl, std::try_to_lock);
         const unsigned loads = st.loads();
         const bool live = lk.owns_lock() && !(loads & 1) && loads == loadsSeen;
@@ -357,6 +361,18 @@ private:
     // The params hold the same numbers up to their 16,384, a host's range; the library has no such limit.
     int userPerf = 0, userVoice[4] = {0, 0, 0, 0}, userFseq = 0;
     std::string voiceShown[4];         // each part's voice name as last published (part.voice.pN)
+    // Options (page_options): kept for every instance, not with a session, in <Documents>/FSVR/Settings.json under
+    // these keys, then "scale", the GUI scale a new window opens at
+    static constexpr std::pair<const char*, const char*> kOptions[] = {
+        {"keysTop", "gui.keys_top"}, {"loadLast", "opt.load_last"}, {"speed", "opt.speed"}};
+    static constexpr size_t kScale = sizeof kOptions / sizeof kOptions[0];
+    double options[kScale + 1] = {};   // as Settings.json has them
+    int loadLast = -1, speed = -1;
+    int speedSent = -1;                // the audio thread's: the speed the engine has
+    bool standalone = st.data("live.standalone") == "1";   // the format layer says so before we start
+    std::string startup;               // the .fsvr a fresh instance plays first, if not A001
+    bool restoredOnce = false;         // a session has come back since we started
+    const std::chrono::steady_clock::time_point created = std::chrono::steady_clock::now();
 
     // MIDI waiting for its place in the block
     static constexpr int kEvents = 1024;
@@ -425,6 +441,7 @@ private:
         fseqBank = P("fseq.bank"); fseqNumber = P("fseq.number"); fseqUser = P("fseq.user"); fseqPart = P("fseq.part"); fseqPos = P("fseq.position");
         panic = P("gui.panic");
         perfCategory = P("perf.category"); edited = P("gui.edited"); saveBank = P("save.bank");
+        loadLast = P("opt.load_last"); speed = P("opt.speed");
         itemCategory = P("item.category"); itemReadonly = P("item.readonly"); itemKind = P("item.kind"); bankReadonly = P("bank.readonly");
         browseBank = P("browse.bank"); browseCategory = P("browse.category"); browsePerf = P("browse.perf"); browseFseq = P("browse.fseq");
         for (int p = 0; p < 4; ++p) {
@@ -678,6 +695,7 @@ private:
                 std::lock_guard<std::mutex> g(ctl);
                 writeLists();
             }
+            if (n % 10 == 0) watchOptions();
             if (n % 2 == 0) harmonics();
             if (n % 3 == 1) waves();
             if (messageTicks && --messageTicks == 0) st.setData("fsvr.message", "");
@@ -691,6 +709,10 @@ private:
     void step() {   // under ctl: a session that arrived, what the engine did, what the params ask for
         const unsigned loads = st.loads();
         if (!(loads & 1) && loads != loadsSeen) restore(loads);
+        if (!startup.empty()) {
+            playInit(startup);
+            startup.clear();
+        }
         if (adoptWanted.exchange(false)) adopt();
         selectors();
         voiceNames();
@@ -736,6 +758,12 @@ private:
     // A session came back: the engine as it was saved, the corners too, and every param as the host holds it.
     void restore(unsigned loads) {
         loadsSeen = loads;
+        startup.clear();
+        // clap-wrapper's standalone loads the state it saved when it last closed, as it starts (entry.cpp); a later
+        // restore is a Load State the user chose, and in a host the session is the session.
+        // ponytail: "as it starts" is the first restore within 3 s of our construction
+        const bool reopened = standalone && !restoredOnce && std::chrono::steady_clock::now() - created < std::chrono::seconds(3);
+        restoredOnce = true;
         for (auto& v : voiceShown) v.assign(1, '\0');   // the session brought back the names it saved, maybe stale: publish ours again
         const std::vector<uint8_t> eng = unb64(st.data("fsvr.engine"));
         // const std::vector<uint8_t> mor = unb64(st.data("fsvr.morph"));
@@ -762,6 +790,8 @@ private:
         followParams();
         writeLists();
         names();
+        applyOptions();
+        if (reopened && get(loadLast) == 0) playInitPatch();   // Load Last Patch off: the standalone opens on the Init Patch
     }
 
     // What the engine holds, back into the params: every field whose bytes changed under us (a load, a
@@ -1130,6 +1160,7 @@ private:
         if (std::string r = take("bank.request"); !r.empty()) bankRequest(r);
         if (std::string path = take("fseq.export"); !path.empty()) exportFseq(path);
         if (std::string path = take("fseq.import_audio"); !path.empty()) importAudio(path);
+        if (std::string r = take("opt.request"); !r.empty()) optionRequest(r);
         for (int p = 0; p < 4; ++p)
             if (take("morph.request.p" + std::to_string(p + 1)) == "normalize") {
                 std::lock_guard<std::mutex> g(ctl);
@@ -1328,34 +1359,138 @@ private:
     // Export Preset: FSVR's own .fsvr, XML so it can carry more than the unit's bytes later on. Version 1
     // holds the name, the category and the sysex a performance and its voices and Fseq load from.
     void exportPreset(const std::string& path) {
-        std::string xml;
+        bool ok;
         {
             std::lock_guard<std::mutex> g(ctl);
-            const std::string name = perfName();
-            const std::vector<uint8_t> bytes = presetBytes(name);
-            xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<fsvr version=\"1\" type=\"performance\">\n  <name>" + xmlEscape(name) +
-                  "</name>\n  <category>" + xmlEscape(kCategories[std::clamp((int)model.perf[14], 0, 22)]) +
-                  "</category>\n  <sysex encoding=\"base64\">" + b64(bytes.data(), bytes.size()) + "</sysex>\n</fsvr>\n";
+            ok = writePreset(path);
         }
-        if (!writeFile(path, std::vector<uint8_t>(xml.begin(), xml.end()))) message("Cannot write " + path);
+        if (!ok) message("Cannot write " + path);
         else message("Exported " + std::filesystem::u8path(path).filename().u8string());
     }
 
-    // Import FSVR Preset: the preset plays at once, and the Save modal opens on its name.
-    void importPreset(const std::string& path) {
+    bool writePreset(const std::string& path) {   // under ctl
+        const std::string name = perfName();
+        const std::vector<uint8_t> bytes = presetBytes(name);
+        const std::string xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<fsvr version=\"1\" type=\"performance\">\n  <name>" + xmlEscape(name) +
+                                "</name>\n  <category>" + xmlEscape(kCategories[std::clamp((int)model.perf[14], 0, 22)]) +
+                                "</category>\n  <sysex encoding=\"base64\">" + b64(bytes.data(), bytes.size()) + "</sysex>\n</fsvr>\n";
+        return writeFile(path, std::vector<uint8_t>(xml.begin(), xml.end()));
+    }
+
+    // ---- options: the Options page, kept for every instance ---------------------------------------
+
+    // <Documents>/FSVR (the library's folder's parent), where Settings.json and Init.fsvr live.
+    std::string optionsFile(const char* name) const { return (std::filesystem::u8path(lib.dir).parent_path() / name).u8string(); }
+
+    static const char* optionKey(size_t k) { return k < kScale ? kOptions[k].first : "scale"; }
+
+    void readOptions() {
+        for (size_t k = 0; k < kScale; ++k) options[k] = P(kOptions[k].second) >= 0 ? st.def((size_t)P(kOptions[k].second)).def : 0;
+        options[kScale] = 1;
         std::vector<uint8_t> raw;
-        if (!readFile(path, raw)) { message("Cannot read " + path); return; }
+        Json j;
+        if (readFile(optionsFile("Settings.json"), raw) && hollow::parseJson(std::string(raw.begin(), raw.end()), j))
+            for (size_t k = 0; k <= kScale; ++k) options[k] = j[optionKey(k)].num(options[k]);
+        if (options[kScale] != 1 && st.ui().empty())   // a new window opens at the last scale
+            st.setUi("{\"scale\":" + hollow::formatNumber("%g", options[kScale]) + "}");
+        applyOptions();
+    }
+
+    // The options as Settings.json has them: at the start, and over what a session brought back.
+    void applyOptions() {
+        for (size_t k = 0; k < kScale; ++k) put(P(kOptions[k].second), options[k]);
+        st.setData("opt.init_name", initName());
+    }
+
+    // Worker, a few times a second: an option or the window's scale changed here, so Settings.json follows.
+    void watchOptions() {
+        double now[kScale + 1];
+        for (size_t k = 0; k < kScale; ++k) now[k] = P(kOptions[k].second) >= 0 ? get(P(kOptions[k].second)) : options[k];
+        Json ui;
+        now[kScale] = hollow::parseJson(st.ui(), ui) ? ui["scale"].num(options[kScale]) : options[kScale];
+        if (std::equal(now, now + kScale + 1, options)) return;
+        std::copy(now, now + kScale + 1, options);
+        std::string j = "{";
+        for (size_t k = 0; k <= kScale; ++k) j += std::string(k ? ", " : "") + "\"" + optionKey(k) + "\": " + hollow::formatNumber("%g", options[k]);
+        j += "}\n";
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::u8path(optionsFile("")), ec);
+        writeFile(optionsFile("Settings.json"), std::vector<uint8_t>(j.begin(), j.end()));
+    }
+
+    std::string initName() {
+        std::vector<uint8_t> raw;
+        if (!readFile(optionsFile("Init.fsvr"), raw)) return "A001 Zap ! (factory)";
+        const std::string name = trimmed(xmlText(std::string(raw.begin(), raw.end()), "name"));
+        return name.empty() ? "Untitled" : name;
+    }
+
+    // A .fsvr as the Init Patch, under ctl: it plays under its own name, in no bank.
+    void playInit(const std::string& path) {
+        const std::string name = playPreset(path);
+        if (name.empty()) return;
+        userPerf = 0;
+        put(perfBank, 1);
+        st.setData("perf.user.name", name);
+        put(edited, 0);
+        syncBrowse();
+    }
+
+    // The Init Patch, or the factory's A001 when none is set: under ctl.
+    void playInitPatch() {
+        const std::string init = optionsFile("Init.fsvr");
+        if (std::filesystem::exists(std::filesystem::u8path(init))) return playInit(init);
+        put(perfProgram, 0);
+        loadFactoryPerf(0);
+    }
+
+    void optionRequest(const std::string& r) {
+        std::lock_guard<std::mutex> g(ctl);
+        if (r == "fx_off") {   // insertion, variation and reverb to no effect, the EQ flat
+            for (const char* id : {"fx.ins.type", "fx.var.type", "fx.rev.type", "fx.eq.low_gain", "fx.eq.mid_gain", "fx.eq.high_gain"}) choose(P(id), 0);
+            message("All effects off");
+        } else if (r == "init_set") {
+            std::error_code ec;
+            std::filesystem::create_directories(std::filesystem::u8path(optionsFile("")), ec);
+            if (!writePreset(optionsFile("Init.fsvr"))) { message("Cannot write " + optionsFile("Init.fsvr")); return; }
+            st.setData("opt.init_name", initName());
+            message("The Init Patch is now \"" + initName() + "\"");
+        } else if (r == "init_clear") {
+            std::error_code ec;
+            std::filesystem::remove(std::filesystem::u8path(optionsFile("Init.fsvr")), ec);
+            st.setData("opt.init_name", initName());
+            message("The Init Patch is the factory's A001 Zap ! again");
+        } else if (r == "init_all") {   // the system settings to their defaults, then the Init Patch
+            for (int i : fieldParams)
+                if (fields[(size_t)i].area == System) choose(i, st.def((size_t)i).def);
+            playInitPatch();
+            message("Init All: the system settings reset and the Init Patch loaded");
+        }
+    }
+
+    // A .fsvr file's performance, its voices and its Fseq into the engine, under ctl. Its name, or "" with a
+    // message when it is not one.
+    std::string playPreset(const std::string& path) {
+        std::vector<uint8_t> raw;
+        if (!readFile(path, raw)) { message("Cannot read " + path); return {}; }
         const std::string doc(raw.begin(), raw.end());
-        if (doc.find("<fsvr") == std::string::npos) { message(std::filesystem::u8path(path).filename().u8string() + " is not an FSVR preset"); return; }
+        if (doc.find("<fsvr") == std::string::npos) { message(std::filesystem::u8path(path).filename().u8string() + " is not an FSVR preset"); return {}; }
         const Bank b = parseSyx(unb64(xmlText(doc, "sysex")), "");
-        if (b.perfs.empty()) { message("No performance in " + std::filesystem::u8path(path).filename().u8string()); return; }
+        if (b.perfs.empty()) { message("No performance in " + std::filesystem::u8path(path).filename().u8string()); return {}; }
         std::string name = trimmed(xmlText(doc, "name")).substr(0, 12);
         if (name.empty()) name = b.perfs[0].name;
-        std::lock_guard<std::mutex> g(ctl);
         dev.allNotesOff();
         dev.loadSyx(b.perfs[0].syx.data(), b.perfs[0].syx.size(), 0, 0);
         followPerf(b.perfs[0], &b);
         adopt();
+        return name;
+    }
+
+    // Import FSVR Preset: the preset plays at once, and the Save modal opens on its name.
+    void importPreset(const std::string& path) {
+        std::lock_guard<std::mutex> g(ctl);
+        const std::string name = playPreset(path);
+        if (name.empty()) return;
         put(edited, 1);   // in no bank yet
         st.setData("save.name", name);
         put(saveBank, (int)get(browseBank) <= (int)lib.banks.size() ? (int)get(browseBank) : 0);

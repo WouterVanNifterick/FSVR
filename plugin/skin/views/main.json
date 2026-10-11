@@ -25,7 +25,7 @@
    "rect": [
     6,
     136,
-    172,
+    154,
     44
    ],
    "layer": 4,
@@ -59,9 +59,9 @@
    "type": "button",
    "name": "tab_parts",
    "rect": [
-    178,
+    160,
     136,
-    172,
+    154,
     44
    ],
    "layer": 4,
@@ -95,9 +95,9 @@
    "type": "button",
    "name": "tab_operators",
    "rect": [
-    350,
+    314,
     136,
-    172,
+    154,
     44
    ],
    "layer": 4,
@@ -163,9 +163,9 @@
    "type": "button",
    "name": "tab_performance",
    "rect": [
-    522,
+    468,
     136,
-    172,
+    154,
     44
    ],
    "layer": 4,
@@ -199,9 +199,9 @@
    "type": "button",
    "name": "tab_effects",
    "rect": [
-    694,
+    622,
     136,
-    172,
+    154,
     44
    ],
    "layer": 4,
@@ -235,9 +235,9 @@
    "type": "button",
    "name": "tab_fseq",
    "rect": [
-    866,
+    776,
     136,
-    172,
+    154,
     44
    ],
    "layer": 4,
@@ -271,9 +271,9 @@
    "type": "button",
    "name": "tab_quick",
    "rect": [
-    1038,
+    930,
     136,
-    172,
+    154,
     44
    ],
    "layer": 4,
@@ -302,6 +302,42 @@
     "equals": 0
    },
    "tip": "Quick edits"
+  },
+  {
+   "type": "button",
+   "name": "tab_options",
+   "rect": [
+    1084,
+    136,
+    154,
+    44
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/tab_options"
+   },
+   "text": {
+    "text": "Options",
+    "font": "tab_caption",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    4,
+    2,
+    4,
+    10
+   ],
+   "hoverTiles": true,
+   "action": {
+    "goto": "page_options",
+    "stack": "pages"
+   },
+   "showIf": {
+    "param": "gui.hide_editor",
+    "equals": 0
+   },
+   "tip": "Options: the keyboard, the display, startup, quality, and in the standalone audio and MIDI"
   },
   {
    "type": "embed",
@@ -340,7 +376,7 @@
     0,
     738,
     1514,
-    214
+    185
    ],
    "view": "keys",
    "showIf": {
@@ -352,6 +388,38 @@
      {
       "param": "gui.hide_editor",
       "equals": 0
+     },
+     {
+      "param": "gui.keys_top",
+      "equals": 0
+     }
+    ]
+   },
+   "fit": true
+  },
+  {
+   "type": "embed",
+   "name": "keys_top",
+   "rect": [
+    0,
+    738,
+    1514,
+    214
+   ],
+   "view": "keys_top",
+   "showIf": {
+    "all": [
+     {
+      "param": "gui.hide_keys",
+      "equals": 0
+     },
+     {
+      "param": "gui.hide_editor",
+      "equals": 0
+     },
+     {
+      "param": "gui.keys_top",
+      "equals": 1
      }
     ]
    },
@@ -388,7 +456,7 @@
     0,
     134,
     1514,
-    214
+    185
    ],
    "view": "keys",
    "showIf": {
@@ -399,6 +467,38 @@
      },
      {
       "param": "gui.hide_editor",
+      "equals": 1
+     },
+     {
+      "param": "gui.keys_top",
+      "equals": 0
+     }
+    ]
+   },
+   "fit": true
+  },
+  {
+   "type": "embed",
+   "name": "keys_top_up",
+   "rect": [
+    0,
+    134,
+    1514,
+    214
+   ],
+   "view": "keys_top",
+   "showIf": {
+    "all": [
+     {
+      "param": "gui.hide_keys",
+      "equals": 0
+     },
+     {
+      "param": "gui.hide_editor",
+      "equals": 1
+     },
+     {
+      "param": "gui.keys_top",
       "equals": 1
      }
     ]
@@ -436,7 +536,7 @@
     0,
     0,
     1514,
-    952
+    744
    ],
    "layer": 7,
    "fill": {

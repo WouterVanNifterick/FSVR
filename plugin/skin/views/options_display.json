@@ -1,0 +1,277 @@
+{
+ "size": [
+  740,
+  102
+ ],
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "frame",
+   "rect": [
+    0,
+    20,
+    740,
+    82
+   ],
+   "layer": 0,
+   "fill": {
+    "image": "panels/group_box_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "title",
+   "rect": [
+    6,
+    0,
+    104,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Display",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab_light"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "scale_label",
+   "rect": [
+    16,
+    38,
+    220,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "GUI Scale",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    8,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "button",
+   "name": "scale_50",
+   "rect": [
+    246,
+    36,
+    52,
+    22
+   ],
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "text": {
+    "text": "50%",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "press": "up",
+   "action": {
+    "scale": 0.5
+   },
+   "tip": "The window at 50%"
+  },
+  {
+   "type": "button",
+   "name": "scale_75",
+   "rect": [
+    302,
+    36,
+    52,
+    22
+   ],
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "text": {
+    "text": "75%",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "press": "up",
+   "action": {
+    "scale": 0.75
+   },
+   "tip": "The window at 75%"
+  },
+  {
+   "type": "button",
+   "name": "scale_100",
+   "rect": [
+    358,
+    36,
+    52,
+    22
+   ],
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "text": {
+    "text": "100%",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "press": "up",
+   "action": {
+    "scale": 1
+   },
+   "tip": "The window at 100%"
+  },
+  {
+   "type": "button",
+   "name": "scale_150",
+   "rect": [
+    414,
+    36,
+    52,
+    22
+   ],
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "text": {
+    "text": "150%",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "press": "up",
+   "action": {
+    "scale": 1.5
+   },
+   "tip": "The window at 150%"
+  },
+  {
+   "type": "button",
+   "name": "scale_200",
+   "rect": [
+    470,
+    36,
+    52,
+    22
+   ],
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "text": {
+    "text": "200%",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "press": "up",
+   "action": {
+    "scale": 2
+   },
+   "tip": "The window at 200%"
+  },
+  {
+   "type": "button",
+   "name": "keys_top",
+   "rect": [
+    16,
+    68,
+    708,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "More Keys, move Mod/Pitch to top",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    8,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "gui.keys_top",
+   "tip": "88 keys with the pitch and mod wheels lying in a strip above them; off, 85 keys (C1 to C8) with the wheels standing at their left"
+  }
+ ]
+}
