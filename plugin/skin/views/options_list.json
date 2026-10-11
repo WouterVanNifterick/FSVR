@@ -1,6 +1,6 @@
 {
  "size": [
-  740,
+  1227,
   10
  ],
  "flow": "column",
@@ -10,7 +10,7 @@
    "type": "embed",
    "name": "display",
    "rect": [
-    0,
+    247,
     0,
     740,
     10
@@ -22,7 +22,7 @@
    "type": "embed",
    "name": "startup",
    "rect": [
-    0,
+    247,
     0,
     740,
     10
@@ -34,7 +34,7 @@
    "type": "embed",
    "name": "special",
    "rect": [
-    0,
+    247,
     0,
     740,
     10
@@ -46,7 +46,7 @@
    "type": "embed",
    "name": "audio",
    "rect": [
-    0,
+    247,
     0,
     740,
     10

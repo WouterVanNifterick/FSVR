@@ -8,9 +8,9 @@
    "type": "embed",
    "name": "list",
    "rect": [
+    0,
     14,
-    14,
-    758,
+    1227,
     538
    ],
    "view": "options_list",

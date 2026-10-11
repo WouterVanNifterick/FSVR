@@ -1460,6 +1460,9 @@ private:
             std::filesystem::remove(std::filesystem::u8path(optionsFile("Init.fsvr")), ec);
             st.setData("opt.init_name", initName());
             message("The Init Patch is the factory's A001 Zap ! again");
+        } else if (r == "init_patch") {   // the Init Patch, the system settings left alone
+            playInitPatch();
+            message("The Init Patch loaded");
         } else if (r == "init_all") {   // the system settings to their defaults, then the Init Patch
             for (int i : fieldParams)
                 if (fields[(size_t)i].area == System) choose(i, st.def((size_t)i).def);

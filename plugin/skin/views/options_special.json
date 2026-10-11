@@ -106,7 +106,7 @@
   },
   {
    "type": "plate",
-   "name": "init_all_label",
+   "name": "init_label",
    "rect": [
     16,
     68,
@@ -130,9 +130,44 @@
   },
   {
    "type": "button",
-   "name": "init_all",
+   "name": "init_patch",
    "rect": [
     246,
+    66,
+    180,
+    24
+   ],
+   "fill": {
+    "image": "buttons/dark_wide"
+   },
+   "press": "up",
+   "pressedTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "text": {
+    "text": "Init Current Patch",
+    "font": "caption_white_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    1,
+    2,
+    0
+   ],
+   "action": {
+    "modal": "dialog_init_patch"
+   },
+   "tip": "The Init Patch loaded, the system settings left as they are"
+  },
+  {
+   "type": "button",
+   "name": "init_all",
+   "rect": [
+    434,
     66,
     180,
     24

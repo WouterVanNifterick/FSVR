@@ -5,7 +5,7 @@
 // the waveform the engine draws for it, its Form header and its frequency box, the skin's keyboard shortcuts and the tooltips that name them,
 // the Parts page's steppers, keyboard, velocity curve and Poly/Mono radios, the browser and its right-click menus, every dialog, the modal's veil,
 // Escape and close X, the close prompt, the Options page (the scales, the keyboard's two layouts, Modern EG Labels, the Init
-// Patch, Turn off all Effects, Init All and Quality / Speed) and the About box; then a sweep of every page's
+// Patch, Turn off all Effects, Init Current Patch, Init All and Quality / Speed) and the About box; then a sweep of every page's
 // dials, faders, dropdowns and toggles. Exits non-zero on any failure.
 //   build/<dir>/Release/check_gui      (ctest runs it as "gui")
 // With FSVR_GUI_SHOTS set to a folder it also saves the window as a PNG at each u.shot("name"), to look at.
@@ -349,8 +349,18 @@ int main() {
                   "Use Current did not make Snow Decay the Init Patch (\"%s\")", u.data("opt.init_name").c_str());
             u.click("pages/list/startup/init_clear");
             CHECK(u.until([&] { return !fs::exists(dir / "Init.fsvr") && u.data("opt.init_name") == "A001 Zap ! (factory)"; }), "Use Factory left the Init Patch");
-            // Init All asks first, then resets the system settings and loads the Init Patch
+            // Init Current Patch asks first, then loads the Init Patch and leaves the system settings alone
             u.set("sys.pgm_mode", 1);
+            u.set("perf.program", 2);
+            CHECK(u.until([&] { return u.data("perf.name") == "Nightmare"; }), "A003 did not load");
+            u.click("pages/list/special/init_patch");
+            CHECK(u.gui.modal() == "dialog_init_patch", "Init Current Patch did not ask (modal \"%s\")", u.gui.modal().c_str());
+            u.click(M + "init");
+            CHECK(u.until([&] { return u.gui.modal().empty() && u.data("perf.name") == "Zap !"; }) && u.get("sys.pgm_mode") == 1,
+                  "Init Current Patch left %s, Multi %g", u.data("perf.name").c_str(), u.get("sys.pgm_mode"));
+            // Init All asks first, then resets the system settings and loads the Init Patch
+            u.set("perf.program", 2);
+            CHECK(u.until([&] { return u.data("perf.name") == "Nightmare"; }), "A003 did not load");
             u.click("pages/list/special/init_all");
             CHECK(u.gui.modal() == "dialog_init", "Init All did not ask (modal \"%s\")", u.gui.modal().c_str());
             u.click(M + "init");
