@@ -104,13 +104,18 @@ double Synth::op_sample(OpState& s, const OpV& v, double f0, double fop, int rat
 // ratio come from byte 6 as notes.cpp hands them to a channel.
 void Synth::op_wave(const OpV& v, float* out, int n) {
     OpState s;
-    const double f0 = 100.0, fop = v.form == 7 ? 4 * f0 : f0;
-    s.wl7 = std::min(cal::FRMT_WL_MAX, f0 / (cal::FRMT_BW_HZ0 * fm::exp2(v.bw / cal::FRMT_BW_DB)));
+    const double f0 = 100.0;
+    double pitch = f0, fop = v.form == 7 ? 4.0 * f0 : f0;
+    if (v.form == 7) {
+        int tw = TRANS[clampi(v.transpose + 24, 0, 48)];
+        if (tw) pitch *= fm::exp2(tw / 1024.0);
+    }
+    s.wl7 = std::min(cal::FRMT_WL_MAX, pitch / (cal::FRMT_BW_HZ0 * fm::exp2(v.bw / cal::FRMT_BW_DB)));
     const int period = (int)(SR / f0);
-    for (int i = 0; i < period; i++) op_sample(s, v, f0, fop, v.bw, 0, 1);
+    for (int i = 0; i < period; i++) op_sample(s, v, pitch, fop, v.bw, 0, 1);
     std::vector<double> y(2 * (size_t)period);
     double peak = 1e-9;
-    for (auto& x : y) peak = std::max(peak, std::fabs(x = op_sample(s, v, f0, fop, v.bw, 0, 1)));
+    for (auto& x : y) peak = std::max(peak, std::fabs(x = op_sample(s, v, pitch, fop, v.bw, 0, 1)));
     for (int i = 0; i < n; i++) {   // each point the largest sample of its share, so a narrow pulse still shows
         size_t a = (size_t)i * y.size() / std::max(n, 1), b = std::max(a + 1, (size_t)(i + 1) * y.size() / std::max(n, 1));
         double m = y[a];
@@ -147,19 +152,28 @@ void Synth::refresh_ctl(Chan& C) {
         // operator handed one runs off the end of the register. MEASURED 2026-09-21: 12_fseqlevel's
         // three sine segments sum to 39632..45056 at notes 36, 60 and 84 and the unit gives the same
         // 23982 Hz line in all three, the saturated word, where the engine read the frame word alone
-        // and sang at 275 Hz. Formant and fixed operators take the word as it stands.
+        // and sang at 275 Hz. Formant and fixed operators do not add the channel pitch.
+        // Transpose is the formant operator's pitch, the grain rate, not this centre. Detune is the
+        // other half of the 0x230 word (FUN_00013bc6) and stays on the centre the coarse and fine set.
+        // A frame replaces that centre and does not take the word.
         if (fs && C.fseqOp[o]) fop = word_hz(C.fqWord[o] + pmw + det + (v.form != 7 && !v.fixed ? C.regPitch : 0));
-        else if (v.form == 7) fop = word_hz(C.freqWord[o] + C.fbW[o] + (C.frmtWord[o] - 0x1243) + pmw + (C.regFM * v.fms) / 7);
+        else if (v.form == 7) fop = word_hz(C.freqWord[o] + C.fbW[o] + C.detW[o] + pmw + (C.regFM * v.fms) / 7);
         else if (!v.fixed) fop = word_hz(C.freqWord[o] + C.regPitch + pmw + det);
         else fop = word_hz(C.freqWord[o] + C.fbW[o] + pmw + det + (C.regFM * v.fms) / 7);
         s.fop = fop;
         // The formant's window runs at the channel pitch through the operator's own pitch mod sense, not
         // through the full LFO word: rgwan's demo take of 15_Human (pms 1..4, pmd 12) wobbles its formant
         // harmonics 33..48 cents, the same as its pms 2 sine carriers, where a window on C.f0 gave 541.
-        s.fw = word_hz(C.regPitch + 0x1243 + pmw - C.vcFreq[o][0]);
+        // The transpose word rides that pitch. The width stays the same number of Hz, so the window
+        // length in periods follows the grain rate.
+        int base = C.regPitch + 0x1243 + pmw - C.vcFreq[o][0];
+        int trans = v.form == 7 ? C.frmtWord[o] - 0x1243 - C.detW[o] : 0;
+        s.fw = word_hz(base + trans);
         s.bw = clampi(C.bwReg[o] + C.vcBw[o][0], 0, 99);                 // register 0x218, the formant's
         s.ratio = v.form == 7 ? 0 : clampi(C.frmtWord[o], 0, 99);         // register 0x230, every other form's
-        s.wl7 = std::min(cal::FRMT_WL_MAX, C.f0 / (cal::FRMT_BW_HZ0 * fm::exp2(s.bw / cal::FRMT_BW_DB)));
+        double wl = C.f0 / (cal::FRMT_BW_HZ0 * fm::exp2(s.bw / cal::FRMT_BW_DB));
+        if (trans) wl *= s.fw / word_hz(base);
+        s.wl7 = std::min(cal::FRMT_WL_MAX, wl);
         }
         unvoiced:
         if (s.ueg.done()) continue;   // the same, and simpler: the unvoiced attenuation is never negative, so a finished noise EG is gated for good
@@ -167,7 +181,7 @@ void Synth::refresh_ctl(Chan& C) {
         s.uatt = C.regULevel[o] * LEVEL_DB + am_att(C.regAM, u.ams);
         double nf;
         if (fs && C.fseqUOp[o]) nf = word_hz(C.fquWord[o]);
-        else if (u.mode == 2 && v.form == 7) nf = word_hz(C.freqWord[o] + (C.frmtWord[o] - 0x1243));
+        else if (u.mode == 2 && v.form == 7) nf = word_hz(C.freqWord[o] + C.detW[o]);
         // MEASURED: link-ff on a voiced partner that is not a formant operator reaches register 0x300 as
         // link-fo, not as itself. uv-linkff-sine's image reads mode 1 where the sysex asked for 2.
         else if (u.mode) nf = C.f0;

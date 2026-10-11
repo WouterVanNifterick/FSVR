@@ -992,7 +992,7 @@
    "type": "plate",
    "name": "osc_transpose_label",
    "rect": [
-    407,
+    479,
     96,
     70,
     18
@@ -1016,7 +1016,7 @@
    "type": "number",
    "name": "osc_transpose",
    "rect": [
-    407,
+    479,
     116,
     70,
     20
@@ -1039,13 +1039,14 @@
    "fine": 0.2,
    "reset": false,
    "editable": true,
-   "param": "op.{op}.{layer}.transpose.{part}"
+   "param": "op.{op}.{layer}.transpose.{part}",
+   "tip": "Semitones on this operator's pitch, -24 to +24. Voiced, only a formant reads it, and the formant frequency stays where Coarse and Fine put it"
   },
   {
    "type": "plate",
    "name": "osc_band_ratio_label",
    "rect": [
-    479,
+    407,
     96,
     70,
     18
@@ -1073,7 +1074,7 @@
    "type": "number",
    "name": "osc_band_ratio",
    "rect": [
-    479,
+    407,
     116,
     70,
     20
@@ -1167,7 +1168,7 @@
    "type": "plate",
    "name": "osc_bandwidth_label",
    "rect": [
-    479,
+    407,
     96,
     70,
     18
@@ -1195,7 +1196,7 @@
    "type": "number",
    "name": "osc_bandwidth",
    "rect": [
-    479,
+    407,
     116,
     70,
     20
