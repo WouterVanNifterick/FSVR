@@ -15,7 +15,7 @@ int selftest(Synth& S) {
     struct { int ah, am, al, v; const char* name; } pc[] = {
         {0x00, 0, 0x0E, 3, "system velocity curve"},
         {0x10, 0, 0x11, 100, "performance pan"},
-        {0x10, 0, 0x58, 5, "reverb type"},
+        {0x10, 1, 0x28, 5, "reverb type"},
         {0x10, 1, 0x2F, 9, "insertion type"},
         {0x31, 0, 0x0E, 20, "part 2 pan"},
         {0x42, 0, 0x54, 2, "part 3 voice filter type"},
@@ -26,6 +26,14 @@ int selftest(Synth& S) {
         uint8_t m[10] = {0xF0, 0x43, 0x10, 0x5E, (uint8_t)t.ah, (uint8_t)t.am, (uint8_t)t.al, 0, (uint8_t)t.v, 0xF7};
         ck(t.name, apply_param_change_locked(S, m, 10));
         ck(t.name, S.read_param(t.ah, t.am, t.al) == t.v);
+    }
+    // A word's change lands in both its bytes: variation P3 (a chorus's FB Level) at 10 00 6C, high byte
+    // first, as the plug-in sends it. Written to the high byte alone it read 76 << 7 | 64 and clamped to +1.0.
+    for (int al : {0x50, 0x6C, 0x7E}) {
+        uint8_t m[10] = {0xF0, 0x43, 0x10, 0x5E, 0x10, 0x00, (uint8_t)al, 0, 76, 0xF7};
+        S.perf.fx[al - 0x50] = 0; S.perf.fx[al - 0x50 + 1] = 64;
+        apply_param_change_locked(S, m, 10);
+        ck("reverb and variation words take both bytes", S.perf.fx[al - 0x50] == 0 && S.perf.fx[al - 0x50 + 1] == 76);
     }
     ck("voice decode followed the change", S.perf.part[2].voice.fltType == 2);
     ck("op level decode followed the change", S.perf.part[3].voice.v[5].level == 77);

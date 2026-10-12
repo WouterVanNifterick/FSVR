@@ -103,10 +103,14 @@ bool load_sysex(Synth& S, const Rom* R, const uint8_t* d, size_t len, int pick, 
     return false;
 }
 
+// The two-byte parameters, as the Data List sizes them (plugin/generated's "wide"). Reverb P1-P8 at
+// 10 00 50-5E and variation P1-P12 at 10 00 68-7E are words too: one test for the whole of 10 00 used to
+// return before reaching them, so a change wrote its low byte into the word's high byte and the word
+// clamped to the top of its range (a variation FB Level of +1.0, a chorus that rang for good).
 bool param_is_wide(int ah, int am, int al) {
     if (ah == 0x10 && am == 0) return al == 0x18 || al == 0x1A || al == 0x1C || al == 0x1E ||
-                                      (al >= 0x30 && al <= 0x3E && !(al & 1));
-    if (ah == 0x10 && am == 0 && al >= 0x50) return !((al - 0x50) & 1) && al <= 0x5F;
+                                      (al >= 0x30 && al <= 0x3E && !(al & 1)) ||
+                                      (al >= 0x50 && al <= 0x5E && !(al & 1)) || (al >= 0x68 && al <= 0x7E && !(al & 1));
     if (ah == 0x10 && am == 1) return al <= 0x27 && !(al & 1);
     if (ah == 0x70 && am == 0) return al == 0x10 || al == 0x12 || al == 0x1E;
     return false;
