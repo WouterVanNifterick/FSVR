@@ -69,7 +69,7 @@ jobs:
       - name: Contributors
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python tools/contributors.py ${{ github.repository }}
+        run: python tools/contributors.py --check && python tools/contributors.py ${{ github.repository }}
       - name: Configure
         run: cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON ${{ matrix.configure }}
       - name: Build
