@@ -65,6 +65,7 @@ Grouped by what blocks each item rather than by subsystem. This file is the list
 - Whether the chip latches per grain or slews the level register on a 3 to 5 ms constant. The lever is the grain rate
 - The per-channel arrays at 0x0103B384 and 0x01044C, which the voice image does not carry
 - The effects, against a register session rather than against the Data List
+- A formant operator's Transpose (#31, v0.5.2): it now moves the operator's pitch, the grain rate, and leaves the formant's centre where Coarse and Fine put it. Checked by WouterVanNifterick against his own unit, not yet against a capture here. It moved `tools/regress.py`'s `ctrl-multi` (performance 28: centroid 171.2 to 167.5 Hz, peak count 4 to 5) against a v0.5.1 fingerprint; the other eighteen cases render as v0.5.1 does. A take of a formant operator swept through Transpose settles it
 
 **Open research**
 
