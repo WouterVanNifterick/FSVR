@@ -8,9 +8,9 @@ while the fundamental follows the key. This builds a voice with a single formant
 setting, works out where the firmware's tables say that formant should land, renders it at several
 pitches, and measures where it actually is.
 
-It is a check on the part of the engine that is read from the firmware (the frequency word, through
-TRANS, FRMDET and the ratio tables). The window *shape* around that centre is still a model from the
-patent, so this says the formant is in the right place, not that it has the right timbre.
+It is a check on the part of the engine that is read from the firmware (the frequency word and
+FRMDET). Transpose moves the fundamental, not this centre. The window shape around the centre is
+still a model, so this says the formant is in the right place, not that it has the right timbre.
 """
 import re
 import struct
@@ -43,9 +43,9 @@ def word_hz(w):
     return 440.0 * 2.0 ** ((w - 26861) / 1024.0)
 
 
-def expected_formant(coarse, fine, transpose, detune, note):
-    """The firmware's formant centre: 8*(coarse*128+fine) + 0x28ED, plus the transpose word and the
-    note-band detune, with note scaling left at zero so the key does not move it."""
+def expected_formant(coarse, fine, detune, note):
+    """The formant frequency: 8*(coarse*128+fine) + 0x28ED, plus the note-band detune. Transpose is
+    the operator's pitch, not this centre, and note scaling is left at zero so the key does not move it."""
     freq = 8 * (coarse * 128 + fine) + 0x28ED
     pitch = T["NOTETAB"][note]                       # master tune and shifts are all neutral here
     band = (pitch >> 8) + 10
@@ -57,10 +57,7 @@ def expected_formant(coarse, fine, transpose, detune, note):
         det -= 256
     if idx & 0x200:
         det = -det
-    trans = T["TRANS"][max(0, min(48, transpose + 24))]
-    if trans > 32767:
-        trans -= 65536
-    return word_hz(freq + trans + det)
+    return word_hz(freq + det)
 
 
 def build_voice(coarse, fine, transpose, detune, bw, skirt):
@@ -120,7 +117,7 @@ def to_syx(voice):
     return head + body + bytes([(-s) & 0x7F, 0xF7])
 
 
-def measure(path, note):
+def measure(path, f0):
     d = path.read_bytes()
     sr = struct.unpack("<I", d[24:28])[0]
     i = 12
@@ -138,7 +135,6 @@ def measure(path, note):
     f = np.fft.rfftfreq(N, 1 / sr)
     # The spectrum is a harmonic comb under a formant envelope. Smooth over a few harmonics so the
     # envelope shows through, then take its peak: that is the formant centre.
-    f0 = 440 * 2 ** ((note - 69) / 12)
     w = max(3, int(2.5 * f0 / (f[1] - f[0]))) | 1
     env = np.convolve(S, np.hanning(w) / np.hanning(w).sum(), mode="same")
     lo = np.searchsorted(f, f0 * 1.2)
@@ -177,9 +173,9 @@ def main():
                 print("render failed:", r.stdout, r.stderr)
                 fails += 1
                 continue
-            want = expected_formant(coarse, fine, transpose, detune, note)
-            wantF0 = 440 * 2 ** ((note - 69) / 12)
-            gotF0, got = measure(wav, note)
+            want = expected_formant(coarse, fine, detune, note)
+            wantF0 = 440 * 2 ** ((note - 69) / 12 + transpose / 12.0)
+            gotF0, got = measure(wav, wantF0)
             err = abs(got - want) / want
             # A formant is only located to about half the harmonic spacing: with a 330 Hz fundamental
             # under a 400 Hz formant there are barely five harmonics to place it between, so the

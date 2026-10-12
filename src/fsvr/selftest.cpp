@@ -287,6 +287,69 @@ int selftest(Synth& S) {
         init_default_voice(V);
     }
 
+    // Formant transpose is the pitch half of register 0x230 (FUN_00013bc6): it shifts the grain rate.
+    // The formant frequency, coarse and fine plus detune, stays. A frame replaces that frequency and
+    // leaves the pitch word, so an Fseq formant is transposed the same way. Sine ignores it.
+    {
+        Synth& T = S;
+        Voice& V = T.perf.part[0].voice;
+        init_default_voice(V);
+        V.v[0].form = 7; V.v[0].fixed = 1; V.v[0].level = 99; V.v[0].coarse = 16; V.v[0].fine = 110;
+        V.v[0].bw = 40; V.v[0].detune = 15; V.pmd = 0;
+        std::vector<float> a(64), b(64);
+        auto centre = [&](int tr) {
+            V.v[0].transpose = tr;
+            T.all_off();
+            T.midi_in(0x90, 60, 100);
+            T.render(a.data(), b.data(), 64);
+            double f = 0, w = 0;
+            for (auto& ch : T.ch) if (ch.active && ch.note == 60) { f = ch.op[0].fop; w = ch.op[0].fw; }
+            return std::make_pair(f, w);
+        };
+        auto z = centre(0), up = centre(12), down = centre(-12);
+        ck("transpose leaves the formant frequency", z.first > 1.0 && fabs(up.first - z.first) < 0.05 && fabs(down.first - z.first) < 0.05);
+        ck("formant transpose +12 raises the pitch an octave", z.second > 1.0 && fabs(1200.0 * log2(up.second / z.second) - 1200.0) < 0.05);
+        ck("formant transpose -12 lowers the pitch an octave", down.second > 1.0 && fabs(1200.0 * log2(z.second / down.second) - 1200.0) < 0.05);
+
+        uint8_t pc[8];
+        memcpy(pc, T.perf.c + 0x15, 1);
+        memcpy(pc + 1, T.perf.c + 0x1A, 6);
+        pc[7] = T.perf.c[0x21];
+        int dly = T.perf.c[0x26];
+        T.fseq = Fseq();
+        T.fseq.valid = true; T.fseq.nframes = 1; T.fseq.endStep = 0;
+        T.fseq.frame[0][0] = 101; T.fseq.frame[0][1] = 118;       // pitch word 26092, the note, so the frame does not drag the channel
+        T.fseq.frame[0][2] = 109; T.fseq.frame[0][0x0A] = 68;   // 109 * 256 + 68 * 2 = 28040
+        T.fseqPart = 0;
+        T.perf.c[0x15] = 1; T.perf.c[0x21] = 2; T.perf.c[0x26] = 0;
+        memset(T.perf.c + 0x1A, 0, 6);
+        V.fseqV = 1; V.v[0].fseqtrk = 0;
+        auto fz = centre(0), fu = centre(12);
+        // 28040 is the frame word, about 977 Hz, and transpose does not move it. The pitch does.
+        ck("an Fseq formant keeps its frequency and transposes the pitch",
+           fabs(fz.first - 977.35) < 2.0 && fabs(fu.first - fz.first) < 0.05 &&
+           fabs(1200.0 * log2(fu.second / fz.second) - 1200.0) < 0.05);
+        T.fseq.valid = false; T.fseqPart = -1;
+        T.perf.c[0x15] = pc[0]; memcpy(T.perf.c + 0x1A, pc + 1, 6); T.perf.c[0x21] = pc[7]; T.perf.c[0x26] = (uint8_t)dly;
+        T.all_off();
+        init_default_voice(V);
+
+        OpV w{};
+        w.form = 7; w.bw = 40; w.skirt = 2;
+        float wa[32], wb[32];
+        T.op_wave(w, wa, 32);
+        w.transpose = 12;
+        T.op_wave(w, wb, 32);
+        double d = 0; for (int i = 0; i < 32; i++) d += fabs(wa[i] - wb[i]);
+        ck("the formant waveform follows transpose", d > 0.5);
+        w.form = 0; w.transpose = 0;
+        T.op_wave(w, wa, 32);
+        w.transpose = 12;
+        T.op_wave(w, wb, 32);
+        d = 0; for (int i = 0; i < 32; i++) d += fabs(wa[i] - wb[i]);
+        ck("a sine waveform ignores transpose", d < 1e-6);
+    }
+
     // 6. notes still sound and stop
     S.midi_in(0x90, 60, 100);
     int live = 0; for (auto& c : S.ch) if (c.active) live++;

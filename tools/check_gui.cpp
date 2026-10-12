@@ -397,9 +397,25 @@ int main() {
             if (u.click("opcol/form")) u.menuIs({"Sine", "All 1", "All 2", "Odd 1", "Odd 2", "Res 1", "Res 2", "Formant"}, "the Form header's");
             u.choose("Formant");
             CHECK(u.get("op.1.v.form.p1") == 7, "Formant from the header left the form at %g", u.get("op.1.v.form.p1"));
-            u.click("opcol/mode_ratio");
+            u.run();
+            CHECK(u.shows("opcol/transpose") && u.shows("opcol/detune"), "Formant hid Detune or Transpose");
+            CHECK(!u.shows("opcol/mode_ratio") && !u.shows("opcol/mode_fixed") && u.shows("opcol/fixed_mark"),
+                  "Formant did not replace Ratio and Fixed with the Fixed mark");
+            u.set("op.1.v.transpose.p1", -12);
+            CHECK(u.get("op.1.v.transpose.p1") == -12, "Transpose did not take -12");
+            CHECK(u.shows("opcol/wave_fixed") && !u.shows("opcol/wave_ratio") && u.shows("opcol/freq_hz_frmt"),
+                  "Formant did not show the frequency in Hz");
             u.set("op.1.v.coarse.p1", 1);
             Rect r;
+            if (u.rect("opcol/wave_fixed", r)) u.clickAt(r.x + r.w - 3, r.y + r.h / 2);
+            CHECK(u.get("op.1.v.coarse.p1") == 2, "the frequency's up stepper left Coarse at %g, from 1", u.get("op.1.v.coarse.p1"));
+            if (u.rect("opcol/wave_fixed", r)) u.clickAt(r.x + 3, r.y + r.h / 2);
+            CHECK(u.get("op.1.v.coarse.p1") == 1, "the frequency's down stepper left Coarse at %g, from 2", u.get("op.1.v.coarse.p1"));
+            u.set("op.1.v.form.p1", 0);
+            u.set("op.1.v.mode.p1", 0);
+            u.run();
+            CHECK(u.shows("opcol/wave_ratio") && !u.shows("opcol/wave_fixed"), "Ratio did not show the frequency ratio");
+            u.set("op.1.v.coarse.p1", 1);
             if (u.rect("opcol/wave_ratio", r)) u.clickAt(r.x + r.w - 3, r.y + r.h / 2);
             CHECK(u.get("op.1.v.coarse.p1") == 2, "the frequency's up stepper left Coarse at %g, from 1", u.get("op.1.v.coarse.p1"));
             if (u.rect("opcol/wave_ratio", r)) u.clickAt(r.x + 3, r.y + r.h / 2);

@@ -575,6 +575,10 @@
      {
       "param": "op.{op}.v.mode.{part}",
       "equals": 0
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "notEquals": 7
      }
     ]
    },
@@ -619,8 +623,16 @@
       "equals": "v"
      },
      {
-      "param": "op.{op}.v.mode.{part}",
-      "equals": 1
+      "any": [
+       {
+        "param": "op.{op}.v.mode.{part}",
+        "equals": 1
+       },
+       {
+        "param": "op.{op}.v.form.{part}",
+        "equals": 7
+       }
+      ]
      }
     ]
    },
@@ -801,6 +813,76 @@
   },
   {
    "type": "plate",
+   "name": "transpose_label",
+   "rect": [
+    66,
+    256,
+    52,
+    16
+   ],
+   "text": {
+    "text": "Trans",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "equals": 7
+     }
+    ]
+   }
+  },
+  {
+   "type": "number",
+   "name": "transpose",
+   "rect": [
+    66,
+    272,
+    52,
+    22
+   ],
+   "param": "op.{op}.v.transpose.{part}",
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "equals": 7
+     }
+    ]
+   },
+   "tip": "Semitones on the formant operator's pitch, -24 to +24. The formant frequency stays where Coarse and Fine put it"
+  },
+  {
+   "type": "plate",
    "name": "bandwidth_label",
    "rect": [
     128,
@@ -935,8 +1017,16 @@
    ],
    "param": "op.{op}.v.mode.{part}",
    "showIf": {
-    "var": "layer",
-    "equals": "v"
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "notEquals": 7
+     }
+    ]
    },
    "type": "button",
    "name": "mode_ratio",
@@ -974,8 +1064,16 @@
    ],
    "param": "op.{op}.v.mode.{part}",
    "showIf": {
-    "var": "layer",
-    "equals": "v"
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "notEquals": 7
+     }
+    ]
    },
    "type": "button",
    "name": "mode_fixed",
@@ -1068,6 +1166,10 @@
      {
       "param": "op.{op}.v.mode.{part}",
       "equals": 0
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "notEquals": 7
      }
     ]
    }
@@ -1101,9 +1203,79 @@
      {
       "param": "op.{op}.v.mode.{part}",
       "equals": 1
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "notEquals": 7
      }
     ]
    }
+  },
+  {
+   "type": "plate",
+   "name": "freq_hz_frmt",
+   "rect": [
+    12,
+    256,
+    52,
+    16
+   ],
+   "text": {
+    "text": "Hz",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "equals": 7
+     }
+    ]
+   }
+  },
+  {
+   "type": "plate",
+   "name": "fixed_mark",
+   "rect": [
+    12,
+    272,
+    52,
+    22
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Fixed",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "equals": 7
+     }
+    ]
+   },
+   "tip": "A formant frequency is fixed, in Hz"
   },
   {
    "type": "plate",
