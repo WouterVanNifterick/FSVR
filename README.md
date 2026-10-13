@@ -46,11 +46,15 @@ Today, jameshansen and rgwan are collaborating on this project to improve the ac
 
 AI coding agents and frontier LLMs have played a large role in making this project possible. The initial recreation was created using Claude Fable 5.1, with much of the ongoing analysis and engine improvements being assisted with Claude Opus 5. As part of the collaborative process, developers on the project can now use these tools via [Discord](https://discord.gg/6sXu3GmkNm).
 
-## VOP3 Progress and Research (as of Oct 1 2026)
+## VOP3 Progress and Research (as of Oct 13 2026)
 The current largest missing feature is true recreation of the effects and filters. We have approximations but we are working on improving the accuracy. This is the key difference in sound between the real unit and FSVR.
 * A patched firmware has been created to poke memory on a real FS1R to read registers and values.
 * The AN1x and PL150-AN run the AN engine on a VOP3. The EX5 keyboard runs the exact same AN engine on a MB91103PF (Fujitsu FR20), which is understood and documented. This is our "rosetta stone" helping us to understand the VOP3 code.
-* The AI Coding Agent now has realtime access to an FS1R running the patched firmware, able to continuously work to understand the VOP3.
+* Thank you to Wouter van Nifterick ([WouterVanNifterick](https://github.com/WouterVanNifterick)) for the following findings:
+  * MU2000 uses similar effects, which is a good reference point - many thanks to the S-MU2000 project for their RE work: https://github.com/tarboh/S-MU2000
+  * The FS1R deploys settings to the VOP3, and these can be traced through MAME's SH2 emulator - thanks to Wouter's PR to the MAME project: https://github.com/mamedev/mame/pull/16324
+
+* We are using a team of AI agents to map out the effects with all of these resources, including access to FS1R hardware via ssh: https://ai.musica.studio/effects/
 
 ## FS1R vs FSVR
 
