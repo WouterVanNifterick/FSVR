@@ -735,6 +735,19 @@ int selftest(Synth& S) {
         ck("engine: a part on the insertion is heard through it", inserted > direct * 0.1f);
         ck("engine: a part on the insertion has no dry path", silent < direct * 0.001f);
         init_perf(S.perf); }
+      // 7. the host's register writes, pinned: every type with each parameter at both ends, then the mixer and EQ bytes
+      { struct Sink : fs1r::vop3host::WriteSink { uint64_t h = 1469598103934665603ull;
+            void write(uint32_t reg, uint32_t v) override { h = (h ^ (reg << 16 | v)) * 1099511628211ull; } } sink;
+        auto e = fresh({}); e->host.sink = &sink;
+        const int types[3] = {17, 29, 41};
+        for (int b = 0; b < 3; b++) for (int t = 0; t < types[b]; t++) {
+            e->setType(Effects::Block(b), t);
+            for (int slot = 1; slot <= 16; slot++) {
+                if (b == Effects::VARIATION && t == 24 && slot == 11) continue;   // Karaoke's hidden parameter
+                for (int w : {0, b == Effects::REVERB && slot > 8 ? 127 : 16383}) e->setParam(Effects::Block(b), slot, w); } }
+        for (int i : {16, 20, 169, 170, 172, 173, 174, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190})
+            for (int v : {0, 127}) e->host.set_performance_byte(i, v);
+        ck("effect host: its register writes are the firmware's", sink.h == 0x4433fa06b314a878ull); }
     }
 
     printf(g_fails ? "selftest: %d FAILURES\n" : "selftest: ok\n", g_fails);
