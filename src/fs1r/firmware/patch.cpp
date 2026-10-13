@@ -152,6 +152,7 @@ void Part::reset_ctl() {
 
 void init_perf(Perf& P) {
     memset(P.c, 0, 80); memset(P.fx, 0, 112); memcpy(P.c, "Init        ", 12); P.c[0x10] = 127; P.c[0x11] = 64; P.c[0x12] = 24;
+    P.fx[100] = P.fx[104] = P.fx[107] = 64;   // master EQ gains at 0 dB
     P.c[0x18] = 7; P.c[0x19] = 104;   // Fseq speed ratio 1000 = 100 %
     P.c[0x21] = 2;
     for (int i = 0; i < 4; i++) {

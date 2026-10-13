@@ -37,6 +37,7 @@ void perf_from_bytes(Synth& S, const Rom* R, const uint8_t* d) {
         int n = P.c[0x17]; size_t off = n < 10 ? 0x100A00 + (size_t)n * 25632 : 0x83000 + (size_t)(n - 10) * 6432;
         S.fseq.from_bytes(R->d.data() + off, R->d.data() + off + 32, n < 10 ? 512 : 128);
     }
+    S.fx.load(d);
 }
 
 bool rom_perf(Synth& S, const Rom& R, int idx) {

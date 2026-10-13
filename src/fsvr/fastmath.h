@@ -1,7 +1,7 @@
 // fsvr/fastmath.h - the sample loop's transcendentals. Ours: the hardware has no opinion.
 //
-// Everything the per-sample path asks of libm goes through here: a sine by phase in turns, 2^x,
-// 10^(dB/20) and tanh. FSVR_MATH picks how they are computed, and the rule is fsvr/tuning.h's: the
+// Everything the per-sample path asks of libm goes through here: a sine by phase in turns, 2^x
+// and 10^(dB/20). FSVR_MATH picks how they are computed, and the rule is fsvr/tuning.h's: the
 // choice trades CPU for nothing else, so a backend that moves a measurement is wrong, not the unit.
 //
 //   FSVR_MATH=0  RAW     libm. Kept as the reference the others are checked against (fm::selfcheck)
@@ -60,7 +60,6 @@ double hybrid_exp2(double x);
 static inline double sin_turns(double t) { return std::sin(6.283185307179586 * t); }
 static inline double exp2(double x) { return std::exp2(x); }
 static inline double db2lin(double db) { return std::pow(10.0, db / 20.0); }
-static inline double tanh(double x) { return std::tanh(x); }
 
 #elif FSVR_MATH == 1
 // The float arithmetic in sin_turns and db2lin is the engine's original table read, kept as it was.
@@ -92,16 +91,6 @@ static inline double db2lin(double db) { return hybrid_exp2(db * 0.1660964047443
 
 #else
 #error "FSVR_MATH must be 0 (RAW), 1 (LUT), 2 (CORDIC) or 3 (HYBRID)"
-#endif
-
-#if FSVR_MATH != 0
-// tanh from the exponential the backend already has: (e^2x - 1) / (e^2x + 1).
-static inline double tanh(double x) {
-    if (x > 20.0) return 1.0;
-    if (x < -20.0) return -1.0;
-    double e = exp2(x * 2.8853900817779268);   // 2 / ln 2
-    return (e - 1.0) / (e + 1.0);
-}
 #endif
 
 }  // namespace fm

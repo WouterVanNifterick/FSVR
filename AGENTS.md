@@ -69,7 +69,7 @@ The line goes in that commit only, never in the tag's message or the release not
 build.bat test
 ```
 
-That builds the engine and the console, then runs the effect self check, the engine self check, and `check_formant` and `check_presets`. All of them must pass.
+That builds the engine and the console, then runs the engine self check, which covers the effect chip, and `check_formant` and `check_presets`. All of them must pass.
 
 If you touched the plug-in (`plugin/`, `hollow/` or the skin):
 

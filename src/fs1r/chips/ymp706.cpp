@@ -312,13 +312,8 @@ void Synth::render_chan(Chan& C, double& outL, double& outR) {
 
 void Synth::render(float* outL, float* outR, int frames) {
     std::lock_guard<std::mutex> lk(mtx);
-    fx.configure(perf.fx);
-    double insLvl = sendlvl(perf.fx[0x63]), insRev = sendlvl(perf.fx[0x61]), insVar = sendlvl(perf.fx[0x62]);
-    double varRev = sendlvl(perf.fx[0x5E]), varRet = sendlvl(perf.fx[0x5D]), revRet = sendlvl(perf.fx[0x5A]);
-    int vp = clampi(perf.fx[0x5C] - 1, 0, 126), rp = clampi(perf.fx[0x59] - 1, 0, 126);
-    double vpl = db2lin(-LEVEL_DB * PANL[vp]), vpr = db2lin(-LEVEL_DB * PANR[vp]);
-    double rpl = db2lin(-LEVEL_DB * PANL[rp]), rpr = db2lin(-LEVEL_DB * PANR[rp]);
-    double pvol = perf.c[0x10] / 127.0;
+    fx.sync((uint8_t*)&perf);
+    // Part routing: a part with its insertion switch on feeds the insertion bus only, any other the dry bus and both sends.
     double dry[4], varS[4], revS[4]; bool insSw[4];
     for (int p = 0; p < 4; p++) {
         const uint8_t* q = perf.part[p].p;
@@ -331,46 +326,16 @@ void Synth::render(float* outL, float* outR, int frames) {
         tickAcc += TICK_HZ / SR; while (tickAcc >= 1) { tickAcc -= 1; tick(); }
         double pl[4] = {}, pr[4] = {};
         for (auto& c : ch) if (c.active) { double a, b; render_chan(c, a, b); pl[c.part] += a; pr[c.part] += b; }
-        double dL = 0, dR = 0, iL = 0, iR = 0, vL = 0, vR = 0, rL = 0, rR = 0;
+        // Four stereo buses into the effect chip: dry, insertion, variation send, reverb send. The rest is the chip's.
+        double bus[8] = {}, l, r;
         for (int p = 0; p < 4; p++) {
-            if (insSw[p]) { iL += pl[p]; iR += pr[p]; continue; }
-            dL += pl[p] * dry[p]; dR += pr[p] * dry[p];
-            vL += pl[p] * varS[p]; vR += pr[p] * varS[p];
-            rL += pl[p] * revS[p]; rR += pr[p] * revS[p];
+            if (insSw[p]) { bus[2] += pl[p]; bus[3] += pr[p]; continue; }
+            bus[0] += pl[p] * dry[p]; bus[1] += pr[p] * dry[p];
+            bus[4] += pl[p] * varS[p]; bus[5] += pr[p] * varS[p];
+            bus[6] += pl[p] * revS[p]; bus[7] += pr[p] * revS[p];
         }
-        // An effect block handed parameters no preset would use can run away. Left alone, one bad
-        // block poisons the master EQ and silences everything after it, so a block whose output
-        // leaves the sane range is emptied and muted for that sample instead.
-        auto sane = [](FxBlock& blk, double& a, double& b) {
-            if (!(a > -1e6 && a < 1e6) || !(b > -1e6 && b < 1e6)) { blk.clearState(); a = b = 0.0; }
-        };
-        double oL, oR;
-        fx.ins.process(iL, iR, oL, oR);
-        sane(fx.ins, oL, oR);
-        dL += oL * insLvl; dR += oR * insLvl;
-        vL += oL * insVar; vR += oR * insVar;
-        rL += oL * insRev; rR += oR * insRev;
-        fx.var.process(vL, vR, oL, oR);
-        sane(fx.var, oL, oR);
-        rL += oL * varRev; rR += oR * varRev;
-        double l = dL + oL * varRet * vpl, r = dR + oR * varRet * vpr;
-        fx.rev.process(rL, rR, oL, oR);
-        sane(fx.rev, oL, oR);
-        l += oL * revRet * rpl; r += oR * revRet * rpr;
-        if (!(l > -1e6 && l < 1e6) || !(r > -1e6 && r < 1e6)) {
-            for (auto& q : fx.eq) q.reset();
-            l = r = 0.0;
-        }
-        fx.master(l, r);
-        // Down to the scale of the digital output board, which is what the capture measured, and then
-        // the main DAC's own ceiling. gain is ours: it stands in for the analogue volume pot, which on
-        // the hardware sits after the tap and so cannot be part of the measurement.
-        l *= cal::OUT_GAIN * pvol; r *= cal::OUT_GAIN * pvol;
-        // An effect block given parameters no preset would use can run away or go non-finite. The
-        // engine is a plugin: whatever happens upstream, it must not hand the host a NaN.
-        if (!(l > -1e6 && l < 1e6)) l = 0.0;
-        if (!(r > -1e6 && r < 1e6)) r = 0.0;
-        l = std::clamp(l, -1.0, 1.0) * gain; r = std::clamp(r, -1.0, 1.0) * gain;
-        outL[i] = (float)l; outR[i] = (float)r;
+        fx.run(bus, l, r);
+        // gain stands in for the analogue volume pot, after the DAC
+        outL[i] = (float)(l * gain); outR[i] = (float)(r * gain);
     }
 }

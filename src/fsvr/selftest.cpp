@@ -3,6 +3,7 @@
 #include "display.h"
 #include "egview.h"
 #include <cstring>
+#include <memory>
 
 // ------------------------------------------------------------------------------------------ self test
 // fsvr_console -selftest: every sysex path the plugin will use. Parameter change in, parameter request out,
@@ -653,6 +654,88 @@ int selftest(Synth& S) {
       const ValueTable& fb = VALUE_TABLES[echo.slot[1].table];
       ck("Echo's Lch FB Level starts at +22", !strcmp(fb.text[echo.slot[1].init - fb.sysexMin], "+22"));
       ck("Echo's Lch Delay1 starts at 220.0 ms (14-bit, 0.1 ms)", echo.slot[0].init == 2200 && VALUE_TABLES[echo.slot[0].table].count == 0); }
+
+    // The effect chip: its dry path against the tap, a reverb, the type and parameter paths, the LFO rate and the wiring.
+    { init_perf(S.perf);
+      const uint8_t* init = (const uint8_t*)&S.perf;          // the Init performance's common bytes: every effect off, the EQ flat
+      auto fresh = [&](std::initializer_list<std::pair<int, int>> set) {   // an effect section loaded with them and these bytes
+          uint8_t p[192]; memcpy(p, init, 192);
+          for (auto& b : set) p[b.first] = (uint8_t)b.second;
+          auto e = std::make_unique<Effects>(); e->load(p); return e; };
+      auto tone = [](double hz, size_t len, size_t on) {      // a sine at 0.1 for `on` samples, then silence up to `len`
+          std::vector<double> x(len, 0.0); for (size_t i = 0; i < on; i++) x[i] = 0.1 * sin(2 * PI * hz * i / SR); return x; };
+      auto drive = [](Effects& e, int bus, const std::vector<double>& x, std::vector<double>& l, std::vector<double>& r) {
+          l.assign(x.size(), 0.0); r.assign(x.size(), 0.0);
+          for (size_t i = 0; i < x.size(); i++) { double b[8] = {}; b[2 * bus] = b[2 * bus + 1] = x[i]; e.run(b, l[i], r[i]); } };
+      auto energy = [](const std::vector<double>& l, const std::vector<double>& r, size_t from) {
+          double s = 0; for (size_t i = from; i < l.size(); i++) s += l[i] * l[i] + r[i] * r[i]; return s; };
+      const size_t n = SR / 2;
+      const std::vector<double> sine = tone(1000, n, n), burst = tone(1000, n, SR / 10);
+      std::vector<double> l, r;
+      // 1. a dry bus at volume 127 comes out at cal::OUT_GAIN
+      { auto e = fresh({});
+        drive(*e, 0, sine, l, r);
+        double in = 0, out = 0; for (size_t i = n / 2; i < n; i++) { in += sine[i] * sine[i]; out += l[i] * l[i]; }
+        ck("effect chip: the dry path at volume 127 is OUT_GAIN to 0.05 dB", fabs(10 * log10(out / in) - 20 * log10(cal::OUT_GAIN)) < 0.05); }
+      // 2. Hall 1 on the reverb send rings on after a burst; with the reverb off nothing comes back from that bus
+      double hallTail;
+      { auto h = fresh({{169, 64}, {170, 100}}), o = fresh({});   // reverb pan centre, return 100
+        h->setType(Effects::REVERB, 1);
+        drive(*h, 3, burst, l, r); hallTail = energy(l, r, n / 2);
+        drive(*o, 3, burst, l, r);
+        ck("effect chip: Hall 1 rings on after the burst", hallTail > 1e-6 && hallTail > 100 * energy(l, r, n / 2)); }
+      // 3. the same reverb as parameter changes: the sync sends the type, the host loads its defaults and hands them back
+      { auto y = fresh({});
+        uint8_t c[192]; memcpy(c, init, 192); c[168] = 1; c[169] = 64; c[170] = 100;
+        y->sync(c);
+        const display::EffectType& hall = display::REVERB[1];   // Reverb Time at 0x50, Diffusion at 0x52
+        ck("effect chip: a type change writes the type's defaults back into the performance", c[0x51] == hall.slot[0].init && c[0x53] == hall.slot[1].init);
+        drive(*y, 3, burst, l, r);
+        ck("effect chip: a synced reverb type reaches the chip", energy(l, r, n / 2) > 0.5 * hallTail);
+        y->setParam(Effects::REVERB, 1, 30); y->setParam(Effects::REVERB, 11, 3);   // Reverb Time, a word; Rev Delay, a byte
+        ck("effect chip: a parameter reaches the host by its slot", y->host.readParameter(0x50) == 30 && y->host.readParameter(0x62) == 3); }
+      // 4. the insertion Tremolo's LFO runs at its default, 1.831 Hz: the strongest 0.3..40 Hz component of the left level
+      { auto t = fresh({{176, 64}, {179, 127}});               // insertion pan centre, level 127
+        t->setType(Effects::INSERTION, 11);
+        drive(*t, 1, tone(1000, 2 * SR, 2 * SR), l, r);
+        std::vector<double> env; const size_t w = SR / 100;
+        for (size_t at = SR / 4; at + w <= l.size(); at += w) { double s = 0; for (size_t i = 0; i < w; i++) s += fabs(l[at + i]); env.push_back(s / w); }
+        double mean = 0; for (double e : env) mean += e; mean /= env.size();
+        double best = 0, hz = 0;
+        for (double f = 0.3; f < 40; f += 0.02) {
+            double re = 0, im = 0;
+            for (size_t k = 0; k < env.size(); k++) { double ph = 2 * PI * f * k / 100.0; re += (env[k] - mean) * cos(ph); im -= (env[k] - mean) * sin(ph); }
+            double m = sqrt(re * re + im * im); if (m > best) { best = m; hz = f; } }
+        ck("effect chip: the insertion Tremolo runs at its default LFO Freq, 1.831 Hz", fabs(hz - 1.831) < 0.06); }
+      // 5. the variation Rotary SP on a 220 Hz sine does not hiss: under -70 dB of its energy above 4 kHz, from 1 s on
+      { auto t = fresh({{172, 64}, {173, 100}});               // variation pan centre, return 100
+        t->setType(Effects::VARIATION, 8);
+        const int len = 4096;
+        drive(*t, 2, tone(220, SR + len, SR + len), l, r);
+        std::vector<double> x(len), cs(len), sn(len);
+        for (int i = 0; i < len; i++) { cs[i] = cos(2 * PI * i / len); sn[i] = sin(2 * PI * i / len); x[i] = 0.5 * (l[SR + i] + r[SR + i]) * (0.5 - 0.5 * cs[i]); }
+        double high = 0, all = 0;
+        for (int k = 1; k < len / 2; k++) {
+            double re = 0, im = 0;
+            for (int i = 0; i < len; i++) { re += x[i] * cs[(k * i) & (len - 1)]; im -= x[i] * sn[(k * i) & (len - 1)]; }
+            double e = re * re + im * im; all += e; if (k * (double)SR / len > 4000) high += e; }
+        ck("effect chip: the variation Rotary SP has no noise above 4 kHz", 10 * log10(high / all + 1e-30) < -70); }
+      // 6. through the engine: a part with its insertion switch on is heard through the insertion and has no dry path
+      { auto peak = [&] { std::vector<float> a(256), b(256); float m = 0;
+            for (int k = 0; k < 10; k++) S.render(a.data(), b.data(), 256);   // the chip rings down what the last run left, some 15 ms
+            S.midi_in(0x90, 60, 100);
+            for (int k = 0; k < 40; k++) { S.render(a.data(), b.data(), 256); for (int i = 0; i < 256; i++) m = std::max(m, std::max(fabsf(a[i]), fabsf(b[i]))); }
+            S.all_off(); return m; };
+        float direct = peak();
+        S.perf.part[0].p[0x14] = 1; S.perf.fx[176 - 80] = 64; S.perf.fx[179 - 80] = 127;   // part 1 on the insertion, pan centre, level 127
+        float inserted = peak();
+        S.perf.fx[179 - 80] = 0;
+        float silent = peak();
+        ck("engine: a note sounds through the effect chip", direct > 0.001f);
+        ck("engine: a part on the insertion is heard through it", inserted > direct * 0.1f);
+        ck("engine: a part on the insertion has no dry path", silent < direct * 0.001f);
+        init_perf(S.perf); }
+    }
 
     printf(g_fails ? "selftest: %d FAILURES\n" : "selftest: ok\n", g_fails);
     return g_fails ? 1 : 0;

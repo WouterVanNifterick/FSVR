@@ -1,8 +1,8 @@
 @echo off
 rem Build helper: MSVC x64 from the VS 2022 Professional install (the Community install on E: has a broken vcvarsall).
 rem Everything that runs lands in bin\ (objects and the test binaries in build\).
-rem   build.bat                      -> bin\fsvr_console.exe, the console, from src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\fastmath.cpp src\fsvr\selftest.cpp + src\console\main.cpp
-rem   build.bat test                 -> builds and runs the self checks (effects, engine, formant, presets)
+rem   build.bat                      -> bin\fsvr_console.exe, the console (:console below)
+rem   build.bat test                 -> builds and runs the self checks (engine, formant, presets)
 rem   build.bat plugin               -> every plug-in format through CMake into bin\<format>: CLAP, VST3, VST2 and the
 rem                                     standalone (64-bit, build\x64), then the 32-bit VST2 with the DXi in it (build\x86),
 rem                                     then the plug-in's own checks (check_plugin, check_gui)
@@ -16,11 +16,9 @@ if not exist bin mkdir bin
 set MATHDEF=
 if defined FSVR_MATH set MATHDEF=/DFSVR_MATH=%FSVR_MATH%
 if "%~1"=="" (
-  cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\fastmath.cpp src\fsvr\selftest.cpp src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
+  call :console
 ) else if "%~1"=="test" (
-  cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\fastmath.cpp src\fsvr\selftest.cpp src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\ || goto :done
-  cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src tools\test_effects.cpp src\fsvr\fastmath.cpp /Fe:build\test_effects.exe /Fobuild\ || goto :done
-  build\test_effects.exe || goto :done
+  call :console || goto :done
   "%~dp0bin\fsvr_console.exe" -selftest || goto :done
   python "%~dp0tools\check_formant.py" || goto :done
   python "%~dp0tools\check_presets.py"
@@ -34,6 +32,16 @@ if "%~1"=="" (
 ) else (
   cl /nologo /O2 /EHsc /W3 /std:c++17 %* /Fobuild\
 )
+goto :done
+
+rem The console. The effect host and the effect section are bit-exact only under /fp:strict, so they are compiled apart.
+:console
+if exist build\vop3host rmdir /s /q build\vop3host
+mkdir build\vop3host
+cl /nologo /c /MP /O2 /EHsc /W3 /std:c++17 /fp:strict /I src src\fs1r\firmware\vop3host\*.cpp src\fs1r\effects.cpp /Fobuild\vop3host\ || exit /b 1
+cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\fastmath.cpp src\fsvr\selftest.cpp build\vop3host\*.obj src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
+exit /b %ERRORLEVEL%
+
 :done
 set ERR=%ERRORLEVEL%
 popd

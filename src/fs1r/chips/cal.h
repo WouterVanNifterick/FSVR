@@ -283,6 +283,8 @@ static const double PMS_FRAC[8]  = {0, 0.038, 0.076, 0.125, 0.212, 0.365, 0.620,
 // docs/capture_0918.md the working.
 static const double OUT_GAIN     = 0.14992; // fixed gain between the summed bus and the digital tap. Nine
                                             // single-operator segments agree to 0.005 dB.
+static const double FX_DRY_GAIN  = 5.646458;// the effect chip model's dry path at performance volume 127 with a
+                                            // full-scale word in, 15.04 dB. 
 static const double LEVEL_SLEW_MS= 1.6;     // the voiced level register does not step, it glides, one pole with
                                             // this time constant. MEASURED 2026-09-21 off 12_fseqlevel, whose
                                             // Fseq rewrites the level thirty to eighty dB at a time: the octave

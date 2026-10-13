@@ -1,6 +1,5 @@
 # fs1rLib          the engine, no Windows, no host, no GUI. This is what the plug-in links.
 # fsvr_console     the test console (WinMM, Windows only), built into bin/.
-# test_effects     the effect-block self check.
 # render_capture   the renderer behind the calibration loop, into bin/.
 # With FSVR_BUILD_PLUGIN, the plug-in: Hollow (hollow/) with the FSVR skin (plugin/), every format the
 # platform has into bin/<format>. The first configure downloads the CLAP, VST3 and AU SDKs, RtAudio and
@@ -24,6 +23,20 @@ endif()
 # Everything meant to be run lands in bin/: the console here, the plug-in formats under bin/<Format>/.
 set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
+# The effect host and the effect section over it. They are bit-exact only without FMA contraction and excess
+# precision, so they are a library of their own with its own flags.
+file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp)
+add_library(vop3host STATIC ${VOP3HOST} src/fs1r/effects.cpp)
+target_include_directories(vop3host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+if(MSVC)
+  target_compile_options(vop3host PRIVATE /W3 /fp:strict /permissive-)
+else()
+  target_compile_options(vop3host PRIVATE -Wall -ffp-contract=off)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(vop3host PRIVATE -fexcess-precision=standard)
+  endif()
+endif()
+
 add_library(fs1rLib STATIC
     src/fs1r/chips/ymp706.cpp
     src/fs1r/firmware/controllers.cpp
@@ -36,6 +49,7 @@ add_library(fs1rLib STATIC
     src/fsvr/fastmath.cpp
     src/fsvr/selftest.cpp)
 target_include_directories(fs1rLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(fs1rLib PUBLIC vop3host)
 # The sample loop's maths backend, src/fsvr/fastmath.h: LUT (the default, and the fastest measured), RAW
 # (libm, kept for A/B renders), CORDIC, or HYBRID, where the table seeds a short CORDIC rotation.
 set(FSVR_MATH "LUT" CACHE STRING "fastmath backend: RAW, LUT, CORDIC or HYBRID")
@@ -52,10 +66,6 @@ else()
   target_compile_options(fs1rLib PRIVATE -Wall -Wno-unused-function)
 endif()
 
-add_executable(test_effects tools/test_effects.cpp src/fsvr/fastmath.cpp)
-target_include_directories(test_effects PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_compile_definitions(test_effects PRIVATE FSVR_MATH=${_fsvr_math_id})
-
 # The renderer behind the calibration loop. The console does this too, but only on Windows, and
 # tools/analyze_capture.py needs a render of every capture request to compare a recording against.
 add_executable(render_capture tools/render_capture.cpp)
@@ -63,7 +73,6 @@ target_link_libraries(render_capture PRIVATE fs1rLib)
 set_target_properties(render_capture PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${FS1R_BIN}>")
 
 enable_testing()
-add_test(NAME effects COMMAND test_effects)
 
 if(WIN32)
   add_executable(fsvr_console src/console/main.cpp)
@@ -71,7 +80,7 @@ if(WIN32)
   set_target_properties(fsvr_console PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${FS1R_BIN}>")
   add_test(NAME engine COMMAND fsvr_console -selftest)
 else()
-  message(STATUS "fsvr_console needs WinMM; building fs1rLib and test_effects only")
+  message(STATUS "fsvr_console needs WinMM; building fs1rLib only")
   add_executable(engine_selftest tools/engine_selftest.cpp)
   target_link_libraries(engine_selftest PRIVATE fs1rLib)
   add_test(NAME engine COMMAND engine_selftest)

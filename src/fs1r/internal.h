@@ -9,6 +9,7 @@
 #include "../fs1r.h"
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -133,7 +134,7 @@ static inline double db2lin_fast(double db) { return db <= -128 ? 0.0 : fm::db2l
 // exact inverse of the DX7's (R*41)>>6, and its DX7 converter uses T = 99 - R, so the chip is assumed to time its EG like the
 // DX7 EGS: increment (4 + (q & 3)) << (q >> 2) per 64 samples on a 2^28 = 96 dB scale (Dexed). 6.6 ms at 63, 380 s at 0.
 static inline double rate_secs(int q) { q = clampi(q, 0, 63); return pow(2.0, 26 - (q >> 2)) / (4 + (q & 3)) / SR; }
-#include "fs1r/chips/vop3_effects.h"
+#include "fs1r/effects.h"
 
 // FUN_0000C36C: the cutoff byte reaches VOP3-1 as a coefficient, 0xC0D + 0xA9 per step capped at
 // 0x6000, so it is linear in the coefficient rather than in octaves. Reading that coefficient as a
@@ -248,6 +249,7 @@ struct Perf {
     uint8_t c[80]; uint8_t fx[112]; Part part[4];
     char name[13];
 };
+static_assert(offsetof(Perf, fx) == 80, "the 192 common bytes, as the effect host reads them in place");
 
 int bank_perf_index(int lsb, int prog);
 void init_perf(Perf& P);
@@ -371,7 +373,7 @@ struct Synth {
     // FUN_0000f7dc's cursors: the last channel allocated, and the last one each part took. Allocation
     // walks from these rather than from channel 0, which is what fixes the channel a note lands on.
     int nextChan = 0, partChan[4] = {0, 0, 0, 0};
-    FxSection fx;
+    Effects fx;
     const Rom* rom = nullptr;
     uint8_t sys[76] = {};                      // system parameters, sysex table 4
     int sysTune() const { return sys[0]; }
@@ -386,7 +388,7 @@ struct Synth {
     bool fseqHeld = false, fseqClock = false; double fseqDelay = 0, fseqClockAcc = 0;
     double tickAcc = 0;
 
-    Synth() { init_perf(perf); fx.init(SR); init_system(); }
+    Synth() { init_perf(perf); init_system(); fx.load((uint8_t*)&perf); }
     void init_system();
     static inline double sendlvl(int v) { return db2lin(-LEVEL_DB * SENDTAB[clampi(v, 0, 127)]); }
 
@@ -415,6 +417,7 @@ struct Synth {
     // and FUN_00014DDC walks the sets 0 to 7, so two sets on one destination do not compose: the last
     // one evaluated wins, exactly as for the destinations that edit a part byte.
     int ctrl_offset(int part, int dest) const;
+    void fx_controls(int part);                // destinations 1-16, into the effect host (controllers.cpp)
     // A destination that edits a part byte: the firmware writes the byte, so the last set that selects
     // it wins rather than the offsets adding up.
     int ctrl_part(int part, int dest, int stored) const;
@@ -575,9 +578,7 @@ struct Synth {
     // the phase. The rate itself is ours, not the hardware's, so it lives in fsvr/tuning.h.
     void refresh_ctl(Chan& C);
     inline void render_chan(Chan& C, double& outL, double& outR);
-    // Part buses -> insertion / variation / reverb -> master EQ, the XG topology the FS1R uses.
-    // ponytail: the performance's individual out (common 0x14) is folded into the main pair; the plugin
-    // has one stereo output, so a second pair would be four channels nobody listens to yet.
+    // The part buses go through the effect chip (fx). Its individual out pair (common 0x14) is not rendered.
     void render(float* outL, float* outR, int frames);
 };
 

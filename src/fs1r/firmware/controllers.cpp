@@ -27,6 +27,15 @@ int Synth::ctrl_offset(int part, int dest) const {
     return 0;
 }
 
+// Destinations 1-16, the insertion parameters and its two sends: sent to the effect host when one of the part's
+// sources moves. The last part to move wins.
+void Synth::fx_controls(int part) {
+    for (int s = 0; s < 8; s++) {
+        int d = perf.c[0x40 + s] & 0x3F;
+        if (d >= 1 && d <= 16) fx.control(d, ctrl_offset(part, d));
+    }
+}
+
 int Synth::ctrl_part(int part, int dest, int stored) const {
     bool wide = dest == 17 || dest == 19 || dest == 20;     // volume and the two sends use FUN_00017032
     for (int s = 7; s >= 0; s--)
