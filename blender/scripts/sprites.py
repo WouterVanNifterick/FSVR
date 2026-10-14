@@ -31,7 +31,7 @@ def materials():
     m['glass'] = kit.plain('Glass', (0.9, 0.93, 0.94), roughness=0.3, alpha=0.45)
     m['socket'] = kit.plain('Socket', (0.008, 0.01, 0.013), metallic=0.1, roughness=0.6)
     for name, c, s in (('lit', LIT, 1.0), ('glyph', (232, 238, 240), 1.0), ('glyph_dim', (150, 160, 165), 1.0),
-                       ('ink', (40, 46, 50), 1.0)):
+                       ('ink', (40, 46, 50), 1.0), ('about', (232, 232, 232), 1.0), ('about_hover', (216, 216, 216), 1.0)):
         mat = kit.plain('E_' + name, (0, 0, 0), roughness=1, emission=srgb(c), strength=s)
         m[name] = mat
     return m
@@ -305,7 +305,7 @@ BUTTONS = {
     'buttons/dropdown_header': (60, 22, header(60, 22), {'slice': [0, 24, 0, 6]}),
     'buttons/alg_cell': (24, 24, cell(24, 24), {'slice': [3, 3, 3, 3]}),
     'buttons/matrix_op': (41, 29, op_box(41, 29), {}),
-    'buttons/about_button': (196, 45, flat(196, 45, ['pale', 'pale_hover']), {}),
+    'buttons/about_button': (196, 45, flat(196, 45, ['about', 'about_hover']), {}),
     'buttons/about_close': (32, 32, flat(32, 32, ['pale', 'pale_hover']), {}),
 }
 

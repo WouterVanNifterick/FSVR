@@ -213,7 +213,7 @@
    "type": "plate",
    "name": "logo",
    "rect": [
-    24,
+    14,
     64,
     162,
     26
@@ -251,7 +251,7 @@
    "name": "credits",
    "rect": [
     24,
-    160,
+    144,
     300,
     32
    ],
@@ -274,7 +274,7 @@
    "name": "credit_1_name",
    "rect": [
     24,
-    198,
+    182,
     592,
     20
    ],
@@ -297,7 +297,7 @@
    "name": "credit_1_role",
    "rect": [
     24,
-    218,
+    202,
     592,
     20
    ],
@@ -320,7 +320,53 @@
    "name": "credit_2_name",
    "rect": [
     24,
-    250,
+    228,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Wouter van Nifterick",
+    "font": "aw_black_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_2_role",
+   "rect": [
+    24,
+    248,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "VOP3 core, Envelope editing enhancements, general improvements",
+    "font": "aw_grey_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_3_name",
+   "rect": [
+    24,
+    274,
     592,
     20
    ],
@@ -340,10 +386,10 @@
   },
   {
    "type": "plate",
-   "name": "credit_2_role",
+   "name": "credit_3_role",
    "rect": [
     24,
-    270,
+    294,
     592,
     20
    ],
@@ -363,16 +409,16 @@
   },
   {
    "type": "plate",
-   "name": "credit_3_name",
+   "name": "credit_4_name",
    "rect": [
     24,
-    302,
+    320,
     592,
     20
    ],
    "layer": 0,
    "text": {
-    "text": "contributors",
+    "text": "other contributors",
     "font": "aw_black_16",
     "align": "left",
     "valign": "middle"
@@ -386,10 +432,10 @@
   },
   {
    "type": "plate",
-   "name": "credit_3_role",
+   "name": "credit_4_role",
    "rect": [
     24,
-    322,
+    340,
     592,
     20
    ],
@@ -412,7 +458,7 @@
    "name": "trademark",
    "rect": [
     24,
-    362,
+    368,
     592,
     16
    ],
@@ -435,7 +481,7 @@
    "name": "icons_credit",
    "rect": [
     24,
-    378,
+    384,
     592,
     16
    ],
@@ -458,7 +504,7 @@
    "name": "site",
    "rect": [
     224,
-    396,
+    411,
     196,
     45
    ],
@@ -490,7 +536,7 @@
    "name": "discord",
    "rect": [
     428,
-    396,
+    411,
     188,
     45
    ],

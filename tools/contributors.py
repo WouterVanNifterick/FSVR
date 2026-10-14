@@ -1,5 +1,5 @@
-# Writes plugin/generated/contributors.txt: the repository's GitHub contributors other than its two collaborators
-# (jameshansen and rgwan, credited by name in the About box above them) and bots, each by the name on their GitHub
+# Writes plugin/generated/contributors.txt: the repository's GitHub contributors other than those the About box
+# credits by name above them (jameshansen, rgwan and WouterVanNifterick) and bots, each by the name on their GitHub
 # profile, else their handle, most contributions first, on one line. The plug-in embeds the file and the About box
 # lists it. The build workflow runs this before every build, so a release credits whoever has contributed by then.
 # GitHub's contributors list is a cached statistic that can lag a merge by hours (v0.5.2 shipped without
@@ -12,7 +12,7 @@ from collections import Counter
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parents[1] / 'plugin' / 'generated' / 'contributors.txt'
-COLLABORATORS = {'jameshansen', 'rgwan'}
+NAMED = {'jameshansen', 'rgwan', 'woutervannifterick'}   # lowercase
 
 
 def get(url):
@@ -59,11 +59,11 @@ def pages(url):
 
 
 def names(people, profile):
-    """The credit line: each contributor's profile name, else their handle, collaborators and bots left out."""
+    """The credit line: each contributor's profile name, else their handle, those named above it and bots left out."""
     out = []
     for p in people:
         login = p['login']
-        if login.lower() in COLLABORATORS or p.get('type') == 'Bot' or login.endswith('[bot]'):
+        if login.lower() in NAMED or p.get('type') == 'Bot' or login.endswith('[bot]'):
             continue
         name = (profile(login) or {}).get('name') or login
         if name not in out:
@@ -81,12 +81,12 @@ def main():
         print('contributors: GitHub not reached (%s), %s left as it is' % (e, OUT.name))
         return
     OUT.write_text(line + '\n', encoding='utf-8', newline='\n')
-    print('contributors:', line or '(none besides the collaborators)')
+    print('contributors:', line or '(none besides those named)')
 
 
 if __name__ == '__main__':
     if sys.argv[1:] == ['--check']:   # the filter, without the network
-        people = [{'login': 'jameshansen'}, {'login': 'rgwan'}, {'login': 'mkruselj'}, {'login': 'dependabot[bot]', 'type': 'Bot'}, {'login': 'someone'}]
+        people = [{'login': 'jameshansen'}, {'login': 'rgwan'}, {'login': 'WouterVanNifterick'}, {'login': 'mkruselj'}, {'login': 'dependabot[bot]', 'type': 'Bot'}, {'login': 'someone'}]
         line = names(people, lambda login: {'mkruselj': {'name': 'Mario Kruselj'}}.get(login))
         assert line == 'Mario Kruselj, someone', line
         # a merge the contributors list has not caught up with, and a co-author credited only in a message

@@ -10,7 +10,7 @@ They are committed rather than built, so the plugin needs no Python at build tim
 | `fs1r_presets.syx` and `fs1r_presets.csv` | `tools/make_presets_blob.py` | `presets/`, the 1408 factory voices |
 | `fs1r_performances.syx` | `tools/make_presets_blob.py` | `presets/performances`, the 384 factory performances |
 | `fs1r_fseqs.syx` | `tools/make_presets_blob.py` | `presets/fseq`, the 90 preset formant sequences |
-| `contributors.txt` | `tools/contributors.py` | GitHub's contributor list for the repository, less jameshansen, rgwan and bots: the About box's credit line. The build workflow runs it before every build |
+| `contributors.txt` | `tools/contributors.py` | GitHub's contributor list for the repository, less jameshansen, rgwan, WouterVanNifterick (credited by name above it) and bots: the About box's credit line. The build workflow runs it before every build |
 
 To change what is in one of these, change the generator or its source and re-run it. `tools/check_presets.py` reads the banks back and runs under `build.bat test`, so a stale or hand-edited file fails the build.
 
