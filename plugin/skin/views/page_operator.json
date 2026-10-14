@@ -226,10 +226,10 @@
    "type": "plate",
    "name": "op_number",
    "rect": [
-    18,
-    74,
-    22,
-    19
+    17,
+    73,
+    24,
+    20
    ],
    "text": {
     "text": "{op}",
@@ -244,7 +244,7 @@
     1
    ],
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key_small",
     "tint": "@op{op}"
    }
   },

@@ -11,14 +11,14 @@
   "alg_grid": "3"
  },
  "colours": {
-  "op1": "#406bb3ff",
-  "op2": "#3c7337ff",
-  "op3": "#617523ff",
-  "op4": "#917c04ff",
-  "op5": "#8f5628ff",
-  "op6": "#973b3bff",
-  "op7": "#a23d93ff",
-  "op8": "#7948c2ff",
+  "op1": "#5e8fe0ff",
+  "op2": "#52904cff",
+  "op3": "#7c9236ff",
+  "op4": "#b59e17ff",
+  "op5": "#b3733fff",
+  "op6": "#bd5555ff",
+  "op7": "#ca59baff",
+  "op8": "#a069f2ff",
   "op1_line": "#6e9eeeff",
   "op2_line": "#8eee86ff",
   "op3_line": "#ccee62ff",
@@ -388,6 +388,16 @@
    ],
    "surface": false
   },
+  "buttons/lamp_row": {
+   "tiles": 2,
+   "slice": [
+    0,
+    21,
+    0,
+    2
+   ],
+   "surface": false
+  },
   "buttons/led_toggle_inv": {
    "tiles": 2,
    "surface": false
@@ -414,6 +424,13 @@
     0,
     8
    ],
+   "surface": false
+  },
+  "buttons/op_key": {
+   "tiles": 4,
+   "surface": false
+  },
+  "buttons/op_key_small": {
    "surface": false
   },
   "buttons/page_button": {

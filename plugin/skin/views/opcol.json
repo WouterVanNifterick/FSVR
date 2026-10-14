@@ -100,11 +100,11 @@
    "rect": [
     12,
     38,
-    27,
+    28,
     24
    ],
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op1"
    },
    "text": {
@@ -138,11 +138,11 @@
    "rect": [
     41,
     38,
-    27,
+    28,
     24
    ],
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op2"
    },
    "text": {
@@ -176,11 +176,11 @@
    "rect": [
     70,
     38,
-    27,
+    28,
     24
    ],
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op3"
    },
    "text": {
@@ -214,11 +214,11 @@
    "rect": [
     99,
     38,
-    27,
+    28,
     24
    ],
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op4"
    },
    "text": {
@@ -252,11 +252,11 @@
    "rect": [
     128,
     38,
-    27,
+    28,
     24
    ],
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op5"
    },
    "text": {
@@ -290,11 +290,11 @@
    "rect": [
     157,
     38,
-    27,
+    28,
     24
    ],
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op6"
    },
    "text": {
@@ -328,11 +328,11 @@
    "rect": [
     186,
     38,
-    27,
+    28,
     24
    ],
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op7"
    },
    "text": {
@@ -366,11 +366,11 @@
    "rect": [
     215,
     38,
-    27,
+    28,
     24
    ],
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op8"
    },
    "text": {

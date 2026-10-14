@@ -1,5 +1,5 @@
 # Renders the pot filmstrips from pot.blend into the skin at every scale: knobs/rotary_large and rotary_small,
-# and rotary_small_orange (the operator panel's, its cap a sunset orange so it reads off the grey panel, its pointer
+# and rotary_small_orange (the operator panel's, its cap a muted sunset orange so it reads off the grey panel, its pointer
 # groove painted dark so the position reads at a glance), 128 frames each, frame 0 pointing at 7:30 and frame 127 at 4:30, as the skin's knob kind expects.
 #   In Blender, with pot.blend open (blender/scripts on sys.path): import render_pot; render_pot.run()
 # The groove is shaped for the pot's size at 1x and the frame is only rendered larger or smaller, so every
@@ -17,7 +17,7 @@ FRAMES = 128
 # fraction of the half-width. The small pot draws a shorter pointer than a straight scale of the large one,
 # and the same ~2.4 px width at both sizes; the groove keeps both.
 SIZES = {"rotary_large": (56, 0.09, 0.52), "rotary_small": (44, 0.14, 0.50), "rotary_small_orange": (44, 0.14, 0.50)}
-CAPS = {"rotary_small_orange": (0.93, 0.105, 0.022)}   # a cap colour other than the graphite, linear RGB (#f75b29)
+CAPS = {"rotary_small_orange": (0.2307, 0.0887, 0.0578)}   # a cap colour other than the graphite, linear RGB (#845444)
 GROOVE_INK = {"rotary_small_orange": (0.012, 0.012, 0.014)}   # the groove painted, linear RGB; else it shows the cap
 GROOVE_PX = 2.6     # width across the top of the cap
 GROOVE_DEPTH = 0.12 # scene units

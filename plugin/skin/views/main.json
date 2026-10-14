@@ -506,30 +506,6 @@
    "fit": true
   },
   {
-   "type": "embed",
-   "name": "keys_bar_up",
-   "rect": [
-    0,
-    134,
-    1514,
-    6
-   ],
-   "view": "keys_hidden",
-   "showIf": {
-    "all": [
-     {
-      "param": "gui.hide_keys",
-      "equals": 1
-     },
-     {
-      "param": "gui.hide_editor",
-      "equals": 1
-     }
-    ]
-   },
-   "fit": true
-  },
-  {
    "type": "veil",
    "name": "about_veil",
    "rect": [

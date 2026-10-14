@@ -227,9 +227,9 @@
    "type": "button",
    "name": "op_1",
    "rect": [
-    16,
+    19,
     80,
-    34,
+    28,
     24
    ],
    "text": {
@@ -252,7 +252,7 @@
    },
    "tip": "Operator 1's page",
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op1"
    }
   },
@@ -536,9 +536,9 @@
    "type": "button",
    "name": "op_2",
    "rect": [
-    16,
+    19,
     139,
-    34,
+    28,
     24
    ],
    "text": {
@@ -561,7 +561,7 @@
    },
    "tip": "Operator 2's page",
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op2"
    }
   },
@@ -845,9 +845,9 @@
    "type": "button",
    "name": "op_3",
    "rect": [
-    16,
+    19,
     197,
-    34,
+    28,
     24
    ],
    "text": {
@@ -870,7 +870,7 @@
    },
    "tip": "Operator 3's page",
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op3"
    }
   },
@@ -1154,9 +1154,9 @@
    "type": "button",
    "name": "op_4",
    "rect": [
-    16,
+    19,
     256,
-    34,
+    28,
     24
    ],
    "text": {
@@ -1179,7 +1179,7 @@
    },
    "tip": "Operator 4's page",
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op4"
    }
   },
@@ -1463,9 +1463,9 @@
    "type": "button",
    "name": "op_5",
    "rect": [
-    16,
+    19,
     314,
-    34,
+    28,
     24
    ],
    "text": {
@@ -1488,7 +1488,7 @@
    },
    "tip": "Operator 5's page",
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op5"
    }
   },
@@ -1772,9 +1772,9 @@
    "type": "button",
    "name": "op_6",
    "rect": [
-    16,
+    19,
     373,
-    34,
+    28,
     24
    ],
    "text": {
@@ -1797,7 +1797,7 @@
    },
    "tip": "Operator 6's page",
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op6"
    }
   },
@@ -2081,9 +2081,9 @@
    "type": "button",
    "name": "op_7",
    "rect": [
-    16,
+    19,
     432,
-    34,
+    28,
     24
    ],
    "text": {
@@ -2106,7 +2106,7 @@
    },
    "tip": "Operator 7's page",
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op7"
    }
   },
@@ -2390,9 +2390,9 @@
    "type": "button",
    "name": "op_8",
    "rect": [
-    16,
+    19,
     491,
-    34,
+    28,
     24
    ],
    "text": {
@@ -2415,7 +2415,7 @@
    },
    "tip": "Operator 8's page",
    "fill": {
-    "image": "buttons/nav_small",
+    "image": "buttons/op_key",
     "tint": "@op8"
    }
   },

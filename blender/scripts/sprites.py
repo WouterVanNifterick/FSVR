@@ -19,6 +19,14 @@ def srgb(c):
     return tuple(((v / 255 + 0.055) / 1.055) ** 2.4 if v / 255 > 0.04045 else v / 255 / 12.92 for v in c)
 
 
+def coated(m, weight=0.4, roughness=0.15):
+    """The pots' clear coat over a material (pot.blend's CapMat: metallic 0.35, roughness 0.42, coat 0.4 at 0.15)."""
+    b = next(n for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
+    b.inputs['Coat Weight'].default_value = weight
+    b.inputs['Coat Roughness'].default_value = roughness
+    return m
+
+
 def materials():
     m = {}
     m['slate'] = kit.plain('Slate', (0.030, 0.036, 0.042), metallic=0.45, roughness=0.36)
@@ -30,6 +38,11 @@ def materials():
     m['pale_hover'] = kit.plain('PaleHover', (0.69, 0.69, 0.69), roughness=0.6)
     m['glass'] = kit.plain('Glass', (0.9, 0.93, 0.94), roughness=0.3, alpha=0.45)
     m['socket'] = kit.plain('Socket', (0.008, 0.01, 0.013), metallic=0.1, roughness=0.6)
+    # the pots' cap plastic in a neutral grey, for the keys the skin colours with a fill's tint (the operators')
+    m['cap'] = coated(kit.plain('Cap', (0.30, 0.30, 0.30), metallic=0.35, roughness=0.42))
+    m['cap_hover'] = coated(kit.plain('CapHover', (0.40, 0.40, 0.40), metallic=0.35, roughness=0.42))
+    m['cap_lit'] = coated(kit.plain('CapLit', (0.36, 0.36, 0.36), metallic=0.35, roughness=0.42))
+    m['cap_lit_hover'] = coated(kit.plain('CapLitHover', (0.44, 0.44, 0.44), metallic=0.35, roughness=0.42))
     for name, c, s in (('lit', LIT, 1.0), ('glyph', (232, 238, 240), 1.0), ('glyph_dim', (150, 160, 165), 1.0),
                        ('ink', (40, 46, 50), 1.0), ('about', (232, 232, 232), 1.0), ('about_hover', (216, 216, 216), 1.0)):
         mat = kit.plain('E_' + name, (0, 0, 0), roughness=1, emission=srgb(c), strength=s)
@@ -176,6 +189,36 @@ def silver(w, h, r=4):
     return build
 
 
+def cap_key(w, h, r, bevel, height, states=True):
+    """The operator keys: a pillow of the pots' cap plastic in grey, so a fill's tint gives each its operator's
+    colour with the pots' finish; while on, inset: a well cut into the key's outline, 45 degree walls 1.5 px wide
+    down 2 px to a floor a little lighter than the key at rest. Drawn at the size of the widgets it fills, a
+    multiple of 4 px so every scale is whole pixels and nothing of it is cut off."""
+    def build(c):
+        b = kit.prism('Body', kit.rounded_rect(1, 1, w - 2, h - 3, r, 8), 0, height, M['cap'], collection=c)
+        kit.bevel(b, bevel, 8)
+        if not states:
+            return [None]
+        well = kit.prism('Well', kit.rounded_rect(1, 1, w - 2, h - 3, r, 8), 0, 3, M['cap_lit'], collection=c)
+        kit.bevel(well, 0.8, 4)
+        # the cutter: the floor's outline 2.5 px in (a 1 px rim, then the wall), 1 px up, its top pulled out 1.5 px
+        cut = kit.prism('Cut', kit.rounded_rect(3.5, 3.5, w - 7, h - 8, max(1.0, r - 2.5), 8), 1, 3.01, M['cap_lit'], inset=-1.5, collection=c)
+        cut.hide_render = True
+        hole = well.modifiers.new('Well', 'BOOLEAN')
+        hole.operation = 'DIFFERENCE'
+        hole.solver = 'EXACT'
+        hole.object = cut
+        def st(on, hover):
+            def f():
+                show([b], not on)
+                show([well], on)
+                b.data.materials[0] = M['cap_hover' if hover else 'cap']
+                well.data.materials[0] = M['cap_lit_hover' if hover else 'cap_lit']
+            return f
+        return [st(False, False), st(True, False), st(False, True), st(True, True)]
+    return build
+
+
 def page_button(w, h):
     """The expert pages' keys: a silver plate with a dark socket for the glyph at its left, lit green while
     its page shows."""
@@ -294,11 +337,17 @@ BUTTONS = {
     'buttons/dark_up': (17, 17, dark_step(17, 17, 'up'), {}),
     'buttons/dark_down': (17, 17, dark_step(17, 17, 'down'), {}),
     'buttons/nav_small': (26, 26, silver(26, 26), {'slice': [0, 8, 0, 8]}),
+    # the operator keys: the operator panel's 1 to 8 and the All Operators and Key Scaling rows' numbers, and the
+    # operator page's number, each the size it is drawn at
+    'buttons/op_key': (28, 24, cap_key(28, 24, 6, 5, 6), {}),
+    'buttons/op_key_small': (24, 20, cap_key(24, 20, 5, 4, 5, states=False), {}),
     'buttons/page_button': (116, 38, page_button(116, 38), {}),
     'buttons/pill': (38, 18, pill(38, 18), {}),
     'buttons/part_radio': (16, 20, radio(16, 20), {}),
     'buttons/toggle_row': (50, 18, toggle(50, 18, 31), {'slice': [0, 21, 0, 2]}),
     'buttons/led_toggle_inv': (71, 18, toggle(71, 18, 27, plate=False), {}),
+    # the Parts page's part lamps: toggle_row's lamp without its plate, at the right edge of the part's name
+    'buttons/lamp_row': (23, 18, toggle(23, 18, 4, plate=False), {'slice': [0, 21, 0, 2]}),
     'buttons/library_blank_narrow': (21, 29, blank(21, 29), {'slice': [0, 3, 0, 3]}),
     'buttons/dropdown_small': (50, 18, dropdown(50, 18), {'slice': [0, 23, 0, 2]}),
     'buttons/dropdown_small_inv': (50, 18, dropdown(50, 18, True), {'slice': [0, 23, 0, 2]}),
