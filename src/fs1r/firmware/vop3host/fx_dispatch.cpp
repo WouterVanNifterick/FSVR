@@ -1,21 +1,107 @@
 // license:BSD-3-Clause
 // copyright-holders:Wouter van Nifterick
 
-// Parameter entry and the per-kind dispatch.
+// Parameter entry, and which handler runs each type.
 #include "effect_host.h"
 #include <algorithm>
 
 namespace fs1r::vop3host {
 
+namespace {
+
+// The handler of a type, by the code its chip program is filed under: msb, and a range of lsb
+struct Route { uint8_t msb, first, last; EffectHost::Handler run; };
+
+const Route REVERB_ROUTES[] = {
+    {0,  1,  8, &EffectHost::hall},                       // Hall 1 and 2, Room 1 to 3, Stage 1 and 2, Plate
+    {0,  9, 12, &EffectHost::room},                       // White Room, Tunnel, Basement, Canyon
+};
+const Route DELAY_ROUTES[] = {                            // reverb types 13-16, in the delay window
+    {8,  1,  1, &EffectHost::delayLCR},
+    {8,  2,  2, &EffectHost::delayLR},
+    {8,  3,  3, &EffectHost::echo},
+    {8,  4,  4, &EffectHost::crossDelay},
+};
+const Route VARIATION_ROUTES[] = {                        // msb 0 lsb 1 is No Effect
+    {0,  2,  9, &EffectHost::chorus},                     // Chorus, Celeste
+    {0, 10, 12, &EffectHost::flanger},
+    {0, 13, 13, &EffectHost::symphonic},
+    {1,  1,  1, &EffectHost::rotarySpeaker},
+    {1,  2,  2, &EffectHost::tremolo},
+    {1,  3,  3, &EffectHost::autoPan},
+    {2,  1,  2, &EffectHost::distortion},                 // Distortion, Overdrive
+    {2,  3,  3, &EffectHost::ampSimulator},
+    {3,  1,  1, &EffectHost::enhancer},
+    {3,  2,  2, &EffectHost::compressor},
+    {3,  3,  3, &EffectHost::noiseGate},
+    {4,  1,  1, &EffectHost::autoWah},
+    {4,  3,  3, &EffectHost::touchWah},
+    {5,  1,  1, &EffectHost::phaser1},
+    {5,  2,  2, &EffectHost::phaser2},
+    {6,  1,  1, &EffectHost::ensembleDetune},
+    {7,  2,  2, &EffectHost::threeBandEq},
+    {8,  1,  1, &EffectHost::delayLCR},
+    {8,  2,  2, &EffectHost::delayLR},
+    {8,  3,  3, &EffectHost::echo},
+    {8,  4,  4, &EffectHost::crossDelay},
+    {9,  1,  3, &EffectHost::karaoke},
+    {10, 1,  8, &EffectHost::variationReverb},            // Hall, Room, Stage, Plate
+};
+const Route INSERTION_ROUTES[] = {
+    {0,  2,  9, &EffectHost::chorus},                     // Chorus, Celeste
+    {0, 10, 12, &EffectHost::flanger},
+    {0, 13, 13, &EffectHost::symphonic},
+    {0, 14, 14, &EffectHost::delayLCR},
+    {0, 15, 15, &EffectHost::delayLR},
+    {0, 16, 16, &EffectHost::echo},
+    {0, 17, 17, &EffectHost::crossDelay},
+    {1,  1,  1, &EffectHost::rotarySpeaker},
+    {1,  2,  2, &EffectHost::twoWayRotary},
+    {1,  3,  3, &EffectHost::tremolo},
+    {1,  4,  4, &EffectHost::autoPan},
+    {1,  5,  5, &EffectHost::ambience},
+    {2,  1,  1, &EffectHost::phaser1},
+    {2,  2,  2, &EffectHost::phaser2},
+    {3,  1,  4, &EffectHost::earlyReflections},           // ER 1, ER 2, Gate Reverb, Reverse Gate
+    {4,  3,  4, &EffectHost::autoWah},                    // with distortion, with overdrive
+    {4,  6,  7, &EffectHost::touchWah},                   // the same
+    {5,  1,  2, &EffectHost::distortion},                 // Distortion, Overdrive
+    {5,  3,  3, &EffectHost::ampSimulator},
+    {5,  4,  4, &EffectHost::compressor},
+    {5,  5,  5, &EffectHost::compressorDistortion},
+    {5,  6,  6, &EffectHost::enhancer},
+    {5,  7,  7, &EffectHost::noiseGate},
+    {7,  1,  1, &EffectHost::pitchChange},
+    {7,  3,  3, &EffectHost::ensembleDetune},
+    {7,  6,  6, &EffectHost::threeBandEq},
+    {10, 1,  1, &EffectHost::loFi},
+    {12, 1,  2, &EffectHost::wahDistortionDelay},         // Wah+DS+Dly, Wah+OD+Dly
+    {13, 1,  2, &EffectHost::compressorDistortionDelay},  // Cmp+DS+Dly, Cmp+OD+Dly
+    {13, 3,  4, &EffectHost::distortionDelay},            // Dist+Delay, Odrv+Delay
+};
+
+template <size_t N>
+void route(EffectHost& h, int w, int p, const Route (&routes)[N])
+{
+    const TypeCode c = h.code[w];
+    for (const Route& r : routes)
+        if (c.msb == r.msb && c.lsb >= r.first && c.lsb <= r.last) {
+            (h.*r.run)(w, p);
+            return;
+        }
+}
+
+}  // namespace
+
 // the presets of a window's current type msb
 const rom::PresetGroup& EffectHost::presets(int kind) const
 {
     switch (kind) {
-    case REVERB: return rom::REVERB_PRESETS;
-    case AUX: return rom::AUX_PRESETS;
-    case INSERTION: return rom::INSERTION_PRESETS[code[INSERTION].msb];
-    case REVERB_DELAY: return rom::REVERB_DELAY_PRESETS[code[REVERB_DELAY].msb];
-    default: return rom::VARIATION_PRESETS[code[VARIATION].msb];
+        case REVERB:       return rom::REVERB_PRESETS;
+        case AUX:          return rom::AUX_PRESETS;
+        case INSERTION:    return rom::INSERTION_PRESETS[code[INSERTION].msb];
+        case REVERB_DELAY: return rom::REVERB_DELAY_PRESETS[code[REVERB_DELAY].msb];
+        default:           return rom::VARIATION_PRESETS[code[VARIATION].msb];
     }
 }
 
@@ -64,148 +150,13 @@ void EffectHost::applyParam(int kind, int p)
 void EffectHost::dispatch(int kind, int p)
 {
     switch (kind) {
-        case REVERB:       dispatchReverb(p);      break;
-        case AUX:                                  break;   // the aux window has no parameters
-        case INSERTION:    dispatchInsertion(p);   break;
-        case REVERB_DELAY: dispatchReverbDelay(p); break;
-        case VARIATION:    dispatchVariation(p);   break;
-        case MASTER_EQ:    masterEq(p);            break;
-        default:           mixerParam(p);          break;
-    }
-}
-
-// reverb types 1-8 are halls, 9-12 rooms
-void EffectHost::dispatchReverb(int p)
-{
-    const uint32_t t = code[REVERB].lsb - 1;
-    if (t >= 12)
-        return;
-    if (t < 8)
-        hall(REVERB, p);
-    else
-        room(REVERB, p);
-}
-
-// insertion types by (msb, lsb) of the type bytes
-void EffectHost::dispatchInsertion(int p)
-{
-    const uint32_t msb = code[INSERTION].msb, lsb = code[INSERTION].lsb;
-    switch (msb) {
-    case 0:
-        if (lsb >= 2 && lsb <= 9) chorus(INSERTION, p);
-        else if (lsb >= 10 && lsb <= 12) flanger(INSERTION, p);
-        else if (lsb == 13) symphonic(INSERTION, p);
-        else if (lsb == 14) delayLCR(INSERTION, p);
-        else if (lsb == 15) delayLR(INSERTION, p);
-        else if (lsb == 16) echo(INSERTION, p);
-        else if (lsb == 17) crossDelay(INSERTION, p);
-        break;
-    case 1:
-        if (lsb == 1) rotarySpeaker(INSERTION, p);
-        else if (lsb == 2) twoWayRotary(INSERTION, p);
-        else if (lsb == 3) tremolo(INSERTION, p);
-        else if (lsb == 4) autoPan(INSERTION, p);
-        else if (lsb == 5) ambience(INSERTION, p);
-        break;
-    case 2:
-        if (lsb == 1) phaser1(INSERTION, p);
-        else if (lsb == 2) phaser2(INSERTION, p);
-        break;
-    case 3:
-        if (lsb >= 1 && lsb <= 4) earlyReflections(INSERTION, p);
-        break;
-    case 4:
-        if (lsb == 3 || lsb == 4) fxInsAutoWahDist(p);
-        else if (lsb == 6 || lsb == 7) fxInsTouchWahDist(p);
-        break;
-    case 5:
-        if (lsb == 1 || lsb == 2) fxInsDistortion(p);
-        else if (lsb == 3) fxInsAmpSim(p);
-        else if (lsb == 4) fxInsCompDist(p);
-        else if (lsb == 5) fxInsCompDistDelay(p);
-        else if (lsb == 6) fxInsHmEnhancer(p);
-        else if (lsb == 7) fxInsNoiseGate(p);
-        break;
-    case 7:
-        if (lsb == 1) pitchChange(INSERTION, p);
-        else if (lsb == 3) ensembleDetune(INSERTION, p);
-        else if (lsb == 6) fxIns3BandEq(p);
-        break;
-    case 10:
-        if (lsb == 1) fxInsLoFi(p);
-        break;
-    case 12:
-        if (lsb == 1 || lsb == 2) fxInsWahDistDelay(p);
-        break;
-    case 13:
-        if (lsb == 1 || lsb == 2) fxInsCompressor(p);
-        else if (lsb == 3 || lsb == 4) fxInsDistDelay(p);
-        break;
-    }
-}
-
-// reverb types 13-16 are (msb 8, lsb 1-4)
-void EffectHost::dispatchReverbDelay(int p)
-{
-    const uint32_t msb = code[REVERB_DELAY].msb, lsb = code[REVERB_DELAY].lsb;
-    if (msb != 8)
-        return;
-    if (lsb == 1) delayLCR(REVERB_DELAY, p);
-    else if (lsb == 2) delayLR(REVERB_DELAY, p);
-    else if (lsb == 3) echo(REVERB_DELAY, p);
-    else if (lsb == 4) crossDelay(REVERB_DELAY, p);
-}
-
-// variation types by (msb, lsb)
-void EffectHost::dispatchVariation(int p)
-{
-    const uint32_t msb = code[VARIATION].msb, lsb = code[VARIATION].lsb;
-    switch (msb) {
-    case 0:   // lsb 1 (No Effect) returns
-        if (lsb >= 2 && lsb <= 9) chorus(VARIATION, p);
-        else if (lsb >= 10 && lsb <= 12) flanger(VARIATION, p);
-        else if (lsb == 13) symphonic(VARIATION, p);
-        break;
-    case 1:
-        if (lsb == 1) rotarySpeaker(VARIATION, p);
-        else if (lsb == 2) tremolo(VARIATION, p);
-        else if (lsb == 3) autoPan(VARIATION, p);
-        break;
-    case 2:
-        if (lsb == 1 || lsb == 2) fxVarDistortion(p);
-        else if (lsb == 3) fxVarAmpSim(p);
-        break;
-    case 3:
-        if (lsb == 1) fxVarHmEnhancer(p);
-        else if (lsb == 2) fxVarCompressor(p);
-        else if (lsb == 3) fxVarNoiseGate(p);
-        break;
-    case 4:
-        if (lsb == 1) fxVarAutoWah(p);
-        else if (lsb == 3) fxVarTouchWah(p);
-        break;
-    case 5:
-        if (lsb == 1) phaser1(VARIATION, p);
-        else if (lsb == 2) phaser2(VARIATION, p);
-        break;
-    case 6:
-        if (lsb == 1) ensembleDetune(VARIATION, p);
-        break;
-    case 7:
-        if (lsb == 2) fxVar3BandEq(p);
-        break;
-    case 8:
-        if (lsb == 1) delayLCR(VARIATION, p);
-        else if (lsb == 2) delayLR(VARIATION, p);
-        else if (lsb == 3) echo(VARIATION, p);
-        else if (lsb == 4) crossDelay(VARIATION, p);
-        break;
-    case 9:
-        if (lsb >= 1 && lsb <= 3) karaoke(VARIATION, p);
-        break;
-    case 10:
-        if (lsb >= 1 && lsb <= 8) variationReverb(VARIATION, p);
-        break;
+        case REVERB:       route(*this, kind, p, REVERB_ROUTES);    break;
+        case AUX:                                                   break;   // the aux window has no parameters
+        case INSERTION:    route(*this, kind, p, INSERTION_ROUTES); break;
+        case REVERB_DELAY: route(*this, kind, p, DELAY_ROUTES);     break;
+        case VARIATION:    route(*this, kind, p, VARIATION_ROUTES); break;
+        case MASTER_EQ:    masterEq(p);                             break;
+        default:           mixerParam(p);                           break;
     }
 }
 

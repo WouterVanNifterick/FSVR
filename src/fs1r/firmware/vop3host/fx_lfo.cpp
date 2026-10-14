@@ -105,6 +105,66 @@ void EffectHost::storeRatio(int row, const uint16_t* steps)
     writeCoefs(8, steps);
 }
 
+// a drive word, 704 + 32063 v / 127, into two steps, and into the third a gain from it (fixed
+// from v > 10 on), scaled by the level curve and the square root of 2, at least 1 unless 0
+void EffectHost::storeDrive(int v, int index, const uint16_t* steps)
+{
+    const int32_t drive = 704 + int32_t(32063u * (uint32_t(v) & 0xFFFF)) / 127;
+    coef[steps[1]] = drive;
+    coef[steps[2]] = drive;
+    const float f3 = float(int16_t(drive));
+    double d;
+    if ((uint32_t(v) & 0xFFFF) > 10)
+        d = 21.0327;
+    else
+        d = double(f3 * f3 / 495616.0f);
+    const float f10 = float(d);
+    const float f11 = 8192.0f * rom::LEVEL_CURVE[index];
+    float x = f11 / f10 * 0.5f;
+    x = float(double(x) * 1.414213562373095);
+    uint32_t word;
+    if (0.0 == double(x))
+        word = uint32_t(int16_t(int(x)));
+    else if (1.0 > double(x))
+        word = 1;
+    else
+        word = uint32_t(int16_t(int(x)));
+    coef[steps[3]] = word;
+    writeCoefs(3, steps + 1);
+}
+
+// (0x8000 - t) / 2 twice, then t
+void EffectHost::storeCompAttack(int v, const uint16_t* steps)
+{
+    const int32_t t = rom::MIRROR[v];
+    const uint32_t w = (0x8000 - t) >> 1;
+    coef[steps[1]] = w;
+    coef[steps[0]] = w;
+    coef[steps[2]] = t;
+    writeCoefs(3, steps);
+}
+
+// (-0x8000 - t) * 32 twice, then t
+void EffectHost::storeGateAttack(int v, const uint16_t* steps)
+{
+    const int32_t t = rom::MIRROR[v];
+    const uint32_t w = (-32768 - t) * 32;
+    coef[steps[1]] = w;
+    coef[steps[0]] = w;
+    coef[steps[2]] = t;
+    writeCoefs(3, steps);
+}
+
+// t twice, then (-0x8000 - t) * 2
+void EffectHost::storeWahRelease(int v, const uint16_t* steps)
+{
+    const int32_t t = rom::COMPLEMENT[v];
+    coef[steps[1]] = t;
+    coef[steps[0]] = t;
+    coef[steps[2]] = (-32768 - t) * 2;
+    writeCoefs(3, steps);
+}
+
 // ---- shared by the handlers ----
 
 void EffectHost::applyAll(int w, Handler handler, std::initializer_list<int> ps)
@@ -116,12 +176,12 @@ void EffectHost::applyAll(int w, Handler handler, std::initializer_list<int> ps)
 }
 
 // Dry and wet from the insertion's Dry/Wet parameter; the other blocks run fully wet. The dry
-// level, law[128 - wet] >> 2, goes into steps 0 and 1 and the wet level at the window's type gain
-// into 2 and 3, or interleaved: dry, wet, dry, wet. Then the four are written.
-void EffectHost::dryWet(int w, const uint16_t* s, bool interleaved, const int16_t* law)
+// level, law[128 - wet] >> shift, goes into steps 0 and 1 and the wet level at the window's type
+// gain into 2 and 3, or interleaved: dry, wet, dry, wet. Then the four are written.
+void EffectHost::dryWet(int w, const uint16_t* s, bool interleaved, const int16_t* law, int shift)
 {
     const uint32_t wet = w == INSERTION ? param[INSERTION][9] : 127;
-    const uint32_t dry = law[128 - wet] >> 2, x = typeGain(w, law[wet] >> 2);
+    const uint32_t dry = law[128 - wet] >> shift, x = typeGain(w, law[wet] >> shift);
     coef[s[0]] = dry;
     coef[s[interleaved ? 2 : 1]] = dry;
     coef[s[interleaved ? 1 : 2]] = x;

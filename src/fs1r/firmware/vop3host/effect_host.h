@@ -193,10 +193,6 @@ struct EffectHost {
     void applyParam(int kind, int p);                                   // p from RELOAD reloads the type's preset first
     const rom::PresetGroup& presets(int window) const;                  // of its current type msb
     void dispatch(int kind, int p);
-    void dispatchReverb(int p);
-    void dispatchInsertion(int p);
-    void dispatchReverbDelay(int p);
-    void dispatchVariation(int p);
     void clearWindow(int window);
     void masterEq(int p);
     void mixerParam(int p);
@@ -218,7 +214,7 @@ struct EffectHost {
     using Handler = void (EffectHost::*)(int w, int p);
     int lfo(int w, int i) const { return WINDOWS[w].lfos[i]; }        // the window's i-th LFO
     void applyAll(int w, Handler handler, std::initializer_list<int> ps);   // into the shadows only, for uploadWindow
-    void dryWet(int w, const uint16_t* steps, bool interleaved = false, const int16_t* law = rom::PAN_LAW);
+    void dryWet(int w, const uint16_t* steps, bool interleaved = false, const int16_t* law = rom::PAN_LAW, int shift = 2);
     void shelves(int w, int p, int first, const Shelves& s);           // parameters first..first + 3
     void setLfoWave(int lfo, int wave);                                 // into the shadow only
 
@@ -250,29 +246,24 @@ struct EffectHost {
     void storeWahRelease(int v, const uint16_t* steps);
 
     // ---- a handler per effect, for each window it runs in ----
+    // modulation
     void chorus(int w, int p);         void flanger(int w, int p);        void symphonic(int w, int p);
     void phaser1(int w, int p);        void phaser2(int w, int p);        void ensembleDetune(int w, int p);
     void rotarySpeaker(int w, int p);  void tremolo(int w, int p);        void autoPan(int w, int p);
     void twoWayRotary(int w, int p);   void ambience(int w, int p);       void pitchChange(int w, int p);
+    // delay
     void delayLCR(int w, int p);       void delayLR(int w, int p);        void echo(int w, int p);
     void crossDelay(int w, int p);     void karaoke(int w, int p);
+    // reverb
     void hall(int w, int p);           void room(int w, int p);           void variationReverb(int w, int p);
     void earlyReflections(int w, int p);
-
-    // ---- a handler per type: reverb 1-12, then 13-16 ----
-   
-   
-    // variation
-    void fxVarAutoWah(int p); void fxVarTouchWah(int p); void fxVar3BandEq(int p);
-    void fxVarHmEnhancer(int p); void fxVarCompressor(int p); void fxVarNoiseGate(int p);
-    void fxVarDistortion(int p); void fxVarAmpSim(int p);
-    // insertion
-   
-    void fxInsAutoWahDist(int p); void fxInsTouchWahDist(int p);
-    void fxInsDistortion(int p); void fxInsAmpSim(int p); void fxInsCompDist(int p); void fxInsCompDistDelay(int p);
-    void fxInsHmEnhancer(int p); void fxInsNoiseGate(int p);
-    void fxIns3BandEq(int p);
-    void fxInsLoFi(int p); void fxInsWahDistDelay(int p); void fxInsCompressor(int p); void fxInsDistDelay(int p);
+    // drive
+    void autoWah(int w, int p);        void touchWah(int w, int p);       void distortion(int w, int p);
+    void ampSimulator(int w, int p);   void enhancer(int w, int p);       void compressor(int w, int p);
+    void noiseGate(int w, int p);      void compressorDistortion(int w, int p);
+    void wahDistortionDelay(int w, int p);   void compressorDistortionDelay(int w, int p);   void distortionDelay(int w, int p);
+    // tone
+    void threeBandEq(int w, int p);    void loFi(int w, int p);
 };
 
 }  // namespace fs1r::vop3host
