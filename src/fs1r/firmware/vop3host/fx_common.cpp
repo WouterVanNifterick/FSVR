@@ -1,17 +1,37 @@
 // license:BSD-3-Clause
 // copyright-holders:Wouter van Nifterick
 
-// What the handlers share: the LFO registers, the stores of one parameter into its steps, dry and
-// wet, the shelving pair, and every parameter at once.
+// What the handlers share: their arithmetic, the LFO registers, the stores of one parameter into its
+// steps, dry and wet, the shelving pair, and every parameter at once.
 #include "fx_common.h"
 
 namespace fs1r::vop3host {
+
+// ---- arithmetic the handlers share ----
+int32_t EffectHost::bipolar500(int v) { return 500 * (v - 64); }
+int32_t EffectHost::bipolar376(int v) { return 376 * (v - 64); }
+int32_t EffectHost::lessDiffusion(int x, int v)
+{
+    const int32_t d = x - int32_t(rom::DIFFUSION[v]);
+    return d > 0 ? d : 1;
+}
+int32_t EffectHost::toSamples(int v) { return int32_t((19660u * (uint32_t(v) & 0xFFFF)) >> 12); }
+int32_t EffectHost::scaleDelay(int v) { return int16_t((31457u * (uint32_t(v) & 0xFFFF)) >> 16); }
+// x at the level the window's type runs at, in 64ths
+int32_t EffectHost::typeGain(int window, int x)
+{
+    const TypeCode c = code[window];
+    const int level = window == REVERB ? rom::TYPE_LEVEL[c.lsb]
+                    : window == INSERTION ? rom::TYPE_SCALE_INSERTION[18 * c.msb + c.lsb]
+                    : rom::TYPE_SCALE_DELAY[14 * c.msb + c.lsb];
+    return (level * int16_t(x)) >> 6;
+}
 
 // the speed word, keeping bits 10-11
 void EffectHost::setLfoSpeed(int v, int lfo)
 {
     uint16_t& w = lfoReg[0][lfo];
-    w = rom::LFO_SPEED[v] | (w & 3072);
+    w = rom::LFO_SPEED[v] | (w & 0x0C00);
     writeLfo(LFO_SPEED, lfo);
 }
 

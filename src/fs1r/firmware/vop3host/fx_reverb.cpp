@@ -8,25 +8,28 @@
 
 namespace fs1r::vop3host {
 
-// ---- small helpers ----
-int32_t EffectHost::bipolar500(int v) { return 500 * (v - 64); }
-int32_t EffectHost::bipolar376(int v) { return 376 * (v - 64); }
-int32_t EffectHost::lessDiffusion(int x, int v)
+namespace {
+
+// the comb-gain table's entry at x clamped to 0..255: the loss word, then the gain
+const uint16_t* combGain(int x)
 {
-    const int32_t d = x - int32_t(rom::DIFFUSION[v]);
-    return d > 0 ? d : 1;
+    int32_t v = int16_t(x);
+    v = v < 0 ? 0 : v > 255 ? 255 : v;
+    return rom::COMB_GAIN + 2 * v;
 }
-int32_t EffectHost::toSamples(int v) { return int32_t((19660u * (uint32_t(v) & 0xFFFF)) >> 12); }
-int32_t EffectHost::scaleDelay(int v) { return int16_t((31457u * (uint32_t(v) & 0xFFFF)) >> 16); }
-// x at the level the window's type runs at, in 64ths
-int32_t EffectHost::typeGain(int window, int x)
+
+// a comb unit (g, x, x, a): its gain, the damping lowpass's first word at the loss, and the lowpass's third
+void combUnit(EffectHost& h, const uint16_t* unit, const uint16_t* lpf, uint32_t g, uint32_t loss)
 {
-    const TypeCode c = code[window];
-    const int level = window == REVERB ? rom::TYPE_LEVEL[c.lsb]
-                    : window == INSERTION ? rom::TYPE_SCALE_INSERTION[18 * c.msb + c.lsb]
-                    : rom::TYPE_SCALE_DELAY[14 * c.msb + c.lsb];
-    return (level * int16_t(x)) >> 6;
+    h.coef[unit[0]] = g;
+    const float f = float(int16_t(h.coef[lpf[0]])) * float(loss);
+    const int32_t x = int(f / 32768.0f);
+    h.coef[unit[1]] = int16_t(x);
+    h.coef[unit[2]] = int16_t(x);
+    h.coef[unit[3]] = h.coef[lpf[2]];
 }
+
+}  // namespace
 
 // The damping lowpass at list[damper..], then `count` comb units (g, x, x, a) from the RT60
 // gain table's rows.
@@ -39,20 +42,8 @@ void EffectHost::designCombs(int time, int damp, int count, int sel, const uint1
     const uint8_t* classes = rom::COMB_CLASS + (uint32_t(sel) & 0xFFFF) * 6;
     for (int i = 0; i < count; i++) {
         const uint32_t cls = classes[i];
-        uint32_t g = 0, loss = 0;
-        if (cls != 0) {
-            int32_t v = int16_t(row[0] + cls - 56);
-            v = v < 0 ? 0 : v > 255 ? 255 : v;
-            g = rom::COMB_GAIN[2 * v + 1];
-            loss = rom::COMB_GAIN[2 * v];
-        }
-        const uint16_t* unit = list + 4 * i;
-        coef[unit[0]] = g;
-        const float f = float(int16_t(coef[list[damper]])) * float(loss);
-        const int32_t x = int(f / 32768.0f);
-        coef[unit[1]] = int16_t(x);
-        coef[unit[2]] = int16_t(x);
-        coef[unit[3]] = coef[list[damper + 2]];
+        const uint16_t* entry = cls != 0 ? combGain(row[0] + cls - 56) : nullptr;
+        combUnit(*this, list + 4 * i, list + damper, entry ? entry[1] : 0, entry ? entry[0] : 0);
     }
 }
 
@@ -234,15 +225,8 @@ void EffectHost::designRoom(int time, int y0, int y1, int damp, int extra, const
     const uint8_t* ya = rom::ROOM_A + (uint32_t(y0) & 0xFFFF);
     const uint8_t* yb = rom::ROOM_A + (uint32_t(y0) & 0xFFFF) + (uint32_t(y1) & 0xFFFF);
     auto unit = [&](const uint16_t* u, const uint8_t* src, const uint16_t* lpf) {
-        int32_t v = int16_t(src[0] + rowp[0] - 56);
-        v = v < 0 ? 0 : v > 255 ? 255 : v;
-        const uint16_t* entry = rom::COMB_GAIN + 2 * v;
-        coef[u[0]] = entry[1];
-        const float f = float(int16_t(coef[lpf[0]])) * float(entry[0]);
-        const int32_t x = int(f / 32768.0f);
-        coef[u[1]] = int16_t(x);
-        coef[u[2]] = int16_t(x);
-        coef[u[3]] = coef[lpf[2]];
+        const uint16_t* entry = combGain(src[0] + rowp[0] - 56);
+        combUnit(*this, u, lpf, entry[1], entry[0]);
     };
     designFilter(1, 1, LPF1, dampf, 64, 0, list + 5);
     unit(list, ya, list + 5);
@@ -485,12 +469,7 @@ void EffectHost::variationReverb(int w, int p)
 namespace {
 
 // the comb-gain table's loss word at x clamped to 0..255
-int32_t erGain(int x)
-{
-    int32_t v = int16_t(x);
-    v = v < 0 ? 0 : v > 255 ? 255 : v;
-    return int16_t(rom::COMB_GAIN[2 * v]);
-}
+int32_t erGain(int x) { return int16_t(combGain(x)[0]); }
 
 // The 20 early reflections of the pattern row (the early or gate type, past six for Gate Reverb
 // and past eight for Reverse Gate), spread by the room size after the initial delay, at the

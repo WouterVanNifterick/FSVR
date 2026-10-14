@@ -31,19 +31,34 @@ void putWord(uint8_t* at, uint16_t w)
 }
 // cached EQ word i's master EQ parameter: the low band is 0-3, the mid 8-10, the high 16-19
 uint32_t eqParamOf(uint32_t i) { return i < 4 ? i : i < 7 ? i + 4 : i + 9; }
+// cached EQ word i into its master EQ parameter
+uint32_t storeEq(EffectHost& h, uint32_t i)
+{
+    const uint32_t q = eqParamOf(i);
+    h.eqParam[q] = i < 10 ? h.eqCache[i] : h.eqHighShape();
+    return q;
+}
+// The reverb's type runs in the reverb window or, for the four delays, in the delay window, and the
+// other one gets its silent type.
+void reverbCode(EffectHost& h, uint32_t rev)
+{
+    h.code[REVERB].lsb = isDelay(rev) ? 0 : rom::TYPE_MAP_REVERB[rev][1];
+}
+void reverbDelayCode(EffectHost& h, uint32_t rev)
+{
+    h.code[REVERB_DELAY] = isDelay(rev) ? TypeCode{8, rom::TYPE_MAP_REVERB[rev][1]} : TypeCode{0, 1};
+}
 
 }  // namespace
 
 void EffectHost::applyChanges(uint32_t mask)
 {
-    // The reverb's type runs in the reverb window or, for the four delays, in the delay window,
-    // and the other one gets its silent type. `keep` keeps the parameters of the one that runs.
+    // both reverb windows for the type; `keep` keeps the parameters of the one it runs in
     auto reverbType = [&](uint32_t rev, bool keep) {
-        const bool delay = isDelay(rev);
-        code[REVERB].lsb = delay ? 0 : rom::TYPE_MAP_REVERB[rev][1];
-        resetWindow(REVERB, !keep || delay);
-        code[REVERB_DELAY] = delay ? TypeCode{8, rom::TYPE_MAP_REVERB[rev][1]} : TypeCode{0, 1};
-        resetWindow(REVERB_DELAY, !keep || !delay);
+        reverbCode(*this, rev);
+        resetWindow(REVERB, !keep || isDelay(rev));
+        reverbDelayCode(*this, rev);
+        resetWindow(REVERB_DELAY, !keep || !isDelay(rev));
     };
 
     if (mask & LOADED) {
@@ -214,14 +229,13 @@ void EffectHost::setReverbPanReturn(bool delay, uint32_t pan, uint32_t ret)
 // one master EQ change, indexed like eqChanged (EQ_LOW_GAIN..EQ_HIGH_SHAPE)
 void EffectHost::applyEq(uint32_t i)
 {
-    eqParam[eqParamOf(i)] = i < 10 ? eqCache[i] : eqHighShape();
-    applyParam(MASTER_EQ, int(eqParamOf(i)));
+    applyParam(MASTER_EQ, int(storeEq(*this, i)));
 }
 
 void EffectHost::copyEqParams()
 {
     for (uint32_t i = 0; i < 11; i++)
-        eqParam[eqParamOf(i)] = i < 10 ? eqCache[i] : eqHighShape();
+        storeEq(*this, i);
 }
 
 // the insertion's send to the reverb or to the variation, v * 2896 / 127, into two mixer steps
@@ -300,9 +314,9 @@ void EffectHost::reverbTypeChanged()
 {
     const uint32_t rev = uint32_t(readParameter(REVERB_TYPE));
     const bool delay = isDelay(rev);
-    code[REVERB].lsb = delay ? 0 : rom::TYPE_MAP_REVERB[rev][1];
+    reverbCode(*this, rev);
     loadTypeDefaults(REVERB);
-    code[REVERB_DELAY] = delay ? TypeCode{8, rom::TYPE_MAP_REVERB[rev][1]} : TypeCode{0, 1};
+    reverbDelayCode(*this, rev);
     loadTypeDefaults(REVERB_DELAY);
     const uint16_t* block = param[delay ? REVERB_DELAY : REVERB];
     for (uint32_t i = 0; i < 16; i++) {
