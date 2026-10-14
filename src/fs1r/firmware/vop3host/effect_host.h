@@ -211,10 +211,8 @@ struct EffectHost {
     void combDelays(int clampSrc, int count, int sel, const uint8_t* ids);
     void combDelays2(int clampSrc, int sel, const uint8_t* ids);
     void diffusers(int src, int scale, int offset, int count, int stride, const uint16_t* steps, const uint8_t* slots);
-    void earlyReflections(int indexA, int indexB, int offset, int row, const uint16_t* words, const uint8_t* ids);
+    void erTaps(int indexA, int indexB, int offset, int row, const uint16_t* words, const uint8_t* ids);
     void erBalance(int balance, const uint16_t* list);
-    void erPattern();                                                   // the insertion's 20 early reflections
-    int32_t erGain(int x);
 
     // ---- shared by the handlers ----
     using Handler = void (EffectHost::*)(int w, int p);
@@ -258,20 +256,18 @@ struct EffectHost {
     void twoWayRotary(int w, int p);   void ambience(int w, int p);       void pitchChange(int w, int p);
     void delayLCR(int w, int p);       void delayLR(int w, int p);        void echo(int w, int p);
     void crossDelay(int w, int p);     void karaoke(int w, int p);
+    void hall(int w, int p);           void room(int w, int p);           void variationReverb(int w, int p);
+    void earlyReflections(int w, int p);
 
     // ---- a handler per type: reverb 1-12, then 13-16 ----
-    void fxRevHall(int p);
-    void fxRevRoom(int p);
    
    
     // variation
     void fxVarAutoWah(int p); void fxVarTouchWah(int p); void fxVar3BandEq(int p);
     void fxVarHmEnhancer(int p); void fxVarCompressor(int p); void fxVarNoiseGate(int p);
     void fxVarDistortion(int p); void fxVarAmpSim(int p);
-    void fxVarReverb(int p);
     // insertion
    
-    void fxInsCrossDelayEr(int p);
     void fxInsAutoWahDist(int p); void fxInsTouchWahDist(int p);
     void fxInsDistortion(int p); void fxInsAmpSim(int p); void fxInsCompDist(int p); void fxInsCompDistDelay(int p);
     void fxInsHmEnhancer(int p); void fxInsNoiseGate(int p);

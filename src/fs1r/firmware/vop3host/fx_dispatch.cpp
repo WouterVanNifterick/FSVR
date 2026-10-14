@@ -81,9 +81,9 @@ void EffectHost::dispatchReverb(int p)
     if (t >= 12)
         return;
     if (t < 8)
-        fxRevHall(p);
+        hall(REVERB, p);
     else
-        fxRevRoom(p);
+        room(REVERB, p);
 }
 
 // insertion types by (msb, lsb) of the type bytes
@@ -112,7 +112,7 @@ void EffectHost::dispatchInsertion(int p)
         else if (lsb == 2) phaser2(INSERTION, p);
         break;
     case 3:
-        if (lsb >= 1 && lsb <= 4) fxInsCrossDelayEr(p);
+        if (lsb >= 1 && lsb <= 4) earlyReflections(INSERTION, p);
         break;
     case 4:
         if (lsb == 3 || lsb == 4) fxInsAutoWahDist(p);
@@ -204,7 +204,7 @@ void EffectHost::dispatchVariation(int p)
         if (lsb >= 1 && lsb <= 3) karaoke(VARIATION, p);
         break;
     case 10:
-        if (lsb >= 1 && lsb <= 8) fxVarReverb(p);
+        if (lsb >= 1 && lsb <= 8) variationReverb(VARIATION, p);
         break;
     }
 }

@@ -129,20 +129,6 @@ void EffectHost::storeWahRelease(int v, const uint16_t* steps)
     writeCoefs(3, steps);
 }
 
-// two (base, a, b) slot triples from the
-// second word of each scaled table pair (the variation reverb's early reflections)
-void EffectHost::combDelays2(int clampSrc, int sel, const uint8_t* ids)
-{
-    const int16_t* tbl = rom::SCALED_PAIRS + (uint32_t(sel) & 0xFFFF) * 12;
-    const uint32_t diff = rom::DIFFUSION[clampSrc];
-    for (uint32_t i = 0; i < 2; i++) {
-        const uint32_t w = uint32_t(scaleDelay(tbl[2 * i + 1])) & 0xFFFF;
-        const uint32_t base = uint32_t(delay[ids[3 * i]]) & 0xFFFF;
-        delay[ids[3 * i + 1]] = base + w;
-        delay[ids[3 * i + 2]] = (w - diff) + base;
-    }
-}
-
 // ---- handlers ----
 
 // type 11
@@ -444,80 +430,6 @@ void EffectHost::fxVarAmpSim(int p)
         hold = true;
         for (int q : {0, 1, 2, 9, 10})
             fxVarAmpSim(q);
-        hold = false;
-        break;
-    }
-}
-
-// Hall, Room, Stage, Plate (types 25-28); the comb selector row is
-// indexed by the type's lsb byte; p1 re-runs p12
-void EffectHost::fxVarReverb(int p)
-{
-    const int16_t* sel = rom::COMB_SELECT + 3 * code[VARIATION].lsb;
-    switch (p) {
-    case 0: case 13:
-        designCombs(P(*this, 0), P(*this, 13), 2, sel[1], REVERB_COMBS);
-        writeCoefs(8, REVERB_COMBS);
-        break;
-    case 1: {
-        combDelays2(P(*this, 1), sel[1], REVERB_ER_IDS);
-        const uint8_t ids[2] = {uint8_t(REVERB_ER_IDS[2]), uint8_t(REVERB_ER_IDS[5])};
-        writeDelays(2, ids);
-        fxVarReverb(12);
-        break;
-    }
-    case 2: {
-        const uint32_t t = toSamples(rom::DELAY_WORD[P(*this, 2)]);
-        delay[REVERB_PRE[1]] = (uint32_t(delay[REVERB_PRE[0]]) + t) & 0xFFFF;
-        writeDelays(1, REVERB_PRE + 1);
-        break;
-    }
-    case 3:
-        designFilter(1, 0, HPF1, P(*this, 3), 64, 0, REVERB_HPF);
-        break;
-    case 4:
-        designFilter(1, 1, LPF1, P(*this, 4), 64, 0, REVERB_LPF);
-        break;
-    case 9: {
-        const uint32_t g = rom::ER_REV[1] >> 2;
-        coef[rom::var::REVERB_PAN[1]] = g;
-        coef[rom::var::REVERB_PAN[0]] = g;
-        const uint32_t x = typeGain(VARIATION, rom::ER_REV[127] >> 2);
-        coef[rom::var::REVERB_PAN[3]] = x;
-        coef[rom::var::REVERB_PAN[2]] = x;
-        writeCoefs(4, rom::var::REVERB_PAN);
-        break;
-    }
-    case 11:
-        diffusers(P(*this, 11), P(*this, 1), sel[2], 2, 2, REVERB_ROW_STEPS, REVERB_ROW_SLOTS);
-        writeCoefs(8, REVERB_ROW_STEPS);
-        break;
-    case 12: {
-        const int32_t rowword = int16_t(rom::SPAN_ROWS[18 * (uint32_t(sel[0]) & 0xFFFF) + 6]);
-        const uint32_t p12 = uint32_t(P(*this, 12)) & 0xFFFF;
-        const int32_t v3 = rowword * rom::ER_REV[128u - p12];
-        const uint32_t w = int16_t(uint32_t(v3) >> 16);
-        coef[REVERB_W[0]] = w;
-        for (int i = 1; i <= 5; i++)
-            coef[REVERB_W[i]] = 0;
-        const int32_t k = P(*this, 1);
-        const int idx = k == 0 ? 1 : k == 1 ? 2 : k == 2 ? 3 : k == 3 ? 4 : 5;
-        coef[REVERB_W[idx]] = w;
-        const int32_t er = rom::ER_REV[p12];
-        const int32_t w2 = ((3 * er) << 13) >> 15;   // shll8, shll2, shll2, then shll in the jsr delay slot, asr15
-        for (int i = 6; i <= 9; i++)
-            coef[REVERB_W[i]] = w2;
-        writeCoefs(10, REVERB_W);
-        break;
-    }
-    case 14:
-        coef[REVERB_WIDTH[0]] = bipolar500(P(*this, 14));
-        writeCoefs(1, REVERB_WIDTH);
-        break;
-    case ALL:
-        hold = true;
-        for (int q : {0, 1, 2, 3, 4, 9, 11, 14})
-            fxVarReverb(q);
         hold = false;
         break;
     }
