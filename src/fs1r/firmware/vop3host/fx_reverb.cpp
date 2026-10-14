@@ -492,9 +492,9 @@ int32_t erGain(int x)
     return int16_t(rom::COMB_GAIN[2 * v]);
 }
 
-// The 20 early reflections of the pattern row (the early type, past six for ER 2 and past eight
-// for the gates), spread by the room size after the initial delay, at the liveness's level,
-// clamped to the delay area.
+// The 20 early reflections of the pattern row (the early or gate type, past six for Gate Reverb
+// and past eight for Reverse Gate), spread by the room size after the initial delay, at the
+// liveness's level, clamped to the delay area.
 void erPattern(EffectHost& h)
 {
     const uint16_t* P = h.param[INSERTION];
@@ -522,7 +522,7 @@ void erPattern(EffectHost& h)
             h.delay[ins::ER_SLOTS[20]] = pos > 0x8000 ? 0x8000 : pos;
     }
     h.coef[ins::ER_STEPS[19]] = 0;
-    if (t == 3)                                     // ER 2 has fifteen
+    if (t == 3)                                     // Gate Reverb has fifteen
         for (uint32_t k = 15; k <= 18; k++)
             h.coef[ins::ER_STEPS[k]] = 0;
 }

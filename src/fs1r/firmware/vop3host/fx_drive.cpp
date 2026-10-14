@@ -11,15 +11,25 @@ namespace fs1r::vop3host {
 
 namespace {
 
+constexpr int DRY_WET = 9;                          // the insertion's Dry/Wet, in every type that has one
+
 // What the wahs of a block write to
 struct Wah {
     int lfo;                                        // which of the window's LFOs sweeps it
     Shelves shelves;
+    const uint16_t *cutoff, *depth, *sense, *attack, *mirror, *highpass, *lowpass;
 };
 const Wah WAHS[2] = {
-    {0, {var::WAH_FILTER, var::WAH_FILTER_3, var::WAH_FILTER_2, var::WAH_FILTER_4}},
-    {1, {ins::LPF_WAH,    ins::LPF_WAH_C,    ins::HPF_WAH,      ins::HPF_WAH_C}},
+    {0, {var::WAH_FILTER, var::WAH_FILTER_3, var::WAH_FILTER_2, var::WAH_FILTER_4},
+     var::WAH_CUTOFF, var::WAH_DEPTH, var::WAH_SENSE, var::WAH_ATTACK, var::WAH_MIRROR, var::WAH_HPF, var::WAH_LPF},
+    {1, {ins::LPF_WAH,    ins::LPF_WAH_C,    ins::HPF_WAH,      ins::HPF_WAH_C},
+     ins::WAH_CUTOFF, ins::WAH_DEPTH, ins::WAH_SENSE, ins::WAH_ATTACK, ins::WAH_MIRROR, ins::WAH_HPF, ins::WAH_LPF},
 };
+
+// The distortion's fixed filters, as Distortion and as Overdrive set them: the input highpass, the
+// output lowpass, a second lowpass, where the low shelf and the mid peak sit, and the edge.
+struct Tone { int highpass, lowpass, lowpass2, lowShelf, peak, edge; };
+const Tone TONES[2] = {{0, 54, 53, 20, 43, 120}, {8, 44, 45, 24, 41, 104}};
 
 // What the distortions and the amp simulator of a block write to
 struct Drive {
@@ -27,8 +37,8 @@ struct Drive {
     int inputOrder;
 };
 const Drive DRIVES[2] = {
-    {var::DIST_DRIVE, var::DIST_LOW_SHELF, var::DIST_LPF2, var::DIST_PEAK,  var::DIST_BAND, var::DIST_HPF, var::DIST_LPF, 1},
-    {ins::DIST_DRIVE, ins::DIST_EQ,        ins::DIST_PRE,  ins::DIST_PRE_C, ins::DIST_FILL, ins::DIST_LPF, ins::DIST_HPF, 2},
+    {var::DIST_DRIVE, var::DIST_LOW_SHELF, var::DIST_LPF2, var::DIST_PEAK,  var::DIST_BAND, var::DIST_INPUT, var::DIST_OUTPUT, 1},
+    {ins::DIST_DRIVE, ins::DIST_EQ,        ins::DIST_PRE,  ins::DIST_PRE_C, ins::DIST_BAND, ins::DIST_INPUT, ins::DIST_OUTPUT, 2},
 };
 
 // What the compressor, the noise gate and the enhancer of a block write to
@@ -39,13 +49,14 @@ struct Dynamics {
 };
 const Dynamics DYNAMICS[2] = {
     {var::DYN_ATTACK, var::DYN_RELEASE, var::DYN_THRESHOLD, var::DYN_RATIO, var::DYN_OUT,  4, var::DYN_HPF2, var::DYN_HPF2_COPY, var::DYN_HPF,  var::DYN_HPF_COPY},
-    {ins::DYN_THRESH, ins::DYN_PAIR,    ins::DYN_WORD,      ins::DYN_ROW,   ins::DIST_WET, 5, ins::DIST_LPF, ins::DIST_LPF_C,    ins::DIST_HPF, ins::DIST_HPF_C},
+    {ins::DYN_ATTACK, ins::DYN_RELEASE,    ins::DYN_THRESHOLD,      ins::DYN_RATIO,   ins::DIST_WET, 5, ins::DIST_INPUT, ins::DIST_INPUT_C,    ins::DIST_OUTPUT, ins::DIST_OUTPUT_C},
 };
 
-// the wah's resonance: -327680 / v from 11 on, else the most negative word
+// the wah's resonance word: -327680 / v from 11 on, else the most negative word
+uint16_t wahSenseWord(int v) { return v < 11 ? MINUS_ONE : int16_t(int(-327680.0 / double(float(v)))); }
 void wahSense(EffectHost& h, int v, const uint16_t* steps)
 {
-    h.coef[steps[1]] = h.coef[steps[0]] = v < 11 ? MINUS_ONE : int16_t(int(-327680.0 / double(float(v))));
+    h.coef[steps[1]] = h.coef[steps[0]] = wahSenseWord(v);
     h.writeCoefs(2, steps);
 }
 
@@ -69,7 +80,7 @@ void distortionWet(EffectHost& h, uint32_t a, uint32_t b, bool levelPair)
     } else {
         h.writeCoefs(2, DIST_MODE);
     }
-    const uint32_t wet = h.param[INSERTION][9];
+    const uint32_t wet = h.param[INSERTION][DRY_WET];
     h.coef[DIST_WET[2]] = h.coef[DIST_WET[0]] = rom::PAN_LAW[128 - wet] >> 2;
     h.coef[DIST_WET[4]] = h.coef[DIST_WET[1]] = h.typeGain(INSERTION, rom::PAN_LAW[wet] >> 2);
     h.coef[DIST_WET[3]] = 0;
@@ -89,7 +100,7 @@ void wahDistortionWet(EffectHost& h, const uint16_t* wetSteps, int drive, int le
     h.writeCoefs(2, mode);
     if (mode2)
         h.writeCoefs(2, mode2);
-    const int32_t dry = rom::PAN_LAW[128 - P[9]], wet = rom::PAN_LAW[P[9]];
+    const int32_t dry = rom::PAN_LAW[128 - P[DRY_WET]], wet = rom::PAN_LAW[P[DRY_WET]];
     const uint16_t* s = wetSteps;
     h.coef[s[4]] = h.coef[s[0]] = dry >> 2;
     if (drive == 0) {
@@ -108,19 +119,52 @@ void wahDistortionWet(EffectHost& h, const uint16_t* wetSteps, int drive, int le
 // the lowpass. `second` picks the other of the two types' settings.
 void wahDistortionTone(EffectHost& h, int p, bool second)
 {
+    enum { DS_LOW_GAIN = 11, DS_MID_GAIN, LPF_CUTOFF };     // the two wahs' distortion parameters
     const uint16_t* P = h.param[INSERTION];
+    const Tone& t = TONES[second];
     switch (p) {
-        case 11: h.designFilter(2, 4, LOW_SHELF2, second ? 24 : 20, P[11], 0, ins::WAH_LOW_SHELF2); break;
-        case 12: h.designFilter(2, 1, PEAK, second ? 41 : 43, P[12], 10, ins::WAH_PEAK); break;
-        case 13: h.designFilter(2, 1, LPF2, P[13], 64, 7, ins::WAH_LPF2); break;
+        case DS_LOW_GAIN: h.designFilter(2, 4, LOW_SHELF2, t.lowShelf, P[DS_LOW_GAIN], 0, ins::WAH_LOW_SHELF2); break;
+        case DS_MID_GAIN: h.designFilter(2, 1, PEAK, t.peak, P[DS_MID_GAIN], 10, ins::WAH_PEAK); break;
+        case LPF_CUTOFF:  h.designFilter(2, 1, LPF2, P[LPF_CUTOFF], 64, 7, ins::WAH_LPF2); break;
     }
 }
 // and its fixed edge and band filters
 void wahDistortionBand(EffectHost& h, bool second)
 {
-    h.storeEdge(second ? 104 : 120, ins::WAH_BAND);
-    h.designFilter(1, 1, HPF1, second ? 8 : 0, 64, 0, ins::WAH_HPF_2);
-    h.designFilter(1, 1, LPF1, second ? 44 : 54, 64, 0, ins::WAH_LPF_2);
+    const Tone& t = TONES[second];
+    h.storeEdge(t.edge, ins::WAH_BAND);
+    h.designFilter(1, 1, HPF1, t.highpass, 64, 0, ins::WAH_HPF_2);
+    h.designFilter(1, 1, LPF1, t.lowpass, 64, 0, ins::WAH_LPF_2);
+}
+
+// The distortion of the delay combinations: its fixed filters, then its low and its mid gain
+void delayDistortion(EffectHost& h, const Tone& t)
+{
+    h.designFilter(2, 1, HPF1, t.highpass, 64, 0, ins::DD_HPF);
+    h.designFilter(1, 1, LPF1, t.lowpass, 64, 0, ins::DD_LPF);
+    h.designFilter(2, 1, LPF2, t.lowpass2, 64, 7, ins::DD_LPF2);
+}
+void delayLowGain(EffectHost& h, const Tone& t, int gain) { h.designFilter(2, 4, LOW_SHELF1, t.lowShelf, int8_t(gain), 0, ins::DD_LOW_SHELF); }
+void delayMidGain(EffectHost& h, const Tone& t, int gain) { h.designFilter(2, 1, PEAK, t.peak, int8_t(gain), 10, ins::DD_PEAK); }
+
+// The delay after a combination's distortion: four taps after its first slot, its feedback and its mix
+void comboDelay(EffectHost& h, const uint8_t* slots, int v)
+{
+    const int32_t d = h.toSamples(v) + h.delay[slots[0]];
+    for (int i = 1; i <= 4; i++)
+        h.delay[slots[i]] = d;
+    h.writeDelays(4, slots + 1);
+}
+void comboFeedback(EffectHost& h, const uint16_t* step, int v)
+{
+    h.coef[step[0]] = h.bipolar500(v);
+    h.writeCoefs(1, step);
+}
+void comboMix(EffectHost& h, const uint16_t* level, int v)
+{
+    h.coef[level[2]] = h.coef[level[0]] = int(8192.0f * rom::LEVEL_CURVE[v]);
+    h.writeCoefs(1, level);
+    h.writeCoefs(1, level + 2);
 }
 
 // the insertion's gate ahead of its distortions, fixed
@@ -165,19 +209,22 @@ void dynamicsLevel(EffectHost& h, int w, int v, const Dynamics& b)
         h.coef[b.level[i]] = i == 1 || i == 3 ? x : 0;
     h.writeCoefs(b.levelWords, b.level);
 }
-// The dynamics' filters: a highpass held open and a plain gain; the insertion also opens the
-// distortion's filters it shares the program with.
+// the insertion's distortion filters a dynamics type shares the program with, held open
+void openDistortion(EffectHost& h)
+{
+    h.designFilter(2, 1, GAIN_ONLY, 0, 64, 0, ins::DIST_PRE);
+    h.copyCoefs(5, ins::DIST_PRE, ins::DIST_PRE_C);
+    h.designFilter(2, 4, GAIN_ONLY, 0, 64, 0, ins::DIST_EQ);
+}
+// The dynamics' filters: a highpass held open and a plain gain, and the insertion's distortion's.
 void dynamicsFilters(EffectHost& h, int w, const Dynamics& b)
 {
     h.designFilter(2, 1, HPF1, 0, 64, 0, b.highpass);
     h.copyCoefs(5, b.highpass, b.highpassCopy);
     h.designFilter(1, 1, GAIN_ONLY, 0, 64, 0, b.gain);
     h.copyCoefs(3, b.gain, b.gainCopy);
-    if (w == INSERTION) {
-        h.designFilter(2, 1, GAIN_ONLY, 0, 64, 0, ins::DIST_PRE);
-        h.copyCoefs(5, ins::DIST_PRE, ins::DIST_PRE_C);
-        h.designFilter(2, 4, GAIN_ONLY, 0, 64, 0, ins::DIST_EQ);
-    }
+    if (w == INSERTION)
+        openDistortion(h);
 }
 
 }  // namespace
@@ -197,17 +244,15 @@ void EffectHost::autoWah(int w, int p)
             break;
         case LFO_DEPTH:
         case CUTOFF: {
-            const uint16_t* cutoff = w == INSERTION ? ins::WAH_CUTOFF : var::WAH_CUTOFF;
-            const uint16_t* depth  = w == INSERTION ? ins::WAH_DEPTH  : var::WAH_DEPTH;
             const int32_t c = wahCutoff(P[CUTOFF], 7837);
-            coef[cutoff[0]] = c;
-            coef[depth[0]] = P[LFO_DEPTH] * uint32_t(UNITY - int16_t(c)) / 127;
-            writeCoefs(1, cutoff);
-            writeCoefs(1, depth);
+            coef[b.cutoff[0]] = c;
+            coef[b.depth[0]] = P[LFO_DEPTH] * uint32_t(UNITY - int16_t(c)) / 127;
+            writeCoefs(1, b.cutoff);
+            writeCoefs(1, b.depth);
             break;
         }
         case RESONANCE:
-            wahSense(*this, P[RESONANCE], w == INSERTION ? ins::WAH_SENSE : var::WAH_SENSE);
+            wahSense(*this, P[RESONANCE], b.sense);
             break;
         case EQ_LOW_FREQ: case EQ_LOW_FREQ + 1: case EQ_HIGH_FREQ: case EQ_HIGH_FREQ + 1:
             shelves(w, p, EQ_LOW_FREQ, b.shelves);
@@ -244,22 +289,20 @@ void EffectHost::touchWah(int w, int p)
            DRIVE, DS_LOW_GAIN, DS_MID_GAIN, LPF_CUTOFF, OUTPUT_LEVEL, RELEASE };   // from DRIVE the insertion's distortion
     const Wah& b = WAHS[w == INSERTION];
     const uint16_t* P = param[w];
-    const bool second = code[w].lsb == 6;           // T-Wah+Dist takes the settings A-Wah+Odrv has
+    const bool second = code[w].lsb == 6;           // T-Wah+Odrv
     switch (p) {
         case SENSITIVITY: {
-            const uint16_t* attack = w == INSERTION ? ins::WAH_ATTACK : var::WAH_ATTACK;
-            coef[attack[0]] = P[SENSITIVITY] * 258;
-            writeCoefs(1, attack);
+            coef[b.attack[0]] = P[SENSITIVITY] * 258;
+            writeCoefs(1, b.attack);
             [[fallthrough]];                        // the firmware runs on into the cutoff
         }
         case CUTOFF: {
-            const uint16_t* cutoff = w == INSERTION ? ins::WAH_CUTOFF : var::WAH_CUTOFF;
-            coef[cutoff[0]] = wahCutoff(P[CUTOFF], 7837);
-            writeCoefs(1, cutoff);
+            coef[b.cutoff[0]] = wahCutoff(P[CUTOFF], 7837);
+            writeCoefs(1, b.cutoff);
             break;
         }
         case RESONANCE:
-            wahSense(*this, P[RESONANCE], w == INSERTION ? ins::WAH_SENSE : var::WAH_SENSE);
+            wahSense(*this, P[RESONANCE], b.sense);
             break;
         case EQ_LOW_FREQ: case EQ_LOW_FREQ + 1: case EQ_HIGH_FREQ: case EQ_HIGH_FREQ + 1:
             shelves(w, p, EQ_LOW_FREQ, b.shelves);
@@ -277,14 +320,14 @@ void EffectHost::touchWah(int w, int p)
                 wahDistortionTone(*this, p, second);
             break;
         case RELEASE:
-            storeWahRelease(releaseStep(P[RELEASE]), w == INSERTION ? ins::WAH_MIRROR : var::WAH_MIRROR);
+            storeWahRelease(releaseStep(P[RELEASE]), b.mirror);
             break;
         case ALL:
             hold = true;
             if (w == INSERTION)
                 wahDistortionBand(*this, second);
-            designFilter(1, 1, HPF1, 0, 64, 0, w == INSERTION ? ins::WAH_HPF : var::WAH_HPF);
-            designFilter(1, 0, LPF1, 54, 64, 0, w == INSERTION ? ins::WAH_LPF : var::WAH_LPF);
+            designFilter(1, 1, HPF1, 0, 64, 0, b.highpass);
+            designFilter(1, 0, LPF1, 54, 64, 0, b.lowpass);
             for (int q : {SENSITIVITY, CUTOFF, RESONANCE, EQ_LOW_FREQ, EQ_HIGH_FREQ, DRY_WET, DS_LOW_GAIN, DS_MID_GAIN, LPF_CUTOFF, RELEASE})
                 touchWah(w, q);
             hold = false;
@@ -312,10 +355,10 @@ void EffectHost::distortion(int w, int p)
         case ALL:
             hold = true;
             if (w == INSERTION)
-                distortionGate(*this, ins::DYN_THRESH, ins::DYN_PAIR, ins::DYN_WORD);
+                distortionGate(*this, ins::DYN_ATTACK, ins::DYN_RELEASE, ins::DYN_THRESHOLD);
             // the input highpass and the output lowpass, fixed by the type
-            designFilter(b.inputOrder, 1, HPF1, overdrive ? 8 : 0, 64, 0, b.inputFilter);
-            designFilter(1, 1, LPF1, overdrive ? 44 : 54, 64, 0, b.outputFilter);
+            designFilter(b.inputOrder, 1, HPF1, TONES[overdrive].highpass, 64, 0, b.inputFilter);
+            designFilter(1, 1, LPF1, TONES[overdrive].lowpass, 64, 0, b.outputFilter);
             for (int q : {DRIVE, EQ_LOW_FREQ, LPF_CUTOFF, EQ_MID_FREQ, DRY_WET, EDGE})
                 if (q != DRIVE || w == VARIATION)   // the insertion's comes with its dry and wet
                     distortion(w, q);
@@ -337,7 +380,7 @@ void EffectHost::ampSimulator(int w, int p)
             storeDrive(P[DRIVE], P[OUTPUT_LEVEL], b.drive);
             break;
         case AMP_TYPE: {
-            // four filters by the amp, each row its shape, frequency, gain and Q
+            // four filters by the amp, each row its shape, gain and frequency, and the last its Q
             const int8_t* row = rom::AMP_FILTERS + uint32_t(int8_t((P[AMP_TYPE] & 0xFF) * 14));
             designFilter(b.inputOrder, 1, row[0], row[2], row[1], 0, b.inputFilter);
             designFilter(1, 1, row[3], row[5], row[4], 0, b.outputFilter);
@@ -366,7 +409,7 @@ void EffectHost::ampSimulator(int w, int p)
         case ALL:
             hold = true;
             if (w == INSERTION)
-                distortionGate(*this, ins::DYN_THRESH, ins::DYN_PAIR, ins::DYN_WORD);
+                distortionGate(*this, ins::DYN_ATTACK, ins::DYN_RELEASE, ins::DYN_THRESHOLD);
             for (int q : {DRIVE, AMP_TYPE, LPF_CUTOFF, DRY_WET, EDGE})
                 if (q != DRIVE || w == VARIATION)   // the insertion's comes with its dry and wet
                     ampSimulator(w, q);
@@ -455,11 +498,8 @@ void EffectHost::enhancer(int w, int p)
             break;
         case ALL:
             hold = true;
-            if (w == INSERTION) {                   // the distortion's filters it shares the program with, open
-                designFilter(2, 1, GAIN_ONLY, 0, 64, 0, ins::DIST_PRE);
-                copyCoefs(5, ins::DIST_PRE, ins::DIST_PRE_C);
-                designFilter(2, 4, GAIN_ONLY, 0, 64, 0, ins::DIST_EQ);
-            }
+            if (w == INSERTION)
+                openDistortion(*this);
             for (int q : {HPF_CUTOFF, DRIVE, MIX_LEVEL, LEVEL})
                 enhancer(w, q);
             hold = false;
@@ -479,14 +519,14 @@ void EffectHost::compressorDistortion(int w, int p)
             distortionWet(*this, 5792, 14481, true);
             compressorDistortion(w, DRIVE);
             break;
-        case ATTACK:    storeCompAttack(P[ATTACK], ins::DYN_THRESH);       break;
-        case RELEASE:   storeRelease(P[RELEASE], ins::DYN_PAIR);           break;
-        case THRESHOLD: storeCompThreshold(P[THRESHOLD], ins::DYN_WORD);   break;
-        case RATIO:     storeRatio(P[RATIO], ins::DYN_ROW);                break;
+        case ATTACK:    storeCompAttack(P[ATTACK], ins::DYN_ATTACK);            break;
+        case RELEASE:   storeRelease(P[RELEASE], ins::DYN_RELEASE);             break;
+        case THRESHOLD: storeCompThreshold(P[THRESHOLD], ins::DYN_THRESHOLD);   break;
+        case RATIO:     storeRatio(P[RATIO], ins::DYN_RATIO);                   break;
         case ALL:
             hold = true;
-            designFilter(2, 1, HPF1, 0, 64, 0, ins::DIST_LPF);
-            designFilter(1, 1, LPF1, 54, 64, 0, ins::DIST_HPF);
+            designFilter(2, 1, HPF1, TONES[0].highpass, 64, 0, ins::DIST_INPUT);
+            designFilter(1, 1, LPF1, TONES[0].lowpass, 64, 0, ins::DIST_OUTPUT);
             for (int q : {EQ_LOW_FREQ, LPF_CUTOFF, EQ_MID_FREQ, DRY_WET, EDGE, ATTACK, RELEASE, THRESHOLD, RATIO})
                 compressorDistortion(w, q);
             hold = false;
@@ -503,32 +543,19 @@ void EffectHost::wahDistortionDelay(int w, int p)
     enum { DELAY, FB_LEVEL, DELAY_MIX, DRIVE, OUTPUT_LEVEL, DS_LOW_GAIN, DS_MID_GAIN, DRY_WET = 9,
            SENSITIVITY, CUTOFF, RESONANCE, RELEASE };
     const uint16_t* P = param[w];
-    const bool overdrive = code[w].lsb == 2;
+    const Tone& t = TONES[code[w].lsb == 2];                 // Overdrive
     switch (p) {
-        case DELAY: {
-            const int32_t d = toSamples(P[DELAY]) + delay[ins::WD_SL[0]];
-            for (int i = 1; i <= 4; i++)
-                delay[ins::WD_SL[i]] = d;
-            writeDelays(4, ins::WD_SL + 1);
-            break;
-        }
-        case FB_LEVEL:
-            coef[ins::WD_FB[0]] = bipolar500(P[FB_LEVEL]);
-            writeCoefs(1, ins::WD_FB);
-            break;
-        case DELAY_MIX:
-            coef[ins::WD_LEVEL[2]] = coef[ins::WD_LEVEL[0]] = int(8192.0f * rom::LEVEL_CURVE[P[DELAY_MIX]]);
-            writeCoefs(1, ins::WD_LEVEL);
-            writeCoefs(1, ins::WD_LEVEL + 2);
-            break;
+        case DELAY:     comboDelay(*this, ins::WD_SL, P[DELAY]);        break;
+        case FB_LEVEL:  comboFeedback(*this, ins::WD_FB, P[FB_LEVEL]);  break;
+        case DELAY_MIX: comboMix(*this, ins::WD_LEVEL, P[DELAY_MIX]);   break;
         case DRIVE: case OUTPUT_LEVEL: case DS_LOW_GAIN: case DS_MID_GAIN: case DRY_WET: {
             // the distortion's tone with the type's frequencies, then the drive and the dry and wet
-            designFilter(1, 1, HPF1, overdrive ? 8 : 0, 64, 0, ins::WD_HPF_2);
-            designFilter(1, 1, LPF1, overdrive ? 44 : 54, 64, 0, ins::WD_LPF_2);
-            designFilter(1, 1, LPF1, overdrive ? 45 : 53, 64, 0, ins::WD_LPF_3);
-            designFilter(1, 2, LOW_SHELF1, overdrive ? 24 : 20, int8_t(P[DS_LOW_GAIN]), 0, ins::WD_LOW_SHELF_2);
-            designFilter(2, 1, PEAK, overdrive ? 41 : 43, int8_t(P[DS_MID_GAIN]), 10, ins::WD_PEAK);
-            storeEdge(overdrive ? 104 : 120, ins::WD_BAND);
+            designFilter(1, 1, HPF1, t.highpass, 64, 0, ins::WD_HPF_2);
+            designFilter(1, 1, LPF1, t.lowpass, 64, 0, ins::WD_LPF_2);
+            designFilter(1, 1, LPF1, t.lowpass2, 64, 0, ins::WD_LPF_3);
+            designFilter(1, 2, LOW_SHELF1, t.lowShelf, int8_t(P[DS_LOW_GAIN]), 0, ins::WD_LOW_SHELF_2);
+            designFilter(2, 1, PEAK, t.peak, int8_t(P[DS_MID_GAIN]), 10, ins::WD_PEAK);
+            storeEdge(t.edge, ins::WD_BAND);
             wahDistortionWet(*this, ins::WD_WET, P[DRIVE], P[OUTPUT_LEVEL], 1, ins::WD_DRIVE, ins::WD_MODE, ins::WD_MODE2);
             break;
         }
@@ -537,7 +564,7 @@ void EffectHost::wahDistortionDelay(int w, int p)
             writeCoefs(1, ins::WD_ATTACK);
             [[fallthrough]];                        // the firmware runs on into the resonance
         case RESONANCE:
-            coef[ins::WD_SENSE[0]] = P[RESONANCE] <= 10 ? MINUS_ONE : int16_t(int(-327680.0 / double(float(P[RESONANCE]))));
+            coef[ins::WD_SENSE[0]] = wahSenseWord(P[RESONANCE]);
             writeCoefs(1, ins::WD_SENSE);
             break;
         case CUTOFF:
@@ -569,31 +596,16 @@ void EffectHost::compressorDistortionDelay(int w, int p)
     enum { DELAY, FB_LEVEL, DELAY_MIX, DRIVE, OUTPUT_LEVEL, DS_LOW_GAIN, DS_MID_GAIN, DRY_WET = 9,
            ATTACK, RELEASE, THRESHOLD, RATIO };
     const uint16_t* P = param[w];
-    const bool overdrive = code[w].lsb == 2;
+    const Tone& t = TONES[code[w].lsb == 2];                 // Overdrive
     switch (p) {
-        case DELAY: {
-            const int32_t d = toSamples(P[DELAY]) + delay[ins::DD_SLOTS[0]];
-            for (int i = 1; i <= 4; i++)
-                delay[ins::DD_SLOTS[i]] = d;
-            writeDelays(4, ins::DD_SLOTS + 1);
-            break;
-        }
-        case FB_LEVEL:
-            coef[ins::DD_FB[0]] = bipolar500(P[FB_LEVEL]);
-            writeCoefs(1, ins::DD_FB);
-            break;
-        case DELAY_MIX:
-            coef[ins::DD_LEVEL[2]] = coef[ins::DD_LEVEL[0]] = int(8192.0f * rom::LEVEL_CURVE[P[DELAY_MIX]]);
-            writeCoefs(1, ins::DD_LEVEL);
-            writeCoefs(1, ins::DD_LEVEL + 2);
-            break;
+        case DELAY:     comboDelay(*this, ins::DD_SLOTS, P[DELAY]);     break;
+        case FB_LEVEL:  comboFeedback(*this, ins::DD_FB, P[FB_LEVEL]);  break;
+        case DELAY_MIX: comboMix(*this, ins::DD_LEVEL, P[DELAY_MIX]);   break;
         case DRIVE: case OUTPUT_LEVEL: case DS_LOW_GAIN: case DS_MID_GAIN: {
-            designFilter(2, 1, HPF1, overdrive ? 8 : 0, 64, 0, ins::DD_HPF);
-            designFilter(1, 1, LPF1, overdrive ? 44 : 54, 64, 0, ins::DD_LPF);
-            designFilter(2, 1, LPF2, overdrive ? 45 : 53, 64, 7, ins::DD_LPF2);
-            designFilter(2, 4, LOW_SHELF1, overdrive ? 24 : 20, int8_t(P[DS_LOW_GAIN]), 0, ins::DD_LOW_SHELF);
-            designFilter(2, 1, PEAK, overdrive ? 41 : 43, int8_t(P[DS_MID_GAIN]), 10, ins::DD_PEAK);
-            storeEdge(overdrive ? 104 : 120, ins::DD_BAND);
+            delayDistortion(*this, t);
+            delayLowGain(*this, t, P[DS_LOW_GAIN]);
+            delayMidGain(*this, t, P[DS_MID_GAIN]);
+            storeEdge(t.edge, ins::DD_BAND);
             storeDrive(P[DRIVE], P[OUTPUT_LEVEL], ins::DD_DRIVE);
             break;
         }
@@ -605,10 +617,10 @@ void EffectHost::compressorDistortionDelay(int w, int p)
             dryWet(w, ins::DD_WET, true, rom::PAN_LAW, 1);
             compressorDistortionDelay(w, DELAY);
             break;
-        case ATTACK:    storeCompAttack(P[ATTACK], ins::DD_THRESH);       break;
-        case RELEASE:   storeRelease(P[RELEASE], ins::DD_PAIR);           break;
-        case THRESHOLD: storeCompThreshold(P[THRESHOLD], ins::DD_WORD);   break;
-        case RATIO:     storeRatio(P[RATIO], ins::DD_ROW);                break;
+        case ATTACK:    storeCompAttack(P[ATTACK], ins::DD_ATTACK);             break;
+        case RELEASE:   storeRelease(P[RELEASE], ins::DD_RELEASE);              break;
+        case THRESHOLD: storeCompThreshold(P[THRESHOLD], ins::DD_THRESHOLD);    break;
+        case RATIO:     storeRatio(P[RATIO], ins::DD_RATIO);                    break;
         case ALL:
             hold = true;
             for (int q : {DELAY, FB_LEVEL, DELAY_MIX, DRIVE, DRY_WET, ATTACK, RELEASE, THRESHOLD, RATIO})
@@ -625,7 +637,7 @@ void EffectHost::distortionDelay(int w, int p)
     enum { LCH_DELAY, RCH_DELAY, FB_DELAY, FB_LEVEL, DELAY_MIX, DRIVE, OUTPUT_LEVEL, DS_LOW_GAIN, DS_MID_GAIN, DRY_WET };
     const uint16_t* P = param[w];
     const uint8_t* s = ins::DD_SLOTS;
-    const bool overdrive = code[w].lsb == 4;
+    const Tone& t = TONES[code[w].lsb == 4];                 // Overdrive
     switch (p) {
         case LCH_DELAY:
             delay[s[4]] = delay[s[3]] = toSamples(P[LCH_DELAY]) + delay[s[0]];
@@ -639,24 +651,13 @@ void EffectHost::distortionDelay(int w, int p)
             delay[s[1]] = toSamples(P[FB_DELAY]) + delay[s[0]];
             writeDelays(1, s + 1);
             break;
-        case FB_LEVEL:
-            coef[ins::DD_FB[0]] = bipolar500(P[FB_LEVEL]);
-            writeCoefs(1, ins::DD_FB);
-            break;
-        case DELAY_MIX:
-            coef[ins::DD_LEVEL[2]] = coef[ins::DD_LEVEL[0]] = int(8192.0f * rom::LEVEL_CURVE[P[DELAY_MIX]]);
-            writeCoefs(1, ins::DD_LEVEL);
-            writeCoefs(1, ins::DD_LEVEL + 2);
-            break;
+        case FB_LEVEL:  comboFeedback(*this, ins::DD_FB, P[FB_LEVEL]);  break;
+        case DELAY_MIX: comboMix(*this, ins::DD_LEVEL, P[DELAY_MIX]);   break;
         case DRIVE: case OUTPUT_LEVEL:
             storeDrive(P[DRIVE], P[OUTPUT_LEVEL], ins::DD_DRIVE);
             break;
-        case DS_LOW_GAIN:
-            designFilter(2, 4, LOW_SHELF1, overdrive ? 24 : 20, int8_t(P[DS_LOW_GAIN]), 0, ins::DD_LOW_SHELF);
-            break;
-        case DS_MID_GAIN:
-            designFilter(2, 1, PEAK, overdrive ? 41 : 43, int8_t(P[DS_MID_GAIN]), 10, ins::DD_PEAK);
-            break;
+        case DS_LOW_GAIN: delayLowGain(*this, t, P[DS_LOW_GAIN]); break;
+        case DS_MID_GAIN: delayMidGain(*this, t, P[DS_MID_GAIN]); break;
         case DRY_WET:
             coef[ins::DD_MODE[0]] = 1448;
             coef[ins::DD_MODE[1]] = 0;
@@ -666,11 +667,9 @@ void EffectHost::distortionDelay(int w, int p)
             break;
         case ALL:
             hold = true;
-            distortionGate(*this, ins::DD_THRESH, ins::DD_PAIR, ins::DD_WORD);
-            designFilter(2, 1, HPF1, overdrive ? 8 : 0, 64, 0, ins::DD_HPF);
-            designFilter(1, 1, LPF1, overdrive ? 44 : 54, 64, 0, ins::DD_LPF);
-            designFilter(2, 1, LPF2, overdrive ? 45 : 53, 64, 7, ins::DD_LPF2);
-            storeEdge(overdrive ? 104 : 120, ins::DD_BAND);
+            distortionGate(*this, ins::DD_ATTACK, ins::DD_RELEASE, ins::DD_THRESHOLD);
+            delayDistortion(*this, t);
+            storeEdge(t.edge, ins::DD_BAND);
             for (int q : {LCH_DELAY, RCH_DELAY, FB_DELAY, FB_LEVEL, DELAY_MIX, DRIVE, DS_LOW_GAIN, DS_MID_GAIN, DRY_WET})
                 distortionDelay(w, q);
             designFilter(1, 1, LPF1, 60, 64, 0, ins::DD_LPF_2);
