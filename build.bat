@@ -15,8 +15,9 @@ call "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Bu
 if not exist build mkdir build
 if not exist bin mkdir bin
 set MATHDEF=
-rem The chip, its two hosts and the sections over them are bit-exact only under /fp:strict, so they are compiled apart.
-set VOP3FLAGS=/nologo /O2 /EHsc /W3 /std:c++17 /fp:strict /I src
+rem The chip, its two hosts and the sections over them are bit-exact only without FMA contraction, so they are compiled apart.
+rem VS 2022 does not contract under /fp:precise (toolsop3_bench.cpp writes the same bytes as under /fp:strict).
+set VOP3FLAGS=/nologo /O2 /EHsc /W3 /std:c++17 /fp:precise /I src
 if defined FSVR_MATH set MATHDEF=/DFSVR_MATH=%FSVR_MATH%
 if "%~1"=="" (
   call :console

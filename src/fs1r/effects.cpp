@@ -1,7 +1,7 @@
 // license:BSD-3-Clause
 // copyright-holders:Wouter van Nifterick
 
-// Built with strict floating point, like the host.
+// Built without FMA contraction, like the host.
 #include "fs1r/effects.h"
 #include <cstring>
 #include "fs1r/chips/cal.h"

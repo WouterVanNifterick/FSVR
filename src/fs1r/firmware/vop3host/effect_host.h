@@ -13,7 +13,8 @@
 #include "sink.h"
 
 // The arithmetic is the firmware's, bit for bit, as long as nothing is evaluated in a wider
-// type and a * b + c is not fused: build with /fp:strict or -ffp-contract=off.
+// type and a * b + c is not fused: build with -ffp-contract=off, or on MSVC with /fp:precise
+// (VS 2022 17.0 and later contract only under /fp:contract or /fp:fast; older ones need /fp:strict).
 static_assert(FLT_EVAL_METHOD == 0, "the effect host needs float and double arithmetic without excess precision");
 
 namespace fs1r::vop3host {
