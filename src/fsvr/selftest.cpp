@@ -1,5 +1,6 @@
 // fsvr/selftest.cpp - the engine self check. Ours, not the hardware's.
 #include "fs1r/internal.h"
+#include "fs1r/firmware/vop3host/filter_host.h"
 #include "display.h"
 #include "egview.h"
 #include <cstring>
@@ -760,6 +761,28 @@ int selftest(Synth& S) {
         ck("filter chip: a rate write acknowledges the segment", c->read(0x21) == 0 && c->eg[3].level == 200);
         w(5, 0x2b, 0); w(5, 0x2c, 100); w(5, 0x2b, 40); w(5, 0x2c, 102); w(5, 0x2d, 103);
         ck("filter chip: a segment with no swing takes FEG_FLAT_S", fabs(wait() - cal::FEG_FLAT_S) < 0.001); }
+      // 9. the filter host's register writes, pinned: sixteen notes through their EG segments, then every refresh
+      { struct Sink : fs1r::vop3host::WriteSink { uint64_t h = 1469598103934665603ull; uint32_t status = 0;
+            void write(uint32_t reg, uint32_t v) override { h = (h ^ (reg << 16 | v)) * 1099511628211ull; if (reg == 0x2b) status = 0; }
+            uint32_t read(uint32_t) override { return status; } } sink;
+        auto f = std::make_unique<fs1r::vop3host::FilterHost>(); f->sink = &sink;
+        auto report = [&](int s) { sink.status = 0x10 | ((s + 2) & 15); f->egInterrupt(); };
+        f->boot(); f->clearStates(); f->freeSlots();
+        for (int p = 0; p < 4; p++) {
+            for (int i = 0; i < 112; i++) f->voice[p][i] = (uint8_t)((i * 37 + p * 11) & 127);
+            for (int i = 0; i < 52; i++) f->part[p][i] = (uint8_t)((i * 53 + p * 7) & 127); }
+        for (int s = 0; s < 16; s++) {
+            f->noteOn(s, s & 3, 30 + 5 * s, 20 + 7 * s);
+            for (int k = 0; k < 5; k++) report(s);
+            f->setSlotCutoffMod(s, 9 * s - 60); f->flush();
+            f->noteOff(s); report(s); }
+        for (int p = 0; p < 4; p++) {
+            f->setPartCutoffMod(p, 40 - 30 * p); f->setPartLfo2Depth(p, 25 * p - 30); f->setPartLfo2Speed(p, 10 * p - 20);
+            for (int id : {0x1054, 0x1055, 0x105a, 0x1064}) f->mark(id, p); }
+        f->flush();
+        for (int s = 0; s < 16; s++) f->kill(s);
+        f->freeSlots();
+        ck("filter host: its register writes are the firmware's", sink.h == 0x1736bc91b1df9eafull); }
     }
 
     printf(g_fails ? "selftest: %d FAILURES\n" : "selftest: ok\n", g_fails);

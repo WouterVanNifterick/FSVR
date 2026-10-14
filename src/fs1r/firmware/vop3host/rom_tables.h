@@ -1,4 +1,4 @@
-// FS1R v1.20 EPROM: the tables the effect host reads. Yamaha's data.
+// FS1R v1.20 EPROM: the tables the two hosts read. Yamaha's data.
 // Written by tools/extract_vop3_rom.py. Do not edit.
 #pragma once
 #include <cstdint>
@@ -405,6 +405,19 @@ extern const uint16_t VARIATION_PROGRAMS[864][5];   // 12 programs of 72 steps, 
 extern const uint8_t AUX_TAGS[40];
 extern const uint8_t INSERTION_TAGS[1440];   // 15 programs of 96 steps, by type msb
 extern const uint8_t DELAY_TAGS[864];   // 12 programs of 72 steps, by type msb
+
+namespace flt {
+extern const uint16_t PROGRAM[512][5];
+extern const uint16_t CONSTANTS[512];
+extern const uint8_t TAGS[512];
+extern const uint8_t CFG16[15];
+extern const uint16_t LFO2_SPEED[128];
+extern const uint16_t LFO2_PHASE[128];
+extern const uint16_t RESONANCE_A[128];
+extern const uint16_t RESONANCE_B[128];
+extern const uint16_t GAIN[128];
+extern const uint16_t EG_RATE[102];
+}
 
 // A window's presets for one type msb: the block of a type lsb is blocks + blockOf[lsb] * its length in words.
 struct PresetGroup { const uint16_t* blocks; const uint8_t* blockOf; const uint16_t (*defaults)[16]; };

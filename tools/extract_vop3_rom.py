@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # license:BSD-3-Clause
 # copyright-holders:Wouter van Nifterick
-"""Write rom_tables.h and rom_tables.cpp: the tables of the FS1R v1.20 EPROM that the effect host reads.
+"""Write rom_tables.h and rom_tables.cpp: the tables of the FS1R v1.20 EPROM that the two hosts read.
 
     python tools/extract_vop3_rom.py <eprom.bin>      the 2 MB image, CPU byte order
 
@@ -166,6 +166,12 @@ PRESETS = {
                         6: (0x360B7C, 0x3619F3, 0x3618D4), 7: (0x3656E0, 0x3657A8, 0x3657AC), 8: (0x360D0C, 0x3619F5, 0x361914),
                         9: (0x364B40, 0x364F3C, 0x3654CA), 10: (0x364CD0, 0x364F40, 0x36554A)}),
 }
+# The filter host's program and laws, in namespace flt: (name, address, element, count[, words a row]). The laws are
+# 128 long where the firmware indexes them with a byte as it came, whatever lies behind their last real entry.
+FILTER = [("PROGRAM", 0x375E1A, "u16", 512, 5), ("CONSTANTS", 0x37541A, "u16", 512), ("TAGS", 0x375C1A, "u8", 512),
+          ("CFG16", 0x37861A, "u8", 15), ("LFO2_SPEED", 0x374A04, "u16", 128), ("LFO2_PHASE", 0x374B04, "u16", 128),
+          ("RESONANCE_A", 0x374B24, "u16", 128), ("RESONANCE_B", 0x374C24, "u16", 128), ("GAIN", 0x374D24, "u16", 128),
+          ("EG_RATE", 0x374F4E, "u16", 102)]
 # Parameter descriptors, sixteen bytes each: +6 minimum, +8 maximum, +12 how the value is stored.
 COMMON_PARAMS = 0x37E654                      # by performance byte
 TYPED_PARAMS = [("REVERB_PARAMS", 0x388DBC, 17, 24), ("VARIATION_PARAMS", 0x388E00, 29, 31), ("INSERTION_PARAMS", 0x388E74, 41, 31)]
@@ -195,7 +201,7 @@ def lit(v, elem):
 def rows(vals, per, elem, indent="    "):
     return [indent + ",".join(lit(v, elem) for v in vals[i:i + per]) + "," for i in range(0, len(vals), per)]
 
-h = ["// FS1R v1.20 EPROM: the tables the effect host reads. Yamaha's data.", "// Written by tools/extract_vop3_rom.py. Do not edit.",
+h = ["// FS1R v1.20 EPROM: the tables the two hosts read. Yamaha's data.", "// Written by tools/extract_vop3_rom.py. Do not edit.",
      "#pragma once", "#include <cstdint>", "", "namespace fs1r::vop3host::rom {", ""]
 c = [h[0], h[1], '#include "rom_tables.h"', "", "namespace fs1r::vop3host::rom {", ""]
 
@@ -240,6 +246,38 @@ for name, addr, entries, steps in TAGS:
         c += rows(vals, 32, "u8") if entries == 1 else ["    " + ",".join(lit(v, "u8") for v in vals) + ","]
     c.append("};")
 h.append(""); c.append("")
+
+# ---- the filter host's tables, and the index maps it computes instead of reading
+h.append("namespace flt {"); c.append("namespace flt {")
+for name, addr, elem, n, *row in FILTER:
+    size = struct.calcsize(ELEM[elem][1])
+    k = row[0] if row else 1
+    vals = [struct.unpack(ELEM[elem][1], rom[a - BASE:a - BASE + size])[0] for a in range(addr, addr + n * k * size, size)]
+    dims = f"[{n}][{k}]" if row else f"[{n}]"
+    h.append(f"extern const {ELEM[elem][0]} {name}{dims};")
+    c.append(f"const {ELEM[elem][0]} {name}{dims} = {{")
+    c += ["    " + ",".join("{" + ",".join(lit(v, elem) for v in vals[s * k:s * k + k]) + "}" for s in range(t, min(t + 6, n))) + "," for t in range(0, n, 6)] if row else rows(vals, 24, elem)
+    c.append("};")
+h += ["}", ""]; c += ["}", ""]
+page = lambda s: 16 + 124 * (((s >> 2) + 1) & 3)          # slot s: its page of the program, its lane in it, its registers
+lane = lambda s: s & 3
+regs = lambda s: 6 * ((s + 4) & 15)
+MAPS = [(0x374D64, 2, lambda s: page(s) + 52 + 4 * lane(s)), (0x374D84, 2, lambda s: page(s) + 53 + 4 * lane(s)),
+        (0x374DA4, 2, lambda s: page(s) + 54 + 4 * lane(s)), (0x374DC4, 2, lambda s: page(s) + 28 + lane(s)),
+        (0x374DE4, 2, lambda s: page(s) + 3 * lane(s)), (0x374E04, 2, lambda s: page(s) + 3 * lane(s) + 1),
+        (0x374E24, 2, lambda s: page(s) + 120 + lane(s)), (0x374E44, 2, lambda s: page(s) + 3 * lane(s) + 2),
+        (0x374E64, 2, lambda s: page(s) + 32 + lane(s)), (0x374E84, 2, lambda s: page(s) + 116 + lane(s)),
+        (0x374EAE, 1, lambda s: regs(s) + 1), (0x374EBE, 1, lambda s: regs(s) + 5), (0x374ECE, 1, lambda s: regs(s) + 4),
+        (0x374EDE, 1, lambda s: regs(s) + 3), (0x374EEE, 1, lambda s: regs(s) + 2), (0x374EFE, 1, lambda s: 99 + 3 * lane(s)),
+        (0x374F0E, 1, lambda s: 98 + 3 * lane(s)), (0x374F2E, 1, lambda s: (s + 2) & 15), (0x374F3E, 1, lambda s: (s + 14) & 15)]
+for addr, size, f in MAPS:
+    if [u16(addr + 2 * s) if size == 2 else u8(addr + s) for s in range(16)] != [f(s) for s in range(16)]: sys.exit(f"the filter host's map at 0x{addr:06X} is not what filter_host.cpp computes")
+if [u16(0x374EA4 + 2 * j) for j in range(5)] != [5, 6, 7, 8, 9]: sys.exit("the filter's clear steps are not 5..9")
+if any(u16(0x37501A + 2 * i) != i for i in range(512)): sys.exit("the filter's step list is not 0..511")
+for s in range(16):                           # the four constants a note retags, through the lane rows and the bank bases
+    got = [u8(0x378629 + 6 * lane(s) + j) + s16(0x378642 + 2 * (s >> 2)) - 1 for j in range(4)]
+    if got != [page(s) + 3 * lane(s), page(s) + 3 * lane(s) + 1, page(s) + 3 * lane(s) + 2, page(s) + 32 + lane(s)]: sys.exit(f"slot {s}: the retagged constants are not where filter_host.cpp puts them")
+if u16(0x374F4E + 2 * 101) != 255: sys.exit("the EG rate that holds is not 255")
 
 # ---- presets: the type codes a performance can reach, from the type maps and the codes the host starts with
 maps = {g[0]: [(u8(g[1] + 2 * i), u8(g[1] + 2 * i + 1)) for i in range(g[3])] for g in GRIDS[:3]}
