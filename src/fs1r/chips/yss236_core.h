@@ -304,12 +304,16 @@ private:
 	}
 
 	// s36k: a capture at step st takes the latest delay RAM read of this pass made
-	// 3..11 steps earlier, else keeps its old value.
+	// 3..11 steps earlier, else keeps its old value. A pass pushes its reads in step order.
 	double captured(double old, int st) const
 	{
 		for (int i = m_nhist; i-- > 0;)
-			if (m_hist[i].st <= st - 3 && m_hist[i].st > st - 12)
+		{
+			if (m_hist[i].st <= st - 12)
+				break;
+			if (m_hist[i].st <= st - 3)
 				return m_hist[i].v;
+		}
 		return old;
 	}
 
