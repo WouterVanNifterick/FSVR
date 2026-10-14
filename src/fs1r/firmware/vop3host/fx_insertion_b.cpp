@@ -97,13 +97,13 @@ void dyn_level(EffectHost& h, int p)
 }
 void dyn_filters(EffectHost& h)
 {
-    h.designFilter(2, 1, 1, 0, 64, 0, DIST_LPF);
+    h.designFilter(2, 1, HPF1, 0, 64, 0, DIST_LPF);
     h.copyCoefs(5, DIST_LPF, DIST_LPF_C);
-    h.designFilter(1, 1, 11, 0, 64, 0, DIST_HPF);
+    h.designFilter(1, 1, GAIN_ONLY, 0, 64, 0, DIST_HPF);
     h.copyCoefs(3, DIST_HPF, DIST_HPF_C);
-    h.designFilter(2, 1, 11, 0, 64, 0, DIST_PRE);
+    h.designFilter(2, 1, GAIN_ONLY, 0, 64, 0, DIST_PRE);
     h.copyCoefs(5, DIST_PRE, DIST_PRE_C);
-    h.designFilter(2, 4, 11, 0, 64, 0, DIST_EQ);
+    h.designFilter(2, 4, GAIN_ONLY, 0, 64, 0, DIST_EQ);
 }
 // the dynamics + delay types' Dry/Wet words over DD_WET (pan law >> 1)
 void dd_wet(EffectHost& h, uint32_t wet, int shift)
@@ -139,24 +139,24 @@ void EffectHost::fxInsAutoWahDist(int p)
         wah_dist_wet(*this, int(PU(*this, 14) & 0xFF), false);
         break;
     case 11:
-        designFilter(2, 4, 6, t == 4 ? 24 : 20, P(*this, 11), 0, WAH_LOW_SHELF2);
+        designFilter(2, 4, LOW_SHELF2, t == 4 ? 24 : 20, P(*this, 11), 0, WAH_LOW_SHELF2);
         break;
     case 12:
-        designFilter(2, 1, 10, t == 4 ? 41 : 43, P(*this, 12), 10, WAH_PEAK);
+        designFilter(2, 1, PEAK, t == 4 ? 41 : 43, P(*this, 12), 10, WAH_PEAK);
         break;
     case 13:
-        designFilter(2, 1, 4, P(*this, 13), 64, 7, WAH_LPF2);
+        designFilter(2, 1, LPF2, P(*this, 13), 64, 7, WAH_LPF2);
         break;
-    case 255:
+    case ALL:
         hold = true;
         if (t == 4) {
             storeEdge(104, WAH_BAND);
-            designFilter(1, 1, 1, 8, 64, 0, WAH_HPF_2);
-            designFilter(1, 1, 0, 44, 64, 0, WAH_LPF_2);
+            designFilter(1, 1, HPF1, 8, 64, 0, WAH_HPF_2);
+            designFilter(1, 1, LPF1, 44, 64, 0, WAH_LPF_2);
         } else {
             storeEdge(120, WAH_BAND);
-            designFilter(1, 1, 1, 0, 64, 0, WAH_HPF_2);
-            designFilter(1, 1, 0, 54, 64, 0, WAH_LPF_2);
+            designFilter(1, 1, HPF1, 0, 64, 0, WAH_HPF_2);
+            designFilter(1, 1, LPF1, 54, 64, 0, WAH_LPF_2);
         }
         for (int q : {0, 1, 3, 5, 7, 9, 11, 12, 13})
             fxInsAutoWahDist(q);
@@ -188,13 +188,13 @@ void EffectHost::fxInsTouchWahDist(int p)
         wah_dist_wet(*this, int(PU(*this, 14) & 0xFF), true);
         break;
     case 11:
-        designFilter(2, 4, 6, t == 6 ? 24 : 20, P(*this, 11), 0, WAH_LOW_SHELF2);
+        designFilter(2, 4, LOW_SHELF2, t == 6 ? 24 : 20, P(*this, 11), 0, WAH_LOW_SHELF2);
         break;
     case 12:
-        designFilter(2, 1, 10, t == 6 ? 41 : 43, P(*this, 12), 10, WAH_PEAK);
+        designFilter(2, 1, PEAK, t == 6 ? 41 : 43, P(*this, 12), 10, WAH_PEAK);
         break;
     case 13:
-        designFilter(2, 1, 4, P(*this, 13), 64, 7, WAH_LPF2);
+        designFilter(2, 1, LPF2, P(*this, 13), 64, 7, WAH_LPF2);
         break;
     case 15: {
         int32_t v = PLO(*this, 15) - 52;
@@ -204,19 +204,19 @@ void EffectHost::fxInsTouchWahDist(int p)
         storeWahRelease(v, WAH_MIRROR);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
         if (t == 6) {
-            designFilter(1, 1, 1, 8, 64, 0, WAH_HPF_2);
-            designFilter(1, 1, 0, 44, 64, 0, WAH_LPF_2);
+            designFilter(1, 1, HPF1, 8, 64, 0, WAH_HPF_2);
+            designFilter(1, 1, LPF1, 44, 64, 0, WAH_LPF_2);
             storeEdge(104, WAH_BAND);
         } else {
-            designFilter(1, 1, 1, 0, 64, 0, WAH_HPF_2);
-            designFilter(1, 1, 0, 54, 64, 0, WAH_LPF_2);
+            designFilter(1, 1, HPF1, 0, 64, 0, WAH_HPF_2);
+            designFilter(1, 1, LPF1, 54, 64, 0, WAH_LPF_2);
             storeEdge(120, WAH_BAND);
         }
-        designFilter(1, 1, 1, 0, 64, 0, WAH_HPF);
-        designFilter(1, 0, 0, 54, 64, 0, WAH_LPF);
+        designFilter(1, 1, HPF1, 0, 64, 0, WAH_HPF);
+        designFilter(1, 0, LPF1, 54, 64, 0, WAH_LPF);
         for (int q : {0, 1, 2, 5, 7, 9, 11, 12, 13, 15})
             fxInsTouchWahDist(q);
         hold = false;
@@ -232,13 +232,13 @@ void EffectHost::fxInsDistortion(int p)
         storeDrive(P(*this, 0), P(*this, 4), DIST_DRIVE);
         break;
     case 1: case 2:
-        designFilter(2, 4, 2, P(*this, 1), P(*this, 2), 0, DIST_EQ);
+        designFilter(2, 4, LOW_SHELF1, P(*this, 1), P(*this, 2), 0, DIST_EQ);
         break;
     case 3:
-        designFilter(2, 1, 4, P(*this, 3), 64, 7, DIST_PRE);
+        designFilter(2, 1, LPF2, P(*this, 3), 64, 7, DIST_PRE);
         break;
     case 6: case 7: case 8:
-        designFilter(2, 1, 10, P(*this, 6), P(*this, 7), P(*this, 8), DIST_PRE_C);
+        designFilter(2, 1, PEAK, P(*this, 6), P(*this, 7), P(*this, 8), DIST_PRE_C);
         break;
     case 9:
         dist_wet(*this, 1448, 0, false);
@@ -247,17 +247,17 @@ void EffectHost::fxInsDistortion(int p)
     case 10:
         storeEdge(P(*this, 10), DIST_FILL);
         break;
-    case 255:
+    case ALL:
         hold = true;
         storeGateAttack(0, DYN_THRESH);
         storeRelease(11, DYN_PAIR);
         storeGateThreshold(73, DYN_WORD);
         if (lsb(*this) == 1) {
-            designFilter(2, 1, 1, 0, 64, 0, DIST_LPF);
-            designFilter(1, 1, 0, 54, 64, 0, DIST_HPF);
+            designFilter(2, 1, HPF1, 0, 64, 0, DIST_LPF);
+            designFilter(1, 1, LPF1, 54, 64, 0, DIST_HPF);
         } else {
-            designFilter(2, 1, 1, 8, 64, 0, DIST_LPF);
-            designFilter(1, 1, 0, 44, 64, 0, DIST_HPF);
+            designFilter(2, 1, HPF1, 8, 64, 0, DIST_LPF);
+            designFilter(1, 1, LPF1, 44, 64, 0, DIST_HPF);
         }
         for (int q : {1, 3, 6, 9, 10})
             fxInsDistortion(q);
@@ -284,9 +284,9 @@ void EffectHost::fxInsAmpSim(int p)
     }
     case 2:
         if (P(*this, 1) == 1)
-            designFilter(2, 1, 4, P(*this, 2), 56, 15, DIST_PRE);
+            designFilter(2, 1, LPF2, P(*this, 2), 56, 15, DIST_PRE);
         else
-            designFilter(2, 1, 4, P(*this, 2), 64, P(*this, 1) == 2 ? 15 : 7, DIST_PRE);
+            designFilter(2, 1, LPF2, P(*this, 2), 64, P(*this, 1) == 2 ? 15 : 7, DIST_PRE);
         break;
     case 9:
         dist_wet(*this, 1448, 0, false);
@@ -295,7 +295,7 @@ void EffectHost::fxInsAmpSim(int p)
     case 10:
         storeEdge(P(*this, 10), DIST_FILL);
         break;
-    case 255:
+    case ALL:
         hold = true;
         storeGateAttack(0, DYN_THRESH);
         storeRelease(11, DYN_PAIR);
@@ -323,7 +323,7 @@ void EffectHost::fxInsCompDist(int p)
         writeCoefs(2, DIST_LEVEL);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
         dyn_filters(*this);
         for (int q : {0, 1, 2, 3, 4, 9})
@@ -341,13 +341,13 @@ void EffectHost::fxInsCompDistDelay(int p)
         storeDrive(P(*this, 0), P(*this, 4), DIST_DRIVE);
         break;
     case 1: case 2:
-        designFilter(2, 4, 2, P(*this, 1), P(*this, 2), 0, DIST_EQ);
+        designFilter(2, 4, LOW_SHELF1, P(*this, 1), P(*this, 2), 0, DIST_EQ);
         break;
     case 3:
-        designFilter(2, 1, 4, P(*this, 3), 64, 7, DIST_PRE);
+        designFilter(2, 1, LPF2, P(*this, 3), 64, 7, DIST_PRE);
         break;
     case 6: case 7: case 8:
-        designFilter(2, 1, 10, P(*this, 6), P(*this, 7), P(*this, 8), DIST_PRE_C);
+        designFilter(2, 1, PEAK, P(*this, 6), P(*this, 7), P(*this, 8), DIST_PRE_C);
         break;
     case 9:
         dist_wet(*this, 5792, 14481, true);
@@ -360,10 +360,10 @@ void EffectHost::fxInsCompDistDelay(int p)
     case 12: storeRelease(P(*this, 12), DYN_PAIR); break;
     case 13: storeCompThreshold(P(*this, 13), DYN_WORD); break;
     case 14: storeRatio(P(*this, 14), DYN_ROW); break;
-    case 255:
+    case ALL:
         hold = true;
-        designFilter(2, 1, 1, 0, 64, 0, DIST_LPF);
-        designFilter(1, 1, 0, 54, 64, 0, DIST_HPF);
+        designFilter(2, 1, HPF1, 0, 64, 0, DIST_LPF);
+        designFilter(1, 1, LPF1, 54, 64, 0, DIST_HPF);
         for (int q : {1, 3, 6, 9, 10, 11, 12, 13, 14})
             fxInsCompDistDelay(q);
         hold = false;
@@ -376,9 +376,9 @@ void EffectHost::fxInsHmEnhancer(int p)
 {
     switch (p) {
     case 0:
-        designFilter(2, 1, 5, P(*this, 0), 64, 7, DIST_LPF);
+        designFilter(2, 1, HPF2, P(*this, 0), 64, 7, DIST_LPF);
         copyCoefs(5, DIST_LPF, DIST_LPF_C);
-        designFilter(1, 1, 1, P(*this, 0), 64, 0, DIST_HPF);
+        designFilter(1, 1, HPF1, P(*this, 0), 64, 0, DIST_HPF);
         copyCoefs(3, DIST_HPF, DIST_HPF_C);
         break;
     case 1: {
@@ -403,11 +403,11 @@ void EffectHost::fxInsHmEnhancer(int p)
         writeCoefs(2, DIST_LEVEL);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
-        designFilter(2, 1, 11, 0, 64, 0, DIST_PRE);
+        designFilter(2, 1, GAIN_ONLY, 0, 64, 0, DIST_PRE);
         copyCoefs(5, DIST_PRE, DIST_PRE_C);
-        designFilter(2, 4, 11, 0, 64, 0, DIST_EQ);
+        designFilter(2, 4, GAIN_ONLY, 0, 64, 0, DIST_EQ);
         for (int q : {0, 1, 2, 9})
             fxInsHmEnhancer(q);
         hold = false;
@@ -423,7 +423,7 @@ void EffectHost::fxInsNoiseGate(int p)
     case 1: storeRelease(P(*this, 1), DYN_PAIR); break;
     case 2: storeGateThreshold(P(*this, 2), DYN_WORD); break;
     case 3: dyn_level(*this, 3); break;
-    case 255:
+    case ALL:
         hold = true;
         dyn_filters(*this);
         for (int q : {0, 1, 2, 3})
@@ -459,18 +459,18 @@ void EffectHost::fxInsWahDistDelay(int p)
     }
     case 3: case 4: case 5: case 6: case 9: {
         if (t == 2) {
-            designFilter(1, 1, 1, 8, 64, 0, WD_HPF_2);
-            designFilter(1, 1, 0, 44, 64, 0, WD_LPF_2);
-            designFilter(1, 1, 0, 45, 64, 0, WD_LPF_3);
-            designFilter(1, 2, 2, 24, PLO(*this, 5), 0, WD_LOW_SHELF_2);
-            designFilter(2, 1, 10, 41, PLO(*this, 6), 10, WD_PEAK);
+            designFilter(1, 1, HPF1, 8, 64, 0, WD_HPF_2);
+            designFilter(1, 1, LPF1, 44, 64, 0, WD_LPF_2);
+            designFilter(1, 1, LPF1, 45, 64, 0, WD_LPF_3);
+            designFilter(1, 2, LOW_SHELF1, 24, PLO(*this, 5), 0, WD_LOW_SHELF_2);
+            designFilter(2, 1, PEAK, 41, PLO(*this, 6), 10, WD_PEAK);
             storeEdge(104, WD_BAND);
         } else if (t == 1) {
-            designFilter(1, 1, 1, 0, 64, 0, WD_HPF_2);
-            designFilter(1, 1, 0, 54, 64, 0, WD_LPF_2);
-            designFilter(1, 1, 0, 53, 64, 0, WD_LPF_3);
-            designFilter(1, 2, 2, 20, PLO(*this, 5), 0, WD_LOW_SHELF_2);
-            designFilter(2, 1, 10, 43, PLO(*this, 6), 10, WD_PEAK);
+            designFilter(1, 1, HPF1, 0, 64, 0, WD_HPF_2);
+            designFilter(1, 1, LPF1, 54, 64, 0, WD_LPF_2);
+            designFilter(1, 1, LPF1, 53, 64, 0, WD_LPF_3);
+            designFilter(1, 2, LOW_SHELF1, 20, PLO(*this, 5), 0, WD_LOW_SHELF_2);
+            designFilter(2, 1, PEAK, 43, PLO(*this, 6), 10, WD_PEAK);
             storeEdge(120, WD_BAND);
         }
         storeDrive(P(*this, 3), P(*this, 4), WD_DRIVE);
@@ -530,17 +530,17 @@ void EffectHost::fxInsWahDistDelay(int p)
         writeCoefs(3, WD_MIRROR);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 3, 10, 11, 12, 13})
             fxInsWahDistDelay(q);
-        designFilter(1, 1, 1, 0, 64, 0, WD_HPF);
-        designFilter(1, 0, 0, 54, 64, 0, WD_LPF);
-        designFilter(1, 1, 2, 28, 66, 0, WD_LOW_SHELF);
+        designFilter(1, 1, HPF1, 0, 64, 0, WD_HPF);
+        designFilter(1, 0, LPF1, 54, 64, 0, WD_LPF);
+        designFilter(1, 1, LOW_SHELF1, 28, 66, 0, WD_LOW_SHELF);
         copyCoefs(3, WD_LOW_SHELF, WD_LOW_SHELF_COPY);
-        designFilter(1, 2, 3, 46, 64, 0, WD_HIGH_SHELF);
+        designFilter(1, 2, HIGH_SHELF1, 46, 64, 0, WD_HIGH_SHELF);
         copyCoefs(3, WD_HIGH_SHELF, WD_HIGH_SHELF_COPY);
-        designFilter(1, 1, 0, 60, 64, 0, WD_LPF_4);
+        designFilter(1, 1, LPF1, 60, 64, 0, WD_LPF_4);
         hold = false;
         break;
     }
@@ -572,18 +572,18 @@ void EffectHost::fxInsCompressor(int p)
     }
     case 3: case 4: case 5: case 6:
         if (t == 2) {
-            designFilter(2, 1, 1, 8, 64, 0, DD_HPF);
-            designFilter(1, 1, 0, 44, 64, 0, DD_LPF);
-            designFilter(2, 1, 4, 45, 64, 7, DD_LPF2);
-            designFilter(2, 4, 2, 24, PLO(*this, 5), 0, DD_LOW_SHELF);
-            designFilter(2, 1, 10, 41, PLO(*this, 6), 10, DD_PEAK);
+            designFilter(2, 1, HPF1, 8, 64, 0, DD_HPF);
+            designFilter(1, 1, LPF1, 44, 64, 0, DD_LPF);
+            designFilter(2, 1, LPF2, 45, 64, 7, DD_LPF2);
+            designFilter(2, 4, LOW_SHELF1, 24, PLO(*this, 5), 0, DD_LOW_SHELF);
+            designFilter(2, 1, PEAK, 41, PLO(*this, 6), 10, DD_PEAK);
             storeEdge(104, DD_BAND);
         } else if (t == 1) {
-            designFilter(2, 1, 1, 0, 64, 0, DD_HPF);
-            designFilter(1, 1, 0, 54, 64, 0, DD_LPF);
-            designFilter(2, 1, 4, 53, 64, 7, DD_LPF2);
-            designFilter(2, 4, 2, 20, PLO(*this, 5), 0, DD_LOW_SHELF);
-            designFilter(2, 1, 10, 43, PLO(*this, 6), 10, DD_PEAK);
+            designFilter(2, 1, HPF1, 0, 64, 0, DD_HPF);
+            designFilter(1, 1, LPF1, 54, 64, 0, DD_LPF);
+            designFilter(2, 1, LPF2, 53, 64, 7, DD_LPF2);
+            designFilter(2, 4, LOW_SHELF1, 20, PLO(*this, 5), 0, DD_LOW_SHELF);
+            designFilter(2, 1, PEAK, 43, PLO(*this, 6), 10, DD_PEAK);
             storeEdge(120, DD_BAND);
         }
         storeDrive(P(*this, 3), P(*this, 4), DD_DRIVE);
@@ -602,11 +602,11 @@ void EffectHost::fxInsCompressor(int p)
     case 11: storeRelease(P(*this, 11), DD_PAIR); break;
     case 12: storeCompThreshold(P(*this, 12), DD_WORD); break;
     case 13: storeRatio(P(*this, 13), DD_ROW); break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 3, 9, 10, 11, 12, 13})
             fxInsCompressor(q);
-        designFilter(1, 1, 0, 60, 64, 0, DD_LPF_2);
+        designFilter(1, 1, LPF1, 60, 64, 0, DD_LPF_2);
         hold = false;
         break;
     }
@@ -648,10 +648,10 @@ void EffectHost::fxInsDistDelay(int p)
         storeDrive(P(*this, 5), P(*this, 6), DD_DRIVE);
         break;
     case 7:
-        designFilter(2, 4, 2, t == 4 ? 24 : 20, PLO(*this, 7), 0, DD_LOW_SHELF);
+        designFilter(2, 4, LOW_SHELF1, t == 4 ? 24 : 20, PLO(*this, 7), 0, DD_LOW_SHELF);
         break;
     case 8:
-        designFilter(2, 1, 10, t == 4 ? 41 : 43, PLO(*this, 8), 10, DD_PEAK);
+        designFilter(2, 1, PEAK, t == 4 ? 41 : 43, PLO(*this, 8), 10, DD_PEAK);
         break;
     case 9: {
         coef[DD_MODE[0]] = 1448;
@@ -662,25 +662,25 @@ void EffectHost::fxInsDistDelay(int p)
         fxInsDistDelay(0);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
         storeGateAttack(0, DD_THRESH);
         storeRelease(11, DD_PAIR);
         storeGateThreshold(73, DD_WORD);
         if (t == 3) {
-            designFilter(2, 1, 1, 0, 64, 0, DD_HPF);
-            designFilter(1, 1, 0, 54, 64, 0, DD_LPF);
-            designFilter(2, 1, 4, 53, 64, 7, DD_LPF2);
+            designFilter(2, 1, HPF1, 0, 64, 0, DD_HPF);
+            designFilter(1, 1, LPF1, 54, 64, 0, DD_LPF);
+            designFilter(2, 1, LPF2, 53, 64, 7, DD_LPF2);
             storeEdge(120, DD_BAND);
         } else {
-            designFilter(2, 1, 1, 8, 64, 0, DD_HPF);
-            designFilter(1, 1, 0, 44, 64, 0, DD_LPF);
-            designFilter(2, 1, 4, 45, 64, 7, DD_LPF2);
+            designFilter(2, 1, HPF1, 8, 64, 0, DD_HPF);
+            designFilter(1, 1, LPF1, 44, 64, 0, DD_LPF);
+            designFilter(2, 1, LPF2, 45, 64, 7, DD_LPF2);
             storeEdge(104, DD_BAND);
         }
         for (int q : {0, 1, 2, 3, 4, 5, 7, 8, 9})
             fxInsDistDelay(q);
-        designFilter(1, 1, 0, 60, 64, 0, DD_LPF_2);
+        designFilter(1, 1, LPF1, 60, 64, 0, DD_LPF_2);
         hold = false;
         break;
     }
@@ -833,7 +833,7 @@ void EffectHost::fxInsPitchChange(int p)
         writeCoefs(2, PC_VOICE2);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {2, 3, 4, 0, 1, 9, 10, 12})
             fxInsPitchChange(q);
@@ -908,14 +908,14 @@ void EffectHost::fxInsEnsDetune(int p)
         writeCoefs(4, PC_MIX + 3);
         break;
     case 10: case 11:
-        designFilter(2, 1, 2, P(*this, 10), P(*this, 11), 0, EQ7_A);
+        designFilter(2, 1, LOW_SHELF1, P(*this, 10), P(*this, 11), 0, EQ7_A);
         copyCoefs(5, EQ7_A, EQ7_A_C);
         break;
     case 12: case 13:
-        designFilter(2, 4, 3, P(*this, 12), P(*this, 13), 0, EQ7_C);
+        designFilter(2, 4, HIGH_SHELF1, P(*this, 12), P(*this, 13), 0, EQ7_C);
         copyCoefs(5, EQ7_C, EQ7_C_C);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 9, 10, 12})
             fxInsEnsDetune(q);
@@ -929,15 +929,15 @@ void EffectHost::fxIns3BandEq(int p)
 {
     switch (p) {
     case 0: case 5:
-        designFilter(2, 1, 6, P(*this, 5), PLO(*this, 0), 0, EQ7_A);
+        designFilter(2, 1, LOW_SHELF2, P(*this, 5), PLO(*this, 0), 0, EQ7_A);
         copyCoefs(5, EQ7_A, EQ7_A_C);
         break;
     case 1: case 2: case 3:
-        designFilter(2, 1, 10, P(*this, 1), P(*this, 2), P(*this, 3), EQ7_B);
+        designFilter(2, 1, PEAK, P(*this, 1), P(*this, 2), P(*this, 3), EQ7_B);
         copyCoefs(5, EQ7_B, EQ7_B_C);
         break;
     case 4: case 6:
-        designFilter(2, 4, 7, P(*this, 6), P(*this, 4), 0, EQ7_C);
+        designFilter(2, 4, HIGH_SHELF2, P(*this, 6), P(*this, 4), 0, EQ7_C);
         copyCoefs(5, EQ7_C, EQ7_C_C);
         break;
     case 14:
@@ -958,7 +958,7 @@ void EffectHost::fxIns3BandEq(int p)
         writeCoefs(1, PC_MIX + 3);
         writeCoefs(1, EQ3_LEVEL);
         break;
-    case 255:
+    case ALL:
         coef[PC_MIX[4]] = typeGain(INSERTION, 8192);
         hold = true;
         for (int q : {5, 6, 1, 14})
@@ -992,7 +992,7 @@ void EffectHost::fxInsLoFi(int p)
         break;
     }
     case 3: case 5:
-        designFilter(2, 1, 4, P(*this, 3), 64, P(*this, 5), LOFI_LPF2);
+        designFilter(2, 1, LPF2, P(*this, 3), 64, P(*this, 5), LOFI_LPF2);
         break;
     case 4: {
         const int8_t* row = rom::LOFI_FILTERS + uint32_t(int8_t(10 * PLO(*this, 4)));
@@ -1003,11 +1003,11 @@ void EffectHost::fxInsLoFi(int p)
     }
     case 7:
         if (PU(*this, 7) == 1) {
-            designFilter(1, 2, 3, 44, 76, 0, LOFI_HIGH_SHELF);
-            designFilter(1, 2, 3, 44, 52, 0, LOFI_HIGH_SHELF_2);
+            designFilter(1, 2, HIGH_SHELF1, 44, 76, 0, LOFI_HIGH_SHELF);
+            designFilter(1, 2, HIGH_SHELF1, 44, 52, 0, LOFI_HIGH_SHELF_2);
         } else {
-            designFilter(1, 2, 11, 0, 64, 0, LOFI_HIGH_SHELF);
-            designFilter(1, 2, 11, 0, 64, 0, LOFI_HIGH_SHELF_2);
+            designFilter(1, 2, GAIN_ONLY, 0, 64, 0, LOFI_HIGH_SHELF);
+            designFilter(1, 2, GAIN_ONLY, 0, 64, 0, LOFI_HIGH_SHELF_2);
         }
         break;
     case 2: case 6: case 9: {
@@ -1044,7 +1044,7 @@ void EffectHost::fxInsLoFi(int p)
         writeCoefs(1, LOFI_OUT);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 3, 4, 7})
             fxInsLoFi(q);

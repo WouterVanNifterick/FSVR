@@ -13,52 +13,52 @@ void EffectHost::writeReg(uint32_t reg, uint32_t value)
     sink->write(reg, value & 0xFFFF);
 }
 
-// register 0xB of n listed steps, unless the hold flag is set
+// the constants of n listed steps, unless the hold flag is set
 void EffectHost::writeCoefs(uint32_t n, const uint16_t* steps)
 {
     if (hold)
         return;
     for (uint32_t i = 0; i < n; i++) {
-        writeReg(0, steps[i]);
-        writeReg(0x0B, coef[steps[i]]);
+        writeReg(SELECT, steps[i]);
+        writeReg(COEF, coef[steps[i]]);
     }
 }
 
 // the same through the auto-increment latch (no hold check)
 void EffectHost::writeCoefsBurst(uint32_t n, const uint16_t* steps)
 {
-    writeReg(0, steps[0] | 0x8000);
+    writeReg(SELECT, steps[0] | AUTO_INCREMENT);
     for (uint32_t i = 0; i < n; i++)
-        writeReg(0x0B, coef[steps[i]]);
+        writeReg(COEF, coef[steps[i]]);
 }
 
-// register 0xC (tag) of n listed steps, unless held
+// the tags of n listed steps, unless held
 void EffectHost::writeTags(uint32_t n, const uint16_t* steps)
 {
     if (hold)
         return;
     for (uint32_t i = 0; i < n; i++) {
-        writeReg(0, steps[i]);
-        writeReg(0x0C, tag[steps[i]]);
+        writeReg(SELECT, steps[i]);
+        writeReg(TAG, tag[steps[i]]);
     }
 }
 
 // tags through the latch
 void EffectHost::writeTagsBurst(uint32_t n, const uint16_t* steps)
 {
-    writeReg(0, steps[0] | 0x8000);
+    writeReg(SELECT, steps[0] | AUTO_INCREMENT);
     for (uint32_t i = 0; i < n; i++)
-        writeReg(0x0C, tag[steps[i]]);
+        writeReg(TAG, tag[steps[i]]);
 }
 
-// register 0x16 entry `index`
+// entry `index` of the CONFIG table
 void EffectHost::writeConfig(uint32_t index, uint32_t value)
 {
-    writeReg(0, index + 1);
-    writeReg(0x16, value);
+    writeReg(SELECT, index + 1);
+    writeReg(CONFIG, value);
 }
 
-// delay offsets of n listed slots as registers 0xD/0xE, unless held. The
+// the offsets of n listed delay slots, unless held. The
 // first slot's area is where every slot of the list is taken to start.
 void EffectHost::writeDelays(uint32_t n, const uint8_t* slots)
 {
@@ -67,26 +67,26 @@ void EffectHost::writeDelays(uint32_t n, const uint8_t* slots)
     const int area = rom::SLOT_AREA[slots[0]];
     const int32_t base = area >= 0 && area <= 4 ? int32_t(AREA[area]) : 0;
     for (uint32_t i = 0; i < n; i++) {
-        writeReg(0, slots[i]);
+        writeReg(SELECT, slots[i]);
         const uint32_t v = delay[slots[i]] + base;
-        writeReg(0x0D, (v >> 9) & 0x1FF);
-        writeReg(0x0E, v & 0x1FF);
+        writeReg(SLOT_HIGH, (v >> 9) & 0x1FF);
+        writeReg(SLOT_LOW,  v & 0x1FF);
     }
 }
 
-// one of an LFO's four registers, 0x24..0x27, from its shadow, unless held
+// one of an LFO's four registers, LFO_SPEED..LFO_DIRECTION, from its shadow, unless held
 void EffectHost::writeLfo(uint32_t reg, uint32_t lfo)
 {
     if (hold)
         return;
-    writeReg(0, lfo);
-    writeReg(reg, lfoReg[reg - 0x24][lfo]);
+    writeReg(SELECT, lfo);
+    writeReg(reg, lfoReg[reg - LFO_SPEED][lfo]);
 }
 
-// LFO phase reset mask, then clear register 0x1C
+// the LFOs of a mask back to their start phase, then register 0x1C cleared
 void EffectHost::resetLfoPhase(uint32_t mask)
 {
-    writeReg(0x20, mask);
+    writeReg(LFO_RESET, mask);
     writeReg(0x1C, 0);
 }
 
@@ -110,9 +110,9 @@ void EffectHost::uploadProgram(int kind, int clear)
         writeTagsBurst(w.nsteps, w.steps);
         const uint16_t (*program)[5] = w.programs + entry * w.nsteps;
         for (int word = 0; word < 5; word++) {
-            writeReg(0, w.steps[0] | 0x8000);
+            writeReg(SELECT, w.steps[0] | AUTO_INCREMENT);
             for (int s = 0; s < w.nsteps; s++)
-                writeReg(10 - word, program[s][word]);
+                writeReg(PROGRAM - word, program[s][word]);
         }
         return;
     }
@@ -120,9 +120,9 @@ void EffectHost::uploadProgram(int kind, int clear)
     writeTags(50, rom::STEPS_MASTER_EQ);
     writeTags(88, rom::STEPS_SYSTEM);
     for (int word = 0; word < 5; word++) {
-        writeReg(0, 0x8000);
+        writeReg(SELECT, AUTO_INCREMENT);
         for (int s = 0; s < 232; s++)
-            writeReg(10 - word, rom::BASE_PROGRAM[s][word]);
+            writeReg(PROGRAM - word, rom::BASE_PROGRAM[s][word]);
     }
 }
 
@@ -131,26 +131,26 @@ void EffectHost::uploadProgram(int kind, int clear)
 void EffectHost::uploadWindow(int kind)
 {
     writeConfig(0, 0x40);
-    writeReg(0x17, 0x23);
+    writeReg(UPLOADING, 0x23);
     switch (kind) {
-    case 0:
+    case REVERB:
         writeDelays(54, rom::SLOTS_REVERB);
         writeCoefs(94, rom::STEPS_REVERB);
         std::copy_n(rom::BASE_TAGS[0], 232, tag);
         writeTags(94, rom::STEPS_REVERB);
         break;
-    case 1: case 2: case 3: case 4: {
+    case AUX: case INSERTION: case REVERB_DELAY: case VARIATION: {
         const Window& w = WINDOWS[kind];
         uploadProgram(kind, 0);
         writeDelays(w.nslots, w.slots);
         writeCoefsBurst(w.nsteps, w.steps);
         for (int i = 0; i < 4; i++)
-            for (uint32_t reg = 0x24; reg <= 0x27; reg++)
+            for (uint32_t reg = LFO_SPEED; reg <= LFO_DIRECTION; reg++)
                 writeLfo(reg, w.lfos[i]);
         resetLfoPhase(w.lfoMask);
         break;
     }
-    case 5:
+    case MASTER_EQ:
         writeCoefs(50, rom::STEPS_MASTER_EQ);
         break;
     default:
@@ -159,10 +159,11 @@ void EffectHost::uploadWindow(int kind)
         break;
     }
     writeConfig(0, rom::CFG16[0]);
-    writeReg(0x17, 0);
+    writeReg(UPLOADING, 0);
 }
 
-// reset, mode, the three config tables, register 0x16 config
+// register 1 brackets the boot writes: register 5, the CONFIG table, and three tables of
+// fifteen nobody names
 void EffectHost::initChip()
 {
     writeReg(1, 1);
@@ -171,33 +172,31 @@ void EffectHost::initChip()
         writeConfig(i, rom::CFG16[i]);
     for (uint32_t reg : {0x28u, 0x29u, 0x2Au})
         for (uint32_t i = 0; i < 15; i++) {
-            writeReg(0, i);
+            writeReg(SELECT, i);
             writeReg(reg, reg == 0x2A ? 0 : 0x15);
         }
     writeReg(1, 0);
-    setMute(5, 1);
+    setMute(OUTPUT, 1);
 }
 
 void EffectHost::uploadAll()
 {
     uploadProgram(REVERB, 0);
-    for (int kind = 0; kind <= 6; kind++)
+    for (int kind = REVERB; kind <= MIXER; kind++)
         uploadWindow(kind);
 }
 
-// per-effect enable byte, then the system parameter that applies it
-void EffectHost::setMute(int effect, uint32_t enabled)
+// a window's or the output's mute flag, then the mixer parameter that applies it
+void EffectHost::setMute(int window, uint32_t on)
 {
-    enabled &= 0xFF;
-    static const int SYS_PARAM[6] = {0, 2, 5, 10, 11, 14};
-    if (effect >= 0 && effect <= 5) {
-        mute[effect] = enabled == 1 ? 1 : 0;
-        mixerParam(SYS_PARAM[effect]);
+    static const int APPLIED_BY[6] = {MIX_REVERB_PAN, MIX_AUX_PAN, MIX_INSERTION_PAN, MIX_DELAY_PAN, MIX_VARIATION_PAN, MIX_VOLUME};
+    if (window >= REVERB && window <= OUTPUT) {
+        mute[window] = (on & 0xFF) == 1;
+        mixerParam(APPLIED_BY[window]);
         return;
     }
-    for (int e = 0; e <= 4; e++)
-        setMute(e, enabled);
-    setMute(5, enabled);
+    for (int w = REVERB; w <= OUTPUT; w++)
+        setMute(w, on);
 }
 
 // the effect host's reset. Mutes, defaults, every kind's
@@ -206,48 +205,31 @@ void EffectHost::init()
 {
     masterLevel = 8192;
     hold = false;
-    for (int e = 0; e < 6; e++)
-        mute[e] = 1;
+    std::fill_n(mute, 6, 1);
     initChip();
-    applyParam(MIXER, 255);
-    code[REVERB].lsb = 0;
-    applyParam(REVERB, 255);
-    code[AUX].msb = 0;
-    code[AUX].lsb = 0;
-    applyParam(AUX, 255);
-    code[INSERTION].msb = 0;
-    code[INSERTION].lsb = 0;
-    applyParam(INSERTION, 255);
-    code[REVERB_DELAY].msb = 0;
-    code[REVERB_DELAY].lsb = 0;
-    applyParam(REVERB_DELAY, 255);
-    code[VARIATION].msb = 0;
-    code[VARIATION].lsb = 0;
-    applyParam(VARIATION, 255);
-    eqParam[5] = 64;
-    eqParam[6] = 28;
-    eqParam[7] = 7;
-    eqParam[13] = 64;
-    eqParam[14] = 46;
-    eqParam[15] = 7;
-    applyParam(MASTER_EQ, 255);
+    applyParam(MIXER, ALL);
+    for (int w : {REVERB, AUX, INSERTION, REVERB_DELAY, VARIATION}) {
+        code[w] = {};
+        applyParam(w, ALL);
+    }
+    // the two mid bands, which the performance has no bytes for
+    eqParam[5]  = 64;  eqParam[6]  = 28;  eqParam[7]  = 7;
+    eqParam[13] = 64;  eqParam[14] = 46;  eqParam[15] = 7;
+    applyParam(MASTER_EQ, ALL);
     uploadAll();
-    perf[169] = 64;
-    perf[170] = 0;
-    perf[172] = 64;
-    perf[173] = 0;
-    perf[174] = 0;
-    perf[176] = 64;
-    perf[177] = 0;
-    perf[178] = 0;
-    mixParam[1] = 0;
-    applyParam(MIXER, 1);
-    mixParam[6] = 0;
-    applyParam(MIXER, 6);
-    mixParam[9] = 0;
-    applyParam(MIXER, 9);
+    perf[REVERB_PAN]             = 64;
+    perf[REVERB_RETURN]          = 0;
+    perf[VARIATION_PAN]          = 64;
+    perf[VARIATION_RETURN]       = 0;
+    perf[VARIATION_TO_REVERB]    = 0;
+    perf[INSERTION_PAN]          = 64;
+    perf[INSERTION_TO_REVERB]    = 0;
+    perf[INSERTION_TO_VARIATION] = 0;
+    setMixer(MIX_REVERB_RETURN, 0);
+    setMixer(MIX_VARIATION_RETURN, 0);
+    setMixer(9, 0);
     setOutputGain();
-    setMute(255, 0);
+    setMute(ALL, 0);
 }
 
 }  // namespace fs1r::vop3host

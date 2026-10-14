@@ -49,6 +49,10 @@ public:
 	static constexpr double LOADK = 128.0;     // s14: a class-1 load v reads back as v / 256
 	static constexpr double RSCALE[4] = { 1.0, 2.0, 4.0, 16.0 };   // s24: route 0..3 scales the result
 
+	// A step's m write source (w2[15:13]) and adder input (w3[7:6])
+	enum { M_SERIAL, M_SERIAL2, M_LFO, M_EG, M_CAPTURE, M_CAPTURE2, M_RESULT, M_PREVIOUS };
+	enum { A_P, A_R, A_M, A_NONE };
+
 	// One decoded step. Word k is chip register 10 - k.
 	struct op
 	{
@@ -400,10 +404,10 @@ private:
 			int const c = o.dm;
 			switch (o.msrc)
 			{
-				case 0: case 1: case 3: queue_d(c, in[o.msrc][page]); break;
-				case 2: queue_d(c, lfo[st >> 5]); break;
-				case 4: case 5: queue_d(c, captured(m[c], st)); break;
-				default: break;   // 6 and 7 are written below from the result
+				case M_SERIAL:  case M_SERIAL2: case M_EG: queue_d(c, in[o.msrc][page]);    break;
+				case M_LFO:                                queue_d(c, lfo[st >> 5]);        break;
+				case M_CAPTURE: case M_CAPTURE2:           queue_d(c, captured(m[c], st)); break;
+				default:                                   break;   // M_RESULT and M_PREVIOUS are written below from the result
 			}
 		}
 
@@ -431,7 +435,7 @@ private:
 			if (o.cmp)
 				m_flag = (acc > 0) - (acc < 0);
 			// s29: class 1 with w1[12:8] set writes its m cell; so does one without an r register
-			if (o.msrc == 6 && o.dm && (o.dwr || !o.dr))
+			if (o.msrc == M_RESULT && o.dm && (o.dwr || !o.dr))
 				queue_d(o.dm, clip(acc, DSAT));
 			t_write(o, st, acc);
 			return;
@@ -472,9 +476,9 @@ private:
 		if (o.dm)
 		{
 			int const c = o.dm;
-			if (o.msrc == 7)                  // s32/s33: the previous step's m operand
+			if (o.msrc == M_PREVIOUS)         // s32/s33: the previous step's m operand
 				queue_d(c, psrc);
-			else if (o.msrc == 6 && (!(o.m2m && o.asel == 3) || o.dm != o.sm))   // s30: op 7 does not write its own source
+			else if (o.msrc == M_RESULT && (!(o.m2m && o.asel == A_NONE) || o.dm != o.sm))   // s30: op 7 does not write its own source
 				queue_d(c, clip(y, DSAT));
 		}
 		t_write(o, st, y);
@@ -508,10 +512,10 @@ private:
 	{
 		switch (o.asel)
 		{
-			case 0: return acc;
-			case 1: return o.sr ? x : acc / 32768.0;
-			case 2: return o.sm ? src : acc / 32768.0;
-			default: return 0.0;
+			case A_P: return acc;
+			case A_R: return o.sr ? x : acc / 32768.0;
+			case A_M: return o.sm ? src : acc / 32768.0;
+			default:  return 0.0;
 		}
 	}
 

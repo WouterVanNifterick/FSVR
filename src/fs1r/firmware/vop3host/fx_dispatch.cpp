@@ -19,17 +19,16 @@ const rom::PresetGroup& EffectHost::presets(int kind) const
     }
 }
 
-// p >= 0xFE resets the window first; p >= 0xFC reloads the
-// kind's preset block for its current type (odd p also restores the 16 default parameters)
-// and then runs the kind's handler for "all parameters" (255); any other p is a single
-// parameter change for the kind's handler.
+// A single parameter change for the kind's handler, or from RELOAD the kind's preset block for
+// its current type and then the handler for ALL parameters. From CLEAR the window is silenced
+// first, and an odd p also restores the sixteen default parameters.
 void EffectHost::applyParam(int kind, int p)
 {
     kind = int8_t(kind);
     p &= 0xFF;
-    if (p >= 254)
+    if (p >= CLEAR)
         clearWindow(kind);
-    if (p < 252) {
+    if (p < RELOAD) {
         dispatch(kind, p);
         return;
     }
@@ -59,19 +58,19 @@ void EffectHost::applyParam(int kind, int p)
         if (p & 1)
             std::copy_n(rom::SYSTEM_PARAM_DEFAULTS, 16, mixParam);
     }
-    dispatch(kind, 255);
+    dispatch(kind, ALL);
 }
 
 void EffectHost::dispatch(int kind, int p)
 {
     switch (kind) {
-    case 0: dispatchReverb(p); break;
-    case 1: break;                           // the aux window has no parameters
-    case 2: dispatchInsertion(p); break;
-    case 3: dispatchReverbDelay(p); break;
-    case 4: dispatchVariation(p); break;
-    case 5: masterEq(p); break;
-    default: mixerParam(p); break;
+        case REVERB:       dispatchReverb(p);      break;
+        case AUX:                                  break;   // the aux window has no parameters
+        case INSERTION:    dispatchInsertion(p);   break;
+        case REVERB_DELAY: dispatchReverbDelay(p); break;
+        case VARIATION:    dispatchVariation(p);   break;
+        case MASTER_EQ:    masterEq(p);            break;
+        default:           mixerParam(p);          break;
     }
 }
 

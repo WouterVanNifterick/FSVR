@@ -16,7 +16,6 @@ inline uint32_t mod_delay(EffectHost& h, const int16_t* table, int p)
 {
     return uint32_t(h.toSamples(table[P(h, p)])) & 0xFFFF;
 }
-constexpr uint32_t TOP = 0x40000;   // where the variation's delay memory ends
 
 // the pan words (parameter 9): the pan law at index 1 twice and the type scale of the law's top
 // twice, laid out (a, x, a, x) when `aax` is set and (a, a, x, x) otherwise
@@ -41,10 +40,10 @@ void pan_words_b(EffectHost& h, const uint16_t* steps, bool aax)
 void filters_b(EffectHost& h, int p, const uint16_t* lpf, const uint16_t* lpf_copy, const uint16_t* hpf, const uint16_t* hpf_copy)
 {
     if (p == 5 || p == 6) {
-        h.designFilter(1, 1, 2, P(h, 5), P(h, 6), 0, lpf);
+        h.designFilter(1, 1, LOW_SHELF1, P(h, 5), P(h, 6), 0, lpf);
         h.copyCoefs(3, lpf, lpf_copy);
     } else {
-        h.designFilter(1, 2, 3, P(h, 7), P(h, 8), 0, hpf);
+        h.designFilter(1, 2, HIGH_SHELF1, P(h, 7), P(h, 8), 0, hpf);
         h.copyCoefs(3, hpf, hpf_copy);
     }
 }
@@ -212,7 +211,7 @@ void EffectHost::fxVarPhaser1(int p)
         fxVarPhaser1(9);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 3, 5, 7, 10})
             fxVarPhaser1(q);
@@ -266,7 +265,7 @@ void EffectHost::fxVarPhaser2(int p)
     case 12:
         setLfoPhase(P(*this, 12), 9);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 3, 5, 7, 9, 10, 12})
             fxVarPhaser2(q);
@@ -342,14 +341,14 @@ void EffectHost::fxVarEnsDetune(int p)
         pan_words_b(*this, DETUNE_PAN, false);
         break;
     case 10: case 11:
-        designFilter(1, 1, 2, P(*this, 10), P(*this, 11), 0, DETUNE_LOW_SHELF);
+        designFilter(1, 1, LOW_SHELF1, P(*this, 10), P(*this, 11), 0, DETUNE_LOW_SHELF);
         copyCoefs(3, DETUNE_LOW_SHELF, DETUNE_LOW_SHELF_COPY);
         break;
     case 12: case 13:
-        designFilter(1, 2, 3, P(*this, 12), P(*this, 13), 0, DETUNE_HIGH_SHELF);
+        designFilter(1, 2, HIGH_SHELF1, P(*this, 12), P(*this, 13), 0, DETUNE_HIGH_SHELF);
         copyCoefs(3, DETUNE_HIGH_SHELF, DETUNE_HIGH_SHELF_COPY);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 9, 10, 12})
             fxVarEnsDetune(q);
@@ -383,7 +382,7 @@ void EffectHost::fxVarAutoWah(int p)
     case 9:
         pan_words_b(*this, WAH_PAN, true);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 3, 5, 7, 9})
             fxVarAutoWah(q);
@@ -421,10 +420,10 @@ void EffectHost::fxVarTouchWah(int p)
         storeWahRelease(v, WAH_MIRROR);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
-        designFilter(1, 1, 1, 0, 64, 0, WAH_HPF);
-        designFilter(1, 0, 0, 54, 64, 0, WAH_LPF);
+        designFilter(1, 1, HPF1, 0, 64, 0, WAH_HPF);
+        designFilter(1, 0, LPF1, 54, 64, 0, WAH_LPF);
         for (int q : {0, 1, 2, 5, 7, 9, 15})
             fxVarTouchWah(q);
         hold = false;
@@ -437,15 +436,15 @@ void EffectHost::fxVar3BandEq(int p)
 {
     switch (p) {
     case 0: case 5:
-        designFilter(2, 1, 6, P(*this, 5), int8_t(param[VARIATION][0]), 0, EQ3_LOW_SHELF2);
+        designFilter(2, 1, LOW_SHELF2, P(*this, 5), int8_t(param[VARIATION][0]), 0, EQ3_LOW_SHELF2);
         copyCoefs(5, EQ3_LOW_SHELF2, EQ3_LOW_SHELF2_COPY);
         break;
     case 1: case 2: case 3:
-        designFilter(2, 1, 10, P(*this, 1), P(*this, 2), P(*this, 3), EQ3_PEAK);
+        designFilter(2, 1, PEAK, P(*this, 1), P(*this, 2), P(*this, 3), EQ3_PEAK);
         copyCoefs(5, EQ3_PEAK, EQ3_PEAK_COPY);
         break;
     case 4: case 6:
-        designFilter(2, 4, 7, P(*this, 6), P(*this, 4), 0, EQ3_HIGH_SHELF2);
+        designFilter(2, 4, HIGH_SHELF2, P(*this, 6), P(*this, 4), 0, EQ3_HIGH_SHELF2);
         copyCoefs(5, EQ3_HIGH_SHELF2, EQ3_HIGH_SHELF2_COPY);
         break;
     case 14: {
@@ -469,7 +468,7 @@ void EffectHost::fxVar3BandEq(int p)
         writeCoefs(2, EQ3_B + 1);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 4, 14})
             fxVar3BandEq(q);
@@ -483,9 +482,9 @@ void EffectHost::fxVarHmEnhancer(int p)
 {
     switch (p) {
     case 0:
-        designFilter(2, 1, 5, P(*this, 0), 64, 7, DYN_HPF2);
+        designFilter(2, 1, HPF2, P(*this, 0), 64, 7, DYN_HPF2);
         copyCoefs(5, DYN_HPF2, DYN_HPF2_COPY);
-        designFilter(1, 1, 1, P(*this, 0), 64, 0, DYN_HPF);
+        designFilter(1, 1, HPF1, P(*this, 0), 64, 0, DYN_HPF);
         copyCoefs(3, DYN_HPF, DYN_HPF_COPY);
         break;
     case 1: {
@@ -503,7 +502,7 @@ void EffectHost::fxVarHmEnhancer(int p)
         writeCoefs(1, DYN_OUT + 3);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2})
             fxVarHmEnhancer(q);
@@ -526,9 +525,9 @@ void dynamics_level(EffectHost& h, int p)
 }
 void dynamics_filters(EffectHost& h)
 {
-    h.designFilter(2, 1, 1, 0, 64, 0, DYN_HPF2);
+    h.designFilter(2, 1, HPF1, 0, 64, 0, DYN_HPF2);
     h.copyCoefs(5, DYN_HPF2, DYN_HPF2_COPY);
-    h.designFilter(1, 1, 11, 0, 64, 0, DYN_HPF);
+    h.designFilter(1, 1, GAIN_ONLY, 0, 64, 0, DYN_HPF);
     h.copyCoefs(3, DYN_HPF, DYN_HPF_COPY);
 }
 }  // namespace
@@ -542,7 +541,7 @@ void EffectHost::fxVarCompressor(int p)
     case 2: storeCompThreshold(P(*this, 2), DYN_THRESHOLD); break;
     case 3: storeRatio(P(*this, 3), DYN_RATIO); break;
     case 4: dynamics_level(*this, 4); break;
-    case 255:
+    case ALL:
         hold = true;
         dynamics_filters(*this);
         for (int q : {0, 1, 2, 3, 4})
@@ -560,7 +559,7 @@ void EffectHost::fxVarNoiseGate(int p)
     case 1: storeRelease(P(*this, 1), DYN_RELEASE); break;
     case 2: storeGateThreshold(P(*this, 2), DYN_THRESHOLD); break;
     case 3: dynamics_level(*this, 3); break;
-    case 255:
+    case ALL:
         hold = true;
         dynamics_filters(*this);
         for (int q : {0, 1, 2, 3})
@@ -592,13 +591,13 @@ void EffectHost::fxVarDistortion(int p)
         storeDrive(P(*this, 0), P(*this, 4), DIST_DRIVE);
         break;
     case 1: case 2:
-        designFilter(2, 4, 2, P(*this, 1), P(*this, 2), 0, DIST_LOW_SHELF);
+        designFilter(2, 4, LOW_SHELF1, P(*this, 1), P(*this, 2), 0, DIST_LOW_SHELF);
         break;
     case 3:
-        designFilter(2, 1, 4, P(*this, 3), 64, 7, DIST_LPF2);
+        designFilter(2, 1, LPF2, P(*this, 3), 64, 7, DIST_LPF2);
         break;
     case 6: case 7: case 8:
-        designFilter(2, 1, 10, P(*this, 6), P(*this, 7), P(*this, 8), DIST_PEAK);
+        designFilter(2, 1, PEAK, P(*this, 6), P(*this, 7), P(*this, 8), DIST_PEAK);
         break;
     case 9:
         dist_pan_words(*this);
@@ -606,17 +605,17 @@ void EffectHost::fxVarDistortion(int p)
     case 10:
         storeEdge(P(*this, 10), DIST_BAND);
         break;
-    case 255: {
+    case ALL: {
         hold = true;
         int f;
         if (code[VARIATION].lsb == 1) {
-            designFilter(1, 1, 1, 0, 64, 0, DIST_HPF);
+            designFilter(1, 1, HPF1, 0, 64, 0, DIST_HPF);
             f = 0x36;
         } else {
-            designFilter(1, 1, 1, 8, 64, 0, DIST_HPF);
+            designFilter(1, 1, HPF1, 8, 64, 0, DIST_HPF);
             f = 0x2C;
         }
-        designFilter(1, 1, 0, f, 64, 0, DIST_LPF);
+        designFilter(1, 1, LPF1, f, 64, 0, DIST_LPF);
         for (int q : {0, 1, 3, 6, 9, 10})
             fxVarDistortion(q);
         hold = false;
@@ -643,9 +642,9 @@ void EffectHost::fxVarAmpSim(int p)
     }
     case 2:
         if (P(*this, 1) == 1)
-            designFilter(2, 1, 4, P(*this, 2), 0x38, 0xF, DIST_LPF2);
+            designFilter(2, 1, LPF2, P(*this, 2), 0x38, 0xF, DIST_LPF2);
         else
-            designFilter(2, 1, 4, P(*this, 2), 0x40, P(*this, 1) == 2 ? 0xF : 7, DIST_LPF2);
+            designFilter(2, 1, LPF2, P(*this, 2), 0x40, P(*this, 1) == 2 ? 0xF : 7, DIST_LPF2);
         break;
     case 9:
         dist_pan_words(*this);
@@ -653,7 +652,7 @@ void EffectHost::fxVarAmpSim(int p)
     case 10:
         storeEdge(P(*this, 10), DIST_BAND);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 9, 10})
             fxVarAmpSim(q);
@@ -680,10 +679,10 @@ void EffectHost::fxVarKaraoke(int p)
         break;
     }
     case 2:
-        designFilter(1, 1, 1, P(*this, 2), 64, 0, KARAOKE_HPF);
+        designFilter(1, 1, HPF1, P(*this, 2), 64, 0, KARAOKE_HPF);
         break;
     case 3:
-        designFilter(1, 1, 0, P(*this, 3), 64, 0, KARAOKE_LPF);
+        designFilter(1, 1, LPF1, P(*this, 3), 64, 0, KARAOKE_LPF);
         break;
     case 9: {
         const uint32_t g = rom::ER_REV[1] >> 2;
@@ -700,7 +699,7 @@ void EffectHost::fxVarKaraoke(int p)
         writeCoefs(16, KARAOKE_ROW_STEPS);
         writeDelays(8, KARAOKE_ROW_SLOTS);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 3, 9, 10})
             fxVarKaraoke(q);
@@ -733,19 +732,19 @@ void EffectHost::fxVarReverb(int p)
         break;
     }
     case 3:
-        designFilter(1, 0, 1, P(*this, 3), 64, 0, REVERB_HPF);
+        designFilter(1, 0, HPF1, P(*this, 3), 64, 0, REVERB_HPF);
         break;
     case 4:
-        designFilter(1, 1, 0, P(*this, 4), 64, 0, REVERB_LPF);
+        designFilter(1, 1, LPF1, P(*this, 4), 64, 0, REVERB_LPF);
         break;
     case 9: {
         const uint32_t g = rom::ER_REV[1] >> 2;
-        coef[REVERB_PAN[1]] = g;
-        coef[REVERB_PAN[0]] = g;
+        coef[rom::var::REVERB_PAN[1]] = g;
+        coef[rom::var::REVERB_PAN[0]] = g;
         const uint32_t x = typeGain(VARIATION, rom::ER_REV[127] >> 2);
-        coef[REVERB_PAN[3]] = x;
-        coef[REVERB_PAN[2]] = x;
-        writeCoefs(4, REVERB_PAN);
+        coef[rom::var::REVERB_PAN[3]] = x;
+        coef[rom::var::REVERB_PAN[2]] = x;
+        writeCoefs(4, rom::var::REVERB_PAN);
         break;
     }
     case 11:
@@ -774,7 +773,7 @@ void EffectHost::fxVarReverb(int p)
         coef[REVERB_WIDTH[0]] = bipolar500(P(*this, 14));
         writeCoefs(1, REVERB_WIDTH);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 3, 4, 9, 11, 14})
             fxVarReverb(q);

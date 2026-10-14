@@ -2,7 +2,7 @@
 // copyright-holders:Wouter van Nifterick
 
 // The performance into the effect chip: applyChanges, which the effect task runs for
-// every message posted to it, and the functions it reaches. Mask 0x8000 is a performance load.
+// every message posted to it, and the functions it reaches.
 //
 // The caches hold the parameters as read from the performance; the blocks the per-type
 // handlers read (param[kind]) are filled from them here.
@@ -15,242 +15,153 @@ using namespace rom::mix;
 
 namespace {
 
+constexpr int SEND_LEVEL = 2896;    // an insertion send or an individual output at full level
+
+// the reverb's type map says which window a type runs in: the reverb's, or the delay's
+bool isDelay(uint32_t type) { return rom::TYPE_MAP_REVERB[type][0] != 0; }
+TypeCode codeOf(const uint8_t (&map)[2]) { return {map[0], map[1]}; }
+
+// the first byte of reverb parameter i: two bytes each for 1-8, one each for 9-16
+uint32_t reverbByte(uint32_t i) { return i < 8 ? REVERB_PARAM_BYTES + 2 * i : REVERB_PARAM_BYTES_9 + i - 8; }
+// a parameter word as two 7-bit bytes, the high one first
+void putWord(uint8_t* at, uint16_t w)
+{
+    at[0] = (w & 0x3F80) >> 7;
+    at[1] = w & 0x7F;
+}
+// cached EQ word i's master EQ parameter: the low band is 0-3, the mid 8-10, the high 16-19
+uint32_t eqParamOf(uint32_t i) { return i < 4 ? i : i < 7 ? i + 4 : i + 9; }
 
 }  // namespace
 
-//   0x8000  read the performance into the cache, then as 0x80
-//   0x80    everything: the four windows with their parameters, the mixer, the master EQ
-//   0x40    reverb type            0x20  dirty reverb parameters
-//   0x10    variation type         0x08  dirty variation parameters
-//   0x04    insertion type         0x02  dirty insertion parameters, with their controller offsets
-//   0x200   dirty mixer parameters
-//   0x100   dirty master EQ parameters
 void EffectHost::applyChanges(uint32_t mask)
 {
-    // the reverb's type map says which window the type runs in: the reverb's, or the delay's
-    auto is_delay = [&](uint32_t type) -> bool { return rom::TYPE_MAP_REVERB[type][0] != 0; };
+    // The reverb's type runs in the reverb window or, for the four delays, in the delay window,
+    // and the other one gets its silent type. `keep` keeps the parameters of the one that runs.
+    auto reverbType = [&](uint32_t rev, bool keep) {
+        const bool delay = isDelay(rev);
+        code[REVERB].lsb = delay ? 0 : rom::TYPE_MAP_REVERB[rev][1];
+        applyParam(REVERB, keep && !delay ? CLEAR : ALL);
+        code[REVERB_DELAY] = delay ? TypeCode{8, rom::TYPE_MAP_REVERB[rev][1]} : TypeCode{0, 1};
+        applyParam(REVERB_DELAY, keep && delay ? CLEAR : ALL);
+    };
 
-    if ((mask & 0x80) || (mask & 0x8000)) {
-        if (mask & 0x8000) {
+    if (mask & (EVERYTHING | LOADED)) {
+        if (mask & LOADED) {
             for (uint32_t i = 0; i < 16; i++) {
-                if (i < 8)
-                    reverbCache[i] = uint32_t(readParameter(0x50 + 2 * i));
-                else
-                    reverbCache[i] = uint32_t(readParameter(0x58 + i));
-                variationCache[i] = uint32_t(readParameter(0x68 + 2 * i));
-                insertionCache[i] = uint32_t(readParameter(136 + 2 * i));
+                reverbCache[i]    = uint32_t(readParameter(reverbByte(i)));
+                variationCache[i] = uint32_t(readParameter(VARIATION_PARAM_BYTES + 2 * i));
+                insertionCache[i] = uint32_t(readParameter(INSERTION_PARAM_BYTES + 2 * i));
             }
             for (uint32_t i = 0; i < 10; i++)
-                eqCache[i] = uint32_t(readParameter(180 + i));
+                eqCache[i] = uint32_t(readParameter(EQ_LOW_GAIN + i));
         }
-        reverbCache[9] = 127;
+        reverbCache[9]    = 127;
         variationCache[9] = 127;
-        setMute(0, 1);
-        setMute(2, 1);
-        setMute(3, 1);
-        setMute(4, 1);
-        for (uint32_t i = 0; i < 16; i++)
-            controlOffset[i] = 0;
-        const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
-        mixParam[4] = 90;
-        applyParam(MIXER, 4);
-        int delay_entry;
-        if (!is_delay(rev)) {
-            std::copy_n(reverbCache, 16, param[REVERB]);
-            code[REVERB].lsb = rom::TYPE_MAP_REVERB[rev][1];
-            applyParam(REVERB, 254);
-            code[REVERB_DELAY].msb = 0;
-            code[REVERB_DELAY].lsb = 1;
-            delay_entry = 255;
-        } else {
-            std::copy_n(reverbCache, 16, param[REVERB_DELAY]);
-            code[REVERB].lsb = 0;
-            applyParam(REVERB, 255);
-            code[REVERB_DELAY].msb = 8;
-            code[REVERB_DELAY].lsb = rom::TYPE_MAP_REVERB[rev][1];
-            delay_entry = 254;
-        }
-        applyParam(REVERB_DELAY, delay_entry);
+        for (int w : {REVERB, INSERTION, REVERB_DELAY, VARIATION})
+            setMute(w, 1);
+        std::fill_n(controlOffset, 16, 0);
+        const uint32_t rev = uint32_t(readParameter(REVERB_TYPE));
+        setMixer(4, 90);
+        std::copy_n(reverbCache, 16, param[isDelay(rev) ? REVERB_DELAY : REVERB]);
+        reverbType(rev, true);
 
-        const uint32_t var = perf[171];
         std::copy_n(variationCache, 16, param[VARIATION]);
-        code[VARIATION].msb = rom::TYPE_MAP_VARIATION[var][0];
-        code[VARIATION].lsb = rom::TYPE_MAP_VARIATION[var][1];
-        applyParam(VARIATION, 254);
+        code[VARIATION] = codeOf(rom::TYPE_MAP_VARIATION[perf[VARIATION_TYPE]]);
+        applyParam(VARIATION, CLEAR);
 
-        const uint32_t ins = perf[175];
         std::copy_n(insertionCache, 16, param[INSERTION]);
-        code[INSERTION].msb = rom::TYPE_MAP_INSERTION[ins][0];
-        code[INSERTION].lsb = rom::TYPE_MAP_INSERTION[ins][1];
-        applyParam(INSERTION, 254);
+        code[INSERTION] = codeOf(rom::TYPE_MAP_INSERTION[perf[INSERTION_TYPE]]);
+        applyParam(INSERTION, CLEAR);
 
-        // the mixer: reverb pan and return go to the words of the reverb or of the delay block
-        const uint32_t rtype = perf[168];
-        const uint32_t pan = perf[169];
-        if (!is_delay(rtype)) {
-            mixParam[0] = pan;
-            applyParam(MIXER, 0);
-            mixParam[10] = 64;
-        } else {
-            mixParam[0] = 64;
-            applyParam(MIXER, 0);
-            mixParam[10] = pan;
-        }
-        applyParam(MIXER, 10);
-        const uint32_t ret = perf[170];
-        if (!is_delay(rtype)) {
-            mixParam[1] = ret;
-            applyParam(MIXER, 1);
-            mixParam[3] = 0;
-        } else {
-            mixParam[1] = 0;
-            applyParam(MIXER, 1);
-            mixParam[3] = ret;
-        }
-        applyParam(MIXER, 3);
-        mixParam[11] = perf[172];
-        applyParam(MIXER, 11);
-        mixParam[6] = perf[173];
-        applyParam(MIXER, 6);
-        mixParam[8] = perf[174];
-        applyParam(MIXER, 8);
-        mixParam[5] = perf[176];
-        applyParam(MIXER, 5);
-        mixParam[14] = perf[16];
+        for (int m : {MIX_REVERB_PAN, MIX_VARIATION_PAN, MIX_VARIATION_RETURN, MIX_VARIATION_TO_REVERB, MIX_INSERTION_PAN})
+            applyMixer(m);
+        mixParam[MIX_VOLUME] = perf[VOLUME];
         setMasterLevel();
-        setInsertionToReverb(perf[177]);
-        setInsertionToVariation(perf[178]);
-        setInsertionLevel(perf[179]);
-        setIndividualOut(perf[20]);
+        setInsertionSend(REVERB, perf[INSERTION_TO_REVERB]);
+        setInsertionSend(VARIATION, perf[INSERTION_TO_VARIATION]);
+        setInsertionLevel(perf[INSERTION_LEVEL]);
+        setIndividualOut(perf[INDIVIDUAL_OUT]);
         copyEqParams();
-        applyParam(MASTER_EQ, 0);
-        applyParam(MASTER_EQ, 8);
-        applyParam(MASTER_EQ, 16);
-        uploadWindow(REVERB);
-        uploadWindow(INSERTION);
-        uploadWindow(REVERB_DELAY);
-        uploadWindow(VARIATION);
-        setMute(0, 0);
-        setMute(2, 0);
-        setMute(3, 0);
-        if ((uint32_t(readParameter(171)) & 0xFF) != 0)
-            setMute(4, 0);
+        for (int band : {0, 8, 16})                  // the three the performance has bytes for
+            applyParam(MASTER_EQ, band);
+        for (int w : {REVERB, INSERTION, REVERB_DELAY, VARIATION})
+            uploadWindow(w);
+        setMute(REVERB, 0);
+        setMute(INSERTION, 0);
+        setMute(REVERB_DELAY, 0);
+        if (readParameter(VARIATION_TYPE) != 0)
+            setMute(VARIATION, 0);
     }
 
-    if (mask & 0x40) {
-        setMute(0, 1);
-        setMute(3, 1);
-        const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
-        mixParam[4] = 90;
-        applyParam(MIXER, 4);
-        if (!is_delay(rev)) {
-            code[REVERB].lsb = rom::TYPE_MAP_REVERB[rev][1];
-            applyParam(REVERB, 255);
-            code[REVERB_DELAY].msb = 0;
-            code[REVERB_DELAY].lsb = 1;
-            applyParam(REVERB_DELAY, 255);
-            mixParam[0] = uint32_t(readParameter(169)) & 0xFF;
-            applyParam(MIXER, 0);
-            mixParam[10] = 64;
-            applyParam(MIXER, 10);
-            mixParam[1] = uint32_t(readParameter(170)) & 0xFF;
-            applyParam(MIXER, 1);
-            mixParam[3] = 0;
-        } else {
-            code[REVERB].lsb = 0;
-            applyParam(REVERB, 255);
-            code[REVERB_DELAY].msb = 8;
-            code[REVERB_DELAY].lsb = rom::TYPE_MAP_REVERB[rev][1];
-            applyParam(REVERB_DELAY, 255);
-            const uint32_t pan = uint32_t(readParameter(169)) & 0xFF;
-            mixParam[0] = 64;
-            applyParam(MIXER, 0);
-            mixParam[10] = pan;
-            applyParam(MIXER, 10);
-            const uint32_t ret = uint32_t(readParameter(170)) & 0xFF;
-            mixParam[1] = 0;
-            applyParam(MIXER, 1);
-            mixParam[3] = ret;
-        }
-        applyParam(MIXER, 3);
+    if (mask & REVERB_TYPE_CHANGED) {
+        setMute(REVERB, 1);
+        setMute(REVERB_DELAY, 1);
+        const uint32_t rev = uint32_t(readParameter(REVERB_TYPE));
+        setMixer(4, 90);
+        reverbType(rev, false);
+        setReverbPanReturn(isDelay(rev), readParameter(REVERB_PAN), readParameter(REVERB_RETURN));
         uploadWindow(REVERB);
         uploadWindow(REVERB_DELAY);
-        setMute(0, 0);
-        setMute(3, 0);
+        setMute(REVERB, 0);
+        setMute(REVERB_DELAY, 0);
     }
 
-    if (mask & 0x20) {
-        const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
-        for (uint32_t i = 0; i < 16; i++) {
-            if (reverbChanged[i] != 1)
-                continue;
-            const uint32_t w = reverbCache[i];
-            reverbChanged[i] = 0;
-            if (!is_delay(rev)) {
-                param[REVERB][i] = w;
-                applyParam(REVERB, int(i));
-            } else {
-                param[REVERB_DELAY][i] = w;
-                applyParam(REVERB_DELAY, int(i));
+    if (mask & REVERB_CHANGED) {
+        const int w = isDelay(readParameter(REVERB_TYPE)) ? REVERB_DELAY : REVERB;
+        for (uint32_t i = 0; i < 16; i++)
+            if (reverbChanged[i] == 1) {
+                reverbChanged[i] = 0;
+                param[w][i] = reverbCache[i];
+                applyParam(w, int(i));
             }
-        }
     }
 
-    if (mask & 0x10) {
-        setMute(4, 1);
-        const uint32_t var = uint32_t(readParameter(171)) & 0xFF;
-        code[VARIATION].msb = rom::TYPE_MAP_VARIATION[var][0];
-        code[VARIATION].lsb = rom::TYPE_MAP_VARIATION[var][1];
-        applyParam(VARIATION, 255);
+    if (mask & VARIATION_TYPE_CHANGED) {
+        setMute(VARIATION, 1);
+        const uint32_t var = uint32_t(readParameter(VARIATION_TYPE));
+        code[VARIATION] = codeOf(rom::TYPE_MAP_VARIATION[var]);
+        applyParam(VARIATION, ALL);
         uploadWindow(VARIATION);
         if (var != 0)
-            setMute(4, 0);
+            setMute(VARIATION, 0);
     }
 
-    if (mask & 0x08) {
-        for (uint32_t i = 0; i < 16; i++) {
-            if (variationChanged[i] != 1)
-                continue;
-            const uint32_t w = variationCache[i];
-            variationChanged[i] = 0;
-            param[VARIATION][i] = w;
-            applyParam(VARIATION, int(i));
-        }
-    }
-
-    if (mask & 0x04) {
-        setMute(2, 1);
+    if (mask & VARIATION_CHANGED) {
         for (uint32_t i = 0; i < 16; i++)
-            controlOffset[i] = 0;
-        const uint32_t ins = uint32_t(readParameter(175)) & 0xFF;
-        code[INSERTION].msb = rom::TYPE_MAP_INSERTION[ins][0];
-        code[INSERTION].lsb = rom::TYPE_MAP_INSERTION[ins][1];
-        applyParam(INSERTION, 255);
-        uploadWindow(INSERTION);
-        setMute(2, 0);
+            if (variationChanged[i] == 1) {
+                variationChanged[i] = 0;
+                param[VARIATION][i] = variationCache[i];
+                applyParam(VARIATION, int(i));
+            }
     }
 
-    if (mask & 0x02) {
-        // a dirty insertion parameter is its cached value plus the controller offset scaled
+    if (mask & INSERTION_TYPE_CHANGED) {
+        setMute(INSERTION, 1);
+        std::fill_n(controlOffset, 16, 0);
+        code[INSERTION] = codeOf(rom::TYPE_MAP_INSERTION[readParameter(INSERTION_TYPE)]);
+        applyParam(INSERTION, ALL);
+        uploadWindow(INSERTION);
+        setMute(INSERTION, 0);
+    }
+
+    if (mask & INSERTION_CHANGED) {
+        // a changed insertion parameter is its cached value plus the controller offset scaled
         // to the range of the parameter, offset * (max - min) / 127, clamped to that range
         for (uint32_t i = 0; i < 16; i++) {
             if (insertionChanged[i] != 1)
                 continue;
-            const rom::ParamRange& range = rom::INSERTION_PARAMS[perf[175]][2 * i];
+            const rom::ParamRange& range = rom::INSERTION_PARAMS[perf[INSERTION_TYPE]][2 * i];
             const int32_t lo = uint16_t(range.min), hi = uint16_t(range.max);
-            const int32_t span = controlOffset[i] * (hi - lo);
-            const int32_t add = int16_t(span / 127);
-            int32_t v = int16_t(insertionCache[i] + add);
-            if (!(v > lo)) v = lo;
-            v = int16_t(v);
-            const int32_t out = v >= hi ? hi : v;
+            const int32_t add = int16_t(controlOffset[i] * (hi - lo) / 127);
+            const int32_t v = int16_t(std::max<int32_t>(int16_t(insertionCache[i] + add), lo));
             insertionChanged[i] = 0;
-            param[INSERTION][i] = uint32_t(out);
+            param[INSERTION][i] = uint32_t(std::min(v, hi));
             applyParam(INSERTION, int(i));
         }
     }
 
-    if (mask & 0x200) {
+    if (mask & MIXER_CHANGED) {
         // The firmware clears the insertion flags here, and past the sixteenth the EQ's, never the mixer's.
         for (uint32_t i = 0; i < 21; i++) {
             if (mixerChanged[i] != 1)
@@ -260,160 +171,73 @@ void EffectHost::applyChanges(uint32_t mask)
         }
     }
 
-    if (mask & 0x100) {
+    if (mask & EQ_CHANGED) {
         for (uint32_t i = 0; i < 11; i++)
             if (eqChanged[i] == 1)
                 applyEq(i);
     }
 }
 
-// one mixer change, indexed like mixerChanged: the system parameter
-// number for 0..14, then 16 send A, 17 send B, 18 insertion level, 19 individual out, 20 master shift
+// one mixer change, indexed like mixerChanged
 void EffectHost::applyMixer(uint32_t i)
 {
     switch (i) {
-    case 0: case 1: applyReverbPanReturn(); break;
-    case 5: applyInsertionPan(); break;
-    case 6: applyVariationReturn(); break;
-    case 8: applyVariationToReverb(); break;
-    case 11: applyVariationPan(); break;
-    case 14: applyVolume(); break;
-    case 16: applyInsertionToReverb(); break;
-    case 17: applyInsertionToVariation(); break;
-    case 18: applyInsertionLevel(); break;
-    case 19: applyIndividualOut(); break;
+        case MIX_REVERB_PAN:
+        case MIX_REVERB_RETURN:          setReverbPanReturn(isDelay(perf[REVERB_TYPE]), perf[REVERB_PAN], perf[REVERB_RETURN]); break;
+        case MIX_INSERTION_PAN:          setMixer(MIX_INSERTION_PAN,       perf[INSERTION_PAN]);       break;
+        case MIX_VARIATION_RETURN:       setMixer(MIX_VARIATION_RETURN,    perf[VARIATION_RETURN]);    break;
+        case MIX_VARIATION_TO_REVERB:    setMixer(MIX_VARIATION_TO_REVERB, perf[VARIATION_TO_REVERB]); break;
+        case MIX_VARIATION_PAN:          setMixer(MIX_VARIATION_PAN,       perf[VARIATION_PAN]);       break;
+        case MIX_VOLUME:                 setMixer(MIX_VOLUME,              perf[VOLUME]);              break;
+        // the sends with their controller offsets, clamped to 0..127
+        case MIX_INSERTION_TO_REVERB:    setInsertionSend(REVERB,    std::clamp<int32_t>(int16_t(perf[INSERTION_TO_REVERB]    + uint32_t(sendReverbOffset)),    0, 127)); break;
+        case MIX_INSERTION_TO_VARIATION: setInsertionSend(VARIATION, std::clamp<int32_t>(int16_t(perf[INSERTION_TO_VARIATION] + uint32_t(sendVariationOffset)), 0, 127)); break;
+        case MIX_INSERTION_LEVEL:        setInsertionLevel(perf[INSERTION_LEVEL]); break;
+        case MIX_INDIVIDUAL_OUT:         setIndividualOut(perf[INDIVIDUAL_OUT]);    break;
     }
 }
 
-// one master EQ change, indexed like eqChanged (master EQ bytes 180..190)
+void EffectHost::setMixer(int m, uint32_t v)
+{
+    mixParam[m] = v;
+    applyParam(MIXER, m);
+}
+
+// The reverb's pan and return go to the reverb window's words or the delay window's, and the
+// other window's are centred and silent.
+void EffectHost::setReverbPanReturn(bool delay, uint32_t pan, uint32_t ret)
+{
+    setMixer(MIX_REVERB_PAN,    delay ? 64 : pan);
+    setMixer(MIX_DELAY_PAN,     delay ? pan : 64);
+    setMixer(MIX_REVERB_RETURN, delay ? 0 : ret);
+    setMixer(MIX_DELAY_RETURN,  delay ? ret : 0);
+}
+
+// one master EQ change, indexed like eqChanged (EQ_LOW_GAIN..EQ_HIGH_SHAPE)
 void EffectHost::applyEq(uint32_t i)
 {
-    if (i < 4) applyEqLow(i);
-    else if (i < 7) applyEqMid(i);
-    else applyEqHigh(i);
+    eqParam[eqParamOf(i)] = i < 10 ? eqCache[i] : eqHighShape();
+    applyParam(MASTER_EQ, int(eqParamOf(i)));
 }
 
-// reverb pan and return from the performance
-void EffectHost::applyReverbPanReturn()
-{
-    const bool isDelay = rom::TYPE_MAP_REVERB[perf[168]][0] != 0;
-    const uint32_t pan = perf[169];
-    if (!isDelay) {
-        mixParam[0] = pan;
-        applyParam(MIXER, 0);
-        mixParam[10] = 64;
-    } else {
-        mixParam[0] = 64;
-        applyParam(MIXER, 0);
-        mixParam[10] = pan;
-    }
-    applyParam(MIXER, 10);
-    const uint32_t ret = perf[170];
-    if (!isDelay) {
-        mixParam[1] = ret;
-        applyParam(MIXER, 1);
-        mixParam[3] = 0;
-    } else {
-        mixParam[1] = 0;
-        applyParam(MIXER, 1);
-        mixParam[3] = ret;
-    }
-    applyParam(MIXER, 3);
-}
-
-void EffectHost::applyVariationPan()
-{
-    mixParam[11] = perf[172];
-    applyParam(MIXER, 11);
-}
-void EffectHost::applyVariationReturn()
-{
-    mixParam[6] = perf[173];
-    applyParam(MIXER, 6);
-}
-void EffectHost::applyVariationToReverb()
-{
-    mixParam[8] = perf[174];
-    applyParam(MIXER, 8);
-}
-void EffectHost::applyInsertionPan()
-{
-    mixParam[5] = perf[176];
-    applyParam(MIXER, 5);
-}
-void EffectHost::applyVolume()
-{
-    mixParam[14] = perf[16];
-    applyParam(MIXER, 14);
-}
-
-// insertion to reverb send, the performance byte plus the
-// controller offset, clamped to 0..127
-void EffectHost::applyInsertionToReverb()
-{
-    int32_t v = int16_t(perf[177] + uint32_t(sendReverbOffset));
-    if (!(v > 0)) v = 0;
-    setInsertionToReverb(uint32_t(v >= 127 ? 127 : v));
-}
-// the same for the insertion to variation send
-void EffectHost::applyInsertionToVariation()
-{
-    int32_t v = int16_t(perf[178] + uint32_t(sendVariationOffset));
-    if (!(v > 0)) v = 0;
-    setInsertionToVariation(uint32_t(v >= 127 ? 127 : v));
-}
-
-void EffectHost::applyInsertionLevel() { setInsertionLevel(perf[179]); }
-void EffectHost::applyIndividualOut() { setIndividualOut(perf[20]); }
-
-// cached EQ word i (bytes 180..183) to master EQ parameter i
-void EffectHost::applyEqLow(uint32_t i)
-{
-    eqParam[i] = eqCache[i];
-    applyParam(MASTER_EQ, int(i));
-}
-// cached EQ word i (bytes 184..186) to master EQ parameter i + 4
-void EffectHost::applyEqMid(uint32_t i)
-{
-    eqParam[4 + i] = eqCache[i];
-    applyParam(MASTER_EQ, int(i + 4));
-}
-// cached EQ word i (bytes 187..190) to master EQ parameter i + 9
-void EffectHost::applyEqHigh(uint32_t i)
-{
-    eqParam[9 + i] = i < 10 ? eqCache[i] : eqHighShape();
-    applyParam(MASTER_EQ, int(i + 9));
-}
-
-// the eleven cached EQ words to the master EQ block (parameters
-// 0-3, 8-10, 16-19)
 void EffectHost::copyEqParams()
 {
-    for (int i = 0; i < 4; i++) eqParam[i] = eqCache[i];
-    for (int i = 0; i < 3; i++) eqParam[8 + i] = eqCache[4 + i];
-    for (int i = 0; i < 3; i++) eqParam[16 + i] = eqCache[7 + i];
-    eqParam[19] = eqHighShape();
+    for (uint32_t i = 0; i < 11; i++)
+        eqParam[eqParamOf(i)] = i < 10 ? eqCache[i] : eqHighShape();
 }
 
-// insertion to reverb send, v * 2896 / 127, into two mixer steps
-void EffectHost::setInsertionToReverb(uint32_t v)
+// the insertion's send to the reverb or to the variation, v * 2896 / 127, into two mixer steps
+void EffectHost::setInsertionSend(int to, uint32_t v)
 {
-    const int32_t w = int16_t(int(float(v & 0xFF) * 2896.0f / 127.0f));
-    coef[MIXER_C[17]] = w;
-    coef[MIXER_C[23]] = w;
-    writeCoefs(1, MIXER_C + 17);
-    writeCoefs(1, MIXER_C + 23);
+    const int a = to == REVERB ? 17 : 28, b = to == REVERB ? 23 : 33;
+    const int32_t w = int16_t(int(float(v & 0xFF) * float(SEND_LEVEL) / 127.0f));
+    coef[MIXER_C[a]] = w;
+    coef[MIXER_C[b]] = w;
+    writeCoefs(1, MIXER_C + a);
+    writeCoefs(1, MIXER_C + b);
 }
-// insertion to variation send, the same law, two other steps
-void EffectHost::setInsertionToVariation(uint32_t v)
-{
-    const int32_t w = int16_t(int(float(v & 0xFF) * 2896.0f / 127.0f));
-    coef[MIXER_C[28]] = w;
-    coef[MIXER_C[33]] = w;
-    writeCoefs(1, MIXER_C + 28);
-    writeCoefs(1, MIXER_C + 33);
-}
-// insertion level, (v * 8192 / 127) >> 2, into two mixer steps
+
+// the insertion's level, (v * 8192 / 127) >> 2, into two mixer steps
 void EffectHost::setInsertionLevel(uint32_t v)
 {
     const int32_t w = int16_t(int(float(v & 0xFF) * 8192.0f / 127.0f)) >> 2;
@@ -423,32 +247,31 @@ void EffectHost::setInsertionLevel(uint32_t v)
     writeCoefs(1, MIXER_B + 9);
 }
 
-// individual out. 0 none, 1 the first pair of steps at 0x0B50,
-// 2 the second pair; other values rewrite the four steps as they are.
+// Individual out: a pair of steps at full level or none. Other values write the four as they are.
 void EffectHost::setIndividualOut(uint32_t mode)
 {
-    auto step = [&](int i) -> uint32_t { return rom::STEPS_INDIVIDUAL_OUT[i]; };
+    const uint16_t* s = rom::STEPS_INDIVIDUAL_OUT;
     switch (mode & 0xFF) {
-    case 0: coef[step(0)] = 0; coef[step(1)] = 0; coef[step(2)] = 0; coef[step(3)] = 0; break;
-    case 1: coef[step(0)] = 0x0B50; coef[step(1)] = 0x0B50; coef[step(2)] = 0; coef[step(3)] = 0; break;
-    case 2: coef[step(0)] = 0; coef[step(1)] = 0; coef[step(2)] = 0x0B50; coef[step(3)] = 0x0B50; break;
+        case OUT_OFF:            coef[s[0]] = 0;          coef[s[1]] = 0;          coef[s[2]] = 0;          coef[s[3]] = 0;          break;
+        case OUT_PRE_INSERTION:  coef[s[0]] = SEND_LEVEL; coef[s[1]] = SEND_LEVEL; coef[s[2]] = 0;          coef[s[3]] = 0;          break;
+        case OUT_POST_INSERTION: coef[s[0]] = 0;          coef[s[1]] = 0;          coef[s[2]] = SEND_LEVEL; coef[s[3]] = SEND_LEVEL; break;
     }
-    writeCoefs(4, rom::STEPS_INDIVIDUAL_OUT);
+    writeCoefs(4, s);
 }
 
 // the master level word, then the master volume step
 void EffectHost::setMasterLevel()
 {
     masterLevel = 0x1FFF;
-    applyParam(MIXER, 14);
+    applyParam(MIXER, MIX_VOLUME);
 }
 
 // ---- changes after the load ----
 //
 // The effect task sleeps on an event flag. Whoever changes something posts a mask (the bits
-// accumulate) and the task takes the whole pattern at once, waiting on bit 0, which is why
-// every posted mask has bit 0 set. Here post keeps the pattern in posted and
-// runPosted is one turn of the task.
+// accumulate) and the task takes the whole pattern at once, waiting on WAKE, which is why
+// every posted mask carries it. Here post keeps the pattern in posted and runPosted is one
+// turn of the task.
 
 void EffectHost::post(uint32_t mask)
 {
@@ -458,7 +281,7 @@ void EffectHost::post(uint32_t mask)
 // one turn: false when nothing was posted
 bool EffectHost::runPosted()
 {
-    if (!(posted & 1))
+    if (!(posted & WAKE))
         return false;
     const uint32_t mask = posted;
     posted = 0;
@@ -472,144 +295,114 @@ void EffectHost::loadTypeDefaults(uint32_t kind)
     std::copy_n(presets(int(kind)).defaults[code[kind].lsb], 16, param[kind]);
 }
 
-// The three type changes: the new type's bytes, its default parameters into the block, and
-// from there back into the performance (two 7-bit bytes per word for the first parameters, one
-// byte for reverb parameters 9-16) and into the cache, with the dirty flags cleared.
+// The three type changes: the new type's code, its default parameters into the block, and
+// from there back into the performance and into the cache, with the change flags cleared.
 
-// performance byte 168
 void EffectHost::reverbTypeChanged()
 {
-    const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
-    const uint8_t* map = rom::TYPE_MAP_REVERB[rev];
-    const bool isDelay = map[0] != 0;
-    if (!isDelay) {
-        code[REVERB].lsb = map[1];
-        loadTypeDefaults(REVERB);
-        code[REVERB_DELAY].msb = 0;
-        code[REVERB_DELAY].lsb = 1;
-        loadTypeDefaults(REVERB_DELAY);
-    } else {
-        code[REVERB].lsb = 0;
-        loadTypeDefaults(REVERB);
-        code[REVERB_DELAY].msb = 8;
-        code[REVERB_DELAY].lsb = map[1];
-        loadTypeDefaults(REVERB_DELAY);
-    }
-    const uint16_t* blk = param[isDelay ? REVERB_DELAY : REVERB];
-    for (uint32_t i = 0; i < 8; i++) {
-        perf[80 + 2 * i + 1] = (blk[i] & 0xFF) & 0x7F;
-        perf[80 + 2 * i] = (blk[i] & 0x3F80) >> 7;
-        reverbCache[i] = blk[i];
+    const uint32_t rev = uint32_t(readParameter(REVERB_TYPE));
+    const bool delay = isDelay(rev);
+    code[REVERB].lsb = delay ? 0 : rom::TYPE_MAP_REVERB[rev][1];
+    loadTypeDefaults(REVERB);
+    code[REVERB_DELAY] = delay ? TypeCode{8, rom::TYPE_MAP_REVERB[rev][1]} : TypeCode{0, 1};
+    loadTypeDefaults(REVERB_DELAY);
+    const uint16_t* block = param[delay ? REVERB_DELAY : REVERB];
+    for (uint32_t i = 0; i < 16; i++) {
+        if (i < 8) putWord(perf + reverbByte(i), block[i]);
+        else perf[reverbByte(i)] = block[i] & 0xFF;
+        reverbCache[i] = block[i];
         reverbChanged[i] = 0;
     }
-    for (uint32_t i = 8; i < 16; i++) {
-        perf[96 + i - 8] = (blk[i] & 0xFF);
-        reverbCache[i] = blk[i];
-        reverbChanged[i] = 0;
-    }
-    if (isDelay) {
-        perf[97] = 0;
+    if (delay) {
+        perf[reverbByte(9)] = 0;
         reverbCache[9] = 127;
     }
 }
 
-// performance byte 171, the variation type
 void EffectHost::variationTypeChanged()
 {
-    const uint32_t var = uint32_t(readParameter(171)) & 0xFF;
-    code[VARIATION].msb = rom::TYPE_MAP_VARIATION[var][0];
-    code[VARIATION].lsb = rom::TYPE_MAP_VARIATION[var][1];
+    code[VARIATION] = codeOf(rom::TYPE_MAP_VARIATION[readParameter(VARIATION_TYPE)]);
     loadTypeDefaults(VARIATION);
-    if (var != 0)
-        loadTypeDefaults(VARIATION);
     for (uint32_t i = 0; i < 16; i++) {
-        perf[104 + 2 * i + 1] = (param[VARIATION][i] & 0xFF) & 0x7F;
-        perf[104 + 2 * i] = (param[VARIATION][i] & 0x3F80) >> 7;
+        putWord(perf + VARIATION_PARAM_BYTES + 2 * i, param[VARIATION][i]);
         variationCache[i] = param[VARIATION][i];
         variationChanged[i] = 0;
     }
-    perf[122] = 0;
+    perf[VARIATION_PARAM_BYTES + 2 * 9] = 0;
     variationCache[9] = 127;
 }
 
-// performance byte 175, the insertion type
 void EffectHost::insertionTypeChanged()
 {
-    const uint32_t ins = uint32_t(readParameter(175)) & 0xFF;
-    code[INSERTION].msb = rom::TYPE_MAP_INSERTION[ins][0];
-    code[INSERTION].lsb = rom::TYPE_MAP_INSERTION[ins][1];
+    code[INSERTION] = codeOf(rom::TYPE_MAP_INSERTION[readParameter(INSERTION_TYPE)]);
     loadTypeDefaults(INSERTION);
     for (uint32_t i = 0; i < 16; i++) {
-        perf[136 + 2 * i + 1] = (param[INSERTION][i] & 0xFF) & 0x7F;
-        perf[136 + 2 * i] = (param[INSERTION][i] & 0x3F80) >> 7;
+        putWord(perf + INSERTION_PARAM_BYTES + 2 * i, param[INSERTION][i]);
         insertionCache[i] = param[INSERTION][i];
         insertionChanged[i] = 0;
     }
 }
 
-// a performance common byte changed. Reads it into the
-// cache or marks its mixer flag, and posts the mask that makes the task apply it. `id` is the
-// byte's index; either byte of a two-byte parameter stands for the parameter.
+// A performance common byte changed: it goes into its cache or marks its mixer flag, and the
+// mask that makes the task apply it is posted. Either byte of a two-byte parameter stands for it.
 void EffectHost::byteChanged(uint32_t id)
 {
-    int32_t n = int32_t(id & 0xFFFF);
-    if ((n >= 80 && n <= 95) || (n >= 104 && n <= 167)) n &= ~1;
-    auto half = [](int32_t d) -> uint32_t { return uint32_t((d + (0 > d ? 1 : 0)) >> 1); };
-    auto mixer = [&](uint32_t flag) {
+    uint32_t n = id & 0xFFFF;
+    if ((n >= REVERB_PARAM_BYTES && n < REVERB_PARAM_BYTES_9) || (n >= VARIATION_PARAM_BYTES && n < REVERB_TYPE))
+        n &= ~1u;
+    auto mixer = [&](int flag) {
         mixerChanged[flag] = 1;
-        post(513);
+        post(WAKE | MIXER_CHANGED);
     };
-    if (n >= 80 && !(n > 94)) {
-        reverbChanged[half(n - 80)] = 1;
-        reverbCache[half(n - 80)] = uint32_t(readParameter(uint32_t(n)));
-        post(33);
+    if (n >= REVERB_PARAM_BYTES && n < REVERB_PARAM_BYTES_9) {
+        const uint32_t i = (n - REVERB_PARAM_BYTES) / 2;
+        reverbChanged[i] = 1;
+        reverbCache[i] = uint32_t(readParameter(n));
+        post(WAKE | REVERB_CHANGED);
     }
-    if (n >= 96 && !(n > 103)) {
-        reverbChanged[8 + uint32_t(n - 96)] = 1;
-        reverbCache[uint32_t(n - 96 + 8)] = uint32_t(readParameter(uint32_t(n)));
-        post(33);
+    if (n >= REVERB_PARAM_BYTES_9 && n < VARIATION_PARAM_BYTES) {
+        const uint32_t i = 8 + n - REVERB_PARAM_BYTES_9;
+        reverbChanged[i] = 1;
+        reverbCache[i] = uint32_t(readParameter(n));
+        post(WAKE | REVERB_CHANGED);
     }
-    if (n >= 104 && !(n > 134)) {
-        variationChanged[half(n - 104)] = 1;
-        variationCache[half(n - 104)] = uint32_t(readParameter(uint32_t(n)));
-        post(9);
+    if (n >= VARIATION_PARAM_BYTES && n < INSERTION_PARAM_BYTES) {
+        const uint32_t i = (n - VARIATION_PARAM_BYTES) / 2;
+        variationChanged[i] = 1;
+        variationCache[i] = uint32_t(readParameter(n));
+        post(WAKE | VARIATION_CHANGED);
     }
-    if (n >= 136 && !(n > 166)) {
-        insertionChanged[half(n - 136)] = 1;
-        insertionCache[half(n - 136)] = uint32_t(readParameter(uint32_t(n)));
-        post(3);
+    if (n >= INSERTION_PARAM_BYTES && n < REVERB_TYPE) {
+        const uint32_t i = (n - INSERTION_PARAM_BYTES) / 2;
+        insertionChanged[i] = 1;
+        insertionCache[i] = uint32_t(readParameter(n));
+        post(WAKE | INSERTION_CHANGED);
     }
-    if (n == 168) {
-        reverbTypeChanged();
-        post(65);
+    switch (n) {
+        case REVERB_TYPE:            reverbTypeChanged();    post(WAKE | REVERB_TYPE_CHANGED);    break;
+        case VARIATION_TYPE:         variationTypeChanged(); post(WAKE | VARIATION_TYPE_CHANGED); break;
+        case INSERTION_TYPE:         insertionTypeChanged(); post(WAKE | INSERTION_TYPE_CHANGED); break;
+        case REVERB_PAN:             mixer(MIX_REVERB_PAN);             break;
+        case REVERB_RETURN:          mixer(MIX_REVERB_RETURN);          break;
+        case VARIATION_PAN:          mixer(MIX_VARIATION_PAN);          break;
+        case VARIATION_RETURN:       mixer(MIX_VARIATION_RETURN);       break;
+        case VARIATION_TO_REVERB:    mixer(MIX_VARIATION_TO_REVERB);    break;
+        case INSERTION_PAN:          mixer(MIX_INSERTION_PAN);          break;
+        case VOLUME:                 mixer(MIX_VOLUME);                 break;
+        case INSERTION_TO_REVERB:    mixer(MIX_INSERTION_TO_REVERB);    break;
+        case INSERTION_TO_VARIATION: mixer(MIX_INSERTION_TO_VARIATION); break;
+        case INSERTION_LEVEL:        mixer(MIX_INSERTION_LEVEL);        break;
+        case INDIVIDUAL_OUT:         mixer(MIX_INDIVIDUAL_OUT);         break;
     }
-    if (n == 169) mixer(0);
-    if (n == 170) mixer(1);
-    if (n == 171) {
-        variationTypeChanged();
-        post(17);
-    }
-    if (n == 172) mixer(11);
-    if (n == 173) mixer(6);
-    if (n == 174) mixer(8);
-    if (n == 175) {
-        insertionTypeChanged();
-        post(5);
-    }
-    if (n == 176) mixer(5);
-    if (n == 16) mixer(14);
-    if (n == 177) mixer(16);
-    if (n == 178) mixer(17);
-    if (n == 179) mixer(18);
-    if (n == 20) mixer(19);
-    if (n >= 180 && n <= 190) {
+    if (n >= EQ_LOW_GAIN && n <= EQ_HIGH_SHAPE) {
         // The firmware keeps ten EQ words where it uses eleven: the eleventh, the high band's
         // shape, lands on the first two reverb flags and is read back from them.
-        eqChanged[n - 180] = 1;
-        const int v = readParameter(uint32_t(n));
-        if (n < 190) eqCache[n - 180] = uint16_t(v);
+        const uint32_t i = n - EQ_LOW_GAIN;
+        eqChanged[i] = 1;
+        const int v = readParameter(n);
+        if (i < 10) eqCache[i] = uint16_t(v);
         else { reverbChanged[0] = uint8_t(v >> 8); reverbChanged[1] = uint8_t(v); }
-        post(257);
+        post(WAKE | EQ_CHANGED);
     }
 }
 
@@ -618,21 +411,21 @@ void EffectHost::setControlOffset(uint32_t i, uint32_t v)
 {
     controlOffset[i & 15] = int16_t(v);
     insertionChanged[i & 15] = 1;
-    post(3);
+    post(WAKE | INSERTION_CHANGED);
 }
 // a controller's offset for the insertion to variation send
 void EffectHost::setSendVariationOffset(uint32_t v)
 {
-    sendVariationOffset = v;
-    mixerChanged[17] = 1;
-    post(513);
+    sendVariationOffset = int16_t(v);
+    mixerChanged[MIX_INSERTION_TO_VARIATION] = 1;
+    post(WAKE | MIXER_CHANGED);
 }
 // the same for the insertion to reverb send
 void EffectHost::setSendReverbOffset(uint32_t v)
 {
-    sendReverbOffset = v;
-    mixerChanged[16] = 1;
-    post(513);
+    sendReverbOffset = int16_t(v);
+    mixerChanged[MIX_INSERTION_TO_REVERB] = 1;
+    post(WAKE | MIXER_CHANGED);
 }
 
 }  // namespace fs1r::vop3host

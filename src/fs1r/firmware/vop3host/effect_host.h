@@ -2,8 +2,7 @@
 // copyright-holders:Wouter van Nifterick
 
 // The FS1R's effect host: what the CPU does to turn a performance into register writes for
-// the effect chip. Each function carries its address in the firmware. `p` is a parameter's
-// number within its block, and 255 stands for all of them.
+// the effect chip. `p` is a parameter's number within its block.
 #pragma once
 #include <cfloat>
 #include <cstdint>
@@ -20,8 +19,67 @@ namespace fs1r::vop3host {
 
 // The chip's five program windows, then the two parameter groups that have none.
 enum { REVERB, AUX, INSERTION, REVERB_DELAY, VARIATION, MASTER_EQ, MIXER };
+constexpr int OUTPUT = 5;                                               // setMute's sixth flag
 constexpr uint32_t AREA[5] = {0, 0xFFFF, 0x10000, 0x20000, 0x30000};   // where each window's delay memory starts
+constexpr uint32_t TOP = 0x40000;                                       // and where the last one ends
 struct TypeCode { uint8_t msb, lsb; };                                  // a type as the chip programs are filed
+
+// applyParam's p past the sixteen parameters. From RELOAD the type's preset is loaded first, from
+// CLEAR the window is silenced before that, and an odd p restores the default parameters too.
+// A handler takes ALL as every parameter at once.
+enum { RELOAD = 252, CLEAR = 254, ALL = 255 };
+
+// What can be posted to the effect task. Every post carries WAKE.
+enum : uint32_t {
+    WAKE                   = 0x0001,
+    INSERTION_CHANGED      = 0x0002,     // parameters, with their controller offsets
+    INSERTION_TYPE_CHANGED = 0x0004,
+    VARIATION_CHANGED      = 0x0008,
+    VARIATION_TYPE_CHANGED = 0x0010,
+    REVERB_CHANGED         = 0x0020,
+    REVERB_TYPE_CHANGED    = 0x0040,
+    EVERYTHING             = 0x0080,     // the four windows with their parameters, the mixer and the master EQ
+    EQ_CHANGED             = 0x0100,
+    MIXER_CHANGED          = 0x0200,
+    LOADED                 = 0x8000,     // the performance into the caches first, then EVERYTHING
+};
+
+// The performance's common bytes the host reads.
+enum : uint32_t {
+    VOLUME                = 16,
+    INDIVIDUAL_OUT        = 20,
+    REVERB_PARAM_BYTES    = 0x50,        // reverb parameters 1-8, two bytes each, high first
+    REVERB_PARAM_BYTES_9  = 0x60,        // reverb parameters 9-16, one byte each
+    VARIATION_PARAM_BYTES = 0x68,        // two bytes each
+    INSERTION_PARAM_BYTES = 136,         // two bytes each
+    REVERB_TYPE           = 168, REVERB_PAN, REVERB_RETURN,
+    VARIATION_TYPE, VARIATION_PAN, VARIATION_RETURN, VARIATION_TO_REVERB,
+    INSERTION_TYPE, INSERTION_PAN, INSERTION_TO_REVERB, INSERTION_TO_VARIATION, INSERTION_LEVEL,
+    EQ_LOW_GAIN, EQ_LOW_FREQ, EQ_LOW_Q, EQ_LOW_SHAPE, EQ_MID_GAIN, EQ_MID_FREQ, EQ_MID_Q,
+    EQ_HIGH_GAIN, EQ_HIGH_FREQ, EQ_HIGH_Q, EQ_HIGH_SHAPE,
+};
+
+// The mixer's parameters (mixParam) that have a name. Past them are the flags only mixerChanged
+// has: the insertion's two sends, its level and the individual outputs.
+enum {
+    MIX_REVERB_PAN          = 0,
+    MIX_REVERB_RETURN       = 1,
+    MIX_AUX_PAN             = 2,
+    MIX_DELAY_RETURN        = 3,     // the reverb's when its type runs in the delay window
+    MIX_INSERTION_PAN       = 5,
+    MIX_VARIATION_RETURN    = 6,
+    MIX_VARIATION_TO_REVERB = 8,
+    MIX_DELAY_PAN           = 10,
+    MIX_VARIATION_PAN       = 11,
+    MIX_VOLUME              = 14,
+    MIX_INSERTION_TO_REVERB = 16, MIX_INSERTION_TO_VARIATION, MIX_INSERTION_LEVEL, MIX_INDIVIDUAL_OUT,
+};
+
+// designFilter's shapes
+enum Shape { LPF1, HPF1, LOW_SHELF1, HIGH_SHELF1, LPF2, HPF2, LOW_SHELF2, HIGH_SHELF2, PEAK = 10, GAIN_ONLY = 11 };
+
+// Individual out
+enum { OUT_OFF, OUT_PRE_INSERTION, OUT_POST_INSERTION };
 
 // One window of the chip's program: its steps, its delay slots and its LFOs, and what the EPROM holds for it.
 struct Window {
@@ -43,9 +101,9 @@ struct EffectHost {
     {
         if (index >= 192) return;
         value &= 0x7F;
-        if (index == 168 && value > 16) value = 16;
-        if (index == 171 && value > 28) value = 28;
-        if (index == 175 && value > 40) value = 40;
+        if (index == REVERB_TYPE    && value > 16) value = 16;
+        if (index == VARIATION_TYPE && value > 28) value = 28;
+        if (index == INSERTION_TYPE && value > 40) value = 40;
         perf[index] = uint8_t(value);
     }
     // A performance's 192 common bytes, loaded as the firmware loads a performance.
@@ -106,32 +164,20 @@ struct EffectHost {
     void uploadWindow(int kind);                                        // its program, constants, delays and LFOs
     void uploadAll();
     void initChip();
-    void setMute(int window, uint32_t on);                              // 5 is the output, anything else all six
+    void setMute(int window, uint32_t on);                              // a window or the OUTPUT; anything else all six
     void setOutputGain();
 
     // ---- the performance into the chip ----
-    void applyChanges(uint32_t mask);                                   // what was posted; 0x8000 is a whole performance
+    void applyChanges(uint32_t mask);                                   // what was posted
     void post(uint32_t mask);
     void applyMixer(uint32_t i);                                        // one mixer change, by its flag
     void applyEq(uint32_t i);                                           // one master EQ change, by its flag
-    void applyReverbPanReturn();
-    void applyVariationPan();
-    void applyVariationReturn();
-    void applyVariationToReverb();
-    void applyInsertionPan();
-    void applyVolume();
-    void applyInsertionToReverb();
-    void applyInsertionToVariation();
-    void applyInsertionLevel();
-    void applyIndividualOut();
-    void applyEqLow(uint32_t i);
-    void applyEqMid(uint32_t i);
-    void applyEqHigh(uint32_t i);
+    void setMixer(int m, uint32_t v);                                   // a mixer parameter, applied
+    void setReverbPanReturn(bool delay, uint32_t pan, uint32_t ret);
     void copyEqParams();
     // The firmware keeps ten EQ words where it uses eleven: the eleventh lies on the first two reverb flags.
     int eqHighShape() const { return reverbChanged[0] << 8 | reverbChanged[1]; }
-    void setInsertionToReverb(uint32_t v);
-    void setInsertionToVariation(uint32_t v);
+    void setInsertionSend(int to, uint32_t v);                          // to REVERB or VARIATION
     void setInsertionLevel(uint32_t v);
     void setIndividualOut(uint32_t mode);
     void setMasterLevel();
@@ -141,7 +187,7 @@ struct EffectHost {
     void insertionTypeChanged();
 
     // ---- parameters to their handlers ----
-    void applyParam(int kind, int p);                                   // p from 252 reloads the type's preset first
+    void applyParam(int kind, int p);                                   // p from RELOAD reloads the type's preset first
     const rom::PresetGroup& presets(int window) const;                  // of its current type msb
     void dispatch(int kind, int p);
     void dispatchReverb(int p);

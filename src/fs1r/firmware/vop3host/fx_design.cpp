@@ -31,8 +31,6 @@ float bump(float w, double by)
 
 }  // namespace
 
-//   kind 0 LPF1, 1 HPF1, 2 low shelf 1, 3 high shelf 1, 4 LPF2, 5 HPF2, 6 low shelf 2,
-//   7 high shelf 2, 10 peaking, 11 gain only.
 //   t = tan(pi f / fs) from the TAN table, G = 10^((gain-64)/20), Gi its inverse, Gs/Gsi the
 //   square roots, w = 10 t / q. The words are b0, b1, -a1 (order 1) or b0, b1, b2, -a1, -a2
 //   (order 2), scaled by 2048 * (16 >> scale) and rounded with a sum-of-errors compensation.
@@ -54,19 +52,19 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
     float c0 = 0, c1 = 0, c2 = 0, c3 = 0, c4 = 0;   // b0, b1, -a1, b2, -a2
 
     switch (kind) {
-    case 0: {   // first-order low-pass with gain
+    case LPF1: {   // with gain
         const float gt = G * t;
         c0 = c1 = float(double(gt) / (T + 1.0));
         c2 = float((1.0 - T) / (T + 1.0));
         break;
     }
-    case 1: {   // first-order high-pass with gain
+    case HPF1: {   // with gain
         c0 = float(double(G) / (T + 1.0));
         c1 = -c0;
         c2 = float((1.0 - T) / (T + 1.0));
         break;
     }
-    case 2: {   // first-order low shelf
+    case LOW_SHELF1: {
         const float x = boost ? t * G : t;
         const float y = boost ? t : t * Gi;
         c0 = float((double(x) + 1.0) / (double(y) + 1.0));
@@ -74,7 +72,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         c2 = float((1.0 - double(y)) / (double(y) + 1.0));
         break;
     }
-    case 3: {   // first-order high shelf, single precision
+    case HIGH_SHELF1: {   // single precision
         const float A = boost ? G : 1.0f;
         const float B = boost ? 1.0f : Gi;
         const float apt = A + t;
@@ -84,10 +82,10 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         c2 = (B - t) / bpt;
         break;
     }
-    case 4: case 5: {   // second-order low-pass / high-pass with Q
+    case LPF2: case HPF2: {   // with Q
         const float w = float(T * 10.0 / double(float(qb)));
         const float D = float(double(w) + T2 + 1.0);
-        if (kind == 4) {
+        if (kind == LPF2) {
             c0 = G * t2 / D;
             c3 = c0;
             c1 = c0 + c0;
@@ -100,7 +98,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         c4 = float((double(w) - T2 - 1.0) / double(D));
         break;
     }
-    case 6: {   // second-order low shelf
+    case LOW_SHELF2: {
         if (boost) {
             const float u = t * Gs;
             const float u2 = u * u;
@@ -122,7 +120,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         }
         break;
     }
-    case 7: {   // second-order high shelf
+    case HIGH_SHELF2: {
         if (boost) {
             const float D = float(T + T + T2 + 1.0);
             const float gpt = Gs + t;
@@ -148,7 +146,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         }
         break;
     }
-    case 10: {   // peaking EQ
+    case PEAK: {
         const float w = float(T * 10.0 / double(float(qb)));
         if (boost) {
             const float wg = w * G;
@@ -169,7 +167,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         }
         break;
     }
-    case 11:   // plain gain
+    case GAIN_ONLY:
         c0 = G;
         break;
     }
@@ -273,7 +271,7 @@ void EffectHost::designTypeShelf(int index, const uint16_t* steps)
     const int8_t* row = rom::REVERB_SHELF + 2u * (uint32_t(index) & 0xFF);
     const int32_t gain = row[1];
     if ((gain & 0xFF) != 0)
-        designFilter(1, 2, 2, row[0], gain, 0, steps);
+        designFilter(1, 2, LOW_SHELF1, row[0], gain, 0, steps);
 }
 
 }  // namespace fs1r::vop3host

@@ -26,15 +26,14 @@ void pan_words(EffectHost& h, const uint16_t* steps)
 void filters(EffectHost& h, int p, const uint16_t* lpf, const uint16_t* lpf_copy, const uint16_t* hpf, const uint16_t* hpf_copy)
 {
     if (p == 5 || p == 6) {
-        h.designFilter(1, 1, 2, h.param[VARIATION][5], h.param[VARIATION][6], 0, lpf);
+        h.designFilter(1, 1, LOW_SHELF1, h.param[VARIATION][5], h.param[VARIATION][6], 0, lpf);
         h.copyCoefs(3, lpf, lpf_copy);
     } else {
-        h.designFilter(1, 2, 3, h.param[VARIATION][7], h.param[VARIATION][8], 0, hpf);
+        h.designFilter(1, 2, HIGH_SHELF1, h.param[VARIATION][7], h.param[VARIATION][8], 0, hpf);
         h.copyCoefs(3, hpf, hpf_copy);
     }
 }
 
-constexpr uint32_t TOP = 0x40000;   // where the variation's delay memory ends
 
 int32_t P(const EffectHost& h, int i) { return h.param[VARIATION][i]; }
 uint32_t mod_slot(int i) { return MOD_SLOTS[i]; }
@@ -99,7 +98,7 @@ void EffectHost::fxVarChorus(int p)
     case 9:
         pan_words(*this, PAN_STEPS);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 3, 5, 7, 9})
             fxVarChorus(q);
@@ -148,7 +147,7 @@ void EffectHost::fxVarFlanger(int p)
     case 13:
         storeBipolar(273, P(*this, 13), BAL_STEP_C);
         break;
-    case 255:
+    case ALL:
         delay[mod_slot(5)] = ((TOP - AREA[4]) >> 1) + 1;
         hold = true;
         for (int q : {0, 1, 2, 3, 5, 7, 9, 13})
@@ -195,7 +194,7 @@ void EffectHost::fxVarSymphonic(int p)
     case 9:
         pan_words(*this, PAN_STEPS);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 5, 7, 9})
             fxVarSymphonic(q);
@@ -230,7 +229,7 @@ void EffectHost::fxVarRotarySp(int p)
     case 9:
         pan_words(*this, PAN_STEPS_B);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 5, 7, 9})
             fxVarRotarySp(q);
@@ -284,7 +283,7 @@ void EffectHost::fxVarTremolo(int p)
         writeDelays(3, TREM_SLOTS + 5);
         break;
     }
-    case 255: {
+    case ALL: {
         const uint32_t x = typeGain(VARIATION, 8192);
         coef[PAN_STEPS_B[3]] = x;
         coef[PAN_STEPS_B[2]] = x;
@@ -337,7 +336,7 @@ void EffectHost::fxVarAutoPan(int p)
     case 5: case 6: case 7: case 8:
         filters(*this, p, LPF_B, LPF_B_COPY, HPF_B, HPF_B_COPY);
         break;
-    case 255: {
+    case ALL: {
         const uint32_t x = typeGain(VARIATION, 8192);
         coef[PAN_STEPS_B[3]] = x;
         coef[PAN_STEPS_B[2]] = x;

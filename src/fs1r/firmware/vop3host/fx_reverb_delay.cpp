@@ -60,10 +60,10 @@ struct Delay {
     void filters(int p) const
     {
         if (p == 12 || p == 13) {
-            h.designFilter(1, 1, 2, P(12), P(13), 0, b.lpf);
+            h.designFilter(1, 1, LOW_SHELF1, P(12), P(13), 0, b.lpf);
             h.copyCoefs(3, b.lpf, b.lpf_copy);
         } else {
-            h.designFilter(1, 2, 3, P(14), P(15), 0, b.hpf);
+            h.designFilter(1, 2, HIGH_SHELF1, P(14), P(15), 0, b.hpf);
             h.copyCoefs(3, b.hpf, b.hpf_copy);
         }
     }
@@ -108,7 +108,7 @@ void delay_lcr(EffectHost& h, const Block& b, int p, void (EffectHost::*self)(in
     case 6: d.curve(6, false); break;
     case 9: d.gain_words(); break;
     case 12: case 13: case 14: case 15: d.filters(p); break;
-    case 255:
+    case ALL:
         h.hold = true;
         for (int q : {0, 1, 2, 3, 4, 5, 6, 9, 12, 14})
             (h.*self)(q);
@@ -136,7 +136,7 @@ void delay_lr(EffectHost& h, const Block& b, int p, void (EffectHost::*self)(int
     case 5: d.curve(5, true); break;
     case 9: d.gain_words(); break;
     case 12: case 13: case 14: case 15: d.filters(p); break;
-    case 255:
+    case ALL:
         h.hold = true;
         for (int q : {0, 1, 2, 3, 4, 5, 9, 12, 14})
             (h.*self)(q);
@@ -165,7 +165,7 @@ void echo(EffectHost& h, const Block& b, int p, void (EffectHost::*self)(int))
     }
     case 9: d.gain_words(); break;
     case 12: case 13: case 14: case 15: d.filters(p); break;
-    case 255:
+    case ALL:
         h.delay[d.slot(3)] = d.half_area();
         h.hold = true;
         for (int q : {0, 1, 2, 3, 4, 5, 6, 7, 9, 12, 14})
@@ -226,7 +226,7 @@ void cross_delay(EffectHost& h, const Block& b, int p, void (EffectHost::*self)(
     case 4: d.curve(4, true); break;
     case 9: d.gain_words(); break;
     case 12: case 13: case 14: case 15: d.filters(p); break;
-    case 255:
+    case ALL:
         h.hold = true;
         for (int q : {3, 0, 1, 4, 9, 12, 14})
             (h.*self)(q);

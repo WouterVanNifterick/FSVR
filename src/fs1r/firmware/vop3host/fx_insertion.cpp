@@ -68,7 +68,7 @@ void EffectHost::fxInsChorus(int p)
     case 10: case 11: case 12:
         eq_band(*this, EQ_MOD, EQ_MOD_C);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 3, 5, 7, 9, 10})
             fxInsChorus(q);
@@ -121,7 +121,7 @@ void EffectHost::fxInsFlanger(int p)
     case 13:
         storeBipolar(273, P(*this, 13), BAL_STEP_C);
         break;
-    case 255:
+    case ALL:
         coef[MOD_WORDS[12]] = 0x7FFF;
         coef[MOD_WORDS[13]] = 0;
         delay[MOD_SLOTS[5]] = half_area();
@@ -173,7 +173,7 @@ void EffectHost::fxInsSymphonic(int p)
     case 10: case 11: case 12:
         eq_band(*this, EQ_MOD, EQ_MOD_C);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 5, 7, 9, 10})
             fxInsSymphonic(q);
@@ -211,7 +211,7 @@ void EffectHost::fxInsRotarySp(int p)
     case 10: case 11: case 12:
         eq_band(*this, EQ_ROT, EQ_ROT_C);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 5, 7, 9, 10})
             fxInsRotarySp(q);
@@ -250,26 +250,26 @@ void EffectHost::fxIns2WayRotary(int p)
         break;
     }
     case 5: case 6:
-        designFilter(1, 2, 2, P(*this, 5), P(*this, 6), 0, HPF_ROT);
+        designFilter(1, 2, LOW_SHELF1, P(*this, 5), P(*this, 6), 0, HPF_ROT);
         break;
     case 7: case 8:
-        designFilter(1, 2, 3, P(*this, 7), P(*this, 8), 0, HPF_ROT_C);
+        designFilter(1, 2, HIGH_SHELF1, P(*this, 7), P(*this, 8), 0, HPF_ROT_C);
         break;
     case 10:
-        designFilter(1, 1, 0, P(*this, 10), 64, 7, LPF_ROT);
-        designFilter(1, 1, 1, P(*this, 10), 64, 7, LPF_ROT_C);
+        designFilter(1, 1, LPF1, P(*this, 10), 64, 7, LPF_ROT);
+        designFilter(1, 1, HPF1, P(*this, 10), 64, 7, LPF_ROT_C);
         break;
     case 11:
         storeBipolar(273, PLO(*this, 11) + 64, BAL_STEP_B);
         storeBipolar(273, PLO(*this, 11) + 4, BAL_STEP_A);
         break;
-    case 255: {
+    case ALL: {
         const uint32_t x = typeGain(INSERTION, 8192);
         coef[ROT_WORDS[3]] = x;
         coef[ROT_WORDS[2]] = x;
         hold = true;
-        designFilter(2, 1, 5, 8, 64, 7, EQ_ROT);
-        designFilter(2, 1, 10, 45, 70, 10, EQ_ROT_C);
+        designFilter(2, 1, HPF2, 8, 64, 7, EQ_ROT);
+        designFilter(2, 1, PEAK, 45, 70, 10, EQ_ROT_C);
         for (int q : {0, 1, 2, 3, 5, 7, 9, 10, 11})
             fxIns2WayRotary(q);
         hold = false;
@@ -321,7 +321,7 @@ void EffectHost::fxInsTremolo(int p)
         writeDelays(3, TREM_SLOTS + 5);
         break;
     }
-    case 255: {
+    case ALL: {
         const uint32_t x = typeGain(INSERTION, 8192);
         coef[ROT_WORDS[3]] = x;
         coef[ROT_WORDS[2]] = x;
@@ -377,7 +377,7 @@ void EffectHost::fxInsAutoPan(int p)
     case 10: case 11: case 12:
         eq_band(*this, EQ_ROT, EQ_ROT_C);
         break;
-    case 255: {
+    case ALL: {
         const uint32_t x = typeGain(INSERTION, 8192);
         coef[ROT_WORDS[3]] = x;
         coef[ROT_WORDS[2]] = x;
@@ -422,7 +422,7 @@ void EffectHost::fxInsAmbience(int p)
         wet_words(*this, ROT_WORDS, rom::PAN_LAW, PU(*this, 9), GGXX);
         writeCoefs(4, ROT_WORDS);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 5, 7, 9})
             fxInsAmbience(q);
@@ -490,7 +490,7 @@ void EffectHost::fxInsPhaser1(int p)
         fxInsPhaser1(9);
         break;
     }
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 3, 5, 7, 10})
             fxInsPhaser1(q);
@@ -546,7 +546,7 @@ void EffectHost::fxInsPhaser2(int p)
     case 12:
         storeBipolar(546, P(*this, 12), PH_OFFSET);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 3, 5, 7, 9, 10, 12})
             fxInsPhaser2(q);
@@ -600,7 +600,7 @@ void EffectHost::fxInsDelayLR(int p)
     case 12: case 13: case 14: case 15:
         ins_delay_filters(*this, p);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 3, 4, 5, 6, 9, 12, 14})
             fxInsDelayLR(q);
@@ -635,7 +635,7 @@ void EffectHost::fxInsDelayLCR(int p)
     case 12: case 13: case 14: case 15:
         ins_delay_filters(*this, p);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 1, 2, 3, 4, 5, 9, 12, 14})
             fxInsDelayLCR(q);
@@ -678,7 +678,7 @@ void EffectHost::fxInsEcho(int p)
     case 12: case 13: case 14: case 15:
         ins_delay_filters(*this, p);
         break;
-    case 255:
+    case ALL:
         delay[MOD_SLOTS[5]] = half_area();
         hold = true;
         for (int q : {0, 1, 2, 3, 4, 5, 6, 7, 9, 12, 14})
@@ -758,7 +758,7 @@ void EffectHost::fxInsEr1(int p)
     case 12: case 13: case 14: case 15:
         ins_delay_filters(*this, p);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {3, 0, 1, 4, 9, 12, 14})
             fxInsEr1(q);
@@ -857,10 +857,10 @@ void EffectHost::fxInsCrossDelayEr(int p)
         writeCoefs(1, ER_FEEDBACK);
         break;
     case 5:
-        designFilter(2, 1, 1, P(*this, 5), 64, 0, ER_HPF);
+        designFilter(2, 1, HPF1, P(*this, 5), 64, 0, ER_HPF);
         break;
     case 6:
-        designFilter(2, 2, 0, P(*this, 6), 64, 0, ER_LPF_2);
+        designFilter(2, 2, LPF1, P(*this, 6), 64, 0, ER_LPF_2);
         break;
     case 9:
         er_wet(*this);
@@ -870,9 +870,9 @@ void EffectHost::fxInsCrossDelayEr(int p)
         writeCoefs(16, ER_ROW_STEPS);
         break;
     case 12:
-        designFilter(1, 0, 0, rom::DAMP_FREQ[PU(*this, 12)], 64, 0, ER_LPF);
+        designFilter(1, 0, LPF1, rom::DAMP_FREQ[PU(*this, 12)], 64, 0, ER_LPF);
         break;
-    case 255:
+    case ALL:
         hold = true;
         for (int q : {0, 2, 4, 5, 6, 9, 12})
             fxInsCrossDelayEr(q);

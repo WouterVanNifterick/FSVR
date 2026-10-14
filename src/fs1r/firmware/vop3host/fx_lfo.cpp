@@ -11,15 +11,15 @@ void EffectHost::setLfoSpeed(int v, int lfo)
 {
     uint16_t& w = lfoReg[0][lfo];
     w = rom::LFO_SPEED[v] | (w & 3072);
-    writeLfo(0x24, lfo);
+    writeLfo(LFO_SPEED, lfo);
 }
 
-// the low 5 bits of the register 0x25 word
+// the start phase, the low five bits of LFO_WAVE
 void EffectHost::setLfoPhase(int v, int lfo)
 {
     uint16_t& w = lfoReg[1][lfo];
     w = rom::LFO_PHASE[v] | (w & 0xFFE0);
-    writeLfo(0x25, lfo);
+    writeLfo(LFO_WAVE, lfo);
 }
 
 // v * 32768 / 127, 0x7FFF at 127
@@ -28,7 +28,7 @@ void EffectHost::setLfoDepth(int v, int lfo)
     const uint32_t b = uint32_t(v) & 0xFF;
     const uint32_t w = b == 127 ? 0x7FFF : (b << 15) / 127;
     lfoReg[2][lfo] = w;
-    writeLfo(0x26, lfo);
+    writeLfo(LFO_DEPTH, lfo);
 }
 
 // a phase difference, (v - 64) * scale

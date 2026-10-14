@@ -34,7 +34,7 @@ void EffectHost::designCombs(int time, int damp, int count, int sel, const uint1
 {
     count &= 0xFF;
     const uint32_t r10 = count == 6 ? 21 : 5;
-    designFilter(1, 1, 0, rom::DAMP_FREQ[damp], 64, 0, list + r10);
+    designFilter(1, 1, LPF1, rom::DAMP_FREQ[damp], 64, 0, list + r10);
     const uint8_t* row = rom::TIME_ROW + (uint32_t(time) & 0xFFFF);
     const uint8_t* classes = rom::COMB_CLASS + (uint32_t(sel) & 0xFFFF) * 6;
     for (int i = 0; i < count; i++) {
@@ -233,7 +233,7 @@ void EffectHost::designRoom(int time, int y0, int y1, int damp, int extra, const
         coef[u[2]] = int16_t(x);
         coef[u[3]] = coef[lpf[2]];
     };
-    designFilter(1, 1, 0, dampf, 64, 0, list + 5);
+    designFilter(1, 1, LPF1, dampf, 64, 0, list + 5);
     unit(list, ya, list + 5);
     unit(list + 4, yb, list + 5);
 }
@@ -277,11 +277,11 @@ void EffectHost::fxRevHall(int p)
         writeDelays(10, ER_BASE_SLOTS + 2);
         break;
     case 3:
-        designFilter(1, 0, 1, prm(3), 64, 0, HPF_STEPS);
+        designFilter(1, 0, HPF1, prm(3), 64, 0, HPF_STEPS);
         copyCoefs(3, HPF_STEPS, HPF_COPY);
         break;
     case 4:
-        designFilter(1, 1, 0, prm(4), 64, 0, LPF_STEPS);
+        designFilter(1, 1, LPF1, prm(4), 64, 0, LPF_STEPS);
         copyCoefs(3, LPF_STEPS, LPF_COPY);
         break;
     case 11:
@@ -299,7 +299,7 @@ void EffectHost::fxRevHall(int p)
         coef[WIDTH_STEPS[1]] = bipolar500(prm(14));
         writeCoefs(2, WIDTH_STEPS);
         break;
-    case 255: {
+    case ALL: {
         hold = true;
         const uint32_t idx = rom::REVERB_PRESETS.blockOf[code[REVERB].lsb];
         if (idx == 1 || idx == 2) {
@@ -371,11 +371,11 @@ void EffectHost::fxRevRoom(int p)
         writeDelays(10, ER_BASE_SLOTS + 2);
         break;
     case 3:
-        designFilter(1, 0, 1, prm(3), 64, 0, HPF_STEPS);
+        designFilter(1, 0, HPF1, prm(3), 64, 0, HPF_STEPS);
         copyCoefs(3, HPF_STEPS, HPF_COPY);
         break;
     case 4:
-        designFilter(1, 1, 0, prm(4), 64, 0, LPF_STEPS);
+        designFilter(1, 1, LPF1, prm(4), 64, 0, LPF_STEPS);
         copyCoefs(3, LPF_STEPS, LPF_COPY);
         break;
     case 5: case 6: case 7: {
@@ -402,7 +402,7 @@ void EffectHost::fxRevRoom(int p)
         coef[WIDTH_STEPS[1]] = bipolar500(prm(14));
         writeCoefs(2, WIDTH_STEPS);
         break;
-    case 255: {
+    case ALL: {
         hold = true;
         for (uint32_t i = 0; i < 13; i++)
             delay[rom::RESET_SLOTS_REVERB[i + 1]] = rom::ROOM_OFFSETS[i];
