@@ -746,7 +746,7 @@ int selftest(Synth& S) {
                 if (b == Effects::VARIATION && t == 24 && slot == 11) continue;   // Karaoke's hidden parameter
                 for (int w : {0, b == Effects::REVERB && slot > 8 ? 127 : 16383}) e->setParam(Effects::Block(b), slot, w); } }
         for (int i : {16, 20, 169, 170, 172, 173, 174, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190})
-            for (int v : {0, 127}) e->host.set_performance_byte(i, v);
+            for (int v : {0, 127}) e->host.setByte(i, v);
         ck("effect host: its register writes are the firmware's", sink.h == 0x4433fa06b314a878ull); }
     }
 

@@ -3,7 +3,7 @@
 
 // The filter designer and the small float helpers. Each line is one step of the firmware's
 // arithmetic, in its precision and its order, so the words come out bit for bit.
-#include "host.h"
+#include "effect_host.h"
 
 namespace fs1r::vop3host {
 
@@ -31,15 +31,15 @@ float bump(float w, double by)
 
 }  // namespace
 
-// flash 0x37414 fxDesignFilter(order, scale, kind, freq, gain, q, steps)
+// flash 0x37414 designFilter(order, scale, kind, freq, gain, q, steps)
 //   kind 0 LPF1, 1 HPF1, 2 low shelf 1, 3 high shelf 1, 4 LPF2, 5 HPF2, 6 low shelf 2,
 //   7 high shelf 2, 10 peaking, 11 gain only.
-//   t = tan(pi f / fs) from FX_TAN[freq], G = 10^((gain-64)/20), Gi its inverse, Gs/Gsi the
+//   t = tan(pi f / fs) from the TAN table, G = 10^((gain-64)/20), Gi its inverse, Gs/Gsi the
 //   square roots, w = 10 t / q. The words are b0, b1, -a1 (order 1) or b0, b1, b2, -a1, -a2
 //   (order 2), scaled by 2048 * (16 >> scale) and rounded with a sum-of-errors compensation.
 //   Lower-case names are single precision; T, T2 and the casts mark where the firmware
 //   computes in double.
-void Host::fxDesignFilter(int order, int scale, int kind, int freq, int gain, int q, const uint16_t* steps)
+void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain, int q, const uint16_t* steps)
 {
     order &= 0xFF; scale &= 0xFF; kind &= 0xFF; freq &= 0xFF;
     const uint32_t g = uint32_t(gain) & 0xFF, qb = uint32_t(q) & 0xFF;
@@ -192,7 +192,7 @@ void Host::fxDesignFilter(int order, int scale, int kind, int freq, int gain, in
         coef[steps[0]] = word(w0);
         coef[steps[1]] = word(w1);
         coef[steps[2]] = raw(w2);
-        writeSweWordListSub(3, steps);
+        writeCoefs(3, steps);
         return;
     }
     // 0x38A82: five words (b0, b1, b2, -a1, -a2), rounded in the firmware's order
@@ -218,12 +218,12 @@ void Host::fxDesignFilter(int order, int scale, int kind, int freq, int gain, in
     coef[steps[2]] = word(w3);
     coef[steps[3]] = raw(w2);
     coef[steps[4]] = word(w4);
-    writeSweWordListSub(5, steps);
+    writeCoefs(5, steps);
 }
 
-// flash 0x39108 fxFloatCurveB(scale, v, gain, steps): two words from a gain byte and a mix
+// flash 0x39108 storeHighDamp(scale, v, gain, steps): two words from a gain byte and a mix
 // byte v: k = (v + 8) / 18 gives (k G, (1 - k) G), with 1.0 nudged below full scale when unscaled
-void Host::fxFloatCurveB(int scale, int v, int gain, const uint16_t* steps)
+void EffectHost::storeHighDamp(int scale, int v, int gain, const uint16_t* steps)
 {
     scale &= 0xFF; v &= 0xFF;
     const float G = rom::DB[uint32_t((gain & 0xFF) - 52)];
@@ -234,14 +234,14 @@ void Host::fxFloatCurveB(int scale, int v, int gain, const uint16_t* steps)
         c0 = 0.99997f;
     const float S = float(16 >> scale) * 2048.0f;
     const float w0 = round_word(S, c0), w1 = round_word(S, c1);
-    coef[steps[0]] = uint32_t(int(w0));
-    coef[steps[1]] = uint32_t(int16_t(int(w1)));
-    writeSweWordListSub(2, steps);
+    coef[steps[0]] = int(w0);
+    coef[steps[1]] = int16_t(int(w1));
+    writeCoefs(2, steps);
 }
 
-// flash 0x394F8 fxFillBand(v, steps): x = 4080 - 16 v into steps 2..5, a geometric-series
+// flash 0x394F8 storeEdge(v, steps): x = 4080 - 16 v into steps 2..5, a geometric-series
 // gain word into step 1, 0 into step 6 and 6553 into steps 7..11; steps 1..5 go to the chip.
-void Host::fxFillBand(int v, const uint16_t* steps)
+void EffectHost::storeEdge(int v, const uint16_t* steps)
 {
     const int32_t x = 4080 - ((v & 0xFF) << 4);
     const float f2 = float(int16_t(x)) / 2048.0f;
@@ -251,43 +251,31 @@ void Host::fxFillBand(int v, const uint16_t* steps)
     acc = acc * f2 + 1.0f;
     const float f10 = acc / 5.0f;
     const int32_t i12 = int(32767.0f / f10);
-    coef[steps[1]] = uint32_t(i12);
+    coef[steps[1]] = i12;
     for (int i = 2; i <= 5; i++)
-        coef[steps[i]] = uint32_t(x);
+        coef[steps[i]] = x;
     coef[steps[6]] = 0;
     for (int i = 7; i <= 11; i++)
         coef[steps[i]] = 6553;
-    writeSweWordListSub(5, steps + 1);
+    writeCoefs(5, steps + 1);
 }
 
-// flash 0x39390 / 0x3943C / 0x394BA: copy n constants between step lists and write them
-void Host::fxCopyWords3(const uint16_t* src, const uint16_t* dst)
+// 0x39390, 0x3943C, 0x394BA: n constants copied from one step list to another, and written
+void EffectHost::copyCoefs(int n, const uint16_t* src, const uint16_t* dst)
 {
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < n; i++)
         coef[dst[i]] = coef[src[i]];
-    writeSweWordListSub(3, dst);
-}
-void Host::fxCopyWords5(const uint16_t* src, const uint16_t* dst)
-{
-    for (int i = 0; i < 5; i++)
-        coef[dst[i]] = coef[src[i]];
-    writeSweWordListSub(5, dst);
-}
-void Host::fxCopyWords2(const uint16_t* src, const uint16_t* dst)
-{
-    for (int i = 0; i < 2; i++)
-        coef[dst[i]] = coef[src[i]];
-    writeSweWordListSub(2, dst);
+    writeCoefs(n, dst);
 }
 
-// 0x39C758 fxDesignFromTable(index, steps): a first-order low shelf from the (freq, gain)
+// 0x39C758 designTypeShelf(index, steps): a first-order low shelf from the (freq, gain)
 // byte pair of the reverb type when its gain byte is nonzero
-void Host::fxDesignFromTable(int index, const uint16_t* steps)
+void EffectHost::designTypeShelf(int index, const uint16_t* steps)
 {
     const int8_t* row = rom::REVERB_SHELF + 2u * (uint32_t(index) & 0xFF);
     const int32_t gain = row[1];
     if ((gain & 0xFF) != 0)
-        fxDesignFilter(1, 2, 2, row[0], gain, 0, steps);
+        designFilter(1, 2, 2, row[0], gain, 0, steps);
 }
 
 }  // namespace fs1r::vop3host

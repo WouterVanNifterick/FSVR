@@ -9,29 +9,25 @@ namespace fs1r::vop3host {
 
 using namespace ins;
 
-namespace {
-}  // namespace
-
 // 0x3A6FD8 fxInsChorus: Chorus and Celeste (types 1, 2; msb 0 lsb 2-9)
-void Host::fxInsChorus(int p)
+void EffectHost::fxInsChorus(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0:
-        fxLfoSpeed(P(*this, 0), 12);
+        setLfoSpeed(P(*this, 0), 12);
         break;
     case 1: {
         const int x = int(PLOU(*this, 1) << 1);
-        fxStoreUdiv(x, MOD_LEVEL);
-        fxStoreUdiv(x, MOD_LEVEL + 2);
-        fxStoreUdiv(x, MOD_LEVEL + 4);
+        storeDepth(x, MOD_LEVEL);
+        storeDepth(x, MOD_LEVEL + 2);
+        storeDepth(x, MOD_LEVEL + 4);
         break;
     }
     case 2: {
-        const uint32_t x = uint32_t(fxBipolar376(P(*this, 2)));
+        const uint32_t x = bipolar376(P(*this, 2));
         coef[MOD_WORDS[9]] = x;
         coef[MOD_WORDS[8]] = x;
-        writeSweWordListSub(2, MOD_WORDS + 8);
+        writeCoefs(2, MOD_WORDS + 8);
         break;
     }
     case 3: case 14: {
@@ -49,7 +45,7 @@ void Host::fxInsChorus(int p)
         } else {
             coef[MOD_WORDS[12]] = 0x7FFF;
             coef[MOD_WORDS[13]] = 0;
-            base = int32_t(half_area(*this));
+            base = int32_t(half_area());
             delay[MOD_SLOTS[5]] = base;
         }
         const int32_t d2 = t + base;
@@ -57,9 +53,9 @@ void Host::fxInsChorus(int p)
         delay[MOD_SLOTS[6]] = d2 + 1;
         delay[MOD_SLOTS[9]] = d2 + 65;
         delay[MOD_SLOTS[8]] = d2 + 65;
-        writeSweWordListSub(2, MOD_WORDS + 12);
-        writeSweDeSub(4, MOD_SLOTS + 1);
-        writeSweDeSub(5, MOD_SLOTS + 5);
+        writeCoefs(2, MOD_WORDS + 12);
+        writeDelays(4, MOD_SLOTS + 1);
+        writeDelays(5, MOD_SLOTS + 5);
         break;
     }
     case 5: case 6: case 7: case 8:
@@ -67,7 +63,7 @@ void Host::fxInsChorus(int p)
         break;
     case 9:
         wet_words(*this, MOD_WORDS, rom::PAN_LAW, PU(*this, 9), GGXX);
-        writeSweWordListSub(4, MOD_WORDS);
+        writeCoefs(4, MOD_WORDS);
         break;
     case 10: case 11: case 12:
         eq_band(*this, EQ_MOD, EQ_MOD_C);
@@ -82,22 +78,21 @@ void Host::fxInsChorus(int p)
 }
 
 // 0x3A73E8 fxInsFlanger (type 3; msb 0 lsb 10-12)
-void Host::fxInsFlanger(int p)
+void EffectHost::fxInsFlanger(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0:
-        fxLfoSpeed(P(*this, 0), 12);
+        setLfoSpeed(P(*this, 0), 12);
         break;
     case 1:
-        fxStoreUdiv(P(*this, 1), MOD_LEVEL);
-        fxStoreUdiv(P(*this, 1), MOD_LEVEL + 2);
+        storeDepth(P(*this, 1), MOD_LEVEL);
+        storeDepth(P(*this, 1), MOD_LEVEL + 2);
         break;
     case 2: {
-        const uint32_t x = uint32_t(fxBipolar500(P(*this, 2)));
+        const uint32_t x = bipolar500(P(*this, 2));
         coef[MOD_WORDS[9]] = x;
         coef[MOD_WORDS[8]] = x;
-        writeSweWordListSub(2, MOD_WORDS + 8);
+        writeCoefs(2, MOD_WORDS + 8);
         break;
     }
     case 3: {
@@ -108,9 +103,9 @@ void Host::fxInsFlanger(int p)
         const int32_t d2 = t + delay[MOD_SLOTS[5]] + 1;
         delay[MOD_SLOTS[7]] = d2;
         delay[MOD_SLOTS[6]] = d2;
-        writeSweWordListSub(2, MOD_WORDS + 12);
-        writeSweDeSub(2, MOD_SLOTS + 1);
-        writeSweDeSub(2, MOD_SLOTS + 6);
+        writeCoefs(2, MOD_WORDS + 12);
+        writeDelays(2, MOD_SLOTS + 1);
+        writeDelays(2, MOD_SLOTS + 6);
         break;
     }
     case 5: case 6: case 7: case 8:
@@ -118,18 +113,18 @@ void Host::fxInsFlanger(int p)
         break;
     case 9:
         wet_words(*this, MOD_WORDS, rom::PAN_LAW, PU(*this, 9), GGXX);
-        writeSweWordListSub(4, MOD_WORDS);
+        writeCoefs(4, MOD_WORDS);
         break;
     case 10: case 11: case 12:
         eq_band(*this, EQ_MOD, EQ_MOD_C);
         break;
     case 13:
-        fxStoreBipolar500(P(*this, 13), BAL_STEP_C);
+        storeBipolar(273, P(*this, 13), BAL_STEP_C);
         break;
     case 255:
         coef[MOD_WORDS[12]] = 0x7FFF;
         coef[MOD_WORDS[13]] = 0;
-        delay[MOD_SLOTS[5]] = int32_t(half_area(*this));
+        delay[MOD_SLOTS[5]] = half_area();
         hold = true;
         for (int q : {0, 1, 2, 3, 5, 7, 9, 10, 13})
             fxInsFlanger(q);
@@ -139,22 +134,21 @@ void Host::fxInsFlanger(int p)
 }
 
 // 0x3A77C8 fxInsSymphonic (type 4; msb 0 lsb 13)
-void Host::fxInsSymphonic(int p)
+void EffectHost::fxInsSymphonic(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0:
-        fxLfoSpeed(P(*this, 0), 12);
+        setLfoSpeed(P(*this, 0), 12);
         break;
     case 1: {
         const int x = int(((5u * PU(*this, 1)) >> 2) >> 1);
-        fxStoreUdiv(x, MOD_LEVEL);
-        fxStoreUdiv(x, MOD_LEVEL + 2);
-        fxStoreUdiv(x, MOD_LEVEL + 4);
+        storeDepth(x, MOD_LEVEL);
+        storeDepth(x, MOD_LEVEL + 2);
+        storeDepth(x, MOD_LEVEL + 4);
         const int y = int(((3u * PU(*this, 1)) >> 2) >> 1);
-        fxStoreUdiv(y, MOD_LEVEL + 1);
-        fxStoreUdiv(y, MOD_LEVEL + 3);
-        fxStoreUdiv(y, MOD_LEVEL + 5);
+        storeDepth(y, MOD_LEVEL + 1);
+        storeDepth(y, MOD_LEVEL + 3);
+        storeDepth(y, MOD_LEVEL + 5);
         break;
     }
     case 2: {
@@ -165,8 +159,8 @@ void Host::fxInsSymphonic(int p)
         delay[MOD_SLOTS[3]] = d + 66;
         delay[MOD_SLOTS[7]] = d + 130;
         delay[MOD_SLOTS[6]] = d + 130;
-        writeSweDeSub(4, MOD_SLOTS + 1);
-        writeSweDeSub(2, MOD_SLOTS + 6);
+        writeDelays(4, MOD_SLOTS + 1);
+        writeDelays(2, MOD_SLOTS + 6);
         break;
     }
     case 5: case 6: case 7: case 8:
@@ -174,7 +168,7 @@ void Host::fxInsSymphonic(int p)
         break;
     case 9:
         wet_words(*this, MOD_WORDS, rom::PAN_LAW, PU(*this, 9), GGXX);
-        writeSweWordListSub(4, MOD_WORDS);
+        writeCoefs(4, MOD_WORDS);
         break;
     case 10: case 11: case 12:
         eq_band(*this, EQ_MOD, EQ_MOD_C);
@@ -189,23 +183,22 @@ void Host::fxInsSymphonic(int p)
 }
 
 // 0x3A8B30 fxInsRotarySp (type 9; msb 1 lsb 1)
-void Host::fxInsRotarySp(int p)
+void EffectHost::fxInsRotarySp(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0:
-        fxLfoSpeed(P(*this, 0), 12);
+        setLfoSpeed(P(*this, 0), 12);
         break;
     case 1: {
         const int x = PU(*this, 1) < 32 ? (PLO(*this, 1) << 1) : 64;
-        fxStoreNegMul(x, ROT_LEVEL);
-        fxStoreNegMul(x, ROT_LEVEL + 2);
-        fxStoreNegMul(x, ROT_LEVEL + 4);
+        storeNegDepth(x, ROT_LEVEL);
+        storeNegDepth(x, ROT_LEVEL + 2);
+        storeNegDepth(x, ROT_LEVEL + 4);
         const int y = int(PLOU(*this, 1) >> 2);
-        fxStoreUdiv(y, ROT_LEVEL + 1);
-        fxStoreUdiv(y, ROT_LEVEL + 3);
-        fxStoreUdiv(y, ROT_LEVEL + 5);
-        fxStoreUdiv(y, ROT_LEVEL + 7);
+        storeDepth(y, ROT_LEVEL + 1);
+        storeDepth(y, ROT_LEVEL + 3);
+        storeDepth(y, ROT_LEVEL + 5);
+        storeDepth(y, ROT_LEVEL + 7);
         break;
     }
     case 5: case 6: case 7: case 8:
@@ -213,7 +206,7 @@ void Host::fxInsRotarySp(int p)
         break;
     case 9:
         wet_words(*this, ROT_WORDS, rom::PAN_LAW, PU(*this, 9), GGXX);
-        writeSweWordListSub(4, ROT_WORDS);
+        writeCoefs(4, ROT_WORDS);
         break;
     case 10: case 11: case 12:
         eq_band(*this, EQ_ROT, EQ_ROT_C);
@@ -228,56 +221,55 @@ void Host::fxInsRotarySp(int p)
 }
 
 // 0x3A8DC8 fxIns2WayRotary (type 10; msb 1 lsb 2); no parameter 9 case
-void Host::fxIns2WayRotary(int p)
+void EffectHost::fxIns2WayRotary(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0:
-        fxLfoSpeed(P(*this, 0), 12);
+        setLfoSpeed(P(*this, 0), 12);
         break;
     case 1:
-        fxStoreNegMul(P(*this, 1), ROT_LEVEL);
-        fxStoreNegMul(P(*this, 1), ROT_LEVEL + 4);
-        fxStoreUdiv(int((PLOU(*this, 1) >> 2) >> 1), ROT_LEVEL + 1);
-        fxStoreUdiv(int((PLOU(*this, 1) >> 2) >> 1), ROT_LEVEL + 5);
+        storeNegDepth(P(*this, 1), ROT_LEVEL);
+        storeNegDepth(P(*this, 1), ROT_LEVEL + 4);
+        storeDepth(int((PLOU(*this, 1) >> 2) >> 1), ROT_LEVEL + 1);
+        storeDepth(int((PLOU(*this, 1) >> 2) >> 1), ROT_LEVEL + 5);
         break;
     case 2:
-        fxStoreNegMul(P(*this, 2), ROT_LEVEL + 2);
-        fxStoreNegMul(P(*this, 2), ROT_LEVEL + 6);
-        fxStoreUdiv(int((PLOU(*this, 2) >> 2) >> 2), ROT_LEVEL + 3);
-        fxStoreUdiv(int((PLOU(*this, 2) >> 2) >> 2), ROT_LEVEL + 7);
+        storeNegDepth(P(*this, 2), ROT_LEVEL + 2);
+        storeNegDepth(P(*this, 2), ROT_LEVEL + 6);
+        storeDepth(int((PLOU(*this, 2) >> 2) >> 2), ROT_LEVEL + 3);
+        storeDepth(int((PLOU(*this, 2) >> 2) >> 2), ROT_LEVEL + 7);
         break;
     case 3: {
-        const uint32_t a = uint32_t(rom::PAN_LAW[uint32_t(int32_t(128 - int32_t(PU(*this, 3))))]);
+        const uint32_t a = rom::PAN_LAW[128 - PU(*this, 3)];
         coef[ROT_PAN[3]] = a;
         coef[ROT_PAN[0]] = a;
-        const uint32_t b = uint32_t(rom::PAN_LAW[PU(*this, 3)]);
+        const uint32_t b = rom::PAN_LAW[PU(*this, 3)];
         coef[ROT_PAN[2]] = b;
         coef[ROT_PAN[1]] = b;
-        writeSweWordListSub(4, ROT_PAN);
+        writeCoefs(4, ROT_PAN);
         break;
     }
     case 5: case 6:
-        fxDesignFilter(1, 2, 2, P(*this, 5), P(*this, 6), 0, HPF_ROT);
+        designFilter(1, 2, 2, P(*this, 5), P(*this, 6), 0, HPF_ROT);
         break;
     case 7: case 8:
-        fxDesignFilter(1, 2, 3, P(*this, 7), P(*this, 8), 0, HPF_ROT_C);
+        designFilter(1, 2, 3, P(*this, 7), P(*this, 8), 0, HPF_ROT_C);
         break;
     case 10:
-        fxDesignFilter(1, 1, 0, P(*this, 10), 64, 7, LPF_ROT);
-        fxDesignFilter(1, 1, 1, P(*this, 10), 64, 7, LPF_ROT_C);
+        designFilter(1, 1, 0, P(*this, 10), 64, 7, LPF_ROT);
+        designFilter(1, 1, 1, P(*this, 10), 64, 7, LPF_ROT_C);
         break;
     case 11:
-        fxStoreBipolar500(PLO(*this, 11) + 64, BAL_STEP_B);
-        fxStoreBipolar500(PLO(*this, 11) + 4, BAL_STEP_A);
+        storeBipolar(273, PLO(*this, 11) + 64, BAL_STEP_B);
+        storeBipolar(273, PLO(*this, 11) + 4, BAL_STEP_A);
         break;
     case 255: {
-        const uint32_t x = uint32_t(fxMulTypeTableB(8192));
+        const uint32_t x = typeGain(INSERTION, 8192);
         coef[ROT_WORDS[3]] = x;
         coef[ROT_WORDS[2]] = x;
         hold = true;
-        fxDesignFilter(2, 1, 5, 8, 64, 7, EQ_ROT);
-        fxDesignFilter(2, 1, 10, 45, 70, 10, EQ_ROT_C);
+        designFilter(2, 1, 5, 8, 64, 7, EQ_ROT);
+        designFilter(2, 1, 10, 45, 70, 10, EQ_ROT_C);
         for (int q : {0, 1, 2, 3, 5, 7, 9, 10, 11})
             fxIns2WayRotary(q);
         hold = false;
@@ -287,20 +279,19 @@ void Host::fxIns2WayRotary(int p)
 }
 
 // 0x3A90AE fxInsTremolo (type 11; msb 1 lsb 3)
-void Host::fxInsTremolo(int p)
+void EffectHost::fxInsTremolo(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0:
-        fxLfoSpeed(P(*this, 0), 12);
+        setLfoSpeed(P(*this, 0), 12);
         break;
     case 1:
-        fxStoreNegMul(P(*this, 1), ROT_LEVEL);
-        fxStoreNegMul(P(*this, 1), ROT_LEVEL + 2);
+        storeNegDepth(P(*this, 1), ROT_LEVEL);
+        storeNegDepth(P(*this, 1), ROT_LEVEL + 2);
         break;
     case 2:
-        fxStoreUdiv(int(PLOU(*this, 2) >> 2), ROT_LEVEL + 1);
-        fxStoreUdiv(int(PLOU(*this, 2) >> 2), ROT_LEVEL + 3);
+        storeDepth(int(PLOU(*this, 2) >> 2), ROT_LEVEL + 1);
+        storeDepth(int(PLOU(*this, 2) >> 2), ROT_LEVEL + 3);
         break;
     case 5: case 6: case 7: case 8:
         filters(*this, p, 5, LPF_ROT, LPF_ROT_C, HPF_ROT, HPF_ROT_C);
@@ -309,10 +300,10 @@ void Host::fxInsTremolo(int p)
         eq_band(*this, EQ_ROT, EQ_ROT_C);
         break;
     case 13:
-        fxStoreBipolar500(P(*this, 13), BAL_STEP_A);
+        storeBipolar(273, P(*this, 13), BAL_STEP_A);
         break;
     case 14: {
-        auto id = [&](int i) { return TREM_SLOTS[uint32_t(i)]; };
+        auto id = [&](int i) { return TREM_SLOTS[i]; };
         if (P(*this, 14) == 0) {
             coef[TREM_WORDS[0]] = 0x4000;
             coef[TREM_WORDS[1]] = 0x4000;
@@ -326,12 +317,12 @@ void Host::fxInsTremolo(int p)
             delay[id(6)] = 1025;
             delay[id(7)] = 1025;
         }
-        writeSweWordListSub(2, TREM_WORDS);
-        writeSweDeSub(3, TREM_SLOTS + 5);
+        writeCoefs(2, TREM_WORDS);
+        writeDelays(3, TREM_SLOTS + 5);
         break;
     }
     case 255: {
-        const uint32_t x = uint32_t(fxMulTypeTableB(8192));
+        const uint32_t x = typeGain(INSERTION, 8192);
         coef[ROT_WORDS[3]] = x;
         coef[ROT_WORDS[2]] = x;
         hold = true;
@@ -344,22 +335,21 @@ void Host::fxInsTremolo(int p)
 }
 
 // 0x3A9444 fxInsAutoPan (type 12; msb 1 lsb 4); parameter 3 re-runs 1 and 2; no parameter 9 case
-void Host::fxInsAutoPan(int p)
+void EffectHost::fxInsAutoPan(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0:
-        fxLfoSpeed(P(*this, 0), 12);
+        setLfoSpeed(P(*this, 0), 12);
         break;
     case 1:
-        fxStoreNegMul(P(*this, 1), ROT_LEVEL + 4);
-        fxStoreNegMul(P(*this, 1), ROT_LEVEL + 6);
+        storeNegDepth(P(*this, 1), ROT_LEVEL + 4);
+        storeNegDepth(P(*this, 1), ROT_LEVEL + 6);
         break;
     case 2: {
         const int32_t m = P(*this, 3);
         const int y = (m == 3 || m == 4) ? int(PLOU(*this, 2) >> 2) : 0;
-        fxStoreUdiv(y, ROT_LEVEL + 5);
-        fxStoreUdiv(y, ROT_LEVEL + 7);
+        storeDepth(y, ROT_LEVEL + 5);
+        storeDepth(y, ROT_LEVEL + 7);
         break;
     }
     case 3: {
@@ -367,15 +357,15 @@ void Host::fxInsAutoPan(int p)
         if (m < 5) {
             static const int A[5] = {64, 84, 64, 94, 64};
             static const int B[5] = {124, 64, 84, 64, 94};
-            fxStoreBipolar500(A[m], BAL_STEP_B);
-            fxStoreBipolar500(B[m], BAL_STEP_D);
-            fxStoreModePair(1, MODE_STEPS_A);
-            fxStoreModePair(1, MODE_STEPS_B);
+            storeBipolar(273, A[m], BAL_STEP_B);
+            storeBipolar(273, B[m], BAL_STEP_D);
+            storeModePair(1, MODE_STEPS_A);
+            storeModePair(1, MODE_STEPS_B);
         } else {
-            fxStoreBipolar500(64, BAL_STEP_B);
-            fxStoreBipolar500(124, BAL_STEP_D);
-            fxStoreModePair(2, MODE_STEPS_A);
-            fxStoreModePair(2, MODE_STEPS_B);
+            storeBipolar(273, 64, BAL_STEP_B);
+            storeBipolar(273, 124, BAL_STEP_D);
+            storeModePair(2, MODE_STEPS_A);
+            storeModePair(2, MODE_STEPS_B);
         }
         fxInsAutoPan(1);
         fxInsAutoPan(2);
@@ -388,7 +378,7 @@ void Host::fxInsAutoPan(int p)
         eq_band(*this, EQ_ROT, EQ_ROT_C);
         break;
     case 255: {
-        const uint32_t x = uint32_t(fxMulTypeTableB(8192));
+        const uint32_t x = typeGain(INSERTION, 8192);
         coef[ROT_WORDS[3]] = x;
         coef[ROT_WORDS[2]] = x;
         hold = true;
@@ -401,9 +391,8 @@ void Host::fxInsAutoPan(int p)
 }
 
 // 0x3A9734 fxInsAmbience (type 13; msb 1 lsb 5)
-void Host::fxInsAmbience(int p)
+void EffectHost::fxInsAmbience(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0: {
         const uint32_t t = uint32_t(ms(*this, rom::MOD_DELAY, 0)) & 0xFFFF;
@@ -412,8 +401,8 @@ void Host::fxInsAmbience(int p)
         delay[TREM_SLOTS[6]] = d;
         delay[TREM_SLOTS[2]] = d;
         delay[TREM_SLOTS[1]] = d;
-        writeSweDeSub(2, TREM_SLOTS + 1);
-        writeSweDeSub(2, TREM_SLOTS + 6);
+        writeDelays(2, TREM_SLOTS + 1);
+        writeDelays(2, TREM_SLOTS + 6);
         break;
     }
     case 1:
@@ -424,14 +413,14 @@ void Host::fxInsAmbience(int p)
             coef[ROT_PAN[0]] = 0x7FFF;
             coef[ROT_PAN[1]] = 0x8000;
         }
-        writeSweWordListSub(2, ROT_PAN);
+        writeCoefs(2, ROT_PAN);
         break;
     case 5: case 6: case 7: case 8:
         filters(*this, p, 5, LPF_ROT, LPF_ROT_C, HPF_ROT, HPF_ROT_C);
         break;
     case 9:
         wet_words(*this, ROT_WORDS, rom::PAN_LAW, PU(*this, 9), GGXX);
-        writeSweWordListSub(4, ROT_WORDS);
+        writeCoefs(4, ROT_WORDS);
         break;
     case 255:
         hold = true;
@@ -443,42 +432,41 @@ void Host::fxInsAmbience(int p)
 }
 
 // 0x3AADB4 fxInsPhaser1 (type 5; msb 2 lsb 1); 10 (stages) re-runs 11, 11 (direction) re-runs 9
-void Host::fxInsPhaser1(int p)
+void EffectHost::fxInsPhaser1(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0:
-        fxLfoSpeed(P(*this, 0), 13);
+        setLfoSpeed(P(*this, 0), 13);
         break;
     case 1: case 2: {
-        const uint32_t w = uint32_t(P(*this, 2) * 258);
+        const uint32_t w = P(*this, 2) * 258;
         coef[PH_FB[1]] = w;
         coef[PH_FB[0]] = w;
         const int32_t d = int32_t(PU(*this, 1) * uint32_t(32767 - int16_t(w))) / 127;
-        coef[PH_DEPTH[1]] = uint32_t(d);
-        coef[PH_DEPTH[0]] = uint32_t(d);
-        writeSweWordListSub(2, PH_FB);
-        writeSweWordListSub(2, PH_DEPTH);
+        coef[PH_DEPTH[1]] = d;
+        coef[PH_DEPTH[0]] = d;
+        writeCoefs(2, PH_FB);
+        writeCoefs(2, PH_DEPTH);
         break;
     }
     case 3:
-        coef[PH_WIDTH1[0]] = uint32_t(fxBipolar500(P(*this, 3)));
-        writeSweWordListSub(1, PH_WIDTH1);
+        coef[PH_WIDTH1[0]] = bipolar500(P(*this, 3));
+        writeCoefs(1, PH_WIDTH1);
         break;
     case 5: case 6: case 7: case 8:
         filters(*this, p, 5, LPF_PH, LPF_PH_C, HPF_PH, HPF_PH_C);
         break;
     case 9: {
         const uint32_t wet = PU(*this, 9);
-        const uint32_t g = uint32_t(rom::PAN_LAW[uint32_t(int32_t(128 - int32_t(wet)))] >> 2);
+        const uint32_t g = rom::PAN_LAW[128 - wet] >> 2;
         coef[PH_WET[2]] = g;
         coef[PH_WET[0]] = g;
-        int32_t x = fxMulTypeTableB(rom::PAN_LAW[wet] >> 2);
-        coef[PH_WET[1]] = uint32_t(x);
+        int32_t x = typeGain(INSERTION, rom::PAN_LAW[wet] >> 2);
+        coef[PH_WET[1]] = x;
         if (P(*this, 11) != 0)
             x = -int16_t(x);
-        coef[PH_WET[3]] = uint32_t(x);
-        writeSweWordListSub(4, PH_WET);
+        coef[PH_WET[3]] = x;
+        writeCoefs(4, PH_WET);
         break;
     }
     case 10: {
@@ -487,7 +475,7 @@ void Host::fxInsPhaser1(int p)
         const int k = n < 5 ? 0 : n < 12 ? int(n) - 4 : 8;
         for (int i = 0; i < 10; i++)
             coef[PH_STAGES[i]] = (i == PAIRS[k][0] || i == PAIRS[k][1]) ? 0x4000 : 0;
-        writeSweWordListSub(10, PH_STAGES);
+        writeCoefs(10, PH_STAGES);
         fxInsPhaser1(11);
         break;
     }
@@ -498,7 +486,7 @@ void Host::fxInsPhaser1(int p)
         else w[1] = 0x4000;
         for (int i = 0; i < 3; i++)
             coef[PH_DIR[i]] = w[i];
-        writeSweWordListSub(3, PH_DIR);
+        writeCoefs(3, PH_DIR);
         fxInsPhaser1(9);
         break;
     }
@@ -512,29 +500,28 @@ void Host::fxInsPhaser1(int p)
 }
 
 // 0x3AB4E4 fxInsPhaser2 (type 6; msb 2 lsb 2)
-void Host::fxInsPhaser2(int p)
+void EffectHost::fxInsPhaser2(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0:
-        fxLfoSpeed(P(*this, 0), 13);
+        setLfoSpeed(P(*this, 0), 13);
         break;
     case 1: case 2: {
-        const uint32_t w = uint32_t(P(*this, 2) * 258);
+        const uint32_t w = P(*this, 2) * 258;
         coef[PH_FB[0]] = w;
-        coef[PH_DEPTH[0]] = uint32_t(int32_t(PU(*this, 1) * uint32_t(32767 - int16_t(w))) / 127);
+        coef[PH_DEPTH[0]] = int32_t(PU(*this, 1) * uint32_t(32767 - int16_t(w))) / 127;
         const int32_t v10 = 242 * P(*this, 2);
-        coef[PH_FB[1]] = uint32_t(v10);
-        coef[PH_DEPTH[1]] = uint32_t(int32_t(PU(*this, 1) * uint32_t(32767 - int16_t(v10))) / 127);
-        writeSweWordListSub(2, PH_FB);
-        writeSweWordListSub(2, PH_DEPTH);
+        coef[PH_FB[1]] = v10;
+        coef[PH_DEPTH[1]] = int32_t(PU(*this, 1) * uint32_t(32767 - int16_t(v10))) / 127;
+        writeCoefs(2, PH_FB);
+        writeCoefs(2, PH_DEPTH);
         break;
     }
     case 3: {
-        const uint32_t x = uint32_t(fxBipolar500(P(*this, 3)));
+        const uint32_t x = bipolar500(P(*this, 3));
         coef[PH_WIDTH2[1]] = x;
         coef[PH_WIDTH2[0]] = x;
-        writeSweWordListSub(2, PH_WIDTH2);
+        writeCoefs(2, PH_WIDTH2);
         break;
     }
     case 5: case 6: case 7: case 8:
@@ -542,7 +529,7 @@ void Host::fxInsPhaser2(int p)
         break;
     case 9:
         wet_words(*this, PH_WET, rom::PAN_LAW, PU(*this, 9), GXGX);
-        writeSweWordListSub(4, PH_WET);
+        writeCoefs(4, PH_WET);
         break;
     case 10: {
         const uint32_t n = PU(*this, 10);
@@ -553,11 +540,11 @@ void Host::fxInsPhaser2(int p)
         else { a = 4; b = 9; }
         for (int i = 0; i < 10; i++)
             coef[PH_STAGES[i]] = (i == a || i == b) ? 0x4000 : 0;
-        writeSweWordListSub(10, PH_STAGES);
+        writeCoefs(10, PH_STAGES);
         break;
     }
     case 12:
-        fxStoreBipolar376(P(*this, 12), PH_OFFSET);
+        storeBipolar(546, P(*this, 12), PH_OFFSET);
         break;
     case 255:
         hold = true;
@@ -571,42 +558,41 @@ void Host::fxInsPhaser2(int p)
 // ---- the delays (msb 0 lsb 14-17) ----
 namespace {
 // offs[S[dst]] = offs[S[ref]] + samples(p), then the slot
-void ins_delay_slot(Host& h, int dst, int ref, int p)
+void ins_delay_slot(EffectHost& h, int dst, int ref, int p)
 {
-    h.delay[MOD_SLOTS[dst]] = h.delay[MOD_SLOTS[ref]] + h.fxMsToSamples(P(h, p));
-    h.writeSweDeSub(1, MOD_SLOTS + dst);
+    h.delay[MOD_SLOTS[dst]] = h.delay[MOD_SLOTS[ref]] + h.toSamples(P(h, p));
+    h.writeDelays(1, MOD_SLOTS + dst);
 }
-void ins_delay_filters(Host& h, int p) { filters(h, p, 12, LPF_MOD, LPF_MOD_C, HPF_MOD, HPF_MOD_C); }
-void ins_delay_wet(Host& h)
+void ins_delay_filters(EffectHost& h, int p) { filters(h, p, 12, LPF_MOD, LPF_MOD_C, HPF_MOD, HPF_MOD_C); }
+void ins_delay_wet(EffectHost& h)
 {
     wet_words(h, MOD_WORDS, rom::ER_REV, PU(h, 9), GGXX);
-    h.writeSweWordListSub(4, MOD_WORDS);
+    h.writeCoefs(4, MOD_WORDS);
 }
 }  // namespace
 
 // 0x3A7AFE fxInsDelayLR (type 33; msb 0 lsb 14): the three-tap layout
-void Host::fxInsDelayLR(int p)
+void EffectHost::fxInsDelayLR(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0: ins_delay_slot(*this, 3, 0, 0); break;
     case 1: ins_delay_slot(*this, 6, 0, 1); break;
     case 2: ins_delay_slot(*this, 8, 0, 2); break;
     case 3: ins_delay_slot(*this, 1, 0, 3); break;
     case 4:
-        coef[MOD_WORDS[8]] = uint32_t(fxBipolar500(P(*this, 4)));
-        writeSweWordListSub(1, MOD_WORDS + 8);
+        coef[MOD_WORDS[8]] = bipolar500(P(*this, 4));
+        writeCoefs(1, MOD_WORDS + 8);
         break;
     case 5: {
         const int32_t x = int(double(rom::LEVEL_CURVE[PU(*this, 5)]) * 32767.0);
-        coef[MOD_WORDS[7]] = uint32_t(int16_t(x));
-        coef[MOD_WORDS[5]] = uint32_t(int16_t(x));
-        writeSweWordListSub(1, MOD_WORDS + 5);
-        writeSweWordListSub(1, MOD_WORDS + 7);
+        coef[MOD_WORDS[7]] = int16_t(x);
+        coef[MOD_WORDS[5]] = int16_t(x);
+        writeCoefs(1, MOD_WORDS + 5);
+        writeCoefs(1, MOD_WORDS + 7);
         break;
     }
     case 6:
-        fxFloatCurveB(1, P(*this, 6), 64, DELAY_CURVE);
+        storeHighDamp(1, P(*this, 6), 64, DELAY_CURVE);
         break;
     case 9:
         ins_delay_wet(*this);
@@ -624,25 +610,24 @@ void Host::fxInsDelayLR(int p)
 }
 
 // 0x3A7EA2 fxInsDelayLCR (type 34; msb 0 lsb 15)
-void Host::fxInsDelayLCR(int p)
+void EffectHost::fxInsDelayLCR(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0: ins_delay_slot(*this, 3, 0, 0); break;
     case 1: ins_delay_slot(*this, 8, 0, 1); break;
     case 2: ins_delay_slot(*this, 1, 0, 2); break;
     case 3: ins_delay_slot(*this, 6, 0, 3); break;
     case 4: {
-        const int32_t x = fxBipolar500(P(*this, 4));
-        coef[MOD_WORDS[10]] = uint32_t(int16_t(x) >> 1);
-        coef[MOD_WORDS[8]] = uint32_t(int16_t(x) >> 1);
-        writeSweWordListSub(1, MOD_WORDS + 8);
-        writeSweWordListSub(1, MOD_WORDS + 10);
+        const int32_t x = bipolar500(P(*this, 4));
+        coef[MOD_WORDS[10]] = int16_t(x) >> 1;
+        coef[MOD_WORDS[8]] = int16_t(x) >> 1;
+        writeCoefs(1, MOD_WORDS + 8);
+        writeCoefs(1, MOD_WORDS + 10);
         break;
     }
     case 5:
-        fxFloatCurveB(1, P(*this, 5), 64, DELAY_CURVE);
-        fxCopyWords2(DELAY_CURVE, DELAY_CURVE_COPY);
+        storeHighDamp(1, P(*this, 5), 64, DELAY_CURVE);
+        copyCoefs(2, DELAY_CURVE, DELAY_CURVE_COPY);
         break;
     case 9:
         ins_delay_wet(*this);
@@ -660,32 +645,31 @@ void Host::fxInsDelayLCR(int p)
 }
 
 // 0x3A8210 fxInsEcho (type 35; msb 0 lsb 16)
-void Host::fxInsEcho(int p)
+void EffectHost::fxInsEcho(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0: ins_delay_slot(*this, 1, 0, 0); break;
     case 5: ins_delay_slot(*this, 3, 0, 5); break;
     case 2: ins_delay_slot(*this, 6, 5, 2); break;
     case 6: ins_delay_slot(*this, 8, 5, 6); break;
     case 1:
-        coef[MOD_WORDS[8]] = uint32_t(fxBipolar500(P(*this, 1)));
-        writeSweWordListSub(1, MOD_WORDS + 8);
+        coef[MOD_WORDS[8]] = bipolar500(P(*this, 1));
+        writeCoefs(1, MOD_WORDS + 8);
         break;
     case 3:
-        coef[MOD_WORDS[9]] = uint32_t(fxBipolar500(P(*this, 3)));
-        writeSweWordListSub(1, MOD_WORDS + 9);
+        coef[MOD_WORDS[9]] = bipolar500(P(*this, 3));
+        writeCoefs(1, MOD_WORDS + 9);
         break;
     case 4:
-        fxFloatCurveB(1, P(*this, 4), 64, DELAY_CURVE);
-        fxCopyWords2(DELAY_CURVE, DELAY_CURVE_COPY);
+        storeHighDamp(1, P(*this, 4), 64, DELAY_CURVE);
+        copyCoefs(2, DELAY_CURVE, DELAY_CURVE_COPY);
         break;
     case 7: {
         const int32_t i = int(32767.0f * rom::LEVEL_CURVE[PU(*this, 7)]);
-        const uint32_t x = uint32_t(fxMulTypeTableB(int16_t(i)));
+        const uint32_t x = typeGain(INSERTION, int16_t(i));
         coef[MOD_WORDS[5]] = x;
         coef[MOD_WORDS[4]] = x;
-        writeSweWordListSub(2, MOD_WORDS + 4);
+        writeCoefs(2, MOD_WORDS + 4);
         break;
     }
     case 9:
@@ -695,7 +679,7 @@ void Host::fxInsEcho(int p)
         ins_delay_filters(*this, p);
         break;
     case 255:
-        delay[MOD_SLOTS[5]] = int32_t(half_area(*this));
+        delay[MOD_SLOTS[5]] = half_area();
         hold = true;
         for (int q : {0, 1, 2, 3, 4, 5, 6, 7, 9, 12, 14})
             fxInsEcho(q);
@@ -706,43 +690,42 @@ void Host::fxInsEcho(int p)
 
 // 0x3A8628 fxInsEr1 (type 36 "ER 1"; msb 0 lsb 17): the cross-fed pair with routing mode
 // parameter 3; 3 re-runs 2
-void Host::fxInsEr1(int p)
+void EffectHost::fxInsEr1(int p)
 {
-    p &= 0xFF;
     const int32_t mode = P(*this, 3);
     switch (p) {
     case 0: {
         const int ref = mode == 1 ? 5 : 0;
-        delay[MOD_SLOTS[6]] = delay[MOD_SLOTS[ref]] + fxMsToSamples(P(*this, 0));
-        writeSweDeSub(1, MOD_SLOTS + 6);
+        delay[MOD_SLOTS[6]] = delay[MOD_SLOTS[ref]] + toSamples(P(*this, 0));
+        writeDelays(1, MOD_SLOTS + 6);
         break;
     }
     case 1: {
         const int ref = mode == 1 ? 0 : 5;
-        delay[MOD_SLOTS[1]] = delay[MOD_SLOTS[ref]] + fxMsToSamples(P(*this, 1));
-        writeSweDeSub(1, MOD_SLOTS + 1);
+        delay[MOD_SLOTS[1]] = delay[MOD_SLOTS[ref]] + toSamples(P(*this, 1));
+        writeDelays(1, MOD_SLOTS + 1);
         break;
     }
     case 2:
         if (mode == 1) {
             coef[MOD_WORDS[9]] = 0;
             coef[MOD_WORDS[8]] = 0;
-            const uint32_t x = uint32_t(fxBipolar500(P(*this, 2)));
+            const uint32_t x = bipolar500(P(*this, 2));
             coef[MOD_WORDS[11]] = x;
             coef[MOD_WORDS[10]] = x;
-            writeSweWordListSub(4, MOD_WORDS + 8);
+            writeCoefs(4, MOD_WORDS + 8);
         } else {
-            const uint32_t x = uint32_t(fxBipolar500(P(*this, 2)));
+            const uint32_t x = bipolar500(P(*this, 2));
             coef[MOD_WORDS[9]] = x;
             coef[MOD_WORDS[8]] = x;
             coef[MOD_WORDS[11]] = 0;
             coef[MOD_WORDS[10]] = 0;
-            writeSweWordListSub(2, MOD_WORDS + 10);
-            writeSweWordListSub(2, MOD_WORDS + 8);
+            writeCoefs(2, MOD_WORDS + 10);
+            writeCoefs(2, MOD_WORDS + 8);
         }
         break;
     case 3: {
-        const int32_t half = int32_t(half_area(*this));
+        const int32_t half = int32_t(half_area());
         if (mode == 0) {
             coef[MOD_WORDS[12]] = 0x4000; coef[MOD_WORDS[13]] = 0x4000; coef[MOD_WORDS[14]] = 0;
             delay[MOD_SLOTS[0]] = 1;
@@ -756,20 +739,20 @@ void Host::fxInsEr1(int p)
             delay[MOD_SLOTS[0]] = 1;
             delay[MOD_SLOTS[5]] = half;
         }
-        writeSweWordListSub(3, MOD_WORDS + 12);
-        writeSweDeSub(1, MOD_SLOTS);
-        writeSweDeSub(1, MOD_SLOTS + 5);
+        writeCoefs(3, MOD_WORDS + 12);
+        writeDelays(1, MOD_SLOTS);
+        writeDelays(1, MOD_SLOTS + 5);
         fxInsEr1(2);
         break;
     }
     case 4:
-        fxFloatCurveB(1, P(*this, 4), 64, DELAY_CURVE);
-        fxCopyWords2(DELAY_CURVE, DELAY_CURVE_COPY);
+        storeHighDamp(1, P(*this, 4), 64, DELAY_CURVE);
+        copyCoefs(2, DELAY_CURVE, DELAY_CURVE_COPY);
         break;
     case 9: {
         const uint32_t wet = PU(*this, 9);
         wet_words(*this, MOD_WORDS, rom::ER_REV, wet, GGXX);
-        writeSweWordListSub(4, MOD_WORDS);
+        writeCoefs(4, MOD_WORDS);
         break;
     }
     case 12: case 13: case 14: case 15:
@@ -786,36 +769,36 @@ void Host::fxInsEr1(int p)
 
 // ---- the early reflection types (msb 3) ----
 namespace {
-inline int32_t er_row(const Host& h) { return rom::ER_ROWS[6 * lsb(h) + PU(h, 0)]; }
-void er_wet(Host& h)
+inline int32_t er_row(const EffectHost& h) { return rom::ER_ROWS[6 * lsb(h) + PU(h, 0)]; }
+void er_wet(EffectHost& h)
 {
     wet_words(h, ER_WET, rom::ER_REV, PU(h, 9), GXGX);
-    h.writeSweWordListSub(4, ER_WET);
+    h.writeCoefs(4, ER_WET);
 }
 }  // namespace
 
-// 0x3A6338 fxInsErGain(x): the comb-gain table's loss word at x clamped to 0..255
-int32_t Host::fxInsErGain(int x)
+// 0x3A6338 erGain(x): the comb-gain table's loss word at x clamped to 0..255
+int32_t EffectHost::erGain(int x)
 {
     int32_t v = int16_t(x);
     v = v < 0 ? 0 : v > 255 ? 255 : v;
     return int16_t(rom::COMB_GAIN[2 * v]);
 }
 
-// 0x3A6354 fxInsErPattern: the 20 early reflections of the pattern row
+// 0x3A6354 erPattern: the 20 early reflections of the pattern row
 // (parameter 0, +6 for type lsb 3, +8 for lsb 4) scaled by the density (parameter 1) after the
 // pre-delay (parameter 3), gains from the level (parameter 10), clamped to the delay area
-void Host::fxInsErPattern()
+void EffectHost::erPattern()
 {
     const uint32_t t = lsb(*this);
     const uint32_t rowi = (PU(*this, 0) + (t == 3 ? 6u : t == 4 ? 8u : 0u)) & 0xFFFF;
     const int16_t* row = rom::ER_PATTERNS + rowi * 40;
     const uint32_t density = rom::ER_DENSITY[PU(*this, 1)];
     const int32_t level = int32_t(rom::ER_LEVEL[PU(*this, 10)]) - 128;
-    const int32_t base = fxMsToSamples(rom::DELAY_WORD[PU(*this, 3)]) + delay[ER_SLOTS[21]];
+    const int32_t base = toSamples(rom::DELAY_WORD[PU(*this, 3)]) + delay[ER_SLOTS[21]];
     const int32_t limit = int32_t(AREA[3] - AREA[2]) - 1;
     for (uint32_t i = 0; i < 20; i++, row += 2) {
-        const uint32_t w = uint32_t(fxMulShift16(row[0])) & 0xFFFF;
+        const uint32_t w = uint32_t(scaleDelay(row[0])) & 0xFFFF;
         int32_t pos = base + int32_t(density * w) / 10;
         int32_t gain;
         if (pos > limit) {
@@ -824,12 +807,12 @@ void Host::fxInsErPattern()
         } else {
             const int32_t g = row[1];
             if (g > 0)
-                gain = int16_t(uint32_t(fxInsErGain(g + level)));
+                gain = int16_t(uint32_t(erGain(g + level)));
             else
-                gain = -int16_t(uint32_t(fxInsErGain(level - g)));
+                gain = -int16_t(uint32_t(erGain(level - g)));
         }
         delay[ER_SLOTS[i]] = pos;
-        coef[ER_STEPS[i]] = uint32_t((gain + (gain < 0 ? 1 : 0)) >> 1);
+        coef[ER_STEPS[i]] = (gain + (gain < 0 ? 1 : 0)) >> 1;
         if (i == 19)
             delay[ER_SLOTS[20]] = pos > 0x8000 ? 0x8000 : pos;
     }
@@ -840,55 +823,54 @@ void Host::fxInsErPattern()
 }
 
 // 0x3A6580 fxInsCrossDelayEr: Cross Delay, ER 2, Gate Rev, Reverse Gate (types 37-40; msb 3 lsb 1-4)
-void Host::fxInsCrossDelayEr(int p)
+void EffectHost::fxInsCrossDelayEr(int p)
 {
-    p &= 0xFF;
     switch (p) {
     case 0:
-        fxInsErPattern();
-        fxScaleRow(P(*this, 11), P(*this, 2), er_row(*this), 4, 0, ER_ROW_STEPS, ER_ROW_SLOTS);
-        writeSweWordListSub(20, ER_STEPS);
-        writeSweDeSub(21, ER_SLOTS);
-        writeSweWordListSub(16, ER_ROW_STEPS);
-        writeSweDeSub(8, ER_ROW_SLOTS);
+        erPattern();
+        diffusers(P(*this, 11), P(*this, 2), er_row(*this), 4, 0, ER_ROW_STEPS, ER_ROW_SLOTS);
+        writeCoefs(20, ER_STEPS);
+        writeDelays(21, ER_SLOTS);
+        writeCoefs(16, ER_ROW_STEPS);
+        writeDelays(8, ER_ROW_SLOTS);
         break;
     case 1: case 3:
-        fxInsErPattern();
-        writeSweWordListSub(20, ER_STEPS);
-        writeSweDeSub(21, ER_SLOTS);
+        erPattern();
+        writeCoefs(20, ER_STEPS);
+        writeDelays(21, ER_SLOTS);
         break;
     case 10:
-        fxInsErPattern();
-        writeSweWordListSub(20, ER_STEPS);
+        erPattern();
+        writeCoefs(20, ER_STEPS);
         break;
     case 2: {
         const int32_t diff = int32_t(rom::DIFFUSION[PU(*this, 2)]);
         delay[ER_DIFF_SLOTS[2]] = delay[ER_DIFF_SLOTS[0]] + diff + 1;
         delay[ER_DIFF_SLOTS[3]] = delay[ER_DIFF_SLOTS[1]] + diff + 1;
-        writeSweDeSub(2, ER_DIFF_SLOTS + 2);
-        fxScaleRow(P(*this, 11), P(*this, 2), er_row(*this), 4, 0, ER_ROW_STEPS, ER_ROW_SLOTS);
-        writeSweDeSub(1, ER_ROW_SLOTS + 7);
+        writeDelays(2, ER_DIFF_SLOTS + 2);
+        diffusers(P(*this, 11), P(*this, 2), er_row(*this), 4, 0, ER_ROW_STEPS, ER_ROW_SLOTS);
+        writeDelays(1, ER_ROW_SLOTS + 7);
         break;
     }
     case 4:
-        coef[ER_FEEDBACK[0]] = uint32_t(fxBipolar500(P(*this, 4)));
-        writeSweWordListSub(1, ER_FEEDBACK);
+        coef[ER_FEEDBACK[0]] = bipolar500(P(*this, 4));
+        writeCoefs(1, ER_FEEDBACK);
         break;
     case 5:
-        fxDesignFilter(2, 1, 1, P(*this, 5), 64, 0, ER_HPF);
+        designFilter(2, 1, 1, P(*this, 5), 64, 0, ER_HPF);
         break;
     case 6:
-        fxDesignFilter(2, 2, 0, P(*this, 6), 64, 0, ER_LPF_2);
+        designFilter(2, 2, 0, P(*this, 6), 64, 0, ER_LPF_2);
         break;
     case 9:
         er_wet(*this);
         break;
     case 11:
-        fxScaleRow(P(*this, 11), P(*this, 2), er_row(*this), 4, 0, ER_ROW_STEPS, ER_ROW_SLOTS);
-        writeSweWordListSub(16, ER_ROW_STEPS);
+        diffusers(P(*this, 11), P(*this, 2), er_row(*this), 4, 0, ER_ROW_STEPS, ER_ROW_SLOTS);
+        writeCoefs(16, ER_ROW_STEPS);
         break;
     case 12:
-        fxDesignFilter(1, 0, 0, rom::DAMP_FREQ[PU(*this, 12)], 64, 0, ER_LPF);
+        designFilter(1, 0, 0, rom::DAMP_FREQ[PU(*this, 12)], 64, 0, ER_LPF);
         break;
     case 255:
         hold = true;

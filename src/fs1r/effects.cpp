@@ -18,21 +18,21 @@ void Effects::sync(uint8_t* c) {
     uint8_t was[192]; std::memcpy(was, host.perf, 192);
     bool type = false;
     for (int i : TYPE_BYTE)                      // types first: they load defaults, which the other changes then override
-        if (c[i] != was[i]) { host.set_performance_byte(i, was[i] = c[i]); type = true; }
+        if (c[i] != was[i]) { host.setByte(i, was[i] = c[i]); type = true; }
     for (int i = 0; i < 192; i++)
-        if ((c[i] & 0x7f) != was[i]) { host.store(i, c[i]); host.markSubParamDirty(i); }
-    host.pollSubDirtyLoop();
+        if ((c[i] & 0x7f) != was[i]) { host.store(i, c[i]); host.byteChanged(i); }
+    host.runPosted();
     if (type) std::memcpy(c + 80, host.perf + 80, 111);   // the new type's defaults
 }
 
-void Effects::setType(Block b, int type) { host.set_performance_byte(TYPE_BYTE[b], type); }
+void Effects::setType(Block b, int type) { host.setByte(TYPE_BYTE[b], type); }
 
 // Reverb slots 1-8 are two bytes at 0x50 and 9-16 one byte at 0x60. Variation and insertion slots are pairs at 0x68 and 136.
 void Effects::setParam(Block b, int slot, int word) {
-    if (b == REVERB && slot > 8) { host.set_performance_byte(0x60 + slot - 9, word); return; }
+    if (b == REVERB && slot > 8) { host.setByte(0x60 + slot - 9, word); return; }
     int i = (b == REVERB ? 0x50 : b == VARIATION ? 0x68 : 136) + 2 * (slot - 1);
     host.store(i + 1, word & 0x7f);
-    host.set_performance_byte(i, word >> 7);
+    host.setByte(i, word >> 7);
 }
 
 void Effects::control(int dest, int offset) {
@@ -44,10 +44,10 @@ void Effects::control(int dest, int offset) {
         at = &host.controlOffset[param];
     }
     if (*at == offset) return;
-    if (dest <= 14) host.setSubInsCtlOffset(param, offset);
-    else if (dest == 15) host.setSubSendAOffset(offset);   // insertion to reverb
-    else host.setSubSendBOffset(offset);                   // insertion to variation
-    host.pollSubDirtyLoop();
+    if (dest <= 14) host.setControlOffset(param, offset);
+    else if (dest == 15) host.setSendReverbOffset(offset);   // insertion to reverb
+    else host.setSendVariationOffset(offset);                   // insertion to variation
+    host.runPosted();
 }
 
 // The board around the chip. Serial channels k and k + 4 are the two halves of a frame and the

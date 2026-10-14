@@ -2,13 +2,13 @@
 // copyright-holders:Wouter van Nifterick
 
 // Parameter entry and the per-kind dispatch.
-#include "host.h"
+#include "effect_host.h"
 #include <algorithm>
 
 namespace fs1r::vop3host {
 
 // the presets of a window's current type msb
-const rom::PresetGroup& Host::presets(int kind) const
+const rom::PresetGroup& EffectHost::presets(int kind) const
 {
     switch (kind) {
     case REVERB: return rom::REVERB_PRESETS;
@@ -19,18 +19,18 @@ const rom::PresetGroup& Host::presets(int kind) const
     }
 }
 
-// 0x39B09C fxParamEntry(kind, p): p >= 0xFE resets the window first; p >= 0xFC reloads the
+// 0x39B09C applyParam(kind, p): p >= 0xFE resets the window first; p >= 0xFC reloads the
 // kind's preset block for its current type (odd p also restores the 16 default parameters)
 // and then runs the kind's handler for "all parameters" (255); any other p is a single
 // parameter change for the kind's handler.
-void Host::fxParamEntry(int kind, int p)
+void EffectHost::applyParam(int kind, int p)
 {
     kind = int8_t(kind);
     p &= 0xFF;
     if (p >= 254)
-        fxResetWindow(kind);
+        clearWindow(kind);
     if (p < 252) {
-        fxDispatchKind(kind, p);
+        dispatch(kind, p);
         return;
     }
     if (kind >= REVERB && kind <= VARIATION) {
@@ -59,25 +59,25 @@ void Host::fxParamEntry(int kind, int p)
         if (p & 1)
             std::copy_n(rom::SYSTEM_PARAM_DEFAULTS, 16, mixParam);
     }
-    fxDispatchKind(kind, 255);
+    dispatch(kind, 255);
 }
 
-// 0x39C0B2 fxDispatchKind
-void Host::fxDispatchKind(int kind, int p)
+// 0x39C0B2 dispatch
+void EffectHost::dispatch(int kind, int p)
 {
     switch (kind) {
-    case 0: fxDispatchReverb(p); break;
+    case 0: dispatchReverb(p); break;
     case 1: break;                           // the aux window has no parameters
-    case 2: fxDispatchInsertion(p); break;
-    case 3: fxDispatchReverbDelay(p); break;
-    case 4: fxDispatchVariation(p); break;
-    case 5: fxMasterEq(p); break;
-    default: fxSystemParam(p); break;
+    case 2: dispatchInsertion(p); break;
+    case 3: dispatchReverbDelay(p); break;
+    case 4: dispatchVariation(p); break;
+    case 5: masterEq(p); break;
+    default: mixerParam(p); break;
     }
 }
 
-// 0x39C144 fxDispatchReverb: reverb types 1-8 are halls, 9-12 rooms (jump table 0x39C164)
-void Host::fxDispatchReverb(int p)
+// 0x39C144 dispatchReverb: reverb types 1-8 are halls, 9-12 rooms (jump table 0x39C164)
+void EffectHost::dispatchReverb(int p)
 {
     const uint32_t t = code[REVERB].lsb - 1;
     if (t >= 12)
@@ -88,8 +88,8 @@ void Host::fxDispatchReverb(int p)
         fxRevRoom(p);
 }
 
-// 0x39C1AC fxDispatchInsertion: insertion types by (msb, lsb) of the type bytes
-void Host::fxDispatchInsertion(int p)
+// 0x39C1AC dispatchInsertion: insertion types by (msb, lsb) of the type bytes
+void EffectHost::dispatchInsertion(int p)
 {
     const uint32_t msb = code[INSERTION].msb, lsb = code[INSERTION].lsb;
     switch (msb) {
@@ -146,8 +146,8 @@ void Host::fxDispatchInsertion(int p)
     }
 }
 
-// 0x39C48A fxDispatchReverbDelay: reverb types 13-16 are (msb 8, lsb 1-4)
-void Host::fxDispatchReverbDelay(int p)
+// 0x39C48A dispatchReverbDelay: reverb types 13-16 are (msb 8, lsb 1-4)
+void EffectHost::dispatchReverbDelay(int p)
 {
     const uint32_t msb = code[REVERB_DELAY].msb, lsb = code[REVERB_DELAY].lsb;
     if (msb != 8)
@@ -158,8 +158,8 @@ void Host::fxDispatchReverbDelay(int p)
     else if (lsb == 4) fxRevCrossDelay(p);
 }
 
-// 0x39C51C fxDispatchVariation: variation types by (msb, lsb)
-void Host::fxDispatchVariation(int p)
+// 0x39C51C dispatchVariation: variation types by (msb, lsb)
+void EffectHost::dispatchVariation(int p)
 {
     const uint32_t msb = code[VARIATION].msb, lsb = code[VARIATION].lsb;
     switch (msb) {
