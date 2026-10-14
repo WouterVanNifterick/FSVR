@@ -9,7 +9,7 @@
 namespace vop3host = fs1r::vop3host;
 
 namespace {
-const int TYPE_BYTE[3] = {vop3host::REVERB_TYPE, vop3host::VARIATION_TYPE, vop3host::INSERTION_TYPE};   // by Block
+const int TYPE_BYTE[3] = {vop3host::REVERB_TYPE, vop3host::VARIATION_TYPE, vop3host::INSERTION_TYPE};
 // Bus sample to serial word, so that a dry performance leaves the chip at cal::OUT_GAIN.
 const double BUS = cal::OUT_GAIN / cal::FX_DRY_GAIN * Vop3::WORD;
 }
@@ -23,16 +23,6 @@ void Effects::sync(uint8_t* c) {
         if ((c[i] & 0x7f) != was[i]) { host.store(i, c[i]); host.byteChanged(i); }
     host.runPosted();
     if (type) std::memcpy(c + vop3host::REVERB_PARAM_BYTES, host.perf + vop3host::REVERB_PARAM_BYTES, 111);   // the new type's defaults
-}
-
-void Effects::setType(Block b, int type) { host.setByte(TYPE_BYTE[b], type); }
-
-// Reverb slots 1-8 are two bytes and 9-16 one byte. Variation and insertion slots are two bytes.
-void Effects::setParam(Block b, int slot, int word) {
-    if (b == REVERB && slot > 8) { host.setByte(vop3host::REVERB_PARAM_BYTES_9 + slot - 9, word); return; }
-    int i = (b == REVERB ? vop3host::REVERB_PARAM_BYTES : b == VARIATION ? vop3host::VARIATION_PARAM_BYTES : vop3host::INSERTION_PARAM_BYTES) + 2 * (slot - 1);
-    host.store(i + 1, word & 0x7f);
-    host.setByte(i, word >> 7);
 }
 
 void Effects::control(int dest, int offset) {

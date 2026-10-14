@@ -41,21 +41,19 @@ void EffectHost::applyChanges(uint32_t mask)
     auto reverbType = [&](uint32_t rev, bool keep) {
         const bool delay = isDelay(rev);
         code[REVERB].lsb = delay ? 0 : rom::TYPE_MAP_REVERB[rev][1];
-        applyParam(REVERB, keep && !delay ? CLEAR : ALL);
+        resetWindow(REVERB, !keep || delay);
         code[REVERB_DELAY] = delay ? TypeCode{8, rom::TYPE_MAP_REVERB[rev][1]} : TypeCode{0, 1};
-        applyParam(REVERB_DELAY, keep && delay ? CLEAR : ALL);
+        resetWindow(REVERB_DELAY, !keep || !delay);
     };
 
-    if (mask & (EVERYTHING | LOADED)) {
-        if (mask & LOADED) {
-            for (uint32_t i = 0; i < 16; i++) {
-                reverbCache[i]    = uint32_t(readParameter(reverbByte(i)));
-                variationCache[i] = uint32_t(readParameter(VARIATION_PARAM_BYTES + 2 * i));
-                insertionCache[i] = uint32_t(readParameter(INSERTION_PARAM_BYTES + 2 * i));
-            }
-            for (uint32_t i = 0; i < 10; i++)
-                eqCache[i] = uint32_t(readParameter(EQ_LOW_GAIN + i));
+    if (mask & LOADED) {
+        for (uint32_t i = 0; i < 16; i++) {
+            reverbCache[i]    = uint32_t(readParameter(reverbByte(i)));
+            variationCache[i] = uint32_t(readParameter(VARIATION_PARAM_BYTES + 2 * i));
+            insertionCache[i] = uint32_t(readParameter(INSERTION_PARAM_BYTES + 2 * i));
         }
+        for (uint32_t i = 0; i < 10; i++)
+            eqCache[i] = uint32_t(readParameter(EQ_LOW_GAIN + i));
         reverbCache[9]    = 127;
         variationCache[9] = 127;
         for (int w : {REVERB, INSERTION, REVERB_DELAY, VARIATION})
@@ -68,11 +66,11 @@ void EffectHost::applyChanges(uint32_t mask)
 
         std::copy_n(variationCache, 16, param[VARIATION]);
         code[VARIATION] = codeOf(rom::TYPE_MAP_VARIATION[perf[VARIATION_TYPE]]);
-        applyParam(VARIATION, CLEAR);
+        resetWindow(VARIATION, false);
 
         std::copy_n(insertionCache, 16, param[INSERTION]);
         code[INSERTION] = codeOf(rom::TYPE_MAP_INSERTION[perf[INSERTION_TYPE]]);
-        applyParam(INSERTION, CLEAR);
+        resetWindow(INSERTION, false);
 
         for (int m : {MIX_REVERB_PAN, MIX_VARIATION_PAN, MIX_VARIATION_RETURN, MIX_VARIATION_TO_REVERB, MIX_INSERTION_PAN})
             applyMixer(m);
@@ -121,7 +119,7 @@ void EffectHost::applyChanges(uint32_t mask)
         setMute(VARIATION, 1);
         const uint32_t var = uint32_t(readParameter(VARIATION_TYPE));
         code[VARIATION] = codeOf(rom::TYPE_MAP_VARIATION[var]);
-        applyParam(VARIATION, ALL);
+        resetWindow(VARIATION, true);
         uploadWindow(VARIATION);
         if (var != 0)
             setMute(VARIATION, 0);
@@ -140,7 +138,7 @@ void EffectHost::applyChanges(uint32_t mask)
         setMute(INSERTION, 1);
         std::fill_n(controlOffset, 16, 0);
         code[INSERTION] = codeOf(rom::TYPE_MAP_INSERTION[readParameter(INSERTION_TYPE)]);
-        applyParam(INSERTION, ALL);
+        resetWindow(INSERTION, true);
         uploadWindow(INSERTION);
         setMute(INSERTION, 0);
     }

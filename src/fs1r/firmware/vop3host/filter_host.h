@@ -32,8 +32,7 @@ struct FilterHost {
     void flush();                                        // applies what was marked
 
     // ---- state ----
-    uint16_t prog[512][5] = {}, coef[512] = {};          // the program and its constants, as uploaded and patched since
-    uint8_t tag[512] = {};
+    uint16_t prog[512][5] = {};                          // the program, as uploaded and patched since
     uint16_t lfoReg[4][16] = {};                         // LFO_SPEED..LFO_DIRECTION of each channel
     uint8_t slotPart[16] = {}, note[16] = {}, vel[16] = {};   // what each slot plays; part 16 is a free slot
     uint8_t type[16] = {}, stage[16] = {};               // its filter type, and its EG's Stage

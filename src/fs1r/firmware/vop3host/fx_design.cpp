@@ -217,12 +217,12 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
     writeCoefs(5, steps);
 }
 
-// two words from a gain byte and a mix
-// byte v: k = (v + 8) / 18 gives (k G, (1 - k) G), with 1.0 nudged below full scale when unscaled
-void EffectHost::storeHighDamp(int scale, int v, int gain, const uint16_t* steps)
+// two words from a mix byte v at 0 dB: k = (v + 8) / 18 gives (k, 1 - k), with 1.0 nudged below full
+// scale when unscaled
+void EffectHost::storeHighDamp(int scale, int v, const uint16_t* steps)
 {
     scale &= 0xFF; v &= 0xFF;
-    const float G = rom::DB[uint32_t((gain & 0xFF) - 52)];
+    const float G = rom::DB[64 - 52];
     const float k = float((double(uint32_t(v)) + 8.0) / 18.0);
     float c0 = k * G;
     const float c1 = float((1.0 - double(k)) * double(G));

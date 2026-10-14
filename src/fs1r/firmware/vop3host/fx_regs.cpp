@@ -200,22 +200,19 @@ void EffectHost::setMute(int window, uint32_t on)
 }
 
 // the effect host's reset. Mutes, defaults, every kind's
-// preset load, the master EQ mid bands, all windows, the performance's effect bytes.
+// preset load, all windows, the performance's effect bytes.
 void EffectHost::init()
 {
     masterLevel = 8192;
     hold = false;
     std::fill_n(mute, 6, 1);
     initChip();
-    applyParam(MIXER, ALL);
+    resetWindow(MIXER, true);
     for (int w : {REVERB, AUX, INSERTION, REVERB_DELAY, VARIATION}) {
         code[w] = {};
-        applyParam(w, ALL);
+        resetWindow(w, true);
     }
-    // the two mid bands, which the performance has no bytes for
-    eqParam[5]  = 64;  eqParam[6]  = 28;  eqParam[7]  = 7;
-    eqParam[13] = 64;  eqParam[14] = 46;  eqParam[15] = 7;
-    applyParam(MASTER_EQ, ALL);
+    resetWindow(MASTER_EQ, true);
     uploadAll();
     perf[REVERB_PAN]             = 64;
     perf[REVERB_RETURN]          = 0;

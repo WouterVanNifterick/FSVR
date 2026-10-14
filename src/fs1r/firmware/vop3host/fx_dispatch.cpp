@@ -105,19 +105,11 @@ const rom::PresetGroup& EffectHost::presets(int kind) const
     }
 }
 
-// A single parameter change for the kind's handler, or from RELOAD the kind's preset block for
-// its current type and then the handler for ALL parameters. From CLEAR the window is silenced
-// first, and an odd p also restores the sixteen default parameters.
-void EffectHost::applyParam(int kind, int p)
+// The window silenced, its type's preset loaded and every parameter applied; with `defaults` the type's
+// sixteen default parameters first.
+void EffectHost::resetWindow(int kind, bool defaults)
 {
-    kind = int8_t(kind);
-    p &= 0xFF;
-    if (p >= CLEAR)
-        clearWindow(kind);
-    if (p < RELOAD) {
-        dispatch(kind, p);
-        return;
-    }
+    clearWindow(kind);
     if (kind >= REVERB && kind <= VARIATION) {
         // a block: the window's constants in the order of its step list, its delay offsets, then
         // the four LFO registers of its four LFOs
@@ -133,21 +125,21 @@ void EffectHost::applyParam(int kind, int p)
             for (auto& reg : lfoReg)
                 for (int i = 0; i < 4; i++)
                     reg[w.lfos[i]] = *v++;
-        if (p & 1)
+        if (defaults)
             std::copy_n(g.defaults[lsb], 16, param[kind]);
     } else if (kind == MASTER_EQ) {
-        if (p & 1)
+        if (defaults)
             std::copy_n(rom::EQ_DEFAULTS, 20, eqParam);
     } else {
         for (int i = 0; i < 88; i++)
             coef[rom::STEPS_SYSTEM[i]] = rom::SYSTEM_COEF_DEFAULTS[i];
-        if (p & 1)
+        if (defaults)
             std::copy_n(rom::SYSTEM_PARAM_DEFAULTS, 16, mixParam);
     }
-    dispatch(kind, ALL);
+    applyParam(kind, ALL);
 }
 
-void EffectHost::dispatch(int kind, int p)
+void EffectHost::applyParam(int kind, int p)
 {
     switch (kind) {
         case REVERB:       route(*this, kind, p, REVERB_ROUTES);    break;

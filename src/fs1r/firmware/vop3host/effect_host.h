@@ -24,10 +24,8 @@ constexpr uint32_t AREA[5] = {0, 0xFFFF, 0x10000, 0x20000, 0x30000};   // where 
 constexpr uint32_t TOP = 0x40000;                                       // and where the last one ends
 struct TypeCode { uint8_t msb, lsb; };                                  // a type as the chip programs are filed
 
-// applyParam's p past the sixteen parameters. From RELOAD the type's preset is loaded first, from
-// CLEAR the window is silenced before that, and an odd p restores the default parameters too.
-// A handler takes ALL as every parameter at once.
-enum { RELOAD = 252, CLEAR = 254, ALL = 255 };
+// A handler's p for every parameter at once
+enum { ALL = 255 };
 
 // What can be posted to the effect task. Every post carries WAKE.
 enum : uint32_t {
@@ -38,10 +36,9 @@ enum : uint32_t {
     VARIATION_TYPE_CHANGED = 0x0010,
     REVERB_CHANGED         = 0x0020,
     REVERB_TYPE_CHANGED    = 0x0040,
-    EVERYTHING             = 0x0080,     // the four windows with their parameters, the mixer and the master EQ
     EQ_CHANGED             = 0x0100,
     MIXER_CHANGED          = 0x0200,
-    LOADED                 = 0x8000,     // the performance into the caches first, then EVERYTHING
+    LOADED                 = 0x8000,     // a new performance: every window, the mixer and the master EQ
 };
 
 // The performance's common bytes the host reads.
@@ -192,9 +189,9 @@ struct EffectHost {
     void insertionTypeChanged();
 
     // ---- parameters to their handlers ----
-    void applyParam(int kind, int p);                                   // p from RELOAD reloads the type's preset first
+    void applyParam(int kind, int p);                                   // one parameter, or ALL, to the kind's handler
+    void resetWindow(int kind, bool defaults);
     const rom::PresetGroup& presets(int window) const;                  // of its current type msb
-    void dispatch(int kind, int p);
     void clearWindow(int window);
     void masterEq(int p);
     void mixerParam(int p);
@@ -208,9 +205,9 @@ struct EffectHost {
     void roomDelays(int clampSrc, int index, int span, const uint8_t* ids);
     void combDelays(int clampSrc, int count, int sel, const uint8_t* ids);
     void combDelays2(int clampSrc, int sel, const uint8_t* ids);
+    void erTaps(int indexA, int indexB, int offset, int row);           // the reverb's taps
+    void erBalance(int balance);                                        // and its ER/Rev balance
     void diffusers(int src, int scale, int offset, int count, int stride, const uint16_t* steps, const uint8_t* slots);
-    void erTaps(int indexA, int indexB, int offset, int row, const uint16_t* words, const uint8_t* ids);
-    void erBalance(int balance, const uint16_t* list);
 
     // ---- shared by the handlers ----
     using Handler = void (EffectHost::*)(int w, int p);
@@ -236,7 +233,7 @@ struct EffectHost {
     void storeModePair(int mode, const uint16_t* steps);
     void storeDepth(int v, const uint16_t* step);
     void storeNegDepth(int v, const uint16_t* step);
-    void storeHighDamp(int scale, int v, int gain, const uint16_t* steps);
+    void storeHighDamp(int scale, int v, const uint16_t* steps);
     void storeDrive(int v, int level, const uint16_t* steps);
     void storeEdge(int v, const uint16_t* steps);
     void storeCompAttack(int v, const uint16_t* steps);

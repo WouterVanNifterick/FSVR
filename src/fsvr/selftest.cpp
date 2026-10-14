@@ -8,6 +8,23 @@
 // ------------------------------------------------------------------------------------------ self test
 // fsvr_console -selftest: every sysex path the plugin will use. Parameter change in, parameter request out,
 // bulk dump out and straight back in, and the whole 400/608 byte state surviving the round trip.
+// The effect section's type and parameter paths, as the Data List addresses them: reverb slots 1-8 are
+// two bytes and 9-16 one byte, variation and insertion slots two bytes.
+namespace fx {
+namespace H = fs1r::vop3host;
+enum Block { REVERB, VARIATION, INSERTION };
+void setType(Effects& e, Block b, int type) {
+    const int byte[3] = {H::REVERB_TYPE, H::VARIATION_TYPE, H::INSERTION_TYPE};
+    e.host.setByte(byte[b], type);
+}
+void setParam(Effects& e, Block b, int slot, int word) {   // slot 1..16
+    if (b == REVERB && slot > 8) { e.host.setByte(H::REVERB_PARAM_BYTES_9 + slot - 9, word); return; }
+    const int i = (b == REVERB ? H::REVERB_PARAM_BYTES : b == VARIATION ? H::VARIATION_PARAM_BYTES : H::INSERTION_PARAM_BYTES) + 2 * (slot - 1);
+    e.host.store(i + 1, word & 0x7f);
+    e.host.setByte(i, word >> 7);
+}
+}  // namespace fx
+
 static int g_fails = 0;
 static void ck(const char* what, bool ok) { if (!ok) { printf("  FAIL %s\n", what); g_fails++; } }
 int selftest(Synth& S) {
@@ -723,7 +740,7 @@ int selftest(Synth& S) {
       // 2. Hall 1 on the reverb send rings on after a burst; with the reverb off nothing comes back from that bus
       double hallTail;
       { auto h = fresh({{169, 64}, {170, 100}}), o = fresh({});   // reverb pan centre, return 100
-        h->setType(Effects::REVERB, 1);
+        fx::setType(*h, fx::REVERB, 1);
         drive(*h, 3, burst, l, r); hallTail = energy(l, r, n / 2);
         drive(*o, 3, burst, l, r);
         ck("effect chip: Hall 1 rings on after the burst", hallTail > 1e-6 && hallTail > 100 * energy(l, r, n / 2)); }
@@ -735,11 +752,11 @@ int selftest(Synth& S) {
         ck("effect chip: a type change writes the type's defaults back into the performance", c[0x51] == hall.slot[0].init && c[0x53] == hall.slot[1].init);
         drive(*y, 3, burst, l, r);
         ck("effect chip: a synced reverb type reaches the chip", energy(l, r, n / 2) > 0.5 * hallTail);
-        y->setParam(Effects::REVERB, 1, 30); y->setParam(Effects::REVERB, 11, 3);   // Reverb Time, a word; Rev Delay, a byte
+        fx::setParam(*y, fx::REVERB, 1, 30); fx::setParam(*y, fx::REVERB, 11, 3);   // Reverb Time, a word; Rev Delay, a byte
         ck("effect chip: a parameter reaches the host by its slot", y->host.readParameter(0x50) == 30 && y->host.readParameter(0x62) == 3); }
       // 4. the insertion Tremolo's LFO runs at its default, 1.831 Hz: the strongest 0.3..40 Hz component of the left level
       { auto t = fresh({{176, 64}, {179, 127}});               // insertion pan centre, level 127
-        t->setType(Effects::INSERTION, 11);
+        fx::setType(*t, fx::INSERTION, 11);
         drive(*t, 1, tone(1000, 2 * SR, 2 * SR), l, r);
         std::vector<double> env; const size_t w = SR / 100;
         for (size_t at = SR / 4; at + w <= l.size(); at += w) { double s = 0; for (size_t i = 0; i < w; i++) s += fabs(l[at + i]); env.push_back(s / w); }
@@ -752,7 +769,7 @@ int selftest(Synth& S) {
         ck("effect chip: the insertion Tremolo runs at its default LFO Freq, 1.831 Hz", fabs(hz - 1.831) < 0.06); }
       // 5. the variation Rotary SP on a 220 Hz sine does not hiss: under -70 dB of its energy above 4 kHz, from 1 s on
       { auto t = fresh({{172, 64}, {173, 100}});               // variation pan centre, return 100
-        t->setType(Effects::VARIATION, 8);
+        fx::setType(*t, fx::VARIATION, 8);
         const int len = 4096;
         drive(*t, 2, tone(220, SR + len, SR + len), l, r);
         std::vector<double> x(len), cs(len), sn(len);
@@ -784,10 +801,10 @@ int selftest(Synth& S) {
         auto e = fresh({}); e->host.sink = &sink;
         const int types[3] = {17, 29, 41};
         for (int b = 0; b < 3; b++) for (int t = 0; t < types[b]; t++) {
-            e->setType(Effects::Block(b), t);
+            fx::setType(*e, fx::Block(b), t);
             for (int slot = 1; slot <= 16; slot++) {
-                if (b == Effects::VARIATION && t == 24 && slot == 11) continue;   // Karaoke's hidden parameter
-                for (int w : {0, b == Effects::REVERB && slot > 8 ? 127 : 16383}) e->setParam(Effects::Block(b), slot, w); } }
+                if (b == fx::VARIATION && t == 24 && slot == 11) continue;   // Karaoke's hidden parameter
+                for (int w : {0, b == fx::REVERB && slot > 8 ? 127 : 16383}) fx::setParam(*e, fx::Block(b), slot, w); } }
         for (int i : {16, 20, 169, 170, 172, 173, 174, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190})
             for (int v : {0, 127}) e->host.setByte(i, v);
         ck("effect host: its register writes are the firmware's", sink.h == 0x4433fa06b314a878ull); }

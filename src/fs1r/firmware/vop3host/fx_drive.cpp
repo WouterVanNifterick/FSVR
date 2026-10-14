@@ -523,15 +523,12 @@ void EffectHost::wahDistortionDelay(int w, int p)
             break;
         case DRIVE: case OUTPUT_LEVEL: case DS_LOW_GAIN: case DS_MID_GAIN: case DRY_WET: {
             // the distortion's tone with the type's frequencies, then the drive and the dry and wet
-            const uint32_t lsb = code[w].lsb;
-            if (lsb == 1 || lsb == 2) {
-                designFilter(1, 1, HPF1, overdrive ? 8 : 0, 64, 0, ins::WD_HPF_2);
-                designFilter(1, 1, LPF1, overdrive ? 44 : 54, 64, 0, ins::WD_LPF_2);
-                designFilter(1, 1, LPF1, overdrive ? 45 : 53, 64, 0, ins::WD_LPF_3);
-                designFilter(1, 2, LOW_SHELF1, overdrive ? 24 : 20, int8_t(P[DS_LOW_GAIN]), 0, ins::WD_LOW_SHELF_2);
-                designFilter(2, 1, PEAK, overdrive ? 41 : 43, int8_t(P[DS_MID_GAIN]), 10, ins::WD_PEAK);
-                storeEdge(overdrive ? 104 : 120, ins::WD_BAND);
-            }
+            designFilter(1, 1, HPF1, overdrive ? 8 : 0, 64, 0, ins::WD_HPF_2);
+            designFilter(1, 1, LPF1, overdrive ? 44 : 54, 64, 0, ins::WD_LPF_2);
+            designFilter(1, 1, LPF1, overdrive ? 45 : 53, 64, 0, ins::WD_LPF_3);
+            designFilter(1, 2, LOW_SHELF1, overdrive ? 24 : 20, int8_t(P[DS_LOW_GAIN]), 0, ins::WD_LOW_SHELF_2);
+            designFilter(2, 1, PEAK, overdrive ? 41 : 43, int8_t(P[DS_MID_GAIN]), 10, ins::WD_PEAK);
+            storeEdge(overdrive ? 104 : 120, ins::WD_BAND);
             wahDistortionWet(*this, ins::WD_WET, P[DRIVE], P[OUTPUT_LEVEL], 1, ins::WD_DRIVE, ins::WD_MODE, ins::WD_MODE2);
             break;
         }
@@ -591,15 +588,12 @@ void EffectHost::compressorDistortionDelay(int w, int p)
             writeCoefs(1, ins::DD_LEVEL + 2);
             break;
         case DRIVE: case OUTPUT_LEVEL: case DS_LOW_GAIN: case DS_MID_GAIN: {
-            const uint32_t lsb = code[w].lsb;
-            if (lsb == 1 || lsb == 2) {
-                designFilter(2, 1, HPF1, overdrive ? 8 : 0, 64, 0, ins::DD_HPF);
-                designFilter(1, 1, LPF1, overdrive ? 44 : 54, 64, 0, ins::DD_LPF);
-                designFilter(2, 1, LPF2, overdrive ? 45 : 53, 64, 7, ins::DD_LPF2);
-                designFilter(2, 4, LOW_SHELF1, overdrive ? 24 : 20, int8_t(P[DS_LOW_GAIN]), 0, ins::DD_LOW_SHELF);
-                designFilter(2, 1, PEAK, overdrive ? 41 : 43, int8_t(P[DS_MID_GAIN]), 10, ins::DD_PEAK);
-                storeEdge(overdrive ? 104 : 120, ins::DD_BAND);
-            }
+            designFilter(2, 1, HPF1, overdrive ? 8 : 0, 64, 0, ins::DD_HPF);
+            designFilter(1, 1, LPF1, overdrive ? 44 : 54, 64, 0, ins::DD_LPF);
+            designFilter(2, 1, LPF2, overdrive ? 45 : 53, 64, 7, ins::DD_LPF2);
+            designFilter(2, 4, LOW_SHELF1, overdrive ? 24 : 20, int8_t(P[DS_LOW_GAIN]), 0, ins::DD_LOW_SHELF);
+            designFilter(2, 1, PEAK, overdrive ? 41 : 43, int8_t(P[DS_MID_GAIN]), 10, ins::DD_PEAK);
+            storeEdge(overdrive ? 104 : 120, ins::DD_BAND);
             storeDrive(P[DRIVE], P[OUTPUT_LEVEL], ins::DD_DRIVE);
             break;
         }

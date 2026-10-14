@@ -144,8 +144,10 @@ void EffectHost::diffusers(int src, int scale, int offset, int count, int stride
 }
 
 // four early-reflection taps (two offsets and two words each) plus the pre-delay pair, clamped to the area
-void EffectHost::erTaps(int indexA, int indexB, int offset, int row, const uint16_t* words, const uint8_t* ids)
+void EffectHost::erTaps(int indexA, int indexB, int offset, int row)
 {
+    const uint16_t* words = rev::ER_WORDS;
+    const uint8_t* ids = rev::ER_BASE_SLOTS + 2;
     const uint16_t* rowp = rom::SPAN_ROWS + (uint32_t(row) & 0xFFFF) * 18;
     const uint32_t t = toSamples(rom::DELAY_WORD[indexA]);
     const uint32_t limit = AREA[1] - 1;
@@ -179,8 +181,9 @@ void EffectHost::erTaps(int indexA, int indexB, int offset, int row, const uint1
 
 // The first ten early-reflection words (always the reverb's) scaled by the ER/Rev balance into
 // the list, then twelve words of the complementary gain.
-void EffectHost::erBalance(int balance, const uint16_t* list)
+void EffectHost::erBalance(int balance)
 {
+    const uint16_t* list = rev::ER_WORDS;
     const uint32_t idx = uint32_t(balance) & 0xFFFF;
     for (int i = 0; i < 10; i++) {
         const float f1 = float(int16_t(coef[rev::ER_WORDS[i]]));
@@ -256,6 +259,14 @@ enum { REVERB_TIME, DIFFUSION, INIT_DELAY, HPF_CUTOFF, LPF_CUTOFF, WIDTH, HEIGHT
 // the three (row, class, offset) words of the reverb type's comb selector
 const int16_t* combSelector(const EffectHost& h, int w) { return rom::COMB_SELECT + 3 * h.code[w].lsb; }
 
+// the early reflections' taps and their ER/Rev balance, from the reverb's parameters
+void reflections(EffectHost& h)
+{
+    const uint16_t* P = h.param[REVERB];
+    h.erTaps(P[INIT_DELAY], P[REV_DELAY], P[DIFFUSION], combSelector(h, REVERB)[0]);
+    h.erBalance(P[ER_REV_BALANCE]);
+}
+
 // The parameters the halls and the rooms take alike; false for the others
 bool reverbParam(EffectHost& h, int p)
 {
@@ -263,8 +274,7 @@ bool reverbParam(EffectHost& h, int p)
     const int16_t* sel = combSelector(h, REVERB);
     switch (p) {
         case INIT_DELAY: case REV_DELAY:
-            h.erTaps(P[INIT_DELAY], P[REV_DELAY], P[DIFFUSION], sel[0], rev::ER_WORDS, rev::ER_BASE_SLOTS + 2);
-            h.erBalance(P[ER_REV_BALANCE], rev::ER_WORDS);
+            reflections(h);
             h.writeCoefs(10, rev::ER_WORDS);
             h.writeDelays(10, rev::ER_BASE_SLOTS + 2);
             return true;
@@ -281,8 +291,7 @@ bool reverbParam(EffectHost& h, int p)
             h.writeCoefs(24, rev::ROW_STEPS);
             return true;
         case ER_REV_BALANCE:
-            h.erTaps(P[INIT_DELAY], P[REV_DELAY], P[DIFFUSION], sel[0], rev::ER_WORDS, rev::ER_BASE_SLOTS + 2);
-            h.erBalance(P[ER_REV_BALANCE], rev::ER_WORDS);
+            reflections(h);
             h.writeCoefs(10, rev::ER_WORDS);
             h.writeCoefs(12, rev::ER_WORDS + 10);
             return true;
@@ -300,8 +309,7 @@ void diffusionFollows(EffectHost& h)
 {
     const uint16_t* P = h.param[REVERB];
     const int16_t* sel = combSelector(h, REVERB);
-    h.erTaps(P[INIT_DELAY], P[REV_DELAY], P[DIFFUSION], sel[0], rev::ER_WORDS, rev::ER_BASE_SLOTS + 2);
-    h.erBalance(P[ER_REV_BALANCE], rev::ER_WORDS);
+    reflections(h);
     h.writeDelays(10, rev::ER_BASE_SLOTS + 2);
     h.diffusers(P[DENSITY], P[DIFFUSION], sel[2], 6, 20, rev::ROW_STEPS, rev::ROW_SLOTS);
     h.writeDelays(1, rev::ROW_SLOTS + 9);

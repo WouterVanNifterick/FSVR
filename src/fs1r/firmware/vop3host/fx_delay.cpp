@@ -33,7 +33,6 @@ const Block& blockOf(int w) { return BLOCKS[w == REVERB_DELAY ? 0 : w == VARIATI
 struct Delay {
     EffectHost& h;
     const Block& b;
-    int w;
     const uint16_t* word(int i) const { return b.words + b.word[i]; }
     const uint8_t* slot(int i) const { return b.slots + b.slot[i]; }
     uint16_t& coef(int i) const { return h.coef[*word(i)]; }
@@ -52,7 +51,7 @@ struct Delay {
     }
     void damp(int v, bool copy) const
     {
-        h.storeHighDamp(b.dampScale, v, 64, b.damp);
+        h.storeHighDamp(b.dampScale, v, b.damp);
         if (copy)
             h.copyCoefs(2, b.damp, b.dampCopy);
     }
@@ -63,7 +62,7 @@ struct Delay {
 void EffectHost::delayLCR(int w, int p)
 {
     enum { LCH_DELAY, RCH_DELAY, CCH_DELAY, FB_DELAY, FB_LEVEL, CCH_LEVEL, HIGH_DAMP, DRY_WET = 9, EQ_LOW_FREQ = 12, EQ_HIGH_FREQ = 14 };
-    const Delay d{*this, blockOf(w), w};
+    const Delay d{*this, blockOf(w)};
     const uint16_t* P = param[w];
     switch (p) {
         case LCH_DELAY: d.tap(2, 0, P[LCH_DELAY]); break;
@@ -94,7 +93,7 @@ void EffectHost::delayLCR(int w, int p)
 void EffectHost::delayLR(int w, int p)
 {
     enum { LCH_DELAY, RCH_DELAY, FB_DELAY1, FB_DELAY2, FB_LEVEL, HIGH_DAMP, DRY_WET = 9, EQ_LOW_FREQ = 12, EQ_HIGH_FREQ = 14 };
-    const Delay d{*this, blockOf(w), w};
+    const Delay d{*this, blockOf(w)};
     const uint16_t* P = param[w];
     switch (p) {
         case LCH_DELAY: d.tap(2, 0, P[LCH_DELAY]); break;
@@ -125,7 +124,7 @@ void EffectHost::echo(int w, int p)
 {
     enum { LCH_DELAY1, LCH_FB_LEVEL, RCH_DELAY1, RCH_FB_LEVEL, HIGH_DAMP, LCH_DELAY2, RCH_DELAY2, DELAY2_LEVEL,
            DRY_WET = 9, EQ_LOW_FREQ = 12, EQ_HIGH_FREQ = 14 };
-    const Delay d{*this, blockOf(w), w};
+    const Delay d{*this, blockOf(w)};
     const uint16_t* P = param[w];
     switch (p) {
         case LCH_DELAY1:   d.tap(1, 0, P[LCH_DELAY1]); break;
@@ -161,7 +160,7 @@ void EffectHost::crossDelay(int w, int p)
 {
     enum { L_TO_R_DELAY, R_TO_L_DELAY, FB_LEVEL, INPUT_SELECT, HIGH_DAMP, DRY_WET = 9, EQ_LOW_FREQ = 12, EQ_HIGH_FREQ = 14 };
     enum { INPUT_L, INPUT_R, INPUT_LR };
-    const Delay d{*this, blockOf(w), w};
+    const Delay d{*this, blockOf(w)};
     const uint16_t* P = param[w];
     const bool right = P[INPUT_SELECT] == INPUT_R;   // the right input goes round first
     switch (p) {

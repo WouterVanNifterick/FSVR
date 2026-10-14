@@ -97,13 +97,11 @@ void writeProgram(Host& h, int step)
 }
 void setCoef(Host& h, int step, int v)
 {
-    h.coef[step] = uint16_t(v);
     reg(h, SELECT, step);
-    reg(h, COEF, h.coef[step]);
+    reg(h, COEF, v);
 }
 void setTag(Host& h, int step, int v)
 {
-    h.tag[step] = uint8_t(v);
     reg(h, SELECT, step);
     reg(h, TAG, v);
 }
@@ -241,10 +239,9 @@ void FilterHost::boot()
     reg(h, 1, 0);
     config(h, 0, 0x40);
     reg(h, UPLOADING, 0x23);
-    std::copy_n(flt::TAGS, 512, tag);
     reg(h, SELECT, AUTO_INCREMENT);
     for (int i = 0; i < 512; i++)
-        reg(h, TAG, tag[i]);
+        reg(h, TAG, flt::TAGS[i]);
     for (int w = 0; w < 5; w++) {
         reg(h, SELECT, AUTO_INCREMENT);
         for (int i = 0; i < 512; i++)
