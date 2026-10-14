@@ -68,7 +68,7 @@ Three words carry the status of each piece below. **Read** is lifted out of the 
 
 The practical result is that patches, performances and Fseqs load and play with the same parameter interpretation the hardware uses, because the same logic computes them. What still differs from a real unit lives inside the two custom chips.
 
-A short list of places FSVR behaves differently **on purpose** is kept in [docs/Differences.md](docs/Differences.md), with the firmware address behind each one where there is one. The engine has one entry: a part's filter switch is live here, so turning the filter on or off reaches the notes already sounding, where the unit latches that switch per note at note-on and only its cutoff and resonance follow a held note. The rest are the plug-in's additions, things the unit never had: user libraries without the unit's memory limits and Import Audio.
+A short list of places FSVR behaves differently **on purpose** is kept in [docs/Differences.md](docs/Differences.md), with the firmware address behind each one where there is one. The engine has none left since the filter switch latched as the unit's does (2026-10-14); what is listed are the plug-in's additions, things the unit never had: user libraries without the unit's memory limits and Import Audio.
 
 ### The processors
 
@@ -126,7 +126,7 @@ Every push to `main` builds the same set through [GitHub Actions](https://github
 CMake 3.24 or later everywhere, C++17. The engine, the console and the self checks need no dependencies:
 
 ```bash
-cmake -B build/cmake -S .                 # fs1rLib, test_effects, bin/render_capture, and bin/fsvr_console on Windows
+cmake -B build/cmake -S .                 # fs1rLib, bin/render_capture, and bin/fsvr_console on Windows
 cmake --build build/cmake --config Release
 ctest --test-dir build/cmake -C Release   # the self checks
 ```
@@ -201,12 +201,12 @@ python tools/regress.py                 # the whole fixed preset list against th
 
 - `cal.h` the calibration surface, every modelled constant in one place
 - `ymp706.cpp` the tone generator: operators, envelopes, the formant window, and the render path
-- `vop3_filter.h` VOP3-1's filter; `vop3_effects.h` VOP3-2's reverb, variation, insertion and master EQ
+- `yss236_core.h` the YSS236 microcode engine, measured on the unit; `vop3.h` the chip around it: its registers, LFOs and EG generators. `src/fs1r/effects.h` and `src/fs1r/filter.h` are the two boards around it, over the firmware's effect and filter tasks in `src/fs1r/firmware/vop3host/`
 
 `src/fsvr/` is **ours**. Nothing in the hardware corresponds to any of it.
 
 - `tuning.h` cost knobs, the control-rate decimation and the queue cap. Changing one must not change the output
-- `fastmath.h`, `fastmath.cpp` the sample loop's sine, 2^x, dB and tanh: a table (the default), CORDIC, a hybrid of the two, or raw libm, chosen by `FSVR_MATH`
+- `fastmath.h`, `fastmath.cpp` the sample loop's sine, 2^x and dB: a table (the default), CORDIC, a hybrid of the two, or raw libm, chosen by `FSVR_MATH`
 - `device.cpp` `fs1r::Device`, host-rate resampling and state as bulk dumps
 - `smf.h` Standard MIDI File reading; `selftest.cpp` the engine self check
 - `display.h` how the unit shows values, for editors and displays: fixed operator frequencies, ratios and every effect parameter value, with each effect type's parameter slots. Transcribed from K_Take's [FS1R Editor](https://synth-voice.sakura.ne.jp/fs1r_editor_english.html) (freeware) and checked against the Data List and the ROM
@@ -238,7 +238,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 **Tools, checks.**
 
 - `tools/regress.py` renders the fixed preset list and diffs it against `regress_ref.json`: pitch, harmonic peaks, envelope, stereo width, centroid
-- `tools/test_effects.cpp` decodes and sweeps every effect type, and `fsvr_console -selftest` (`engine_selftest` away from Windows) is the engine check. Both run under `ctest`
+- `fsvr_console -selftest` (`engine_selftest` away from Windows) is the engine check, the effect chip's included: dry unity, Hall 1, the LFO law, the type path, a part on the insertion. It runs under `ctest`
 - `tools/check_plugin.cpp` drives the plug-in's processor the way a host does: factory banks, a saved session, Import SysEx, the bank browser, Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, and the Init Patch and the standalone's Load Last Patch. `ctest` runs it in a plug-in build
 - `tools/check_gui.cpp` drives the editor over the processor without a window, as a mouse and a keyboard would: the top bar's menus and toggles, every page by its tab or button, the operator panel and its waveform, the browser's right-click menus, every dialog, the modal's veil, Escape and close X, the close prompt, the Options page (every scale, both keyboards and each setting) and About, then every page's dials, faders, dropdowns and toggles. `ctest` runs it as "gui"
 - `tools/check_wav.py`, `check_formant.py` and `check_presets.py`, the rest of what `build.bat test` runs; `check_skirt.py` renders every harmonic form at every skirt against the register sweep

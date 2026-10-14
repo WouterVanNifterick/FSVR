@@ -11,6 +11,10 @@
 // Facts read off the board are in fs1r/hardware.h. Quantities measured off a real unit, which are
 // claims about the hardware and are changed only by measuring, are in fs1r/chips/cal.h.
 #pragma once
+#include <cstdint>
+#if defined(_M_X64) || defined(__x86_64__) || defined(_M_IX86) || defined(__i386__)
+#include <xmmintrin.h>
+#endif
 
 namespace tuning {
 
@@ -24,5 +28,23 @@ static const int CTL_DECIMATION = 16;
 // dump and parameter requests, and a host that never drains the queue must not grow it without
 // bound. Deep enough for a full parameter-request burst.
 static const int MIDI_OUT_QUEUE = 64;
+
+// Denormals flushed to zero while the engine renders, and the caller's mode back afterwards. A chip whose
+// program rings down into denormals costs several times its pass (docs/performance.md), and nothing that
+// small reaches the output: the regression renders hash the same with and without it.
+struct NoDenormals {
+#if defined(_M_X64) || defined(__x86_64__) || defined(_M_IX86) || defined(__i386__)
+    unsigned old = _mm_getcsr();
+    NoDenormals() { _mm_setcsr(old | 0x8040); }   // flush to zero, denormals are zero
+    ~NoDenormals() { _mm_setcsr(old); }
+#elif defined(__aarch64__)
+    uint64_t old = 0;
+    NoDenormals() {
+        asm volatile("mrs %0, fpcr" : "=r"(old));
+        asm volatile("msr fpcr, %0" : : "r"(old | (1ull << 24)));   // FZ
+    }
+    ~NoDenormals() { asm volatile("msr fpcr, %0" : : "r"(old)); }
+#endif
+};
 
 }  // namespace tuning

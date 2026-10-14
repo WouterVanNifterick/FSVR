@@ -9,6 +9,7 @@
 #include "../fs1r.h"
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -133,33 +134,8 @@ static inline double db2lin_fast(double db) { return db <= -128 ? 0.0 : fm::db2l
 // exact inverse of the DX7's (R*41)>>6, and its DX7 converter uses T = 99 - R, so the chip is assumed to time its EG like the
 // DX7 EGS: increment (4 + (q & 3)) << (q >> 2) per 64 samples on a 2^28 = 96 dB scale (Dexed). 6.6 ms at 63, 380 s at 0.
 static inline double rate_secs(int q) { q = clampi(q, 0, 63); return pow(2.0, 26 - (q >> 2)) / (4 + (q & 3)) / SR; }
-#include "fs1r/chips/vop3_effects.h"
-
-// FUN_0000C36C: the cutoff byte reaches VOP3-1 as a coefficient, 0xC0D + 0xA9 per step capped at
-// 0x6000, so it is linear in the coefficient rather than in octaves. Reading that coefficient as a
-// one-pole's a = 1 - e^(-2 pi f / fs) puts byte 0 at 755 Hz and byte 127 at 10.6 kHz. The formula is
-// the firmware's; the reading is INFERRED and is what a recording would calibrate.
-static inline double cut_hz(double c) {
-    return cal::CUT_HZ0 * pow(2.0, cal::CUT_OCT * std::clamp(c, cal::CUT_BYTE_MIN, 127.0));
-}
-// FUN_0000C3D0 sends TWO resonance coefficients per channel, not one. Table 0x374B24 is
-// A = 1 - 2^(-raw/16) = 1 - r, and 0x374C24 is B = max(0, 0.5 - 2r^2), quadratic in the same damping and
-// zeroed by the firmware for HPF and BEF. Two coefficients around a single shared cutoff coefficient is a
-// ladder with feedback and passband compensation, which is also what FUN_0000CA44's per-type input scaler
-// (0x40 vs 0x7F) and +-0x4000 tap mix want. Reading A alone as 1/Q is what forced RESO_PER_OCT to 32.
-// INFERRED is what the two become: A scales the ladder's feedback and B is available as passband lift.
-// The demo settled both scalings, and neither landed on the textbook value. See docs/findings.md, the 2026-09-19 ladder entry.
-static inline double reso_r(int r) { return pow(2.0, -clampi(r + 16, 0, 116) / 16.0); }  // fltReso = sysex byte - 16, so r+16 is the byte: A[byte] = 1 - 2^(-byte/16), measured on hardware (fs1r_capture_session3's convhand)
-static inline double reso_q(int r) { return cal::RESO_Q0 * pow(2.0, clampi(r + 16, 0, 116) / cal::RESO_PER_OCT); }
-// The feedback goes as the CUBE of resonance table A, not as A itself. MEASURED: driving the engine's own
-// ladder with noise gives a k-to-peak-lift map, and pushing 15_filter's eleven measured lifts back through
-// it asks for k = 0.00, 0.91, 1.70, 2.07, 2.46, 2.70, 3.04, 3.13, 3.20, 3.25, 3.37 over resonance 0 to
-// 100. Against table A that is flat in k / A^3 at 3.22 to 3.45 from resonance 20 up, where k / A climbs
-// from 2.15 to 3.39 and k / A^2 from 2.72 to 3.42. The cube is empirical, and the CPU side is not in
-// question: the 2026-09-19 register retake matched table A to the integer, so this is what the chip makes
-// of a number we know it is sent.
-static inline double reso_fb(int r) { double a = 1.0 - reso_r(r); return cal::LADDER_K * a * a * a; }
-#include "chips/vop3_filter.h"   // SVF, Ladder, VFilter and the filter EG
+#include "fs1r/effects.h"
+#include "fs1r/filter.h"
 // ------------------------------------------------------------------------------------------ voice data
 struct OpV {
     int keysync, transpose, coarse, fine, notescale, bwbias, form, fixed, skirt, fseqtrk, bw, detune;
@@ -177,9 +153,6 @@ struct Voice {
     uint8_t raw[608];
     char name[11]; int cat;
     int lfo1wave, lfo1speed, lfo1delay, lfo1sync, pmd, amd, fmd;
-    int lfo2wave, lfo2speed, lfo2phase, lfo2sync;
-    int fltType, fltReso, fltResoVel, fltCut, fltEgVel, fltLfo1, fltLfo2, fltKsDepth, fltKsPoint, fltInGain, fegDepth;
-    int fltL[4], fltT[4], fltAtkVel, fltTscale;
     int noteshift, pegL[5], pegT[4], pegVel, pegRange, pegTscale;
     int fseqV, fseqU, alg, corr[8], fb;
     OpV v[8]; OpU u[8];
@@ -248,6 +221,7 @@ struct Perf {
     uint8_t c[80]; uint8_t fx[112]; Part part[4];
     char name[13];
 };
+static_assert(offsetof(Perf, fx) == 80, "the 192 common bytes, as the effect host reads them in place");
 
 int bank_perf_index(int lsb, int prog);
 void init_perf(Perf& P);
@@ -335,8 +309,9 @@ struct Chan {
     // The channel's last output, and the damp left over from the note this channel was playing before.
     // FUN_00023000: note-on damps the channel it is about to take (the mask table at 0x35B260 is one hot
     // per channel) rather than silencing it, so the previous note's waveform fades instead of being cut
-    // between two samples. cal::DAMP_MS is how fast.
-    double lastL = 0, lastR = 0, dampL = 0, dampR = 0;
+    // between two samples. cal::DAMP_MS is how fast. Both are the channel's own word, ahead of the filter
+    // and the pan, which is where the tone generator's fade is.
+    double last = 0, damp = 0;
     // CPU side, computed at note-on
     int noteP = 60;            // note after all shifts (DAT_0103937a)
     int pitchNote = 0;         // NOTETAB + detune + tune (DAT_01028a84)
@@ -353,10 +328,8 @@ struct Chan {
     int portaCur = 0, portaTarget = 0, portaRate = 0; bool portaOn = false;
     // LFO1 (FUN_00028828)
     uint32_t lfoPhase = 0, lfoDelay = 0, lfoFade = 0; int lfoVal = 0; int lfoSH = 0;
-    // LFO2 (filter only) and the pan / filter registers (0x22A-0x22F, 0x270)
-    uint32_t lfo2Phase = 0; int lfo2Val = 0, lfo2SH = 0;
+    // the pan registers (0x22A-0x22F)
     int panBase = 63; double panL = 1, panR = 1;
-    StepEG feg; VFilter flt; int fltType = 0; bool fltOn = false; double fltGain = 1, fltInGain = 1;
     int vcLvl[8][2] = {}, vcFreq[8][2] = {}, vcBw[8][2] = {};   // voice Formant/FM control offsets, [op][voiced=0]
     // registers refreshed each tick
     int regPitch = 0, regPM = 0, regFM = 0, regAM = 0, regLevel[8], regULevel[8], regC0 = 73;
@@ -370,8 +343,18 @@ struct Synth {
     Perf perf; Chan ch[NCHAN]; uint32_t clock = 0; double gain = 1.0;   // the analogue volume pot, after the tap
     // FUN_0000f7dc's cursors: the last channel allocated, and the last one each part took. Allocation
     // walks from these rather than from channel 0, which is what fixes the channel a note lands on.
-    int nextChan = 0, partChan[4] = {0, 0, 0, 0};
-    FxSection fx;
+    // While a part has its filter on there are two more walks, each over half the channels: the parts
+    // with a filter take the sixteen the filter chip is wired to, the others the rest (FUN_0000fa5c,
+    // FUN_0000fcfa). nextChan is the cursor of the whole, the low and the high walk.
+    int nextChan[3] = {0, 0, FILTER_CHANNELS}, partChan[4] = {0, 0, 0, 0};
+    Effects fx;
+    // The voice filters, on their own chip. fltSw is the parts' filter switches as last latched, a bit a part.
+    Filter flt; int fltSw = 0;
+    void filter_latch();                       // FUN_0002087e: a switch that changed stops every channel
+    void filter_sync(int part);                // the part's voice, record and controllers, into the filter host
+    // FUN_0002c36c: LFO1 into a slot's cutoff. The fade takes twice the controller's offset, destination 42.
+    int filter_mod(const Chan& C) const { return (C.lfoVal * clampi((int)(C.lfoFade >> 8) + filter_fade(C.part), 0, 255)) >> 8; }
+    int filter_fade(int part) const { int o = ctrl_offset(part, 42) * 2; return o == 254 ? 255 : o; }
     const Rom* rom = nullptr;
     uint8_t sys[76] = {};                      // system parameters, sysex table 4
     int sysTune() const { return sys[0]; }
@@ -386,7 +369,7 @@ struct Synth {
     bool fseqHeld = false, fseqClock = false; double fseqDelay = 0, fseqClockAcc = 0;
     double tickAcc = 0;
 
-    Synth() { init_perf(perf); fx.init(SR); init_system(); }
+    Synth() { init_perf(perf); init_system(); fx.load((uint8_t*)&perf); }
     void init_system();
     static inline double sendlvl(int v) { return db2lin(-LEVEL_DB * SENDTAB[clampi(v, 0, 127)]); }
 
@@ -415,6 +398,7 @@ struct Synth {
     // and FUN_00014DDC walks the sets 0 to 7, so two sets on one destination do not compose: the last
     // one evaluated wins, exactly as for the destinations that edit a part byte.
     int ctrl_offset(int part, int dest) const;
+    void fx_controls(int part);                // destinations 1-16, into the effect host (controllers.cpp)
     // A destination that edits a part byte: the firmware writes the byte, so the last set that selects
     // it wins rather than the offsets adding up.
     int ctrl_part(int part, int dest, int stored) const;
@@ -430,8 +414,6 @@ struct Synth {
 
     // ---------------------------------------------------------------- note on (FUN_00010b48 / FUN_000112c0 / FUN_000125f8)
     void note_on(int part, int note, int vel);
-    // per-voice filter (voice common 0x54-0x6E, part 0x07/0x18/0x19/0x1F). Chip side, so INFERRED.
-    void start_filter(Chan& C, const Part& pt, int vel);
     // The Fseq retrigger test is the part's own held-note count, not the machine's: FUN_0001228c
     // increments DAT_010288dc[part] and calls the trigger only when that count reaches 1.
     bool anyOther(const Chan& C) const { for (auto& x : ch) if (&x != &C && x.active && x.held && x.part == C.part) return true; return false; }
@@ -466,7 +448,12 @@ struct Synth {
     // it, which is the free-channel test note_on itself reads, so a released note keeps counting until
     // its release is over rather than until the key comes up.
     int active_chans() const { int n = 0; for (auto& c : ch) n += c.active; return n; }
-    void all_off() { for (auto& c : ch) c.active = false; for (auto& p : perf.part) { p.nheld = 0; } fseqRun = false; fseqHeld = false; }
+    void all_off() {
+        for (auto& c : ch) c.active = false;
+        for (auto& p : perf.part) { p.nheld = 0; }
+        fseqRun = false; fseqHeld = false;
+        if (fltSw) for (int s = 0; s < FILTER_CHANNELS; s++) flt.host.kill(s);   // FUN_00010384
+    }
     void all_release() { for (auto& c : ch) if (c.active && (c.held || c.sustained)) { c.held = c.sustained = false; release(c); } for (auto& p : perf.part) p.nheld = 0; }
 
     // ---------------------------------------------------------------- Fseq (FUN_0000fffa / FUN_0001a59e)
@@ -490,9 +477,6 @@ struct Synth {
 
     // ---------------------------------------------------------------- tick: LFO, PEG, portamento, register refresh
     void lfo_tick(Chan& C, const Part& pt);
-    // LFO2: the same stepper as LFO1, but the speed byte is 0..127 straight from the voice and the
-    // output only reaches the filter cutoff.
-    void lfo2_tick(Chan& C, const Part& pt);
     void peg_tick(Chan& C);
     void porta_tick(Chan& C);
     void refresh_regs(Chan& C, const Part& pt);
@@ -509,7 +493,6 @@ struct Synth {
     // ymp706_registers.md, Pan). pan_index returns the part-pan-plus-scaling in the index domain, so the two
     // terms that follow — the pan LFO and the performance pan — are each summed at 0..255 and land halved.
     void refresh_pan(Chan& C, const Part& pt);
-    void refresh_filter(Chan& C, const Part& pt);
     void tick();
 
     // ---------------------------------------------------------------- MIDI in (Data List sections 2 to 4)
@@ -574,10 +557,9 @@ struct Synth {
     // every sample, an operator's own pitch EG, stays in the sample loop while it runs: its integral is
     // the phase. The rate itself is ours, not the hardware's, so it lives in fsvr/tuning.h.
     void refresh_ctl(Chan& C);
-    inline void render_chan(Chan& C, double& outL, double& outR);
-    // Part buses -> insertion / variation / reverb -> master EQ, the XG topology the FS1R uses.
-    // ponytail: the performance's individual out (common 0x14) is folded into the main pair; the plugin
-    // has one stereo output, so a second pair would be four channels nobody listens to yet.
+    inline double render_chan(Chan& C);        // the channel's own word, before the filter and the pan
+    // The first sixteen channels go through the filter chip while a part has its filter on. The part buses
+    // go through the effect chip (fx). Its individual out pair (common 0x14) is not rendered.
     void render(float* outL, float* outR, int frames);
 };
 

@@ -2,7 +2,7 @@
 
 What stops a C++ rewrite of VOP3-1 (filter) and VOP3-2 (effects) from the disassembly, as found on 2026-09-30 when the rewrite was attempted. The decode in `docs/vop3_isa.md` is measured field by field on feed-forward test chains, and every one of those measurements holds. The blockers below are what those chains never exercised. `python tools/vop3_gaps.py` asserts the first three and fails as each closes.
 
-The existing models in `src/fs1r/chips/vop3_filter.h` and `vop3_effects.h` are fitted to recordings and are not a reference for the rewrite. The only acceptance test is the demo pair: `captures/raw/FS1R DEMO.flac` (with VOP3) against `FS1R.unlock/captures/2026-09-22/fs1r_demos_without_vop3.flac` (without).
+The fitted models were not a reference for the rewrite: the chip replaced `vop3_effects.h` on 2026-10-13 and the filter model in `vop3_filter.h` on 2026-10-14. The only acceptance test is the demo pair: `captures/raw/FS1R DEMO.flac` (with VOP3) against `FS1R.unlock/captures/2026-09-22/fs1r_demos_without_vop3.flac` (without).
 
 ## 1. The decoded VOP3-1 filter has no memory
 

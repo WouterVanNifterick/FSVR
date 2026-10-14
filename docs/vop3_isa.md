@@ -447,9 +447,9 @@ Open: what 0x57 / 0x157 / 0x19f (op 0, k 0, mem 1, rB 78 / 7a) write into DRAM. 
 worse (`B13X`, rejected). Swapping the capture source order (`CAPORDER`) breaks 0..613: rejected.
 
 
-**Session 34: all 128 slot offsets; r9[13] is the DRAM write-data select.** (`tools/vop3_board.py` scores every
-dynamic take on disk through the C++ core, `src/fs1r/chips/vop3_core.h`, which `tools/vop3_core_check.py` holds
-bit-identical to `tools/vop3_interp.py`.)
+**Session 34: all 128 slot offsets; r9[13] is the DRAM write-data select.** (`tools/vop3_board.py` scored every
+dynamic take on disk through the C++ core of the time, `src/fs1r/chips/vop3_core.h`. Since 2026-10-13 the core is
+`src/fs1r/chips/yss236_core.h`; the old core and the tools that drove it are gone.)
 
 * **The chip has 128 delay slots.** FUN_000397F4's slot lists run to 127 (0x35E23C, 0x35E398) and the area table
   at 0x3720A4 has 128 bytes; every dump before s34 read 64. The rig dump (FS1R.unlock

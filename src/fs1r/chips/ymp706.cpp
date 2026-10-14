@@ -206,9 +206,9 @@ void Synth::refresh_ctl(Chan& C) {
     }
 }
 
-void Synth::render_chan(Chan& C, double& outL, double& outR) {
+double Synth::render_chan(Chan& C) {
     if (C.silent) {
-        // Ours. The carriers and the noise are over and the filter has rung down, so the channel's output
+        // Ours. The carriers and the noise are over, so the channel's output
         // is zero from here to its end; what is left is when the allocator may treat it as free, which
         // is the sample its last envelope passes -120 dB. Every envelope still running is in its release
         // and falling linearly, so that sample is arithmetic, and the channel costs nothing until then.
@@ -230,8 +230,8 @@ void Synth::render_chan(Chan& C, double& outL, double& outR) {
             for (auto& s : C.op) { s.eg.tick(); s.ueg.tick(); if (!s.eg.done() || !s.ueg.done()) alive = true; }
             if (!alive) C.active = false;
         }
-        outL = outR = 0.0; C.lastL = C.lastR = 0.0;
-        return;
+        C.last = 0.0;
+        return 0.0;
     }
     if (C.ctlLeft-- <= 0) { C.ctlLeft = ctlDecimation - 1; refresh_ctl(C); }
     const Voice& V = perf.part[C.part].voice; const unsigned char* alg = FS1R_ALG[V.alg];
@@ -288,37 +288,34 @@ void Synth::render_chan(Chan& C, double& outL, double& outR) {
     bool alive = false;
     for (auto& s : C.op) if (!s.eg.done() || !s.ueg.done()) { alive = true; break; }
     if (!alive) C.active = false;
-    // The channel goes silent once every carrier's EG is over with no grain in flight, every noise EG
-    // is over, and the filter has rung down: 64 samples of nothing, with no damp left from the note before.
+    // The channel goes silent once every carrier's EG is over with no grain in flight and every noise EG
+    // is over: 64 samples of nothing, with no damp left from the note before.
     bool carriersDone = true;
     for (int o = 0; o < 8; o++) { const OpState& s = C.op[o]; if (((alg[2 * o + 1] & 1) && (!s.eg.done() || s.g[0].on || s.g[1].on)) || !s.ueg.done()) { carriersDone = false; break; } }
-    if (carriersDone && fabs(mix) < 1e-9 && C.dampL == 0.0 && C.dampR == 0.0) { if (++C.quiet >= 64) C.silent = true; } else C.quiet = 0;
+    if (carriersDone && fabs(mix) < 1e-9 && C.damp == 0.0) { if (++C.quiet >= 64) C.silent = true; } else C.quiet = 0;
     // The channel accumulator saturates before the filter loop, which is where the capture puts it:
     // eight carriers stacked in one channel clip flat, while the filter's own output on ingain-12 rides
     // 4 dB above that ceiling, so nothing downstream of CHOUT can be what clips.
     mix = std::clamp(mix, -cal::CHAN_CLIP, cal::CHAN_CLIP);
-    if (C.fltOn) mix = C.flt.run(C.fltType, mix * C.fltGain);
-    outL = mix * C.panL; outR = mix * C.panR;
     // Remember this channel's own output, so a note-on that takes this channel has something to fade,
     // and add whatever the previous note left behind (FUN_00023000, see note_on).
-    C.lastL = outL; C.lastR = outR;
-    if (C.dampL != 0.0 || C.dampR != 0.0) {
-        outL += C.dampL; outR += C.dampR;
-        C.dampL *= DAMP_K; C.dampR *= DAMP_K;
-        if (fabs(C.dampL) < 1e-7 && fabs(C.dampR) < 1e-7) C.dampL = C.dampR = 0.0;
+    C.last = mix;
+    if (C.damp != 0.0) {
+        mix += C.damp;
+        C.damp *= DAMP_K;
+        if (fabs(C.damp) < 1e-7) C.damp = 0.0;
         else C.active = true;                      // a damp still sounding keeps the channel rendering
     }
+    return mix;
 }
 
 void Synth::render(float* outL, float* outR, int frames) {
     std::lock_guard<std::mutex> lk(mtx);
-    fx.configure(perf.fx);
-    double insLvl = sendlvl(perf.fx[0x63]), insRev = sendlvl(perf.fx[0x61]), insVar = sendlvl(perf.fx[0x62]);
-    double varRev = sendlvl(perf.fx[0x5E]), varRet = sendlvl(perf.fx[0x5D]), revRet = sendlvl(perf.fx[0x5A]);
-    int vp = clampi(perf.fx[0x5C] - 1, 0, 126), rp = clampi(perf.fx[0x59] - 1, 0, 126);
-    double vpl = db2lin(-LEVEL_DB * PANL[vp]), vpr = db2lin(-LEVEL_DB * PANR[vp]);
-    double rpl = db2lin(-LEVEL_DB * PANL[rp]), rpr = db2lin(-LEVEL_DB * PANR[rp]);
-    double pvol = perf.c[0x10] / 127.0;
+    const tuning::NoDenormals flush;
+    fx.sync((uint8_t*)&perf);
+    filter_latch();
+    for (int p = 0; p < 4; p++) if (fltSw >> p & 1) filter_sync(p);
+    // Part routing: a part with its insertion switch on feeds the insertion bus only, any other the dry bus and both sends.
     double dry[4], varS[4], revS[4]; bool insSw[4];
     for (int p = 0; p < 4; p++) {
         const uint8_t* q = perf.part[p].p;
@@ -329,48 +326,31 @@ void Synth::render(float* outL, float* outR, int frames) {
     sense_tick(frames / (double)SR);
     for (int i = 0; i < frames; i++) {
         tickAcc += TICK_HZ / SR; while (tickAcc >= 1) { tickAcc -= 1; tick(); }
-        double pl[4] = {}, pr[4] = {};
-        for (auto& c : ch) if (c.active) { double a, b; render_chan(c, a, b); pl[c.part] += a; pr[c.part] += b; }
-        double dL = 0, dR = 0, iL = 0, iR = 0, vL = 0, vR = 0, rL = 0, rR = 0;
+        // The channels, each panned onto its part's pair. While a part has its filter on the first sixteen
+        // pass through the filter chip first, sounding or not, so that a filter rings out after its note.
+        double pl[4] = {}, pr[4] = {}, v[FILTER_CHANNELS] = {};
+        for (int n = 0; n < NCHAN; n++) {
+            Chan& c = ch[n];
+            if (!c.active) continue;
+            const double m = render_chan(c);
+            if (fltSw && n < FILTER_CHANNELS) v[n] = m; else { pl[c.part] += m * c.panL; pr[c.part] += m * c.panR; }
+        }
+        if (fltSw) {
+            flt.run(v);
+            for (int n = 0; n < FILTER_CHANNELS; n++) { pl[ch[n].part] += v[n] * ch[n].panL; pr[ch[n].part] += v[n] * ch[n].panR; }
+        }
+        // Four stereo buses into the effect chip: dry, insertion, variation send, reverb send. The rest is the chip's.
+        double bus[8] = {}, l, r;
         for (int p = 0; p < 4; p++) {
-            if (insSw[p]) { iL += pl[p]; iR += pr[p]; continue; }
-            dL += pl[p] * dry[p]; dR += pr[p] * dry[p];
-            vL += pl[p] * varS[p]; vR += pr[p] * varS[p];
-            rL += pl[p] * revS[p]; rR += pr[p] * revS[p];
+            if (insSw[p]) { bus[2] += pl[p]; bus[3] += pr[p]; continue; }
+            bus[0] += pl[p] * dry[p]; bus[1] += pr[p] * dry[p];
+            bus[4] += pl[p] * varS[p]; bus[5] += pr[p] * varS[p];
+            bus[6] += pl[p] * revS[p]; bus[7] += pr[p] * revS[p];
         }
-        // An effect block handed parameters no preset would use can run away. Left alone, one bad
-        // block poisons the master EQ and silences everything after it, so a block whose output
-        // leaves the sane range is emptied and muted for that sample instead.
-        auto sane = [](FxBlock& blk, double& a, double& b) {
-            if (!(a > -1e6 && a < 1e6) || !(b > -1e6 && b < 1e6)) { blk.clearState(); a = b = 0.0; }
-        };
-        double oL, oR;
-        fx.ins.process(iL, iR, oL, oR);
-        sane(fx.ins, oL, oR);
-        dL += oL * insLvl; dR += oR * insLvl;
-        vL += oL * insVar; vR += oR * insVar;
-        rL += oL * insRev; rR += oR * insRev;
-        fx.var.process(vL, vR, oL, oR);
-        sane(fx.var, oL, oR);
-        rL += oL * varRev; rR += oR * varRev;
-        double l = dL + oL * varRet * vpl, r = dR + oR * varRet * vpr;
-        fx.rev.process(rL, rR, oL, oR);
-        sane(fx.rev, oL, oR);
-        l += oL * revRet * rpl; r += oR * revRet * rpr;
-        if (!(l > -1e6 && l < 1e6) || !(r > -1e6 && r < 1e6)) {
-            for (auto& q : fx.eq) q.reset();
-            l = r = 0.0;
-        }
-        fx.master(l, r);
-        // Down to the scale of the digital output board, which is what the capture measured, and then
-        // the main DAC's own ceiling. gain is ours: it stands in for the analogue volume pot, which on
-        // the hardware sits after the tap and so cannot be part of the measurement.
-        l *= cal::OUT_GAIN * pvol; r *= cal::OUT_GAIN * pvol;
-        // An effect block given parameters no preset would use can run away or go non-finite. The
-        // engine is a plugin: whatever happens upstream, it must not hand the host a NaN.
-        if (!(l > -1e6 && l < 1e6)) l = 0.0;
-        if (!(r > -1e6 && r < 1e6)) r = 0.0;
-        l = std::clamp(l, -1.0, 1.0) * gain; r = std::clamp(r, -1.0, 1.0) * gain;
-        outL[i] = (float)l; outR[i] = (float)r;
+        fx.run(bus, l, r);
+        // Ours: whatever happens upstream, the host never gets a NaN. gain stands in for the analogue volume
+        // pot, after the DAC.
+        if (!std::isfinite(l) || !std::isfinite(r)) l = r = 0.0;
+        outL[i] = (float)(l * gain); outR[i] = (float)(r * gain);
     }
 }

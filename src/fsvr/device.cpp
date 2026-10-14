@@ -142,6 +142,7 @@ bool Device::loadRomVoice(int part, int idx) {
 }
 bool Device::loadRomFseq(int n) { if (!p->rom.ok) return false; return rom_fseq(p->s, p->rom, n); }
 bool Device::loadSyx(const uint8_t* d, size_t len, int pick, int part) {
+    std::lock_guard<std::mutex> lk(p->s.mtx);
     return load_sysex(p->s, p->rom.ok ? &p->rom : nullptr, d, len, pick, part);
 }
 
@@ -178,8 +179,8 @@ int Device::activeVoices() const {
 
 int Device::selfTest() {
     init_tables();
-    Synth s;
-    int fails = selftest(s);
+    auto sp = std::make_unique<Synth>();   // too big for the stack
+    int fails = selftest(*sp);
     // A saved state with an Fseq loaded but no Fseq part comes back with none: the plug-in's session
     // restore once played the last Fseq on part 1 under a performance that has no Fseq.
     std::vector<uint8_t> f(9 + 32 + 128 * 50 + 2, 0), state;

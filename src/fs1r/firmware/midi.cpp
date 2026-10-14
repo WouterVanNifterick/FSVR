@@ -14,6 +14,7 @@ int Synth::ccSource(int cc) const {
 
 void Synth::set_source(Part& pt, int slot, int v) {
     pt.src[slot] = (SRC_RAW & (1 << slot)) ? v : ((v - 64) * 2 == 126 ? 127 : (v - 64) * 2);
+    fx_controls((int)(&pt - perf.part));
 }
 
 bool Synth::part_listens(int p, int chn) const {
@@ -42,9 +43,9 @@ void Synth::midi_in(int st, int d1, int d2) {
         switch (st) {
         case 0x90: if (d2) { note_on(p, d1, d2); fseq_keys(); break; }   // velocity 0 falls through
         case 0x80: note_off(p, d1); fseq_keys(); break;
-        case 0xA0: pt.src[SRC_PAT] = d2; break;
-        case 0xD0: pt.src[SRC_CAT] = d1; break;
-        case 0xE0: pt.bend = (d2 - 64) * 16; pt.src[SRC_PB] = d2 - 64; break;
+        case 0xA0: set_source(pt, SRC_PAT, d2); break;
+        case 0xD0: set_source(pt, SRC_CAT, d1); break;
+        case 0xE0: pt.bend = (d2 - 64) * 16; set_source(pt, SRC_PB, d2 - 64); break;
         case 0xC0: if (rom_ready(rom) && sys[0x13] && pt.p[1] && sys[8]) { pt.p[2] = (uint8_t)d1; rom_voice(*rom, bank_voice_index(pt.p[1], d1), pt.voice); } break;
         case 0xB0: control_change(p, d1, d2); break;
         }
@@ -83,7 +84,7 @@ void Synth::control_change(int p, int cc, int v) {
     case 100: pt.rpnL = v; pt.nrpnSel = false; break;
     case 101: pt.rpnM = v; pt.nrpnSel = false; break;
     case 120: all_off(); break;
-    case 121: pt.reset_ctl(); break;
+    case 121: pt.reset_ctl(); fx_controls(p); break;
     case 123: all_release(); break;
     case 126: pt.p[5] = 0; break;
     case 127: pt.p[5] = 1; break;

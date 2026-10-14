@@ -88,20 +88,17 @@ static const double FEG_TRAVERSE = 24.0;    // semitones the operator frequency 
                                             // step on the amplitude side, a quarter tone here, a 96-unit scale
                                             // quartered either way. The ramp is linear and its slope does not
                                             // depend on the swing, which is what separates this from the filter
-                                            // EG's exponential approach (FEG_RATE_K, a different chip).
-static const double FEG_RATE_K   = 42.9;    // MEASURED, FS1R.unlock session 3 `flteg` 2026-09-23: the filter EG's per-tick
-                                            // approach toward its asymptote is FEG_RATE_K * 2^(-word / 15.5) for the
-                                            // FEGRATE word the CPU hands VOP3-1 (register 0x2B). Eight attack times
-                                            // off the CPU's own stage word, words 119 to 224, 52 ms to 3.0 s, fit to
-                                            // 1.2% rms with a 24 ms offset that is the sampler's; the same word at
-                                            // swings of 128 and 512 took the same 0.23 s, so the chip is exponential.
+                                            // EG's exponential approach (FEG_SEG_S, a different chip).
+static const double FEG_SEG_S    = 1.33e-4; // MEASURED, FS1R.unlock session 3 `flteg` 2026-09-23: a filter EG segment whose aim
+                                            // lies half its swing past its target, which is how the CPU sends them, takes
+                                            // FEG_SEG_S * 2^(word / FEG_RATE_OCT) for the rate word the CPU hands VOP3-1
+                                            // (register 0x2B). Eight attack times off the CPU's own stage word, words 119
+                                            // to 224, 52 ms to 3.0 s, fit to 1.2% rms with a 24 ms offset that is the
+                                            // sampler's; the same word at swings of 128 and 512 took the same 0.23 s, so
+                                            // the approach is exponential and a segment is ln 3 of its time constants.
+static const double FEG_RATE_OCT = 15.5;    // rate words to a doubling of that time
 static const double FEG_FLAT_S   = 0.78;    // MEASURED, flteg: a filter EG segment with no swing holds 0.78 s (0.71 to
                                             // 0.86 over eleven notes, the sampler's 26 ms either side) at every rate word.
-static const double FEG_DEPTH_BYTES = 110.0;// MEASURED, 20_fltmod 2026-09-23: cutoff bytes the filter EG moves the corner
-                                            // at full depth (64) and full level (256). Six held-level segments at
-                                            // cutoff 96 put the corner 13.1, 25.5 and 52 bytes down for depth words
-                                            // -8, -16 and -32 at level 250, and 52 down for level -128 at depth 63:
-                                            // linear in both, 1.15x the 96 guessed from 14_sens's saturated sweep.
 static const double WIN_SKIRT    = 2.0;     // the grain window is sin^p, p = WIN_SKIRT * step^skirt. The
                                             // skirt is the one shape control all1, all2, odd1 and odd2
                                             // have, voice byte 6 being the formant's bandwidth and
@@ -222,57 +219,6 @@ static const double URES_DC[5][4]       = {{0.60, 1.18, 1.40, 1.50}, {0.37, 0.86
                                            {0.34, 0.58, 1.26, 2.38}, {0.33, 0.65, 1.09, 2.37}};       // settings 4..7
 static const double URES_NOISE_DB[5][4] = {{0.0, -4.9, -13.2, -23.4}, {0.0, -2.1, -9.5, -19.1}, {0.0, -1.0, -4.9, -11.3},
                                            {0.0, 0.0, -0.2, -0.9}, {0.0, -0.3, -0.1, 0.5}};
-// The filter is not the YMP706's: it runs on VOP3-1 and the CPU hands it coefficients, so these come
-// from the firmware's own conversions (FUN_0000C36C, FUN_0000C3D0) and only the chip's reading of them
-// is a guess. docs/ymp706_registers.md, "The per-voice filter".
-// The CPU stages 0xC0D + 0xA9 * cutoff into VOP3-1's coefficient memory, confirmed to the integer by the
-// 2026-09-19 register retake. What the chip makes of that word is the model, and reading it as a one-pole
-// coefficient at 48 kHz was wrong by a factor of twenty-five at the bottom of the range: it put the corner
-// at 755 Hz with the byte at 0, where 06_filter_1 takes 14.15 dB off a 32.7 Hz partial there. It could
-// not have been right at both ends either, since -log(1 - a) only spans 14:1 over the whole byte range
-// and the unit spans far more than that. So the corner goes as the byte, MEASURED 2026-09-21.
-static const double CUT_HZ0      = 17.4;    // the corner at cutoff byte 0 ...
-static const double CUT_OCT      = 1.0 / 12.0;  // ... doubling every twelve bytes, so 0 to 127 spans
-                                            // 10.6 octaves, 17 Hz to 26 kHz. MEASURED off 15_filter,
-                                            // which traces the response instead of sampling it: the
-                                            // half-power point over cutoff bytes 16 to 112 lands on
-                                            // this line to 0.098 octaves rms across thirteen points,
-                                            // 52 Hz at byte 16 through 11.3 kHz at 112. The 28.5 and
-                                            // 0.110 this replaces were fitted on 06_filter_1, whose
-                                            // source is one partial at 32.7 Hz, so only three of its
-                                            // sixteen cutoff segments said anything at all and the
-                                            // corner came out two octaves high at byte 64.
-static const double CUT_BYTE_MIN = 0.0;    // and the filter EG drives the byte past zero before the chip
-                                            // stops following it. MEASURED: 14_sens's flteg2 segments dip
-                                            // 23 dB on the same partial where byte 0 alone takes off
-                                            // 14.15, which is five bytes further down. Where exactly the
-                                            // chip stops is one number off one measurement.
-static const double RESO_Q0      = 1.0;     // filter Q at raw resonance 0 (displayed -16) ...
-static const double RESO_PER_OCT = 32.0;    // ... doubling every 32 raw steps, for the HPF/BPF/BEF modes only.
-                                            // The three lowpasses go through the ladder below instead.
-static const double LADDER_K     = 3.65;    // ladder feedback when resonance table A reads 1, four being
-                                            // the self-oscillation point of a 4-pole ladder. MEASURED off
-                                            // 15_filter, the first recording that can see resonance at all:
-                                            // the unit lifts its peak 1.20, 3.48, 6.73, 9.46, 11.90, 14.49,
-                                            // 17.50, 18.78, 19.83, 20.49 and 22.18 dB over resonance 0 to
-                                            // 100 at cutoff 64, so it runs right up to the edge. The 2.0
-                                            // this replaces tops out at 8.5 dB and came off the demo, which
-                                            // cannot see a resonance peak either. 3.65 is where the eleven
-                                            // lifts land at 0.45 dB rms with the mean at -0.04, against 0.98
-                                            // at 3.50 and 1.12 at 3.80. See reso_fb for the cube.
-static const double RESO_COMP    = 0.0;     // how much of resonance table B is spent lifting the passband on
-                                            // top of the ladder's own (1 + k) normalisation. MEASURED as none
-                                            // of it, which the demo had only guessed: 15_filter's passband
-                                            // below the corner reads 0.2, -0.9, 0.0 dB at resonance 0 and
-                                            // 0.0, -0.1, 0.1 at resonance 60, so the octaves the peak does
-                                            // not reach do not move at all.
-static const double LFO2_INC_K   = 3000.0 / 192.3;  // MEASURED, 20_fltmod 2026-09-23: LFO2 runs on VOP3-1 off the
-                                            // LFO2SPD word (FUN_0000C130) as a 16-bit phase stepped once every 16
-                                            // frames, 48000 / 16 = 3000 Hz, so the rate is word * 3000 / 65536 Hz:
-                                            // words 20, 40, 60, 104, 232 read 0.95, 1.91, 2.70, 4.76, 10.64 Hz, all
-                                            // within 4% of that. ponytail: speed 127 (word 556) reads 43.2 Hz where
-                                            // this gives 25.4, one point above word 232 and unexplained; a speed
-                                            // sweep from 100 to 127 would say where the law bends.
 static const double PMS_FRAC[8]  = {0, 0.038, 0.076, 0.125, 0.212, 0.365, 0.620, 1.0};        // per-op pitch mod sensitivity. MEASURED 2026-09-24
                                             // off 07_modulation_1's eight pms segments at pitch depth 99: the
                                             // fundamental's swing at pms 1..6 is 0.038, 0.076, 0.125, 0.212, 0.365,
@@ -283,6 +229,8 @@ static const double PMS_FRAC[8]  = {0, 0.038, 0.076, 0.125, 0.212, 0.365, 0.620,
 // docs/capture_0918.md the working.
 static const double OUT_GAIN     = 0.14992; // fixed gain between the summed bus and the digital tap. Nine
                                             // single-operator segments agree to 0.005 dB.
+static const double FX_DRY_GAIN  = 5.646458;// the effect chip model's dry path at performance volume 127 with a
+                                            // full-scale word in, 15.04 dB. 
 static const double LEVEL_SLEW_MS= 1.6;     // the voiced level register does not step, it glides, one pole with
                                             // this time constant. MEASURED 2026-09-21 off 12_fseqlevel, whose
                                             // Fseq rewrites the level thirty to eighty dB at a time: the octave

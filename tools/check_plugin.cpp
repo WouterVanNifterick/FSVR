@@ -395,7 +395,7 @@ int main() {
         request("save.request", "1");
         CHECK(a.until([&] { return a.data("perf.user.name") == name && a.is("gui.edited", 0); }), "\"%s\" did not save (%s)", name.c_str(), a.data("fsvr.message").c_str());
     };
-    auto sound = [&] {   // a note's RMS in dB over half a second, from silence
+    auto sound = [&] {   // a note's RMS in dB over three seconds, long enough to average out the free-running effect LFOs
         a.set("gui.panic", 1);
         a.run(8);
         a.set("gui.panic", 0);
@@ -403,7 +403,7 @@ int main() {
         a.midi({0x90, 60, 100});
         double sum = 0;
         int n = 0;
-        for (int b = 0; b < 48; ++b) {
+        for (int b = 0; b < 288; ++b) {
             a.run();
             for (float v : a.l) { sum += (double)v * v; ++n; }
         }
@@ -423,7 +423,8 @@ int main() {
         }
     };
     auto sameAfterReload = [&](const char* what, double loud, const std::vector<std::pair<int, std::vector<uint8_t>>>& edited) {
-        CHECK(std::fabs(sound() - loud) < 1.0, "%s: saving changed the sound", what);
+        const double afterSave = sound();
+        CHECK(std::fabs(afterSave - loud) < 1.0, "%s: saving changed the sound, %.1f dB from %.1f", what, afterSave, loud);
         const auto was = engine();
         same((std::string(what) + ", saving").c_str(), edited, was);
         const int n = (int)a.get("perf.user");
