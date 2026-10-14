@@ -24,8 +24,8 @@ SRC = sorted(str(p) for p in (list((ROOT / "src/fs1r").glob("*.cpp")) + list((RO
 
 
 def build(exe):
-    # the two chip hosts are bit-exact only without contraction and excess precision (CMakeLists.txt)
-    cmd = ["g++", "-O2", "-std=c++17", "-ffp-contract=off", "-fexcess-precision=standard", "-I", str(ROOT / "src")] + SRC + ["-o", str(exe)]
+    # the chip and its hosts are bit-exact only without contraction (CMakeLists.txt)
+    cmd = ["g++", "-O2", "-std=c++17", "-ffp-contract=off", "-I", str(ROOT / "src")] + SRC + ["-o", str(exe)]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode:
         sys.exit(r.stderr)

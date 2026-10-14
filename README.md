@@ -122,7 +122,7 @@ Every push to `main` builds the same set through [GitHub Actions](https://github
 CMake 3.24 or later everywhere, C++17. The engine, the console and the self checks need no dependencies:
 
 ```bash
-cmake -B build/cmake -S .                 # fs1rLib, test_effects, bin/render_capture, and bin/fsvr_console on Windows
+cmake -B build/cmake -S .                 # fs1rLib, bin/render_capture, and bin/fsvr_console on Windows
 cmake --build build/cmake --config Release
 ctest --test-dir build/cmake -C Release   # the self checks
 ```
