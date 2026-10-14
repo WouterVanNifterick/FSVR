@@ -31,33 +31,33 @@ constexpr uint32_t OFFS_PRESET_1 = 0x36568C, OFFS_PRESET_2 = 0x3656A8, OFFS_PRES
 }  // namespace
 
 // ---- small helpers (fx_design.c) ----
-int32_t Host::fxBipolar500(int v) { return sh::muls_w(500, v - 64); }                      // 0x39CF62
-int32_t Host::fxBipolar376(int v) { return sh::muls_w(376, v - 64); }                      // 0x39CF72
+int32_t Host::fxBipolar500(int v) { return 500 * (v - 64); }                      // 0x39CF62
+int32_t Host::fxBipolar376(int v) { return 376 * (v - 64); }                      // 0x39CF72
 int32_t Host::fxDiffusionClamp(int x, int v)                                               // 0x39D468
 {
     const int32_t d = x - int32_t(rom::u8(rom::FX_DIFFUSION + (uint32_t(v) & 0xFFFF)));
     return d > 0 ? d : 1;
 }
 int32_t Host::fxMsToSamples(int v) { return int32_t((19660u * (uint32_t(v) & 0xFFFF)) >> 12); }   // 0x39D47C
-int32_t Host::fxMulShift16(int v) { return sh::s16((31457u * (uint32_t(v) & 0xFFFF)) >> 16); }    // 0x39D490
+int32_t Host::fxMulShift16(int v) { return int16_t((31457u * (uint32_t(v) & 0xFFFF)) >> 16); }    // 0x39D490
 int32_t Host::fxMulTable6(int x)                                                           // 0x39D4A2
 {
-    return int32_t(rom::u8(TYPE_LEVEL + ram.u8(FX_TYPE0)) * sh::s16(uint32_t(x))) >> 6;
+    return int32_t(rom::u8(TYPE_LEVEL + ram.u8(FX_TYPE0)) * int16_t(x)) >> 6;
 }
 int32_t Host::fxMulTypeTableB(int x)                                                       // 0x39D500
 {
     const uint32_t a = TYPE_TABLE_B + ((uint32_t(ram.s8(FX_TYPE1 + 2)) * 18) & 0xFF) + ram.u8(FX_TYPE1 + 3);
-    return int32_t(rom::u8(a) * sh::s16(uint32_t(x))) >> 6;
+    return int32_t(rom::u8(a) * int16_t(x)) >> 6;
 }
 int32_t Host::fxMulTypeTableC(int x)                                                       // 0x39D53E
 {
     const uint32_t a = TYPE_TABLE_CD + ((uint32_t(ram.s8(FX_TYPE1 + 4)) & 0xFFFF) * 14 & 0xFF) + ram.u8(FX_TYPE1 + 5);
-    return int32_t(rom::u8(a) * sh::s16(uint32_t(x))) >> 6;
+    return int32_t(rom::u8(a) * int16_t(x)) >> 6;
 }
 int32_t Host::fxMulTypeTableD(int x)                                                       // 0x39D598
 {
     const uint32_t a = TYPE_TABLE_CD + ((uint32_t(ram.s8(FX_TYPE1 + 6)) & 0xFFFF) * 14 & 0xFF) + ram.u8(FX_TYPE1 + 7);
-    return int32_t(rom::u8(a) * sh::s16(uint32_t(x))) >> 6;
+    return int32_t(rom::u8(a) * int16_t(x)) >> 6;
 }
 
 // 0x39C796 fxDesignCombs(time, damp, count, sel, list): the damping LPF at list[r10..], then
@@ -73,17 +73,17 @@ void Host::fxDesignCombs(int time, int damp, int count, int sel, uint32_t list)
         const uint32_t cls = rom::u8(classes + uint32_t(i));
         uint32_t g = 0, loss = 0;
         if (cls != 0) {
-            int32_t v = sh::s16(rom::u8(row) + cls - 56);
+            int32_t v = int16_t(rom::u8(row) + cls - 56);
             v = v < 0 ? 0 : v > 255 ? 255 : v;
             g = rom::u16(rom::FX_COMB_GAIN + 4u * uint32_t(v) + 2);
             loss = rom::u16(rom::FX_COMB_GAIN + 4u * uint32_t(v));
         }
         const uint32_t unit = list + 8u * uint32_t(i);
         set_coef(rom::u16(unit), g);
-        const float f = sh::fmul(sh::itof(sh::s16(coef(rom::u16(list + 2 * r10)))), sh::utof(loss));
+        const float f = sh::fmul(sh::itof(int16_t(coef(rom::u16(list + 2 * r10)))), sh::utof(loss));
         const int32_t x = sh::ftoi(sh::fdiv(32768.0f, f));
-        set_coef(rom::u16(unit + 2), uint32_t(sh::s16(uint32_t(x))));
-        set_coef(rom::u16(unit + 4), uint32_t(sh::s16(uint32_t(x))));
+        set_coef(rom::u16(unit + 2), uint32_t(int16_t(x)));
+        set_coef(rom::u16(unit + 4), uint32_t(int16_t(x)));
         set_coef(rom::u16(unit + 6), coef(rom::u16(list + 2 * r10 + 4)));
     }
 }
@@ -151,8 +151,8 @@ void Host::fxScaleRow(int src, int scale, int offset, int count, int stride, uin
             s22 = x;
         }
         if (str & 1) {
-            s28 = int16_t(s28 << 1);
-            s26 = int16_t(s26 << 1);
+            s28 = int16_t(s28 * 2);
+            s26 = int16_t(s26 * 2);
         }
         flags >>= 1;
         str >>= 1;
@@ -207,10 +207,10 @@ void Host::fxCopyScaled12(int balance, uint32_t list)
 {
     const uint32_t idx = uint32_t(balance) & 0xFFFF;
     for (int i = 0; i < 10; i++) {
-        const float f1 = sh::itof(sh::s16(coef(rom::u16(ER_WORDS + 2u * uint32_t(i)))));
+        const float f1 = sh::itof(int16_t(coef(rom::u16(ER_WORDS + 2u * uint32_t(i)))));
         const float f2 = sh::itof(rom::s16(rom::FX_ER_REV + 2u * ((128u - idx) & 0xFFFFFFFFu)));
         const int32_t x = sh::ftoi(sh::fdiv(32768.0f, sh::fmul(f2, f1)));
-        set_coef(rom::u16(list + 2u * uint32_t(i)), uint32_t(sh::s16(uint32_t(x)) >> 1));
+        set_coef(rom::u16(list + 2u * uint32_t(i)), uint32_t(int16_t(x) >> 1));
     }
     const uint32_t g = rom::u16(rom::FX_ER_REV + 2u * idx);
     for (int i = 10; i < 22; i++)
@@ -257,14 +257,14 @@ void Host::fxDesignRooms(int time, int y0, int y1, int damp, int extra, uint32_t
     const uint32_t ya = rom::FX_ROOM_A + (uint32_t(y0) & 0xFFFF);
     const uint32_t yb = rom::FX_ROOM_A + (uint32_t(y0) & 0xFFFF) + (uint32_t(y1) & 0xFFFF);
     auto unit = [&](uint32_t u, uint32_t src, uint32_t lpf) {
-        int32_t v = sh::s16(rom::u8(src) + rom::u8(rowp) - 56);
+        int32_t v = int16_t(rom::u8(src) + rom::u8(rowp) - 56);
         v = v < 0 ? 0 : v > 255 ? 255 : v;
         const uint32_t entry = rom::FX_COMB_GAIN + 4u * uint32_t(v);
         set_coef(rom::u16(u), rom::u16(entry + 2));
-        const float f = sh::fmul(sh::itof(sh::s16(coef(rom::u16(lpf)))), sh::utof(rom::u16(entry)));
+        const float f = sh::fmul(sh::itof(int16_t(coef(rom::u16(lpf)))), sh::utof(rom::u16(entry)));
         const int32_t x = sh::ftoi(sh::fdiv(32768.0f, f));
-        set_coef(rom::u16(u + 2), uint32_t(sh::s16(uint32_t(x))));
-        set_coef(rom::u16(u + 4), uint32_t(sh::s16(uint32_t(x))));
+        set_coef(rom::u16(u + 2), uint32_t(int16_t(x)));
+        set_coef(rom::u16(u + 4), uint32_t(int16_t(x)));
         set_coef(rom::u16(u + 6), coef(rom::u16(lpf + 4)));
     };
     fxDesignFilter(1, 1, 0, dampf, 64, 0, list + 10);
@@ -275,7 +275,7 @@ void Host::fxDesignRooms(int time, int y0, int y1, int damp, int extra, uint32_t
 // ---- the handlers ----
 namespace {
 // the three (row, class, offset) words of the reverb type's comb selector
-inline uint32_t sel_row(const Host& h) { return rom::FX_COMB_SELECT + uint32_t(sh::s8(uint32_t(6 * h.ram.s8(FX_TYPE0)))); }
+inline uint32_t sel_row(const Host& h) { return rom::FX_COMB_SELECT + uint32_t(int8_t(6 * h.ram.s8(FX_TYPE0))); }
 }  // namespace
 
 // 0x3A3728 fxRevHall: reverb types 1-8
@@ -367,7 +367,7 @@ void Host::fxRevRoom(int p)
     p &= 0xFF;
     const uint32_t sel = sel_row(*this);
     auto prm = [&](int i) -> int32_t { return ram.s16(FX_PARAMS + 2 * i); };
-    const uint32_t roomrow = rom::FX_ROOM_B + uint32_t(sh::s8(uint32_t(12 * (ram.s8(FX_TYPE0) - 9))));
+    const uint32_t roomrow = rom::FX_ROOM_B + uint32_t(int8_t(12 * (ram.s8(FX_TYPE0) - 9)));
     auto pairs = [&](int j) {   // j = 0, 1, 2: the three early reflection groups
         fxRoomPairs(prm(1), prm(5 + j), prm(8), COMB_SLOTS + 8u * uint32_t(j));
     };

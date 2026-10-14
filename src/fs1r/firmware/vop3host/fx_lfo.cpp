@@ -19,7 +19,7 @@ void Host::fxLfoSpeed(int v, int lfo)
 {
     const uint32_t a = FX_LFO24 + 2u * (uint32_t(lfo) & 0xFF);
     ram.w16(a, rom::u16(rom::FX_LFO_SPEED + 2u * (uint32_t(v) & 0xFF)) | (ram.u16(a) & 3072));
-    writeSwe24Sub(uint32_t(sh::s8(uint32_t(lfo))));
+    writeSwe24Sub(uint32_t(int8_t(lfo)));
 }
 
 // 0x3A30C2 fxLfoPhase(v, lfo): low 5 bits of the register 0x25 word from FX_LFO_PHASE
@@ -27,27 +27,27 @@ void Host::fxLfoPhase(int v, int lfo)
 {
     const uint32_t a = FX_LFO25 + 2u * (uint32_t(lfo) & 0xFF);
     ram.w16(a, rom::u16(rom::FX_LFO_PHASE + 2u * (uint32_t(v) & 0xFF)) | (ram.u16(a) & 0xFFE0));
-    writeSwe25Sub(uint32_t(sh::s8(uint32_t(lfo))));
+    writeSwe25Sub(uint32_t(int8_t(lfo)));
 }
 
 // 0x3A3128 fxLfoDepth(v, lfo): v * 32768 / 127, 0x7FFF at 127
 void Host::fxLfoDepth(int v, int lfo)
 {
     const uint32_t b = uint32_t(v) & 0xFF;
-    const uint32_t w = b == 127 ? 0x7FFF : uint32_t(sh::sdiv3000(int32_t(b << 15), 127));
+    const uint32_t w = b == 127 ? 0x7FFF : (b << 15) / 127;
     ram.w16(FX_LFO26 + 2u * (uint32_t(lfo) & 0xFF), w);
-    writeSwe26Sub(uint32_t(sh::s8(uint32_t(lfo))));
+    writeSwe26Sub(uint32_t(int8_t(lfo)));
 }
 
 // 0x3A31CC / 0x3A31EA: (v - 64) * 546 and (v - 64) * 273
 void Host::fxStoreBipolar376(int v, uint32_t step)
 {
-    set_coef(rom::u16(step), uint32_t(sh::muls_w(546, int32_t(uint32_t(v) & 0xFF) - 64)));
+    set_coef(rom::u16(step), uint32_t(546 * ((v & 0xFF) - 64)));
     writeSweWordListSub(1, step);
 }
 void Host::fxStoreBipolar500(int v, uint32_t step)
 {
-    set_coef(rom::u16(step), uint32_t(sh::muls_w(273, int32_t(uint32_t(v) & 0xFF) - 64)));
+    set_coef(rom::u16(step), uint32_t(273 * ((v & 0xFF) - 64)));
     writeSweWordListSub(1, step);
 }
 
@@ -64,15 +64,15 @@ void Host::fxStoreModePair(int mode, uint32_t steps)
 // 0x3A328E fxStoreUdiv(v, step): v * 512 / 127
 void Host::fxStoreUdiv(int v, uint32_t step)
 {
-    set_coef(rom::u16(step), sh::udivsi3((uint32_t(v) & 0xFF) << 9, 127));
+    set_coef(rom::u16(step), ((uint32_t(v) & 0xFF) << 9) / 127);
     writeSweWordListSub(1, step);
 }
 
 // 0x3A32B0 fxStoreNegMul(v, step): -(v * 32768 / 127) for a signed byte, 0x7FFF at -127
 void Host::fxStoreNegMul(int v, uint32_t step)
 {
-    const int32_t b = sh::s8(uint32_t(v));
-    const uint32_t w = b == -127 ? 0x7FFF : uint32_t(-sh::sdiv3000(b << 15, 127));
+    const int32_t b = int8_t(v);
+    const uint32_t w = b == -127 ? 0x7FFF : uint32_t(-(b * 32768 / 127));
     set_coef(rom::u16(step), w);
     writeSweWordListSub(1, step);
 }
@@ -94,7 +94,7 @@ void Host::fxWriteWord(int v, uint32_t step)
     const int32_t d = int32_t(uint32_t(v) & 0xFF) - 80;
     uint32_t w = 0x7FFF;
     if (d >= 0)
-        w = sh::lshrsi3(uint32_t(rom::s16(OCTAVE_TABLE + 2u * uint32_t(sh::smod315C(d, 6)))), sh::sdiv3000(d, 6));
+        w = uint32_t(rom::s16(OCTAVE_TABLE + 2u * uint32_t(d % 6))) >> (d / 6);
     set_coef(rom::u16(step), w);
     writeSweWordListSub(1, step);
 }
@@ -105,7 +105,7 @@ void Host::fxWriteNegated(int v, uint32_t step)
     const int32_t d = int32_t(uint32_t(v) & 0xFF) - 56;
     uint32_t w = 0x8000;
     if (d >= 0)
-        w = uint32_t(-int32_t(sh::lshrsi3(uint32_t(rom::s16(OCTAVE_TABLE + 2u * uint32_t(sh::smod315C(d, 6)))), sh::sdiv3000(d, 6))));
+        w = uint32_t(-int32_t(uint32_t(rom::s16(OCTAVE_TABLE + 2u * uint32_t(d % 6))) >> (d / 6)));
     set_coef(rom::u16(step), w);
     writeSweWordListSub(1, step);
 }

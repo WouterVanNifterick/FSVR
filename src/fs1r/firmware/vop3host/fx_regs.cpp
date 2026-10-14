@@ -21,7 +21,7 @@ void Host::writeSweWordListSub(uint32_t n, uint32_t steps)
         return;
     for (uint32_t i = 0; i < n; i++) {
         const uint32_t step = rom::u16(steps + 2 * i);
-        writeSweWordSub(0, sh::s16(step) & 0xFFFF);
+        writeSweWordSub(0, int16_t(step) & 0xFFFF);
         writeSweWordSub(0x0B, coef(step));
     }
 }
@@ -29,7 +29,7 @@ void Host::writeSweWordListSub(uint32_t n, uint32_t steps)
 // 0x396A6 writeSweWordListLatchSub: the same through the auto-increment latch (no hold check)
 void Host::writeSweWordListLatchSub(uint32_t n, uint32_t steps)
 {
-    writeSweWordSub(0, (sh::s16(rom::u16(steps)) | 0x8000) & 0xFFFF);
+    writeSweWordSub(0, (int16_t(rom::u16(steps)) | 0x8000) & 0xFFFF);
     for (uint32_t i = 0; i < n; i++)
         writeSweWordSub(0x0B, coef(rom::u16(steps + 2 * i)));
 }
@@ -41,7 +41,7 @@ void Host::writeSwe0CSub(uint32_t n, uint32_t steps)
         return;
     for (uint32_t i = 0; i < n; i++) {
         const uint32_t step = rom::u16(steps + 2 * i);
-        writeSweWordSub(0, sh::s16(step) & 0xFFFF);
+        writeSweWordSub(0, int16_t(step) & 0xFFFF);
         writeSweWordSub(0x0C, ram.u8(FX_TAGS + step));
     }
 }
@@ -49,7 +49,7 @@ void Host::writeSwe0CSub(uint32_t n, uint32_t steps)
 // 0x39764 writeSweBytesSub: tags through the latch
 void Host::writeSweBytesSub(uint32_t n, uint32_t steps)
 {
-    writeSweWordSub(0, (sh::s16(rom::u16(steps)) | 0x8000) & 0xFFFF);
+    writeSweWordSub(0, (int16_t(rom::u16(steps)) | 0x8000) & 0xFFFF);
     for (uint32_t i = 0; i < n; i++)
         writeSweWordSub(0x0C, ram.u8(FX_TAGS + rom::u16(steps + 2 * i)));
 }
@@ -174,7 +174,7 @@ void Host::loadSubCoeffBlock(int kind, int clear)
         writeSweBytesSub(w.nsteps, w.steps_list);     // latched burst
         const uint32_t prog = w.prog + uint32_t(int16_t(entry * w.prog_stride));
         for (uint32_t word = 0; word < 5; word++) {
-            writeSweWordSub(0, (sh::s16(rom::u16(w.steps_list)) | 0x8000) & 0xFFFF);
+            writeSweWordSub(0, (int16_t(rom::u16(w.steps_list)) | 0x8000) & 0xFFFF);
             for (uint32_t s = 0; s < w.nsteps; s++)
                 writeSweWordSub(10 - word, rom::u16(prog + 10 * s + 2 * word));
         }

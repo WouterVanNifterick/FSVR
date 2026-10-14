@@ -8,7 +8,6 @@
 
 #include "ram.h"
 #include "rom_tables.h"
-#include "sh2int.h"
 #include "softfloat.h"
 
 namespace fs1r::vop3host {

@@ -468,7 +468,7 @@ void Host::fxInsPhaser1(int p)
         const uint32_t w = uint32_t(P(*this, 2) * 258);
         set_coef(rom::u16(PH_FB + 2), w);
         set_coef(rom::u16(PH_FB), w);
-        const int32_t d = sh::sdiv3000(int32_t(PU(*this, 1) * uint32_t(32767 - sh::s16(w))), 127);
+        const int32_t d = int32_t(PU(*this, 1) * uint32_t(32767 - int16_t(w))) / 127;
         set_coef(rom::u16(PH_DEPTH + 2), uint32_t(d));
         set_coef(rom::u16(PH_DEPTH), uint32_t(d));
         writeSweWordListSub(2, PH_FB);
@@ -490,7 +490,7 @@ void Host::fxInsPhaser1(int p)
         int32_t x = fxMulTypeTableB(rom::s16(PAN_LAW + 2u * wet) >> 2);
         set_coef(rom::u16(PH_WET + 2), uint32_t(x));
         if (P(*this, 11) != 0)
-            x = -sh::s16(uint32_t(x));
+            x = -int16_t(x);
         set_coef(rom::u16(PH_WET + 6), uint32_t(x));
         writeSweWordListSub(4, PH_WET);
         break;
@@ -536,10 +536,10 @@ void Host::fxInsPhaser2(int p)
     case 1: case 2: {
         const uint32_t w = uint32_t(P(*this, 2) * 258);
         set_coef(rom::u16(PH_FB), w);
-        set_coef(rom::u16(PH_DEPTH), uint32_t(sh::sdiv3000(int32_t(PU(*this, 1) * uint32_t(32767 - sh::s16(w))), 127)));
-        const int32_t v10 = sh::muls_w(242, P(*this, 2));
+        set_coef(rom::u16(PH_DEPTH), uint32_t(int32_t(PU(*this, 1) * uint32_t(32767 - int16_t(w))) / 127));
+        const int32_t v10 = 242 * P(*this, 2);
         set_coef(rom::u16(PH_FB + 2), uint32_t(v10));
-        set_coef(rom::u16(PH_DEPTH + 2), uint32_t(sh::sdiv3000(int32_t(PU(*this, 1) * uint32_t(32767 - sh::s16(uint32_t(v10)))), 127)));
+        set_coef(rom::u16(PH_DEPTH + 2), uint32_t(int32_t(PU(*this, 1) * uint32_t(32767 - int16_t(v10))) / 127));
         writeSweWordListSub(2, PH_FB);
         writeSweWordListSub(2, PH_DEPTH);
         break;
@@ -613,8 +613,8 @@ void Host::fxInsDelayLR(int p)
         break;
     case 5: {
         const int32_t x = sh::dtoi(sh::dmul(sh::ftod(rom::f32(LEVEL_CURVE + 4u * PU(*this, 5))), 32767.0));
-        set_coef(rom::u16(mw(7)), uint32_t(sh::s16(uint32_t(x))));
-        set_coef(rom::u16(mw(5)), uint32_t(sh::s16(uint32_t(x))));
+        set_coef(rom::u16(mw(7)), uint32_t(int16_t(x)));
+        set_coef(rom::u16(mw(5)), uint32_t(int16_t(x)));
         writeSweWordListSub(1, mw(5));
         writeSweWordListSub(1, mw(7));
         break;
@@ -648,8 +648,8 @@ void Host::fxInsDelayLCR(int p)
     case 3: ins_delay_slot(*this, 6, 0, 3); break;
     case 4: {
         const int32_t x = fxBipolar500(P(*this, 4));
-        set_coef(rom::u16(mw(10)), uint32_t(sh::s16(uint32_t(x)) >> 1));
-        set_coef(rom::u16(mw(8)), uint32_t(sh::s16(uint32_t(x)) >> 1));
+        set_coef(rom::u16(mw(10)), uint32_t(int16_t(x) >> 1));
+        set_coef(rom::u16(mw(8)), uint32_t(int16_t(x) >> 1));
         writeSweWordListSub(1, mw(8));
         writeSweWordListSub(1, mw(10));
         break;
@@ -696,7 +696,7 @@ void Host::fxInsEcho(int p)
         break;
     case 7: {
         const int32_t i = sh::ftoi(sh::fmul(32767.0f, rom::f32(LEVEL_CURVE + 4u * PU(*this, 7))));
-        const uint32_t x = uint32_t(fxMulTypeTableB(sh::s16(uint32_t(i))));
+        const uint32_t x = uint32_t(fxMulTypeTableB(int16_t(i)));
         set_coef(rom::u16(mw(5)), x);
         set_coef(rom::u16(mw(4)), x);
         writeSweWordListSub(2, mw(4));
@@ -808,7 +808,7 @@ constexpr uint32_t ER_LEVEL = 0x370A00;        // u8: ER level byte -> gain offs
 constexpr uint32_t ER_ROWS = 0x36F872;         // s16 rows of 6 per type lsb: the room row per size
 constexpr uint32_t ER_ROW_STEPS = 0x35DC54, ER_ROW_SLOTS = 0x35DBE4;
 constexpr uint32_t ER_WET = 0x35DF6C;
-inline int32_t er_row(const Host& h) { return rom::s16(ER_ROWS + uint32_t(sh::s8(uint32_t(12 * lsb(h)))) + 2u * PU(h, 0)); }
+inline int32_t er_row(const Host& h) { return rom::s16(ER_ROWS + uint32_t(int8_t(uint32_t(12 * lsb(h)))) + 2u * PU(h, 0)); }
 void er_wet(Host& h)
 {
     wet_words(h, ER_WET, ER_REV, PU(h, 9), GXGX);
@@ -819,7 +819,7 @@ void er_wet(Host& h)
 // 0x3A6338 fxInsErGain(x): the comb-gain table's loss word at x clamped to 0..255
 int32_t Host::fxInsErGain(int x)
 {
-    int32_t v = sh::s16(uint32_t(x));
+    int32_t v = int16_t(x);
     v = v < 0 ? 0 : v > 255 ? 255 : v;
     return rom::s16(rom::FX_COMB_GAIN + 4u * uint32_t(v));
 }
@@ -838,7 +838,7 @@ void Host::fxInsErPattern()
     const int32_t limit = int32_t(ram.u32(FX_BASES + 12) - ram.u32(FX_BASES + 8)) - 1;
     for (uint32_t i = 0; i < 20; i++, row += 4) {
         const uint32_t w = uint32_t(fxMulShift16(rom::s16(row))) & 0xFFFF;
-        int32_t pos = base + sh::sdiv3000(int32_t(density * w), 10);
+        int32_t pos = base + int32_t(density * w) / 10;
         int32_t gain;
         if (pos > limit) {
             pos = limit;
@@ -846,9 +846,9 @@ void Host::fxInsErPattern()
         } else {
             const int32_t g = rom::s16(row + 2);
             if (g > 0)
-                gain = sh::s16(uint32_t(fxInsErGain(g + level)));
+                gain = int16_t(uint32_t(fxInsErGain(g + level)));
             else
-                gain = -sh::s16(uint32_t(fxInsErGain(level - g)));
+                gain = -int16_t(uint32_t(fxInsErGain(level - g)));
         }
         set_offs(rom::u8(ER_SLOTS + i), pos);
         set_coef(rom::u16(ER_STEPS + 2 * i), uint32_t((gain + (gain < 0 ? 1 : 0)) >> 1));

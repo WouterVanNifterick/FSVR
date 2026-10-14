@@ -71,7 +71,7 @@ Preset variation_preset(uint32_t msb)
 // single parameter change for the kind's handler.
 void Host::fxParamEntry(int kind, int p)
 {
-    kind = sh::s8(uint32_t(kind));
+    kind = int8_t(kind);
     p &= 0xFF;
     if (p >= 254)
         fxResetWindow(kind);

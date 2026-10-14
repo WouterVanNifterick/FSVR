@@ -28,7 +28,7 @@ void Host::fxResetWindow(int kind)
     // offs[slot_i] = ((span / n) * (n - 1 - i)), unsigned divide, 32-bit product
     auto spread = [&](uint32_t n, uint32_t slots, uint32_t span) {
         for (uint32_t i = 0; i < n; i++) {
-            const uint32_t q = sh::udivsi3(span, n);
+            const uint32_t q = span / n;
             set_offs(rom::u8(slots + i), int32_t(q * (n - 1 - i)));
         }
         writeSweDeSub(n, slots);
@@ -137,9 +137,9 @@ void Host::fxSystemParam(int p)
             const float gl = sh::fdiv(127.0f, sh::itof(rom::s16(rom::FX_PAN_LAW + uint32_t(128 - int32_t(pan)) * 2)));
             const float gr = sh::fdiv(127.0f, sh::itof(rom::s16(rom::FX_PAN_LAW + pan * 2)));
             const int32_t l = sh::ftoi(sh::fmul(sh::utof(sys(1)), gl));
-            set_coef(step(B, 0), uint32_t(sh::s16(l) >> 3));
+            set_coef(step(B, 0), uint32_t(int16_t(l) >> 3));
             const int32_t r = sh::ftoi(sh::fmul(sh::utof(sys(1)), gr));
-            set_coef(step(B, 1), uint32_t(sh::s16(r) >> 3));
+            set_coef(step(B, 1), uint32_t(int16_t(r) >> 3));
         }
         writeSweWordListSub(2, B);
         break;
@@ -149,13 +149,13 @@ void Host::fxSystemParam(int p)
         writeSweWordListSub(2, A);
         break;
     case 3:
-        set_coef(step(B, 2), uint32_t(sh::s16(level(sys(3), 8192.0f)) >> 1));
-        set_coef(step(B, 3), uint32_t(sh::s16(level(sys(3), 8192.0f)) >> 1));
+        set_coef(step(B, 2), uint32_t(int16_t(level(sys(3), 8192.0f)) >> 1));
+        set_coef(step(B, 3), uint32_t(int16_t(level(sys(3), 8192.0f)) >> 1));
         writeSweWordListSub(2, B + 4);
         break;
     case 4:
-        set_coef(step(C, 6), uint32_t(sh::s16(level(sys(4), 8192.0f)) << 1));
-        set_coef(rom::u16(0x35DFDA), uint32_t(sh::s16(level(sys(4), 8192.0f)) << 1));
+        set_coef(step(C, 6), uint32_t(int16_t(level(sys(4), 8192.0f)) << 1));
+        set_coef(rom::u16(0x35DFDA), uint32_t(int16_t(level(sys(4), 8192.0f)) << 1));
         writeSweWordListSub(1, C + 12);
         writeSweWordListSub(1, 0x35DFDA);
         break;
@@ -164,13 +164,13 @@ void Host::fxSystemParam(int p)
         writeSweWordListSub(2, A + 4);
         break;
     case 6:
-        set_coef(step(B, 4), uint32_t(sh::s16(level(sys(6), 8192.0f)) >> 1));
-        set_coef(step(B, 5), uint32_t(sh::s16(level(sys(6), 8192.0f)) >> 1));
+        set_coef(step(B, 4), uint32_t(int16_t(level(sys(6), 8192.0f)) >> 1));
+        set_coef(step(B, 5), uint32_t(int16_t(level(sys(6), 8192.0f)) >> 1));
         writeSweWordListSub(2, B + 8);
         break;
     case 7:
-        set_coef(step(C, 1), uint32_t(sh::s16(level(sys(7), 8192.0f)) << 1));
-        set_coef(rom::u16(0x35DFD0), uint32_t(sh::s16(level(sys(7), 8192.0f)) << 1));
+        set_coef(step(C, 1), uint32_t(int16_t(level(sys(7), 8192.0f)) << 1));
+        set_coef(rom::u16(0x35DFD0), uint32_t(int16_t(level(sys(7), 8192.0f)) << 1));
         writeSweWordListSub(1, C + 2);
         writeSweWordListSub(1, 0x35DFD0);
         break;
@@ -206,10 +206,10 @@ void Host::fxSystemParam(int p)
         if (enabled(5)) {
             zero_pair(B, 14);
         } else {
-            // mulu.w v, level; mul.l v, that; signed divide by 127^2
+            // v * v * level / 127^2, the 32-bit product divided as signed
             const uint32_t v = sys(14);
-            const uint32_t prod = v * sh::mulu_w(v, ram.u16(FX_SUB_LEVEL));
-            const int32_t q = sh::sdiv3000(int32_t(prod), 16129);
+            const uint32_t prod = v * v * ram.u16(FX_SUB_LEVEL);
+            const int32_t q = int32_t(prod) / 16129;
             set_coef(step(B, 15), uint32_t(q));
             set_coef(step(B, 14), uint32_t(q));
         }

@@ -33,8 +33,8 @@ constexpr uint32_t BLK_REVERB = SWE_SHADOW + 2304, BLK_INSERTION = SWE_SHADOW + 
 int32_t Host::insertionParamBound(uint32_t id, uint32_t which)
 {
     const uint32_t type = ram.u8(PERFORMANCE + 175);
-    const uint32_t desc = rom::u32(rom::PARAM_DESC_INSERTION + 4 * type) + (((sh::u16(id) & 255) - 136) << 4);
-    return sh::u16(which) == 0 ? rom::s16(desc + 6) : rom::s16(desc + 8);
+    const uint32_t desc = rom::u32(rom::PARAM_DESC_INSERTION + 4 * type) + (((id & 0xFFFF & 255) - 136) << 4);
+    return (which & 0xFFFF) == 0 ? rom::s16(desc + 6) : rom::s16(desc + 8);
 }
 int32_t Host::insertionParamMax(uint32_t id) { return insertionParamBound(id, 1); }     // flash 0x30740
 int32_t Host::insertionParamMin(uint32_t id) { return insertionParamBound(id, 0); }     // flash 0x3074C
@@ -55,7 +55,7 @@ void Host::applySubDirtyMask(uint32_t mask)
         for (uint32_t i = 0; i < 16; i++)
             ram.w16(dst + 2 * i, ram.u16(src + 2 * i));
     };
-    auto is_delay = [&](uint32_t type) -> bool { return rom::u8(TYPE_MAP_REVERB + (sh::u8(type) << 1)) != 0; };
+    auto is_delay = [&](uint32_t type) -> bool { return rom::u8(TYPE_MAP_REVERB + ((type & 0xFF) << 1)) != 0; };
 
     if ((mask & 0x80) || (mask & 0x8000)) {
         if (mask & 0x8000) {
@@ -78,7 +78,7 @@ void Host::applySubDirtyMask(uint32_t mask)
         setSubFlag(4, 1);
         for (uint32_t i = 0; i < 16; i++)
             ram.w16(FX_VAR_WORD + 2 * i, 0);
-        const uint32_t rev = sh::u8(uint32_t(readParameter(168)));
+        const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
         ram.w16(BLK_SYS + 2 * 4, 90);
         fxParamEntry(6, 4);
         int delay_entry;
@@ -160,14 +160,14 @@ void Host::applySubDirtyMask(uint32_t mask)
         setSubFlag(0, 0);
         setSubFlag(2, 0);
         setSubFlag(3, 0);
-        if (sh::u8(uint32_t(readParameter(171))) != 0)
+        if ((uint32_t(readParameter(171)) & 0xFF) != 0)
             setSubFlag(4, 0);
     }
 
     if (mask & 0x40) {
         setSubFlag(0, 1);
         setSubFlag(3, 1);
-        const uint32_t rev = sh::u8(uint32_t(readParameter(168)));
+        const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
         ram.w16(BLK_SYS + 2 * 4, 90);
         fxParamEntry(6, 4);
         if (!is_delay(rev)) {
@@ -176,11 +176,11 @@ void Host::applySubDirtyMask(uint32_t mask)
             ram.w8(SWE_SHADOW + 0x26, 0);
             ram.w8(SWE_SHADOW + 0x27, 1);
             fxParamEntry(3, 255);
-            ram.w16(BLK_SYS + 2 * 0, sh::u8(uint32_t(readParameter(169))));
+            ram.w16(BLK_SYS + 2 * 0, uint32_t(readParameter(169)) & 0xFF);
             fxParamEntry(6, 0);
             ram.w16(BLK_SYS + 2 * 10, 64);
             fxParamEntry(6, 10);
-            ram.w16(BLK_SYS + 2 * 1, sh::u8(uint32_t(readParameter(170))));
+            ram.w16(BLK_SYS + 2 * 1, uint32_t(readParameter(170)) & 0xFF);
             fxParamEntry(6, 1);
             ram.w16(BLK_SYS + 2 * 3, 0);
         } else {
@@ -189,12 +189,12 @@ void Host::applySubDirtyMask(uint32_t mask)
             ram.w8(SWE_SHADOW + 0x26, 8);
             ram.w8(SWE_SHADOW + 0x27, rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1)));
             fxParamEntry(3, 255);
-            const uint32_t pan = sh::u8(uint32_t(readParameter(169)));
+            const uint32_t pan = uint32_t(readParameter(169)) & 0xFF;
             ram.w16(BLK_SYS + 2 * 0, 64);
             fxParamEntry(6, 0);
             ram.w16(BLK_SYS + 2 * 10, pan);
             fxParamEntry(6, 10);
-            const uint32_t ret = sh::u8(uint32_t(readParameter(170)));
+            const uint32_t ret = uint32_t(readParameter(170)) & 0xFF;
             ram.w16(BLK_SYS + 2 * 1, 0);
             fxParamEntry(6, 1);
             ram.w16(BLK_SYS + 2 * 3, ret);
@@ -207,7 +207,7 @@ void Host::applySubDirtyMask(uint32_t mask)
     }
 
     if (mask & 0x20) {
-        const uint32_t rev = sh::u8(uint32_t(readParameter(168)));
+        const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
         for (uint32_t i = 0; i < 16; i++) {
             if (ram.u8(FX_DIRTY_REVERB + i) != 1)
                 continue;
@@ -225,7 +225,7 @@ void Host::applySubDirtyMask(uint32_t mask)
 
     if (mask & 0x10) {
         setSubFlag(4, 1);
-        const uint32_t var = sh::u8(uint32_t(readParameter(171)));
+        const uint32_t var = uint32_t(readParameter(171)) & 0xFF;
         ram.w8(SWE_SHADOW + 0x28, rom::u8(TYPE_MAP_VARIATION + (var << 1)));
         ram.w8(SWE_SHADOW + 0x29, rom::u8(TYPE_MAP_VARIATION + (var << 1) + 1));
         fxParamEntry(4, 255);
@@ -250,7 +250,7 @@ void Host::applySubDirtyMask(uint32_t mask)
         setSubFlag(2, 1);
         for (uint32_t i = 0; i < 16; i++)
             ram.w16(FX_VAR_WORD + 2 * i, 0);
-        const uint32_t ins = sh::u8(uint32_t(readParameter(175)));
+        const uint32_t ins = uint32_t(readParameter(175)) & 0xFF;
         ram.w8(SWE_SHADOW + 0x24, rom::u8(TYPE_MAP_INSERTION + (ins << 1)));
         ram.w8(SWE_SHADOW + 0x25, rom::u8(TYPE_MAP_INSERTION + (ins << 1) + 1));
         fxParamEntry(2, 255);
@@ -265,13 +265,13 @@ void Host::applySubDirtyMask(uint32_t mask)
         for (uint32_t i = 0; i < 16; i++) {
             if (ram.u8(FX_DIRTY_INSERTION + i) != 1)
                 continue;
-            const int32_t lo = int32_t(sh::u16(uint32_t(insertionParamMin(136 + 2 * i))));
-            const int32_t hi = int32_t(sh::u16(uint32_t(insertionParamMax(136 + 2 * i))));
-            const int32_t span = int32_t(sh::mulsi3(uint32_t(ram.s16(FX_VAR_WORD + 2 * i)), uint32_t(hi - lo)));
-            const int32_t add = sh::s16(uint32_t(sh::sdiv3000(span, 127)));
-            int32_t v = sh::s16(uint32_t(ram.s16(cache + 0x20 + 2 * i) + add));
+            const int32_t lo = int32_t(uint32_t(insertionParamMin(136 + 2 * i)) & 0xFFFF);
+            const int32_t hi = int32_t(uint32_t(insertionParamMax(136 + 2 * i)) & 0xFFFF);
+            const int32_t span = ram.s16(FX_VAR_WORD + 2 * i) * (hi - lo);
+            const int32_t add = int16_t(span / 127);
+            int32_t v = int16_t(ram.s16(cache + 0x20 + 2 * i) + add);
             if (!(v > lo)) v = lo;
-            v = sh::s16(uint32_t(v));
+            v = int16_t(v);
             const int32_t out = v >= hi ? hi : v;
             ram.w8(FX_DIRTY_INSERTION + i, 0);
             ram.w16(BLK_INSERTION + 2 * i, uint32_t(out));
@@ -381,14 +381,14 @@ void Host::applySubPerfVolume()                                                /
 // controller offset, clamped to 0..127
 void Host::applySubInsToReverb()
 {
-    int32_t v = sh::s16(ram.u8(PERFORMANCE + 177) + uint32_t(ram.s16(FX_SENDA_OFFSET)));
+    int32_t v = int16_t(ram.u8(PERFORMANCE + 177) + uint32_t(ram.s16(FX_SENDA_OFFSET)));
     if (!(v > 0)) v = 0;
     setSubInsToReverb(uint32_t(v >= 127 ? 127 : v));
 }
 // flash 0x3B8EC applySubInsToVariation: the same for the insertion to variation send
 void Host::applySubInsToVariation()
 {
-    int32_t v = sh::s16(ram.u8(PERFORMANCE + 178) + uint32_t(ram.s16(FX_SENDB_OFFSET)));
+    int32_t v = int16_t(ram.u8(PERFORMANCE + 178) + uint32_t(ram.s16(FX_SENDB_OFFSET)));
     if (!(v > 0)) v = 0;
     setSubInsToVariation(uint32_t(v >= 127 ? 127 : v));
 }
@@ -399,20 +399,20 @@ void Host::applySubIndividualOut() { setSubIndividualOut(ram.u8(PERFORMANCE + 20
 // flash 0x3B940 copySubEqLow: cached EQ word i (bytes 180..183) to master EQ parameter i
 void Host::copySubEqLow(uint32_t i)
 {
-    i = sh::u16(i);
+    i = i & 0xFFFF;
     ram.w16(FX_PARAMS_EQ + (i << 1), ram.u16(FX_PARAM_CACHE + 0x60 + (i << 1)));
-    fxParamEntry(5, int(sh::s16(i)));
+    fxParamEntry(5, int(int16_t(i)));
 }
 // flash 0x3B95C copySubEqMid: cached EQ word i (bytes 184..186) to master EQ parameter i + 4
 void Host::copySubEqMid(uint32_t i)
 {
-    ram.w16(FX_PARAMS_EQ + 0x10 + ((sh::u16(i) - 4) << 1), ram.u16(FX_PARAM_CACHE + 0x60 + (sh::u16(i) << 1)));
+    ram.w16(FX_PARAMS_EQ + 0x10 + (((i & 0xFFFF) - 4) << 1), ram.u16(FX_PARAM_CACHE + 0x60 + ((i & 0xFFFF) << 1)));
     fxParamEntry(5, int(i + 4));
 }
 // flash 0x3B97E copySubEqHigh: cached EQ word i (bytes 187..190) to master EQ parameter i + 9
 void Host::copySubEqHigh(uint32_t i)
 {
-    ram.w16(FX_PARAMS_EQ + 0x20 + ((sh::u16(i) - 7) << 1), ram.u16(FX_PARAM_CACHE + 0x60 + (sh::u16(i) << 1)));
+    ram.w16(FX_PARAMS_EQ + 0x20 + (((i & 0xFFFF) - 7) << 1), ram.u16(FX_PARAM_CACHE + 0x60 + ((i & 0xFFFF) << 1)));
     fxParamEntry(5, int(i + 9));
 }
 
@@ -432,7 +432,7 @@ void Host::copySubEqWords()
 // flash 0x3BA2C setSubInsToReverb: insertion to reverb send, v * 2896 / 127, into two mixer steps
 void Host::setSubInsToReverb(uint32_t v)
 {
-    const int32_t w = sh::s16(uint32_t(sh::ftoi(sh::fdiv(sh::from_bits(0x42FE0000), sh::fmul(sh::utof(sh::u8(v)), sh::from_bits(0x45350000))))));
+    const int32_t w = int16_t(sh::ftoi(sh::fdiv(sh::from_bits(0x42FE0000), sh::fmul(sh::utof(v & 0xFF), sh::from_bits(0x45350000)))));
     set_coef(rom::u16(STEPS_C + 34), uint32_t(w));
     set_coef(rom::u16(STEPS_C + 46), uint32_t(w));
     writeSweWordListSub(1, STEPS_C + 34);
@@ -441,7 +441,7 @@ void Host::setSubInsToReverb(uint32_t v)
 // flash 0x3BA8E setSubInsToVariation: insertion to variation send, the same law, two other steps
 void Host::setSubInsToVariation(uint32_t v)
 {
-    const int32_t w = sh::s16(uint32_t(sh::ftoi(sh::fdiv(sh::from_bits(0x42FE0000), sh::fmul(sh::utof(sh::u8(v)), sh::from_bits(0x45350000))))));
+    const int32_t w = int16_t(sh::ftoi(sh::fdiv(sh::from_bits(0x42FE0000), sh::fmul(sh::utof(v & 0xFF), sh::from_bits(0x45350000)))));
     set_coef(rom::u16(STEPS_C + 56), uint32_t(w));
     set_coef(rom::u16(STEPS_C + 66), uint32_t(w));
     writeSweWordListSub(1, STEPS_C + 56);
@@ -450,7 +450,7 @@ void Host::setSubInsToVariation(uint32_t v)
 // flash 0x3BB30 setSubInsLevel: insertion level, (v * 8192 / 127) >> 2, into two mixer steps
 void Host::setSubInsLevel(uint32_t v)
 {
-    const int32_t w = sh::s16(uint32_t(sh::ftoi(sh::fdiv(sh::from_bits(0x42FE0000), sh::fmul(sh::utof(sh::u8(v)), sh::from_bits(0x46000000)))))) >> 2;
+    const int32_t w = int16_t(sh::ftoi(sh::fdiv(sh::from_bits(0x42FE0000), sh::fmul(sh::utof(v & 0xFF), sh::from_bits(0x46000000))))) >> 2;
     set_coef(rom::u16(STEPS_B + 16), uint32_t(w));
     set_coef(rom::u16(STEPS_B + 18), uint32_t(w));
     writeSweWordListSub(1, STEPS_B + 16);
@@ -462,7 +462,7 @@ void Host::setSubInsLevel(uint32_t v)
 void Host::setSubIndividualOut(uint32_t mode)
 {
     auto step = [&](int i) -> uint32_t { return rom::u16(STEPS_ROUTE + 2 * i); };
-    switch (sh::u8(mode)) {
+    switch (mode & 0xFF) {
     case 0: set_coef(step(0), 0); set_coef(step(1), 0); set_coef(step(2), 0); set_coef(step(3), 0); break;
     case 1: set_coef(step(0), 0x0B50); set_coef(step(1), 0x0B50); set_coef(step(2), 0); set_coef(step(3), 0); break;
     case 2: set_coef(step(0), 0); set_coef(step(1), 0); set_coef(step(2), 0x0B50); set_coef(step(3), 0x0B50); break;
@@ -505,7 +505,7 @@ bool Host::pollSubDirtyLoop()
 void Host::loadSubTypeDefaults(uint32_t kind)
 {
     uint32_t src, dst;
-    switch (sh::u8(kind)) {
+    switch (kind & 0xFF) {
     case 0:
         src = rom::FX_DEFAULTS_REVERB + (ram.u8(SWE_SHADOW + 0x21) << 5);
         dst = BLK_REVERB;
@@ -563,7 +563,7 @@ void Host::loadSubTypeDefaults(uint32_t kind)
 // flash 0x3BDFC syncSubReverbType: performance byte 168
 void Host::syncSubReverbType()
 {
-    const uint32_t rev = sh::u8(uint32_t(readParameter(168)));
+    const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
     const uint32_t map = TYPE_MAP_REVERB + (rev << 1);
     const bool delay = rom::u8(map) != 0;
     if (!delay) {
@@ -582,7 +582,7 @@ void Host::syncSubReverbType()
     const uint32_t blk = delay ? BLK_DELAY : BLK_REVERB;
     for (uint32_t i = 0; i < 8; i++) {
         ram.w8(PERFORMANCE + 80 + 2 * i + 1, ram.u8(blk + 2 * i + 1) & 0x7F);
-        ram.w8(PERFORMANCE + 80 + 2 * i, uint32_t(sh::ashrsi3(int32_t(ram.u16(blk + 2 * i) & 0x3F80), 7)));
+        ram.w8(PERFORMANCE + 80 + 2 * i, (ram.u16(blk + 2 * i) & 0x3F80) >> 7);
         ram.w16(FX_PARAM_CACHE + 2 * i, ram.u16(blk + 2 * i));
         ram.w8(FX_DIRTY_REVERB + i, 0);
     }
@@ -600,7 +600,7 @@ void Host::syncSubReverbType()
 // flash 0x3C018 syncSubVariationType: performance byte 171, the variation type
 void Host::syncSubVariationType()
 {
-    const uint32_t var = sh::u8(uint32_t(readParameter(171)));
+    const uint32_t var = uint32_t(readParameter(171)) & 0xFF;
     ram.w8(SWE_SHADOW + 0x28, rom::u8(TYPE_MAP_VARIATION + (var << 1)));
     ram.w8(SWE_SHADOW + 0x29, rom::u8(TYPE_MAP_VARIATION + (var << 1) + 1));
     loadSubTypeDefaults(4);
@@ -608,7 +608,7 @@ void Host::syncSubVariationType()
         loadSubTypeDefaults(4);
     for (uint32_t i = 0; i < 16; i++) {
         ram.w8(PERFORMANCE + 104 + 2 * i + 1, ram.u8(BLK_VARIATION + 2 * i + 1) & 0x7F);
-        ram.w8(PERFORMANCE + 104 + 2 * i, uint32_t(sh::ashrsi3(int32_t(ram.u16(BLK_VARIATION + 2 * i) & 0x3F80), 7)));
+        ram.w8(PERFORMANCE + 104 + 2 * i, (ram.u16(BLK_VARIATION + 2 * i) & 0x3F80) >> 7);
         ram.w16(FX_PARAM_CACHE + 0x40 + 2 * i, ram.u16(BLK_VARIATION + 2 * i));
         ram.w8(FX_DIRTY_VARIATION + i, 0);
     }
@@ -619,13 +619,13 @@ void Host::syncSubVariationType()
 // flash 0x3C118 syncSubInsertionType: performance byte 175, the insertion type
 void Host::syncSubInsertionType()
 {
-    const uint32_t ins = sh::u8(uint32_t(readParameter(175)));
+    const uint32_t ins = uint32_t(readParameter(175)) & 0xFF;
     ram.w8(SWE_SHADOW + 0x24, rom::u8(TYPE_MAP_INSERTION + (ins << 1)));
     ram.w8(SWE_SHADOW + 0x25, rom::u8(TYPE_MAP_INSERTION + (ins << 1) + 1));
     loadSubTypeDefaults(2);
     for (uint32_t i = 0; i < 16; i++) {
         ram.w8(PERFORMANCE + 136 + 2 * i + 1, ram.u8(BLK_INSERTION + 2 * i + 1) & 0x7F);
-        ram.w8(PERFORMANCE + 136 + 2 * i, uint32_t(sh::ashrsi3(int32_t(ram.u16(BLK_INSERTION + 2 * i) & 0x3F80), 7)));
+        ram.w8(PERFORMANCE + 136 + 2 * i, (ram.u16(BLK_INSERTION + 2 * i) & 0x3F80) >> 7);
         ram.w16(FX_PARAM_CACHE + 0x20 + 2 * i, ram.u16(BLK_INSERTION + 2 * i));
         ram.w8(FX_DIRTY_INSERTION + i, 0);
     }
@@ -636,7 +636,7 @@ void Host::syncSubInsertionType()
 // byte's index (the first byte of a two-byte parameter).
 void Host::markSubParamDirty(uint32_t id)
 {
-    const int32_t n = int32_t(sh::u16(id));
+    const int32_t n = int32_t(id & 0xFFFF);
     auto half = [](int32_t d) -> uint32_t { return uint32_t((d + (0 > d ? 1 : 0)) >> 1); };
     auto mixer = [&](uint32_t flag) {
         ram.w8(FX_DIRTY_MIXER + flag, 1);
@@ -695,8 +695,8 @@ void Host::markSubParamDirty(uint32_t id)
 // flash 0x3C8D4 setSubInsCtlOffset: a controller's offset for insertion parameter i
 void Host::setSubInsCtlOffset(uint32_t i, uint32_t v)
 {
-    ram.w16(FX_VAR_WORD + (sh::u8(i) << 1), v);
-    ram.w8(FX_DIRTY_INSERTION + sh::u8(i), 1);
+    ram.w16(FX_VAR_WORD + ((i & 0xFF) << 1), v);
+    ram.w8(FX_DIRTY_INSERTION + (i & 0xFF), 1);
     postSubMask(3);
 }
 // flash 0x3C8EC setSubSendBOffset: a controller's offset for the insertion to variation send

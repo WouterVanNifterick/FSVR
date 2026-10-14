@@ -24,7 +24,7 @@ float round_word(float S, float c)
 // the rounding error of a word: (int16)word - S*c
 float word_error(float S, float c, float w)
 {
-    return sh::fsub(sh::fmul(S, c), sh::itof(sh::s16(uint32_t(sh::ftoi(w)))));
+    return sh::fsub(sh::fmul(S, c), sh::itof(int16_t(sh::ftoi(w))));
 }
 
 float bump(float w, double by)
@@ -179,8 +179,8 @@ void Host::fxDesignFilter(int order, int scale, int kind, int freq, int gain, in
     }
 
     // ---- 0x38776: the emitter ----
-    const float S = fmul(sh::itof(int32_t(sh::lshrsi3(16, scale))), 2048.0f);
-    auto word = [&](float w) -> uint32_t { return uint32_t(sh::s16(uint32_t(sh::ftoi(w)))); };
+    const float S = fmul(sh::itof(16 >> scale), 2048.0f);
+    auto word = [&](float w) -> uint32_t { return uint32_t(int16_t(sh::ftoi(w))); };
     auto raw = [&](float w) -> uint32_t { return uint32_t(sh::ftoi(w)); };
 
     if (order == 1) {
@@ -235,10 +235,10 @@ void Host::fxFloatCurveB(int scale, int v, int gain, uint32_t steps)
     const float c1 = sh::dtof(sh::dmul(sh::dsub(1.0, sh::ftod(k)), sh::ftod(G)));
     if (!sh::dne(1.0, sh::ftod(c0)) && scale == 0)
         c0 = sh::from_bits(0x3F7FFE09);
-    const float S = sh::fmul(sh::itof(int32_t(sh::lshrsi3(16, scale))), 2048.0f);
+    const float S = sh::fmul(sh::itof(16 >> scale), 2048.0f);
     const float w0 = round_word(S, c0), w1 = round_word(S, c1);
     set_coef(rom::u16(steps), uint32_t(sh::ftoi(w0)));
-    set_coef(rom::u16(steps + 2), uint32_t(sh::s16(uint32_t(sh::ftoi(w1)))));
+    set_coef(rom::u16(steps + 2), uint32_t(int16_t(sh::ftoi(w1))));
     writeSweWordListSub(2, steps);
 }
 
@@ -247,7 +247,7 @@ void Host::fxFloatCurveB(int scale, int v, int gain, uint32_t steps)
 void Host::fxFillBand(int v, uint32_t steps)
 {
     const int32_t x = 4080 - ((v & 0xFF) << 4);
-    const float f2 = sh::fdiv(2048.0f, sh::itof(sh::s16(uint32_t(x))));
+    const float f2 = sh::fdiv(2048.0f, sh::itof(int16_t(x)));
     float acc = sh::fadd(1.0f, f2);
     acc = sh::fadd(sh::fmul(acc, f2), 1.0f);
     acc = sh::fadd(sh::fmul(acc, f2), 1.0f);

@@ -233,7 +233,7 @@ void Host::fxVarRotarySp(int p)
         break;
     case 1: {
         const uint32_t v = ram.u16(VP + 2);
-        const int x = v < 0x20 ? (sh::s8(v) << 1) : 0x40;
+        const int x = v < 0x20 ? (int8_t(v) << 1) : 0x40;
         fxStoreNegMul(x, ROT_STEPS + 2);
         fxStoreNegMul(x, ROT_STEPS + 6);
         fxStoreNegMul(x, ROT_STEPS + 10);
