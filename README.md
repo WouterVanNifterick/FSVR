@@ -53,7 +53,7 @@ As of v0.8.0 the VOP3 is now emulated. Both YSS236 chips, the per-voice filter (
 Thank you to **Wouter van Nifterick** ([WouterVanNifterick](https://github.com/WouterVanNifterick)) for his work on this and contributing [PR #36](https://github.com/musicastudio/FSVR/pull/36), which ports the firmware's effect and filter hosts to C++ and runs their uploads on a microcode-level model of the chip, measured on the unit.
 
 * **Checked against the real firmware.** For all 87 effect types, the host uploads word for word what the FS1R's firmware uploads, traced in MAME. Fed the unit's own upload and recorded input, the five reverbs checked so far match the hardware to within 2 to 12 LSB (correlation 0.99999 or better). The delay, modulation and insertion programs run the same uploads but are not yet checked against a recording, since they take their send from the serial port and need a purpose-built take.
-* **An optimized JIT.** 0.8.0 compiles each chip's program to x86-64 at run time with [AsmJit](https://github.com/asmjit/asmjit), recompiling only when the program changes, a performance increase of around 8x vs the interpreter. Its output is checked byte for byte against the interpreter over every reverb, variation and insertion type, all six filter types and 400 random programs. ARM builds (Apple silicon included), 32-bit builds, CPUs without SSE4.1 and any host that refuses executable memory fall back to the interpreter; an ARM64 compiler is next. `FSVR_VOP3_INTERP=1` forces the interpreter for A/B listening.
+* **An optimized JIT.** 0.8.0 compiles each chip's program to native code at run time with [AsmJit](https://github.com/asmjit/asmjit), x86-64 or arm64 (Apple silicon included), recompiling only when the program changes, a performance increase of around 8x vs the interpreter on x86-64. Its output is checked byte for byte against the interpreter over every reverb, variation and insertion type, all six filter types and 400 random programs, on both architectures by CI. 32-bit builds, x86 CPUs without SSE4.1 and any host that refuses executable memory fall back to the interpreter. `FSVR_VOP3_INTERP=1` forces the interpreter for A/B listening.
 
 **Next: the effects in C++.** For now FSVR ships the optimized JIT emulation layer. The next step is rewriting the effects as native C++. This is in progress. The VOP3 JIT is a stop-gap solution until this hard work and verification is complete.
 
@@ -107,7 +107,7 @@ Nothing in `cal.h` is a guess any more, and nothing outside the effects is open.
 
 **Known issue:** performances that layer two parts of a voice with all eight unvoiced operators live (A020 Vox Morph is the extreme) are heavy, about half a desktop core at 8 notes and more than a laptop i7 has to give. [docs/performance.md](docs/performance.md) has the measurements and the fixes in order of cost.
 
-The VOP3 is no longer outstanding. Both chips run the firmware's microcode on an emulated YSS236, compiled to x86-64 at run time, which costs 21% of a core for the two of them. What is next is **rewriting the effects in C++**, with the emulation as the exact reference each one is checked against. Tiers 0 to 3 and 5 are done, so the engine, the library and console split, the plugin in every format with its editor, the licence and CI are all in, and Tier 4, fidelity and verification, is complete outside the effects.
+The VOP3 is no longer outstanding. Both chips run the firmware's microcode on an emulated YSS236, compiled to native code at run time, which costs 21% of an x86-64 core for the two of them. What is next is **rewriting the effects in C++**, with the emulation as the exact reference each one is checked against. Tiers 0 to 3 and 5 are done, so the engine, the library and console split, the plugin in every format with its editor, the licence and CI are all in, and Tier 4, fidelity and verification, is complete outside the effects.
 
 ## Build and run
 
@@ -202,7 +202,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 
 - `cal.h` the calibration surface, every modelled constant in one place
 - `ymp706.cpp` the tone generator: operators, envelopes, the formant window, and the render path
-- `yss236_core.h` the YSS236 microcode engine, measured on the unit, and the reference; `yss236_jit.cpp` the same engine compiled to x86-64 with AsmJit (`third_party/asmjit/`), checked against it by `bin/vop3_jit_check` (`build.bat bench`); `vop3.h` the chip around it: its registers, LFOs and EG generators. `src/fs1r/effects.h` and `src/fs1r/filter.h` are the two boards around it, over the firmware's effect and filter tasks in `src/fs1r/firmware/vop3host/`
+- `yss236_core.h` the YSS236 microcode engine, measured on the unit, and the reference; `yss236_jit.cpp` the same engine compiled to x86-64 or arm64 with AsmJit (`third_party/asmjit/`), checked against it by `vop3_jit_check` (`build.bat bench`, and the `vop3_jit` ctest on every CI leg); `vop3.h` the chip around it: its registers, LFOs and EG generators. `src/fs1r/effects.h` and `src/fs1r/filter.h` are the two boards around it, over the firmware's effect and filter tasks in `src/fs1r/firmware/vop3host/`
 
 `src/fsvr/` is **ours**. Nothing in the hardware corresponds to any of it.
 
