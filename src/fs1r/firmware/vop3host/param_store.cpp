@@ -7,16 +7,14 @@
 
 namespace fs1r::vop3host {
 
-// 0x34478
 const rom::ParamRange& EffectHost::descriptor(uint32_t index) const
 {
-    if (index >= 80 && index <= 103) return rom::REVERB_PARAMS[perf[168]][index - 80];
+    if (index >=  80 && index <= 103) return rom::REVERB_PARAMS   [perf[168]][index -  80];
     if (index >= 104 && index <= 134) return rom::VARIATION_PARAMS[perf[171]][index - 104];
     if (index >= 136 && index <= 166) return rom::INSERTION_PARAMS[perf[175]][index - 136];
     return rom::COMMON_PARAMS[index];
 }
 
-// 0x30390, and 0x34B00 for the stored bytes: one, or two of seven bits with the high one first
 int32_t EffectHost::readParameter(uint32_t id)
 {
     const uint32_t index = id & 0xFF;

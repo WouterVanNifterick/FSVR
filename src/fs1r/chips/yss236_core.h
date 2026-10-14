@@ -88,7 +88,7 @@ public:
 	// What the host writes
 	uint16_t prog[STEPS][5];
 	uint16_t coef[STEPS];
-	uint8_t tag[STEPS];
+	uint8_t  tag[STEPS];
 	uint16_t slot[SLOTS][2];      // registers 0x0D (bits 17-9) and 0x0E (bits 8-0)
 	uint16_t lfo_reg[LFOS][4];    // registers 0x24..0x27
 
@@ -101,7 +101,7 @@ public:
 	double t[16];
 	double acc;                   // the running value p
 	double x, px;                 // this and the previous step's r operand
-	bool hasx, haspx;             // whether those came from a register (rB != 0)
+	bool   hasx, haspx;           // whether those came from a register (rB != 0)
 	double src, psrc;             // this and the previous step's m operand
 	double wlatch;                // delay RAM write data (w1[13])
 	bool haswl;
@@ -120,10 +120,10 @@ public:
 
 	yss236_core()
 	{
-		std::memset(prog, 0, sizeof(prog));
-		std::memset(coef, 0, sizeof(coef));
-		std::memset(tag, 0, sizeof(tag));
-		std::memset(slot, 0, sizeof(slot));
+		std::memset(prog   , 0, sizeof(prog));
+		std::memset(coef   , 0, sizeof(coef));
+		std::memset(tag    , 0, sizeof(tag));
+		std::memset(slot   , 0, sizeof(slot));
 		std::memset(lfo_reg, 0, sizeof(lfo_reg));
 		ram.resize(RAM_WORDS);
 		decode_all();
@@ -134,15 +134,16 @@ public:
 	{
 		uint16_t const *w = prog[st];
 		op &o = ops[st];
-		o.memop = w[0] & 7;
-		o.dr = w[1] & 0x7f;
-		o.rcopy = (w[1] >> 7) & 1;
-		o.tn = (w[1] >> 8) & 15;
-		o.tw = (w[1] >> 11) & 3;
-		o.ctl = (w[1] >> 15) & 1;
-		o.gate = o.ctl && (w[3] & 15) == 8;
+
+		o.memop  = w[0] & 7;
+		o.dr     = w[1] & 0x7f;
+		o.rcopy  = (w[1] >> 7) & 1;
+		o.tn     = (w[1] >> 8) & 15;
+		o.tw     = (w[1] >> 11) & 3;
+		o.ctl    = (w[1] >> 15) & 1;
+		o.gate   = o.ctl && (w[3] & 15) == 8;
 		o.target = w[4] >> 8;
-		o.cmp = w[2] & 1;
+		o.cmp    = w[2] & 1;
 		{
 			int const code = (w[3] >> 4) & 7;
 			o.cskip = o.ctl && (w[3] & 15) == 0xD && (code == 6 || code == 4 || code == 1) ? code : 0;
@@ -150,23 +151,27 @@ public:
 		o.ctlop = o.gate || o.cskip;
 		o.wdata = (w[1] >> 13) & 1;
 		o.tfrac = (w[1] >> 14) & 1;
-		o.dwr = (w[1] >> 8) & 0x1f;
-		o.idxw = (w[2] >> 2) & 1;
-		o.idxa = (w[2] >> 3) & 1;
-		o.dm = (w[2] >> 7) & 0x3f;
-		o.msrc = (w[2] >> 13) & 7;
-		o.t = w[3] & 7;
-		o.m1 = (w[3] >> 3) & 3;
-		o.asel = (w[3] >> 6) & 3;
-		o.m2m = (w[3] >> 8) & 1;
-		o.sub = (w[3] >> 10) & 1;
+		o.dwr   = (w[1] >> 8) & 0x1f;
+
+		o.idxw  = (w[2] >> 2) & 1;
+		o.idxa  = (w[2] >> 3) & 1;
+		o.dm    = (w[2] >> 7) & 0x3f;
+		o.msrc  = (w[2] >> 13) & 7;
+
+		o.t     = w[3] & 7;
+		o.m1    = (w[3] >> 3) & 3;
+		o.asel  = (w[3] >> 6) & 3;
+		o.m2m   = (w[3] >> 8) & 1;
+		o.sub   = (w[3] >> 10) & 1;
 		o.shift = (w[3] >> 12) & 3;
 		o.clamp = (w[3] >> 14) & 3;
-		o.sm = w[4] & 0x3f;
-		o.sout = (w[4] >> 6) & 1;
-		o.sr = (w[4] >> 7) & 0x7f;
+
+		o.sm    = w[4] & 0x3f;
+		o.sout  = (w[4] >> 6) & 1;
+		o.sr    = (w[4] >> 7) & 0x7f;
 		o.mmode = (w[4] >> 14) & 3;
-		o.alu = o.mmode || o.asel || o.shift || o.clamp || o.sub;
+		
+		o.alu   = o.mmode || o.asel || o.shift || o.clamp || o.sub;
 	}
 
 	void decode_all()
@@ -241,8 +246,8 @@ public:
 	int32_t m_nhist;
 	int32_t m_skip;                        // steps below this one are inside a gated block
 	int32_t m_flag;                        // sign of the last compare step's result: -1, 0, 1
-	// Delay index loads not yet in effect: the step each lands at and its value. They are
-	// applied when a memory cycle reads the index.
+	// Delay index loads not yet in effect: the step each lands at and its value. 
+	// They are applied when a memory cycle reads the index.
 	int32_t m_iqn;
 	int64_t m_iq_at[4];
 	double m_iq_v[4];
@@ -260,8 +265,11 @@ private:
 		return v;
 	}
 
-	// s24: w3[15:14] on the result. 0 wraps two's-complement, 1 saturates,
-	// 2 clamps negatives to 0, 3 takes |y|; 1-3 saturate at +-128.
+	// s24: w3[15:14] on the result. 
+	//   0 wraps two's-complement, 
+	//   1 saturates,
+	//   2 clamps negatives to 0,
+	//   3 takes |y|; 1-3 saturate at +-128.
 	static double mode(double y, int mo)
 	{
 		if (mo == 0)
@@ -321,7 +329,7 @@ private:
 	}
 	void queue_i(double v)
 	{
-		cur_idx();                             // at most the loads of the last LAT steps are left
+		cur_idx(); // at most the loads of the last LAT steps are left
 		m_iq_at[m_iqn] = n + LAT;
 		m_iq_v[m_iqn++] = v;
 	}
@@ -363,8 +371,9 @@ private:
 			return;                           // inside a gated block
 		if (o.ctlop)
 		{
-			// a gate waits for the host trigger; a conditional skip runs the steps up to the target only when its
-			// condition holds. Neither computes anything itself.
+			// a gate waits for the host trigger; 
+			// a conditional skip runs the steps up to the target only when its condition holds. 
+			// Neither computes anything itself.
 			bool const run = !o.gate && (o.cskip == 6 ? m_flag > 0 : o.cskip == 4 && m_flag < 0);
 			if (!run)
 				m_skip = (st & 0x100) | o.target;
@@ -391,10 +400,10 @@ private:
 			int const c = o.dm;
 			switch (o.msrc)
 			{
-			case 0: case 1: case 3: queue_d(c, in[o.msrc][page]); break;
-			case 2: queue_d(c, lfo[st >> 5]); break;
-			case 4: case 5: queue_d(c, captured(m[c], st)); break;
-			default: break;   // 6 and 7 are written below from the result
+				case 0: case 1: case 3: queue_d(c, in[o.msrc][page]); break;
+				case 2: queue_d(c, lfo[st >> 5]); break;
+				case 4: case 5: queue_d(c, captured(m[c], st)); break;
+				default: break;   // 6 and 7 are written below from the result
 			}
 		}
 
@@ -499,10 +508,10 @@ private:
 	{
 		switch (o.asel)
 		{
-		case 0: return acc;
-		case 1: return o.sr ? x : acc / 32768.0;
-		case 2: return o.sm ? src : acc / 32768.0;
-		default: return 0.0;
+			case 0: return acc;
+			case 1: return o.sr ? x : acc / 32768.0;
+			case 2: return o.sm ? src : acc / 32768.0;
+			default: return 0.0;
 		}
 	}
 
