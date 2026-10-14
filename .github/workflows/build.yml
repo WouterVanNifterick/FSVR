@@ -44,25 +44,11 @@ jobs:
   plugin:
     strategy:
       fail-fast: false
-      # The legs are a list rather than include-only, so a standalone dispatch can exclude the 32-bit one.
+      # A standalone dispatch leaves out the 32-bit leg. Each leg's runner and configure come from its name,
+      # since include adds back any leg it lists whatever exclude says.
       matrix:
-        name: [windows, windows-x86, linux, macos]
-        exclude:
-          - name: ${{ inputs.standalone && 'windows-x86' || 'none' }}
-        include:
-          - name: windows
-            os: windows-latest
-            configure: -A x64
-          - name: windows-x86
-            os: windows-latest
-            configure: -A Win32
-          - name: linux
-            os: ubuntu-latest
-            configure: -DCMAKE_BUILD_TYPE=Release
-          - name: macos
-            os: macos-latest
-            configure: -DCMAKE_BUILD_TYPE=Release
-    runs-on: ${{ matrix.os }}
+        name: ${{ fromJSON(inputs.standalone && '["windows","linux","macos"]' || '["windows","windows-x86","linux","macos"]') }}
+    runs-on: ${{ startsWith(matrix.name, 'windows') && 'windows-latest' || matrix.name == 'linux' && 'ubuntu-latest' || 'macos-latest' }}
     steps:
       - uses: actions/checkout@v4
       # The editor is an X11 window; the standalone's audio and MIDI are RtAudio's ALSA, JACK and
@@ -81,7 +67,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: python tools/contributors.py --check && python tools/contributors.py ${{ github.repository }}
       - name: Configure
-        run: cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON ${{ matrix.configure }}
+        run: cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON ${{ matrix.name == 'windows' && '-A x64' || matrix.name == 'windows-x86' && '-A Win32' || '-DCMAKE_BUILD_TYPE=Release' }}
       - name: Build
         run: cmake --build build/plugin --config Release ${{ inputs.standalone && '--target fsvr_standalone' || '' }}
       # check_plugin and check_gui drive the processor and its editor with the worker running on its own
