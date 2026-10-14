@@ -6,11 +6,17 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      standalone:
+        description: Only the 64-bit standalone, untested, no engine job or installers
+        type: boolean
+        default: false
 
 jobs:
   # The engine and its self checks build anywhere. No EPROM image is needed: the checks that want one
   # skip themselves.
   engine:
+    if: ${{ !inputs.standalone }}
     strategy:
       fail-fast: false
       matrix:
@@ -38,19 +44,23 @@ jobs:
   plugin:
     strategy:
       fail-fast: false
+      # The legs are a list rather than include-only, so a standalone dispatch can exclude the 32-bit one.
       matrix:
+        name: [windows, windows-x86, linux, macos]
+        exclude:
+          - name: ${{ inputs.standalone && 'windows-x86' || 'none' }}
         include:
-          - os: windows-latest
-            name: windows
+          - name: windows
+            os: windows-latest
             configure: -A x64
-          - os: windows-latest
-            name: windows-x86
+          - name: windows-x86
+            os: windows-latest
             configure: -A Win32
-          - os: ubuntu-latest
-            name: linux
+          - name: linux
+            os: ubuntu-latest
             configure: -DCMAKE_BUILD_TYPE=Release
-          - os: macos-latest
-            name: macos
+          - name: macos
+            os: macos-latest
             configure: -DCMAKE_BUILD_TYPE=Release
     runs-on: ${{ matrix.os }}
     steps:
@@ -73,13 +83,13 @@ jobs:
       - name: Configure
         run: cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON ${{ matrix.configure }}
       - name: Build
-        run: cmake --build build/plugin --config Release
+        run: cmake --build build/plugin --config Release ${{ inputs.standalone && '--target fsvr_standalone' || '' }}
       # check_plugin and check_gui drive the processor and its editor with the worker running on its own
       # thread, and a check that reads the worker's result without polling can miss it on a loaded runner
       # (the InitEP, bank-dialog and saved-sound failures that come and go on main, on legs the same code
       # passes elsewhere). Three tries: a flake passes a rerun, a real regression fails all three.
       - name: Test
-        if: matrix.name != 'windows-x86'
+        if: matrix.name != 'windows-x86' && !inputs.standalone
         run: ctest --test-dir build/plugin -C Release -R "plugin|gui" --output-on-failure --repeat until-pass:3
       # Zipped here rather than in the release job, because an Actions artifact does not carry the
       # executable bit: bin/ uploaded as loose files comes back 644, and a macOS bundle whose
@@ -109,6 +119,7 @@ jobs:
   # cut and scrambled by the Installer's build.sh; without it the installers draw in Go Mono.
   installer:
     needs: plugin
+    if: ${{ !inputs.standalone }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
