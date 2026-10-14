@@ -1,77 +1,423 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
-// The parts of the FS1R v1.20 EPROM the effect host reads, by CPU address. The bytes are in
-// rom_tables.cpp, which tools/extract_vop3_rom.py writes.
+// FS1R v1.20 EPROM: the tables the effect host reads. Yamaha's data.
+// Written by tools/extract_vop3_rom.py. Do not edit.
 #pragma once
 #include <cstdint>
-#include <cstring>
 
 namespace fs1r::vop3host::rom {
 
-struct Range { uint32_t start, end; const uint8_t* data; };
-constexpr int RANGE_COUNT = 2;
-extern const Range RANGES[RANGE_COUNT];
+extern const uint8_t RESET_SLOTS_REVERB[14];
+extern const uint8_t RESET_SLOTS_REVERB_DELAY[12];
+extern const uint8_t RESET_SLOTS_VARIATION[12];
+extern const uint8_t RESET_SLOTS_INSERTION[24];
+extern const uint16_t STEPS_REVERB[94];
+extern const uint8_t SLOTS_REVERB[54];
+extern const uint16_t STEPS_AUX[40];
+extern const uint8_t SLOTS_AUX[10];
+extern const uint8_t LFOS_AUX[4];
+extern const uint16_t STEPS_INSERTION[96];
+extern const uint8_t SLOTS_INSERTION[40];
+extern const uint8_t LFOS_INSERTION[4];
+extern const uint16_t STEPS_REVERB_DELAY[72];
+extern const uint8_t SLOTS_REVERB_DELAY[12];
+extern const uint8_t LFOS_REVERB_DELAY[4];
+extern const uint16_t STEPS_VARIATION[72];
+extern const uint8_t SLOTS_VARIATION[12];
+extern const uint8_t LFOS_VARIATION[4];
+extern const uint16_t STEPS_MASTER_EQ[50];
+extern const uint16_t STEPS_SYSTEM[88];
+extern const uint16_t SYSTEM_COEF_DEFAULTS[88];
+extern const uint16_t SYSTEM_PARAM_DEFAULTS[16];
+extern const uint16_t HALL_OFFSETS_A[13];
+extern const uint16_t HALL_OFFSETS_B[13];
+extern const uint16_t ROOM_OFFSETS[13];
+extern const uint16_t EQ_DEFAULTS[20];
+extern const uint16_t LFO_SPEED[128];
+extern const uint16_t LFO_PHASE[128];
+extern const int16_t PITCH_SEMITONE[49];
+extern const int16_t PITCH_LFO_SPEED[49];
+extern const int16_t PITCH_FINE[52];
+extern const float DETUNE[101];
+extern const int8_t AMP_FILTERS[56];
+extern const uint16_t COMP_RATIO[64];
+extern const int16_t OCTAVE[6];
+extern const int16_t MIRROR[20];
+extern const int16_t COMPLEMENT[16];
+extern const int16_t COMB_SELECT[39];
+extern const int16_t ER_ROWS[30];
+extern const float RT60_SECONDS[71];
+extern const uint8_t TIME_ROW[70];
+extern const uint16_t COMB_GAIN[512];
+extern const int8_t DAMP_FREQ[11];
+extern const uint8_t COMB_CLASS[30];
+extern const int16_t SCALED_PAIRS[60];
+extern const int16_t ROW_TABLE[60];
+extern const uint16_t ROW_FLAGS_A[5];
+extern const uint16_t ROW_FLAGS_2[5];
+extern const uint16_t SPAN_ROWS[144];
+extern const uint8_t DIFFUSION[11];
+extern const uint16_t ROOM_C[200];
+extern const uint8_t ROOM_A[206];
+extern const int16_t ROOM_B[21];
+extern const int8_t REVERB_SHELF[26];
+extern const int16_t ER_PATTERNS[400];
+extern const uint8_t ER_DENSITY[128];
+extern const uint8_t ER_LEVEL[11];
+extern const uint16_t ROW_FLAGS_4[4];
+extern const int16_t ROW_TABLE_4[32];
+extern const int16_t LOFI_LAW[55];
+extern const int8_t LOFI_FILTERS[60];
+extern const uint8_t CFG16[15];
+extern const float TAN[61];
+extern const float DB[25];
+extern const float DB_SQRT[25];
+extern const float LEVEL_CURVE[128];
+extern const int16_t PAN_LAW[129];
+extern const int16_t ER_REV[129];
+extern const int16_t MOD_DELAY[128];
+extern const int16_t DELAY_WORD[128];
+extern const int16_t PITCH_DELAY[128];
+extern const uint8_t TYPE_LEVEL[13];
+extern const uint8_t TYPE_SCALE_INSERTION[252];
+extern const uint8_t TYPE_SCALE_DELAY[154];
+extern const int8_t SLOT_AREA[128];
+extern const uint16_t STEPS_INDIVIDUAL_OUT[4];
+extern const uint16_t STEPS_OUTPUT_GAIN[8];
 
-// Big-endian reads at a CPU address. Outside the ranges they give 0.
-inline uint32_t u8(uint32_t cpu) {
-    for (const Range& r : RANGES)
-        if (cpu - r.start < r.end - r.start) return r.data[cpu - r.start];
-    return 0;
+namespace ins {
+extern const uint16_t BAL_STEP_C[1];
+extern const uint16_t BAL_STEP_A[1];
+extern const uint16_t BAL_STEP_B[1];
+extern const uint16_t BAL_STEP_D[1];
+extern const uint16_t MODE_STEPS_A[2];
+extern const uint16_t MODE_STEPS_B[2];
+extern const uint16_t MOD_LEVEL[6];
+extern const uint16_t ROT_LEVEL[8];
+extern const uint16_t LFO_DIR_STEPS[4];
+extern const uint16_t MOD_WORDS[15];
+extern const uint8_t MOD_SLOTS[10];
+extern const uint16_t ROT_WORDS[4];
+extern const uint16_t ROT_PAN[4];
+extern const uint16_t TREM_WORDS[2];
+extern const uint8_t TREM_SLOTS[8];
+extern const uint16_t PC_MIX[7];
+extern const uint16_t PC_VOICE1_A[1];
+extern const uint16_t PC_VOICE2[2];
+extern const uint16_t PC_VOICE1_B[1];
+extern const uint16_t EQ3_LEVEL[1];
+extern const uint16_t PC_WET[2];
+extern const uint16_t PC_FB[6];
+extern const uint8_t PC_SLOTS[10];
+extern const uint16_t WAH_DEPTH[1];
+extern const uint16_t PH_DEPTH[2];
+extern const uint16_t WAH_CUTOFF[1];
+extern const uint16_t PH_FB[2];
+extern const uint16_t PH_OFFSET[1];
+extern const uint16_t WAH_SENSE[2];
+extern const uint16_t PH_WIDTH2[2];
+extern const uint16_t PH_WIDTH1[1];
+extern const uint16_t PH_STAGES[10];
+extern const uint16_t PH_DIR[3];
+extern const uint16_t WAH_ATTACK[1];
+extern const uint16_t WAH_DRIVE[4];
+extern const uint16_t DIST_DRIVE[4];
+extern const uint16_t DYN_PAIR[3];
+extern const uint16_t DYN_WORD[1];
+extern const uint16_t DYN_ROW[8];
+extern const uint16_t WAH_MIRROR[3];
+extern const uint16_t HM_DRIVE[2];
+extern const uint16_t WAH_WET[8];
+extern const uint16_t PH_WET[4];
+extern const uint16_t DIST_WET[5];
+extern const uint16_t WAH_MODE[2];
+extern const uint16_t WAH_MODE2[2];
+extern const uint16_t DIST_MODE[2];
+extern const uint16_t DIST_LEVEL[2];
+extern const uint8_t ER_ROW_SLOTS[8];
+extern const uint16_t ER_ROW_STEPS[16];
+extern const uint16_t ER_FEEDBACK[1];
+extern const uint8_t ER_SLOTS[22];
+extern const uint16_t ER_STEPS[20];
+extern const uint8_t ER_DIFF_SLOTS[4];
+extern const uint16_t LOFI_RATE[1];
+extern const uint16_t LOFI_BITS[1];
+extern const uint16_t LOFI_LEVEL[1];
+extern const uint16_t LOFI_WET[2];
+extern const uint16_t LOFI_WET2[2];
+extern const uint16_t LOFI_GAIN[1];
+extern const uint16_t LOFI_GAIN2[1];
+extern const uint16_t LOFI_LPF2[5];
+extern const uint16_t LOFI_HIGH_SHELF[3];
+extern const uint16_t LOFI_HIGH_SHELF_2[3];
+extern const uint16_t LOFI_FILTER[3];
+extern const uint16_t LOFI_FILTER_2[5];
+extern const uint16_t LOFI_FILTER_3[3];
+extern const uint16_t LOFI_OUT[1];
+extern const uint16_t WD_CUTOFF[1];
+extern const uint16_t WD_SENSE[1];
+extern const uint16_t WD_ATTACK[1];
+extern const uint16_t WD_DRIVE[4];
+extern const uint16_t WD_MIRROR[3];
+extern const uint16_t WD_WET[8];
+extern const uint16_t WD_LEVEL[3];
+extern const uint16_t WD_MODE[2];
+extern const uint16_t WD_MODE2[2];
+extern const uint16_t WD_FB[1];
+extern const uint8_t WD_SL[5];
+extern const uint16_t DD_PAIR[3];
+extern const uint16_t DD_WORD[1];
+extern const uint16_t DD_ROW[8];
+extern const uint16_t DD_DRIVE[4];
+extern const uint16_t DD_WET[4];
+extern const uint16_t DD_LEVEL[3];
+extern const uint16_t DD_MODE[3];
+extern const uint16_t DD_FB[1];
+extern const uint8_t DD_SLOTS[5];
+extern const uint16_t WD_BAND[12];
+extern const uint16_t DD_BAND[12];
+extern const uint16_t WD_HPF[3];
+extern const uint16_t WD_LPF[3];
+extern const uint16_t WD_LOW_SHELF[3];
+extern const uint16_t WD_HIGH_SHELF[3];
+extern const uint16_t WD_HPF_2[3];
+extern const uint16_t WD_LPF_2[3];
+extern const uint16_t WD_LPF_3[3];
+extern const uint16_t WD_LOW_SHELF_2[3];
+extern const uint16_t WD_LPF_4[3];
+extern const uint16_t WD_LOW_SHELF_COPY[3];
+extern const uint16_t WD_HIGH_SHELF_COPY[3];
+extern const uint16_t DD_THRESH[3];
+extern const uint16_t DD_LPF[3];
+extern const uint16_t DD_LPF_2[3];
+extern const uint16_t WD_PEAK[5];
+extern const uint16_t DD_HPF[5];
+extern const uint16_t DD_LPF2[5];
+extern const uint16_t DD_PEAK[5];
+extern const uint16_t DD_LOW_SHELF[5];
+extern const uint16_t ER_WET[4];
+extern const uint16_t LPF_MOD[3];
+extern const uint16_t HPF_MOD[3];
+extern const uint16_t LPF_MOD_C[3];
+extern const uint16_t HPF_MOD_C[3];
+extern const uint16_t DELAY_CURVE[2];
+extern const uint16_t DELAY_CURVE_COPY[2];
+extern const uint16_t LPF_ROT[3];
+extern const uint16_t HPF_ROT[3];
+extern const uint16_t LPF_ROT_C[3];
+extern const uint16_t HPF_ROT_C[3];
+extern const uint16_t LPF_PH[3];
+extern const uint16_t HPF_PH[3];
+extern const uint16_t LPF_PH_C[3];
+extern const uint16_t HPF_PH_C[3];
+extern const uint16_t ER_LPF[3];
+extern const uint16_t WAH_HPF[3];
+extern const uint16_t WAH_LPF[3];
+extern const uint16_t LPF_WAH[3];
+extern const uint16_t HPF_WAH[3];
+extern const uint16_t WAH_HPF_2[3];
+extern const uint16_t WAH_LPF_2[3];
+extern const uint16_t LPF_WAH_C[3];
+extern const uint16_t HPF_WAH_C[3];
+extern const uint16_t DIST_HPF[3];
+extern const uint16_t DIST_HPF_C[3];
+extern const uint16_t DYN_THRESH[3];
+extern const uint16_t EQ_MOD[5];
+extern const uint16_t EQ_MOD_C[5];
+extern const uint16_t EQ_ROT[5];
+extern const uint16_t EQ_ROT_C[5];
+extern const uint16_t ER_HPF[5];
+extern const uint16_t ER_LPF_2[5];
+extern const uint16_t WAH_LPF2[5];
+extern const uint16_t WAH_PEAK[5];
+extern const uint16_t WAH_LOW_SHELF2[5];
+extern const uint16_t DIST_LPF[5];
+extern const uint16_t DIST_LPF_C[5];
+extern const uint16_t DIST_PRE[5];
+extern const uint16_t DIST_PRE_C[5];
+extern const uint16_t DIST_EQ[5];
+extern const uint16_t EQ7_A[5];
+extern const uint16_t EQ7_B[5];
+extern const uint16_t EQ7_C[5];
+extern const uint16_t EQ7_A_C[5];
+extern const uint16_t EQ7_B_C[5];
+extern const uint16_t EQ7_C_C[5];
+extern const uint16_t DIST_FILL[12];
+extern const uint16_t WAH_BAND[12];
 }
-inline int32_t s8(uint32_t cpu) { return int8_t(u8(cpu)); }
-inline uint32_t u16(uint32_t cpu) { return u8(cpu) << 8 | u8(cpu + 1); }
-inline int32_t s16(uint32_t cpu) { return int16_t(u16(cpu)); }
-inline uint32_t u32(uint32_t cpu) { return u16(cpu) << 16 | u16(cpu + 2); }
-inline float f32(uint32_t cpu) { uint32_t b = u32(cpu); float f; std::memcpy(&f, &b, 4); return f; }
 
-// Tables, with their element type.
-constexpr uint32_t FX_COMB_STEPS = 0x35DB6C;  // u16: the six combs' step list (g, x, x, a) x 6 then the damping LPF's 3 steps
-constexpr uint32_t FX_STEPS_MIXER_B = 0x35DFA0;  // u16: mixer step list B (fxSystemParam); entries 8, 9 are the insertion level
-constexpr uint32_t FX_STEPS_MIXER_C = 0x35DFC0;  // u16: mixer step list C; entries 17, 23 the insertion to reverb send, 28, 33 the insertion to variation send
-constexpr uint32_t FX_STEPS_REVERB = 0x35E02C;  // u16: kind 0 step list, 0x5E entries
-constexpr uint32_t FX_SLOTS_REVERB = 0x35E0E8;  // u8: kind 0 slot list, 0x36 entries
-constexpr uint32_t FX_STEPS_AUX = 0x35E11E;  // u16: kind 1 step list, 0x28 entries
-constexpr uint32_t FX_SLOTS_AUX = 0x35E16E;  // u8: kind 1 slot list, 10 entries
-constexpr uint32_t FX_STEPS_INSERTION = 0x35E17C;  // u16: kind 2 step list, 0x60 entries
-constexpr uint32_t FX_SLOTS_INSERTION = 0x35E23C;  // u8: kind 2 slot list, 0x28 entries
-constexpr uint32_t FX_STEPS_REVERB_DELAY = 0x35E268;  // u16: kind 3 step list, 0x48 entries
-constexpr uint32_t FX_SLOTS_REVERB_DELAY = 0x35E2F8;  // u8: kind 3 slot list, 0xC entries
-constexpr uint32_t FX_STEPS_VARIATION = 0x35E308;  // u16: kind 4 step list, 0x48 entries
-constexpr uint32_t FX_SLOTS_VARIATION = 0x35E398;  // u8: kind 4 slot list, 0xC entries
-constexpr uint32_t FX_STEPS_SYSTEM = 0x35E40C;  // u16: system step list, 0x58 entries
-constexpr uint32_t FX_PRESET_REVERB = 0x363600;  // u8: reverb 1-12 preset blocks, 0x128 bytes each, indexed through FX_PRESET_INDEX_REVERB
-constexpr uint32_t FX_SYSTEM_DEFAULTS = 0x364E60;  // u16: defaults for the system step list
-constexpr uint32_t FX_PRESET_INDEX_REVERB = 0x364F10;  // u8: reverb type -> preset block index
-constexpr uint32_t FX_DEFAULTS_REVERB = 0x364F4A;  // u16: default parameters of the reverb window, 16 words a type
-constexpr uint32_t FX_PROG_BASE = 0x3658D4;  // u16: base program, 232 steps x 5 words
-constexpr uint32_t FX_TAGS_BASE = 0x3661E4;  // u8: base program tags
-constexpr uint32_t FX_LFO_SPEED = 0x36EF54;  // u16: LFO frequency byte -> register 0x24 word
-constexpr uint32_t FX_LFO_PHASE = 0x36F054;  // u16: LFO phase byte -> register 0x25 low bits
-constexpr uint32_t FX_COMB_SELECT = 0x36F824;  // s16: per reverb type: comb class selector, 3 words a type
-constexpr uint32_t FX_RT60_SECONDS = 0x36F8B0;  // f32: Reverb Time index 0..69 in seconds
-constexpr uint32_t FX_TIME_ROW = 0x36F9CC;  // u8: Reverb Time index -> decay row of FX_COMB_GAIN
-constexpr uint32_t FX_COMB_GAIN = 0x36FA12;  // u16: 256 rows of (loss gain, feedback gain) for the reverb combs (RT60 law)
-constexpr uint32_t FX_DAMP_FREQ = 0x36FE12;  // s8: High Damp byte -> damping LPF frequency index
-constexpr uint32_t FX_COMB_CLASS = 0x36FE1D;  // u8: comb length classes, 6 a selector
-constexpr uint32_t FX_DIFFUSION = 0x37006A;  // u8: Diffusion byte -> delay trim
-constexpr uint32_t FX_ROOM_C = 0x3703BE;  // u16: room design table C (fxRoomPairs)
-constexpr uint32_t FX_ROOM_A = 0x37054E;  // u16: room design table A (fxDesignRooms)
-constexpr uint32_t FX_ROOM_B = 0x37061C;  // u16: room design table B (White Room .. Canyon)
-constexpr uint32_t FX_CFG16 = 0x37101A;  // u8: effect chip register 0x16 configuration, 15 bytes
-constexpr uint32_t FX_TAN = 0x371614;  // f32: tan(pi f / 44100) for the 1/6-octave frequency series, index 0..60 (20 Hz .. 20 kHz)
-constexpr uint32_t FX_DB = 0x371708;  // f32: 10^((g - 64) / 20) for gain bytes 52..76 (-12 .. +12 dB)
-constexpr uint32_t FX_PAN_LAW = 0x3719D0;  // u16: quarter-sine pan law, index 0..128
-constexpr uint32_t FX_ER_REV = 0x371AD2;  // u16: ER/Rev balance byte -> gain word
-constexpr uint32_t FX_DELAY_WORD = 0x371CD4;  // u16: delay time byte -> 0.1 ms word
-constexpr uint32_t FX_SLOT_AREA = 0x3720A4;  // u8: delay slot -> area base selector (0..4), 128 slots
-constexpr uint32_t FX_TYPE_MAP_REVERB = 0x372124;  // u8: Data List reverb type -> (window: 0 reverb, 8 delay; type byte), 17 pairs
-constexpr uint32_t FX_TYPE_MAP_VARIATION = 0x372146;  // u8: Data List variation type -> (msb, lsb), 29 pairs
-constexpr uint32_t FX_TYPE_MAP_INSERTION = 0x372180;  // u8: Data List insertion type -> (msb, lsb), 41 pairs
-constexpr uint32_t FX_STEPS_INDIVIDUAL_OUT = 0x3721D4;  // u16: the four individual-out steps (setSubIndividualOut)
-constexpr uint32_t PARAM_DESC_COMMON = 0x37E654;  // u8: parameter descriptors of the performance common block, 16 bytes a byte index (+6 min, +8 max, +12 type)
-constexpr uint32_t PARAM_DESC_REVERB = 0x388DBC;  // u32: per reverb type (0..16): descriptors of performance bytes 0x50..0x67
-constexpr uint32_t PARAM_DESC_VARIATION = 0x388E00;  // u32: per variation type (0..28): descriptors of performance bytes 0x68..0x86
-constexpr uint32_t PARAM_DESC_INSERTION = 0x388E74;  // u32: per insertion type (0..40): descriptors of performance bytes 136..166
+namespace var {
+extern const uint16_t BAL_STEP_C[1];
+extern const uint16_t BAL_STEP_A[1];
+extern const uint16_t BAL_STEP_B[1];
+extern const uint16_t MODE_STEPS_A[2];
+extern const uint16_t MODE_STEPS_B[2];
+extern const uint16_t MOD_LEVEL_STEPS[6];
+extern const uint16_t ROT_STEPS[7];
+extern const uint16_t DETUNE_DET[4];
+extern const uint16_t PAN_STEPS[4];
+extern const uint16_t FB_STEPS[2];
+extern const uint16_t MIX_STEPS[2];
+extern const uint8_t MOD_SLOTS[10];
+extern const uint16_t PAN_STEPS_B[4];
+extern const uint16_t TREM_WORDS[2];
+extern const uint8_t TREM_SLOTS[8];
+extern const uint16_t DETUNE_PAN[4];
+extern const uint8_t DETUNE_SLOTS[10];
+extern const uint16_t DELAY_WORDS[14];
+extern const uint8_t DELAY_SLOTS[6];
+extern const uint16_t WAH_DEPTH[1];
+extern const uint16_t WAH_CUTOFF[1];
+extern const uint16_t PH_FB[2];
+extern const uint16_t WAH_SENSE[2];
+extern const uint16_t PH_WIDTH2[2];
+extern const uint16_t PH_WIDTH1[1];
+extern const uint16_t PH_STAGES[8];
+extern const uint16_t PH_DIR[3];
+extern const uint16_t WAH_ATTACK[1];
+extern const uint16_t DIST_DRIVE[4];
+extern const uint16_t DYN_RELEASE[3];
+extern const uint16_t DYN_THRESHOLD[1];
+extern const uint16_t DYN_RATIO[8];
+extern const uint16_t WAH_MIRROR[3];
+extern const uint16_t HM_DRIVE[2];
+extern const uint16_t DIST_PAN[4];
+extern const uint16_t WAH_PAN[4];
+extern const uint16_t PH_PAN[4];
+extern const uint16_t DYN_OUT[4];
+extern const uint8_t KARAOKE_SLOTS[2];
+extern const uint8_t KARAOKE_ROW_SLOTS[8];
+extern const uint16_t KARAOKE_ROW_STEPS[16];
+extern const uint16_t REVERB_HPF[3];
+extern const uint16_t REVERB_LPF[3];
+extern const uint8_t REVERB_ER_IDS[6];
+extern const uint16_t REVERB_COMBS[8];
+extern const uint8_t REVERB_ROW_SLOTS[4];
+extern const uint16_t REVERB_ROW_STEPS[8];
+extern const uint8_t REVERB_PRE[2];
+extern const uint16_t REVERB_W[10];
+extern const uint16_t REVERB_WIDTH[1];
+extern const uint16_t REVERB_PAN[4];
+extern const uint16_t KARAOKE_PAN[4];
+extern const uint16_t LPF_A[3];
+extern const uint16_t HPF_A[3];
+extern const uint16_t LPF_A_COPY[3];
+extern const uint16_t HPF_A_COPY[3];
+extern const uint16_t LPF_B[3];
+extern const uint16_t HPF_B[3];
+extern const uint16_t LPF_B_COPY[3];
+extern const uint16_t HPF_B_COPY[3];
+extern const uint16_t DIST_HPF[3];
+extern const uint16_t DIST_LPF[3];
+extern const uint16_t DYN_HPF[3];
+extern const uint16_t DYN_HPF_COPY[3];
+extern const uint16_t DYN_ATTACK[3];
+extern const uint16_t WAH_HPF[3];
+extern const uint16_t WAH_LPF[3];
+extern const uint16_t WAH_FILTER[3];
+extern const uint16_t WAH_FILTER_2[3];
+extern const uint16_t WAH_FILTER_3[3];
+extern const uint16_t WAH_FILTER_4[3];
+extern const uint16_t PH_FILTER[3];
+extern const uint16_t PH_FILTER_2[3];
+extern const uint16_t PH_FILTER_3[3];
+extern const uint16_t PH_FILTER_4[3];
+extern const uint16_t DETUNE_LOW_SHELF[3];
+extern const uint16_t DETUNE_HIGH_SHELF[3];
+extern const uint16_t DETUNE_LOW_SHELF_COPY[3];
+extern const uint16_t DETUNE_HIGH_SHELF_COPY[3];
+extern const uint16_t DELAY_LPF[3];
+extern const uint16_t DELAY_HPF[3];
+extern const uint16_t DELAY_LPF_COPY[3];
+extern const uint16_t DELAY_HPF_COPY[3];
+extern const uint16_t DELAY_CURVE[2];
+extern const uint16_t DELAY_CURVE_COPY[2];
+extern const uint16_t KARAOKE_HPF[3];
+extern const uint16_t KARAOKE_LPF[3];
+extern const uint16_t KARAOKE_LEVEL[2];
+extern const uint16_t DIST_LPF2[5];
+extern const uint16_t DIST_PEAK[5];
+extern const uint16_t DIST_LOW_SHELF[5];
+extern const uint16_t DYN_HPF2[5];
+extern const uint16_t DYN_HPF2_COPY[5];
+extern const uint16_t EQ3_LOW_SHELF2[5];
+extern const uint16_t EQ3_PEAK[5];
+extern const uint16_t EQ3_HIGH_SHELF2[5];
+extern const uint16_t EQ3_LOW_SHELF2_COPY[5];
+extern const uint16_t EQ3_PEAK_COPY[5];
+extern const uint16_t EQ3_HIGH_SHELF2_COPY[5];
+extern const uint16_t DIST_BAND[12];
+extern const uint16_t EQ3_A[3];
+extern const uint16_t EQ3_B[3];
+}
+
+namespace rev {
+extern const uint16_t DELAY_WORDS[14];
+extern const uint8_t DELAY_SLOTS[6];
+extern const uint8_t COMB_SLOTS[24];
+extern const uint16_t HALL_COMB_STEPS[24];
+extern const uint8_t ROW_SLOTS[12];
+extern const uint16_t ROW_STEPS[24];
+extern const uint8_t ER_BASE_SLOTS[12];
+extern const uint16_t ER_WORDS[22];
+extern const uint16_t WIDTH_STEPS[2];
+extern const uint16_t MIX_STEPS[5];
+extern const uint16_t LEVEL_STEPS[2];
+extern const uint16_t HPF_STEPS[3];
+extern const uint16_t LPF_STEPS[3];
+extern const uint16_t HPF_COPY[3];
+extern const uint16_t LPF_COPY[3];
+extern const uint16_t TABLE_STEPS[3];
+extern const uint16_t DELAY_LPF[3];
+extern const uint16_t DELAY_HPF[3];
+extern const uint16_t DELAY_LPF_COPY[3];
+extern const uint16_t DELAY_HPF_COPY[3];
+extern const uint16_t DELAY_CURVE[2];
+extern const uint16_t DELAY_CURVE_COPY[2];
+}
+
+namespace mix {
+extern const uint16_t MIXER_A[12];
+extern const uint16_t MIXER_B[16];
+extern const uint16_t MIXER_C[34];
+extern const uint16_t MIXER_HPF[3];
+extern const uint16_t MIXER_HPF_COPY[3];
+extern const uint16_t EQ_LOW[5];
+extern const uint16_t EQ_MID[5];
+extern const uint16_t EQ_HIGH[5];
+extern const uint16_t EQ_LOW_MID[5];
+extern const uint16_t EQ_HIGH_MID[5];
+extern const uint16_t EQ_LOW_COPY[5];
+extern const uint16_t EQ_MID_COPY[5];
+extern const uint16_t EQ_HIGH_COPY[5];
+extern const uint16_t EQ_LOW_MID_COPY[5];
+extern const uint16_t EQ_HIGH_MID_COPY[5];
+}
+
+extern const uint8_t TYPE_MAP_REVERB[17][2];
+extern const uint8_t TYPE_MAP_VARIATION[29][2];
+extern const uint8_t TYPE_MAP_INSERTION[41][2];
+extern const uint8_t INSERTION_CONTROL[41][14];
+extern const uint8_t BASE_TAGS[2][232];
+extern const uint16_t BASE_PROGRAM[232][5];
+extern const uint16_t AUX_PROGRAM[40][5];
+extern const uint16_t INSERTION_PROGRAMS[1440][5];   // 15 programs of 96 steps, by type msb
+extern const uint16_t REVERB_DELAY_PROGRAMS[864][5];   // 12 programs of 72 steps, by type msb
+extern const uint16_t VARIATION_PROGRAMS[864][5];   // 12 programs of 72 steps, by type msb
+extern const uint8_t AUX_TAGS[40];
+extern const uint8_t INSERTION_TAGS[1440];   // 15 programs of 96 steps, by type msb
+extern const uint8_t DELAY_TAGS[864];   // 12 programs of 72 steps, by type msb
+
+// A window's presets for one type msb: the block of a type lsb is blocks + blockOf[lsb] * its length in words.
+struct PresetGroup { const uint16_t* blocks; const uint8_t* blockOf; const uint16_t (*defaults)[16]; };
+extern const PresetGroup REVERB_PRESETS;
+extern const PresetGroup AUX_PRESETS;
+extern const PresetGroup INSERTION_PRESETS[14];   // by type msb
+extern const PresetGroup REVERB_DELAY_PRESETS[9];   // by type msb
+extern const PresetGroup VARIATION_PRESETS[11];   // by type msb
+
+struct ParamRange { int16_t min, max; uint8_t bytes; };
+extern const ParamRange COMMON_PARAMS[192];   // by performance byte
+extern const ParamRange REVERB_PARAMS[17][24];   // by type, then byte within the block
+extern const ParamRange VARIATION_PARAMS[29][31];   // by type, then byte within the block
+extern const ParamRange INSERTION_PARAMS[41][31];   // by type, then byte within the block
 
 }  // namespace fs1r::vop3host::rom

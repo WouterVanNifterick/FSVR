@@ -21,6 +21,16 @@ enum { REVERB, AUX, INSERTION, REVERB_DELAY, VARIATION, MASTER_EQ, MIXER };
 constexpr uint32_t AREA[5] = {0, 0xFFFF, 0x10000, 0x20000, 0x30000};   // where each window's delay memory starts
 struct TypeCode { uint8_t msb, lsb; };                                  // a type as the chip programs are filed
 
+// One window of the chip's program: its steps, its delay slots and its LFOs, and what the EPROM holds for it.
+struct Window {
+    const uint16_t* steps;  int nsteps;
+    const uint8_t* slots;  int nslots;
+    const uint8_t* lfos;  uint32_t lfoMask;                  // four LFOs and their phase reset bits; the reverb has none
+    const uint16_t (*programs)[5];  const uint8_t* tags;     // per type msb: five words and a tag for each step
+    int clearEntry;                                          // the program that silences the window
+};
+extern const Window WINDOWS[5];
+
 struct WriteSink {              // where the register writes go
     virtual void write(uint32_t reg, uint32_t value) = 0;
 };
@@ -48,13 +58,12 @@ public:
 
     // ---- chip registers ----
     void writeSweWordSub(uint32_t reg, uint32_t value);                 // 0x39648
-    void writeSweWordListSub(uint32_t n, uint32_t steps);               // 0x39652: constants of n listed steps
-    void writeSweWordListLatchSub(uint32_t n, uint32_t steps);          // 0x396A6: same with the auto-increment latch
-    void writeSwe0CSub(uint32_t n, uint32_t steps);                     // 0x396FC: tags of n listed steps
-    void writeSweBytesSub(uint32_t n, uint32_t steps);                  // 0x39764: tags, latched
+    void writeSweWordListSub(uint32_t n, const uint16_t* steps);        // 0x39652: constants of n listed steps
+    void writeSweWordListLatchSub(uint32_t n, const uint16_t* steps);   // 0x396A6: same with the auto-increment latch
+    void writeSwe0CSub(uint32_t n, const uint16_t* steps);              // 0x396FC: tags of n listed steps
+    void writeSweBytesSub(uint32_t n, const uint16_t* steps);           // 0x39764: tags, latched
     void writeSweIndexedSub(uint32_t index, uint32_t value);            // 0x397BA: register 0x16 entry
-    void writeSweDeSub(uint32_t n, uint32_t slots);                     // 0x397F4: delay offsets of n listed slots
-    void writeSweDeSubIds(uint32_t n, const uint8_t* ids);              // the same for a list built here
+    void writeSweDeSub(uint32_t n, const uint8_t* slots);               // 0x397F4: delay offsets of n listed slots
     void loadSubEffectType(int kind);                                   // 0x398C2: upload a window with its LFOs
     void writeSwe24Sub(uint32_t index);                                 // 0x39B24..0x39BB4: LFO registers
     void writeSwe25Sub(uint32_t index);
@@ -92,9 +101,6 @@ public:
     void setSubInsLevel(uint32_t v);                                   // 0x3BB30: insertion level
     void setSubIndividualOut(uint32_t mode);                                // 0x3BBBA: individual out
     void setSubMasterShift();                                           // 0x3BCA0
-    int32_t insertionParamBound(uint32_t id, uint32_t which);                 // 0x306C0
-    int32_t insertionParamMax(uint32_t id);                              // 0x30740
-    int32_t insertionParamMin(uint32_t id);                              // 0x3074C
     // changes after the load
     void postSubMask(uint32_t mask);                                    // the set_flg(6, mask) call sites
     bool pollSubDirtyLoop();                                            // 0x3C994: one turn of the effect task
@@ -109,6 +115,7 @@ public:
 
     // ---- parameter dispatch ----
     void fxParamEntry(int kind, int p);                                 // 0x39B09C
+    const rom::PresetGroup& presets(int kind) const;                    // of a window's current type msb
     void fxDispatchKind(int kind, int p);                               // 0x39C0B2
     void fxDispatchReverb(int p);                                       // 0x39C144
     void fxDispatchInsertion(int p);                                    // 0x39C1AC
@@ -121,12 +128,12 @@ public:
     // ---- filter, comb and room design ----
     // fxDesignFilter(order, scale, kind, freq, gain, q, steps): writes b0, b1(, b2), -a1(, -a2)
     // into the constant shadow at the listed steps.
-    void fxDesignFilter(int order, int scale, int kind, int freq, int gain, int q, uint32_t steps);   // flash 0x37414
-    void fxDesignCombs(int time, int damp, int count, int sel, uint32_t list);                        // 0x39C796
-    void fxDesignRooms(int time, int y0, int y1, int damp, int extra, uint32_t steps);                // 0x39CF82
-    void fxRoomPairs(int clampSrc, int index, int span, uint32_t slots);                              // 0x39D2C4
-    void fxDesignFromTable(int index, uint32_t dest);                                                  // 0x39C758
-    void fxFloatCurveB(int scale, int v, int gain, uint32_t steps);                                    // flash 0x39108
+    void fxDesignFilter(int order, int scale, int kind, int freq, int gain, int q, const uint16_t* steps);  // flash 0x37414
+    void fxDesignCombs(int time, int damp, int count, int sel, const uint16_t* list);  // 0x39C796
+    void fxDesignRooms(int time, int y0, int y1, int damp, int extra, const uint16_t* list);  // 0x39CF82
+    void fxRoomPairs(int clampSrc, int index, int span, const uint8_t* ids);  // 0x39D2C4
+    void fxDesignFromTable(int index, const uint16_t* steps);           // 0x39C758
+    void fxFloatCurveB(int scale, int v, int gain, const uint16_t* steps);  // flash 0x39108
 
     // ---- helpers ----
     int32_t fxBipolar500(int v);                        // 0x39CF62
@@ -138,37 +145,37 @@ public:
     int32_t fxMulTypeTableB(int x);                     // 0x39D500
     int32_t fxMulTypeTableC(int x);                     // 0x39D53E
     int32_t fxMulTypeTableD(int x);                     // 0x39D598
-    void fxAddScaledPairs(int a, int count, int tableIndex, uint32_t table);    // 0x39C8F4
-    void fxAddScaledPairs2(int clampSrc, int sel, uint32_t ids);                // 0x3A259C: two slot triples
-    void fxScaleRow(int src, int scale, int offset, int count, int stride, uint32_t coords, uint32_t levels);  // 0x39C9E8
-    void fxWriteSpan4(int indexA, int indexB, int offset, int row, uint32_t destWords, uint32_t slotIds);     // 0x39CC78
-    void fxCopyScaled12(int tableIndex, uint32_t src);  // 0x39CEC8
+    void fxAddScaledPairs(int clampSrc, int count, int sel, const uint8_t* ids);  // 0x39C8F4
+    void fxAddScaledPairs2(int clampSrc, int sel, const uint8_t* ids);  // 0x3A259C: two slot triples
+    void fxScaleRow(int src, int scale, int offset, int count, int stride, const uint16_t* steps, const uint8_t* slots);  // 0x39C9E8
+    void fxWriteSpan4(int indexA, int indexB, int offset, int row, const uint16_t* words, const uint8_t* ids);  // 0x39CC78
+    void fxCopyScaled12(int balance, const uint16_t* list);             // 0x39CEC8
     void fxLfoSpeed(int v, int lfo);                    // 0x3A3070
     void fxLfoPhase(int v, int lfo);                    // 0x3A30C2
     void fxLfoDepth(int v, int lfo);                    // 0x3A3128
-    void fxStoreBipolar376(int v, uint32_t step);       // 0x3A31CC
-    void fxStoreBipolar500(int v, uint32_t step);       // 0x3A31EA
-    void fxStoreModePair(int mode, uint32_t steps);     // 0x3A3208
-    void fxStoreUdiv(int v, uint32_t step);             // 0x3A328E
-    void fxStoreNegMul(int v, uint32_t step);           // 0x3A32B0
-    void fxStoreScaled(int v, int index, uint32_t steps);             // 0x3A4F00
-    void fxStoreMirrorHalf(int v, uint32_t steps);      // 0x3A5090
-    void fxStoreMirrorX32(int v, uint32_t steps);       // 0x3A50D8
-    void fxStoreMirror3(int v, uint32_t steps);         // 0x3ACA08
+    void fxStoreBipolar376(int v, const uint16_t* step);                // 0x3A31CC
+    void fxStoreBipolar500(int v, const uint16_t* step);                // 0x3A31EA
+    void fxStoreModePair(int mode, const uint16_t* steps);              // 0x3A3208
+    void fxStoreUdiv(int v, const uint16_t* step);                      // 0x3A328E
+    void fxStoreNegMul(int v, const uint16_t* step);                    // 0x3A32B0
+    void fxStoreScaled(int v, int index, const uint16_t* steps);        // 0x3A4F00
+    void fxStoreMirrorHalf(int v, const uint16_t* steps);               // 0x3A5090
+    void fxStoreMirrorX32(int v, const uint16_t* steps);                // 0x3A50D8
+    void fxStoreMirror3(int v, const uint16_t* steps);                  // 0x3ACA08
     void fxStoreSpan5(int v);                           // 0x3A9D58: the pitch change's second voice slots
     void fxLfoDirection(int lfo, int v);                // 0x3A9B8A: a pitch change voice's LFO words and direction
     int32_t fxInsPitchRatio(int v);                     // 0x3A99FC
     void fxInsPitchSlots();                             // 0x3A9CC6: the first voice's slots
     void fxInsErPattern();                              // 0x3A6354: the 20 early reflections
     int32_t fxInsErGain(int x);                         // 0x3A6338: comb-gain table lookup
-    void fxWriteComplementPair(int v, uint32_t steps);  // 0x3A5124
-    void fxWriteWord(int v, uint32_t step);             // 0x3A5168
-    void fxWriteNegated(int v, uint32_t step);          // 0x3A51E4
-    void fxWriteRow8(int row, uint32_t steps);          // 0x3A522E
-    void fxCopyWords3(uint32_t src, uint32_t steps);    // flash 0x39390
-    void fxCopyWords5(uint32_t src, uint32_t steps);    // flash 0x3943C
-    void fxCopyWords2(uint32_t src, uint32_t steps);    // flash 0x394BA
-    void fxFillBand(int a, uint32_t steps);             // flash 0x394F8
+    void fxWriteComplementPair(int v, const uint16_t* steps);           // 0x3A5124
+    void fxWriteWord(int v, const uint16_t* step);                      // 0x3A5168
+    void fxWriteNegated(int v, const uint16_t* step);                   // 0x3A51E4
+    void fxWriteRow8(int row, const uint16_t* steps);                   // 0x3A522E
+    void fxCopyWords3(const uint16_t* src, const uint16_t* dst);        // flash 0x39390
+    void fxCopyWords5(const uint16_t* src, const uint16_t* dst);        // flash 0x3943C
+    void fxCopyWords2(const uint16_t* src, const uint16_t* dst);        // flash 0x394BA
+    void fxFillBand(int v, const uint16_t* steps);                      // flash 0x394F8
 
     // ---- per-type handlers: reverb 1-12 ----
     void fxRevHall(int p);                              // 0x3A3728
@@ -201,8 +208,7 @@ public:
 
     // ---- parameter store ----
     int32_t readParameter(uint32_t id);                                 // 0x30390: a performance byte, clamped to its range
-    uint32_t paramDescAddr(uint32_t index);                             // 0x34478
-    int32_t readStoredParam(uint32_t desc, uint32_t index);             // 0x34B00
+    const rom::ParamRange& descriptor(uint32_t index) const;            // 0x34478: its range under the current types
 
     // A performance byte enters here: seven bits, and no effect type past the last one.
     void store(uint32_t index, uint32_t value)

@@ -11,27 +11,12 @@
 
 namespace fs1r::vop3host {
 
+using namespace rom::mix;
+
 namespace {
 
-// per type byte of the performance, two bytes: the reverb map gives [0] 0 = reverb window
-// (kind 0), else delay window (kind 3), and [1] the type byte; the others give msb, lsb
-constexpr uint32_t TYPE_MAP_REVERB = rom::FX_TYPE_MAP_REVERB, TYPE_MAP_VARIATION = rom::FX_TYPE_MAP_VARIATION,
-                   TYPE_MAP_INSERTION = rom::FX_TYPE_MAP_INSERTION;
-constexpr uint32_t STEPS_B = rom::FX_STEPS_MIXER_B, STEPS_C = rom::FX_STEPS_MIXER_C;
-constexpr uint32_t STEPS_ROUTE = rom::FX_STEPS_INDIVIDUAL_OUT;
 
 }  // namespace
-
-// flash 0x306C0 through 0x3074C (which = 0, the minimum) and 0x30740 (which = 1, the maximum):
-// the range of an insertion parameter from the descriptor table of the current insertion type
-int32_t Host::insertionParamBound(uint32_t id, uint32_t which)
-{
-    const uint32_t type = perf[175];
-    const uint32_t desc = rom::u32(rom::PARAM_DESC_INSERTION + 4 * type) + (((id & 0xFFFF & 255) - 136) << 4);
-    return (which & 0xFFFF) == 0 ? rom::s16(desc + 6) : rom::s16(desc + 8);
-}
-int32_t Host::insertionParamMax(uint32_t id) { return insertionParamBound(id, 1); }     // flash 0x30740
-int32_t Host::insertionParamMin(uint32_t id) { return insertionParamBound(id, 0); }     // flash 0x3074C
 
 // flash 0x3AC88 applySubDirtyMask
 //   0x8000  read the performance into the cache, then as 0x80
@@ -43,7 +28,8 @@ int32_t Host::insertionParamMin(uint32_t id) { return insertionParamBound(id, 0)
 //   0x100   dirty master EQ parameters (handlers at 0x3F104)
 void Host::applySubDirtyMask(uint32_t mask)
 {
-    auto is_delay = [&](uint32_t type) -> bool { return rom::u8(TYPE_MAP_REVERB + ((type & 0xFF) << 1)) != 0; };
+    // the reverb's type map says which window the type runs in: the reverb's, or the delay's
+    auto is_delay = [&](uint32_t type) -> bool { return rom::TYPE_MAP_REVERB[type][0] != 0; };
 
     if ((mask & 0x80) || (mask & 0x8000)) {
         if (mask & 0x8000) {
@@ -72,7 +58,7 @@ void Host::applySubDirtyMask(uint32_t mask)
         int delay_entry;
         if (!is_delay(rev)) {
             std::copy_n(reverbCache, 16, param[REVERB]);
-            code[REVERB].lsb = rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1));
+            code[REVERB].lsb = rom::TYPE_MAP_REVERB[rev][1];
             fxParamEntry(0, 254);
             code[REVERB_DELAY].msb = 0;
             code[REVERB_DELAY].lsb = 1;
@@ -82,21 +68,21 @@ void Host::applySubDirtyMask(uint32_t mask)
             code[REVERB].lsb = 0;
             fxParamEntry(0, 255);
             code[REVERB_DELAY].msb = 8;
-            code[REVERB_DELAY].lsb = rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1));
+            code[REVERB_DELAY].lsb = rom::TYPE_MAP_REVERB[rev][1];
             delay_entry = 254;
         }
         fxParamEntry(3, delay_entry);
 
         const uint32_t var = perf[171];
         std::copy_n(variationCache, 16, param[VARIATION]);
-        code[VARIATION].msb = rom::u8(TYPE_MAP_VARIATION + (var << 1));
-        code[VARIATION].lsb = rom::u8(TYPE_MAP_VARIATION + (var << 1) + 1);
+        code[VARIATION].msb = rom::TYPE_MAP_VARIATION[var][0];
+        code[VARIATION].lsb = rom::TYPE_MAP_VARIATION[var][1];
         fxParamEntry(4, 254);
 
         const uint32_t ins = perf[175];
         std::copy_n(insertionCache, 16, param[INSERTION]);
-        code[INSERTION].msb = rom::u8(TYPE_MAP_INSERTION + (ins << 1));
-        code[INSERTION].lsb = rom::u8(TYPE_MAP_INSERTION + (ins << 1) + 1);
+        code[INSERTION].msb = rom::TYPE_MAP_INSERTION[ins][0];
+        code[INSERTION].lsb = rom::TYPE_MAP_INSERTION[ins][1];
         fxParamEntry(2, 254);
 
         // the mixer: reverb pan and return go to the words of the reverb or of the delay block
@@ -159,7 +145,7 @@ void Host::applySubDirtyMask(uint32_t mask)
         mixParam[4] = 90;
         fxParamEntry(6, 4);
         if (!is_delay(rev)) {
-            code[REVERB].lsb = rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1));
+            code[REVERB].lsb = rom::TYPE_MAP_REVERB[rev][1];
             fxParamEntry(0, 255);
             code[REVERB_DELAY].msb = 0;
             code[REVERB_DELAY].lsb = 1;
@@ -175,7 +161,7 @@ void Host::applySubDirtyMask(uint32_t mask)
             code[REVERB].lsb = 0;
             fxParamEntry(0, 255);
             code[REVERB_DELAY].msb = 8;
-            code[REVERB_DELAY].lsb = rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1));
+            code[REVERB_DELAY].lsb = rom::TYPE_MAP_REVERB[rev][1];
             fxParamEntry(3, 255);
             const uint32_t pan = uint32_t(readParameter(169)) & 0xFF;
             mixParam[0] = 64;
@@ -214,8 +200,8 @@ void Host::applySubDirtyMask(uint32_t mask)
     if (mask & 0x10) {
         setSubFlag(4, 1);
         const uint32_t var = uint32_t(readParameter(171)) & 0xFF;
-        code[VARIATION].msb = rom::u8(TYPE_MAP_VARIATION + (var << 1));
-        code[VARIATION].lsb = rom::u8(TYPE_MAP_VARIATION + (var << 1) + 1);
+        code[VARIATION].msb = rom::TYPE_MAP_VARIATION[var][0];
+        code[VARIATION].lsb = rom::TYPE_MAP_VARIATION[var][1];
         fxParamEntry(4, 255);
         loadSubEffectType(4);
         if (var != 0)
@@ -223,7 +209,6 @@ void Host::applySubDirtyMask(uint32_t mask)
     }
 
     if (mask & 0x08) {
-        readParameter(171);
         for (uint32_t i = 0; i < 16; i++) {
             if (variationChanged[i] != 1)
                 continue;
@@ -239,8 +224,8 @@ void Host::applySubDirtyMask(uint32_t mask)
         for (uint32_t i = 0; i < 16; i++)
             controlOffset[i] = 0;
         const uint32_t ins = uint32_t(readParameter(175)) & 0xFF;
-        code[INSERTION].msb = rom::u8(TYPE_MAP_INSERTION + (ins << 1));
-        code[INSERTION].lsb = rom::u8(TYPE_MAP_INSERTION + (ins << 1) + 1);
+        code[INSERTION].msb = rom::TYPE_MAP_INSERTION[ins][0];
+        code[INSERTION].lsb = rom::TYPE_MAP_INSERTION[ins][1];
         fxParamEntry(2, 255);
         loadSubEffectType(2);
         setSubFlag(2, 0);
@@ -248,13 +233,12 @@ void Host::applySubDirtyMask(uint32_t mask)
 
     if (mask & 0x02) {
         // a dirty insertion parameter is its cached value plus the controller offset scaled
-        // to the range of the parameter, offset * (max - min) / 127, clamped to that range
-        readParameter(175);
+        // to the range of the parameter, offset * (max - min) / 127, clamped to that range (0x306C0)
         for (uint32_t i = 0; i < 16; i++) {
             if (insertionChanged[i] != 1)
                 continue;
-            const int32_t lo = int32_t(uint32_t(insertionParamMin(136 + 2 * i)) & 0xFFFF);
-            const int32_t hi = int32_t(uint32_t(insertionParamMax(136 + 2 * i)) & 0xFFFF);
+            const rom::ParamRange& range = rom::INSERTION_PARAMS[perf[175]][2 * i];
+            const int32_t lo = uint16_t(range.min), hi = uint16_t(range.max);
             const int32_t span = controlOffset[i] * (hi - lo);
             const int32_t add = int16_t(span / 127);
             int32_t v = int16_t(insertionCache[i] + add);
@@ -313,8 +297,7 @@ void Host::subEqHandler(uint32_t i)
 // flash 0x3B766 applySubReverbPanReturn: reverb pan and return from the performance
 void Host::applySubReverbPanReturn()
 {
-    const uint32_t rtype = perf[168];
-    const bool isDelay = rom::u8(TYPE_MAP_REVERB + (rtype << 1)) != 0;
+    const bool isDelay = rom::TYPE_MAP_REVERB[perf[168]][0] != 0;
     const uint32_t pan = perf[169];
     if (!isDelay) {
         mixParam[0] = pan;
@@ -417,41 +400,41 @@ void Host::copySubEqWords()
 void Host::setSubInsToReverb(uint32_t v)
 {
     const int32_t w = int16_t(int(float(v & 0xFF) * 2896.0f / 127.0f));
-    coef[rom::u16(STEPS_C + 34)] = uint32_t(w);
-    coef[rom::u16(STEPS_C + 46)] = uint32_t(w);
-    writeSweWordListSub(1, STEPS_C + 34);
-    writeSweWordListSub(1, STEPS_C + 46);
+    coef[MIXER_C[17]] = uint32_t(w);
+    coef[MIXER_C[23]] = uint32_t(w);
+    writeSweWordListSub(1, MIXER_C + 17);
+    writeSweWordListSub(1, MIXER_C + 23);
 }
 // flash 0x3BA8E setSubInsToVariation: insertion to variation send, the same law, two other steps
 void Host::setSubInsToVariation(uint32_t v)
 {
     const int32_t w = int16_t(int(float(v & 0xFF) * 2896.0f / 127.0f));
-    coef[rom::u16(STEPS_C + 56)] = uint32_t(w);
-    coef[rom::u16(STEPS_C + 66)] = uint32_t(w);
-    writeSweWordListSub(1, STEPS_C + 56);
-    writeSweWordListSub(1, STEPS_C + 66);
+    coef[MIXER_C[28]] = uint32_t(w);
+    coef[MIXER_C[33]] = uint32_t(w);
+    writeSweWordListSub(1, MIXER_C + 28);
+    writeSweWordListSub(1, MIXER_C + 33);
 }
 // flash 0x3BB30 setSubInsLevel: insertion level, (v * 8192 / 127) >> 2, into two mixer steps
 void Host::setSubInsLevel(uint32_t v)
 {
     const int32_t w = int16_t(int(float(v & 0xFF) * 8192.0f / 127.0f)) >> 2;
-    coef[rom::u16(STEPS_B + 16)] = uint32_t(w);
-    coef[rom::u16(STEPS_B + 18)] = uint32_t(w);
-    writeSweWordListSub(1, STEPS_B + 16);
-    writeSweWordListSub(1, STEPS_B + 18);
+    coef[MIXER_B[8]] = uint32_t(w);
+    coef[MIXER_B[9]] = uint32_t(w);
+    writeSweWordListSub(1, MIXER_B + 8);
+    writeSweWordListSub(1, MIXER_B + 9);
 }
 
 // flash 0x3BBBA setSubIndividualOut: individual out. 0 none, 1 the first pair of steps at 0x0B50,
 // 2 the second pair; other values rewrite the four steps as they are.
 void Host::setSubIndividualOut(uint32_t mode)
 {
-    auto step = [&](int i) -> uint32_t { return rom::u16(STEPS_ROUTE + 2 * i); };
+    auto step = [&](int i) -> uint32_t { return rom::STEPS_INDIVIDUAL_OUT[i]; };
     switch (mode & 0xFF) {
     case 0: coef[step(0)] = 0; coef[step(1)] = 0; coef[step(2)] = 0; coef[step(3)] = 0; break;
     case 1: coef[step(0)] = 0x0B50; coef[step(1)] = 0x0B50; coef[step(2)] = 0; coef[step(3)] = 0; break;
     case 2: coef[step(0)] = 0; coef[step(1)] = 0; coef[step(2)] = 0x0B50; coef[step(3)] = 0x0B50; break;
     }
-    writeSweWordListSub(4, STEPS_ROUTE);
+    writeSweWordListSub(4, rom::STEPS_INDIVIDUAL_OUT);
 }
 
 // flash 0x3BCA0 setSubMasterShift: the master level word, then the master volume step
@@ -484,56 +467,10 @@ bool Host::pollSubDirtyLoop()
     return true;
 }
 
-// flash 0x3C1D2 loadSubTypeDefaults: the 16 default parameters of a kind's current type, from the
-// EPROM into the kind's parameter block (the tables fxParamEntry reads for an odd p)
+// flash 0x3C1D2 loadSubTypeDefaults: the 16 default parameters of a window's current type
 void Host::loadSubTypeDefaults(uint32_t kind)
 {
-    uint32_t src = 0;
-    switch (kind) {
-    case 0:
-        src = rom::FX_DEFAULTS_REVERB + (code[REVERB].lsb << 5);
-        break;
-    case 2: {
-        const uint32_t lsb = code[INSERTION].lsb << 5;
-        switch (code[INSERTION].msb) {
-        case 1: src = 0x3614F4; break;
-        case 2: src = 0x36319C; break;
-        case 3: src = 0x3650EA; break;
-        case 4: src = 0x3631FC; break;
-        case 5: src = 0x3632FC; break;
-        case 7: src = 0x3615B4; break;
-        case 10: src = 0x36538A; break;
-        case 12: src = 0x3653CA; break;
-        case 13: src = 0x36542A; break;
-        default: src = 0x3612B4; break;
-        }
-        src += lsb;
-        break;
-    }
-    case 3:
-        src = (code[REVERB_DELAY].msb == 8 ? 0x361914 : 0x361694) + (code[REVERB_DELAY].lsb << 5);
-        break;
-    case 4: {
-        const uint32_t lsb = code[VARIATION].lsb << 5;
-        switch (code[VARIATION].msb) {
-        case 1: src = 0x361854; break;
-        case 2: src = 0x3633FC; break;
-        case 3: src = 0x36347C; break;
-        case 4: src = 0x3634FC; break;
-        case 5: src = 0x36357C; break;
-        case 6: src = 0x3618D4; break;
-        case 7: src = 0x3657AC; break;
-        case 8: src = 0x361914; break;
-        case 9: src = 0x3654CA; break;
-        case 10: src = 0x36554A; break;
-        default: src = 0x361694; break;
-        }
-        src += lsb;
-        break;
-    }
-    }
-    for (uint32_t i = 0; i < 16; i++)
-        param[kind][i] = rom::u16(src + 2 * i);
+    std::copy_n(presets(int(kind)).defaults[code[kind].lsb], 16, param[kind]);
 }
 
 // The three type changes: the new type's bytes, its default parameters into the block, and
@@ -544,10 +481,10 @@ void Host::loadSubTypeDefaults(uint32_t kind)
 void Host::syncSubReverbType()
 {
     const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
-    const uint32_t map = TYPE_MAP_REVERB + (rev << 1);
-    const bool isDelay = rom::u8(map) != 0;
+    const uint8_t* map = rom::TYPE_MAP_REVERB[rev];
+    const bool isDelay = map[0] != 0;
     if (!isDelay) {
-        code[REVERB].lsb = rom::u8(map + 1);
+        code[REVERB].lsb = map[1];
         loadSubTypeDefaults(0);
         code[REVERB_DELAY].msb = 0;
         code[REVERB_DELAY].lsb = 1;
@@ -556,7 +493,7 @@ void Host::syncSubReverbType()
         code[REVERB].lsb = 0;
         loadSubTypeDefaults(0);
         code[REVERB_DELAY].msb = 8;
-        code[REVERB_DELAY].lsb = rom::u8(map + 1);
+        code[REVERB_DELAY].lsb = map[1];
         loadSubTypeDefaults(3);
     }
     const uint16_t* blk = param[isDelay ? REVERB_DELAY : REVERB];
@@ -581,8 +518,8 @@ void Host::syncSubReverbType()
 void Host::syncSubVariationType()
 {
     const uint32_t var = uint32_t(readParameter(171)) & 0xFF;
-    code[VARIATION].msb = rom::u8(TYPE_MAP_VARIATION + (var << 1));
-    code[VARIATION].lsb = rom::u8(TYPE_MAP_VARIATION + (var << 1) + 1);
+    code[VARIATION].msb = rom::TYPE_MAP_VARIATION[var][0];
+    code[VARIATION].lsb = rom::TYPE_MAP_VARIATION[var][1];
     loadSubTypeDefaults(4);
     if (var != 0)
         loadSubTypeDefaults(4);
@@ -600,8 +537,8 @@ void Host::syncSubVariationType()
 void Host::syncSubInsertionType()
 {
     const uint32_t ins = uint32_t(readParameter(175)) & 0xFF;
-    code[INSERTION].msb = rom::u8(TYPE_MAP_INSERTION + (ins << 1));
-    code[INSERTION].lsb = rom::u8(TYPE_MAP_INSERTION + (ins << 1) + 1);
+    code[INSERTION].msb = rom::TYPE_MAP_INSERTION[ins][0];
+    code[INSERTION].lsb = rom::TYPE_MAP_INSERTION[ins][1];
     loadSubTypeDefaults(2);
     for (uint32_t i = 0; i < 16; i++) {
         perf[136 + 2 * i + 1] = (param[INSERTION][i] & 0xFF) & 0x7F;

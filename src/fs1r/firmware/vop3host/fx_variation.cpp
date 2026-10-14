@@ -6,36 +6,24 @@
 
 namespace fs1r::vop3host {
 
+using namespace rom::var;
+
 namespace {
-constexpr uint32_t MOD_DELAY_TABLE = 0x371BD4;     // u16: modulation delay byte -> 0.1 ms word
-constexpr uint32_t MOD_LEVEL_STEPS = 0x35D80C;     // u16 x 6: modulation depth steps (fxStoreUdiv)
-constexpr uint32_t ROT_STEPS = 0x35D818;           // u16 x 7: rotary / tremolo / auto pan depth steps
-constexpr uint32_t PAN_STEPS = 0x35D8EA;           // u16 x 4: the pan words (parameter 9), modulation group
-constexpr uint32_t PAN_STEPS_B = 0x35D904;         // u16 x 4: the pan words of the rotary group
-constexpr uint32_t FB_STEPS = 0x35D8F2;            // u16 x 2: feedback
-constexpr uint32_t MIX_STEPS = 0x35D8F6;           // u16 x 2: the delay-line mix words
-constexpr uint32_t MOD_SLOTS = 0x35D8FA;           // u8 x 10: the modulation delay lines' slots
-constexpr uint32_t TREM_WORDS = 0x35D90C;          // u16 x 2
-constexpr uint32_t TREM_SLOTS = 0x35D910;          // u8 x 8
-constexpr uint32_t LPF_A = 0x35E6CE, LPF_A_COPY = 0x35E6DA, HPF_A = 0x35E6D4, HPF_A_COPY = 0x35E6E0;
-constexpr uint32_t LPF_B = 0x35E6E6, LPF_B_COPY = 0x35E6F2, HPF_B = 0x35E6EC, HPF_B_COPY = 0x35E6F8;
-constexpr uint32_t BAL_STEP_A = 0x35D762, BAL_STEP_B = 0x35D764, BAL_STEP_C = 0x35D75A;
-constexpr uint32_t MODE_STEPS_A = 0x35D7A8, MODE_STEPS_B = 0x35D7AC;
 
 // the pan/level words shared by the variation effects (parameter 9)
-void pan_words(Host& h, uint32_t steps)
+void pan_words(Host& h, const uint16_t* steps)
 {
-    const uint32_t g = uint32_t(rom::s16(rom::FX_PAN_LAW + 2) >> 2);
-    h.coef[rom::u16(steps + 2)] = g;
-    h.coef[rom::u16(steps)] = g;
-    const uint32_t x = uint32_t(h.fxMulTypeTableD(rom::s16(rom::FX_PAN_LAW + 254) >> 2));
-    h.coef[rom::u16(steps + 6)] = x;
-    h.coef[rom::u16(steps + 4)] = x;
+    const uint32_t g = uint32_t(rom::PAN_LAW[1] >> 2);
+    h.coef[steps[1]] = g;
+    h.coef[steps[0]] = g;
+    const uint32_t x = uint32_t(h.fxMulTypeTableD(rom::PAN_LAW[127] >> 2));
+    h.coef[steps[3]] = x;
+    h.coef[steps[2]] = x;
     h.writeSweWordListSub(4, steps);
 }
 
 // parameters 5/6 (LPF) and 7/8 (HPF) of the modulation effects
-void filters(Host& h, int p, uint32_t lpf, uint32_t lpf_copy, uint32_t hpf, uint32_t hpf_copy)
+void filters(Host& h, int p, const uint16_t* lpf, const uint16_t* lpf_copy, const uint16_t* hpf, const uint16_t* hpf_copy)
 {
     if (p == 5 || p == 6) {
         h.fxDesignFilter(1, 1, 2, h.param[VARIATION][5], h.param[VARIATION][6], 0, lpf);
@@ -49,10 +37,10 @@ void filters(Host& h, int p, uint32_t lpf, uint32_t lpf_copy, uint32_t hpf, uint
 constexpr uint32_t TOP = 0x40000;   // where the variation's delay memory ends
 
 int32_t P(const Host& h, int i) { return h.param[VARIATION][i]; }
-uint32_t mod_slot(int i) { return rom::u8(MOD_SLOTS + uint32_t(i)); }
+uint32_t mod_slot(int i) { return MOD_SLOTS[uint32_t(i)]; }
 uint32_t mod_delay(Host& h, int p)
 {
-    return uint32_t(h.fxMsToSamples(rom::s16(MOD_DELAY_TABLE + 2u * (uint32_t(P(h, p)) & 0xFFFF)))) & 0xFFFF;
+    return uint32_t(h.fxMsToSamples(rom::MOD_DELAY[uint32_t(P(h, p)) & 0xFFFF])) & 0xFFFF;
 }
 }  // namespace
 
@@ -67,14 +55,14 @@ void Host::fxVarChorus(int p)
     case 1: {
         const int x = int((param[VARIATION][1] & 0xFF) << 1);
         fxStoreUdiv(x, MOD_LEVEL_STEPS);
+        fxStoreUdiv(x, MOD_LEVEL_STEPS + 2);
         fxStoreUdiv(x, MOD_LEVEL_STEPS + 4);
-        fxStoreUdiv(x, MOD_LEVEL_STEPS + 8);
         break;
     }
     case 2: {
         const uint32_t x = uint32_t(fxBipolar376(P(*this, 2)));
-        coef[rom::u16(FB_STEPS + 2)] = x;
-        coef[rom::u16(FB_STEPS)] = x;
+        coef[FB_STEPS[1]] = x;
+        coef[FB_STEPS[0]] = x;
         writeSweWordListSub(2, FB_STEPS);
         break;
     }
@@ -87,12 +75,12 @@ void Host::fxVarChorus(int p)
         delay[mod_slot(4)] = d + 0x41;
         delay[mod_slot(3)] = d + 0x41;
         if (P(*this, 14) == 0) {
-            coef[rom::u16(MIX_STEPS)] = 0x4000;
-            coef[rom::u16(MIX_STEPS + 2)] = 0x4000;
+            coef[MIX_STEPS[0]] = 0x4000;
+            coef[MIX_STEPS[1]] = 0x4000;
             delay[mod_slot(5)] = 0;
         } else {
-            coef[rom::u16(MIX_STEPS)] = 0x7FFF;
-            coef[rom::u16(MIX_STEPS + 2)] = 0;
+            coef[MIX_STEPS[0]] = 0x7FFF;
+            coef[MIX_STEPS[1]] = 0;
             base = int32_t(((TOP - AREA[4]) >> 1) + 1);
             delay[mod_slot(5)] = base;
         }
@@ -131,12 +119,12 @@ void Host::fxVarFlanger(int p)
         break;
     case 1:
         fxStoreUdiv(P(*this, 1), MOD_LEVEL_STEPS);
-        fxStoreUdiv(P(*this, 1), MOD_LEVEL_STEPS + 4);
+        fxStoreUdiv(P(*this, 1), MOD_LEVEL_STEPS + 2);
         break;
     case 2: {
         const uint32_t x = uint32_t(fxBipolar500(P(*this, 2)));
-        coef[rom::u16(FB_STEPS + 2)] = x;
-        coef[rom::u16(FB_STEPS)] = x;
+        coef[FB_STEPS[1]] = x;
+        coef[FB_STEPS[0]] = x;
         writeSweWordListSub(2, FB_STEPS);
         break;
     }
@@ -183,12 +171,12 @@ void Host::fxVarSymphonic(int p)
     case 1: {
         const int x = int((uint32_t(P(*this, 1)) & 0xFFFF) * 5) >> 3;
         fxStoreUdiv(x, MOD_LEVEL_STEPS);
+        fxStoreUdiv(x, MOD_LEVEL_STEPS + 2);
         fxStoreUdiv(x, MOD_LEVEL_STEPS + 4);
-        fxStoreUdiv(x, MOD_LEVEL_STEPS + 8);
         const int y = int((uint32_t(P(*this, 1)) & 0xFFFF) * 3) >> 3;
-        fxStoreUdiv(y, MOD_LEVEL_STEPS + 2);
-        fxStoreUdiv(y, MOD_LEVEL_STEPS + 6);
-        fxStoreUdiv(y, MOD_LEVEL_STEPS + 10);
+        fxStoreUdiv(y, MOD_LEVEL_STEPS + 1);
+        fxStoreUdiv(y, MOD_LEVEL_STEPS + 3);
+        fxStoreUdiv(y, MOD_LEVEL_STEPS + 5);
         break;
     }
     case 2: {
@@ -230,14 +218,14 @@ void Host::fxVarRotarySp(int p)
     case 1: {
         const uint32_t v = param[VARIATION][1];
         const int x = v < 0x20 ? (int8_t(v) << 1) : 0x40;
-        fxStoreNegMul(x, ROT_STEPS + 2);
-        fxStoreNegMul(x, ROT_STEPS + 6);
-        fxStoreNegMul(x, ROT_STEPS + 10);
+        fxStoreNegMul(x, ROT_STEPS + 1);
+        fxStoreNegMul(x, ROT_STEPS + 3);
+        fxStoreNegMul(x, ROT_STEPS + 5);
         const int y = int((param[VARIATION][1] & 0xFF) >> 2);
         fxStoreUdiv(y, ROT_STEPS);
+        fxStoreUdiv(y, ROT_STEPS + 2);
         fxStoreUdiv(y, ROT_STEPS + 4);
-        fxStoreUdiv(y, ROT_STEPS + 8);
-        fxStoreUdiv(y, ROT_STEPS + 12);
+        fxStoreUdiv(y, ROT_STEPS + 6);
         break;
     }
     case 5: case 6: case 7: case 8:
@@ -264,13 +252,13 @@ void Host::fxVarTremolo(int p)
         fxLfoSpeed(P(*this, 0), 8);
         break;
     case 1:
-        fxStoreNegMul(P(*this, 1), ROT_STEPS + 2);
-        fxStoreNegMul(P(*this, 1), ROT_STEPS + 6);
+        fxStoreNegMul(P(*this, 1), ROT_STEPS + 1);
+        fxStoreNegMul(P(*this, 1), ROT_STEPS + 3);
         break;
     case 2: {
         const int y = int((param[VARIATION][2] & 0xFF) >> 2);
         fxStoreUdiv(y, ROT_STEPS);
-        fxStoreUdiv(y, ROT_STEPS + 4);
+        fxStoreUdiv(y, ROT_STEPS + 2);
         break;
     }
     case 5: case 6: case 7: case 8:
@@ -280,19 +268,19 @@ void Host::fxVarTremolo(int p)
         fxStoreBipolar500(P(*this, 13), BAL_STEP_B);
         break;
     case 14: {
-        auto id = [&](int i) { return rom::u8(TREM_SLOTS + uint32_t(i)); };
+        auto id = [&](int i) { return TREM_SLOTS[uint32_t(i)]; };
         if (P(*this, 14) == 0) {
-            coef[rom::u16(TREM_WORDS)] = 0x4000;
-            coef[rom::u16(TREM_WORDS + 2)] = 0x4000;
+            coef[TREM_WORDS[0]] = 0x4000;
+            coef[TREM_WORDS[1]] = 0x4000;
             delay[id(5)] = 0;
             delay[id(6)] = delay[id(0)] + 1;
             delay[id(7)] = delay[id(0)] + 1;
         } else {
-            coef[rom::u16(TREM_WORDS)] = 0x7FFF;
-            coef[rom::u16(TREM_WORDS + 2)] = 0;
+            coef[TREM_WORDS[0]] = 0x7FFF;
+            coef[TREM_WORDS[1]] = 0;
             const uint32_t x = uint32_t(fxMulTypeTableD(0x7FFF));
-            coef[rom::u16(PAN_STEPS_B + 6)] = x;
-            coef[rom::u16(PAN_STEPS_B + 4)] = x;
+            coef[PAN_STEPS_B[3]] = x;
+            coef[PAN_STEPS_B[2]] = x;
             delay[id(5)] = 1024;
             delay[id(6)] = 1025;
             delay[id(7)] = 1025;
@@ -303,8 +291,8 @@ void Host::fxVarTremolo(int p)
     }
     case 255: {
         const uint32_t x = uint32_t(fxMulTypeTableD(8192));
-        coef[rom::u16(PAN_STEPS_B + 6)] = x;
-        coef[rom::u16(PAN_STEPS_B + 4)] = x;
+        coef[PAN_STEPS_B[3]] = x;
+        coef[PAN_STEPS_B[2]] = x;
         hold = true;
         for (int q : {0, 1, 2, 5, 7, 13, 14})
             fxVarTremolo(q);
@@ -323,14 +311,14 @@ void Host::fxVarAutoPan(int p)
         fxLfoSpeed(P(*this, 0), 8);
         break;
     case 1:
-        fxStoreNegMul(P(*this, 1), ROT_STEPS + 2);
-        fxStoreNegMul(P(*this, 1), ROT_STEPS + 6);
+        fxStoreNegMul(P(*this, 1), ROT_STEPS + 1);
+        fxStoreNegMul(P(*this, 1), ROT_STEPS + 3);
         break;
     case 2: {
         const int32_t m = P(*this, 3);
         const int y = (m == 3 || m == 4) ? int((param[VARIATION][2] & 0xFF) >> 2) : 0;
         fxStoreUdiv(y, ROT_STEPS);
-        fxStoreUdiv(y, ROT_STEPS + 4);
+        fxStoreUdiv(y, ROT_STEPS + 2);
         break;
     }
     case 3: {
@@ -357,8 +345,8 @@ void Host::fxVarAutoPan(int p)
         break;
     case 255: {
         const uint32_t x = uint32_t(fxMulTypeTableD(8192));
-        coef[rom::u16(PAN_STEPS_B + 6)] = x;
-        coef[rom::u16(PAN_STEPS_B + 4)] = x;
+        coef[PAN_STEPS_B[3]] = x;
+        coef[PAN_STEPS_B[2]] = x;
         hold = true;
         for (int q : {0, 3, 5, 7, 9})
             fxVarAutoPan(q);

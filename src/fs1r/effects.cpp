@@ -39,7 +39,7 @@ void Effects::control(int dest, int offset) {
     int16_t* at = dest == 15 ? &host.sendReverbOffset : &host.sendVariationOffset;
     int param = 0;
     if (dest <= 14) {                            // an insertion parameter, by the type's row of the controller map
-        param = vop3::rom::u8(0x3895F2 + host.readParameter(175) * 14 + dest - 1);
+        param = vop3::rom::INSERTION_CONTROL[host.readParameter(175)][dest - 1];
         if (param == 0xff) return;
         at = &host.controlOffset[param];
     }

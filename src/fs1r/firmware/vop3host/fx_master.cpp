@@ -3,14 +3,13 @@
 
 // Window reset, master EQ, system parameters and the master gain.
 #include "host.h"
+#include <algorithm>
 
 namespace fs1r::vop3host {
 
+using namespace rom::mix;
+
 namespace {
-constexpr uint32_t RESET_SLOTS_REVERB = 0x35DAE4;      // u8 x 14
-constexpr uint32_t RESET_SLOTS_REVERB_DELAY = 0x35DAFC; // u8 x 12
-constexpr uint32_t RESET_SLOTS_VARIATION = 0x35DB08;   // u8 x 12
-constexpr uint32_t RESET_SLOTS_INSERTION = 0x35DB14;   // u8 x 24
 }  // namespace
 
 // 0x3A3308 fxResetWindow: silence a window (zero its constants), spread its delay slots
@@ -18,16 +17,16 @@ constexpr uint32_t RESET_SLOTS_INSERTION = 0x35DB14;   // u8 x 24
 void Host::fxResetWindow(int kind)
 {
     kind &= 0xFF;
-    auto zero_steps = [&](uint32_t n, uint32_t list) {
+    auto zero_steps = [&](uint32_t n, const uint16_t* list) {
         for (uint32_t i = 0; i < n; i++)
-            coef[rom::u16(list + 2 * i)] = 0;
+            coef[list[i]] = 0;
         writeSweWordListSub(n, list);
     };
     // offs[slot_i] = ((span / n) * (n - 1 - i)), unsigned divide, 32-bit product
-    auto spread = [&](uint32_t n, uint32_t slots, uint32_t span) {
+    auto spread = [&](uint32_t n, const uint8_t* slots, uint32_t span) {
         for (uint32_t i = 0; i < n; i++) {
             const uint32_t q = span / n;
-            delay[rom::u8(slots + i)] = int32_t(q * (n - 1 - i));
+            delay[slots[i]] = int32_t(q * (n - 1 - i));
         }
         writeSweDeSub(n, slots);
     };
@@ -36,27 +35,26 @@ void Host::fxResetWindow(int kind)
     switch (kind) {
     case 0:
         // the second tag image behind the base tags: the base program's "clear" tags
-        for (uint32_t i = 0; i < 232; i++)
-            tag[i] = rom::u8(rom::FX_TAGS_BASE + 232 + i);
-        writeSwe0CSub(0x5E, rom::FX_STEPS_REVERB);
-        zero_steps(0x5E, rom::FX_STEPS_REVERB);
-        spread(14, RESET_SLOTS_REVERB, b1 - b0);
+        std::copy_n(rom::BASE_TAGS[1], 232, tag);
+        writeSwe0CSub(0x5E, rom::STEPS_REVERB);
+        zero_steps(0x5E, rom::STEPS_REVERB);
+        spread(14, rom::RESET_SLOTS_REVERB, b1 - b0);
         break;
     case 1:
         break;
     case 2:
-        zero_steps(0x60, rom::FX_STEPS_INSERTION);
-        spread(24, RESET_SLOTS_INSERTION, b3 - b2);
+        zero_steps(0x60, rom::STEPS_INSERTION);
+        spread(24, rom::RESET_SLOTS_INSERTION, b3 - b2);
         loadSubCoeffBlock(2, 1);
         break;
     case 3:
-        zero_steps(0x48, rom::FX_STEPS_REVERB_DELAY);
-        spread(12, RESET_SLOTS_REVERB_DELAY, b4 - b3);
+        zero_steps(0x48, rom::STEPS_REVERB_DELAY);
+        spread(12, rom::RESET_SLOTS_REVERB_DELAY, b4 - b3);
         loadSubCoeffBlock(3, 1);
         break;
     case 4:
-        zero_steps(0x48, rom::FX_STEPS_VARIATION);
-        spread(12, RESET_SLOTS_VARIATION, 0x3FFFF - b4);
+        zero_steps(0x48, rom::STEPS_VARIATION);
+        spread(12, rom::RESET_SLOTS_VARIATION, 0x3FFFF - b4);
         loadSubCoeffBlock(4, 1);
         break;
     }
@@ -71,21 +69,21 @@ void Host::fxMasterEq(int p)
     auto eq = [&](int i) -> int32_t { return eqParam[i]; };
     if (p <= 3) {
         const int kind = eq(3) == 0 ? 2 : 10;
-        fxDesignFilter(2, 2, kind, eq(1), int8_t(eqParam[0]), eq(2), 0x35E926);
-        fxCopyWords5(0x35E926, 0x35E958);
+        fxDesignFilter(2, 2, kind, eq(1), int8_t(eqParam[0]), eq(2), EQ_LOW);
+        fxCopyWords5(EQ_LOW, EQ_LOW_COPY);
     } else if (p >= 4 && p <= 6) {
-        fxDesignFilter(2, 2, 10, eq(5), eq(4), eq(6), 0x35E944);
-        fxCopyWords5(0x35E944, 0x35E976);
+        fxDesignFilter(2, 2, 10, eq(5), eq(4), eq(6), EQ_LOW_MID);
+        fxCopyWords5(EQ_LOW_MID, EQ_LOW_MID_COPY);
     } else if (p >= 8 && p <= 10) {
-        fxDesignFilter(2, 2, 10, eq(9), eq(8), eq(10), 0x35E930);
-        fxCopyWords5(0x35E930, 0x35E962);
+        fxDesignFilter(2, 2, 10, eq(9), eq(8), eq(10), EQ_MID);
+        fxCopyWords5(EQ_MID, EQ_MID_COPY);
     } else if (p >= 12 && p <= 14) {
-        fxDesignFilter(2, 2, 10, eq(13), eq(12), eq(14), 0x35E94E);
-        fxCopyWords5(0x35E94E, 0x35E980);
+        fxDesignFilter(2, 2, 10, eq(13), eq(12), eq(14), EQ_HIGH_MID);
+        fxCopyWords5(EQ_HIGH_MID, EQ_HIGH_MID_COPY);
     } else if (p >= 16 && p <= 19) {
         const int kind = eq(19) == 0 ? 7 : 10;
-        fxDesignFilter(2, 4, kind, eq(17), eq(16), eq(18), 0x35E93A);
-        fxCopyWords5(0x35E93A, 0x35E96C);
+        fxDesignFilter(2, 4, kind, eq(17), eq(16), eq(18), EQ_HIGH);
+        fxCopyWords5(EQ_HIGH, EQ_HIGH_COPY);
     } else if (p == 255) {
         hold = true;
         fxMasterEq(0);
@@ -107,16 +105,15 @@ void Host::fxMasterEq(int p)
 void Host::fxSystemParam(int p)
 {
     p &= 0xFF;
-    constexpr uint32_t A = 0x35DF88, B = 0x35DFA0, C = 0x35DFC0;   // step lists
     auto sys = [&](int i) -> uint32_t { return mixParam[i]; };
-    auto step = [&](uint32_t list, int i) -> uint32_t { return rom::u16(list + 2 * i); };
+    auto step = [&](const uint16_t* list, int i) -> uint32_t { return list[i]; };
     auto enabled = [&](int e) -> bool { return mute[e] != 0; };
-    auto law = [&](int32_t index) -> uint32_t { return rom::u16(rom::FX_PAN_LAW + uint32_t(index) * 2); };
-    auto pan_pair = [&](uint32_t list, int i, uint32_t v) {
+    auto law = [&](int32_t index) -> uint32_t { return uint16_t(rom::PAN_LAW[index]); };
+    auto pan_pair = [&](const uint16_t* list, int i, uint32_t v) {
         coef[step(list, i)] = law(128 - int32_t(v));
         coef[step(list, i + 1)] = law(int32_t(v));
     };
-    auto zero_pair = [&](uint32_t list, int i) {
+    auto zero_pair = [&](const uint16_t* list, int i) {
         coef[step(list, i)] = 0;
         coef[step(list, i + 1)] = 0;
     };
@@ -129,54 +126,54 @@ void Host::fxSystemParam(int p)
     switch (p) {
     case 0: case 1: {
         if (enabled(0)) {
-            zero_pair(B, 0);
+            zero_pair(MIXER_B, 0);
         } else {
             const uint32_t pan = sys(0);
-            const float gl = float(rom::s16(rom::FX_PAN_LAW + uint32_t(128 - int32_t(pan)) * 2)) / 127.0f;
-            const float gr = float(rom::s16(rom::FX_PAN_LAW + pan * 2)) / 127.0f;
+            const float gl = float(rom::PAN_LAW[uint32_t(128 - int32_t(pan))]) / 127.0f;
+            const float gr = float(rom::PAN_LAW[pan]) / 127.0f;
             const int32_t l = int(float(sys(1)) * gl);
-            coef[step(B, 0)] = uint32_t(int16_t(l) >> 3);
+            coef[step(MIXER_B, 0)] = uint32_t(int16_t(l) >> 3);
             const int32_t r = int(float(sys(1)) * gr);
-            coef[step(B, 1)] = uint32_t(int16_t(r) >> 3);
+            coef[step(MIXER_B, 1)] = uint32_t(int16_t(r) >> 3);
         }
-        writeSweWordListSub(2, B);
+        writeSweWordListSub(2, MIXER_B);
         break;
     }
     case 2:
-        if (enabled(1)) zero_pair(A, 0); else pan_pair(A, 0, sys(2));
-        writeSweWordListSub(2, A);
+        if (enabled(1)) zero_pair(MIXER_A, 0); else pan_pair(MIXER_A, 0, sys(2));
+        writeSweWordListSub(2, MIXER_A);
         break;
     case 3:
-        coef[step(B, 2)] = uint32_t(int16_t(level(sys(3), 8192.0f)) >> 1);
-        coef[step(B, 3)] = uint32_t(int16_t(level(sys(3), 8192.0f)) >> 1);
-        writeSweWordListSub(2, B + 4);
+        coef[step(MIXER_B, 2)] = uint32_t(int16_t(level(sys(3), 8192.0f)) >> 1);
+        coef[step(MIXER_B, 3)] = uint32_t(int16_t(level(sys(3), 8192.0f)) >> 1);
+        writeSweWordListSub(2, MIXER_B + 2);
         break;
     case 4:
-        coef[step(C, 6)] = uint32_t(int16_t(level(sys(4), 8192.0f)) << 1);
-        coef[rom::u16(0x35DFDA)] = uint32_t(int16_t(level(sys(4), 8192.0f)) << 1);
-        writeSweWordListSub(1, C + 12);
-        writeSweWordListSub(1, 0x35DFDA);
+        coef[step(MIXER_C, 6)] = uint32_t(int16_t(level(sys(4), 8192.0f)) << 1);
+        coef[MIXER_C[13]] = uint32_t(int16_t(level(sys(4), 8192.0f)) << 1);
+        writeSweWordListSub(1, MIXER_C + 6);
+        writeSweWordListSub(1, MIXER_C + 13);
         break;
     case 5:
-        if (enabled(2)) zero_pair(A, 2); else pan_pair(A, 2, sys(5));
-        writeSweWordListSub(2, A + 4);
+        if (enabled(2)) zero_pair(MIXER_A, 2); else pan_pair(MIXER_A, 2, sys(5));
+        writeSweWordListSub(2, MIXER_A + 2);
         break;
     case 6:
-        coef[step(B, 4)] = uint32_t(int16_t(level(sys(6), 8192.0f)) >> 1);
-        coef[step(B, 5)] = uint32_t(int16_t(level(sys(6), 8192.0f)) >> 1);
-        writeSweWordListSub(2, B + 8);
+        coef[step(MIXER_B, 4)] = uint32_t(int16_t(level(sys(6), 8192.0f)) >> 1);
+        coef[step(MIXER_B, 5)] = uint32_t(int16_t(level(sys(6), 8192.0f)) >> 1);
+        writeSweWordListSub(2, MIXER_B + 4);
         break;
     case 7:
-        coef[step(C, 1)] = uint32_t(int16_t(level(sys(7), 8192.0f)) << 1);
-        coef[rom::u16(0x35DFD0)] = uint32_t(int16_t(level(sys(7), 8192.0f)) << 1);
-        writeSweWordListSub(1, C + 2);
-        writeSweWordListSub(1, 0x35DFD0);
+        coef[step(MIXER_C, 1)] = uint32_t(int16_t(level(sys(7), 8192.0f)) << 1);
+        coef[MIXER_C[8]] = uint32_t(int16_t(level(sys(7), 8192.0f)) << 1);
+        writeSweWordListSub(1, MIXER_C + 1);
+        writeSweWordListSub(1, MIXER_C + 8);
         break;
     case 8:
-        coef[step(C, 15)] = uint32_t(level(sys(8), 5792.0f));
-        coef[rom::u16(0x35DFEA)] = uint32_t(level(sys(8), 5792.0f));
-        writeSweWordListSub(1, C + 30);
-        writeSweWordListSub(1, 0x35DFEA);
+        coef[step(MIXER_C, 15)] = uint32_t(level(sys(8), 5792.0f));
+        coef[MIXER_C[21]] = uint32_t(level(sys(8), 5792.0f));
+        writeSweWordListSub(1, MIXER_C + 15);
+        writeSweWordListSub(1, MIXER_C + 21);
         break;
     case 9:
         fxSystemParam(6);
@@ -185,33 +182,33 @@ void Host::fxSystemParam(int p)
         fxParamEntry(2, 9);
         break;
     case 10:
-        if (enabled(3)) zero_pair(A, 4); else pan_pair(A, 4, sys(10));
-        writeSweWordListSub(2, A + 8);
+        if (enabled(3)) zero_pair(MIXER_A, 4); else pan_pair(MIXER_A, 4, sys(10));
+        writeSweWordListSub(2, MIXER_A + 4);
         break;
     case 11:
-        if (enabled(4)) zero_pair(A, 6); else pan_pair(A, 6, sys(11));
-        writeSweWordListSub(2, A + 12);
+        if (enabled(4)) zero_pair(MIXER_A, 6); else pan_pair(MIXER_A, 6, sys(11));
+        writeSweWordListSub(2, MIXER_A + 6);
         break;
     case 12:
-        pan_pair(A, 8, sys(12));
-        writeSweWordListSub(2, A + 16);
+        pan_pair(MIXER_A, 8, sys(12));
+        writeSweWordListSub(2, MIXER_A + 8);
         break;
     case 13:
-        pan_pair(A, 10, sys(13));
-        writeSweWordListSub(2, A + 20);
+        pan_pair(MIXER_A, 10, sys(13));
+        writeSweWordListSub(2, MIXER_A + 10);
         break;
     case 14: {
         if (enabled(5)) {
-            zero_pair(B, 14);
+            zero_pair(MIXER_B, 14);
         } else {
             // v * v * level / 127^2, the 32-bit product divided as signed
             const uint32_t v = sys(14);
             const uint32_t prod = v * v * masterLevel;
             const int32_t q = int32_t(prod) / 16129;
-            coef[step(B, 15)] = uint32_t(q);
-            coef[step(B, 14)] = uint32_t(q);
+            coef[step(MIXER_B, 15)] = uint32_t(q);
+            coef[step(MIXER_B, 14)] = uint32_t(q);
         }
-        writeSweWordListSub(2, B + 28);
+        writeSweWordListSub(2, MIXER_B + 14);
         break;
     }
     case 255:
@@ -219,8 +216,8 @@ void Host::fxSystemParam(int p)
         for (int q = 0; q <= 14; q++)
             if (q != 1)
                 fxSystemParam(q);
-        fxDesignFilter(1, 0, 1, 0, 64, 0, 0x35E7A8);
-        fxCopyWords3(0x35E7A8, 0x35E7AE);
+        fxDesignFilter(1, 0, 1, 0, 64, 0, MIXER_HPF);
+        fxCopyWords3(MIXER_HPF, MIXER_HPF_COPY);
         hold = false;
         break;
     }
@@ -229,10 +226,9 @@ void Host::fxSystemParam(int p)
 // flash 0x3BCD0 setSubGain8: 0 dB, word 21, into the eight output gain steps
 void Host::setSubGain8()
 {
-    constexpr uint32_t STEPS = 0x3721DC;
     for (int i = 0; i < 8; i++)
-        coef[rom::u16(STEPS + 2 * i)] = 21;
-    writeSweWordListSub(8, STEPS);
+        coef[rom::STEPS_OUTPUT_GAIN[i]] = 21;
+    writeSweWordListSub(8, rom::STEPS_OUTPUT_GAIN);
 }
 
 }  // namespace fs1r::vop3host
