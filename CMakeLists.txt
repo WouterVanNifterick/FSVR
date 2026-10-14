@@ -23,10 +23,10 @@ endif()
 # Everything meant to be run lands in bin/: the console here, the plug-in formats under bin/<Format>/.
 set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
-# The two chip hosts and the sections over them. They are bit-exact only without FMA contraction and excess
+# The chip, its two hosts and the sections over them. They are bit-exact only without FMA contraction and excess
 # precision, so they are a library of their own with its own flags.
 file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp)
-add_library(vop3host STATIC ${VOP3HOST} src/fs1r/effects.cpp src/fs1r/filter.cpp)
+add_library(vop3host STATIC ${VOP3HOST} src/fs1r/effects.cpp src/fs1r/filter.cpp src/fs1r/chips/vop3.cpp)
 target_include_directories(vop3host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 if(MSVC)
   target_compile_options(vop3host PRIVATE /W3 /fp:strict /permissive-)
