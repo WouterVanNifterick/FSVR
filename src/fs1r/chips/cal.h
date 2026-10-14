@@ -95,6 +95,11 @@ static const double FEG_RATE_K   = 42.9;    // MEASURED, FS1R.unlock session 3 `
                                             // off the CPU's own stage word, words 119 to 224, 52 ms to 3.0 s, fit to
                                             // 1.2% rms with a 24 ms offset that is the sampler's; the same word at
                                             // swings of 128 and 512 took the same 0.23 s, so the chip is exponential.
+static const double FEG_SEG_S    = 1.33e-4; // MEASURED, the same flteg session in seconds: a filter EG segment whose aim
+                                            // lies half its swing past its target, which is how the CPU sends them,
+                                            // takes FEG_SEG_S * 2^(word / FEG_RATE_OCT). The approach is exponential,
+                                            // so that is ln 3 / (TICK_HZ * FEG_RATE_K).
+static const double FEG_RATE_OCT = 15.5;    // rate words to a doubling of that time
 static const double FEG_FLAT_S   = 0.78;    // MEASURED, flteg: a filter EG segment with no swing holds 0.78 s (0.71 to
                                             // 0.86 over eleven notes, the sampler's 26 ms either side) at every rate word.
 static const double FEG_DEPTH_BYTES = 110.0;// MEASURED, 20_fltmod 2026-09-23: cutoff bytes the filter EG moves the corner

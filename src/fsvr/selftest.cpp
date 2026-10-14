@@ -748,6 +748,18 @@ int selftest(Synth& S) {
         for (int i : {16, 20, 169, 170, 172, 173, 174, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190})
             for (int v : {0, 127}) e->host.setByte(i, v);
         ck("effect host: its register writes are the firmware's", sink.h == 0x4433fa06b314a878ull); }
+      // 8. the chip's EG generators: a segment's time, its report, the acknowledgement, and a segment with no swing
+      { auto c = std::make_unique<Vop3>();
+        auto w = [&](int ch, int reg, int v) { c->write(0, (uint16_t)ch); c->write(reg, (uint16_t)v); };
+        auto wait = [&] { int n = 0; while (!c->read(0x21) && n < SR * 4) { c->run(); n++; } return n / (double)SR; };
+        c->write(0x21, 0xffff);
+        w(3, 0x2b, 0); w(3, 0x2c, -200); w(3, 0x2b, 120); w(3, 0x2c, 200); w(3, 0x2d, 400);   // -200 to 200, the aim half the swing past
+        double took = wait(), law = cal::FEG_SEG_S * pow(2.0, 120 / cal::FEG_RATE_OCT);
+        ck("filter chip: an EG segment takes the law's time and reports its channel", fabs(took / law - 1) < 0.01 && c->read(0x21) == (0x10 | 3));
+        w(3, 0x2b, 255);
+        ck("filter chip: a rate write acknowledges the segment", c->read(0x21) == 0 && c->eg[3].level == 200);
+        w(5, 0x2b, 0); w(5, 0x2c, 100); w(5, 0x2b, 40); w(5, 0x2c, 102); w(5, 0x2d, 103);
+        ck("filter chip: a segment with no swing takes FEG_FLAT_S", fabs(wait() - cal::FEG_FLAT_S) < 0.001); }
     }
 
     printf(g_fails ? "selftest: %d FAILURES\n" : "selftest: ok\n", g_fails);

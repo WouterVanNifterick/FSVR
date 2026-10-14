@@ -214,6 +214,18 @@ public:
 		ptr = (ptr - 1) & (RAM_WORDS - 1);
 	}
 
+	// The host's trigger, register 0x14: the constant loads of every gated block land at once.
+	// The FS1R points the block at its next voice right after the write, so waiting for the
+	// pass to come round would clear the wrong registers.
+	void trigger()
+	{
+		for (int st = 0; st < STEPS; st++)
+			if (ops[st].gate)
+				for (int g = st + 1; g < STEPS && !ops[g].ctl; g++)
+					if (ops[g].mmode == 1 && ops[g].dr)
+						r[ops[g].dr] = mode(LOADK * s16(coef[g]) * RSCALE[ops[g].shift], ops[g].clamp);
+	}
+
 	// The DAC word the unit plays for a cell value: floor to 18 bits of value / 4,
 	// clipped at +-8 (s27/s28). Full scale 1.0 is 8.0 here.
 	static double dac(double v)
