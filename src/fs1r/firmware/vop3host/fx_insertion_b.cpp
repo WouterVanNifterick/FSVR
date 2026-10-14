@@ -1,8 +1,8 @@
 // license:BSD-3-Clause
 // copyright-holders:Wouter van Nifterick
 
-// Insertion handlers, part 2: the wah, distortion and dynamics types, the hall and room
-// reverbs, pitch change, ensemble detune, the EQs and Lo-Fi.
+// Insertion handlers, part 2: the wah, distortion and dynamics types, pitch change, ensemble
+// detune, the 3-band EQ and Lo-Fi.
 #include "fx_insertion.h"
 
 namespace fs1r::vop3host {
@@ -113,7 +113,7 @@ void dd_wet(EffectHost& h, uint32_t wet, int shift)
 }
 }  // namespace
 
-// 0x3ACA4E fxInsAutoWahDist: A-Wah+Dist / A-Wah+Odrv (types 14, 15; msb 4 lsb 3, 4)
+// A-Wah+Dist / A-Wah+Odrv (types 14, 15; msb 4 lsb 3, 4)
 void EffectHost::fxInsAutoWahDist(int p)
 {
     const uint32_t t = lsb(*this);
@@ -165,7 +165,7 @@ void EffectHost::fxInsAutoWahDist(int p)
     }
 }
 
-// 0x3ACFEC fxInsTouchWahDist: T-Wah+Dist / T-Wah+Odrv (types 16, 17; msb 4 lsb 6, 7); 0 runs on into 1
+// T-Wah+Dist / T-Wah+Odrv (types 16, 17; msb 4 lsb 6, 7); 0 runs on into 1
 void EffectHost::fxInsTouchWahDist(int p)
 {
     const uint32_t t = lsb(*this);
@@ -224,7 +224,7 @@ void EffectHost::fxInsTouchWahDist(int p)
     }
 }
 
-// 0x3A52F4 fxInsDistortion: Distortion / Overdrive (types 28, 30; msb 5 lsb 1, 2); 9 re-runs 0
+// Distortion / Overdrive (types 28, 30; msb 5 lsb 1, 2); 9 re-runs 0
 void EffectHost::fxInsDistortion(int p)
 {
     switch (p) {
@@ -266,7 +266,7 @@ void EffectHost::fxInsDistortion(int p)
     }
 }
 
-// 0x3A55AC fxInsAmpSim (type 32; msb 5 lsb 3); 1 (the amp type) re-runs 2, 9 re-runs 0
+// type 32; msb 5 lsb 3; 1 (the amp type) re-runs 2, 9 re-runs 0
 void EffectHost::fxInsAmpSim(int p)
 {
     switch (p) {
@@ -307,7 +307,7 @@ void EffectHost::fxInsAmpSim(int p)
     }
 }
 
-// 0x3A58D8 fxInsCompDist (type 24; msb 5 lsb 4)
+// type 24; msb 5 lsb 4
 void EffectHost::fxInsCompDist(int p)
 {
     switch (p) {
@@ -333,7 +333,7 @@ void EffectHost::fxInsCompDist(int p)
     }
 }
 
-// 0x3A5B94 fxInsCompDistDelay (type 25 "Cmp+DS+Dly"; msb 5 lsb 5); 9 re-runs 0
+// type 25 "Cmp+DS+Dly"; msb 5 lsb 5; 9 re-runs 0
 void EffectHost::fxInsCompDistDelay(int p)
 {
     switch (p) {
@@ -371,7 +371,7 @@ void EffectHost::fxInsCompDistDelay(int p)
     }
 }
 
-// 0x3A5EF0 fxInsHmEnhancer (type 22; msb 5 lsb 6)
+// type 22; msb 5 lsb 6
 void EffectHost::fxInsHmEnhancer(int p)
 {
     switch (p) {
@@ -415,7 +415,7 @@ void EffectHost::fxInsHmEnhancer(int p)
     }
 }
 
-// 0x3A60F4 fxInsNoiseGate (type 23; msb 5 lsb 7)
+// type 23; msb 5 lsb 7
 void EffectHost::fxInsNoiseGate(int p)
 {
     switch (p) {
@@ -433,7 +433,7 @@ void EffectHost::fxInsNoiseGate(int p)
     }
 }
 
-// 0x3AD6E0 fxInsWahDistDelay: Wah+DS+Dly / Wah+OD+Dly (types 18, 19; msb 12 lsb 1, 2)
+// Wah+DS+Dly / Wah+OD+Dly (types 18, 19; msb 12 lsb 1, 2)
 void EffectHost::fxInsWahDistDelay(int p)
 {
     const uint32_t t = lsb(*this);
@@ -546,7 +546,7 @@ void EffectHost::fxInsWahDistDelay(int p)
     }
 }
 
-// 0x3A4544 fxInsCompressor: Compressor / Cmp+OD+Dly (types 26, 27; msb 13 lsb 1, 2); 9 re-runs 0
+// Compressor / Cmp+OD+Dly (types 26, 27; msb 13 lsb 1, 2); 9 re-runs 0
 void EffectHost::fxInsCompressor(int p)
 {
     const uint32_t t = lsb(*this);
@@ -612,7 +612,7 @@ void EffectHost::fxInsCompressor(int p)
     }
 }
 
-// 0x3A4A28 fxInsDistDelay: Dist+Delay / Odrv+Delay (types 29, 31; msb 13 lsb 3, 4); 9 re-runs 0
+// Dist+Delay / Odrv+Delay (types 29, 31; msb 13 lsb 3, 4); 9 re-runs 0
 void EffectHost::fxInsDistDelay(int p)
 {
     const uint32_t t = lsb(*this);
@@ -688,7 +688,7 @@ void EffectHost::fxInsDistDelay(int p)
 
 // ---- pitch change (msb 7) ----
 
-// 0x3A99FC pitchRatio: the pitch change's LFO word for one voice, from the pitch
+// the pitch change's LFO word for one voice, from the pitch
 // (parameter 0) and the voice's fine value v
 int32_t EffectHost::pitchRatio(int v)
 {
@@ -702,7 +702,7 @@ int32_t EffectHost::pitchRatio(int v)
     return pitch >= 0 ? semi + d : semi - d;
 }
 
-// 0x3A9B8A pitchVoice(lfo, v): the voice's LFO word pair and the LFO's direction bits
+// the voice's LFO word pair and the LFO's direction bits
 void EffectHost::pitchVoice(int lfo, int v)
 {
     const uint32_t a = lfo == 12 ? 0 : 2;
@@ -723,7 +723,7 @@ void EffectHost::pitchVoice(int lfo, int v)
     writeLfo(0x27, lfo);
 }
 
-// 0x3A9CC6 pitchSlots1: the first voice's delay slots from parameter 1
+// the first voice's delay slots from parameter 1
 void EffectHost::pitchSlots1()
 {
     const int32_t d = toSamples(rom::PITCH_DELAY[PU(*this, 1)]) + 1;
@@ -734,7 +734,7 @@ void EffectHost::pitchSlots1()
     writeDelays(4, PC_SLOTS + 1);
 }
 
-// 0x3A9D58 pitchSlots2(v): the second voice's delay slots above half the area
+// the second voice's delay slots above half the area
 void EffectHost::pitchSlots2(int v)
 {
     const int32_t t = toSamples(rom::PITCH_DELAY[uint32_t(int16_t(v))]);
@@ -748,7 +748,7 @@ void EffectHost::pitchSlots2(int v)
     writeDelays(5, PC_SLOTS + 5);
 }
 
-// 0x3A9DD0 fxInsPitchChange (type 7; msb 7 lsb 1)
+// type 7; msb 7 lsb 1
 void EffectHost::fxInsPitchChange(int p)
 {
     switch (p) {
@@ -842,7 +842,7 @@ void EffectHost::fxInsPitchChange(int p)
     }
 }
 
-// 0x3AA392 fxInsEnsDetune (type 8; msb 7 lsb 3)
+// type 8; msb 7 lsb 3
 void EffectHost::fxInsEnsDetune(int p)
 {
     switch (p) {
@@ -924,7 +924,7 @@ void EffectHost::fxInsEnsDetune(int p)
     }
 }
 
-// 0x3AAB70 fxIns3BandEq (type 21; msb 7 lsb 6)
+// type 21; msb 7 lsb 6
 void EffectHost::fxIns3BandEq(int p)
 {
     switch (p) {
@@ -968,7 +968,7 @@ void EffectHost::fxIns3BandEq(int p)
     }
 }
 
-// 0x3A6B88 fxInsLoFi (type 20; msb 10 lsb 1)
+// type 20; msb 10 lsb 1
 void EffectHost::fxInsLoFi(int p)
 {
     switch (p) {

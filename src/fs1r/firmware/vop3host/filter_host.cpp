@@ -47,26 +47,26 @@ int level(int byte) { return (byte - 50) * 256 / 50; }
 int keyScaled(int time, int note, int scale) { return scale * time * (note - 60) / 1407; }
 
 // ---- registers ----
-void reg(Host& h, int r, int v) { h.sink->write(uint32_t(r), uint32_t(v) & 0xFFFF); }           // 0xB5E2
-void config(Host& h, int index, int v) { reg(h, 0, index + 1); reg(h, 0x16, v); }                // 0xB85E
-void egRate(Host& h, int ch, int v) { reg(h, 0, ch); reg(h, 0x2B, v & 0xFF); }                   // 0xBB30
-void egTarget(Host& h, int ch, int v) { reg(h, 0, ch); reg(h, 0x2C, v); }                        // 0xBB8E
-void egAim(Host& h, int ch, int v) { reg(h, 0, ch); reg(h, 0x2D, v); }                           // 0xBBE8
-void egInterrupts(Host& h, bool on) { reg(h, 0x21, on ? 0xFFFF : 0); }                           // 0xBC42
-void writeLfo(Host& h, int r, int ch) { reg(h, 0, ch); reg(h, r, h.lfoReg[r - 0x24][ch]); }      // 0xB8EC..0xB9AE
-void writeProgram(Host& h, int step)                                                             // 0xB600
+void reg(Host& h, int r, int v) { h.sink->write(uint32_t(r), uint32_t(v) & 0xFFFF); }
+void config(Host& h, int index, int v) { reg(h, 0, index + 1); reg(h, 0x16, v); }
+void egRate(Host& h, int ch, int v) { reg(h, 0, ch); reg(h, 0x2B, v & 0xFF); }
+void egTarget(Host& h, int ch, int v) { reg(h, 0, ch); reg(h, 0x2C, v); }
+void egAim(Host& h, int ch, int v) { reg(h, 0, ch); reg(h, 0x2D, v); }
+void egInterrupts(Host& h, bool on) { reg(h, 0x21, on ? 0xFFFF : 0); }
+void writeLfo(Host& h, int r, int ch) { reg(h, 0, ch); reg(h, r, h.lfoReg[r - 0x24][ch]); }
+void writeProgram(Host& h, int step)
 {
     reg(h, 0, step);
     for (int w = 0; w < 5; w++)
         reg(h, 10 - w, h.prog[step][w]);
 }
-void setCoef(Host& h, int step, int v)                                                           // 0xB6A4
+void setCoef(Host& h, int step, int v)
 {
     h.coef[step] = uint16_t(v);
     reg(h, 0, step);
     reg(h, 0x0B, h.coef[step]);
 }
-void setTag(Host& h, int step, int v)                                                            // 0xB788
+void setTag(Host& h, int step, int v)
 {
     h.tag[step] = uint8_t(v);
     reg(h, 0, step);
@@ -75,12 +75,12 @@ void setTag(Host& h, int step, int v)                                           
 
 // ---- a slot's parameters ----
 
-// 0xC576: the input gain by the voice's gain byte, or silence. The second serial bank's only ever gets silence.
+// the input gain by the voice's gain byte, or silence. The second serial bank's only ever gets silence.
 void setGain(Host& h, int s, bool second, int v) { setCoef(h, page(s) + 52 + 4 * lane(s) + second, v < 0 ? 0 : flt::GAIN[v]); }
-void setRamp(Host& h, int s, int step) { setCoef(h, page(s) + 116 + lane(s), step); }           // 0xC646
-void setEgDepth(Host& h, int s, int depth) { setCoef(h, page(s) + 3 * lane(s), 288 * depth); }   // 0xCB1C
+void setRamp(Host& h, int s, int step) { setCoef(h, page(s) + 116 + lane(s), step); }
+void setEgDepth(Host& h, int s, int depth) { setCoef(h, page(s) + 3 * lane(s), 288 * depth); }
 
-// 0xC6C0: the tag of the slot's EG depth, LFO2 depth, cutoff and first resonance constants. A jump also zeroes them.
+// the tag of the slot's EG depth, LFO2 depth, cutoff and first resonance constants. A jump also zeroes them.
 void slotTags(Host& h, int s, int tag)
 {
     const int B = page(s), k = lane(s);
@@ -90,13 +90,13 @@ void slotTags(Host& h, int s, int tag)
             setCoef(h, step, 0);
     }
 }
-void gainTags(Host& h, int s, int tag)                                                           // 0xC99C
+void gainTags(Host& h, int s, int tag)
 {
     setTag(h, page(s) + 52 + 4 * lane(s), tag);
     setTag(h, page(s) + 53 + 4 * lane(s), tag);
 }
 
-// 0xC280, 0xC604: the slot's output step reads the tap of the type and shifts it. LPF24, LPF18, LPF12, HPF, BPF, BEF.
+// the slot's output step reads the tap of the type and shifts it. LPF24, LPF18, LPF12, HPF, BPF, BEF.
 void setType(Host& h, int s, int type)
 {
     const int r = 6 * ((s + 4) & 15), k = lane(s), step = page(s) + 120 + k;
@@ -116,14 +116,14 @@ void setType(Host& h, int s, int type)
     setCoef(h, page(s) + 28 + k, type <= 5 ? 0 : type);
 }
 
-// 0xC36C: the cutoff word from a cutoff byte and the slot's key scaling
+// the cutoff word from a cutoff byte and the slot's key scaling
 void setCutoff(Host& h, int s, int cutoff)
 {
     const int keys = int8_t(int8_t(h.note[s]) - h.ksPoint[s]);
     const int v = 3085 + 169 * cutoff + keys * (h.ksDepth[s] * 2048 / 384);
     setCoef(h, page(s) + 3 * lane(s) + 2, std::clamp(v, 3085, 24576));
 }
-// 0xC3D0: both resonance constants. The highpass and the notch leave the second at 0.
+// both resonance constants. The highpass and the notch leave the second at 0.
 void setResonance(Host& h, int s, int r)
 {
     setCoef(h, page(s) + 32 + lane(s), flt::RESONANCE_A[r]);
@@ -149,25 +149,25 @@ int egDepth(const Host& h, int s, const uint8_t* V, const uint8_t* R)
 }
 
 // ---- LFO2 ----
-void lfoWave(Host& h, int ch, int wave)                                                          // 0xC1AC
+void lfoWave(Host& h, int ch, int wave)
 {
     const int bits = wave <= 5 ? wave << 5 : wave == 6 ? 224 : wave;    // past 6 the firmware ORs the byte in as it came
     h.lfoReg[1][ch] = uint16_t((h.lfoReg[1][ch] & 0xFF1F) | bits);
     writeLfo(h, 0x25, ch);
 }
-void lfoSpeed(Host& h, int ch, int v)                                                            // 0xC130
+void lfoSpeed(Host& h, int ch, int v)
 {
     h.lfoReg[0][ch] = flt::LFO2_SPEED[v] | (h.lfoReg[0][ch] & 0x0C00);
     writeLfo(h, 0x24, ch);
 }
-void lfoPhase(Host& h, int ch, int v)                                                            // 0xC182
+void lfoPhase(Host& h, int ch, int v)
 {
     h.lfoReg[1][ch] = (flt::LFO2_PHASE[v] & 0x1F) | (h.lfoReg[1][ch] & 0xFFE0);
     writeLfo(h, 0x25, ch);
-    reg(h, 0x20, 1 << ch);                                  // 0xBAC2: back to that phase
+    reg(h, 0x20, 1 << ch);                                  // back to that phase
     reg(h, 0x1C, 0);
 }
-// 0xCA44: the two sawtooths run at full amount with an offset word, the others at half; then the slot's depth
+// the two sawtooths run at full amount with an offset word, the others at half; then the slot's depth
 void lfoDepth(Host& h, int ch, int wave, int depth)
 {
     h.lfoReg[2][ch] = wave == 1 || wave == 2 ? 0x7FFF : (64 << 15) / 127;
@@ -187,7 +187,7 @@ void setLfo(Host& h, int s, const uint8_t* V, const uint8_t* R, int p)
 
 }  // namespace
 
-// 0xB010, with 0xBC8C: the program, tags and constants, then every slot muted with its EG held
+// the program, tags and constants, then every slot muted with its EG held
 void FilterHost::boot()
 {
     Host& h = *this;
@@ -246,7 +246,7 @@ void FilterHost::freeSlots()
     }
 }
 
-// 0xB266, with 0xC468: steps 5 to 9 load 0 into five registers once the chip is triggered. They are pointed
+// steps 5 to 9 load 0 into five registers once the chip is triggered. They are pointed
 // at each slot's five state registers in turn.
 void FilterHost::clearStates()
 {
@@ -259,7 +259,6 @@ void FilterHost::clearStates()
     }
 }
 
-// 0xB0E8, with 0xD050
 void FilterHost::noteOn(int s, int p, int n, int v)
 {
     Host& h = *this;
@@ -305,7 +304,7 @@ void FilterHost::noteOn(int s, int p, int n, int v)
     setRamp(h, s, RUN);
 }
 
-// 0xCB6C: every channel the chip reports gets held, then the segment after its slot's stage.
+// every channel the chip reports gets held, then the segment after its slot's stage.
 void FilterHost::egInterrupt()
 {
     Host& h = *this;
@@ -362,7 +361,7 @@ void FilterHost::egInterrupt()
     }
 }
 
-// 0xB188, with 0xD7B0: the release, to the start level in T4
+// the release, to the start level in T4
 void FilterHost::noteOff(int s)
 {
     Host& h = *this;
@@ -378,7 +377,6 @@ void FilterHost::noteOff(int s)
     egRate(h, ch, flt::EG_RATE[clamp16(time - keyScaled(time, note[s], V[0x6E] & 7), 0, 99)]);
 }
 
-// 0xB1B6, with 0xD97E
 void FilterHost::kill(int s)
 {
     gainTags(*this, s, JUMP);
@@ -403,8 +401,8 @@ void FilterHost::setPartCutoffMod(int p, int v) { partCutoffMod[p] = int8_t(v); 
 void FilterHost::setPartLfo2Depth(int p, int v) { partLfo2Depth[p] = int8_t(v); lfoChanged[p] = true; }
 void FilterHost::setPartLfo2Speed(int p, int v) { partLfo2Speed[p] = int8_t(v); lfoChanged[p] = true; }
 
-// 0xE738: a slot's cutoff after its modulation moved (0xE170), then for every slot a part plays: the type
-// (0xD9F8), cutoff, resonance and gain (0xDB3C), LFO2 (0xE2A0), the EG's depth (0xE4AC)
+// a slot's cutoff after its modulation moved, then for every slot a part plays: the type,
+// cutoff, resonance and gain, LFO2, the EG's depth
 void FilterHost::flush()
 {
     Host& h = *this;

@@ -31,7 +31,6 @@ float bump(float w, double by)
 
 }  // namespace
 
-// flash 0x37414 designFilter(order, scale, kind, freq, gain, q, steps)
 //   kind 0 LPF1, 1 HPF1, 2 low shelf 1, 3 high shelf 1, 4 LPF2, 5 HPF2, 6 low shelf 2,
 //   7 high shelf 2, 10 peaking, 11 gain only.
 //   t = tan(pi f / fs) from the TAN table, G = 10^((gain-64)/20), Gi its inverse, Gs/Gsi the
@@ -55,19 +54,19 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
     float c0 = 0, c1 = 0, c2 = 0, c3 = 0, c4 = 0;   // b0, b1, -a1, b2, -a2
 
     switch (kind) {
-    case 0: {   // 0x374B0: first-order low-pass with gain
+    case 0: {   // first-order low-pass with gain
         const float gt = G * t;
         c0 = c1 = float(double(gt) / (T + 1.0));
         c2 = float((1.0 - T) / (T + 1.0));
         break;
     }
-    case 1: {   // 0x3753E: first-order high-pass with gain
+    case 1: {   // first-order high-pass with gain
         c0 = float(double(G) / (T + 1.0));
         c1 = -c0;
         c2 = float((1.0 - T) / (T + 1.0));
         break;
     }
-    case 2: {   // 0x375CE: first-order low shelf
+    case 2: {   // first-order low shelf
         const float x = boost ? t * G : t;
         const float y = boost ? t : t * Gi;
         c0 = float((double(x) + 1.0) / (double(y) + 1.0));
@@ -75,7 +74,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         c2 = float((1.0 - double(y)) / (double(y) + 1.0));
         break;
     }
-    case 3: {   // 0x376D4: first-order high shelf, single precision
+    case 3: {   // first-order high shelf, single precision
         const float A = boost ? G : 1.0f;
         const float B = boost ? 1.0f : Gi;
         const float apt = A + t;
@@ -85,7 +84,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         c2 = (B - t) / bpt;
         break;
     }
-    case 4: case 5: {   // 0x37768 / 0x3788A: second-order low-pass / high-pass with Q
+    case 4: case 5: {   // second-order low-pass / high-pass with Q
         const float w = float(T * 10.0 / double(float(qb)));
         const float D = float(double(w) + T2 + 1.0);
         if (kind == 4) {
@@ -101,7 +100,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         c4 = float((double(w) - T2 - 1.0) / double(D));
         break;
     }
-    case 6: {   // 0x379E8: second-order low shelf
+    case 6: {   // second-order low shelf
         if (boost) {
             const float u = t * Gs;
             const float u2 = u * u;
@@ -123,7 +122,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         }
         break;
     }
-    case 7: {   // 0x37E70: second-order high shelf
+    case 7: {   // second-order high shelf
         if (boost) {
             const float D = float(T + T + T2 + 1.0);
             const float gpt = Gs + t;
@@ -149,7 +148,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         }
         break;
     }
-    case 10: {   // 0x3840C: peaking EQ
+    case 10: {   // peaking EQ
         const float w = float(T * 10.0 / double(float(qb)));
         if (boost) {
             const float wg = w * G;
@@ -170,12 +169,12 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         }
         break;
     }
-    case 11:   // 0x38726: plain gain
+    case 11:   // plain gain
         c0 = G;
         break;
     }
 
-    // ---- 0x38776: the emitter ----
+    // ---- the emitter ----
     const float S = float(16 >> scale) * 2048.0f;
     auto word = [&](float w) -> uint32_t { return uint32_t(int16_t(int(w))); };
     auto raw = [&](float w) -> uint32_t { return uint32_t(int(w)); };
@@ -195,7 +194,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
         writeCoefs(3, steps);
         return;
     }
-    // 0x38A82: five words (b0, b1, b2, -a1, -a2), rounded in the firmware's order
+    // five words (b0, b1, b2, -a1, -a2), rounded in the firmware's order
     float w0 = round_word(S, c0), w1 = round_word(S, c1), w3 = round_word(S, c3);
     float w2 = round_word(S, c2), w4 = round_word(S, c4);
     const float e0 = word_error(S, c0, w0), e1 = word_error(S, c1, w1), e3 = word_error(S, c3, w3);
@@ -212,7 +211,6 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
     } else if (0.5 < double(e4 + e2)) {
         if (e4 < e2) w2 = bump(w2, -1.0); else w4 = bump(w4, -1.0);
     }
-    // 0x38FFE
     coef[steps[0]] = word(w0);
     coef[steps[1]] = word(w1);
     coef[steps[2]] = word(w3);
@@ -221,7 +219,7 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
     writeCoefs(5, steps);
 }
 
-// flash 0x39108 storeHighDamp(scale, v, gain, steps): two words from a gain byte and a mix
+// two words from a gain byte and a mix
 // byte v: k = (v + 8) / 18 gives (k G, (1 - k) G), with 1.0 nudged below full scale when unscaled
 void EffectHost::storeHighDamp(int scale, int v, int gain, const uint16_t* steps)
 {
@@ -239,7 +237,7 @@ void EffectHost::storeHighDamp(int scale, int v, int gain, const uint16_t* steps
     writeCoefs(2, steps);
 }
 
-// flash 0x394F8 storeEdge(v, steps): x = 4080 - 16 v into steps 2..5, a geometric-series
+// x = 4080 - 16 v into steps 2..5, a geometric-series
 // gain word into step 1, 0 into step 6 and 6553 into steps 7..11; steps 1..5 go to the chip.
 void EffectHost::storeEdge(int v, const uint16_t* steps)
 {
@@ -260,7 +258,7 @@ void EffectHost::storeEdge(int v, const uint16_t* steps)
     writeCoefs(5, steps + 1);
 }
 
-// 0x39390, 0x3943C, 0x394BA: n constants copied from one step list to another, and written
+// n constants copied from one step list to another, and written
 void EffectHost::copyCoefs(int n, const uint16_t* src, const uint16_t* dst)
 {
     for (int i = 0; i < n; i++)
@@ -268,7 +266,7 @@ void EffectHost::copyCoefs(int n, const uint16_t* src, const uint16_t* dst)
     writeCoefs(n, dst);
 }
 
-// 0x39C758 designTypeShelf(index, steps): a first-order low shelf from the (freq, gain)
+// a first-order low shelf from the (freq, gain)
 // byte pair of the reverb type when its gain byte is nonzero
 void EffectHost::designTypeShelf(int index, const uint16_t* steps)
 {

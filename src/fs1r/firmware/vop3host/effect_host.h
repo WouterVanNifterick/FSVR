@@ -37,7 +37,7 @@ extern const Window WINDOWS[5];
 struct EffectHost {
     WriteSink* sink = nullptr;
 
-    void init();                                                        // 0x3AAC8: the chip and every window as the firmware starts them
+    void init();                                                        // the chip and every window as the firmware starts them
     // A performance byte enters here: seven bits, and no effect type past the last one.
     void store(uint32_t index, uint32_t value)
     {
@@ -65,13 +65,13 @@ struct EffectHost {
         byteChanged(index);
         runPosted();
     }
-    void byteChanged(uint32_t index);                                   // 0x3C4A8: reads the byte and posts what has to run
-    bool runPosted();                                                   // 0x3C994: one turn of the effect task
-    void setControlOffset(uint32_t i, uint32_t v);                      // 0x3C8D4: a controller's offset on insertion parameter i
-    void setSendVariationOffset(uint32_t v);                            // 0x3C8EC
-    void setSendReverbOffset(uint32_t v);                               // 0x3C8FE
-    int32_t readParameter(uint32_t index);                              // 0x30390: a performance byte's value, clamped to its range
-    const rom::ParamRange& descriptor(uint32_t index) const;            // 0x34478: its range under the current types
+    void byteChanged(uint32_t index);                                   // reads the byte and posts what has to run
+    bool runPosted();                                                   // one turn of the effect task
+    void setControlOffset(uint32_t i, uint32_t v);                      // a controller's offset on insertion parameter i
+    void setSendVariationOffset(uint32_t v);
+    void setSendReverbOffset(uint32_t v);
+    int32_t readParameter(uint32_t index);                              // a performance byte's value, clamped to its range
+    const rom::ParamRange& descriptor(uint32_t index) const;            // its range under the current types
 
     // ---- state ----
     uint8_t perf[192] = {};         // the performance's common bytes
@@ -93,119 +93,119 @@ struct EffectHost {
     int16_t sendVariationOffset = 0, sendReverbOffset = 0;   // and on the insertion's two sends
 
     // ---- chip registers ----
-    void writeReg(uint32_t reg, uint32_t value);                        // 0x39648
-    void writeCoefs(uint32_t n, const uint16_t* steps);                 // 0x39652: the constants of n listed steps
-    void writeCoefsBurst(uint32_t n, const uint16_t* steps);            // 0x396A6: of n steps in a row, from the first listed
-    void writeTags(uint32_t n, const uint16_t* steps);                  // 0x396FC: the tags of n listed steps
-    void writeTagsBurst(uint32_t n, const uint16_t* steps);             // 0x39764
-    void writeConfig(uint32_t index, uint32_t value);                   // 0x397BA: register 0x16, entry `index`
-    void writeDelays(uint32_t n, const uint8_t* slots);                 // 0x397F4: the offsets of n listed delay slots
-    void writeLfo(uint32_t reg, uint32_t lfo);                          // 0x39B24..0x39BB4: an LFO's register 0x24..0x27
-    void resetLfoPhase(uint32_t mask);                                  // 0x39C74
-    void uploadProgram(int window, int clear);                          // 0x39C8A: a window's program words and tags
-    void uploadWindow(int kind);                                        // 0x398C2: its program, constants, delays and LFOs
-    void uploadAll();                                                   // 0x3A110
-    void initChip();                                                    // 0x3A064
-    void setMute(int window, uint32_t on);                              // 0x3A140: 5 is the output, anything else all six
-    void setOutputGain();                                               // 0x3BCD0
+    void writeReg(uint32_t reg, uint32_t value);
+    void writeCoefs(uint32_t n, const uint16_t* steps);                 // the constants of n listed steps
+    void writeCoefsBurst(uint32_t n, const uint16_t* steps);            // of n steps in a row, from the first listed
+    void writeTags(uint32_t n, const uint16_t* steps);                  // the tags of n listed steps
+    void writeTagsBurst(uint32_t n, const uint16_t* steps);
+    void writeConfig(uint32_t index, uint32_t value);                   // register 0x16, entry `index`
+    void writeDelays(uint32_t n, const uint8_t* slots);                 // the offsets of n listed delay slots
+    void writeLfo(uint32_t reg, uint32_t lfo);                          // an LFO's register 0x24..0x27
+    void resetLfoPhase(uint32_t mask);
+    void uploadProgram(int window, int clear);                          // a window's program words and tags
+    void uploadWindow(int kind);                                        // its program, constants, delays and LFOs
+    void uploadAll();
+    void initChip();
+    void setMute(int window, uint32_t on);                              // 5 is the output, anything else all six
+    void setOutputGain();
 
     // ---- the performance into the chip ----
-    void applyChanges(uint32_t mask);                                   // 0x3AC88: what was posted; 0x8000 is a whole performance
-    void post(uint32_t mask);                                           // 0x9FA4
-    void applyMixer(uint32_t i);                                        // the handler table at 0x3F0B0
-    void applyEq(uint32_t i);                                           // the handler table at 0x3F104
-    void applyReverbPanReturn();                                        // 0x3B766
-    void applyVariationPan();                                           // 0x3B81C
-    void applyVariationReturn();                                        // 0x3B82E
-    void applyVariationToReverb();                                      // 0x3B840
-    void applyInsertionPan();                                           // 0x3B852
-    void applyVolume();                                                 // 0x3B864
-    void applyInsertionToReverb();                                      // 0x3B8BC
-    void applyInsertionToVariation();                                   // 0x3B8EC
-    void applyInsertionLevel();                                         // 0x3B91C
-    void applyIndividualOut();                                          // 0x3B92C
-    void applyEqLow(uint32_t i);                                        // 0x3B940
-    void applyEqMid(uint32_t i);                                        // 0x3B95C
-    void applyEqHigh(uint32_t i);                                       // 0x3B97E
-    void copyEqParams();                                                // 0x3B9CC
+    void applyChanges(uint32_t mask);                                   // what was posted; 0x8000 is a whole performance
+    void post(uint32_t mask);
+    void applyMixer(uint32_t i);                                        // one mixer change, by its flag
+    void applyEq(uint32_t i);                                           // one master EQ change, by its flag
+    void applyReverbPanReturn();
+    void applyVariationPan();
+    void applyVariationReturn();
+    void applyVariationToReverb();
+    void applyInsertionPan();
+    void applyVolume();
+    void applyInsertionToReverb();
+    void applyInsertionToVariation();
+    void applyInsertionLevel();
+    void applyIndividualOut();
+    void applyEqLow(uint32_t i);
+    void applyEqMid(uint32_t i);
+    void applyEqHigh(uint32_t i);
+    void copyEqParams();
     // The firmware keeps ten EQ words where it uses eleven: the eleventh lies on the first two reverb flags.
     int eqHighShape() const { return reverbChanged[0] << 8 | reverbChanged[1]; }
-    void setInsertionToReverb(uint32_t v);                              // 0x3BA2C
-    void setInsertionToVariation(uint32_t v);                           // 0x3BA8E
-    void setInsertionLevel(uint32_t v);                                 // 0x3BB30
-    void setIndividualOut(uint32_t mode);                               // 0x3BBBA
-    void setMasterLevel();                                              // 0x3BCA0
-    void loadTypeDefaults(uint32_t window);                             // 0x3C1D2: the default parameters of its current type
-    void reverbTypeChanged();                                           // 0x3BDFC
-    void variationTypeChanged();                                        // 0x3C018
-    void insertionTypeChanged();                                        // 0x3C118
+    void setInsertionToReverb(uint32_t v);
+    void setInsertionToVariation(uint32_t v);
+    void setInsertionLevel(uint32_t v);
+    void setIndividualOut(uint32_t mode);
+    void setMasterLevel();
+    void loadTypeDefaults(uint32_t window);                             // the default parameters of its current type
+    void reverbTypeChanged();
+    void variationTypeChanged();
+    void insertionTypeChanged();
 
     // ---- parameters to their handlers ----
-    void applyParam(int kind, int p);                                   // 0x39B09C: p from 252 reloads the type's preset first
+    void applyParam(int kind, int p);                                   // p from 252 reloads the type's preset first
     const rom::PresetGroup& presets(int window) const;                  // of its current type msb
-    void dispatch(int kind, int p);                                     // 0x39C0B2
-    void dispatchReverb(int p);                                         // 0x39C144
-    void dispatchInsertion(int p);                                      // 0x39C1AC
-    void dispatchReverbDelay(int p);                                    // 0x39C48A
-    void dispatchVariation(int p);                                      // 0x39C51C
-    void clearWindow(int window);                                       // 0x3A3308
-    void masterEq(int p);                                               // 0x3A356C
-    void mixerParam(int p);                                             // 0x3A2EC
+    void dispatch(int kind, int p);
+    void dispatchReverb(int p);
+    void dispatchInsertion(int p);
+    void dispatchReverbDelay(int p);
+    void dispatchVariation(int p);
+    void clearWindow(int window);
+    void masterEq(int p);
+    void mixerParam(int p);
 
     // ---- filter, comb and room design ----
     // designFilter writes b0, b1(, b2), -a1(, -a2) into the constants of the listed steps.
-    void designFilter(int order, int scale, int kind, int freq, int gain, int q, const uint16_t* steps);   // 0x37414
-    void designCombs(int time, int damp, int count, int sel, const uint16_t* list);                        // 0x39C796
-    void designRoom(int time, int y0, int y1, int damp, int extra, const uint16_t* list);                  // 0x39CF82
-    void designTypeShelf(int index, const uint16_t* steps);                                                // 0x39C758
-    void roomDelays(int clampSrc, int index, int span, const uint8_t* ids);                                // 0x39D2C4
-    void combDelays(int clampSrc, int count, int sel, const uint8_t* ids);                                 // 0x39C8F4
-    void combDelays2(int clampSrc, int sel, const uint8_t* ids);                                           // 0x3A259C
-    void diffusers(int src, int scale, int offset, int count, int stride, const uint16_t* steps, const uint8_t* slots);   // 0x39C9E8
-    void earlyReflections(int indexA, int indexB, int offset, int row, const uint16_t* words, const uint8_t* ids);        // 0x39CC78
-    void erBalance(int balance, const uint16_t* list);                  // 0x39CEC8
-    void erPattern();                                                   // 0x3A6354: the insertion's 20 early reflections
-    int32_t erGain(int x);                                              // 0x3A6338
+    void designFilter(int order, int scale, int kind, int freq, int gain, int q, const uint16_t* steps);
+    void designCombs(int time, int damp, int count, int sel, const uint16_t* list);
+    void designRoom(int time, int y0, int y1, int damp, int extra, const uint16_t* list);
+    void designTypeShelf(int index, const uint16_t* steps);
+    void roomDelays(int clampSrc, int index, int span, const uint8_t* ids);
+    void combDelays(int clampSrc, int count, int sel, const uint8_t* ids);
+    void combDelays2(int clampSrc, int sel, const uint8_t* ids);
+    void diffusers(int src, int scale, int offset, int count, int stride, const uint16_t* steps, const uint8_t* slots);
+    void earlyReflections(int indexA, int indexB, int offset, int row, const uint16_t* words, const uint8_t* ids);
+    void erBalance(int balance, const uint16_t* list);
+    void erPattern();                                                   // the insertion's 20 early reflections
+    int32_t erGain(int x);
 
     // ---- helpers ----
-    int32_t bipolar500(int v);                                          // 0x39CF62
-    int32_t bipolar376(int v);                                          // 0x39CF72
-    int32_t lessDiffusion(int x, int v);                                // 0x39D468
-    int32_t toSamples(int v);                                           // 0x39D47C
-    int32_t scaleDelay(int v);                                          // 0x39D490
-    int32_t typeGain(int window, int x);                                // 0x39D4A2..0x39D598: x at the level the window's type runs at
-    void copyCoefs(int n, const uint16_t* src, const uint16_t* dst);    // 0x39390, 0x3943C, 0x394BA
-    void setLfoSpeed(int v, int lfo);                                   // 0x3A3070
-    void setLfoPhase(int v, int lfo);                                   // 0x3A30C2
-    void setLfoDepth(int v, int lfo);                                   // 0x3A3128
+    int32_t bipolar500(int v);
+    int32_t bipolar376(int v);
+    int32_t lessDiffusion(int x, int v);
+    int32_t toSamples(int v);
+    int32_t scaleDelay(int v);
+    int32_t typeGain(int window, int x);                                // x at the level the window's type runs at
+    void copyCoefs(int n, const uint16_t* src, const uint16_t* dst);
+    void setLfoSpeed(int v, int lfo);
+    void setLfoPhase(int v, int lfo);
+    void setLfoDepth(int v, int lfo);
     // one parameter into its steps
-    void storeBipolar(int scale, int v, const uint16_t* step);          // 0x3A31CC, 0x3A31EA: a phase difference
-    void storeModePair(int mode, const uint16_t* steps);                // 0x3A3208
-    void storeDepth(int v, const uint16_t* step);                       // 0x3A328E
-    void storeNegDepth(int v, const uint16_t* step);                    // 0x3A32B0
-    void storeHighDamp(int scale, int v, int gain, const uint16_t* steps);   // 0x39108
-    void storeDrive(int v, int level, const uint16_t* steps);           // 0x3A4F00
-    void storeEdge(int v, const uint16_t* steps);                       // 0x394F8
-    void storeCompAttack(int v, const uint16_t* steps);                 // 0x3A5090
-    void storeGateAttack(int v, const uint16_t* steps);                 // 0x3A50D8
-    void storeRelease(int v, const uint16_t* steps);                    // 0x3A5124
-    void storeCompThreshold(int v, const uint16_t* step);               // 0x3A5168
-    void storeGateThreshold(int v, const uint16_t* step);               // 0x3A51E4
-    void storeRatio(int row, const uint16_t* steps);                    // 0x3A522E
-    void storeWahRelease(int v, const uint16_t* steps);                 // 0x3ACA08
+    void storeBipolar(int scale, int v, const uint16_t* step);          // a phase difference
+    void storeModePair(int mode, const uint16_t* steps);
+    void storeDepth(int v, const uint16_t* step);
+    void storeNegDepth(int v, const uint16_t* step);
+    void storeHighDamp(int scale, int v, int gain, const uint16_t* steps);
+    void storeDrive(int v, int level, const uint16_t* steps);
+    void storeEdge(int v, const uint16_t* steps);
+    void storeCompAttack(int v, const uint16_t* steps);
+    void storeGateAttack(int v, const uint16_t* steps);
+    void storeRelease(int v, const uint16_t* steps);
+    void storeCompThreshold(int v, const uint16_t* step);
+    void storeGateThreshold(int v, const uint16_t* step);
+    void storeRatio(int row, const uint16_t* steps);
+    void storeWahRelease(int v, const uint16_t* steps);
     // the pitch change's two voices
-    int32_t pitchRatio(int v);                                          // 0x3A99FC
-    void pitchVoice(int lfo, int v);                                    // 0x3A9B8A
-    void pitchSlots1();                                                 // 0x3A9CC6
-    void pitchSlots2(int v);                                            // 0x3A9D58
+    int32_t pitchRatio(int v);
+    void pitchVoice(int lfo, int v);
+    void pitchSlots1();
+    void pitchSlots2(int v);
 
     // ---- a handler per type: reverb 1-12, then 13-16 ----
-    void fxRevHall(int p);                                              // 0x3A3728
-    void fxRevRoom(int p);                                              // 0x3A3C54
-    void fxRevDelayLCR(int p);                                          // 0x39D5E0
-    void fxRevDelayLR(int p);                                           // 0x39D964
-    void fxRevEcho(int p);                                              // 0x39DC98
-    void fxRevCrossDelay(int p);                                        // 0x39E074
+    void fxRevHall(int p);
+    void fxRevRoom(int p);
+    void fxRevDelayLCR(int p);
+    void fxRevDelayLR(int p);
+    void fxRevEcho(int p);
+    void fxRevCrossDelay(int p);
     // variation
     void fxVarChorus(int p); void fxVarFlanger(int p); void fxVarSymphonic(int p);
     void fxVarPhaser1(int p); void fxVarPhaser2(int p); void fxVarEnsDetune(int p);

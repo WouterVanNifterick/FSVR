@@ -19,7 +19,7 @@ const rom::PresetGroup& EffectHost::presets(int kind) const
     }
 }
 
-// 0x39B09C applyParam(kind, p): p >= 0xFE resets the window first; p >= 0xFC reloads the
+// p >= 0xFE resets the window first; p >= 0xFC reloads the
 // kind's preset block for its current type (odd p also restores the 16 default parameters)
 // and then runs the kind's handler for "all parameters" (255); any other p is a single
 // parameter change for the kind's handler.
@@ -62,7 +62,6 @@ void EffectHost::applyParam(int kind, int p)
     dispatch(kind, 255);
 }
 
-// 0x39C0B2 dispatch
 void EffectHost::dispatch(int kind, int p)
 {
     switch (kind) {
@@ -76,7 +75,7 @@ void EffectHost::dispatch(int kind, int p)
     }
 }
 
-// 0x39C144 dispatchReverb: reverb types 1-8 are halls, 9-12 rooms (jump table 0x39C164)
+// reverb types 1-8 are halls, 9-12 rooms
 void EffectHost::dispatchReverb(int p)
 {
     const uint32_t t = code[REVERB].lsb - 1;
@@ -88,12 +87,12 @@ void EffectHost::dispatchReverb(int p)
         fxRevRoom(p);
 }
 
-// 0x39C1AC dispatchInsertion: insertion types by (msb, lsb) of the type bytes
+// insertion types by (msb, lsb) of the type bytes
 void EffectHost::dispatchInsertion(int p)
 {
     const uint32_t msb = code[INSERTION].msb, lsb = code[INSERTION].lsb;
     switch (msb) {
-    case 0:   // jump table 0x39C1D8
+    case 0:
         if (lsb >= 2 && lsb <= 9) fxInsChorus(p);
         else if (lsb >= 10 && lsb <= 12) fxInsFlanger(p);
         else if (lsb == 13) fxInsSymphonic(p);
@@ -146,7 +145,7 @@ void EffectHost::dispatchInsertion(int p)
     }
 }
 
-// 0x39C48A dispatchReverbDelay: reverb types 13-16 are (msb 8, lsb 1-4)
+// reverb types 13-16 are (msb 8, lsb 1-4)
 void EffectHost::dispatchReverbDelay(int p)
 {
     const uint32_t msb = code[REVERB_DELAY].msb, lsb = code[REVERB_DELAY].lsb;
@@ -158,12 +157,12 @@ void EffectHost::dispatchReverbDelay(int p)
     else if (lsb == 4) fxRevCrossDelay(p);
 }
 
-// 0x39C51C dispatchVariation: variation types by (msb, lsb)
+// variation types by (msb, lsb)
 void EffectHost::dispatchVariation(int p)
 {
     const uint32_t msb = code[VARIATION].msb, lsb = code[VARIATION].lsb;
     switch (msb) {
-    case 0:   // jump table 0x39C548; lsb 1 (No Effect) returns
+    case 0:   // lsb 1 (No Effect) returns
         if (lsb >= 2 && lsb <= 9) fxVarChorus(p);
         else if (lsb >= 10 && lsb <= 12) fxVarFlanger(p);
         else if (lsb == 13) fxVarSymphonic(p);

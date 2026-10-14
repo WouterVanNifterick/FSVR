@@ -9,7 +9,7 @@ namespace fs1r::vop3host {
 
 using namespace rom::mix;
 
-// 0x3A3308 clearWindow: silence a window (zero its constants), spread its delay slots
+// silence a window (zero its constants), spread its delay slots
 // evenly over the window's area, and for kinds 2-4 load the "clear" program.
 void EffectHost::clearWindow(int kind)
 {
@@ -57,7 +57,7 @@ void EffectHost::clearWindow(int kind)
     }
 }
 
-// 0x3A356C masterEq: the performance EQ, one biquad per band through designFilter, then the
+// the performance EQ, one biquad per band through designFilter, then the
 // band's five words are copied to the other channel's steps. p selects the band by its
 // parameter group (0-3 low, 4-6 low-mid, 8-10 mid, 12-14 high-mid, 16-19 high); 255 does all.
 void EffectHost::masterEq(int p)
@@ -91,7 +91,7 @@ void EffectHost::masterEq(int p)
     }
 }
 
-// flash 0x3A2EC mixerParam: the system parameters into the mixer steps of the base program.
+// the system parameters into the mixer steps of the base program.
 //   p 0/1 reverb pan + level (quarter-sine pan law scaled by level, >> 3), 2 reverb return pan,
 //   3 reverb send level (>> 1), 4 insertion send (<< 1), 5 insertion return pan, 6 variation
 //   send (>> 1), 7 variation return (<< 1), 8 variation to reverb (x 5792/127), 9 = 6, 7, 8 and
@@ -218,7 +218,7 @@ void EffectHost::mixerParam(int p)
     }
 }
 
-// flash 0x3BCD0 setOutputGain: 0 dB, word 21, into the eight output gain steps
+// 0 dB, word 21, into the eight output gain steps
 void EffectHost::setOutputGain()
 {
     for (int i = 0; i < 8; i++)

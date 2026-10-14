@@ -175,8 +175,7 @@ void echo(EffectHost& h, const Block& b, int p, void (EffectHost::*self)(int))
     }
 }
 
-// the cross delay's routing mode is parameter 3; the reverb version references slots 5/0,
-// the variation version slots 3/0
+// the cross delay's routing mode is parameter 3; it picks which of slots 3 and 0 each tap counts from
 void cross_delay(EffectHost& h, const Block& b, int p, void (EffectHost::*self)(int))
 {
     const Delay d{h, b};
@@ -238,13 +237,13 @@ void cross_delay(EffectHost& h, const Block& b, int p, void (EffectHost::*self)(
 
 }  // namespace
 
-void EffectHost::fxRevDelayLCR(int p) { delay_lcr(*this, REVERB_BLOCK, p & 0xFF, &EffectHost::fxRevDelayLCR); }      // 0x39D5E0
-void EffectHost::fxRevDelayLR(int p) { delay_lr(*this, REVERB_BLOCK, p & 0xFF, &EffectHost::fxRevDelayLR); }         // 0x39D964
-void EffectHost::fxRevEcho(int p) { echo(*this, REVERB_BLOCK, p & 0xFF, &EffectHost::fxRevEcho); }                   // 0x39DC98
-void EffectHost::fxRevCrossDelay(int p) { cross_delay(*this, REVERB_BLOCK, p & 0xFF, &EffectHost::fxRevCrossDelay); } // 0x39E074
-void EffectHost::fxVarDelayLCR(int p) { delay_lcr(*this, VARIATION_BLOCK, p & 0xFF, &EffectHost::fxVarDelayLCR); }   // 0x39E52C
-void EffectHost::fxVarDelayLR(int p) { delay_lr(*this, VARIATION_BLOCK, p & 0xFF, &EffectHost::fxVarDelayLR); }      // 0x39E8B0
-void EffectHost::fxVarEcho(int p) { echo(*this, VARIATION_BLOCK, p & 0xFF, &EffectHost::fxVarEcho); }                // 0x39EBE4
-void EffectHost::fxVarCrossDelay(int p) { cross_delay(*this, VARIATION_BLOCK, p & 0xFF, &EffectHost::fxVarCrossDelay); } // 0x39EFD8
+void EffectHost::fxRevDelayLCR(int p) { delay_lcr(*this, REVERB_BLOCK, p & 0xFF, &EffectHost::fxRevDelayLCR); }
+void EffectHost::fxRevDelayLR(int p) { delay_lr(*this, REVERB_BLOCK, p & 0xFF, &EffectHost::fxRevDelayLR); }
+void EffectHost::fxRevEcho(int p) { echo(*this, REVERB_BLOCK, p & 0xFF, &EffectHost::fxRevEcho); }
+void EffectHost::fxRevCrossDelay(int p) { cross_delay(*this, REVERB_BLOCK, p & 0xFF, &EffectHost::fxRevCrossDelay); }
+void EffectHost::fxVarDelayLCR(int p) { delay_lcr(*this, VARIATION_BLOCK, p & 0xFF, &EffectHost::fxVarDelayLCR); }
+void EffectHost::fxVarDelayLR(int p) { delay_lr(*this, VARIATION_BLOCK, p & 0xFF, &EffectHost::fxVarDelayLR); }
+void EffectHost::fxVarEcho(int p) { echo(*this, VARIATION_BLOCK, p & 0xFF, &EffectHost::fxVarEcho); }
+void EffectHost::fxVarCrossDelay(int p) { cross_delay(*this, VARIATION_BLOCK, p & 0xFF, &EffectHost::fxVarCrossDelay); }
 
 }  // namespace fs1r::vop3host

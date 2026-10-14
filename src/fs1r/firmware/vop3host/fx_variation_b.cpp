@@ -18,8 +18,8 @@ inline uint32_t mod_delay(EffectHost& h, const int16_t* table, int p)
 }
 constexpr uint32_t TOP = 0x40000;   // where the variation's delay memory ends
 
-// the pan words (parameter 9) of the group whose list holds (a, x, a, x) with the pan law
-// at index 1 and the type scale of the law's top; `a_first` selects the (a, a, x, x) layout
+// the pan words (parameter 9): the pan law at index 1 twice and the type scale of the law's top
+// twice, laid out (a, x, a, x) when `aax` is set and (a, a, x, x) otherwise
 void pan_words_b(EffectHost& h, const uint16_t* steps, bool aax)
 {
     const uint32_t g = rom::PAN_LAW[1] >> 2;
@@ -69,7 +69,7 @@ inline int32_t wah_cutoff(uint32_t v) { return int32_t((3052u * (v & 0xFFFF)) >>
 
 // ---- store helpers ----
 
-// 0x3A4F00 storeDrive(v, index, steps): a drive word (704 + 32063 v / 127) into two
+// a drive word (704 + 32063 v / 127) into two
 // steps and a derived gain (saturating at v > 10, scaled by the level curve and sqrt 2, at
 // least 1 unless 0) into the third
 void EffectHost::storeDrive(int v, int index, const uint16_t* steps)
@@ -98,7 +98,7 @@ void EffectHost::storeDrive(int v, int index, const uint16_t* steps)
     writeCoefs(3, steps + 1);
 }
 
-// 0x3A5090 storeCompAttack(v, steps): (0x8000 - t) / 2, twice, then t
+// 0x8000 - t / 2, twice, then t
 void EffectHost::storeCompAttack(int v, const uint16_t* steps)
 {
     const int32_t t = rom::MIRROR[v];
@@ -109,7 +109,7 @@ void EffectHost::storeCompAttack(int v, const uint16_t* steps)
     writeCoefs(3, steps);
 }
 
-// 0x3A50D8 storeGateAttack(v, steps): (-0x8000 - t) * 32, twice, then t
+// -0x8000 - t * 32, twice, then t
 void EffectHost::storeGateAttack(int v, const uint16_t* steps)
 {
     const int32_t t = rom::MIRROR[v];
@@ -120,7 +120,7 @@ void EffectHost::storeGateAttack(int v, const uint16_t* steps)
     writeCoefs(3, steps);
 }
 
-// 0x3ACA08 storeWahRelease(v, steps): t, t, (-0x8000 - t) * 2
+// t, t, (-0x8000 - t) * 2
 void EffectHost::storeWahRelease(int v, const uint16_t* steps)
 {
     const int32_t t = rom::COMPLEMENT[v];
@@ -130,7 +130,7 @@ void EffectHost::storeWahRelease(int v, const uint16_t* steps)
     writeCoefs(3, steps);
 }
 
-// 0x3A259C combDelays2(clampSrc, sel, ids): two (base, a, b) slot triples from the
+// two (base, a, b) slot triples from the
 // second word of each scaled table pair (the variation reverb's early reflections)
 void EffectHost::combDelays2(int clampSrc, int sel, const uint8_t* ids)
 {
@@ -146,7 +146,7 @@ void EffectHost::combDelays2(int clampSrc, int sel, const uint8_t* ids)
 
 // ---- handlers ----
 
-// 0x3A1B70 fxVarPhaser1 (type 5); p10 (stages) re-runs p11, p11 (direction) re-runs p9
+// type 5; p10 (stages) re-runs p11, p11 (direction) re-runs p9
 void EffectHost::fxVarPhaser1(int p)
 {
     switch (p) {
@@ -221,7 +221,7 @@ void EffectHost::fxVarPhaser1(int p)
     }
 }
 
-// 0x3A2144 fxVarPhaser2 (type 6)
+// type 6
 void EffectHost::fxVarPhaser2(int p)
 {
     switch (p) {
@@ -275,7 +275,7 @@ void EffectHost::fxVarPhaser2(int p)
     }
 }
 
-// 0x3A160C fxVarEnsDetune (type 7)
+// type 7
 void EffectHost::fxVarEnsDetune(int p)
 {
     switch (p) {
@@ -358,7 +358,7 @@ void EffectHost::fxVarEnsDetune(int p)
     }
 }
 
-// 0x3A29F8 fxVarAutoWah (type 11)
+// type 11
 void EffectHost::fxVarAutoWah(int p)
 {
     switch (p) {
@@ -392,7 +392,7 @@ void EffectHost::fxVarAutoWah(int p)
     }
 }
 
-// 0x3A2CB0 fxVarTouchWah (type 12)
+// type 12
 void EffectHost::fxVarTouchWah(int p)
 {
     switch (p) {
@@ -432,7 +432,7 @@ void EffectHost::fxVarTouchWah(int p)
     }
 }
 
-// 0x39FB58 fxVar3BandEq (type 13)
+// type 13
 void EffectHost::fxVar3BandEq(int p)
 {
     switch (p) {
@@ -478,7 +478,7 @@ void EffectHost::fxVar3BandEq(int p)
     }
 }
 
-// 0x39FD74 fxVarHmEnhancer (type 14)
+// type 14
 void EffectHost::fxVarHmEnhancer(int p)
 {
     switch (p) {
@@ -533,7 +533,7 @@ void dynamics_filters(EffectHost& h)
 }
 }  // namespace
 
-// 0x39FED4 fxVarCompressor (type 16)
+// type 16
 void EffectHost::fxVarCompressor(int p)
 {
     switch (p) {
@@ -552,7 +552,7 @@ void EffectHost::fxVarCompressor(int p)
     }
 }
 
-// 0x3A00B0 fxVarNoiseGate (type 15)
+// type 15
 void EffectHost::fxVarNoiseGate(int p)
 {
     switch (p) {
@@ -584,7 +584,7 @@ void dist_pan_words(EffectHost& h)
 }
 }  // namespace
 
-// 0x39F520 fxVarDistortion: Distortion (17) and Overdrive (18)
+// Distortion (17) and Overdrive (18)
 void EffectHost::fxVarDistortion(int p)
 {
     switch (p) {
@@ -625,7 +625,7 @@ void EffectHost::fxVarDistortion(int p)
     }
 }
 
-// 0x39F760 fxVarAmpSim (type 19); p1 (the amp type) re-runs p2
+// type 19; p1 (the amp type) re-runs p2
 void EffectHost::fxVarAmpSim(int p)
 {
     switch (p) {
@@ -662,7 +662,7 @@ void EffectHost::fxVarAmpSim(int p)
     }
 }
 
-// 0x3A02A4 fxVarKaraoke (type 24)
+// type 24
 void EffectHost::fxVarKaraoke(int p)
 {
     switch (p) {
@@ -709,7 +709,7 @@ void EffectHost::fxVarKaraoke(int p)
     }
 }
 
-// 0x3A2628 fxVarReverb: Hall, Room, Stage, Plate (types 25-28); the comb selector row is
+// Hall, Room, Stage, Plate (types 25-28); the comb selector row is
 // indexed by the type's lsb byte; p1 re-runs p12
 void EffectHost::fxVarReverb(int p)
 {

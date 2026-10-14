@@ -9,7 +9,7 @@ namespace fs1r::vop3host {
 
 using namespace ins;
 
-// 0x3A6FD8 fxInsChorus: Chorus and Celeste (types 1, 2; msb 0 lsb 2-9)
+// Chorus and Celeste (types 1, 2; msb 0 lsb 2-9)
 void EffectHost::fxInsChorus(int p)
 {
     switch (p) {
@@ -77,7 +77,7 @@ void EffectHost::fxInsChorus(int p)
     }
 }
 
-// 0x3A73E8 fxInsFlanger (type 3; msb 0 lsb 10-12)
+// type 3; msb 0 lsb 10-12
 void EffectHost::fxInsFlanger(int p)
 {
     switch (p) {
@@ -133,7 +133,7 @@ void EffectHost::fxInsFlanger(int p)
     }
 }
 
-// 0x3A77C8 fxInsSymphonic (type 4; msb 0 lsb 13)
+// type 4; msb 0 lsb 13
 void EffectHost::fxInsSymphonic(int p)
 {
     switch (p) {
@@ -182,7 +182,7 @@ void EffectHost::fxInsSymphonic(int p)
     }
 }
 
-// 0x3A8B30 fxInsRotarySp (type 9; msb 1 lsb 1)
+// type 9; msb 1 lsb 1
 void EffectHost::fxInsRotarySp(int p)
 {
     switch (p) {
@@ -220,7 +220,7 @@ void EffectHost::fxInsRotarySp(int p)
     }
 }
 
-// 0x3A8DC8 fxIns2WayRotary (type 10; msb 1 lsb 2); no parameter 9 case
+// type 10; msb 1 lsb 2; no parameter 9 case
 void EffectHost::fxIns2WayRotary(int p)
 {
     switch (p) {
@@ -278,7 +278,7 @@ void EffectHost::fxIns2WayRotary(int p)
     }
 }
 
-// 0x3A90AE fxInsTremolo (type 11; msb 1 lsb 3)
+// type 11; msb 1 lsb 3
 void EffectHost::fxInsTremolo(int p)
 {
     switch (p) {
@@ -334,7 +334,7 @@ void EffectHost::fxInsTremolo(int p)
     }
 }
 
-// 0x3A9444 fxInsAutoPan (type 12; msb 1 lsb 4); parameter 3 re-runs 1 and 2; no parameter 9 case
+// type 12; msb 1 lsb 4; parameter 3 re-runs 1 and 2; no parameter 9 case
 void EffectHost::fxInsAutoPan(int p)
 {
     switch (p) {
@@ -390,7 +390,7 @@ void EffectHost::fxInsAutoPan(int p)
     }
 }
 
-// 0x3A9734 fxInsAmbience (type 13; msb 1 lsb 5)
+// type 13; msb 1 lsb 5
 void EffectHost::fxInsAmbience(int p)
 {
     switch (p) {
@@ -431,7 +431,7 @@ void EffectHost::fxInsAmbience(int p)
     }
 }
 
-// 0x3AADB4 fxInsPhaser1 (type 5; msb 2 lsb 1); 10 (stages) re-runs 11, 11 (direction) re-runs 9
+// type 5; msb 2 lsb 1; 10 (stages) re-runs 11, 11 (direction) re-runs 9
 void EffectHost::fxInsPhaser1(int p)
 {
     switch (p) {
@@ -499,7 +499,7 @@ void EffectHost::fxInsPhaser1(int p)
     }
 }
 
-// 0x3AB4E4 fxInsPhaser2 (type 6; msb 2 lsb 2)
+// type 6; msb 2 lsb 2
 void EffectHost::fxInsPhaser2(int p)
 {
     switch (p) {
@@ -571,7 +571,7 @@ void ins_delay_wet(EffectHost& h)
 }
 }  // namespace
 
-// 0x3A7AFE fxInsDelayLR (type 33; msb 0 lsb 14): the three-tap layout
+// type 33; msb 0 lsb 14: the three-tap layout
 void EffectHost::fxInsDelayLR(int p)
 {
     switch (p) {
@@ -609,7 +609,7 @@ void EffectHost::fxInsDelayLR(int p)
     }
 }
 
-// 0x3A7EA2 fxInsDelayLCR (type 34; msb 0 lsb 15)
+// type 34; msb 0 lsb 15
 void EffectHost::fxInsDelayLCR(int p)
 {
     switch (p) {
@@ -644,7 +644,7 @@ void EffectHost::fxInsDelayLCR(int p)
     }
 }
 
-// 0x3A8210 fxInsEcho (type 35; msb 0 lsb 16)
+// type 35; msb 0 lsb 16
 void EffectHost::fxInsEcho(int p)
 {
     switch (p) {
@@ -688,7 +688,7 @@ void EffectHost::fxInsEcho(int p)
     }
 }
 
-// 0x3A8628 fxInsEr1 (type 36 "ER 1"; msb 0 lsb 17): the cross-fed pair with routing mode
+// type 36 "ER 1"; msb 0 lsb 17: the cross-fed pair with routing mode
 // parameter 3; 3 re-runs 2
 void EffectHost::fxInsEr1(int p)
 {
@@ -777,7 +777,7 @@ void er_wet(EffectHost& h)
 }
 }  // namespace
 
-// 0x3A6338 erGain(x): the comb-gain table's loss word at x clamped to 0..255
+// the comb-gain table's loss word at x clamped to 0..255
 int32_t EffectHost::erGain(int x)
 {
     int32_t v = int16_t(x);
@@ -785,7 +785,7 @@ int32_t EffectHost::erGain(int x)
     return int16_t(rom::COMB_GAIN[2 * v]);
 }
 
-// 0x3A6354 erPattern: the 20 early reflections of the pattern row
+// the 20 early reflections of the pattern row
 // (parameter 0, +6 for type lsb 3, +8 for lsb 4) scaled by the density (parameter 1) after the
 // pre-delay (parameter 3), gains from the level (parameter 10), clamped to the delay area
 void EffectHost::erPattern()
@@ -822,7 +822,7 @@ void EffectHost::erPattern()
             coef[ER_STEPS[k]] = 0;
 }
 
-// 0x3A6580 fxInsCrossDelayEr: Cross Delay, ER 2, Gate Rev, Reverse Gate (types 37-40; msb 3 lsb 1-4)
+// Cross Delay, ER 2, Gate Rev, Reverse Gate (types 37-40; msb 3 lsb 1-4)
 void EffectHost::fxInsCrossDelayEr(int p)
 {
     switch (p) {

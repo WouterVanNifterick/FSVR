@@ -9,16 +9,16 @@ namespace fs1r::vop3host {
 using namespace rom::rev;
 
 // ---- small helpers ----
-int32_t EffectHost::bipolar500(int v) { return 500 * (v - 64); }                      // 0x39CF62
-int32_t EffectHost::bipolar376(int v) { return 376 * (v - 64); }                      // 0x39CF72
-int32_t EffectHost::lessDiffusion(int x, int v)                                               // 0x39D468
+int32_t EffectHost::bipolar500(int v) { return 500 * (v - 64); }
+int32_t EffectHost::bipolar376(int v) { return 376 * (v - 64); }
+int32_t EffectHost::lessDiffusion(int x, int v)
 {
     const int32_t d = x - int32_t(rom::DIFFUSION[v]);
     return d > 0 ? d : 1;
 }
-int32_t EffectHost::toSamples(int v) { return int32_t((19660u * (uint32_t(v) & 0xFFFF)) >> 12); }   // 0x39D47C
-int32_t EffectHost::scaleDelay(int v) { return int16_t((31457u * (uint32_t(v) & 0xFFFF)) >> 16); }    // 0x39D490
-// 0x39D4A2, 0x39D500, 0x39D53E, 0x39D598: x at the level the window's type runs at, in 64ths
+int32_t EffectHost::toSamples(int v) { return int32_t((19660u * (uint32_t(v) & 0xFFFF)) >> 12); }
+int32_t EffectHost::scaleDelay(int v) { return int16_t((31457u * (uint32_t(v) & 0xFFFF)) >> 16); }
+// x at the level the window's type runs at, in 64ths
 int32_t EffectHost::typeGain(int window, int x)
 {
     const TypeCode c = code[window];
@@ -28,7 +28,7 @@ int32_t EffectHost::typeGain(int window, int x)
     return (level * int16_t(x)) >> 6;
 }
 
-// 0x39C796 designCombs(time, damp, count, sel, list): the damping LPF at list[r10..], then
+// the damping LPF at list[r10..], then
 // `count` comb units (g, x, x, a) from the RT60 gain table rows
 void EffectHost::designCombs(int time, int damp, int count, int sel, const uint16_t* list)
 {
@@ -56,7 +56,7 @@ void EffectHost::designCombs(int time, int damp, int count, int sel, const uint1
     }
 }
 
-// 0x39C8F4 combDelays(clampSrc, count, sel, ids): delay offsets of `count` (base, a, b, c)
+// delay offsets of `count` (base, a, b, c)
 // slot quads from a scaled table row
 void EffectHost::combDelays(int clampSrc, int count, int sel, const uint8_t* ids)
 {
@@ -77,7 +77,7 @@ void EffectHost::combDelays(int clampSrc, int count, int sel, const uint8_t* ids
     }
 }
 
-// 0x39C9E8 diffusers(src, scale, offset, count, stride, steps, slots): per unit, a delay
+// per unit, a delay
 // offset from a scaled table word and four constants (allpass/feedback words)
 void EffectHost::diffusers(int src, int scale, int offset, int count, int stride, const uint16_t* steps, const uint8_t* slots)
 {
@@ -131,7 +131,7 @@ void EffectHost::diffusers(int src, int scale, int offset, int count, int stride
     }
 }
 
-// 0x39CC78 earlyReflections(indexA, indexB, offset, row, words, ids): four early-reflection
+// four early-reflection
 // taps (two offsets and two words each) plus the pre-delay pair, clamped to the area
 void EffectHost::earlyReflections(int indexA, int indexB, int offset, int row, const uint16_t* words, const uint8_t* ids)
 {
@@ -167,7 +167,7 @@ void EffectHost::earlyReflections(int indexA, int indexB, int offset, int row, c
     delay[s11] = tt + uint32_t(delay[ref1]);
 }
 
-// 0x39CEC8 erBalance(balance, list): the first ten early-reflection words scaled in
+// the first ten early-reflection words scaled in
 // place by the ER/Rev law (the source list is hard-wired to ER_WORDS), then twelve words of
 // the complementary gain
 void EffectHost::erBalance(int balance, const uint16_t* list)
@@ -184,7 +184,7 @@ void EffectHost::erBalance(int balance, const uint16_t* list)
         coef[list[i]] = g;
 }
 
-// 0x39D2C4 roomDelays(clampSrc, index, span, ids): early reflection delay offsets from room table C
+// early reflection delay offsets from room table C
 void EffectHost::roomDelays(int clampSrc, int index, int span, const uint8_t* ids)
 {
     auto pair = [&](const uint16_t* tp, uint32_t& a, uint32_t& b) {
@@ -206,7 +206,7 @@ void EffectHost::roomDelays(int clampSrc, int index, int span, const uint8_t* id
     delay[ids[7]] = b + uint32_t(base);
 }
 
-// 0x39CF82 designRoom(time, y0, y1, damp, extra, list): the room's early reflection units:
+// the room's early reflection units:
 // the damping LPF, then two comb-like units from the RT60 gain row of the time nearest to
 // extra * RT60[time] / 10
 void EffectHost::designRoom(int time, int y0, int y1, int damp, int extra, const uint16_t* list)
@@ -244,7 +244,7 @@ namespace {
 inline const int16_t* sel_row(const EffectHost& h) { return rom::COMB_SELECT + 3 * h.code[REVERB].lsb; }
 }  // namespace
 
-// 0x3A3728 fxRevHall: reverb types 1-8
+// reverb types 1-8
 void EffectHost::fxRevHall(int p)
 {
     const int16_t* sel = sel_row(*this);
@@ -326,7 +326,7 @@ void EffectHost::fxRevHall(int p)
     }
 }
 
-// 0x3A3C54 fxRevRoom: reverb types 9-12
+// reverb types 9-12
 void EffectHost::fxRevRoom(int p)
 {
     const int16_t* sel = sel_row(*this);

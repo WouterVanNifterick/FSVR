@@ -6,7 +6,7 @@
 
 namespace fs1r::vop3host {
 
-// 0x3A3070 setLfoSpeed(v, lfo): the speed word, keeping bits 10-11
+// the speed word, keeping bits 10-11
 void EffectHost::setLfoSpeed(int v, int lfo)
 {
     uint16_t& w = lfoReg[0][lfo];
@@ -14,7 +14,7 @@ void EffectHost::setLfoSpeed(int v, int lfo)
     writeLfo(0x24, lfo);
 }
 
-// 0x3A30C2 setLfoPhase(v, lfo): the low 5 bits of the register 0x25 word
+// the low 5 bits of the register 0x25 word
 void EffectHost::setLfoPhase(int v, int lfo)
 {
     uint16_t& w = lfoReg[1][lfo];
@@ -22,7 +22,7 @@ void EffectHost::setLfoPhase(int v, int lfo)
     writeLfo(0x25, lfo);
 }
 
-// 0x3A3128 setLfoDepth(v, lfo): v * 32768 / 127, 0x7FFF at 127
+// v * 32768 / 127, 0x7FFF at 127
 void EffectHost::setLfoDepth(int v, int lfo)
 {
     const uint32_t b = uint32_t(v) & 0xFF;
@@ -31,14 +31,13 @@ void EffectHost::setLfoDepth(int v, int lfo)
     writeLfo(0x26, lfo);
 }
 
-// 0x3A31CC, 0x3A31EA: a phase difference, (v - 64) * scale
+// a phase difference, (v - 64) * scale
 void EffectHost::storeBipolar(int scale, int v, const uint16_t* step)
 {
     coef[step[0]] = scale * ((v & 0xFF) - 64);
     writeCoefs(1, step);
 }
 
-// 0x3A3208 storeModePair(mode, steps)
 void EffectHost::storeModePair(int mode, const uint16_t* steps)
 {
     switch (mode & 0xFF) {
@@ -48,14 +47,14 @@ void EffectHost::storeModePair(int mode, const uint16_t* steps)
     writeCoefs(2, steps);
 }
 
-// 0x3A328E storeDepth(v, step): v * 512 / 127
+// v * 512 / 127
 void EffectHost::storeDepth(int v, const uint16_t* step)
 {
     coef[step[0]] = ((uint32_t(v) & 0xFF) << 9) / 127;
     writeCoefs(1, step);
 }
 
-// 0x3A32B0 storeNegDepth(v, step): -(v * 32768 / 127) for a signed byte, 0x7FFF at -127
+// -(v * 32768 / 127) for a signed byte, 0x7FFF at -127
 void EffectHost::storeNegDepth(int v, const uint16_t* step)
 {
     const int32_t b = int8_t(v);
@@ -64,7 +63,7 @@ void EffectHost::storeNegDepth(int v, const uint16_t* step)
     writeCoefs(1, step);
 }
 
-// 0x3A5124 storeRelease(v, steps): t, t and 0x8000 - t
+// t, t and 0x8000 - t
 void EffectHost::storeRelease(int v, const uint16_t* steps)
 {
     const int32_t t = rom::COMPLEMENT[v];
@@ -74,7 +73,7 @@ void EffectHost::storeRelease(int v, const uint16_t* steps)
     writeCoefs(3, steps);
 }
 
-// 0x3A5168 storeCompThreshold(v, step): the octave table word for (v - 80) % 6 shifted right by
+// the octave table word for (v - 80) % 6 shifted right by
 // (v - 80) / 6; 0x7FFF below 80
 void EffectHost::storeCompThreshold(int v, const uint16_t* step)
 {
@@ -86,7 +85,7 @@ void EffectHost::storeCompThreshold(int v, const uint16_t* step)
     writeCoefs(1, step);
 }
 
-// 0x3A51E4 storeGateThreshold(v, step): the same from 56, negated; 0x8000 below 56
+// the same from 56, negated; 0x8000 below 56
 void EffectHost::storeGateThreshold(int v, const uint16_t* step)
 {
     const int32_t d = int32_t(uint32_t(v) & 0xFF) - 56;
@@ -97,7 +96,7 @@ void EffectHost::storeGateThreshold(int v, const uint16_t* step)
     writeCoefs(1, step);
 }
 
-// 0x3A522E storeRatio(row, steps): eight words of a 16-byte table row
+// eight words of a 16-byte table row
 void EffectHost::storeRatio(int row, const uint16_t* steps)
 {
     const uint16_t* r = rom::COMP_RATIO + 8 * (uint32_t(row) & 0xFF);

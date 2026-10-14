@@ -44,7 +44,7 @@ uint32_t mod_delay(EffectHost& h, int p)
 }
 }  // namespace
 
-// 0x3A04AC fxVarChorus: Chorus (type 1) and Celeste (type 2)
+// Chorus (type 1) and Celeste (type 2)
 void EffectHost::fxVarChorus(int p)
 {
     switch (p) {
@@ -108,7 +108,7 @@ void EffectHost::fxVarChorus(int p)
     }
 }
 
-// 0x3A0840 fxVarFlanger: Flanger (type 3)
+// Flanger (type 3)
 void EffectHost::fxVarFlanger(int p)
 {
     switch (p) {
@@ -158,7 +158,7 @@ void EffectHost::fxVarFlanger(int p)
     }
 }
 
-// 0x3A0B4E fxVarSymphonic: Symphonic (type 4)
+// Symphonic (type 4)
 void EffectHost::fxVarSymphonic(int p)
 {
     switch (p) {
@@ -204,7 +204,7 @@ void EffectHost::fxVarSymphonic(int p)
     }
 }
 
-// 0x3A0E30 fxVarRotarySp: Rotary SP (type 8)
+// Rotary SP (type 8)
 void EffectHost::fxVarRotarySp(int p)
 {
     switch (p) {
@@ -239,7 +239,7 @@ void EffectHost::fxVarRotarySp(int p)
     }
 }
 
-// 0x3A1044 fxVarTremolo: Tremolo (type 9)
+// Tremolo (type 9)
 void EffectHost::fxVarTremolo(int p)
 {
     switch (p) {
@@ -297,7 +297,7 @@ void EffectHost::fxVarTremolo(int p)
     }
 }
 
-// 0x3A1368 fxVarAutoPan: Auto Pan (type 10); p3 (the direction) re-runs p1 and p2
+// Auto Pan (type 10); p3 (the direction) re-runs p1 and p2
 void EffectHost::fxVarAutoPan(int p)
 {
     switch (p) {

@@ -7,13 +7,13 @@
 
 namespace fs1r::vop3host {
 
-// 0x39648 writeReg: one 16-bit write to the effect chip's register window
+// one 16-bit write to the effect chip's register window
 void EffectHost::writeReg(uint32_t reg, uint32_t value)
 {
     sink->write(reg, value & 0xFFFF);
 }
 
-// 0x39652 writeCoefs: register 0xB of n listed steps, unless the hold flag is set
+// register 0xB of n listed steps, unless the hold flag is set
 void EffectHost::writeCoefs(uint32_t n, const uint16_t* steps)
 {
     if (hold)
@@ -24,7 +24,7 @@ void EffectHost::writeCoefs(uint32_t n, const uint16_t* steps)
     }
 }
 
-// 0x396A6 writeCoefsBurst: the same through the auto-increment latch (no hold check)
+// the same through the auto-increment latch (no hold check)
 void EffectHost::writeCoefsBurst(uint32_t n, const uint16_t* steps)
 {
     writeReg(0, steps[0] | 0x8000);
@@ -32,7 +32,7 @@ void EffectHost::writeCoefsBurst(uint32_t n, const uint16_t* steps)
         writeReg(0x0B, coef[steps[i]]);
 }
 
-// 0x396FC writeTags: register 0xC (tag) of n listed steps, unless held
+// register 0xC (tag) of n listed steps, unless held
 void EffectHost::writeTags(uint32_t n, const uint16_t* steps)
 {
     if (hold)
@@ -43,7 +43,7 @@ void EffectHost::writeTags(uint32_t n, const uint16_t* steps)
     }
 }
 
-// 0x39764 writeTagsBurst: tags through the latch
+// tags through the latch
 void EffectHost::writeTagsBurst(uint32_t n, const uint16_t* steps)
 {
     writeReg(0, steps[0] | 0x8000);
@@ -51,14 +51,14 @@ void EffectHost::writeTagsBurst(uint32_t n, const uint16_t* steps)
         writeReg(0x0C, tag[steps[i]]);
 }
 
-// 0x397BA writeConfig: register 0x16 entry `index`
+// register 0x16 entry `index`
 void EffectHost::writeConfig(uint32_t index, uint32_t value)
 {
     writeReg(0, index + 1);
     writeReg(0x16, value);
 }
 
-// 0x397F4 writeDelays: delay offsets of n listed slots as registers 0xD/0xE, unless held. The
+// delay offsets of n listed slots as registers 0xD/0xE, unless held. The
 // first slot's area is where every slot of the list is taken to start.
 void EffectHost::writeDelays(uint32_t n, const uint8_t* slots)
 {
@@ -74,7 +74,7 @@ void EffectHost::writeDelays(uint32_t n, const uint8_t* slots)
     }
 }
 
-// 0x39B24..0x39BB4 writeLfo: one of an LFO's four registers, 0x24..0x27, from its shadow, unless held
+// one of an LFO's four registers, 0x24..0x27, from its shadow, unless held
 void EffectHost::writeLfo(uint32_t reg, uint32_t lfo)
 {
     if (hold)
@@ -83,7 +83,7 @@ void EffectHost::writeLfo(uint32_t reg, uint32_t lfo)
     writeReg(reg, lfoReg[reg - 0x24][lfo]);
 }
 
-// 0x39C74 resetLfoPhase: LFO phase reset mask, then clear register 0x1C
+// LFO phase reset mask, then clear register 0x1C
 void EffectHost::resetLfoPhase(uint32_t mask)
 {
     writeReg(0x20, mask);
@@ -98,7 +98,7 @@ const Window WINDOWS[5] = {
     {rom::STEPS_VARIATION, 72, rom::SLOTS_VARIATION, 12, rom::LFOS_VARIATION, 0x0F00, rom::VARIATION_PROGRAMS, rom::DELAY_TAGS, 11},
 };
 
-// 0x39C8A uploadProgram: the tag and the five program words of every step of a window, for
+// the tag and the five program words of every step of a window, for
 // its type msb or, with `clear`, the program that silences it. Kind 0 is the base program.
 void EffectHost::uploadProgram(int kind, int clear)
 {
@@ -126,7 +126,7 @@ void EffectHost::uploadProgram(int kind, int clear)
     }
 }
 
-// 0x398C2 uploadWindow: bracket the chip, upload a window's program, constants, delay
+// bracket the chip, upload a window's program, constants, delay
 // offsets and LFO registers, reset its LFO phases, unbracket.
 void EffectHost::uploadWindow(int kind)
 {
@@ -162,7 +162,7 @@ void EffectHost::uploadWindow(int kind)
     writeReg(0x17, 0);
 }
 
-// 0x3A064 initChip: reset, mode, the three config tables, register 0x16 config
+// reset, mode, the three config tables, register 0x16 config
 void EffectHost::initChip()
 {
     writeReg(1, 1);
@@ -178,7 +178,6 @@ void EffectHost::initChip()
     setMute(5, 1);
 }
 
-// 0x3A110 uploadAll
 void EffectHost::uploadAll()
 {
     uploadProgram(REVERB, 0);
@@ -186,7 +185,7 @@ void EffectHost::uploadAll()
         uploadWindow(kind);
 }
 
-// 0x3A140 setMute: per-effect enable byte, then the system parameter that applies it
+// per-effect enable byte, then the system parameter that applies it
 void EffectHost::setMute(int effect, uint32_t enabled)
 {
     enabled &= 0xFF;
@@ -201,7 +200,7 @@ void EffectHost::setMute(int effect, uint32_t enabled)
     setMute(5, enabled);
 }
 
-// 0x3AAC8 init: the effect host's reset. Mutes, defaults, every kind's
+// the effect host's reset. Mutes, defaults, every kind's
 // preset load, the master EQ mid bands, all windows, the performance's effect bytes.
 void EffectHost::init()
 {

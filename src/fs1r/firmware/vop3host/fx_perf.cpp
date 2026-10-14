@@ -18,14 +18,13 @@ namespace {
 
 }  // namespace
 
-// flash 0x3AC88 applyChanges
 //   0x8000  read the performance into the cache, then as 0x80
 //   0x80    everything: the four windows with their parameters, the mixer, the master EQ
 //   0x40    reverb type            0x20  dirty reverb parameters
 //   0x10    variation type         0x08  dirty variation parameters
 //   0x04    insertion type         0x02  dirty insertion parameters, with their controller offsets
-//   0x200   dirty mixer parameters (handlers at 0x3F0B0)
-//   0x100   dirty master EQ parameters (handlers at 0x3F104)
+//   0x200   dirty mixer parameters
+//   0x100   dirty master EQ parameters
 void EffectHost::applyChanges(uint32_t mask)
 {
     // the reverb's type map says which window the type runs in: the reverb's, or the delay's
@@ -233,7 +232,7 @@ void EffectHost::applyChanges(uint32_t mask)
 
     if (mask & 0x02) {
         // a dirty insertion parameter is its cached value plus the controller offset scaled
-        // to the range of the parameter, offset * (max - min) / 127, clamped to that range (0x306C0)
+        // to the range of the parameter, offset * (max - min) / 127, clamped to that range
         for (uint32_t i = 0; i < 16; i++) {
             if (insertionChanged[i] != 1)
                 continue;
@@ -252,7 +251,7 @@ void EffectHost::applyChanges(uint32_t mask)
     }
 
     if (mask & 0x200) {
-        // The firmware clears the insertion flags here, and past the sixteenth the EQ's, never the mixer's (0x3B63C).
+        // The firmware clears the insertion flags here, and past the sixteenth the EQ's, never the mixer's.
         for (uint32_t i = 0; i < 21; i++) {
             if (mixerChanged[i] != 1)
                 continue;
@@ -268,7 +267,7 @@ void EffectHost::applyChanges(uint32_t mask)
     }
 }
 
-// the handler table at flash 0x3F0B0, indexed like mixerChanged: the system parameter
+// one mixer change, indexed like mixerChanged: the system parameter
 // number for 0..14, then 16 send A, 17 send B, 18 insertion level, 19 individual out, 20 master shift
 void EffectHost::applyMixer(uint32_t i)
 {
@@ -286,7 +285,7 @@ void EffectHost::applyMixer(uint32_t i)
     }
 }
 
-// the handler table at flash 0x3F104, indexed like eqChanged (master EQ bytes 180..190)
+// one master EQ change, indexed like eqChanged (master EQ bytes 180..190)
 void EffectHost::applyEq(uint32_t i)
 {
     if (i < 4) applyEqLow(i);
@@ -294,7 +293,7 @@ void EffectHost::applyEq(uint32_t i)
     else applyEqHigh(i);
 }
 
-// flash 0x3B766 applyReverbPanReturn: reverb pan and return from the performance
+// reverb pan and return from the performance
 void EffectHost::applyReverbPanReturn()
 {
     const bool isDelay = rom::TYPE_MAP_REVERB[perf[168]][0] != 0;
@@ -322,33 +321,33 @@ void EffectHost::applyReverbPanReturn()
     applyParam(MIXER, 3);
 }
 
-void EffectHost::applyVariationPan()                                                    // flash 0x3B81C
+void EffectHost::applyVariationPan()
 {
     mixParam[11] = perf[172];
     applyParam(MIXER, 11);
 }
-void EffectHost::applyVariationReturn()                                                 // flash 0x3B82E
+void EffectHost::applyVariationReturn()
 {
     mixParam[6] = perf[173];
     applyParam(MIXER, 6);
 }
-void EffectHost::applyVariationToReverb()                                               // flash 0x3B840
+void EffectHost::applyVariationToReverb()
 {
     mixParam[8] = perf[174];
     applyParam(MIXER, 8);
 }
-void EffectHost::applyInsertionPan()                                                    // flash 0x3B852
+void EffectHost::applyInsertionPan()
 {
     mixParam[5] = perf[176];
     applyParam(MIXER, 5);
 }
-void EffectHost::applyVolume()                                                // flash 0x3B864
+void EffectHost::applyVolume()
 {
     mixParam[14] = perf[16];
     applyParam(MIXER, 14);
 }
 
-// flash 0x3B8BC applyInsertionToReverb: insertion to reverb send, the performance byte plus the
+// insertion to reverb send, the performance byte plus the
 // controller offset, clamped to 0..127
 void EffectHost::applyInsertionToReverb()
 {
@@ -356,7 +355,7 @@ void EffectHost::applyInsertionToReverb()
     if (!(v > 0)) v = 0;
     setInsertionToReverb(uint32_t(v >= 127 ? 127 : v));
 }
-// flash 0x3B8EC applyInsertionToVariation: the same for the insertion to variation send
+// the same for the insertion to variation send
 void EffectHost::applyInsertionToVariation()
 {
     int32_t v = int16_t(perf[178] + uint32_t(sendVariationOffset));
@@ -364,29 +363,29 @@ void EffectHost::applyInsertionToVariation()
     setInsertionToVariation(uint32_t(v >= 127 ? 127 : v));
 }
 
-void EffectHost::applyInsertionLevel() { setInsertionLevel(perf[179]); }  // flash 0x3B91C
-void EffectHost::applyIndividualOut() { setIndividualOut(perf[20]); }   // flash 0x3B92C
+void EffectHost::applyInsertionLevel() { setInsertionLevel(perf[179]); }
+void EffectHost::applyIndividualOut() { setIndividualOut(perf[20]); }
 
-// flash 0x3B940 applyEqLow: cached EQ word i (bytes 180..183) to master EQ parameter i
+// cached EQ word i (bytes 180..183) to master EQ parameter i
 void EffectHost::applyEqLow(uint32_t i)
 {
     eqParam[i] = eqCache[i];
     applyParam(MASTER_EQ, int(i));
 }
-// flash 0x3B95C applyEqMid: cached EQ word i (bytes 184..186) to master EQ parameter i + 4
+// cached EQ word i (bytes 184..186) to master EQ parameter i + 4
 void EffectHost::applyEqMid(uint32_t i)
 {
     eqParam[4 + i] = eqCache[i];
     applyParam(MASTER_EQ, int(i + 4));
 }
-// flash 0x3B97E applyEqHigh: cached EQ word i (bytes 187..190) to master EQ parameter i + 9
+// cached EQ word i (bytes 187..190) to master EQ parameter i + 9
 void EffectHost::applyEqHigh(uint32_t i)
 {
     eqParam[9 + i] = i < 10 ? eqCache[i] : eqHighShape();
     applyParam(MASTER_EQ, int(i + 9));
 }
 
-// flash 0x3B9CC copyEqParams: the eleven cached EQ words to the master EQ block (parameters
+// the eleven cached EQ words to the master EQ block (parameters
 // 0-3, 8-10, 16-19)
 void EffectHost::copyEqParams()
 {
@@ -396,7 +395,7 @@ void EffectHost::copyEqParams()
     eqParam[19] = eqHighShape();
 }
 
-// flash 0x3BA2C setInsertionToReverb: insertion to reverb send, v * 2896 / 127, into two mixer steps
+// insertion to reverb send, v * 2896 / 127, into two mixer steps
 void EffectHost::setInsertionToReverb(uint32_t v)
 {
     const int32_t w = int16_t(int(float(v & 0xFF) * 2896.0f / 127.0f));
@@ -405,7 +404,7 @@ void EffectHost::setInsertionToReverb(uint32_t v)
     writeCoefs(1, MIXER_C + 17);
     writeCoefs(1, MIXER_C + 23);
 }
-// flash 0x3BA8E setInsertionToVariation: insertion to variation send, the same law, two other steps
+// insertion to variation send, the same law, two other steps
 void EffectHost::setInsertionToVariation(uint32_t v)
 {
     const int32_t w = int16_t(int(float(v & 0xFF) * 2896.0f / 127.0f));
@@ -414,7 +413,7 @@ void EffectHost::setInsertionToVariation(uint32_t v)
     writeCoefs(1, MIXER_C + 28);
     writeCoefs(1, MIXER_C + 33);
 }
-// flash 0x3BB30 setInsertionLevel: insertion level, (v * 8192 / 127) >> 2, into two mixer steps
+// insertion level, (v * 8192 / 127) >> 2, into two mixer steps
 void EffectHost::setInsertionLevel(uint32_t v)
 {
     const int32_t w = int16_t(int(float(v & 0xFF) * 8192.0f / 127.0f)) >> 2;
@@ -424,7 +423,7 @@ void EffectHost::setInsertionLevel(uint32_t v)
     writeCoefs(1, MIXER_B + 9);
 }
 
-// flash 0x3BBBA setIndividualOut: individual out. 0 none, 1 the first pair of steps at 0x0B50,
+// individual out. 0 none, 1 the first pair of steps at 0x0B50,
 // 2 the second pair; other values rewrite the four steps as they are.
 void EffectHost::setIndividualOut(uint32_t mode)
 {
@@ -437,7 +436,7 @@ void EffectHost::setIndividualOut(uint32_t mode)
     writeCoefs(4, rom::STEPS_INDIVIDUAL_OUT);
 }
 
-// flash 0x3BCA0 setMasterLevel: the master level word, then the master volume step
+// the master level word, then the master volume step
 void EffectHost::setMasterLevel()
 {
     masterLevel = 0x1FFF;
@@ -451,12 +450,12 @@ void EffectHost::setMasterLevel()
 // every posted mask has bit 0 set. Here post keeps the pattern in posted and
 // runPosted is one turn of the task.
 
-void EffectHost::post(uint32_t mask)                       // 0x9FA4
+void EffectHost::post(uint32_t mask)
 {
     posted |= mask;
 }
 
-// flash 0x3C994 runPosted, one turn: false when nothing was posted
+// one turn: false when nothing was posted
 bool EffectHost::runPosted()
 {
     if (!(posted & 1))
@@ -467,7 +466,7 @@ bool EffectHost::runPosted()
     return true;
 }
 
-// flash 0x3C1D2 loadTypeDefaults: the 16 default parameters of a window's current type
+// the 16 default parameters of a window's current type
 void EffectHost::loadTypeDefaults(uint32_t kind)
 {
     std::copy_n(presets(int(kind)).defaults[code[kind].lsb], 16, param[kind]);
@@ -477,7 +476,7 @@ void EffectHost::loadTypeDefaults(uint32_t kind)
 // from there back into the performance (two 7-bit bytes per word for the first parameters, one
 // byte for reverb parameters 9-16) and into the cache, with the dirty flags cleared.
 
-// flash 0x3BDFC reverbTypeChanged: performance byte 168
+// performance byte 168
 void EffectHost::reverbTypeChanged()
 {
     const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
@@ -514,7 +513,7 @@ void EffectHost::reverbTypeChanged()
     }
 }
 
-// flash 0x3C018 variationTypeChanged: performance byte 171, the variation type
+// performance byte 171, the variation type
 void EffectHost::variationTypeChanged()
 {
     const uint32_t var = uint32_t(readParameter(171)) & 0xFF;
@@ -533,7 +532,7 @@ void EffectHost::variationTypeChanged()
     variationCache[9] = 127;
 }
 
-// flash 0x3C118 insertionTypeChanged: performance byte 175, the insertion type
+// performance byte 175, the insertion type
 void EffectHost::insertionTypeChanged()
 {
     const uint32_t ins = uint32_t(readParameter(175)) & 0xFF;
@@ -548,7 +547,7 @@ void EffectHost::insertionTypeChanged()
     }
 }
 
-// flash 0x3C4A8 byteChanged(id): a performance common byte changed. Reads it into the
+// a performance common byte changed. Reads it into the
 // cache or marks its mixer flag, and posts the mask that makes the task apply it. `id` is the
 // byte's index; either byte of a two-byte parameter stands for the parameter.
 void EffectHost::byteChanged(uint32_t id)
@@ -614,21 +613,21 @@ void EffectHost::byteChanged(uint32_t id)
     }
 }
 
-// flash 0x3C8D4 setControlOffset: a controller's offset for insertion parameter i
+// a controller's offset for insertion parameter i
 void EffectHost::setControlOffset(uint32_t i, uint32_t v)
 {
     controlOffset[i & 15] = int16_t(v);
     insertionChanged[i & 15] = 1;
     post(3);
 }
-// flash 0x3C8EC setSendVariationOffset: a controller's offset for the insertion to variation send
+// a controller's offset for the insertion to variation send
 void EffectHost::setSendVariationOffset(uint32_t v)
 {
     sendVariationOffset = v;
     mixerChanged[17] = 1;
     post(513);
 }
-// flash 0x3C8FE setSendReverbOffset: the same for the insertion to reverb send
+// the same for the insertion to reverb send
 void EffectHost::setSendReverbOffset(uint32_t v)
 {
     sendReverbOffset = v;
