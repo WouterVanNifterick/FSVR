@@ -92,24 +92,24 @@ void EffectHost::dispatchInsertion(int p)
     const uint32_t msb = code[INSERTION].msb, lsb = code[INSERTION].lsb;
     switch (msb) {
     case 0:
-        if (lsb >= 2 && lsb <= 9) fxInsChorus(p);
-        else if (lsb >= 10 && lsb <= 12) fxInsFlanger(p);
-        else if (lsb == 13) fxInsSymphonic(p);
+        if (lsb >= 2 && lsb <= 9) chorus(INSERTION, p);
+        else if (lsb >= 10 && lsb <= 12) flanger(INSERTION, p);
+        else if (lsb == 13) symphonic(INSERTION, p);
         else if (lsb == 14) fxInsDelayLR(p);
         else if (lsb == 15) fxInsDelayLCR(p);
         else if (lsb == 16) fxInsEcho(p);
         else if (lsb == 17) fxInsEr1(p);
         break;
     case 1:
-        if (lsb == 1) fxInsRotarySp(p);
-        else if (lsb == 2) fxIns2WayRotary(p);
-        else if (lsb == 3) fxInsTremolo(p);
-        else if (lsb == 4) fxInsAutoPan(p);
-        else if (lsb == 5) fxInsAmbience(p);
+        if (lsb == 1) rotarySpeaker(INSERTION, p);
+        else if (lsb == 2) twoWayRotary(INSERTION, p);
+        else if (lsb == 3) tremolo(INSERTION, p);
+        else if (lsb == 4) autoPan(INSERTION, p);
+        else if (lsb == 5) ambience(INSERTION, p);
         break;
     case 2:
-        if (lsb == 1) fxInsPhaser1(p);
-        else if (lsb == 2) fxInsPhaser2(p);
+        if (lsb == 1) phaser1(INSERTION, p);
+        else if (lsb == 2) phaser2(INSERTION, p);
         break;
     case 3:
         if (lsb >= 1 && lsb <= 4) fxInsCrossDelayEr(p);
@@ -127,8 +127,8 @@ void EffectHost::dispatchInsertion(int p)
         else if (lsb == 7) fxInsNoiseGate(p);
         break;
     case 7:
-        if (lsb == 1) fxInsPitchChange(p);
-        else if (lsb == 3) fxInsEnsDetune(p);
+        if (lsb == 1) pitchChange(INSERTION, p);
+        else if (lsb == 3) ensembleDetune(INSERTION, p);
         else if (lsb == 6) fxIns3BandEq(p);
         break;
     case 10:
@@ -162,14 +162,14 @@ void EffectHost::dispatchVariation(int p)
     const uint32_t msb = code[VARIATION].msb, lsb = code[VARIATION].lsb;
     switch (msb) {
     case 0:   // lsb 1 (No Effect) returns
-        if (lsb >= 2 && lsb <= 9) fxVarChorus(p);
-        else if (lsb >= 10 && lsb <= 12) fxVarFlanger(p);
-        else if (lsb == 13) fxVarSymphonic(p);
+        if (lsb >= 2 && lsb <= 9) chorus(VARIATION, p);
+        else if (lsb >= 10 && lsb <= 12) flanger(VARIATION, p);
+        else if (lsb == 13) symphonic(VARIATION, p);
         break;
     case 1:
-        if (lsb == 1) fxVarRotarySp(p);
-        else if (lsb == 2) fxVarTremolo(p);
-        else if (lsb == 3) fxVarAutoPan(p);
+        if (lsb == 1) rotarySpeaker(VARIATION, p);
+        else if (lsb == 2) tremolo(VARIATION, p);
+        else if (lsb == 3) autoPan(VARIATION, p);
         break;
     case 2:
         if (lsb == 1 || lsb == 2) fxVarDistortion(p);
@@ -185,11 +185,11 @@ void EffectHost::dispatchVariation(int p)
         else if (lsb == 3) fxVarTouchWah(p);
         break;
     case 5:
-        if (lsb == 1) fxVarPhaser1(p);
-        else if (lsb == 2) fxVarPhaser2(p);
+        if (lsb == 1) phaser1(VARIATION, p);
+        else if (lsb == 2) phaser2(VARIATION, p);
         break;
     case 6:
-        if (lsb == 1) fxVarEnsDetune(p);
+        if (lsb == 1) ensembleDetune(VARIATION, p);
         break;
     case 7:
         if (lsb == 2) fxVar3BandEq(p);

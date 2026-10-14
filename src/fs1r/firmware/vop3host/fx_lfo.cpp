@@ -105,4 +105,48 @@ void EffectHost::storeRatio(int row, const uint16_t* steps)
     writeCoefs(8, steps);
 }
 
+// ---- shared by the handlers ----
+
+void EffectHost::applyAll(int w, Handler handler, std::initializer_list<int> ps)
+{
+    hold = true;
+    for (int p : ps)
+        (this->*handler)(w, p);
+    hold = false;
+}
+
+// Dry and wet from the insertion's Dry/Wet parameter; the other blocks run fully wet. The dry
+// level, law[128 - wet] >> 2, goes into steps 0 and 1 and the wet level at the window's type gain
+// into 2 and 3, or interleaved: dry, wet, dry, wet. Then the four are written.
+void EffectHost::dryWet(int w, const uint16_t* s, bool interleaved, const int16_t* law)
+{
+    const uint32_t wet = w == INSERTION ? param[INSERTION][9] : 127;
+    const uint32_t dry = law[128 - wet] >> 2, x = typeGain(w, law[wet] >> 2);
+    coef[s[0]] = dry;
+    coef[s[interleaved ? 2 : 1]] = dry;
+    coef[s[interleaved ? 1 : 2]] = x;
+    coef[s[3]] = x;
+    writeCoefs(4, s);
+}
+
+// parameters first and first + 1, the low shelf's frequency and gain, and first + 2 and first + 3,
+// the high shelf's; each into its steps and copied to the other channel's
+void EffectHost::shelves(int w, int p, int first, const Shelves& s)
+{
+    const uint16_t* P = param[w];
+    const int words = s.order == 1 ? 3 : 5;
+    if (p == first || p == first + 1) {
+        designFilter(s.order, 1, LOW_SHELF1, P[first], P[first + 1], 0, s.low);
+        copyCoefs(words, s.low, s.lowCopy);
+    } else {
+        designFilter(s.order, s.highScale, HIGH_SHELF1, P[first + 2], P[first + 3], 0, s.high);
+        copyCoefs(words, s.high, s.highCopy);
+    }
+}
+
+void EffectHost::setLfoWave(int lfo, int wave)
+{
+    lfoReg[1][lfo] = uint16_t((lfoReg[1][lfo] & 0xFF1F) | wave << 5);
+}
+
 }  // namespace fs1r::vop3host

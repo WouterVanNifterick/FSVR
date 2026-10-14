@@ -92,6 +92,9 @@ struct Window {
 };
 extern const Window WINDOWS[5];
 
+// A pair of shelving filters, a low and a high one, and the other channel's copies of their words
+struct Shelves { const uint16_t *low, *lowCopy, *high, *highCopy; int order = 1, highScale = 2; };
+
 struct EffectHost {
     WriteSink* sink = nullptr;
 
@@ -213,6 +216,14 @@ struct EffectHost {
     void erPattern();                                                   // the insertion's 20 early reflections
     int32_t erGain(int x);
 
+    // ---- shared by the handlers ----
+    using Handler = void (EffectHost::*)(int w, int p);
+    int lfo(int w, int i) const { return WINDOWS[w].lfos[i]; }        // the window's i-th LFO
+    void applyAll(int w, Handler handler, std::initializer_list<int> ps);   // into the shadows only, for uploadWindow
+    void dryWet(int w, const uint16_t* steps, bool interleaved = false, const int16_t* law = rom::PAN_LAW);
+    void shelves(int w, int p, int first, const Shelves& s);           // parameters first..first + 3
+    void setLfoWave(int lfo, int wave);                                 // into the shadow only
+
     // ---- helpers ----
     int32_t bipolar500(int v);
     int32_t bipolar376(int v);
@@ -239,11 +250,12 @@ struct EffectHost {
     void storeGateThreshold(int v, const uint16_t* step);
     void storeRatio(int row, const uint16_t* steps);
     void storeWahRelease(int v, const uint16_t* steps);
-    // the pitch change's two voices
-    int32_t pitchRatio(int v);
-    void pitchVoice(int lfo, int v);
-    void pitchSlots1();
-    void pitchSlots2(int v);
+
+    // ---- a handler per effect, for each window it runs in ----
+    void chorus(int w, int p);         void flanger(int w, int p);        void symphonic(int w, int p);
+    void phaser1(int w, int p);        void phaser2(int w, int p);        void ensembleDetune(int w, int p);
+    void rotarySpeaker(int w, int p);  void tremolo(int w, int p);        void autoPan(int w, int p);
+    void twoWayRotary(int w, int p);   void ambience(int w, int p);       void pitchChange(int w, int p);
 
     // ---- a handler per type: reverb 1-12, then 13-16 ----
     void fxRevHall(int p);
@@ -253,24 +265,20 @@ struct EffectHost {
     void fxRevEcho(int p);
     void fxRevCrossDelay(int p);
     // variation
-    void fxVarChorus(int p); void fxVarFlanger(int p); void fxVarSymphonic(int p);
-    void fxVarPhaser1(int p); void fxVarPhaser2(int p); void fxVarEnsDetune(int p);
-    void fxVarRotarySp(int p); void fxVarTremolo(int p); void fxVarAutoPan(int p);
+   
     void fxVarAutoWah(int p); void fxVarTouchWah(int p); void fxVar3BandEq(int p);
     void fxVarHmEnhancer(int p); void fxVarCompressor(int p); void fxVarNoiseGate(int p);
     void fxVarDistortion(int p); void fxVarAmpSim(int p);
     void fxVarDelayLCR(int p); void fxVarDelayLR(int p); void fxVarEcho(int p); void fxVarCrossDelay(int p);
     void fxVarKaraoke(int p); void fxVarReverb(int p);
     // insertion
-    void fxInsChorus(int p); void fxInsFlanger(int p); void fxInsSymphonic(int p);
     void fxInsDelayLR(int p); void fxInsDelayLCR(int p); void fxInsEcho(int p); void fxInsEr1(int p);
-    void fxInsRotarySp(int p); void fxIns2WayRotary(int p); void fxInsTremolo(int p); void fxInsAutoPan(int p); void fxInsAmbience(int p);
-    void fxInsPhaser1(int p); void fxInsPhaser2(int p);
+   
     void fxInsCrossDelayEr(int p);
     void fxInsAutoWahDist(int p); void fxInsTouchWahDist(int p);
     void fxInsDistortion(int p); void fxInsAmpSim(int p); void fxInsCompDist(int p); void fxInsCompDistDelay(int p);
     void fxInsHmEnhancer(int p); void fxInsNoiseGate(int p);
-    void fxInsPitchChange(int p); void fxInsEnsDetune(int p); void fxIns3BandEq(int p);
+    void fxIns3BandEq(int p);
     void fxInsLoFi(int p); void fxInsWahDistDelay(int p); void fxInsCompressor(int p); void fxInsDistDelay(int p);
 };
 
