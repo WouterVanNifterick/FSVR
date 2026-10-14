@@ -13,7 +13,7 @@ namespace fs1r::vop3host {
 namespace filter {
 
 // The voice bytes the filter reads, by their place in the voice (the Data List's names)
-enum Voice {
+enum VoiceByte {
     LFO2_WAVE        = 0x18,
     LFO2_SPEED       = 0x19,
     LFO2_PHASE       = 0x1C,
@@ -35,7 +35,7 @@ enum Voice {
     EG_SCALING       = 0x6E,   // the time scaling in bits 0-2, the attack's velocity in 3-5
 };
 // and the part bytes
-enum Part {
+enum PartByte {
     PART_CUTOFF      = 0x18,
     PART_RESONANCE   = 0x19,
     PART_ATTACK      = 0x1A,
@@ -46,7 +46,7 @@ enum Part {
     PART_LFO2_DEPTH  = 0x2F,
 };
 // and the filter types
-enum Type { LPF24, LPF18, LPF12, HPF, BPF, BEF };
+enum FilterType { LPF24, LPF18, LPF12, HPF, BPF, BEF };
 
 }  // namespace filter
 

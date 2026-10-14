@@ -13,16 +13,24 @@
 namespace fx {
 namespace H = fs1r::vop3host;
 enum Block { REVERB, VARIATION, INSERTION };
-void setType(Effects& e, Block b, int type) {
+void setType(H::EffectHost& h, Block b, int type) {
     const int byte[3] = {H::REVERB_TYPE, H::VARIATION_TYPE, H::INSERTION_TYPE};
-    e.host.setByte(byte[b], type);
+    h.setByte(byte[b], type);
 }
-void setParam(Effects& e, Block b, int slot, int word) {   // slot 1..16
-    if (b == REVERB && slot > 8) { e.host.setByte(H::REVERB_PARAM_BYTES_9 + slot - 9, word); return; }
+void setParam(H::EffectHost& h, Block b, int slot, int word) {   // slot 1..16
+    if (b == REVERB && slot > 8) { h.setByte(H::REVERB_PARAM_BYTES_9 + slot - 9, word); return; }
     const int i = (b == REVERB ? H::REVERB_PARAM_BYTES : b == VARIATION ? H::VARIATION_PARAM_BYTES : H::INSERTION_PARAM_BYTES) + 2 * (slot - 1);
-    e.host.store(i + 1, word & 0x7f);
-    e.host.setByte(i, word >> 7);
+    h.store(i + 1, word & 0x7f);
+    h.setByte(i, word >> 7);
 }
+// A chip that hashes every register write, for the two hosts' pins. It reports the channel it is told to
+// on EG_STATUS until the next EG_RATE write, as the filter chip does.
+struct HashSink : H::WriteSink {
+    uint64_t h = 1469598103934665603ull;
+    uint32_t status = 0;
+    void write(uint32_t reg, uint32_t v) override { h = (h ^ (reg << 16 | v)) * 1099511628211ull; if (reg == vop3::EG_RATE) status = 0; }
+    uint32_t read(uint32_t) override { return status; }
+};
 }  // namespace fx
 
 static int g_fails = 0;
@@ -395,12 +403,14 @@ int selftest(Synth& S) {
     // the truth showed.
     // The voice filters, on their chip. A slot's passband, that no slot leaks into another, the corner's
     // octave per twelve cutoff bytes and the resonance's lift.
-    { auto f = std::make_unique<Filter>();
-      uint8_t v[112] = {}, r[52] = {};
-      for (int i = 0x18; i <= 0x23; i++) r[i] = 64;
-      r[0x2E] = r[0x2F] = 64;
-      v[0x56] = v[0x58] = 7; v[0x57] = 127; v[0x5B] = 64; v[0x5C] = 60; v[0x5D] = 12; v[0x64] = 64;   // LPF24 wide open, 0 dB in, no EG, no LFO
-      for (int i = 0x65; i <= 0x68; i++) v[i] = 50;
+    { using namespace fs1r::vop3host::filter;
+      auto f = std::make_unique<Filter>();
+      uint8_t v[fs1r::vop3host::FilterHost::VOICE_BYTES] = {}, r[fs1r::vop3host::FilterHost::PART_BYTES] = {};
+      for (int i = 0x18; i <= 0x23; i++) r[i] = 64;                  // the part's offsets at their centres
+      r[PART_LFO2_SPEED] = r[PART_LFO2_DEPTH] = 64;
+      v[RESONANCE_VEL] = v[EG_DEPTH_VEL] = 7; v[CUTOFF] = 127; v[KEY_SCALE_DEPTH] = 64; v[KEY_SCALE_POINT] = 60;
+      v[INPUT_GAIN] = 12; v[EG_DEPTH] = 64;                          // LPF24 wide open, 0 dB in, no EG, no LFO
+      for (int i = EG_L4; i <= EG_L3; i++) v[i] = 50;
       auto set = [&](int byte, int val) { v[byte] = (uint8_t)val; f->sync(0, v, r, 0, 0, 0); };
       // the gain of a sine through slot s, and the most that reaches any other slot
       auto gain = [&](int s, double hz, double* leak = nullptr) {
@@ -413,7 +423,7 @@ int selftest(Synth& S) {
           if (leak) *leak = other;
           return sqrt(out / in);
       };
-      set(0x57, 127);
+      set(CUTOFF, 127);
       bool pass = true, tight = true;
       for (int s : {0, 5, 15}) {
           f->host.noteOn(s, 0, 60, 100);
@@ -423,7 +433,7 @@ int selftest(Synth& S) {
       ck("filter chip: a slot's passband comes back at FLT_LOSS", pass);
       ck("filter chip: nothing of a slot reaches another", tight);
       auto corner = [&](int cutoff) {                      // where the lowpass is 3 dB under its 50 Hz level
-          set(0x57, cutoff); f->host.noteOn(0, 0, 60, 100);
+          set(CUTOFF, cutoff); f->host.noteOn(0, 0, 60, 100);
           double ref = gain(0, 50), lo = 60, hi = 4000;
           for (int k = 0; k < 9; k++) { double mid = sqrt(lo * hi); (gain(0, mid) > ref * 0.7071 ? lo : hi) = mid; }
           return sqrt(lo * hi);
@@ -431,7 +441,7 @@ int selftest(Synth& S) {
       double c52 = corner(52), c64 = corner(64);
       ck("filter chip: twelve cutoff bytes are an octave of corner", fabs(c64 / c52 / 2 - 1) < 0.08);
       auto peak = [&](int reso) {
-          set(0x55, reso); f->host.noteOn(0, 0, 60, 100);
+          set(RESONANCE, reso); f->host.noteOn(0, 0, 60, 100);
           double best = 0;
           for (double hz = c64; hz < 2.4 * c64; hz *= 1.12) best = std::max(best, gain(0, hz));
           return best / gain(0, 50);
@@ -445,7 +455,10 @@ int selftest(Synth& S) {
           srand(7); T.note_on(part, n, 100); T.render(l.data(), r.data(), (int)l.size()); };
       auto energy = [](const std::vector<float>& x) { double e = 0; for (float s : x) e += (double)s * s; return e; };
       std::vector<float> l0(4800), r0(4800), l1(4800), r1(4800), l2(4800), r2(4800);
-      auto open = [](Synth& T) { uint8_t* b = T.perf.part[0].voice.raw; b[0x54] = 0; b[0x55] = 0; b[0x57] = 40; b[0x59] = b[0x5A] = 0; b[0x5D] = 12; b[0x64] = 64; };
+      auto open = [](Synth& T) {
+          using namespace fs1r::vop3host::filter;
+          uint8_t* b = T.perf.part[0].voice.raw;
+          b[FILTER_TYPE] = LPF24; b[RESONANCE] = 0; b[CUTOFF] = 40; b[CUTOFF_LFO1] = b[CUTOFF_LFO2] = 0; b[INPUT_GAIN] = 12; b[EG_DEPTH] = 64; };
       auto A = std::make_unique<Synth>(), B = std::make_unique<Synth>(), C = std::make_unique<Synth>();
       open(*A); open(*B); open(*C);
       B->perf.part[0].p[7] = 1; C->perf.part[0].p[7] = 1;
@@ -685,8 +698,9 @@ int selftest(Synth& S) {
           // and one segment's time after the key comes up the level has covered two thirds of the way back.
           Part& fp = S.perf.part[0]; uint8_t* b = fp.voice.raw;
           S.all_off(); fp.p[7] = 1;
-          for (int i = 0; i < 3; i++) b[0x66 + i] = (uint8_t)fL[i], b[0x69 + i] = (uint8_t)(fT[i] - 22);
-          b[0x65] = (uint8_t)fL[3]; b[0x6C] = (uint8_t)(fT[3] - 22); b[0x6E] = 3 << 3 | 2; b[0x64] = 64;
+          using namespace fs1r::vop3host::filter;
+          for (int i = 0; i < 3; i++) b[EG_L1 + i] = (uint8_t)fL[i], b[EG_T1 + i] = (uint8_t)(fT[i] - 22);
+          b[EG_L4] = (uint8_t)fL[3]; b[EG_T4] = (uint8_t)(fT[3] - 22); b[EG_SCALING] = 3 << 3 | 2; b[EG_DEPTH] = 64;
           S.midi_in(0x90, 72, 100);
           int slot = -1; for (int i = 0; i < 16; i++) if (S.ch[i].active) slot = i;
           ck("egview: a filtered note to hold it to", slot >= 0);
@@ -753,7 +767,7 @@ int selftest(Synth& S) {
       // 2. Hall 1 on the reverb send rings on after a burst; with the reverb off nothing comes back from that bus
       double hallTail;
       { auto h = fresh({{169, 64}, {170, 100}}), o = fresh({});   // reverb pan centre, return 100
-        fx::setType(*h, fx::REVERB, 1);
+        fx::setType(h->host, fx::REVERB, 1);
         drive(*h, 3, burst, l, r); hallTail = energy(l, r, n / 2);
         drive(*o, 3, burst, l, r);
         ck("effect chip: Hall 1 rings on after the burst", hallTail > 1e-6 && hallTail > 100 * energy(l, r, n / 2)); }
@@ -765,11 +779,11 @@ int selftest(Synth& S) {
         ck("effect chip: a type change writes the type's defaults back into the performance", c[0x51] == hall.slot[0].init && c[0x53] == hall.slot[1].init);
         drive(*y, 3, burst, l, r);
         ck("effect chip: a synced reverb type reaches the chip", energy(l, r, n / 2) > 0.5 * hallTail);
-        fx::setParam(*y, fx::REVERB, 1, 30); fx::setParam(*y, fx::REVERB, 11, 3);   // Reverb Time, a word; Rev Delay, a byte
+        fx::setParam(y->host, fx::REVERB, 1, 30); fx::setParam(y->host, fx::REVERB, 11, 3);   // Reverb Time, a word; Rev Delay, a byte
         ck("effect chip: a parameter reaches the host by its slot", y->host.readParameter(0x50) == 30 && y->host.readParameter(0x62) == 3); }
       // 4. the insertion Tremolo's LFO runs at its default, 1.831 Hz: the strongest 0.3..40 Hz component of the left level
       { auto t = fresh({{176, 64}, {179, 127}});               // insertion pan centre, level 127
-        fx::setType(*t, fx::INSERTION, 11);
+        fx::setType(t->host, fx::INSERTION, 11);
         drive(*t, 1, tone(1000, 2 * SR, 2 * SR), l, r);
         std::vector<double> env; const size_t w = SR / 100;
         for (size_t at = SR / 4; at + w <= l.size(); at += w) { double s = 0; for (size_t i = 0; i < w; i++) s += fabs(l[at + i]); env.push_back(s / w); }
@@ -782,7 +796,7 @@ int selftest(Synth& S) {
         ck("effect chip: the insertion Tremolo runs at its default LFO Freq, 1.831 Hz", fabs(hz - 1.831) < 0.06); }
       // 5. the variation Rotary SP on a 220 Hz sine does not hiss: under -70 dB of its energy above 4 kHz, from 1 s on
       { auto t = fresh({{172, 64}, {173, 100}});               // variation pan centre, return 100
-        fx::setType(*t, fx::VARIATION, 8);
+        fx::setType(t->host, fx::VARIATION, 8);
         const int len = 4096;
         drive(*t, 2, tone(220, SR + len, SR + len), l, r);
         std::vector<double> x(len), cs(len), sn(len);
@@ -808,53 +822,75 @@ int selftest(Synth& S) {
         ck("engine: a part on the insertion is heard through it", inserted > direct * 0.1f);
         ck("engine: a part on the insertion has no dry path", silent < direct * 0.001f);
         init_perf(S.perf); }
-      // 7. the host's register writes, pinned: every type with each parameter at both ends, then the mixer and EQ bytes
-      { struct Sink : fs1r::vop3host::WriteSink { uint64_t h = 1469598103934665603ull;
-            void write(uint32_t reg, uint32_t v) override { h = (h ^ (reg << 16 | v)) * 1099511628211ull; } } sink;
-        auto e = fresh({}); e->host.sink = &sink;
+      // 7. the host's register writes, pinned: its start and a load, every type with each parameter at both ends,
+      //    the mixer and EQ bytes, the controller offsets, and a load of every byte. build/oracle's pin mode
+      //    replays the same against the reference.
+      { namespace H = fs1r::vop3host;
+        fx::HashSink sink;
+        auto h = std::make_unique<H::EffectHost>(); h->sink = &sink;
+        uint8_t perf[H::COMMON_BYTES] = {};
+        perf[H::VOLUME] = 127; perf[H::INSERTION_LEVEL] = 127;
+        perf[H::REVERB_PAN] = perf[H::REVERB_RETURN] = perf[H::VARIATION_PAN] = perf[H::VARIATION_RETURN] = perf[H::INSERTION_PAN] = 64;
+        perf[H::EQ_LOW_GAIN] = perf[H::EQ_MID_GAIN] = perf[H::EQ_HIGH_GAIN] = 64;
+        perf[H::EQ_LOW_FREQ] = 20; perf[H::EQ_MID_FREQ] = 40; perf[H::EQ_HIGH_FREQ] = 50; perf[H::EQ_MID_Q] = 7;
+        h->init(); h->load(perf);
         const int types[3] = {17, 29, 41};
         for (int b = 0; b < 3; b++) for (int t = 0; t < types[b]; t++) {
-            fx::setType(*e, fx::Block(b), t);
+            fx::setType(*h, fx::Block(b), t);
             for (int slot = 1; slot <= 16; slot++) {
                 if (b == fx::VARIATION && t == 24 && slot == 11) continue;   // Karaoke's hidden parameter
-                for (int w : {0, b == fx::REVERB && slot > 8 ? 127 : 16383}) fx::setParam(*e, fx::Block(b), slot, w); } }
+                for (int w : {0, b == fx::REVERB && slot > 8 ? 127 : 16383}) fx::setParam(*h, fx::Block(b), slot, w); } }
         for (int i : {16, 20, 169, 170, 172, 173, 174, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190})
-            for (int v : {0, 127}) e->host.setByte(i, v);
-        ck("effect host: its register writes are the firmware's", sink.h == 0x4433fa06b314a878ull); }
+            for (int v : {0, 127}) h->setByte(i, v);
+        h->setByte(H::INSERTION_TYPE, 11);
+        for (int i = 0; i < 16; i++) for (int v : {-128, 127, 0}) { h->setControlOffset(i, v); h->runPosted(); }
+        for (int v : {-128, 127, 0}) { h->setSendReverbOffset(v); h->setSendVariationOffset(v); h->runPosted(); }
+        for (int i = 0; i < (int)H::COMMON_BYTES; i++) perf[i] = (uint8_t)((i * 29 + 7) & 127);
+        perf[H::REVERB_TYPE] %= 17; perf[H::VARIATION_TYPE] %= 29; perf[H::INSERTION_TYPE] %= 41;   // types the unit has
+        h->load(perf);
+        ck("effect host: its register writes are the firmware's", sink.h == 0x424348fb986bc6b3ull); }
       // 8. the chip's EG generators: a segment's time, its report, the acknowledgement, and a segment with no swing
       { auto c = std::make_unique<Vop3>();
-        auto w = [&](int ch, int reg, int v) { c->write(0, (uint16_t)ch); c->write(reg, (uint16_t)v); };
-        auto wait = [&] { int n = 0; while (!c->read(0x21) && n < SR * 4) { c->run(); n++; } return n / (double)SR; };
-        c->write(0x21, 0xffff);
-        w(3, 0x2b, 0); w(3, 0x2c, -200); w(3, 0x2b, 120); w(3, 0x2c, 200); w(3, 0x2d, 400);   // -200 to 200, the aim half the swing past
+        auto w = [&](int ch, int reg, int v) { c->write(vop3::SELECT, (uint16_t)ch); c->write(reg, (uint16_t)v); };
+        using namespace vop3;
+        auto wait = [&] { int n = 0; while (!c->read(EG_STATUS) && n < SR * 4) { c->run(); n++; } return n / (double)SR; };
+        c->write(EG_STATUS, 0xffff);
+        w(3, EG_RATE, 0); w(3, EG_TARGET, -200); w(3, EG_RATE, 120); w(3, EG_TARGET, 200); w(3, EG_AIM, 400);   // -200 to 200, the aim half the swing past
         double took = wait(), law = cal::FEG_SEG_S * pow(2.0, 120 / cal::FEG_RATE_OCT);
-        ck("filter chip: an EG segment takes the law's time and reports its channel", fabs(took / law - 1) < 0.01 && c->read(0x21) == (0x10 | 3));
-        w(3, 0x2b, 255);
-        ck("filter chip: a rate write acknowledges the segment", c->read(0x21) == 0 && c->eg[3].level == 200);
-        w(5, 0x2b, 0); w(5, 0x2c, 100); w(5, 0x2b, 40); w(5, 0x2c, 102); w(5, 0x2d, 103);
+        ck("filter chip: an EG segment takes the law's time and reports its channel", fabs(took / law - 1) < 0.01 && c->read(EG_STATUS) == (0x10 | 3));
+        w(3, EG_RATE, 255);
+        ck("filter chip: a rate write acknowledges the segment", c->read(EG_STATUS) == 0 && c->eg[3].level == 200);
+        w(5, EG_RATE, 0); w(5, EG_TARGET, 100); w(5, EG_RATE, 40); w(5, EG_TARGET, 102); w(5, EG_AIM, 103);
         ck("filter chip: a segment with no swing takes FEG_FLAT_S", fabs(wait() - cal::FEG_FLAT_S) < 0.001); }
-      // 9. the filter host's register writes, pinned: sixteen notes through their EG segments, then every refresh
-      { struct Sink : fs1r::vop3host::WriteSink { uint64_t h = 1469598103934665603ull; uint32_t status = 0;
-            void write(uint32_t reg, uint32_t v) override { h = (h ^ (reg << 16 | v)) * 1099511628211ull; if (reg == 0x2b) status = 0; }
-            uint32_t read(uint32_t) override { return status; } } sink;
+      // 9. the filter host's register writes, pinned: sixteen notes through their EG segments, over every filter type
+      //    and LFO2 wave, the key sync and the firmware's slip, the sensitivities either side of 7 and segments with no
+      //    swing; then the part offsets and every byte marked alone. build/oracle_flt's pin mode replays the same.
+      { using namespace fs1r::vop3host::filter;
+        fx::HashSink sink;
         auto f = std::make_unique<fs1r::vop3host::FilterHost>(); f->sink = &sink;
         auto report = [&](int s) { sink.status = 0x10 | ((s + 2) & 15); f->egInterrupt(); };
-        f->boot(); f->clearStates(); f->freeSlots();
+        f->boot(); f->freeSlots(); f->clearStates();
         for (int p = 0; p < 4; p++) {
-            for (int i = 0; i < 112; i++) f->voice[p][i] = (uint8_t)((i * 37 + p * 11) & 127);
-            for (int i = 0; i < 52; i++) f->part[p][i] = (uint8_t)((i * 53 + p * 7) & 127); }
+            for (int i = 0; i < f->VOICE_BYTES; i++) f->voice[p][i] = (uint8_t)((i * 37 + p * 11) & 127);
+            for (int i = 0; i < f->PART_BYTES; i++) f->part[p][i] = (uint8_t)((i * 53 + p * 7) & 127); }
         for (int s = 0; s < 16; s++) {
+            uint8_t* V = f->voice[s & 3];
+            V[FILTER_TYPE] = (uint8_t)(s & 7);                         // the six types and two past them
+            V[LFO2_WAVE] = (uint8_t)((s * 3) & 7);
+            V[LFO2_KEY_SYNC] = s % 3 == 0; V[5] = s % 3 == 1;          // the key sync, and the firmware's slip on a name byte
+            V[RESONANCE_VEL] = V[EG_DEPTH_VEL] = (uint8_t)s;
+            if (s % 4 == 0) { V[EG_L1] = V[EG_L4]; V[EG_L3] = V[EG_L2]; }
             f->noteOn(s, s & 3, 30 + 5 * s, 20 + 7 * s);
             for (int k = 0; k < 5; k++) report(s);
             f->setSlotCutoffMod(s, 9 * s - 60); f->flush();
             f->noteOff(s); report(s); }
         for (int p = 0; p < 4; p++) {
-            f->setPartCutoffMod(p, 40 - 30 * p); f->setPartLfo2Depth(p, 25 * p - 30); f->setPartLfo2Speed(p, 10 * p - 20);
-            for (int id : {0x1054, 0x1055, 0x105a, 0x1064}) f->mark(id, p); }
-        f->flush();
+            f->setPartCutoffMod(p, 40 - 30 * p); f->setPartLfo2Depth(p, 25 * p - 30); f->setPartLfo2Speed(p, 10 * p - 20); f->flush();
+            for (int i = 0; i < f->VOICE_BYTES; i++) { f->mark(f->VOICE + i, p); f->flush(); }
+            for (int i = 0; i < f->PART_BYTES; i++) { f->mark(f->PART + i, p); f->flush(); } }
         for (int s = 0; s < 16; s++) f->kill(s);
         f->freeSlots();
-        ck("filter host: its register writes are the firmware's", sink.h == 0x1736bc91b1df9eafull); }
+        ck("filter host: its register writes are the firmware's", sink.h == 0x883806b071ca74f9ull); }
     }
 
     printf(g_fails ? "selftest: %d FAILURES\n" : "selftest: ok\n", g_fails);
