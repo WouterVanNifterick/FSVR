@@ -116,7 +116,7 @@ struct EffectHost {
             store(i, bytes[i]);
         setSendVariationOffset(0);
         setSendReverbOffset(0);
-        applyChanges(0x8001);
+        applyChanges(WAKE | LOADED);
         runPosted();
     }
     // One byte changed. For a two-byte parameter: its first byte, after both were written.
@@ -135,23 +135,25 @@ struct EffectHost {
     const rom::ParamRange& descriptor(uint32_t index) const;            // its range under the current types
 
     // ---- state ----
-    uint8_t perf[192] = {};         // the performance's common bytes
-    uint32_t posted = 0;            // what was posted to the effect task and not handled yet
-    bool hold = false;              // while set, changes go to the shadows and nothing is written to the chip
-    uint16_t coef[512] = {};        // each step's constant, register 0x0B
-    uint8_t tag[512] = {};          // each step's tag, register 0x0C
-    int32_t delay[128] = {};        // each delay slot's offset inside its area
-    uint16_t lfoReg[4][16] = {};    // registers 0x24..0x27 of the sixteen LFOs: speed, wave and phase, depth, direction
-    TypeCode code[5] = {};          // each window's type
-    uint8_t mute[6] = {};           // nonzero silences the five windows and the output
-    uint16_t masterLevel = 0;       // the master volume's scale
-    uint16_t param[5][16] = {};     // each window's parameters, as its handler reads them
-    uint16_t eqParam[20] = {}, mixParam[16] = {};   // the master EQ's and the mixer's
+    uint8_t  perf[192]      = {};    // the performance's common bytes
+    uint32_t posted         = 0;     // what was posted to the effect task and not handled yet
+    bool     hold           = false; // while set, changes go to the shadows and nothing is written to the chip
+    uint16_t coef[512]      = {};    // each step's COEF
+    uint8_t  tag[512]       = {};    // and TAG
+    int32_t  delay[128]     = {};    // each delay slot's offset inside its area
+    uint16_t lfoReg[4][16]  = {};    // LFO_SPEED, LFO_WAVE, LFO_DEPTH and LFO_DIRECTION of the sixteen LFOs
+    TypeCode code[5]        = {};    // each window's type
+    uint8_t  mute[6]        = {};    // nonzero silences the five windows and the OUTPUT
+    uint16_t masterLevel    = 0;     // the master volume's scale
+    uint16_t param[5][16]   = {};    // each window's parameters, as its handler reads them
+    uint16_t eqParam[20]    = {};    // the master EQ's
+    uint16_t mixParam[16]   = {};    // and the mixer's
+
     // The parameters as last read from the performance, and which of them are waiting to be applied.
     uint16_t reverbCache[16] = {}, insertionCache[16] = {}, variationCache[16] = {}, eqCache[10] = {};
-    uint8_t reverbChanged[16] = {}, variationChanged[16] = {}, insertionChanged[16] = {}, eqChanged[11] = {}, mixerChanged[21] = {};
-    int16_t controlOffset[16] = {};                          // a controller's offset on each insertion parameter
-    int16_t sendVariationOffset = 0, sendReverbOffset = 0;   // and on the insertion's two sends
+    uint8_t  reverbChanged[16] = {}, variationChanged[16] = {}, insertionChanged[16] = {}, eqChanged[11] = {}, mixerChanged[21] = {};
+    int16_t  controlOffset[16] = {};                          // a controller's offset on each insertion parameter
+    int16_t  sendVariationOffset = 0, sendReverbOffset = 0;   // and on the insertion's two sends
 
     // ---- chip registers ----
     void writeReg(uint32_t reg, uint32_t value);
@@ -159,9 +161,9 @@ struct EffectHost {
     void writeCoefsBurst(uint32_t n, const uint16_t* steps);            // of n steps in a row, from the first listed
     void writeTags(uint32_t n, const uint16_t* steps);                  // the tags of n listed steps
     void writeTagsBurst(uint32_t n, const uint16_t* steps);
-    void writeConfig(uint32_t index, uint32_t value);                   // register 0x16, entry `index`
+    void writeConfig(uint32_t index, uint32_t value);                   // entry `index` of CONFIG
     void writeDelays(uint32_t n, const uint8_t* slots);                 // the offsets of n listed delay slots
-    void writeLfo(uint32_t reg, uint32_t lfo);                          // an LFO's register 0x24..0x27
+    void writeLfo(uint32_t reg, uint32_t lfo);                          // one of an LFO's four registers
     void resetLfoPhase(uint32_t mask);
     void uploadProgram(int window, int clear);                          // a window's program words and tags
     void uploadWindow(int kind);                                        // its program, constants, delays and LFOs

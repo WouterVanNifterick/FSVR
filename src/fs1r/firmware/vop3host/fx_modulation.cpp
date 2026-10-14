@@ -253,7 +253,7 @@ void EffectHost::phaser1(int w, int p)
                 setLfoDepth(d, lfo(w, 0));
                 setLfoDepth(d, lfo(w, 1));
             } else {
-                coef[b.depth[1]] = coef[b.depth[0]] = int32_t(P[LFO_DEPTH] * uint32_t(32767 - int16_t(shift))) / 127;
+                coef[b.depth[1]] = coef[b.depth[0]] = int32_t(P[LFO_DEPTH] * uint32_t(UNITY - int16_t(shift))) / 127;
                 writeCoefs(2, b.feedback);
                 writeCoefs(2, b.depth);
             }
@@ -324,8 +324,8 @@ void EffectHost::phaser2(int w, int p)
                 setLfoDepth(int32_t(P[LFO_DEPTH] * (127u - P[PHASE_SHIFT])) / 127, lfo(w, 0));
                 setLfoDepth(int32_t(P[LFO_DEPTH] * (127u - ((15u * P[PHASE_SHIFT]) >> 4))) / 127, lfo(w, 1));
             } else {
-                coef[b.depth[0]] = int32_t(P[LFO_DEPTH] * uint32_t(32767 - int16_t(a))) / 127;
-                coef[b.depth[1]] = int32_t(P[LFO_DEPTH] * uint32_t(32767 - int16_t(c))) / 127;
+                coef[b.depth[0]] = int32_t(P[LFO_DEPTH] * uint32_t(UNITY - int16_t(a))) / 127;
+                coef[b.depth[1]] = int32_t(P[LFO_DEPTH] * uint32_t(UNITY - int16_t(c))) / 127;
                 writeCoefs(2, b.feedback);
                 writeCoefs(2, b.depth);
             }

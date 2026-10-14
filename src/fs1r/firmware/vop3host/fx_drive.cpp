@@ -201,7 +201,7 @@ void EffectHost::autoWah(int w, int p)
             const uint16_t* depth  = w == INSERTION ? ins::WAH_DEPTH  : var::WAH_DEPTH;
             const int32_t c = wahCutoff(P[CUTOFF], 7837);
             coef[cutoff[0]] = c;
-            coef[depth[0]] = P[LFO_DEPTH] * uint32_t(32767 - int16_t(c)) / 127;
+            coef[depth[0]] = P[LFO_DEPTH] * uint32_t(UNITY - int16_t(c)) / 127;
             writeCoefs(1, cutoff);
             writeCoefs(1, depth);
             break;

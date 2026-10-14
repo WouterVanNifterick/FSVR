@@ -52,124 +52,124 @@ void EffectHost::designFilter(int order, int scale, int kind, int freq, int gain
     float c0 = 0, c1 = 0, c2 = 0, c3 = 0, c4 = 0;   // b0, b1, -a1, b2, -a2
 
     switch (kind) {
-    case LPF1: {   // with gain
-        const float gt = G * t;
-        c0 = c1 = float(double(gt) / (T + 1.0));
-        c2 = float((1.0 - T) / (T + 1.0));
-        break;
-    }
-    case HPF1: {   // with gain
-        c0 = float(double(G) / (T + 1.0));
-        c1 = -c0;
-        c2 = float((1.0 - T) / (T + 1.0));
-        break;
-    }
-    case LOW_SHELF1: {
-        const float x = boost ? t * G : t;
-        const float y = boost ? t : t * Gi;
-        c0 = float((double(x) + 1.0) / (double(y) + 1.0));
-        c1 = float((double(x) - 1.0) / (double(y) + 1.0));
-        c2 = float((1.0 - double(y)) / (double(y) + 1.0));
-        break;
-    }
-    case HIGH_SHELF1: {   // single precision
-        const float A = boost ? G : 1.0f;
-        const float B = boost ? 1.0f : Gi;
-        const float apt = A + t;
-        const float bpt = B + t;
-        c0 = apt / bpt;
-        c1 = (t - A) / bpt;
-        c2 = (B - t) / bpt;
-        break;
-    }
-    case LPF2: case HPF2: {   // with Q
-        const float w = float(T * 10.0 / double(float(qb)));
-        const float D = float(double(w) + T2 + 1.0);
-        if (kind == LPF2) {
-            c0 = G * t2 / D;
-            c3 = c0;
-            c1 = c0 + c0;
-        } else {
-            c0 = G / D;
-            c3 = c0;
-            c1 = -c0 - c0;
+        case LPF1: {   // with gain
+            const float gt = G * t;
+            c0 = c1 = float(double(gt) / (T + 1.0));
+            c2 = float((1.0 - T) / (T + 1.0));
+            break;
         }
-        c2 = float((2.0 - T2 - T2) / double(D));
-        c4 = float((double(w) - T2 - 1.0) / double(D));
-        break;
-    }
-    case LOW_SHELF2: {
-        if (boost) {
-            const float u = t * Gs;
-            const float u2 = u * u;
-            const float D = float(T + T + T2 + 1.0);
-            c0 = float((double(u) + double(u) + double(u2) + 1.0) / double(D));
-            c1 = float((double(u2 + u2) - 2.0) / double(D));
-            c3 = float((double(u2) - double(u) - double(u) + 1.0) / double(D));
-            c2 = float((2.0 - T2 - T2) / double(D));
-            c4 = float((T + T - T2 - 1.0) / double(D));
-        } else {
-            const float v = t * Gsi;
-            const float v2 = v * v;
-            const float D = float(double(v) + double(v) + double(v2) + 1.0);
-            c0 = float((T + T + T2 + 1.0) / double(D));
-            c1 = float((double(t2 + t2) - 2.0) / double(D));
-            c3 = float((T2 - T - T + 1.0) / double(D));
-            c2 = float((2.0 - double(v2) - double(v2)) / double(D));
-            c4 = float((double(v) + double(v) - double(v2) - 1.0) / double(D));
+        case HPF1: {   // with gain
+            c0 = float(double(G) / (T + 1.0));
+            c1 = -c0;
+            c2 = float((1.0 - T) / (T + 1.0));
+            break;
         }
-        break;
-    }
-    case HIGH_SHELF2: {
-        if (boost) {
-            const float D = float(T + T + T2 + 1.0);
-            const float gpt = Gs + t;
-            c0 = gpt * gpt / D;
-            const float tt = t2 + t2;
-            c1 = (tt - G - G) / D;
-            const float gmt = Gs - t;
-            c3 = gmt * gmt / D;
-            c2 = float((2.0 - T2 - T2) / double(D));
-            c4 = float((T + T - T2 - 1.0) / double(D));
-        } else {
-            const float gpt = Gsi + t;
-            const float D = gpt * gpt;
-            c0 = float((T + T + T2 + 1.0) / double(D));
-            c1 = float((double(t2 + t2) - 2.0) / double(D));
-            c3 = float((T2 - T - T + 1.0) / double(D));
-            const float f166 = Gi - t2;
-            const float f167 = f166 - t2;
-            c2 = (f167 + Gi) / D;
-            const float f170 = t - Gsi;
-            const float f171 = Gsi - t;
-            c4 = f171 * f170 / D;
+        case LOW_SHELF1: {
+            const float x = boost ? t * G : t;
+            const float y = boost ? t : t * Gi;
+            c0 = float((double(x) + 1.0) / (double(y) + 1.0));
+            c1 = float((double(x) - 1.0) / (double(y) + 1.0));
+            c2 = float((1.0 - double(y)) / (double(y) + 1.0));
+            break;
         }
-        break;
-    }
-    case PEAK: {
-        const float w = float(T * 10.0 / double(float(qb)));
-        if (boost) {
-            const float wg = w * G;
+        case HIGH_SHELF1: {   // single precision
+            const float A = boost ? G : 1.0f;
+            const float B = boost ? 1.0f : Gi;
+            const float apt = A + t;
+            const float bpt = B + t;
+            c0 = apt / bpt;
+            c1 = (t - A) / bpt;
+            c2 = (B - t) / bpt;
+            break;
+        }
+        case LPF2: case HPF2: {   // with Q
+            const float w = float(T * 10.0 / double(float(qb)));
             const float D = float(double(w) + T2 + 1.0);
-            c0 = float((double(wg) + T2 + 1.0) / double(D));
-            c1 = float((double(t2 + t2) - 2.0) / double(D));
-            c2 = -c1;
-            c3 = float((T2 - double(wg) + 1.0) / double(D));
+            if (kind == LPF2) {
+                c0 = G * t2 / D;
+                c3 = c0;
+                c1 = c0 + c0;
+            } else {
+                c0 = G / D;
+                c3 = c0;
+                c1 = -c0 - c0;
+            }
+            c2 = float((2.0 - T2 - T2) / double(D));
             c4 = float((double(w) - T2 - 1.0) / double(D));
-        } else {
-            const float wg = w * Gi;
-            const float D = float(double(wg) + T2 + 1.0);
-            c0 = float((double(w) + T2 + 1.0) / double(D));
-            c1 = float((double(t2 + t2) - 2.0) / double(D));
-            c2 = -c1;
-            c3 = float((T2 - double(w) + 1.0) / double(D));
-            c4 = float((double(wg) - T2 - 1.0) / double(D));
+            break;
         }
-        break;
-    }
-    case GAIN_ONLY:
-        c0 = G;
-        break;
+        case LOW_SHELF2: {
+            if (boost) {
+                const float u = t * Gs;
+                const float u2 = u * u;
+                const float D = float(T + T + T2 + 1.0);
+                c0 = float((double(u) + double(u) + double(u2) + 1.0) / double(D));
+                c1 = float((double(u2 + u2) - 2.0) / double(D));
+                c3 = float((double(u2) - double(u) - double(u) + 1.0) / double(D));
+                c2 = float((2.0 - T2 - T2) / double(D));
+                c4 = float((T + T - T2 - 1.0) / double(D));
+            } else {
+                const float v = t * Gsi;
+                const float v2 = v * v;
+                const float D = float(double(v) + double(v) + double(v2) + 1.0);
+                c0 = float((T + T + T2 + 1.0) / double(D));
+                c1 = float((double(t2 + t2) - 2.0) / double(D));
+                c3 = float((T2 - T - T + 1.0) / double(D));
+                c2 = float((2.0 - double(v2) - double(v2)) / double(D));
+                c4 = float((double(v) + double(v) - double(v2) - 1.0) / double(D));
+            }
+            break;
+        }
+        case HIGH_SHELF2: {
+            if (boost) {
+                const float D = float(T + T + T2 + 1.0);
+                const float gpt = Gs + t;
+                c0 = gpt * gpt / D;
+                const float tt = t2 + t2;
+                c1 = (tt - G - G) / D;
+                const float gmt = Gs - t;
+                c3 = gmt * gmt / D;
+                c2 = float((2.0 - T2 - T2) / double(D));
+                c4 = float((T + T - T2 - 1.0) / double(D));
+            } else {
+                const float gpt = Gsi + t;
+                const float D = gpt * gpt;
+                c0 = float((T + T + T2 + 1.0) / double(D));
+                c1 = float((double(t2 + t2) - 2.0) / double(D));
+                c3 = float((T2 - T - T + 1.0) / double(D));
+                const float f166 = Gi - t2;
+                const float f167 = f166 - t2;
+                c2 = (f167 + Gi) / D;
+                const float f170 = t - Gsi;
+                const float f171 = Gsi - t;
+                c4 = f171 * f170 / D;
+            }
+            break;
+        }
+        case PEAK: {
+            const float w = float(T * 10.0 / double(float(qb)));
+            if (boost) {
+                const float wg = w * G;
+                const float D = float(double(w) + T2 + 1.0);
+                c0 = float((double(wg) + T2 + 1.0) / double(D));
+                c1 = float((double(t2 + t2) - 2.0) / double(D));
+                c2 = -c1;
+                c3 = float((T2 - double(wg) + 1.0) / double(D));
+                c4 = float((double(w) - T2 - 1.0) / double(D));
+            } else {
+                const float wg = w * Gi;
+                const float D = float(double(wg) + T2 + 1.0);
+                c0 = float((double(w) + T2 + 1.0) / double(D));
+                c1 = float((double(t2 + t2) - 2.0) / double(D));
+                c2 = -c1;
+                c3 = float((T2 - double(w) + 1.0) / double(D));
+                c4 = float((double(wg) - T2 - 1.0) / double(D));
+            }
+            break;
+        }
+        case GAIN_ONLY:
+            c0 = G;
+            break;
     }
 
     // ---- the emitter ----

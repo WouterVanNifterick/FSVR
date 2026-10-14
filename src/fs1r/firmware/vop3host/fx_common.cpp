@@ -1,8 +1,9 @@
 // license:BSD-3-Clause
 // copyright-holders:Wouter van Nifterick
 
-// LFO register helpers and single-word stores.
-#include "effect_host.h"
+// What the handlers share: the LFO registers, the stores of one parameter into its steps, dry and
+// wet, the shelving pair, and every parameter at once.
+#include "fx_common.h"
 
 namespace fs1r::vop3host {
 
@@ -26,7 +27,7 @@ void EffectHost::setLfoPhase(int v, int lfo)
 void EffectHost::setLfoDepth(int v, int lfo)
 {
     const uint32_t b = uint32_t(v) & 0xFF;
-    const uint32_t w = b == 127 ? 0x7FFF : (b << 15) / 127;
+    const uint32_t w = b == 127 ? UNITY : (b << 15) / 127;
     lfoReg[2][lfo] = w;
     writeLfo(LFO_DEPTH, lfo);
 }
@@ -41,8 +42,8 @@ void EffectHost::storeBipolar(int scale, int v, const uint16_t* step)
 void EffectHost::storeModePair(int mode, const uint16_t* steps)
 {
     switch (mode & 0xFF) {
-    case 1: coef[steps[0]] = 1536; coef[steps[1]] = 0xE000; break;
-    case 2: coef[steps[0]] = 0x7C00; coef[steps[1]] = 0; break;
+        case 1: coef[steps[0]] = 1536; coef[steps[1]] = 0xE000; break;
+        case 2: coef[steps[0]] = 0x7C00; coef[steps[1]] = 0; break;
     }
     writeCoefs(2, steps);
 }
@@ -58,7 +59,7 @@ void EffectHost::storeDepth(int v, const uint16_t* step)
 void EffectHost::storeNegDepth(int v, const uint16_t* step)
 {
     const int32_t b = int8_t(v);
-    const uint32_t w = b == -127 ? 0x7FFF : uint32_t(-(b * 32768 / 127));
+    const uint32_t w = b == -127 ? UNITY : uint32_t(-(b * 32768 / 127));
     coef[step[0]] = w;
     writeCoefs(1, step);
 }
@@ -78,7 +79,7 @@ void EffectHost::storeRelease(int v, const uint16_t* steps)
 void EffectHost::storeCompThreshold(int v, const uint16_t* step)
 {
     const int32_t d = int32_t(uint32_t(v) & 0xFF) - 80;
-    uint32_t w = 0x7FFF;
+    uint32_t w = UNITY;
     if (d >= 0)
         w = uint32_t(rom::OCTAVE[uint32_t(d % 6)]) >> (d / 6);
     coef[step[0]] = w;
@@ -89,7 +90,7 @@ void EffectHost::storeCompThreshold(int v, const uint16_t* step)
 void EffectHost::storeGateThreshold(int v, const uint16_t* step)
 {
     const int32_t d = int32_t(uint32_t(v) & 0xFF) - 56;
-    uint32_t w = 0x8000;
+    uint32_t w = MINUS_ONE;
     if (d >= 0)
         w = uint32_t(-int32_t(uint32_t(rom::OCTAVE[uint32_t(d % 6)]) >> (d / 6)));
     coef[step[0]] = w;

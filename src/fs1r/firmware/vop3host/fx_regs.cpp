@@ -133,30 +133,30 @@ void EffectHost::uploadWindow(int kind)
     writeConfig(0, 0x40);
     writeReg(UPLOADING, 0x23);
     switch (kind) {
-    case REVERB:
-        writeDelays(54, rom::SLOTS_REVERB);
-        writeCoefs(94, rom::STEPS_REVERB);
-        std::copy_n(rom::BASE_TAGS[0], 232, tag);
-        writeTags(94, rom::STEPS_REVERB);
-        break;
-    case AUX: case INSERTION: case REVERB_DELAY: case VARIATION: {
-        const Window& w = WINDOWS[kind];
-        uploadProgram(kind, 0);
-        writeDelays(w.nslots, w.slots);
-        writeCoefsBurst(w.nsteps, w.steps);
-        for (int i = 0; i < 4; i++)
-            for (uint32_t reg = LFO_SPEED; reg <= LFO_DIRECTION; reg++)
-                writeLfo(reg, w.lfos[i]);
-        resetLfoPhase(w.lfoMask);
-        break;
-    }
-    case MASTER_EQ:
-        writeCoefs(50, rom::STEPS_MASTER_EQ);
-        break;
-    default:
-        writeTags(88, rom::STEPS_SYSTEM);
-        writeCoefs(88, rom::STEPS_SYSTEM);
-        break;
+        case REVERB:
+            writeDelays(54, rom::SLOTS_REVERB);
+            writeCoefs(94, rom::STEPS_REVERB);
+            std::copy_n(rom::BASE_TAGS[0], 232, tag);
+            writeTags(94, rom::STEPS_REVERB);
+            break;
+        case AUX: case INSERTION: case REVERB_DELAY: case VARIATION: {
+            const Window& w = WINDOWS[kind];
+            uploadProgram(kind, 0);
+            writeDelays(w.nslots, w.slots);
+            writeCoefsBurst(w.nsteps, w.steps);
+            for (int i = 0; i < 4; i++)
+                for (uint32_t reg = LFO_SPEED; reg <= LFO_DIRECTION; reg++)
+                    writeLfo(reg, w.lfos[i]);
+            resetLfoPhase(w.lfoMask);
+            break;
+        }
+        case MASTER_EQ:
+            writeCoefs(50, rom::STEPS_MASTER_EQ);
+            break;
+        default:
+            writeTags(88, rom::STEPS_SYSTEM);
+            writeCoefs(88, rom::STEPS_SYSTEM);
+            break;
     }
     writeConfig(0, rom::CFG16[0]);
     writeReg(UPLOADING, 0);
