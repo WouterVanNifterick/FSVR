@@ -25,45 +25,11 @@ namespace {
 
 namespace flt = rom::flt;
 using Host = FilterHost;
+using namespace filter;
 
-// The voice bytes the filter reads, by their place in the voice (the Data List's names)
-enum {
-    LFO2_WAVE        = 0x18,
-    LFO2_SPEED       = 0x19,
-    LFO2_PHASE       = 0x1C,
-    LFO2_KEY_SYNC    = 0x1D,
-    FILTER_TYPE      = 0x54,
-    RESONANCE        = 0x55,
-    RESONANCE_VEL    = 0x56,
-    CUTOFF           = 0x57,
-    EG_DEPTH_VEL     = 0x58,
-    CUTOFF_LFO1      = 0x59,
-    CUTOFF_LFO2      = 0x5A,
-    KEY_SCALE_DEPTH  = 0x5B,
-    KEY_SCALE_POINT  = 0x5C,
-    INPUT_GAIN       = 0x5D,
-    EG_DEPTH         = 0x64,
-    EG_L4            = 0x65,   // where the EG starts and ends
-    EG_L1, EG_L2, EG_L3,
-    EG_T1, EG_T2, EG_T3, EG_T4,
-    EG_SCALING       = 0x6E,   // the time scaling in bits 0-2, the attack's velocity in 3-5
-};
-// and the part bytes
-enum {
-    PART_CUTOFF      = 0x18,
-    PART_RESONANCE   = 0x19,
-    PART_ATTACK      = 0x1A,
-    PART_DECAY       = 0x1B,
-    PART_RELEASE     = 0x1C,
-    PART_EG_DEPTH    = 0x1F,
-    PART_LFO2_SPEED  = 0x2E,
-    PART_LFO2_DEPTH  = 0x2F,
-};
-enum { LPF24, LPF18, LPF12, HPF, BPF, BEF };
-
-const uint8_t NONE[112] = {};                               // what a free slot's part reads as
+const uint8_t NONE[Host::VOICE_BYTES] = {};                 // what a free slot's part reads as
 constexpr int RUN = 682, IDLE = -379, MUTE = -1137;         // the output ramp's step a sample: a fade in and two fades out
-constexpr int HOLD = 255;                                   // the EG rate that holds
+constexpr int HOLD = 255, HELD = 101;                       // the EG rate that holds, and its entry in EG_RATE
 constexpr int GLIDE = 2, JUMP = 14;                         // a constant's tag: glide to a new value, or jump
 
 int page(int s) { return 16 + 124 * (((s >> 2) + 1) & 3); }
@@ -350,7 +316,7 @@ void FilterHost::egInterrupt()
         switch (stage[s]) {
             case START:                                     // it fell into the note on: hold L1
                 aim = target = level(std::min<int>(V[EG_L1], 100));
-                index = 101;
+                index = HELD;
                 break;
             case ATTACK: {                                  // the attack ended: decay 1, to L2
                 stage[s] = DECAY1;
@@ -375,14 +341,16 @@ void FilterHost::egInterrupt()
             case SUSTAIN:                                   // hold L3
                 aim = level(V[EG_L3]);
                 target = -512;
-                index = 101;
+                index = HELD;
                 break;
             case RELEASE:                                   // the release ended: hold the start level
                 stage[s] = DONE;
                 aim = level(V[EG_L4]) + 3;
                 target = -512;
-                index = 101;
+                index = HELD;
                 break;
+            case DONE:                                      // held, so it does not report; were it to, it would get
+                break;                                      // what the channel before it got, as on the unit
         }
         egRate(h, ch, flt::EG_RATE[index]);
         egTarget(h, ch, target = clamp16(target, -511, 511));
@@ -411,6 +379,16 @@ void FilterHost::kill(int s)
     gainTags(*this, s, JUMP);
     setRamp(*this, s, MUTE);
     setGain(*this, s, false, -1);
+}
+
+void FilterHost::setByte(int id, int p, int v)
+{
+    uint8_t& b = id >= PART ? part[p][id - PART] : voice[p][id - VOICE];
+    v &= 0x7F;
+    if (v != b) {
+        b = uint8_t(v);
+        mark(id, p);
+    }
 }
 
 void FilterHost::mark(int id, int p)

@@ -13,10 +13,8 @@ const double OUT = cal::CHAN_CLIP * cal::FLT_LOSS / Vop3::WORD;
 }
 
 void Filter::sync(int p, const uint8_t* voice, const uint8_t* rec, int cutoffMod, int lfo2Depth, int lfo2Speed) {
-    for (int i = 0; i < 112; i++)
-        if ((voice[i] & 0x7f) != host.voice[p][i]) { host.voice[p][i] = voice[i] & 0x7f; host.mark(host.VOICE + i, p); }
-    for (int i = 0; i < 52; i++)
-        if ((rec[i] & 0x7f) != host.part[p][i]) { host.part[p][i] = rec[i] & 0x7f; host.mark(host.PART + i, p); }
+    for (int i = 0; i < host.VOICE_BYTES; i++) host.setByte(host.VOICE + i, p, voice[i]);
+    for (int i = 0; i < host.PART_BYTES; i++) host.setByte(host.PART + i, p, rec[i]);
     if (cutoffMod != host.partCutoffMod[p]) host.setPartCutoffMod(p, cutoffMod);
     if (lfo2Depth != host.partLfo2Depth[p]) host.setPartLfo2Depth(p, lfo2Depth);
     if (lfo2Speed != host.partLfo2Speed[p]) host.setPartLfo2Speed(p, lfo2Speed);
