@@ -408,6 +408,8 @@ unsigned platformKeyChar(unsigned codepoint, bool* shift);
 // where the platform's standalone has none.
 extern const bool kAudioSettings;
 void platformAudioSettings(PlatformWindow* w);
+// The audio driver's own control panel, where the standalone has one: an ASIO driver's, on Windows.
+void platformDriverPanel(PlatformWindow* w);
 // Its settings read out of that window, for a modal of the skin's: the audio API, output, input, sample
 // rate, buffer size (each one choice) and the MIDI inputs (any of them). False where it cannot be read.
 struct DeviceList {

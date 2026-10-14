@@ -1330,7 +1330,8 @@ void Gui::runAction(Node& n, int i, const Action& action) {
             closing_ = true;
             platformCloseApp(window);
         } else if (!skin_->settingsView.empty() && readDevices()) {
-            setModal(skin_->settingsView);
+            if (!settingsShown(root_)) setModal(skin_->settingsView);
+            else { platformDriverPanel(window); invalidateAll(); }   // already in sight: the driver's own panel, and read again
         } else {
             platformAudioSettings(window);
         }

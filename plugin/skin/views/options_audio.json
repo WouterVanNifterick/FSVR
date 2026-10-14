@@ -450,7 +450,7 @@
    "action": {
     "standalone": "settings"
    },
-   "tip": "Reads the devices again; on macOS, opens the app's own audio and MIDI window"
+   "tip": "Opens the ASIO driver's own control panel and reads the devices again; on macOS, opens the app's own audio and MIDI window"
   }
  ]
 }

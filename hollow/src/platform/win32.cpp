@@ -500,6 +500,12 @@ void platformAudioSettings(PlatformWindow* w) {
     PostMessageW(GetAncestor(w->hwnd, GA_ROOT), WM_SYSCOMMAND, 0, 0);
 }
 
+// A system command HollowClapWrapperFix.cmake adds to clap-wrapper, which opens the ASIO driver's panel
+// through RtAudio's ASIO SDK; it does nothing while the driver is not ASIO.
+void platformDriverPanel(PlatformWindow* w) {
+    PostMessageW(GetAncestor(w->hwnd, GA_ROOT), WM_SYSCOMMAND, 0x100, 0);
+}
+
 void platformWatchClose(PlatformWindow* w) {
     HWND root = GetAncestor(w->hwnd, GA_ROOT);
     if (!root || root == w->hwnd || w->root) return;
