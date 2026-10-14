@@ -45,20 +45,10 @@ void wah_sense(Host& h, int p)
 void wah_dist_wet(Host& h, int drive_index, bool second_pair)
 {
     h.fxStoreScaled(P(h, 10), drive_index, WAH_DRIVE, 0);
-    uint32_t wet;
-    if (sys9(h) & 1) {
-        thru(h, PU(h, 10) != 0 ? 1 : 0);
-        h.set_coef(rom::u16(WAH_MODE + 2), 0x7FFF);
-        h.set_coef(rom::u16(WAH_MODE), 0x7FFF);
-        if (second_pair) { h.set_coef(rom::u16(WAH_MODE2 + 2), 0x7FFF); h.set_coef(rom::u16(WAH_MODE2), 0x7FFF); }
-        wet = 127;
-    } else {
-        thru(h, 0);
-        h.set_coef(rom::u16(WAH_MODE + 2), 23170);
-        h.set_coef(rom::u16(WAH_MODE), 23170);
-        if (second_pair) { h.set_coef(rom::u16(WAH_MODE2 + 2), 0x5A81); h.set_coef(rom::u16(WAH_MODE2), 0x5A81); }
-        wet = PU(h, 9);
-    }
+    h.set_coef(rom::u16(WAH_MODE + 2), 23170);
+    h.set_coef(rom::u16(WAH_MODE), 23170);
+    if (second_pair) { h.set_coef(rom::u16(WAH_MODE2 + 2), 0x5A81); h.set_coef(rom::u16(WAH_MODE2), 0x5A81); }
+    const uint32_t wet = PU(h, 9);
     h.writeSweWordListSub(2, WAH_MODE);
     if (second_pair)
         h.writeSweWordListSub(2, WAH_MODE2);
@@ -85,29 +75,19 @@ void wah_dist_wet(Host& h, int drive_index, bool second_pair)
     }
     h.writeSweWordListSub(8, WAH_WET);
 }
-// the distortion group's Dry/Wet words (parameter 9): mode pair (a, b) / (c, d), then
-// g, x, (0), g, x over DIST_WET; `five` adds the zero word and writes five
-void dist_wet(Host& h, uint32_t m0, uint32_t m1, uint32_t m2, uint32_t m3, bool five, bool two_lists)
+// the distortion group's Dry/Wet words (parameter 9): the mode pair (a, b), then g, x, 0, g, x
+// over DIST_WET
+void dist_wet(Host& h, uint32_t a, uint32_t b, bool two_lists)
 {
-    uint32_t wet;
-    if (sys9(h) & 1) {
-        thru(h, 1);
-        h.set_coef(rom::u16(DIST_MODE), m0);
-        h.set_coef(rom::u16(two_lists ? DIST_LEVEL : DIST_MODE + 2), m1);
-        wet = 127;
-    } else {
-        thru(h, 0);
-        h.set_coef(rom::u16(DIST_MODE), m2);
-        h.set_coef(rom::u16(two_lists ? DIST_LEVEL : DIST_MODE + 2), m3);
-        wet = PU(h, 9);
-    }
+    h.set_coef(rom::u16(DIST_MODE), a);
+    h.set_coef(rom::u16(two_lists ? DIST_LEVEL : DIST_MODE + 2), b);
+    const uint32_t wet = PU(h, 9);
     if (two_lists) {
         h.writeSweWordListSub(1, DIST_MODE);
         h.writeSweWordListSub(1, DIST_LEVEL);
     } else {
         h.writeSweWordListSub(2, DIST_MODE);
     }
-    (void)five;
     const uint32_t g = uint32_t(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet)))) >> 2);
     h.set_coef(rom::u16(DIST_WET + 4), g);
     h.set_coef(rom::u16(DIST_WET), g);
@@ -147,7 +127,7 @@ void dd_wet(Host& h, uint32_t wet, int shift)
 }
 }  // namespace
 
-// 0x3ACA4E fxInsAutoWahDist: A-Wah+Dist / A-Wah+Odrv (types 14, 15; msb 4 lsb 1, 3, 4)
+// 0x3ACA4E fxInsAutoWahDist: A-Wah+Dist / A-Wah+Odrv (types 14, 15; msb 4 lsb 3, 4)
 void Host::fxInsAutoWahDist(int p)
 {
     p &= 0xFF;
@@ -171,16 +151,16 @@ void Host::fxInsAutoWahDist(int p)
         filters(*this, p, 5, LPF_WAH, LPF_WAH_C, HPF_WAH, HPF_WAH_C);
         break;
     case 9: case 10: case 14:
-        wah_dist_wet(*this, t == 1 ? 57 : int(PU(*this, 14) & 0xFF), false);
+        wah_dist_wet(*this, int(PU(*this, 14) & 0xFF), false);
         break;
     case 11:
-        fxDesignFilter(2, 4, 6, t == 4 ? 24 : 20, t == 1 ? 72 : P(*this, 11), 0, 0x35E80E);
+        fxDesignFilter(2, 4, 6, t == 4 ? 24 : 20, P(*this, 11), 0, 0x35E80E);
         break;
     case 12:
-        fxDesignFilter(2, 1, 10, t == 4 ? 41 : 43, t == 1 ? 74 : P(*this, 12), 10, 0x35E804);
+        fxDesignFilter(2, 1, 10, t == 4 ? 41 : 43, P(*this, 12), 10, 0x35E804);
         break;
     case 13:
-        fxDesignFilter(2, 1, 4, t == 1 ? 53 : P(*this, 13), 64, 7, 0x35E7FA);
+        fxDesignFilter(2, 1, 4, P(*this, 13), 64, 7, 0x35E7FA);
         break;
     case 255:
         ram.w8(SWE_SUB_HOLD, 1);
@@ -197,17 +177,14 @@ void Host::fxInsAutoWahDist(int p)
             fxInsAutoWahDist(q);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default:
-        break;
     }
 }
 
-// 0x3ACFEC fxInsTouchWahDist: T-Wah+Dist / T-Wah+Odrv (types 16, 17; msb 4 lsb 2, 5-7); 0 runs on into 1
+// 0x3ACFEC fxInsTouchWahDist: T-Wah+Dist / T-Wah+Odrv (types 16, 17; msb 4 lsb 6, 7); 0 runs on into 1
 void Host::fxInsTouchWahDist(int p)
 {
     p &= 0xFF;
     const uint32_t t = lsb(*this);
-    const bool own = t == 6 || t == 7;   // the lsb 6/7 variants take their own filter parameters
     switch (p) {
     case 0:
         set_coef(rom::u16(WAH_ATTACK), uint32_t(P(*this, 0) * 258));
@@ -224,20 +201,18 @@ void Host::fxInsTouchWahDist(int p)
         filters(*this, p, 5, LPF_WAH, LPF_WAH_C, HPF_WAH, HPF_WAH_C);
         break;
     case 9: case 10: case 14:
-        wah_dist_wet(*this, t == 2 ? 57 : t == 5 ? 48 : int(PU(*this, 14) & 0xFF), true);
+        wah_dist_wet(*this, int(PU(*this, 14) & 0xFF), true);
         break;
     case 11:
-        fxDesignFilter(2, 4, 6, t == 6 ? 24 : 20, own ? P(*this, 11) : 72, 0, 0x35E80E);
+        fxDesignFilter(2, 4, 6, t == 6 ? 24 : 20, P(*this, 11), 0, 0x35E80E);
         break;
     case 12:
-        fxDesignFilter(2, 1, 10, t == 6 ? 41 : 43, own ? P(*this, 12) : 74, 10, 0x35E804);
+        fxDesignFilter(2, 1, 10, t == 6 ? 41 : 43, P(*this, 12), 10, 0x35E804);
         break;
     case 13:
-        fxDesignFilter(2, 1, 4, own ? P(*this, 13) : 53, 64, 7, 0x35E7FA);
+        fxDesignFilter(2, 1, 4, P(*this, 13), 64, 7, 0x35E7FA);
         break;
     case 15: {
-        if (!own)
-            break;
         int32_t v = PLO(*this, 15) - 52;
         const int8_t c = int8_t(v);
         if (c < 0 || c > 15)
@@ -256,25 +231,11 @@ void Host::fxInsTouchWahDist(int p)
             fxDesignFilter(1, 1, 0, 54, 64, 0, 0x35E59A);
             fxFillBand(120, 0x35E9E2);
         }
-        if (t == 2) {
-            fxDesignFilter(1, 1, 1, 0, 70, 0, 0x35E57C);
-            fxDesignFilter(1, 0, 0, 51, 73, 0, 0x35E582);
-            set_coef(rom::u16(0x35DA1C), 0);
-            set_coef(rom::u16(0x35DA1E), 0x7FFF);
-            set_coef(rom::u16(0x35DA20), 0);
-            set_coef(rom::u16(0x35DA22), 0);
-            set_coef(rom::u16(0x35DA2C), 0x7FFF);
-            writeSweWordListSub(4, 0x35DA1C);
-            writeSweWordListSub(1, 0x35DA2C);
-        } else {
-            fxDesignFilter(1, 1, 1, 0, 64, 0, 0x35E57C);
-            fxDesignFilter(1, 0, 0, 54, 64, 0, 0x35E582);
-        }
+        fxDesignFilter(1, 1, 1, 0, 64, 0, 0x35E57C);
+        fxDesignFilter(1, 0, 0, 54, 64, 0, 0x35E582);
         for (int q : {0, 1, 2, 5, 7, 9, 11, 12, 13, 15})
             fxInsTouchWahDist(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -297,7 +258,7 @@ void Host::fxInsDistortion(int p)
         fxDesignFilter(2, 1, 10, P(*this, 6), P(*this, 7), P(*this, 8), DIST_PRE_C);
         break;
     case 9:
-        dist_wet(*this, 0, 2048, 1448, 0, true, false);
+        dist_wet(*this, 1448, 0, false);
         fxInsDistortion(0);
         break;
     case 10:
@@ -318,8 +279,6 @@ void Host::fxInsDistortion(int p)
         for (int q : {1, 3, 6, 9, 10})
             fxInsDistortion(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -348,7 +307,7 @@ void Host::fxInsAmpSim(int p)
             fxDesignFilter(2, 1, 4, P(*this, 2), 64, P(*this, 1) == 2 ? 15 : 7, DIST_PRE);
         break;
     case 9:
-        dist_wet(*this, 0, 2048, 1448, 0, true, false);
+        dist_wet(*this, 1448, 0, false);
         fxInsAmpSim(0);
         break;
     case 10:
@@ -362,8 +321,6 @@ void Host::fxInsAmpSim(int p)
         for (int q : {1, 2, 9, 10})
             fxInsAmpSim(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -379,21 +336,18 @@ void Host::fxInsCompDist(int p)
     case 3: fxWriteRow8(P(*this, 3), DYN_ROW); break;
     case 4: dyn_level(*this, 4); break;
     case 9: {
-        const uint32_t w = (sys9(*this) & 1) ? 10240u : 7240u;
+        const uint32_t w = 7240;
         set_coef(rom::u16(DIST_LEVEL + 2), w);
         set_coef(rom::u16(DIST_LEVEL), w);
         writeSweWordListSub(2, DIST_LEVEL);
         break;
     }
     case 255:
-        thru(*this, 0);
         ram.w8(SWE_SUB_HOLD, 1);
         dyn_filters(*this);
         for (int q : {0, 1, 2, 3, 4, 9})
             fxInsCompDist(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -416,7 +370,7 @@ void Host::fxInsCompDistDelay(int p)
         fxDesignFilter(2, 1, 10, P(*this, 6), P(*this, 7), P(*this, 8), DIST_PRE_C);
         break;
     case 9:
-        dist_wet(*this, 8192, 20480, 5792, 14481, true, true);
+        dist_wet(*this, 5792, 14481, true);
         fxInsCompDistDelay(0);
         break;
     case 10:
@@ -433,8 +387,6 @@ void Host::fxInsCompDistDelay(int p)
         for (int q : {1, 3, 6, 9, 10, 11, 12, 13, 14})
             fxInsCompDistDelay(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -466,14 +418,13 @@ void Host::fxInsHmEnhancer(int p)
         break;
     }
     case 9: {
-        const uint32_t w = (sys9(*this) & 1) ? 2048u : 1448u;
+        const uint32_t w = 1448;
         set_coef(rom::u16(DIST_LEVEL + 2), w);
         set_coef(rom::u16(DIST_LEVEL), w);
         writeSweWordListSub(2, DIST_LEVEL);
         break;
     }
     case 255:
-        thru(*this, 0);
         ram.w8(SWE_SUB_HOLD, 1);
         fxDesignFilter(2, 1, 11, 0, 64, 0, DIST_PRE);
         fxCopyWords5(DIST_PRE, DIST_PRE_C);
@@ -481,8 +432,6 @@ void Host::fxInsHmEnhancer(int p)
         for (int q : {0, 1, 2, 9})
             fxInsHmEnhancer(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -497,14 +446,11 @@ void Host::fxInsNoiseGate(int p)
     case 2: fxWriteNegated(P(*this, 2), DYN_WORD); break;
     case 3: dyn_level(*this, 3); break;
     case 255:
-        thru(*this, 0);
         ram.w8(SWE_SUB_HOLD, 1);
         dyn_filters(*this);
         for (int q : {0, 1, 2, 3})
             fxInsNoiseGate(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -554,18 +500,9 @@ void Host::fxInsWahDistDelay(int p)
             fxFillBand(120, 0x35DE82);
         }
         fxStoreScaled(P(*this, 3), P(*this, 4), DRIVE, 0);
-        uint32_t wet;
-        if (sys9(*this) & 1) {
-            thru(*this, P(*this, 3) != 0 ? 1 : 0);
-            set_coef(rom::u16(MODE + 2), 0x7FFF); set_coef(rom::u16(MODE), 0x7FFF);
-            set_coef(rom::u16(MODE2 + 2), 0x7FFF); set_coef(rom::u16(MODE2), 0x7FFF);
-            wet = 127;
-        } else {
-            thru(*this, 0);
-            set_coef(rom::u16(MODE + 2), 23170); set_coef(rom::u16(MODE), 23170);
-            set_coef(rom::u16(MODE2 + 2), 0x5A81); set_coef(rom::u16(MODE2), 0x5A81);
-            wet = PU(*this, 9);
-        }
+        set_coef(rom::u16(MODE + 2), 23170); set_coef(rom::u16(MODE), 23170);
+        set_coef(rom::u16(MODE2 + 2), 0x5A81); set_coef(rom::u16(MODE2), 0x5A81);
+        const uint32_t wet = PU(*this, 9);
         writeSweWordListSub(2, MODE);
         writeSweWordListSub(2, MODE2);
         const int32_t dry = rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet))));
@@ -632,8 +569,6 @@ void Host::fxInsWahDistDelay(int p)
         fxDesignFilter(1, 1, 0, 60, 64, 0, 0x35DEE8);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default:
-        break;
     }
 }
 
@@ -681,18 +616,9 @@ void Host::fxInsCompressor(int p)
         fxStoreScaled(P(*this, 3), P(*this, 4), DD_DRIVE, 0);
         break;
     case 9: {
-        uint32_t wet;
-        if (sys9(*this) & 1) {
-            thru(*this, 1);
-            set_coef(rom::u16(DD_MODE), 8192);
-            set_coef(rom::u16(DD_MODE + 4), 20480);
-            wet = 127;
-        } else {
-            thru(*this, 0);
-            set_coef(rom::u16(DD_MODE), 5792);
-            set_coef(rom::u16(DD_MODE + 4), 14481);
-            wet = PU(*this, 9);
-        }
+        set_coef(rom::u16(DD_MODE), 5792);
+        set_coef(rom::u16(DD_MODE + 4), 14481);
+        const uint32_t wet = PU(*this, 9);
         writeSweWordListSub(1, DD_MODE);
         writeSweWordListSub(1, DD_MODE + 4);
         dd_wet(*this, wet, 1);
@@ -709,8 +635,6 @@ void Host::fxInsCompressor(int p)
             fxInsCompressor(q);
         fxDesignFilter(1, 1, 0, 60, 64, 0, 0x35DF06);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -758,18 +682,9 @@ void Host::fxInsDistDelay(int p)
         fxDesignFilter(2, 1, 10, t == 4 ? 41 : 43, PLO(*this, 8), 10, 0x35DF34);
         break;
     case 9: {
-        uint32_t wet;
-        if (sys9(*this) & 1) {
-            thru(*this, 1);
-            set_coef(rom::u16(DD_MODE), 0);
-            set_coef(rom::u16(DD_MODE + 2), 2048);
-            wet = 127;
-        } else {
-            thru(*this, 0);
-            set_coef(rom::u16(DD_MODE), 1448);
-            set_coef(rom::u16(DD_MODE + 2), 0);
-            wet = PU(*this, 9);
-        }
+        set_coef(rom::u16(DD_MODE), 1448);
+        set_coef(rom::u16(DD_MODE + 2), 0);
+        const uint32_t wet = PU(*this, 9);
         writeSweWordListSub(2, DD_MODE);
         dd_wet(*this, wet, 1);
         fxInsDistDelay(0);
@@ -796,256 +711,23 @@ void Host::fxInsDistDelay(int p)
         fxDesignFilter(1, 1, 0, 60, 64, 0, 0x35DF06);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default:
-        break;
-    }
-}
-
-// ---- the insertion reverbs (msb 6, no Data List type) ----
-namespace {
-constexpr uint32_t IR_COMBS = 0x35DB9C;        // u16 x 24: comb steps (three groups of 8 for the rooms)
-constexpr uint32_t IR_SLOTS = 0x35DB51;        // u8: comb slot quads
-constexpr uint32_t IR_ROW_STEPS = 0x35DC24, IR_ROW_SLOTS = 0x35DBD8;
-constexpr uint32_t IR_PRE_SLOTS = 0x35DCA0;    // u8 x 4: pre-delay slots
-constexpr uint32_t IR_ER_WORDS = 0x35DCD0;     // u16 x 14
-constexpr uint32_t IR_WIDTH = 0x35DCF2, IR_WET = 0x35DF74, IR_TABLE_STEPS = 0x35E5CA;
-constexpr uint32_t IR_OFFS_SLOTS = 0x35DB2C;   // u8 x 13: the preset offset slots
-constexpr uint32_t IR_PRESET_INDEX = 0x364F25; // u8 per lsb: which preset offset row
-inline uint32_t ir_sel(const Host& h) { return rom::FX_COMB_SELECT + uint32_t(sh::s8(uint32_t(6 * lsb(h)))); }
-
-void ir_wet(Host& h)
-{
-    wet_words(h, IR_WET, ER_REV, wet_thru(h), GXGX);
-    h.writeSweWordListSub(4, IR_WET);
-}
-// the pre-delay slots of parameters 2 and 10
-void ir_predelay(Host& h)
-{
-    const int32_t d = h.offs(rom::u8(IR_PRE_SLOTS)) + h.fxMsToSamples(rom::s16(rom::FX_DELAY_WORD + 2u * PU(h, 2)));
-    h.set_offs(rom::u8(IR_PRE_SLOTS + 1), d);
-    h.set_offs(rom::u8(IR_PRE_SLOTS + 2), d + int32_t(rom::u8(rom::FX_DIFFUSION + PU(h, 1))));
-    h.set_offs(rom::u8(IR_PRE_SLOTS + 3), d + h.fxMsToSamples(rom::s16(rom::FX_DELAY_WORD + 2u * PU(h, 10))));
-    h.writeSweDeSub(3, IR_PRE_SLOTS + 1);
-}
-// the early reflection words of parameter 12: the row gain over the ER/Rev balance
-void ir_er_words(Host& h, bool room)
-{
-    const uint32_t sel = ir_sel(h);
-    const float f20 = sh::itof(rom::s16(ER_REV + 2u * uint32_t(int32_t(128 - int32_t(PU(h, 12))))));
-    const float f21 = sh::fdiv(32768.0f, f20);
-    const int32_t v22 = rom::s16(0x36FF56 + 0x24u * (uint32_t(rom::s16(sel)) & 0xFFFF));
-    const int32_t i25 = sh::ftoi(sh::fmul(sh::itof(v22), f21));
-    h.set_coef(rom::u16(IR_ER_WORDS + 2), uint32_t(sh::s16(uint32_t(i25))));
-    h.set_coef(rom::u16(IR_ER_WORDS), uint32_t(sh::s16(uint32_t(i25))));
-    const uint32_t w = uint32_t(rom::s16(ER_REV + 2u * PU(h, 12)));
-    for (uint32_t k = 4; k <= 26; k += 2)
-        h.set_coef(rom::u16(IR_ER_WORDS + k), w);
-    if (h.ram.u8(FX_MEM_FLAG) == 1) {
-        if (room) {
-            h.set_coef(rom::u16(IR_ER_WORDS + 10), 0);
-            h.set_coef(rom::u16(IR_ER_WORDS + 22), 0);
-        } else {
-            h.set_coef(rom::u16(IR_ER_WORDS + 12), 0);
-            h.set_coef(rom::u16(IR_ER_WORDS + 14), 0);
-            h.set_coef(rom::u16(IR_ER_WORDS + 24), 0);
-            h.set_coef(rom::u16(IR_ER_WORDS + 26), 0);
-        }
-    }
-    h.writeSweWordListSub(14, IR_ER_WORDS);
-}
-void ir_preset_offs(Host& h, uint32_t src)
-{
-    for (uint32_t i = 0; i < 13; i++)
-        h.set_offs(rom::u8(IR_OFFS_SLOTS + i), int32_t(rom::u16(src + 2 * i)));
-}
-}  // namespace
-
-// 0x3ABA18 fxIns_t6_1: the hall type insertion reverb, dispatcher slots (6, 1..8)
-void Host::fxIns_t6_1(int p)
-{
-    p &= 0xFF;
-    const uint32_t sel = ir_sel(*this);
-    switch (p) {
-    case 0: case 13:
-        fxDesignCombs(P(*this, 0), P(*this, 13), 6, rom::s16(sel + 2), IR_COMBS);
-        writeSweWordListSub(24, IR_COMBS);
-        break;
-    case 1: {
-        fxAddScaledPairs(P(*this, 1), 6, rom::s16(sel + 2), IR_SLOTS);
-        uint8_t ids[12];
-        for (int i = 0; i < 6; i++) {
-            ids[2 * i] = uint8_t(rom::u8(IR_SLOTS + 4u * uint32_t(i) + 2));
-            ids[2 * i + 1] = uint8_t(rom::u8(IR_SLOTS + 4u * uint32_t(i) + 3));
-        }
-        writeSweDeSubIds(12, ids);
-        const int32_t d = offs(rom::u8(IR_PRE_SLOTS)) + fxMsToSamples(rom::s16(rom::FX_DELAY_WORD + 2u * PU(*this, 2)))
-                          + int32_t(rom::u8(rom::FX_DIFFUSION + PU(*this, 1)));
-        set_offs(rom::u8(IR_PRE_SLOTS + 2), d);
-        writeSweDeSub(1, IR_PRE_SLOTS + 2);
-        fxScaleRow(P(*this, 11), P(*this, 1), rom::s16(sel + 4), 6, 20, IR_ROW_STEPS, IR_ROW_SLOTS);
-        writeSweDeSub(1, IR_ROW_SLOTS + 9);
-        writeSweDeSub(1, IR_ROW_SLOTS + 11);
-        break;
-    }
-    case 2: case 10:
-        ir_predelay(*this);
-        break;
-    case 3:
-        fxDesignFilter(1, 0, 1, P(*this, 3), 64, 0, 0x35E5BE);
-        break;
-    case 4:
-        fxDesignFilter(1, 1, 0, P(*this, 4), 64, 0, 0x35E5C4);
-        break;
-    case 9:
-        ir_wet(*this);
-        break;
-    case 11:
-        fxScaleRow(P(*this, 11), P(*this, 1), rom::s16(sel + 4), 6, 20, IR_ROW_STEPS, IR_ROW_SLOTS);
-        writeSweWordListSub(24, IR_ROW_STEPS);
-        break;
-    case 12:
-        ir_er_words(*this, false);
-        break;
-    case 14:
-        set_coef(rom::u16(IR_WIDTH), uint32_t(fxBipolar500(P(*this, 14))));
-        writeSweWordListSub(1, IR_WIDTH);
-        break;
-    case 255: {
-        ram.w8(SWE_SUB_HOLD, 1);
-        if (ram.u8(FX_MEM_FLAG) == 0) {
-            const uint32_t idx = rom::u8(IR_PRESET_INDEX + lsb(*this));
-            if (idx == 1) ir_preset_offs(*this, 0x36568C);
-            else if (idx == 2) ir_preset_offs(*this, 0x3656A8);
-        }
-        for (int q : {0, 1, 2, 3, 4, 9, 11, 12, 14})
-            fxIns_t6_1(q);
-        fxDesignFromTable(ram.s8(FX_TYPE1 + 3), IR_TABLE_STEPS);
-        ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    }
-    default:
-        break;
-    }
-}
-
-// 0x3AC028 fxIns_t6_9: the room type insertion reverb, dispatcher slots (6, 9..12)
-void Host::fxIns_t6_9(int p)
-{
-    p &= 0xFF;
-    const uint32_t sel = ir_sel(*this);
-    const uint32_t roomrow = rom::FX_ROOM_B + uint32_t(sh::s8(uint32_t(12 * (ram.s8(FX_TYPE1 + 3) - 9))));
-    auto pairs = [&](int j) { fxRoomPairs(0, P(*this, 1), P(*this, 5 + j), P(*this, 8), 0, IR_SLOTS + 8u * uint32_t(j)); };
-    auto rooms = [&](int j) {
-        fxDesignRooms(0, P(*this, 0), P(*this, 5 + j), P(*this, 8), P(*this, 13), rom::s16(roomrow + 2u * uint32_t(j)), IR_COMBS + 16u * uint32_t(j));
-    };
-    auto slots18 = [&]() {
-        uint8_t ids[18];
-        for (int i = 0; i < 6; i++)
-            for (int k = 0; k < 3; k++)
-                ids[3 * i + k] = uint8_t(rom::u8(IR_SLOTS + 4u * uint32_t(i) + 1 + uint32_t(k)));
-        writeSweDeSubIds(18, ids);
-    };
-    switch (p) {
-    case 0: case 8: case 13:
-        pairs(0); pairs(1); pairs(2);
-        rooms(0); rooms(1); rooms(2);
-        slots18();
-        writeSweWordListSub(24, IR_COMBS);
-        break;
-    case 1: {
-        pairs(0); pairs(1); pairs(2);
-        rooms(0); rooms(1); rooms(2);
-        slots18();
-        writeSweWordListSub(24, IR_COMBS);
-        const int32_t d = offs(rom::u8(IR_PRE_SLOTS)) + fxMsToSamples(rom::s16(rom::FX_DELAY_WORD + 2u * PU(*this, 2)))
-                          + int32_t(rom::u8(rom::FX_DIFFUSION + PU(*this, 1)));
-        set_offs(rom::u8(IR_PRE_SLOTS + 2), d);
-        writeSweDeSub(1, IR_PRE_SLOTS + 2);
-        fxScaleRow(P(*this, 11), P(*this, 1), rom::s16(sel + 4), 6, 20, IR_ROW_STEPS, IR_ROW_SLOTS);
-        writeSweDeSub(1, IR_ROW_SLOTS + 9);
-        writeSweDeSub(1, IR_ROW_SLOTS + 11);
-        break;
-    }
-    case 2: case 10:
-        ir_predelay(*this);
-        break;
-    case 3:
-        fxDesignFilter(1, 0, 1, P(*this, 3), 64, 0, 0x35E5BE);
-        break;
-    case 4:
-        fxDesignFilter(1, 1, 0, P(*this, 4), 64, 0, 0x35E5C4);
-        break;
-    case 5: case 6: case 7: {
-        const int j = p - 5;
-        pairs(j);
-        rooms(j);
-        writeSweDeSub(3, IR_SLOTS + 8u * uint32_t(j) + 1);
-        writeSweDeSub(3, IR_SLOTS + 8u * uint32_t(j) + 5);
-        writeSweWordListSub(8, IR_COMBS + 16u * uint32_t(j));
-        break;
-    }
-    case 9:
-        ir_wet(*this);
-        break;
-    case 11:
-        fxScaleRow(P(*this, 11), P(*this, 1), rom::s16(sel + 4), 6, 20, IR_ROW_STEPS, IR_ROW_SLOTS);
-        writeSweWordListSub(24, IR_ROW_STEPS);
-        break;
-    case 12:
-        ir_er_words(*this, true);
-        break;
-    case 14:
-        set_coef(rom::u16(IR_WIDTH), uint32_t(fxBipolar500(P(*this, 14))));
-        writeSweWordListSub(1, IR_WIDTH);
-        break;
-    case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
-        if (ram.u8(FX_MEM_FLAG) == 0)
-            ir_preset_offs(*this, 0x3656C4);
-        for (int q : {0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 12, 14})
-            fxIns_t6_9(q);
-        fxDesignFromTable(ram.s8(FX_TYPE1 + 3), IR_TABLE_STEPS);
-        ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
-        break;
     }
 }
 
 // ---- pitch change (msb 7) ----
 
-// 0x3A99FC fxInsPitchRatio: the pitch change's LFO word for one voice from
-// the pitch (parameter 0) and the voice's fine value v; lsb 1 uses the semitone tables, the
-// others the detune ratio law
+// 0x3A99FC fxInsPitchRatio: the pitch change's LFO word for one voice, from the pitch
+// (parameter 0) and the voice's fine value v
 int32_t Host::fxInsPitchRatio(int v)
 {
-    const double K = sh::from_bits64(0x40EFFEEFA4BDBA0AULL), NK = sh::from_bits64(0xC0EFFEEFA4BDBA0AULL);
-    const uint32_t ratio_at = DETUNE_TABLE + 4u * uint32_t(sh::s16(uint32_t(v)) - 14);
     const int32_t d = v - 64;
     const int32_t pitch = sh::s16(uint32_t(P(*this, 0) - 64));
-    const uint32_t coarse = uint32_t(int32_t(PU(*this, 0)) - 40);   // signed: the tables are read below their base for pitches under 40
     if (pitch == 0) {
-        if (lsb(*this) == 1) {
-            const int32_t a = sh::s16(uint32_t(d));
-            return rom::s16(0x36F218 + 2u * uint32_t(a >= 0 ? a : -a));
-        }
-        const double r = sh::dmul(sh::ftod(rom::f32(ratio_at)), K);
-        if (sh::s16(uint32_t(d)) >= 0)
-            return sh::s16(uint32_t(sh::dtoi(sh::dadd(r, NK))));
-        return sh::s16(uint32_t(sh::dtoi(sh::dsub(K, r))));
+        const int32_t a = sh::s16(uint32_t(d));
+        return rom::s16(0x36F218 + 2u * uint32_t(a >= 0 ? a : -a));
     }
-    if (lsb(*this) == 1) {
-        const int32_t semi = rom::s16(0x36F154 + 2u * coarse);
-        return pitch >= 0 ? semi + d : semi - d;
-    }
-    const float lo = rom::f32(0x36F280 + 4u * coarse), hi = rom::f32(0x36F344 + 4u * coarse);
-    const float ratio = rom::f32(ratio_at);
-    if (pitch < 0)
-        return sh::s16(uint32_t(sh::ftoi(sh::fadd(sh::fmul(sh::fsub(lo, hi), ratio), lo))));
-    if (pitch > 1)
-        return sh::s16(uint32_t(sh::ftoi(sh::fsub(lo, sh::fmul(sh::fadd(hi, lo), ratio)))));
-    return sh::s16(uint32_t(sh::dtoi(sh::dadd(sh::dmul(sh::ftod(ratio), sh::from_bits64(0x40D7143C29AA1D76ULL)),
-                                              sh::from_bits64(0xC0D5C8A19A415F46ULL)))));
+    const int32_t semi = rom::s16(0x36F154 + 2u * uint32_t(int32_t(PU(*this, 0)) - 40));
+    return pitch >= 0 ? semi + d : semi - d;
 }
 
 // 0x3A9B8A fxLfoDirection(lfo, v): the voice's LFO word pair and the LFO's direction bits
@@ -1096,7 +778,7 @@ void Host::fxStoreSpan5(int v)
     writeSweDeSub(5, SL + 5);
 }
 
-// 0x3A9DD0 fxInsPitchChange (type 7; msb 7 lsb 1, 2)
+// 0x3A9DD0 fxInsPitchChange (type 7; msb 7 lsb 1)
 void Host::fxInsPitchChange(int p)
 {
     p &= 0xFF;
@@ -1108,9 +790,8 @@ void Host::fxInsPitchChange(int p)
             ram.w16(FX_LFO24 + 2u * uint32_t(lfo), (ram.u16(FX_LFO24 + 2u * uint32_t(lfo)) & 0xFC00) | v);
         };
         const uint32_t v = uint32_t(rom::s16(0x36F1B6 + 2u * uint32_t(int32_t(PU(*this, 0)) - 40)));
-        if (lsb(*this) == 2 && PU(*this, 0) == 64) { set24(12, 8); set24(13, 8); }
-        else if (lsb(*this) == 2 && PU(*this, 0) == 65) { set24(12, 0x2F); set24(13, 0x2F); }
-        else { set24(12, v); set24(13, v); }
+        set24(12, v);
+        set24(13, v);
         writeSwe24Sub(12);
         writeSwe24Sub(13);
         break;
@@ -1155,7 +836,7 @@ void Host::fxInsPitchChange(int p)
         break;
     }
     case 9: {
-        const uint32_t wet = wet_thru(*this);
+        const uint32_t wet = PU(*this, 9);
         const float dry = sh::itof(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet)))) >> 2);
         const uint32_t g = uint32_t(sh::s16(uint32_t(sh::ftoi(dry))));
         set_coef(rom::u16(PC_WET + 2), g);
@@ -1188,8 +869,6 @@ void Host::fxInsPitchChange(int p)
         for (int q : {2, 3, 4, 0, 1, 9, 10, 12})
             fxInsPitchChange(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -1258,7 +937,7 @@ void Host::fxInsEnsDetune(int p)
         break;
     }
     case 9:
-        wet_words(*this, PC_PAN, PAN_LAW, wet_only(*this), GGXX);
+        wet_words(*this, PC_PAN, PAN_LAW, PU(*this, 9), GGXX);
         writeSweWordListSub(4, PC_PAN);
         break;
     case 10: case 11:
@@ -1270,74 +949,10 @@ void Host::fxInsEnsDetune(int p)
         fxCopyWords5(EQ7_C, EQ7_C_C);
         break;
     case 255:
-        thru(*this, 0);
         ram.w8(SWE_SUB_HOLD, 1);
         for (int q : {0, 1, 2, 9, 10, 12})
             fxInsEnsDetune(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
-        break;
-    }
-}
-
-// 0x3AA904 fxIns_t7_4: dispatcher slot (7, 4), no Data List type
-void Host::fxIns_t7_4(int p)
-{
-    p &= 0xFF;
-    switch (p) {
-    case 10:
-        fxDesignFilter(2, 1, 1, rom::s8(0x36F59C + PLOU(*this, 10)), 64, 0, EQ7_A);
-        fxCopyWords5(EQ7_A, EQ7_A_C);
-        break;
-    case 11:
-        fxDesignFilter(2, 4, PU(*this, 11) == 26 ? 11 : 0, PLO(*this, 11) + 34, 64, 0, EQ7_C);
-        fxCopyWords5(EQ7_C, EQ7_C_C);
-        break;
-    case 255: {
-        thru(*this, 0);
-        const uint32_t a = uint32_t(fxMulTypeTableB(-8192));
-        set_coef(rom::u16(0x35D892), a);
-        set_coef(rom::u16(0x35D890), a);
-        const uint32_t b = uint32_t(fxMulTypeTableB(8192));
-        set_coef(rom::u16(0x35D896), b);
-        set_coef(rom::u16(0x35D894), b);
-        ram.w8(SWE_SUB_HOLD, 1);
-        fxIns_t7_4(10);
-        fxIns_t7_4(11);
-        ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    }
-    default:
-        break;
-    }
-}
-
-// 0x3AAA58 fxIns_t7_5: dispatcher slot (7, 5), no Data List type
-void Host::fxIns_t7_5(int p)
-{
-    p &= 0xFF;
-    switch (p) {
-    case 0: case 1:
-        fxDesignFilter(2, 1, 2, P(*this, 0), P(*this, 1), 0, EQ7_A);
-        fxCopyWords5(EQ7_A, EQ7_A_C);
-        break;
-    case 2: case 3:
-        fxDesignFilter(2, 4, 3, P(*this, 2), P(*this, 3), 0, EQ7_C);
-        fxCopyWords5(EQ7_C, EQ7_C_C);
-        break;
-    case 255: {
-        thru(*this, 0);
-        const uint32_t x = uint32_t(fxMulTypeTableB(8192));
-        set_coef(rom::u16(PC_PAN + 2), x);
-        set_coef(rom::u16(PC_PAN), x);
-        ram.w8(SWE_SUB_HOLD, 1);
-        fxIns_t7_5(0);
-        fxIns_t7_5(2);
-        ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    }
-    default:
         break;
     }
 }
@@ -1362,14 +977,12 @@ void Host::fxIns3BandEq(int p)
         break;
     case 14:
         if (P(*this, 14) != 0) {
-            thru(*this, 0);
             set_coef(rom::u16(MIX), 0x4000);
             set_coef(rom::u16(MIX + 2), 0);
             set_coef(rom::u16(MIX + 4), 0x4000);
             set_coef(rom::u16(MIX + 6), uint32_t(fxMulTypeTableB(8192)));
             set_coef(rom::u16(0x35D890), uint32_t(fxMulTypeTableB(0)));
         } else {
-            thru(*this, sys9(*this) != 0 ? 1 : 0);
             set_coef(rom::u16(MIX), 0);
             set_coef(rom::u16(MIX + 2), 8192);
             set_coef(rom::u16(MIX + 4), 8192);
@@ -1386,8 +999,6 @@ void Host::fxIns3BandEq(int p)
         for (int q : {5, 6, 1, 14})
             fxIns3BandEq(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -1438,7 +1049,7 @@ void Host::fxInsLoFi(int p)
         }
         break;
     case 2: case 6: case 9: {
-        const uint32_t wet = wet_thru(*this);
+        const uint32_t wet = PU(*this, 9);
         const int32_t dry = rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet)))) >> 1;
         const int32_t wetw = rom::s16(PAN_LAW + 2u * wet) >> 1;
         set_coef(rom::u16(WET), uint32_t(dry));
@@ -1476,8 +1087,6 @@ void Host::fxInsLoFi(int p)
         for (int q : {0, 1, 2, 3, 4, 7})
             fxInsLoFi(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }

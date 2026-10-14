@@ -22,7 +22,7 @@ constexpr uint32_t MIX_STEPS = 0x35DF48;         // u16 x 5 at 255: 0x4000, 0x40
 constexpr uint32_t LEVEL_STEPS = 0x35DF68;       // u16 x 2: the type level (fxMulTable6)
 constexpr uint32_t SCALED_PAIRS = 0x36FE3C;      // s16 rows of 12, stride 0x18
 constexpr uint32_t ROW_TABLE = 0x36FEB4;         // s16 rows of 12, stride 0x18 (fxScaleRow)
-constexpr uint32_t ROW_FLAGS_A = 0x36FF2C, ROW_FLAGS_B = 0x36FF36, ROW_FLAGS_2 = 0x36FF40;
+constexpr uint32_t ROW_FLAGS_A = 0x36FF2C, ROW_FLAGS_2 = 0x36FF40;
 constexpr uint32_t ROW_FLAGS_4 = 0x370A0C, ROW_TABLE_4 = 0x370A14;
 constexpr uint32_t SPAN_ROWS = 0x36FF4A;         // u16 rows of 18, stride 0x24 (fxWriteSpan4)
 constexpr uint32_t TYPE_LEVEL = 0x371ED4;        // u8 per reverb type (fxMulTable6)
@@ -65,7 +65,7 @@ int32_t Host::fxMulTypeTableD(int x)                                            
 void Host::fxDesignCombs(int time, int damp, int count, int sel, uint32_t list)
 {
     count &= 0xFF;
-    const uint32_t r10 = count == 6 ? 21 : count == 4 ? 13 : 5;
+    const uint32_t r10 = count == 6 ? 21 : 5;
     fxDesignFilter(1, 1, 0, rom::s8(rom::FX_DAMP_FREQ + (uint32_t(damp) & 0xFFFF)), 64, 0, list + 2 * r10);
     const uint32_t row = rom::FX_TIME_ROW + (uint32_t(time) & 0xFFFF);
     const uint32_t classes = rom::FX_COMB_CLASS + (uint32_t(sel) & 0xFFFF) * 6;
@@ -117,11 +117,8 @@ void Host::fxScaleRow(int src, int scale, int offset, int count, int stride, uin
     const uint32_t src2 = (uint32_t(src) & 0xFFFF) * 2;
     uint32_t row = ROW_TABLE + (uint32_t(offset) & 0xFFFF) * 0x18;
     uint32_t flags = 0;
-    const uint32_t mem = ram.u8(FX_MEM_FLAG);
-    if (count == 6 && mem == 0)
+    if (count == 6)
         flags = rom::u16(ROW_FLAGS_A + src2) & 0xFF;
-    else if (count == 6 && mem == 1)
-        flags = rom::u16(ROW_FLAGS_B + src2) & 0xFF;
     else if (count == 2)
         flags = rom::u16(ROW_FLAGS_2 + src2) & 0xFF;
     else if (count == 4) {
@@ -157,9 +154,6 @@ void Host::fxScaleRow(int src, int scale, int offset, int count, int stride, uin
             s28 = int16_t(s28 << 1);
             s26 = int16_t(s26 << 1);
         }
-        if ((i == 3 || i == 5) && mem == 1 && count == 6) {
-            s28 = 0x4000; s26 = 0; s24 = 0; s22 = 0;
-        }
         flags >>= 1;
         str >>= 1;
         const uint32_t unit = steps + 8u * uint32_t(i);
@@ -174,12 +168,11 @@ void Host::fxScaleRow(int src, int scale, int offset, int count, int stride, uin
 // taps (two offsets and two words each) plus the pre-delay pair, clamped to the area
 void Host::fxWriteSpan4(int indexA, int indexB, int offset, int row, uint32_t words, uint32_t ids)
 {
-    const uint32_t flag = ram.u8(FX_MEM_FLAG) == 0 ? 1 : 0;
     uint32_t rowp = SPAN_ROWS + (uint32_t(row) & 0xFFFF) * 0x24;
     const uint32_t t = uint32_t(fxMsToSamples(rom::s16(rom::FX_DELAY_WORD + 2u * (uint32_t(indexA) & 0xFFFF))));
     const uint32_t limit = ram.u32(FX_BASES + 4) - 1;
     const uint32_t diff = rom::u8(rom::FX_DIFFUSION + (uint32_t(offset) & 0xFFFF));
-    const uint32_t ref0 = rom::u8(ER_BASE_SLOTS), ref1 = rom::u8(ER_BASE_SLOTS + flag);
+    const uint32_t ref0 = rom::u8(ER_BASE_SLOTS), ref1 = rom::u8(ER_BASE_SLOTS + 1);
     for (int i = 0; i < 4; i++) {
         const uint32_t w = uint32_t(fxMulShift16(rom::u16(rowp + 2))) & 0xFFFF;
         const uint32_t d = t + w;
@@ -203,13 +196,8 @@ void Host::fxWriteSpan4(int indexA, int indexB, int offset, int row, uint32_t wo
     const uint32_t tt = uint32_t(fxMsToSamples(rom::s16(rom::FX_DELAY_WORD + 2u * (uint32_t(indexA) & 0xFFFF)))) +
                         uint32_t(fxMsToSamples(rom::s16(rom::FX_DELAY_WORD + 2u * (uint32_t(indexB) & 0xFFFF))));
     const uint32_t s10 = rom::u8(ER_BASE_SLOTS + 10), s11 = rom::u8(ER_BASE_SLOTS + 11);
-    if (uint32_t(offs(ref0)) + tt < limit || ram.u8(FX_MEM_FLAG) != 1) {
-        set_offs(s10, int32_t(uint32_t(offs(ref0)) + tt));
-        set_offs(s11, int32_t(tt + uint32_t(offs(rom::u8(ER_BASE_SLOTS + flag)))));
-    } else {
-        set_offs(s10, int32_t(limit));
-        set_offs(s11, int32_t(limit));
-    }
+    set_offs(s10, int32_t(uint32_t(offs(ref0)) + tt));
+    set_offs(s11, int32_t(tt + uint32_t(offs(ref1))));
 }
 
 // 0x39CEC8 fxCopyScaled12(balance, list): the first ten early-reflection words scaled in
@@ -229,9 +217,8 @@ void Host::fxCopyScaled12(int balance, uint32_t list)
         set_coef(rom::u16(list + 2u * uint32_t(i)), g);
 }
 
-// 0x39D2C4 fxRoomPairs(mode, clampSrc, index, span, select, ids): early reflection delay
-// offsets from room table C
-void Host::fxRoomPairs(int mode, int clampSrc, int index, int span, int select, uint32_t ids)
+// 0x39D2C4 fxRoomPairs(clampSrc, index, span, ids): early reflection delay offsets from room table C
+void Host::fxRoomPairs(int clampSrc, int index, int span, uint32_t ids)
 {
     auto pair = [&](uint32_t tp, uint32_t& a, uint32_t& b) {
         a = uint32_t(fxMulShift16(rom::s16(tp))) & 0xFFFF;
@@ -239,37 +226,23 @@ void Host::fxRoomPairs(int mode, int clampSrc, int index, int span, int select, 
     };
     uint32_t a, b;
     const uint32_t tp = rom::FX_ROOM_C + (uint32_t(index) & 0xFFFF) * 2;
-    if ((mode & 0xFF) == 0) {
-        pair(tp, a, b);
-        int32_t base = offs(rom::u8(ids));
-        set_offs(rom::u8(ids + 1), int32_t(a + uint32_t(base)));
-        set_offs(rom::u8(ids + 2), int32_t(b + uint32_t(base)));
-        set_offs(rom::u8(ids + 3), base + fxDiffusionClamp(int(b), clampSrc));
-        const uint32_t tp2 = rom::FX_ROOM_C + ((uint32_t(index) & 0xFFFF) + (uint32_t(span) & 0xFFFF)) * 2;
-        pair(tp2, a, b);
-        base = offs(rom::u8(ids + 4));
-        set_offs(rom::u8(ids + 5), int32_t(a + uint32_t(base)));
-        set_offs(rom::u8(ids + 6), fxDiffusionClamp(int(b), clampSrc) + base);
-        set_offs(rom::u8(ids + 7), int32_t(b + uint32_t(base)));
-        return;
-    }
     pair(tp, a, b);
-    const int32_t base = offs(rom::u8(ids));
-    if (int16_t(select) == 0) {
-        set_offs(rom::u8(ids + 1), int32_t(a + uint32_t(base)));
-        set_offs(rom::u8(ids + 2), int32_t(b + uint32_t(base)));
-        set_offs(rom::u8(ids + 3), base + fxDiffusionClamp(int(b), clampSrc));
-    } else {
-        set_offs(rom::u8(ids + 1), int32_t(a + uint32_t(base)));
-        set_offs(rom::u8(ids + 2), fxDiffusionClamp(int(b), clampSrc) + base);
-        set_offs(rom::u8(ids + 3), int32_t(b + uint32_t(base)));
-    }
+    int32_t base = offs(rom::u8(ids));
+    set_offs(rom::u8(ids + 1), int32_t(a + uint32_t(base)));
+    set_offs(rom::u8(ids + 2), int32_t(b + uint32_t(base)));
+    set_offs(rom::u8(ids + 3), base + fxDiffusionClamp(int(b), clampSrc));
+    const uint32_t tp2 = rom::FX_ROOM_C + ((uint32_t(index) & 0xFFFF) + (uint32_t(span) & 0xFFFF)) * 2;
+    pair(tp2, a, b);
+    base = offs(rom::u8(ids + 4));
+    set_offs(rom::u8(ids + 5), int32_t(a + uint32_t(base)));
+    set_offs(rom::u8(ids + 6), fxDiffusionClamp(int(b), clampSrc) + base);
+    set_offs(rom::u8(ids + 7), int32_t(b + uint32_t(base)));
 }
 
-// 0x39CF82 fxDesignRooms(mode, time, y0, y1, damp, extra, list): the room's early reflection
-// units: the damping LPF, then one (mode != 0) or two (mode 0) comb-like units from the RT60
-// gain row of the time nearest to extra * RT60[time] / 10
-void Host::fxDesignRooms(int mode, int time, int y0, int y1, int damp, int extra, uint32_t list)
+// 0x39CF82 fxDesignRooms(time, y0, y1, damp, extra, list): the room's early reflection units:
+// the damping LPF, then two comb-like units from the RT60 gain row of the time nearest to
+// extra * RT60[time] / 10
+void Host::fxDesignRooms(int time, int y0, int y1, int damp, int extra, uint32_t list)
 {
     const float target = sh::dtof(sh::ddiv(sh::ftod(sh::fmul(sh::utof(uint32_t(extra) & 0xFFFF),
                                                              rom::f32(rom::FX_RT60_SECONDS + 4u * (uint32_t(time) & 0xFFFF)))), 10.0));
@@ -294,14 +267,9 @@ void Host::fxDesignRooms(int mode, int time, int y0, int y1, int damp, int extra
         set_coef(rom::u16(u + 4), uint32_t(sh::s16(uint32_t(x))));
         set_coef(rom::u16(u + 6), coef(rom::u16(lpf + 4)));
     };
-    if ((mode & 0xFF) == 0) {
-        fxDesignFilter(1, 1, 0, dampf, 64, 0, list + 10);
-        unit(list, ya, list + 10);
-        unit(list + 8, yb, list + 10);
-    } else {
-        fxDesignFilter(1, 1, 0, dampf, 64, 0, list + 2);
-        unit(list, ya, list + 2);
-    }
+    fxDesignFilter(1, 1, 0, dampf, 64, 0, list + 10);
+    unit(list, ya, list + 10);
+    unit(list + 8, yb, list + 10);
 }
 
 // ---- the handlers ----
@@ -358,50 +326,38 @@ void Host::fxRevHall(int p)
     case 12:
         fxWriteSpan4(prm(2), prm(10), prm(1), rom::s16(sel), ER_WORDS, ER_SLOTS);
         fxCopyScaled12(prm(12), ER_WORDS);
-        if (ram.u8(FX_MEM_FLAG) == 1) {
-            set_coef(rom::u16(ER_WORDS + 0x1C), 0);
-            set_coef(rom::u16(ER_WORDS + 0x1E), 0);
-            set_coef(rom::u16(ER_WORDS + 0x28), 0);
-            set_coef(rom::u16(ER_WORDS + 0x2A), 0);
-        }
         writeSweWordListSub(10, ER_WORDS);
         writeSweWordListSub(0xC, ER_WORDS + 0x14);
         break;
     case 14:
         set_coef(rom::u16(WIDTH_STEPS), uint32_t(fxBipolar500(prm(14))));
-        if (ram.u8(FX_MEM_FLAG) == 0)
-            set_coef(rom::u16(WIDTH_STEPS + 2), uint32_t(fxBipolar500(prm(14))));
+        set_coef(rom::u16(WIDTH_STEPS + 2), uint32_t(fxBipolar500(prm(14))));
         writeSweWordListSub(2, WIDTH_STEPS);
         break;
     case 255: {
         ram.w8(SWE_SUB_HOLD, 1);
-        if (ram.u8(FX_MEM_FLAG) == 0) {
-            const uint32_t idx = rom::u8(rom::FX_PRESET_INDEX_REVERB + ram.u8(FX_TYPE0));
-            if (idx == 1 || idx == 2) {
-                const uint32_t src = idx == 1 ? OFFS_PRESET_1 : OFFS_PRESET_2;
-                for (uint32_t i = 0; i < 13; i++)
-                    set_offs(rom::u8(0x35DAE5 + i), int32_t(rom::u16(src + 2 * i)));
-            }
-            const uint32_t span = ram.u32(FX_BASES + 4) - ram.u32(FX_BASES + 0);
-            set_offs(rom::u8(0x35DAE4), int32_t(((span - 28653u) >> 1) + 28652u));
-            set_coef(rom::u16(MIX_STEPS), 0x4000);
-            set_coef(rom::u16(MIX_STEPS + 2), 0x4000);
-            set_coef(rom::u16(MIX_STEPS + 4), 0);
-            set_coef(rom::u16(MIX_STEPS + 6), 8192);
-            set_coef(rom::u16(MIX_STEPS + 8), 8192);
+        const uint32_t idx = rom::u8(rom::FX_PRESET_INDEX_REVERB + ram.u8(FX_TYPE0));
+        if (idx == 1 || idx == 2) {
+            const uint32_t src = idx == 1 ? OFFS_PRESET_1 : OFFS_PRESET_2;
+            for (uint32_t i = 0; i < 13; i++)
+                set_offs(rom::u8(0x35DAE5 + i), int32_t(rom::u16(src + 2 * i)));
         }
+        const uint32_t span = ram.u32(FX_BASES + 4) - ram.u32(FX_BASES + 0);
+        set_offs(rom::u8(0x35DAE4), int32_t(((span - 28653u) >> 1) + 28652u));
+        set_coef(rom::u16(MIX_STEPS), 0x4000);
+        set_coef(rom::u16(MIX_STEPS + 2), 0x4000);
+        set_coef(rom::u16(MIX_STEPS + 4), 0);
+        set_coef(rom::u16(MIX_STEPS + 6), 8192);
+        set_coef(rom::u16(MIX_STEPS + 8), 8192);
         for (int q : {0, 1, 2, 3, 4, 11, 12, 14})
             fxRevHall(q);
         fxDesignFromTable(ram.s8(FX_TYPE0), TABLE_STEPS);
         const uint32_t w = uint32_t(fxMulTable6(8192));
         set_coef(rom::u16(LEVEL_STEPS + 2), w);
         set_coef(rom::u16(LEVEL_STEPS), w);
-        ram.w8(FX_INS_THRU, 1);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
     }
-    default:
-        break;
     }
 }
 
@@ -413,10 +369,10 @@ void Host::fxRevRoom(int p)
     auto prm = [&](int i) -> int32_t { return ram.s16(FX_PARAMS + 2 * i); };
     const uint32_t roomrow = rom::FX_ROOM_B + uint32_t(sh::s8(uint32_t(12 * (ram.s8(FX_TYPE0) - 9))));
     auto pairs = [&](int j) {   // j = 0, 1, 2: the three early reflection groups
-        fxRoomPairs(0, prm(1), prm(5 + j), prm(8), 0, COMB_SLOTS + 8u * uint32_t(j));
+        fxRoomPairs(prm(1), prm(5 + j), prm(8), COMB_SLOTS + 8u * uint32_t(j));
     };
     auto rooms = [&](int j) {
-        fxDesignRooms(0, prm(0), prm(5 + j), prm(8), prm(13), rom::s16(roomrow + 2u * uint32_t(j)), rom::FX_COMB_STEPS + 16u * uint32_t(j));
+        fxDesignRooms(prm(0), prm(5 + j), prm(8), prm(13), rom::s16(roomrow + 2u * uint32_t(j)), rom::FX_COMB_STEPS + 16u * uint32_t(j));
     };
     auto slots18 = [&]() {
         uint8_t ids[18];
@@ -474,44 +430,34 @@ void Host::fxRevRoom(int p)
     case 12:
         fxWriteSpan4(prm(2), prm(10), prm(1), rom::s16(sel), ER_WORDS, ER_SLOTS);
         fxCopyScaled12(prm(12), ER_WORDS);
-        if (ram.u8(FX_MEM_FLAG) == 1) {
-            set_coef(rom::u16(ER_WORDS + 0x1A), 0);
-            set_coef(rom::u16(ER_WORDS + 0x26), 0);
-        }
         writeSweWordListSub(10, ER_WORDS);
         writeSweWordListSub(0xC, ER_WORDS + 0x14);
         break;
     case 14:
         set_coef(rom::u16(WIDTH_STEPS), uint32_t(fxBipolar500(prm(14))));
-        if (ram.u8(FX_MEM_FLAG) == 0)
-            set_coef(rom::u16(WIDTH_STEPS + 2), uint32_t(fxBipolar500(prm(14))));
+        set_coef(rom::u16(WIDTH_STEPS + 2), uint32_t(fxBipolar500(prm(14))));
         writeSweWordListSub(2, WIDTH_STEPS);
         break;
     case 255: {
         ram.w8(SWE_SUB_HOLD, 1);
-        if (ram.u8(FX_MEM_FLAG) == 0) {
-            for (uint32_t i = 0; i < 13; i++)
-                set_offs(rom::u8(0x35DAE5 + i), int32_t(rom::u16(OFFS_PRESET_ROOM + 2 * i)));
-            const uint32_t span = ram.u32(FX_BASES + 4) - ram.u32(FX_BASES + 0);
-            set_offs(rom::u8(0x35DAE4), int32_t(((span - 28397u) >> 1) + 28652u));
-            set_coef(rom::u16(MIX_STEPS), 0x4000);
-            set_coef(rom::u16(MIX_STEPS + 2), 0x4000);
-            set_coef(rom::u16(MIX_STEPS + 4), 0);
-            set_coef(rom::u16(MIX_STEPS + 6), 8192);
-            set_coef(rom::u16(MIX_STEPS + 8), 8192);
-        }
+        for (uint32_t i = 0; i < 13; i++)
+            set_offs(rom::u8(0x35DAE5 + i), int32_t(rom::u16(OFFS_PRESET_ROOM + 2 * i)));
+        const uint32_t span = ram.u32(FX_BASES + 4) - ram.u32(FX_BASES + 0);
+        set_offs(rom::u8(0x35DAE4), int32_t(((span - 28397u) >> 1) + 28652u));
+        set_coef(rom::u16(MIX_STEPS), 0x4000);
+        set_coef(rom::u16(MIX_STEPS + 2), 0x4000);
+        set_coef(rom::u16(MIX_STEPS + 4), 0);
+        set_coef(rom::u16(MIX_STEPS + 6), 8192);
+        set_coef(rom::u16(MIX_STEPS + 8), 8192);
         for (int q : {0, 1, 2, 3, 4, 5, 6, 7, 11, 12, 14})
             fxRevRoom(q);
         fxDesignFromTable(ram.s8(FX_TYPE0), TABLE_STEPS);
         const uint32_t w = uint32_t(fxMulTable6(8192));
         set_coef(rom::u16(LEVEL_STEPS + 2), w);
         set_coef(rom::u16(LEVEL_STEPS), w);
-        ram.w8(FX_INS_THRU, 1);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
     }
-    default:
-        break;
     }
 }
 

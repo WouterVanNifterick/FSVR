@@ -27,7 +27,6 @@ Preset insertion_preset(uint32_t msb)
     case 3: return {0x363AA0, 0x364F1D, 0x3650EA};
     case 4: return {0x361D8C, 0x3635DF, 0x3631FC};
     case 5: return {0x36211C, 0x3635E7, 0x3632FC};
-    case 6: return {0x363E30, 0x364F25, 0x3651EA};
     case 7: return {0x35FD54, 0x3619DA, 0x3615B4};
     case 10: return {0x3642F0, 0x364F32, 0x36538A};
     case 12: return {0x364550, 0x364F34, 0x3653CA};
@@ -158,11 +157,9 @@ void Host::fxParamEntry(int kind, int p)
         break;
     }
     case 5:
-        if (p & 1) {
-            const uint32_t src = 0x36580C + ((ram.u8(FX_EQ_TYPE) * 0x28) & 0xFF);
+        if (p & 1)
             for (uint32_t i = 0; i < 20; i++)
-                ram.w16(FX_PARAMS_EQ + 2 * i, rom::u16(src + 2 * i));
-        }
+                ram.w16(FX_PARAMS_EQ + 2 * i, rom::u16(0x36580C + 2 * i));
         break;
     default: {
         uint32_t blk = rom::FX_SYSTEM_DEFAULTS;
@@ -181,7 +178,7 @@ void Host::fxDispatchKind(int kind, int p)
 {
     switch (kind) {
     case 0: fxDispatchReverb(p); break;
-    case 1: fxDispatchAux(p); break;
+    case 1: break;                           // the aux window has no parameters
     case 2: fxDispatchInsertion(p); break;
     case 3: fxDispatchReverbDelay(p); break;
     case 4: fxDispatchVariation(p); break;
@@ -202,19 +199,13 @@ void Host::fxDispatchReverb(int p)
         fxRevRoom(p);
 }
 
-// 0x39C18C fxDispatchAux: the aux window has no parameters
-void Host::fxDispatchAux(int)
-{
-}
-
 // 0x39C1AC fxDispatchInsertion: insertion types by (msb, lsb) of the type bytes
 void Host::fxDispatchInsertion(int p)
 {
     const uint32_t msb = ram.u8(FX_TYPE1 + 2), lsb = ram.u8(FX_TYPE1 + 3);
     switch (msb) {
     case 0:   // jump table 0x39C1D8
-        if (lsb == 1) ram.w8(FX_INS_THRU, 0);
-        else if (lsb >= 2 && lsb <= 9) fxInsChorus(p);
+        if (lsb >= 2 && lsb <= 9) fxInsChorus(p);
         else if (lsb >= 10 && lsb <= 12) fxInsFlanger(p);
         else if (lsb == 13) fxInsSymphonic(p);
         else if (lsb == 14) fxInsDelayLR(p);
@@ -235,11 +226,10 @@ void Host::fxDispatchInsertion(int p)
         break;
     case 3:
         if (lsb >= 1 && lsb <= 4) fxInsCrossDelayEr(p);
-        else if (lsb >= 5 && lsb <= 7) fxIns_t3_5(p);
         break;
     case 4:
-        if (lsb == 1 || lsb == 3 || lsb == 4) fxInsAutoWahDist(p);
-        else if (lsb == 2 || (lsb >= 5 && lsb <= 7)) fxInsTouchWahDist(p);
+        if (lsb == 3 || lsb == 4) fxInsAutoWahDist(p);
+        else if (lsb == 6 || lsb == 7) fxInsTouchWahDist(p);
         break;
     case 5:
         if (lsb == 1 || lsb == 2) fxInsDistortion(p);
@@ -249,15 +239,9 @@ void Host::fxDispatchInsertion(int p)
         else if (lsb == 6) fxInsHmEnhancer(p);
         else if (lsb == 7) fxInsNoiseGate(p);
         break;
-    case 6:   // jump table 0x39C3C4
-        if (lsb >= 1 && lsb <= 8) fxIns_t6_1(p);
-        else if (lsb >= 9 && lsb <= 12) fxIns_t6_9(p);
-        break;
     case 7:
-        if (lsb == 1 || lsb == 2) fxInsPitchChange(p);
+        if (lsb == 1) fxInsPitchChange(p);
         else if (lsb == 3) fxInsEnsDetune(p);
-        else if (lsb == 4) fxIns_t7_4(p);
-        else if (lsb == 5) fxIns_t7_5(p);
         else if (lsb == 6) fxIns3BandEq(p);
         break;
     case 10:
@@ -269,8 +253,6 @@ void Host::fxDispatchInsertion(int p)
     case 13:
         if (lsb == 1 || lsb == 2) fxInsCompressor(p);
         else if (lsb == 3 || lsb == 4) fxInsDistDelay(p);
-        break;
-    default:
         break;
     }
 }
@@ -313,7 +295,7 @@ void Host::fxDispatchVariation(int p)
         break;
     case 4:
         if (lsb == 1) fxVarAutoWah(p);
-        else if (lsb == 2 || lsb == 3) fxVarTouchWah(p);
+        else if (lsb == 3) fxVarTouchWah(p);
         break;
     case 5:
         if (lsb == 1) fxVarPhaser1(p);
@@ -323,8 +305,7 @@ void Host::fxDispatchVariation(int p)
         if (lsb == 1) fxVarEnsDetune(p);
         break;
     case 7:
-        if (lsb == 1) fxVar_t7_1(p);
-        else if (lsb == 2) fxVar3BandEq(p);
+        if (lsb == 2) fxVar3BandEq(p);
         break;
     case 8:
         if (lsb == 1) fxVarDelayLCR(p);
@@ -337,8 +318,6 @@ void Host::fxDispatchVariation(int p)
         break;
     case 10:
         if (lsb >= 1 && lsb <= 8) fxVarReverb(p);
-        break;
-    default:
         break;
     }
 }

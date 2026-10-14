@@ -56,12 +56,10 @@ void Host::fxInsChorus(int p)
         set_offs(mslot(4), d + 65);
         set_offs(mslot(3), d + 65);
         if (P(*this, 14) == 0) {
-            thru(*this, sys9(*this) != 0 ? 1 : 0);
             set_coef(rom::u16(mw(12)), 0x4000);
             set_coef(rom::u16(mw(13)), 0x4000);
             set_offs(mslot(5), 0);
         } else {
-            thru(*this, 0);
             set_coef(rom::u16(mw(12)), 0x7FFF);
             set_coef(rom::u16(mw(13)), 0);
             base = int32_t(half_area(*this));
@@ -80,14 +78,10 @@ void Host::fxInsChorus(int p)
     case 5: case 6: case 7: case 8:
         filters(*this, p, 5, LPF_MOD, LPF_MOD_C, HPF_MOD, HPF_MOD_C);
         break;
-    case 9: {
-        uint32_t wet;
-        if (sys9(*this) & 1) { thru(*this, P(*this, 14) == 0 ? 1 : 0); wet = 127; }
-        else { thru(*this, 0); wet = PU(*this, 9); }
-        wet_words(*this, MW, PAN_LAW, wet, GGXX);
+    case 9:
+        wet_words(*this, MW, PAN_LAW, PU(*this, 9), GGXX);
         writeSweWordListSub(4, MW);
         break;
-    }
     case 10: case 11: case 12:
         eq_band(*this, EQ_MOD, EQ_MOD_C);
         break;
@@ -96,8 +90,6 @@ void Host::fxInsChorus(int p)
         for (int q : {0, 1, 2, 3, 5, 7, 9, 10})
             fxInsChorus(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -138,7 +130,7 @@ void Host::fxInsFlanger(int p)
         filters(*this, p, 5, LPF_MOD, LPF_MOD_C, HPF_MOD, HPF_MOD_C);
         break;
     case 9:
-        wet_words(*this, MW, PAN_LAW, wet_only(*this), GGXX);
+        wet_words(*this, MW, PAN_LAW, PU(*this, 9), GGXX);
         writeSweWordListSub(4, MW);
         break;
     case 10: case 11: case 12:
@@ -148,7 +140,6 @@ void Host::fxInsFlanger(int p)
         fxStoreBipolar500(P(*this, 13), 0x35D732);
         break;
     case 255:
-        thru(*this, 0);
         set_coef(rom::u16(mw(12)), 0x7FFF);
         set_coef(rom::u16(mw(13)), 0);
         set_offs(mslot(5), int32_t(half_area(*this)));
@@ -156,8 +147,6 @@ void Host::fxInsFlanger(int p)
         for (int q : {0, 1, 2, 3, 5, 7, 9, 10, 13})
             fxInsFlanger(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -197,7 +186,7 @@ void Host::fxInsSymphonic(int p)
         filters(*this, p, 5, LPF_MOD, LPF_MOD_C, HPF_MOD, HPF_MOD_C);
         break;
     case 9:
-        wet_words(*this, MW, PAN_LAW, wet_thru(*this), GGXX);
+        wet_words(*this, MW, PAN_LAW, PU(*this, 9), GGXX);
         writeSweWordListSub(4, MW);
         break;
     case 10: case 11: case 12:
@@ -208,8 +197,6 @@ void Host::fxInsSymphonic(int p)
         for (int q : {0, 1, 2, 5, 7, 9, 10})
             fxInsSymphonic(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -238,7 +225,7 @@ void Host::fxInsRotarySp(int p)
         filters(*this, p, 5, LPF_ROT, LPF_ROT_C, HPF_ROT, HPF_ROT_C);
         break;
     case 9:
-        wet_words(*this, ROT_WORDS, PAN_LAW, wet_thru(*this), GGXX);
+        wet_words(*this, ROT_WORDS, PAN_LAW, PU(*this, 9), GGXX);
         writeSweWordListSub(4, ROT_WORDS);
         break;
     case 10: case 11: case 12:
@@ -249,8 +236,6 @@ void Host::fxInsRotarySp(int p)
         for (int q : {0, 1, 5, 7, 9, 10})
             fxInsRotarySp(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -311,8 +296,6 @@ void Host::fxIns2WayRotary(int p)
         ram.w8(SWE_SUB_HOLD, 0);
         break;
     }
-    default:
-        break;
     }
 }
 
@@ -344,14 +327,12 @@ void Host::fxInsTremolo(int p)
     case 14: {
         auto id = [&](int i) { return rom::u8(TREM_SLOTS + uint32_t(i)); };
         if (P(*this, 14) == 0) {
-            thru(*this, sys9(*this) != 0 ? 1 : 0);
             set_coef(rom::u16(TREM_WORDS), 0x4000);
             set_coef(rom::u16(TREM_WORDS + 2), 0x4000);
             set_offs(id(5), 0);
             set_offs(id(6), offs(id(0)) + 1);
             set_offs(id(7), offs(id(0)) + 1);
         } else {
-            thru(*this, 0);
             set_coef(rom::u16(TREM_WORDS), 0x7FFF);
             set_coef(rom::u16(TREM_WORDS + 2), 0);
             set_offs(id(5), 1024);
@@ -372,8 +353,6 @@ void Host::fxInsTremolo(int p)
         ram.w8(SWE_SUB_HOLD, 0);
         break;
     }
-    default:
-        break;
     }
 }
 
@@ -431,8 +410,6 @@ void Host::fxInsAutoPan(int p)
         ram.w8(SWE_SUB_HOLD, 0);
         break;
     }
-    default:
-        break;
     }
 }
 
@@ -467,7 +444,7 @@ void Host::fxInsAmbience(int p)
         filters(*this, p, 5, LPF_ROT, LPF_ROT_C, HPF_ROT, HPF_ROT_C);
         break;
     case 9:
-        wet_words(*this, ROT_WORDS, PAN_LAW, wet_thru(*this), GGXX);
+        wet_words(*this, ROT_WORDS, PAN_LAW, PU(*this, 9), GGXX);
         writeSweWordListSub(4, ROT_WORDS);
         break;
     case 255:
@@ -475,8 +452,6 @@ void Host::fxInsAmbience(int p)
         for (int q : {0, 1, 5, 7, 9})
             fxInsAmbience(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -508,7 +483,7 @@ void Host::fxInsPhaser1(int p)
         filters(*this, p, 5, LPF_PH, LPF_PH_C, HPF_PH, HPF_PH_C);
         break;
     case 9: {
-        const uint32_t wet = wet_thru(*this);
+        const uint32_t wet = PU(*this, 9);
         const uint32_t g = uint32_t(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet)))) >> 2);
         set_coef(rom::u16(PH_WET + 4), g);
         set_coef(rom::u16(PH_WET), g);
@@ -547,8 +522,6 @@ void Host::fxInsPhaser1(int p)
             fxInsPhaser1(q);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default:
-        break;
     }
 }
 
@@ -582,7 +555,7 @@ void Host::fxInsPhaser2(int p)
         filters(*this, p, 5, LPF_PH, LPF_PH_C, HPF_PH, HPF_PH_C);
         break;
     case 9:
-        wet_words(*this, PH_WET, PAN_LAW, wet_thru(*this), GXGX);
+        wet_words(*this, PH_WET, PAN_LAW, PU(*this, 9), GXGX);
         writeSweWordListSub(4, PH_WET);
         break;
     case 10: {
@@ -605,9 +578,6 @@ void Host::fxInsPhaser2(int p)
         for (int q : {0, 1, 3, 5, 7, 9, 10, 12})
             fxInsPhaser2(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        thru(*this, 0);
-        break;
-    default:
         break;
     }
 }
@@ -623,7 +593,7 @@ void ins_delay_slot(Host& h, int dst, int ref, int p)
 void ins_delay_filters(Host& h, int p) { filters(h, p, 12, LPF_MOD, LPF_MOD_C, HPF_MOD, HPF_MOD_C); }
 void ins_delay_wet(Host& h)
 {
-    wet_words(h, MW, ER_REV, wet_thru(h), GGXX);
+    wet_words(h, MW, ER_REV, PU(h, 9), GGXX);
     h.writeSweWordListSub(4, MW);
 }
 }  // namespace
@@ -650,7 +620,7 @@ void Host::fxInsDelayLR(int p)
         break;
     }
     case 6:
-        fxFloatCurveB(1, 0, P(*this, 6), 64, 0x35E53A);
+        fxFloatCurveB(1, P(*this, 6), 64, 0x35E53A);
         break;
     case 9:
         ins_delay_wet(*this);
@@ -663,8 +633,6 @@ void Host::fxInsDelayLR(int p)
         for (int q : {0, 1, 2, 3, 4, 5, 6, 9, 12, 14})
             fxInsDelayLR(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -687,7 +655,7 @@ void Host::fxInsDelayLCR(int p)
         break;
     }
     case 5:
-        fxFloatCurveB(1, 0, P(*this, 5), 64, 0x35E53A);
+        fxFloatCurveB(1, P(*this, 5), 64, 0x35E53A);
         fxCopyWords2(0x35E53A, 0x35E540);
         break;
     case 9:
@@ -701,8 +669,6 @@ void Host::fxInsDelayLCR(int p)
         for (int q : {0, 1, 2, 3, 4, 5, 9, 12, 14})
             fxInsDelayLCR(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -725,7 +691,7 @@ void Host::fxInsEcho(int p)
         writeSweWordListSub(1, mw(9));
         break;
     case 4:
-        fxFloatCurveB(1, 0, P(*this, 4), 64, 0x35E53A);
+        fxFloatCurveB(1, P(*this, 4), 64, 0x35E53A);
         fxCopyWords2(0x35E53A, 0x35E540);
         break;
     case 7: {
@@ -744,13 +710,10 @@ void Host::fxInsEcho(int p)
         break;
     case 255:
         set_offs(mslot(5), int32_t(half_area(*this)));
-        thru(*this, 0);
         ram.w8(SWE_SUB_HOLD, 1);
         for (int q : {0, 1, 2, 3, 4, 5, 6, 7, 9, 12, 14})
             fxInsEcho(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -795,17 +758,14 @@ void Host::fxInsEr1(int p)
     case 3: {
         const int32_t half = int32_t(half_area(*this));
         if (mode == 0) {
-            thru(*this, sys9(*this) != 0 ? 1 : 0);
             set_coef(rom::u16(mw(12)), 0x4000); set_coef(rom::u16(mw(13)), 0x4000); set_coef(rom::u16(mw(14)), 0);
             set_offs(mslot(0), 1);
             set_offs(mslot(5), half);
         } else if (mode == 1) {
-            thru(*this, sys9(*this) != 0 ? 1 : 0);
             set_coef(rom::u16(mw(12)), 0x4000); set_coef(rom::u16(mw(13)), 0x4000); set_coef(rom::u16(mw(14)), 0);
             set_offs(mslot(0), half);
             set_offs(mslot(5), 1);
         } else {
-            thru(*this, 0);
             set_coef(rom::u16(mw(12)), 0x7FFF); set_coef(rom::u16(mw(13)), 0); set_coef(rom::u16(mw(14)), 0x7FFF);
             set_offs(mslot(0), 1);
             set_offs(mslot(5), half);
@@ -817,18 +777,11 @@ void Host::fxInsEr1(int p)
         break;
     }
     case 4:
-        fxFloatCurveB(1, 0, P(*this, 4), 64, 0x35E53A);
+        fxFloatCurveB(1, P(*this, 4), 64, 0x35E53A);
         fxCopyWords2(0x35E53A, 0x35E540);
         break;
     case 9: {
-        uint32_t wet;
-        if (sys9(*this) & 1) {
-            thru(*this, (PU(*this, 3) == 0 || PU(*this, 3) == 1) ? 1 : 0);
-            wet = 127;
-        } else {
-            thru(*this, 0);
-            wet = PU(*this, 9);
-        }
+        const uint32_t wet = PU(*this, 9);
         wet_words(*this, MW, ER_REV, wet, GGXX);
         writeSweWordListSub(4, MW);
         break;
@@ -841,8 +794,6 @@ void Host::fxInsEr1(int p)
         for (int q : {3, 0, 1, 4, 9, 12, 14})
             fxInsEr1(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -860,7 +811,7 @@ constexpr uint32_t ER_WET = 0x35DF6C;
 inline int32_t er_row(const Host& h) { return rom::s16(ER_ROWS + uint32_t(sh::s8(uint32_t(12 * lsb(h)))) + 2u * PU(h, 0)); }
 void er_wet(Host& h)
 {
-    wet_words(h, ER_WET, ER_REV, wet_thru(h), GXGX);
+    wet_words(h, ER_WET, ER_REV, PU(h, 9), GXGX);
     h.writeSweWordListSub(4, ER_WET);
 }
 }  // namespace
@@ -966,57 +917,6 @@ void Host::fxInsCrossDelayEr(int p)
         for (int q : {0, 2, 4, 5, 6, 9, 12})
             fxInsCrossDelayEr(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
-        break;
-    }
-}
-
-// 0x3A68E6 fxIns_t3_5: dispatcher slots (3, 5..7), no Data List type
-void Host::fxIns_t3_5(int p)
-{
-    p &= 0xFF;
-    switch (p) {
-    case 0: {
-        const int32_t d = offs(rom::u8(ER_SLOTS + 21)) + ms(*this, PITCH_DELAY_TABLE, 0);
-        set_offs(rom::u8(ER_SLOTS + 20), d);
-        set_offs(rom::u8(ER_SLOTS + 1), d);
-        set_offs(rom::u8(ER_SLOTS), d);
-        set_coef(rom::u16(ER_STEPS + 2), 0x4000);
-        set_coef(rom::u16(ER_STEPS), 0x4000);
-        writeSweDeSub(2, ER_SLOTS);
-        writeSweDeSub(1, ER_SLOTS + 20);
-        writeSweWordListSub(2, ER_STEPS);
-        break;
-    }
-    case 1: {
-        const uint32_t w = uint32_t(sh::muls_w(250, P(*this, 1) - 64));
-        set_coef(rom::u16(0x35E578), w);
-        set_coef(rom::u16(0x35E576), w);
-        writeSweWordListSub(2, 0x35E576);
-        break;
-    }
-    case 2:
-        fxDesignFilter(2, 1, 1, P(*this, 2), 64, 0, 0x35E7DC);
-        break;
-    case 3:
-        fxDesignFilter(2, 2, 0, P(*this, 3), 64, 0, 0x35E7F0);
-        break;
-    case 9:
-        er_wet(*this);
-        break;
-    case 10:
-        fxScaleRow(P(*this, 10), 5, 3, 4, 0, ER_ROW_STEPS, ER_ROW_SLOTS);
-        writeSweWordListSub(16, ER_ROW_STEPS);
-        writeSweDeSub(8, ER_ROW_SLOTS);
-        break;
-    case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
-        for (int q : {0, 1, 2, 3, 9, 10})
-            fxIns_t3_5(q);
-        ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }

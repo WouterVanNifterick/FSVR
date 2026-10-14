@@ -26,7 +26,7 @@ inline uint32_t mod_delay(Host& h, uint32_t table, int p)
 {
     return uint32_t(h.fxMsToSamples(rom::s16(table + 2u * (uint32_t(P(h, p)) & 0xFFFF)))) & 0xFFFF;
 }
-inline uint32_t top(const Host& h) { return h.ram.u8(FX_MEM_FLAG) != 0 ? 0x10000u : 0x40000u; }
+constexpr uint32_t TOP = 0x40000;   // where the variation's delay memory ends
 
 // the pan words (parameter 9) of the group whose list holds (a, x, a, x) with the pan law
 // at index 1 and the type scale of the law's top; `a_first` selects the (a, a, x, x) layout
@@ -231,8 +231,6 @@ void Host::fxVarPhaser1(int p)
             fxVarPhaser1(q);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default:
-        break;
     }
 }
 
@@ -288,8 +286,6 @@ void Host::fxVarPhaser2(int p)
         for (int q : {0, 1, 3, 5, 7, 9, 10, 12})
             fxVarPhaser2(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -351,7 +347,7 @@ void Host::fxVarEnsDetune(int p)
     }
     case 2: {
         const uint32_t t = mod_delay(*this, MOD_DELAY_TABLE, 2);
-        const int32_t base = int32_t(((top(*this) - ram.u32(FX_BASES + 16)) >> 1) + 1);
+        const int32_t base = int32_t(((TOP - ram.u32(FX_BASES + 16)) >> 1) + 1);
         set_offs(rom::u8(SLOTS + 5), base);
         const int32_t d = int32_t(t + uint32_t(base) + 1);
         for (int i = 6; i <= 9; i++)
@@ -375,8 +371,6 @@ void Host::fxVarEnsDetune(int p)
         for (int q : {0, 1, 2, 9, 10, 12})
             fxVarEnsDetune(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -414,8 +408,6 @@ void Host::fxVarAutoWah(int p)
             fxVarAutoWah(q);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default:
-        break;
     }
 }
 
@@ -424,7 +416,7 @@ void Host::fxVarTouchWah(int p)
 {
     p &= 0xFF;
     constexpr uint32_t ATTACK = 0x35D9B6, CUTOFF = 0x35D95E, SENSE = 0x35D96C, PAN = 0x35DA5A;
-    constexpr uint32_t MODE_WORDS = 0x35DA24, MODE_WORD = 0x35DA2E, MIRROR = 0x35DA0C;
+    constexpr uint32_t MIRROR = 0x35DA0C;
     switch (p) {
     case 0:
         set_coef(rom::u16(ATTACK), uint32_t(P(*this, 0) * 258));
@@ -444,8 +436,6 @@ void Host::fxVarTouchWah(int p)
         pan_words_b(*this, PAN, true);
         break;
     case 15: {
-        if (ram.u8(FX_TYPE1 + 7) != 3)
-            break;
         int32_t v = ram.s8(VP + 31) - 0x34;
         const int8_t c = int8_t(v);
         if (c < 0 || c > 15)
@@ -455,25 +445,11 @@ void Host::fxVarTouchWah(int p)
     }
     case 255:
         ram.w8(SWE_SUB_HOLD, 1);
-        if (ram.u8(FX_TYPE1 + 7) == 2) {
-            fxDesignFilter(1, 1, 1, 0, 70, 0, 0x35E722);
-            fxDesignFilter(1, 0, 0, 51, 73, 0, 0x35E728);
-            set_coef(rom::u16(MODE_WORDS), 0);
-            set_coef(rom::u16(MODE_WORDS + 2), 0x7FFF);
-            set_coef(rom::u16(MODE_WORDS + 4), 0);
-            set_coef(rom::u16(MODE_WORDS + 6), 0);
-            set_coef(rom::u16(MODE_WORD), 0x7FFF);
-            writeSweWordListSub(4, MODE_WORDS);
-            writeSweWordListSub(1, MODE_WORD);
-        } else {
-            fxDesignFilter(1, 1, 1, 0, 64, 0, 0x35E722);
-            fxDesignFilter(1, 0, 0, 54, 64, 0, 0x35E728);
-        }
+        fxDesignFilter(1, 1, 1, 0, 64, 0, 0x35E722);
+        fxDesignFilter(1, 0, 0, 54, 64, 0, 0x35E728);
         for (int q : {0, 1, 2, 5, 7, 9, 15})
             fxVarTouchWah(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -523,43 +499,6 @@ void Host::fxVar3BandEq(int p)
             fxVar3BandEq(q);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default:
-        break;
-    }
-}
-
-// 0x39F9EC fxVar_t7_1: dispatcher slot (7, 1), no Data List type
-void Host::fxVar_t7_1(int p)
-{
-    p &= 0xFF;
-    constexpr uint32_t A = 0x35EA12, B = 0x35EA18;
-    switch (p) {
-    case 0: case 1:
-        fxDesignFilter(2, 1, 2, P(*this, 0), P(*this, 1), 0, 0x35E8EA);
-        fxCopyWords5(0x35E8EA, 0x35E908);
-        break;
-    case 2: case 3:
-        fxDesignFilter(2, 4, 3, P(*this, 2), P(*this, 3), 0, 0x35E8FE);
-        fxCopyWords5(0x35E8FE, 0x35E91C);
-        break;
-    case 255: {
-        ram.w8(SWE_SUB_HOLD, 1);
-        set_coef(rom::u16(A + 4), 0x4000);
-        set_coef(rom::u16(A), 0x4000);
-        set_coef(rom::u16(A + 2), 0);
-        const uint32_t x = uint32_t(fxMulTypeTableD(8192));
-        set_coef(rom::u16(B + 4), x);
-        set_coef(rom::u16(B), x);
-        set_coef(rom::u16(B + 2), 0);
-        fxDesignFilter(2, 1, 11, 0, 64, 0, 0x35E8F4);
-        fxCopyWords5(0x35E8F4, 0x35E912);
-        fxVar_t7_1(0);
-        fxVar_t7_1(2);
-        ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    }
-    default:
-        break;
     }
 }
 
@@ -595,8 +534,6 @@ void Host::fxVarHmEnhancer(int p)
         for (int q : {0, 1, 2})
             fxVarHmEnhancer(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -640,8 +577,6 @@ void Host::fxVarCompressor(int p)
             fxVarCompressor(q);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default:
-        break;
     }
 }
 
@@ -660,8 +595,6 @@ void Host::fxVarNoiseGate(int p)
         for (int q : {0, 1, 2, 3})
             fxVarNoiseGate(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -720,8 +653,6 @@ void Host::fxVarDistortion(int p)
         ram.w8(SWE_SUB_HOLD, 0);
         break;
     }
-    default:
-        break;
     }
 }
 
@@ -759,8 +690,6 @@ void Host::fxVarAmpSim(int p)
         for (int q : {0, 1, 2, 9, 10})
             fxVarAmpSim(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -801,7 +730,7 @@ void Host::fxVarKaraoke(int p)
         break;
     }
     case 10:
-        fxScaleRow(P(*this, 10), 5, 3, 4, 0, ROW_STEPS, ROW_SLOTS);
+        fxScaleRow(P(*this, 10) > 3 ? 3 : P(*this, 10), 5, 3, 4, 0, ROW_STEPS, ROW_SLOTS);   // a hidden parameter; the table has four rows
         writeSweWordListSub(16, ROW_STEPS);
         writeSweDeSub(8, ROW_SLOTS);
         break;
@@ -810,8 +739,6 @@ void Host::fxVarKaraoke(int p)
         for (int q : {0, 1, 2, 3, 9, 10})
             fxVarKaraoke(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -889,8 +816,6 @@ void Host::fxVarReverb(int p)
         for (int q : {0, 1, 2, 3, 4, 9, 11, 14})
             fxVarReverb(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }

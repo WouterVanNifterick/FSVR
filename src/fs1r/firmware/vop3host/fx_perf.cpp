@@ -32,8 +32,7 @@ constexpr uint32_t BLK_REVERB = SWE_SHADOW + 2304, BLK_INSERTION = SWE_SHADOW + 
 // the range of an insertion parameter from the descriptor table of the current insertion type
 int32_t Host::insertionParamBound(uint32_t id, uint32_t which)
 {
-    uint32_t type = ram.u8(PERFORMANCE + 175);
-    if (type > 40) type = 40;
+    const uint32_t type = ram.u8(PERFORMANCE + 175);
     const uint32_t desc = rom::u32(rom::PARAM_DESC_INSERTION + 4 * type) + (((sh::u16(id) & 255) - 136) << 4);
     return sh::u16(which) == 0 ? rom::s16(desc + 6) : rom::s16(desc + 8);
 }
@@ -48,7 +47,6 @@ int32_t Host::insertionParamMin(uint32_t id) { return insertionParamBound(id, 0)
 //   0x04    insertion type         0x02  dirty insertion parameters, with their controller offsets
 //   0x200   dirty mixer parameters (handlers at 0x3F0B0)
 //   0x100   dirty master EQ parameters (handlers at 0x3F104)
-//   0x400   controller reset: the insertion offsets and the two send offsets
 void Host::applySubDirtyMask(uint32_t mask)
 {
     const uint32_t cache = FX_PARAM_CACHE;
@@ -146,7 +144,7 @@ void Host::applySubDirtyMask(uint32_t mask)
         ram.w16(BLK_SYS + 2 * 5, perf(176));
         fxParamEntry(6, 5);
         ram.w16(BLK_SYS + 2 * 14, perf(16));
-        setSubMasterShift(2);
+        setSubMasterShift();
         setSubInsToReverb(perf(177));
         setSubInsToVariation(perf(178));
         setSubInsLevel(perf(179));
@@ -296,19 +294,6 @@ void Host::applySubDirtyMask(uint32_t mask)
             if (ram.u8(FX_DIRTY_EQ + i) == 1)
                 subEqHandler(i);
     }
-
-    if (mask & 0x400) {
-        // every insertion word gets performance byte 136 (the index is not added, flash 0x3B6AC)
-        for (uint32_t i = 0; i < 16; i++) {
-            ram.w16(FX_VAR_WORD + 2 * i, 0);
-            ram.w16(BLK_INSERTION + 2 * i, perf(136));
-            fxParamEntry(2, int(i));
-        }
-        ram.w16(FX_SENDB_OFFSET, 0);
-        setSubInsToVariation(perf(178));
-        ram.w16(FX_SENDA_OFFSET, 0);
-        setSubInsToReverb(perf(177));
-    }
 }
 
 // the handler table at flash 0x3F0B0, indexed like FX_DIRTY_MIXER: the system parameter
@@ -326,8 +311,6 @@ void Host::subMixerHandler(uint32_t i)
     case 17: applySubInsToVariation(); break;
     case 18: applySubInsLevel(); break;
     case 19: applySubIndividualOut(); break;
-    case 20: applySubMasterShift(); break;
-    default: subParamNop(); break;
     }
 }
 
@@ -338,8 +321,6 @@ void Host::subEqHandler(uint32_t i)
     else if (i < 7) copySubEqMid(i);
     else copySubEqHigh(i);
 }
-
-void Host::subParamNop() {}                                                    // flash 0x3B762
 
 // flash 0x3B766 applySubReverbPanReturn: reverb pan and return from the performance
 void Host::applySubReverbPanReturn()
@@ -414,7 +395,6 @@ void Host::applySubInsToVariation()
 
 void Host::applySubInsLevel() { setSubInsLevel(ram.u8(PERFORMANCE + 179)); }  // flash 0x3B91C
 void Host::applySubIndividualOut() { setSubIndividualOut(ram.u8(PERFORMANCE + 20)); }   // flash 0x3B92C
-void Host::applySubMasterShift() { setSubMasterShift(2); }                     // flash 0x3B93C
 
 // flash 0x3B940 copySubEqLow: cached EQ word i (bytes 180..183) to master EQ parameter i
 void Host::copySubEqLow(uint32_t i)
@@ -486,20 +466,14 @@ void Host::setSubIndividualOut(uint32_t mode)
     case 0: set_coef(step(0), 0); set_coef(step(1), 0); set_coef(step(2), 0); set_coef(step(3), 0); break;
     case 1: set_coef(step(0), 0x0B50); set_coef(step(1), 0x0B50); set_coef(step(2), 0); set_coef(step(3), 0); break;
     case 2: set_coef(step(0), 0); set_coef(step(1), 0); set_coef(step(2), 0x0B50); set_coef(step(3), 0x0B50); break;
-    default: break;
     }
     writeSweWordListSub(4, STEPS_ROUTE);
 }
 
-// flash 0x3BCA0 setSubMasterShift: FX_SUB_LEVEL = 0x7FFF >> (4 - v) for v 0..4, else 0x2000,
-// then the master volume step
-void Host::setSubMasterShift(uint32_t v)
+// flash 0x3BCA0 setSubMasterShift: the master level word, then the master volume step
+void Host::setSubMasterShift()
 {
-    const int32_t n = int32_t(sh::u8(v));
-    if (n >= 0 && !(n > 4))
-        ram.w16(FX_SUB_LEVEL, sh::lshrsi3(0x7FFF, 4 - n));
-    else
-        ram.w16(FX_SUB_LEVEL, 0x2000);
+    ram.w16(FX_SUB_LEVEL, 0x1FFF);
     fxParamEntry(6, 14);
 }
 
@@ -536,10 +510,6 @@ void Host::loadSubTypeDefaults(uint32_t kind)
         src = rom::FX_DEFAULTS_REVERB + (ram.u8(SWE_SHADOW + 0x21) << 5);
         dst = BLK_REVERB;
         break;
-    case 1:
-        src = 0x3610F4 + (ram.u8(SWE_SHADOW + 0x23) << 5);
-        dst = SWE_SHADOW + 2336;
-        break;
     case 2: {
         const uint32_t lsb = ram.u8(SWE_SHADOW + 0x25) << 5;
         switch (ram.u8(SWE_SHADOW + 0x24)) {
@@ -548,7 +518,6 @@ void Host::loadSubTypeDefaults(uint32_t kind)
         case 3: src = 0x3650EA; break;
         case 4: src = 0x3631FC; break;
         case 5: src = 0x3632FC; break;
-        case 6: src = 0x3651EA; break;
         case 7: src = 0x3615B4; break;
         case 10: src = 0x36538A; break;
         case 12: src = 0x3653CA; break;
@@ -582,8 +551,6 @@ void Host::loadSubTypeDefaults(uint32_t kind)
         dst = BLK_VARIATION;
         break;
     }
-    default:
-        return;
     }
     for (uint32_t i = 0; i < 16; i++)
         ram.w16(dst + 2 * i, rom::u16(src + 2 * i));
@@ -743,18 +710,6 @@ void Host::setSubSendBOffset(uint32_t v)
 void Host::setSubSendAOffset(uint32_t v)
 {
     ram.w16(FX_SENDA_OFFSET, v);
-    ram.w8(FX_DIRTY_MIXER + 16, 1);
-    postSubMask(513);
-}
-void Host::clearSubSendBOffset()                                               // flash 0x3C932
-{
-    ram.w16(FX_SENDB_OFFSET, 0);
-    ram.w8(FX_DIRTY_MIXER + 17, 1);
-    postSubMask(513);
-}
-void Host::clearSubSendAOffset()                                               // flash 0x3C980
-{
-    ram.w16(FX_SENDA_OFFSET, 0);
     ram.w8(FX_DIRTY_MIXER + 16, 1);
     postSubMask(513);
 }

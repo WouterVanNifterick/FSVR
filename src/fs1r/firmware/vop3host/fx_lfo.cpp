@@ -55,10 +55,8 @@ void Host::fxStoreBipolar500(int v, uint32_t step)
 void Host::fxStoreModePair(int mode, uint32_t steps)
 {
     switch (mode & 0xFF) {
-    case 0: set_coef(rom::u16(steps), 1024); set_coef(rom::u16(steps + 2), 0); break;
     case 1: set_coef(rom::u16(steps), 1536); set_coef(rom::u16(steps + 2), 0xE000); break;
     case 2: set_coef(rom::u16(steps), 0x7C00); set_coef(rom::u16(steps + 2), 0); break;
-    default: break;
     }
     writeSweWordListSub(2, steps);
 }

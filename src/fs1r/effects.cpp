@@ -24,7 +24,7 @@ void Effects::sync(uint8_t* c) {
     for (int i : TYPE_BYTE)                      // types first: they load defaults, which the other changes then override
         if (c[i] != was[i]) { host.set_performance_byte(i, was[i] = c[i]); type = true; }
     for (int i = 0; i < 192; i++)
-        if (c[i] != was[i]) { host.ram.w8(PERF + i, c[i]); host.markSubParamDirty(firstByte(i)); }
+        if ((c[i] & 0x7f) != was[i]) { host.store(i, c[i]); host.markSubParamDirty(firstByte(i)); }
     host.pollSubDirtyLoop();
     if (type) std::memcpy(c + 80, host.ram.bytes() + 80, 111);   // the new type's defaults
 }
@@ -35,7 +35,7 @@ void Effects::setType(Block b, int type) { host.set_performance_byte(TYPE_BYTE[b
 void Effects::setParam(Block b, int slot, int word) {
     if (b == REVERB && slot > 8) { host.set_performance_byte(0x60 + slot - 9, word); return; }
     int i = (b == REVERB ? 0x50 : b == VARIATION ? 0x68 : 136) + 2 * (slot - 1);
-    host.ram.w8(PERF + i + 1, word & 0x7f);
+    host.store(i + 1, word & 0x7f);
     host.set_performance_byte(i, word >> 7);
 }
 

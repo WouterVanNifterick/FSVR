@@ -50,11 +50,7 @@ void filters(Host& h, int p, uint32_t lpf, uint32_t lpf_copy, uint32_t hpf, uint
     }
 }
 
-// the memory top above area 4
-uint32_t top(const Host& h)
-{
-    return h.ram.u8(FX_MEM_FLAG) != 0 ? 0x10000u : 0x40000u;
-}
+constexpr uint32_t TOP = 0x40000;   // where the variation's delay memory ends
 
 int32_t P(const Host& h, int i) { return h.ram.s16(VP + 2 * i); }
 uint32_t mod_slot(int i) { return rom::u8(MOD_SLOTS + uint32_t(i)); }
@@ -101,7 +97,7 @@ void Host::fxVarChorus(int p)
         } else {
             set_coef(rom::u16(MIX_STEPS), 0x7FFF);
             set_coef(rom::u16(MIX_STEPS + 2), 0);
-            base = int32_t(((top(*this) - ram.u32(FX_BASES + 16)) >> 1) + 1);
+            base = int32_t(((TOP - ram.u32(FX_BASES + 16)) >> 1) + 1);
             set_offs(mod_slot(5), base);
         }
         const int32_t d2 = int32_t(t + uint32_t(base));
@@ -125,8 +121,6 @@ void Host::fxVarChorus(int p)
         for (int q : {0, 1, 2, 3, 5, 7, 9})
             fxVarChorus(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -173,13 +167,11 @@ void Host::fxVarFlanger(int p)
         fxStoreBipolar500(P(*this, 13), BAL_STEP_C);
         break;
     case 255:
-        set_offs(mod_slot(5), int32_t(((top(*this) - ram.u32(FX_BASES + 16)) >> 1) + 1));
+        set_offs(mod_slot(5), int32_t(((TOP - ram.u32(FX_BASES + 16)) >> 1) + 1));
         ram.w8(SWE_SUB_HOLD, 1);
         for (int q : {0, 1, 2, 3, 5, 7, 9, 13})
             fxVarFlanger(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -228,8 +220,6 @@ void Host::fxVarSymphonic(int p)
             fxVarSymphonic(q);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default:
-        break;
     }
 }
 
@@ -265,8 +255,6 @@ void Host::fxVarRotarySp(int p)
         for (int q : {0, 1, 5, 7, 9})
             fxVarRotarySp(q);
         ram.w8(SWE_SUB_HOLD, 0);
-        break;
-    default:
         break;
     }
 }
@@ -327,8 +315,6 @@ void Host::fxVarTremolo(int p)
         ram.w8(SWE_SUB_HOLD, 0);
         break;
     }
-    default:
-        break;
     }
 }
 
@@ -383,8 +369,6 @@ void Host::fxVarAutoPan(int p)
         ram.w8(SWE_SUB_HOLD, 0);
         break;
     }
-    default:
-        break;
     }
 }
 

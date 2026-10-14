@@ -68,18 +68,17 @@ struct Delay {
     }
     void curve(int p, bool copy) const
     {
-        h.fxFloatCurveB(0, 0, P(p), 64, b.curve);
+        h.fxFloatCurveB(0, P(p), 64, b.curve);
         if (copy)
             h.fxCopyWords2(b.curve, b.curve_copy);
     }
     // half the block's delay area plus one: reverb uses area 3..4, variation the top of the
-    // memory above base 4 (0x40000, or 0x10000 on the small-memory flag)
+    // half of the block's delay memory; the variation's runs up to 0x40000
     uint32_t half_area() const
     {
         if (!b.variation)
             return ((h.ram.u32(FX_BASES + 16) - h.ram.u32(FX_BASES + 12)) >> 1) + 1;
-        const uint32_t top = h.ram.u8(FX_MEM_FLAG) != 0 ? 0x10000u : 0x40000u;
-        return ((top - h.ram.u32(FX_BASES + 16)) >> 1) + 1;
+        return ((0x40000u - h.ram.u32(FX_BASES + 16)) >> 1) + 1;
     }
     void bipolar_word(int wi, int p) const
     {
@@ -114,7 +113,6 @@ void delay_lcr(Host& h, const Block& b, int p, void (Host::*self)(int))
             (h.*self)(q);
         h.ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default: break;
     }
 }
 
@@ -143,7 +141,6 @@ void delay_lr(Host& h, const Block& b, int p, void (Host::*self)(int))
             (h.*self)(q);
         h.ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default: break;
     }
 }
 
@@ -174,7 +171,6 @@ void echo(Host& h, const Block& b, int p, void (Host::*self)(int))
             (h.*self)(q);
         h.ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default: break;
     }
 }
 
@@ -236,7 +232,6 @@ void cross_delay(Host& h, const Block& b, int p, void (Host::*self)(int))
             (h.*self)(q);
         h.ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default: break;
     }
 }
 

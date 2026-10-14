@@ -46,13 +46,12 @@ public:
     void loadAllSubEffects();                                           // 0x3A110
     void setSubFlag(int effect, uint32_t enabled);                      // 0x3A140
     void initSubEngine();                                               // 0x3AAC8
-    void setSubGain8(int v);                                            // 0x3BCD0
+    void setSubGain8();                                                 // 0x3BCD0
 
     // ---- the performance into the chip ----
     void applySubDirtyMask(uint32_t mask);                              // 0x3AC88: 0x8000 loads the whole performance
     void subMixerHandler(uint32_t i);                                   // the table at flash 0x3F0B0
     void subEqHandler(uint32_t i);                                      // the table at flash 0x3F104
-    void subParamNop();                                                 // 0x3B762
     void applySubReverbPanReturn();                                        // 0x3B766: reverb pan and return
     void applySubVarPan();                                              // 0x3B81C
     void applySubVarReturn();                                           // 0x3B82E
@@ -63,7 +62,6 @@ public:
     void applySubInsToVariation();                                             // 0x3B8EC
     void applySubInsLevel();                                            // 0x3B91C
     void applySubIndividualOut();                                       // 0x3B92C
-    void applySubMasterShift();                                         // 0x3B93C
     void copySubEqLow(uint32_t i);                                      // 0x3B940
     void copySubEqMid(uint32_t i);                                     // 0x3B95C
     void copySubEqHigh(uint32_t i);                                     // 0x3B97E
@@ -72,7 +70,7 @@ public:
     void setSubInsToVariation(uint32_t v);                                     // 0x3BA8E: insertion to variation send
     void setSubInsLevel(uint32_t v);                                   // 0x3BB30: insertion level
     void setSubIndividualOut(uint32_t mode);                                // 0x3BBBA: individual out
-    void setSubMasterShift(uint32_t v);                                 // 0x3BCA0
+    void setSubMasterShift();                                           // 0x3BCA0
     int32_t insertionParamBound(uint32_t id, uint32_t which);                 // 0x306C0
     int32_t insertionParamMax(uint32_t id);                              // 0x30740
     int32_t insertionParamMin(uint32_t id);                              // 0x3074C
@@ -87,14 +85,11 @@ public:
     void setSubInsCtlOffset(uint32_t i, uint32_t v);                         // 0x3C8D4: controller offset of insertion parameter i
     void setSubSendBOffset(uint32_t v);                                 // 0x3C8EC
     void setSubSendAOffset(uint32_t v);                                 // 0x3C8FE
-    void clearSubSendBOffset();                                         // 0x3C932
-    void clearSubSendAOffset();                                         // 0x3C980
 
     // ---- parameter dispatch ----
     void fxParamEntry(int kind, int p);                                 // 0x39B09C
     void fxDispatchKind(int kind, int p);                               // 0x39C0B2
     void fxDispatchReverb(int p);                                       // 0x39C144
-    void fxDispatchAux(int p);                                          // 0x39C18C
     void fxDispatchInsertion(int p);                                    // 0x39C1AC
     void fxDispatchReverbDelay(int p);                                  // 0x39C48A
     void fxDispatchVariation(int p);                                    // 0x39C51C
@@ -107,10 +102,10 @@ public:
     // into the constant shadow at the listed steps.
     void fxDesignFilter(int order, int scale, int kind, int freq, int gain, int q, uint32_t steps);   // flash 0x37414
     void fxDesignCombs(int time, int damp, int count, int sel, uint32_t list);                        // 0x39C796
-    void fxDesignRooms(int mode, int p0, int y0, int y1, int y2, int extra, uint32_t slots);          // 0x39CF82
-    void fxRoomPairs(int mode, int clampSrc, int tableIndex, int tableSpan, int destSelect, uint32_t slotIds);  // 0x39D2C4
+    void fxDesignRooms(int time, int y0, int y1, int damp, int extra, uint32_t steps);                // 0x39CF82
+    void fxRoomPairs(int clampSrc, int index, int span, uint32_t slots);                              // 0x39D2C4
     void fxDesignFromTable(int index, uint32_t dest);                                                  // 0x39C758
-    void fxFloatCurveB(int scale, int mode, int v, int gain, uint32_t steps);                          // flash 0x39108
+    void fxFloatCurveB(int scale, int v, int gain, uint32_t steps);                                    // flash 0x39108
 
     // ---- helpers ----
     int32_t fxBipolar500(int v);                        // 0x39CF62
@@ -166,7 +161,7 @@ public:
     void fxVarChorus(int p); void fxVarFlanger(int p); void fxVarSymphonic(int p);
     void fxVarPhaser1(int p); void fxVarPhaser2(int p); void fxVarEnsDetune(int p);
     void fxVarRotarySp(int p); void fxVarTremolo(int p); void fxVarAutoPan(int p);
-    void fxVarAutoWah(int p); void fxVarTouchWah(int p); void fxVar_t7_1(int p); void fxVar3BandEq(int p);
+    void fxVarAutoWah(int p); void fxVarTouchWah(int p); void fxVar3BandEq(int p);
     void fxVarHmEnhancer(int p); void fxVarCompressor(int p); void fxVarNoiseGate(int p);
     void fxVarDistortion(int p); void fxVarAmpSim(int p);
     void fxVarDelayLCR(int p); void fxVarDelayLR(int p); void fxVarEcho(int p); void fxVarCrossDelay(int p);
@@ -176,12 +171,11 @@ public:
     void fxInsDelayLR(int p); void fxInsDelayLCR(int p); void fxInsEcho(int p); void fxInsEr1(int p);
     void fxInsRotarySp(int p); void fxIns2WayRotary(int p); void fxInsTremolo(int p); void fxInsAutoPan(int p); void fxInsAmbience(int p);
     void fxInsPhaser1(int p); void fxInsPhaser2(int p);
-    void fxInsCrossDelayEr(int p); void fxIns_t3_5(int p);
+    void fxInsCrossDelayEr(int p);
     void fxInsAutoWahDist(int p); void fxInsTouchWahDist(int p);
     void fxInsDistortion(int p); void fxInsAmpSim(int p); void fxInsCompDist(int p); void fxInsCompDistDelay(int p);
     void fxInsHmEnhancer(int p); void fxInsNoiseGate(int p);
-    void fxIns_t6_1(int p); void fxIns_t6_9(int p);
-    void fxInsPitchChange(int p); void fxInsEnsDetune(int p); void fxIns_t7_4(int p); void fxIns_t7_5(int p); void fxIns3BandEq(int p);
+    void fxInsPitchChange(int p); void fxInsEnsDetune(int p); void fxIns3BandEq(int p);
     void fxInsLoFi(int p); void fxInsWahDistDelay(int p); void fxInsCompressor(int p); void fxInsDistDelay(int p);
 
     // ---- parameter store ----
@@ -189,20 +183,29 @@ public:
     uint32_t paramDescAddr(uint32_t index);                             // 0x34478
     int32_t readStoredParam(uint32_t desc, uint32_t addr);              // 0x34B00
 
+    // A performance byte enters here: seven bits, and no effect type past the last one.
+    void store(uint32_t index, uint32_t value)
+    {
+        value &= 0x7F;
+        if (index == 168 && value > 16) value = 16;
+        if (index == 171 && value > 28) value = 28;
+        if (index == 175 && value > 40) value = 40;
+        ram.w8(ram::PERFORMANCE + index, value);
+    }
     // A performance's 192 common bytes, loaded as the firmware loads a performance.
     void load_performance(const uint8_t* perf)
     {
         for (uint32_t i = 0; i < 192; i++)
-            ram.w8(ram::PERFORMANCE + i, perf[i]);
-        clearSubSendBOffset();
-        clearSubSendAOffset();
+            store(i, perf[i]);
+        setSubSendBOffset(0);
+        setSubSendAOffset(0);
         applySubDirtyMask(0x8001);
         pollSubDirtyLoop();
     }
     // One byte changed. For a two-byte parameter: its first byte, after both were written.
     void set_performance_byte(uint32_t index, uint32_t value)
     {
-        ram.w8(ram::PERFORMANCE + index, value);
+        store(index, value);
         markSubParamDirty(index);
         pollSubDirtyLoop();
     }
@@ -212,7 +215,6 @@ public:
     void set_coef(uint32_t step, uint32_t v) { ram.w16(ram::FX_COEF + 2 * step, v); }
     int32_t offs(uint32_t slot) const { return ram.s32(ram::FX_OFFS + 4 * slot); }
     void set_offs(uint32_t slot, int32_t v) { ram.w32(ram::FX_OFFS + 4 * slot, uint32_t(v)); }
-    uint32_t param(int kind, int p) const { return ram.u16(ram::FX_PARAMS + 0x20 * kind + 2 * p); }
     void set_param(int kind, int p, uint32_t v) { ram.w16(ram::FX_PARAMS + 0x20 * kind + 2 * p, v); }
 };
 

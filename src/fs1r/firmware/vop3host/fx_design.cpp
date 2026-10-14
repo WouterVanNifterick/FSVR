@@ -152,26 +152,6 @@ void Host::fxDesignFilter(int order, int scale, int kind, int freq, int gain, in
         }
         break;
     }
-    case 8: {   // 0x38170: second-order band-pass
-        const float w = dtof(ddiv(dmul(ftod(t), 10.0), ftod(utof(qb))));
-        const float D = dtof(dadd(dadd(ftod(w), ftod(t2)), 1.0));
-        c0 = fdiv(D, w);
-        c3 = fneg(c0);
-        c2 = dtof(ddiv(dsub(dsub(2.0, ftod(t2)), ftod(t2)), ftod(D)));
-        c4 = dtof(ddiv(dadd(dsub(ftod(w), ftod(t2)), -1.0), ftod(D)));
-        c1 = 0.0f;
-        break;
-    }
-    case 9: {   // 0x3828E: second-order notch
-        const float w = dtof(ddiv(dmul(ftod(t), 10.0), ftod(utof(qb))));
-        const float D = dtof(dadd(dadd(ftod(w), ftod(t2)), 1.0));
-        c0 = dtof(ddiv(dadd(ftod(t2), 1.0), ftod(D)));
-        c3 = c0;
-        c1 = dtof(ddiv(dadd(ftod(fadd(t2, t2)), -2.0), ftod(D)));
-        c2 = fneg(c1);
-        c4 = dtof(ddiv(dadd(dsub(ftod(w), ftod(t2)), -1.0), ftod(D)));
-        break;
-    }
     case 10: {   // 0x3840C: peaking EQ
         const float w = dtof(ddiv(dmul(ftod(t), 10.0), ftod(utof(qb))));
         if (boost) {
@@ -195,8 +175,6 @@ void Host::fxDesignFilter(int order, int scale, int kind, int freq, int gain, in
     }
     case 11:   // 0x38726: plain gain
         c0 = G;
-        break;
-    default:   // 0x3876C: everything zero
         break;
     }
 
@@ -238,43 +216,25 @@ void Host::fxDesignFilter(int order, int scale, int kind, int freq, int gain, in
         if (sh::flt(e4, e2)) w2 = bump(w2, -1.0); else w4 = bump(w4, -1.0);
     }
     // 0x38FFE
-    if (order == 2) {
-        set_coef(rom::u16(steps), word(w0));
-        set_coef(rom::u16(steps + 2), word(w1));
-        set_coef(rom::u16(steps + 4), word(w3));
-        set_coef(rom::u16(steps + 6), raw(w2));
-        set_coef(rom::u16(steps + 8), word(w4));
-        writeSweWordListSub(5, steps);
-    } else {
-        set_coef(rom::u16(steps), word(w0));
-        set_coef(rom::u16(steps + 2), word(w3));
-        set_coef(rom::u16(steps + 4), word(w2));
-        set_coef(rom::u16(steps + 6), raw(w4));
-        writeSweWordListSub(4, steps);
-    }
+    set_coef(rom::u16(steps), word(w0));
+    set_coef(rom::u16(steps + 2), word(w1));
+    set_coef(rom::u16(steps + 4), word(w3));
+    set_coef(rom::u16(steps + 6), raw(w2));
+    set_coef(rom::u16(steps + 8), word(w4));
+    writeSweWordListSub(5, steps);
 }
 
-// flash 0x39108 fxFloatCurveB(scale, mode, v, gain, steps): two words from a gain byte and a
-// mix byte v: k = (v + 8) / 18; mode 0: (k G, (1 - k) G) with 1.0 nudged below full scale when
-// unscaled; mode 1: (k G, (k - 1) G); mode 2: (G, 0); else (0, 0).
-void Host::fxFloatCurveB(int scale, int mode, int v, int gain, uint32_t steps)
+// flash 0x39108 fxFloatCurveB(scale, v, gain, steps): two words from a gain byte and a mix
+// byte v: k = (v + 8) / 18 gives (k G, (1 - k) G), with 1.0 nudged below full scale when unscaled
+void Host::fxFloatCurveB(int scale, int v, int gain, uint32_t steps)
 {
-    scale &= 0xFF; mode &= 0xFF; v &= 0xFF;
+    scale &= 0xFF; v &= 0xFF;
     const float G = rom::f32(rom::FX_DB + 4u * uint32_t((gain & 0xFF) - 52));
-    float c0 = 0.0f, c1 = 0.0f;
-    if (mode == 0) {
-        const float k = sh::dtof(sh::ddiv(sh::dadd(sh::utod(uint32_t(v)), 8.0), 18.0));
-        c0 = sh::fmul(k, G);
-        c1 = sh::dtof(sh::dmul(sh::dsub(1.0, sh::ftod(k)), sh::ftod(G)));
-        if (!sh::dne(1.0, sh::ftod(c0)) && scale == 0)
-            c0 = sh::from_bits(0x3F7FFE09);
-    } else if (mode == 1) {
-        const float k = sh::dtof(sh::ddiv(sh::dadd(sh::utod(uint32_t(v)), 8.0), 18.0));
-        c0 = sh::fmul(k, G);
-        c1 = sh::dtof(sh::dmul(sh::dadd(sh::ftod(k), -1.0), sh::ftod(G)));
-    } else if (mode == 2) {
-        c0 = G;
-    }
+    const float k = sh::dtof(sh::ddiv(sh::dadd(sh::utod(uint32_t(v)), 8.0), 18.0));
+    float c0 = sh::fmul(k, G);
+    const float c1 = sh::dtof(sh::dmul(sh::dsub(1.0, sh::ftod(k)), sh::ftod(G)));
+    if (!sh::dne(1.0, sh::ftod(c0)) && scale == 0)
+        c0 = sh::from_bits(0x3F7FFE09);
     const float S = sh::fmul(sh::itof(int32_t(sh::lshrsi3(16, scale))), 2048.0f);
     const float w0 = round_word(S, c0), w1 = round_word(S, c1);
     set_coef(rom::u16(steps), uint32_t(sh::ftoi(w0)));

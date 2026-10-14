@@ -283,7 +283,6 @@ void Host::setSubFlag(int effect, uint32_t enabled)
 void Host::initSubEngine()
 {
     ram.w16(FX_SUB_LEVEL, 8192);
-    ram.w8(FX_MEM_FLAG, 0);
     ram.w32(FX_BASES + 0, 0);
     ram.w32(FX_BASES + 4, 0xFFFF);
     ram.w32(FX_BASES + 8, 0x10000);
@@ -308,7 +307,6 @@ void Host::initSubEngine()
     ram.w8(SWE_SHADOW + 0x28, 0);
     ram.w8(SWE_SHADOW + 0x29, 0);
     fxParamEntry(4, 255);
-    ram.w8(FX_EQ_TYPE, 0);
     ram.w16(FX_PARAMS_EQ + 2 * 5, 64);
     ram.w16(FX_PARAMS_EQ + 2 * 6, 28);
     ram.w16(FX_PARAMS_EQ + 2 * 7, 7);
@@ -331,7 +329,7 @@ void Host::initSubEngine()
     fxParamEntry(6, 6);
     ram.w16(FX_PARAMS_SYS + 2 * 9, 0);
     fxParamEntry(6, 9);
-    setSubGain8(0);
+    setSubGain8();
     setSubFlag(255, 0);
 }
 

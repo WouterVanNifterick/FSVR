@@ -56,14 +56,10 @@ void Host::fxResetWindow(int kind)
         spread(12, RESET_SLOTS_REVERB_DELAY, b4 - b3);
         loadSubCoeffBlock(3, 1);
         break;
-    case 4: {
+    case 4:
         zero_steps(0x48, rom::FX_STEPS_VARIATION);
-        const uint32_t top = ram.u8(FX_MEM_FLAG) == 0 ? 0x3FFFF : 0xFFFF;
-        spread(12, RESET_SLOTS_VARIATION, top - b4);
+        spread(12, RESET_SLOTS_VARIATION, 0x3FFFF - b4);
         loadSubCoeffBlock(4, 1);
-        break;
-    }
-    default:
         break;
     }
 }
@@ -229,37 +225,15 @@ void Host::fxSystemParam(int p)
         fxCopyWords3(0x35E7A8, 0x35E7AE);
         ram.w8(SWE_SUB_HOLD, 0);
         break;
-    default:
-        break;
     }
 }
 
-// flash 0x3BCD0 setSubGain8: a gain code -12..12 to one word in the eight steps listed at
-// 0x3721DC (1 dB steps from 0x15 = 0 dB; the negative codes mute or attenuate)
-void Host::setSubGain8(int v)
+// flash 0x3BCD0 setSubGain8: 0 dB, word 21, into the eight output gain steps
+void Host::setSubGain8()
 {
-    uint32_t word;
-    switch (sh::s8(uint32_t(v))) {
-    case -12: word = 0; break;
-    case -1: word = 12; break;
-    case 0: word = 21; break;
-    case 1: word = 42; break;
-    case 2: word = 68; break;
-    case 3: word = 77; break;
-    case 4: word = 85; break;
-    case 5: word = 94; break;
-    case 6: word = 102; break;
-    case 7: word = 128; break;
-    case 8: word = 214; break;
-    case 9: word = 428; break;
-    case 10: word = 857; break;
-    case 11: word = 1720; break;
-    case 12: word = 3431; break;
-    default: word = 24; break;
-    }
     constexpr uint32_t STEPS = 0x3721DC;
     for (int i = 0; i < 8; i++)
-        set_coef(rom::u16(STEPS + 2 * i), word);
+        set_coef(rom::u16(STEPS + 2 * i), 21);
     writeSweWordListSub(8, STEPS);
 }
 

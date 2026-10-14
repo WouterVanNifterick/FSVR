@@ -34,20 +34,8 @@ inline uint32_t PU(const Host& h, int i) { return h.ram.u16(IP + 2 * i); }
 inline int32_t PLO(const Host& h, int i) { return h.ram.s8(IP + 2 * i + 1); }     // low byte, signed
 inline uint32_t PLOU(const Host& h, int i) { return h.ram.u8(IP + 2 * i + 1); }   // low byte
 inline uint32_t lsb(const Host& h) { return h.ram.u8(FX_TYPE1 + 3); }
-inline uint32_t sys9(const Host& h) { return h.ram.u16(FX_PARAMS_SYS + 18); }
 inline uint32_t half_area(const Host& h) { return ((h.ram.u32(FX_BASES + 12) - h.ram.u32(FX_BASES + 8)) >> 1) + 1; }
 inline int32_t ms(Host& h, uint32_t table, int p) { return h.fxMsToSamples(rom::s16(table + 2u * PU(h, p))); }
-inline void thru(Host& h, int v) { h.ram.w8(FX_INS_THRU, uint8_t(v)); }
-
-// the Dry/Wet rule shared by most types: system parameter 9 odd -> Thru 1 and fully wet,
-// else Thru 0 and the type's own parameter 9
-inline uint32_t wet_thru(Host& h)
-{
-    if (sys9(h) & 1) { thru(h, 1); return 127; }
-    thru(h, 0);
-    return PU(h, 9);
-}
-inline uint32_t wet_only(const Host& h) { return (sys9(h) & 1) ? 127u : PU(h, 9); }
 
 // the four Dry/Wet words: the dry gain s16(table[128 - wet]) >> shift into steps g0 and g1,
 // the wet gain (through the type-scale table B) into steps x0 and x1
