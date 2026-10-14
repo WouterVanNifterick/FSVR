@@ -8,8 +8,6 @@
 
 namespace fs1r::vop3host {
 
-using namespace ram;
-
 namespace {
 
 constexpr uint32_t FX_LEVEL_CURVE = 0x3717D0;   // f32 x 128: feedback/level law 0..1
@@ -18,42 +16,42 @@ struct Block {
     uint32_t W;            // u16 x 14: the block's step words
     uint32_t S;            // u8 x 6: its delay slots
     uint32_t lpf, lpf_copy, hpf, hpf_copy, curve, curve_copy;
-    uint32_t params;       // the kind's parameter block
-    bool variation;        // fxMulTypeTableD and the memory-flag area top instead of table C and area 3..4
+    int kind;              // whose parameters
+    bool variation;        // fxMulTypeTableD and the memory above area 4 instead of table C and area 3..4
 };
 
-constexpr Block REVERB_BLOCK{0x35D8C8, 0x35D8E4, 0x35E69C, 0x35E6A8, 0x35E6A2, 0x35E6AE, 0x35E6B4, 0x35E6B8, FX_PARAMS + 0x60, false};
-constexpr Block VARIATION_BLOCK{0x35D92C, 0x35D948, 0x35E776, 0x35E782, 0x35E77C, 0x35E788, 0x35E78E, 0x35E792, FX_PARAMS + 0x80, true};
+constexpr Block REVERB_BLOCK{0x35D8C8, 0x35D8E4, 0x35E69C, 0x35E6A8, 0x35E6A2, 0x35E6AE, 0x35E6B4, 0x35E6B8, REVERB_DELAY, false};
+constexpr Block VARIATION_BLOCK{0x35D92C, 0x35D948, 0x35E776, 0x35E782, 0x35E77C, 0x35E788, 0x35E78E, 0x35E792, VARIATION, true};
 
 struct Delay {
     Host& h;
     const Block& b;
-    int32_t P(int i) const { return h.ram.s16(b.params + 2 * i); }
+    int32_t P(int i) const { return h.param[b.kind][i]; }
     uint32_t slot(int i) const { return rom::u8(b.S + uint32_t(i)); }
     uint32_t word(int i) const { return rom::u16(b.W + 2u * uint32_t(i)); }
 
     // offs[S[dst]] = samples(p) + offs[S[ref]] (unsigned 16-bit sample count), then the slot
     void delay_slot(int dst, int ref, int p) const
     {
-        h.set_offs(slot(dst), int32_t((uint32_t(h.fxMsToSamples(P(p))) & 0xFFFF) + uint32_t(h.offs(slot(ref)))));
+        h.delay[slot(dst)] = int32_t((uint32_t(h.fxMsToSamples(P(p))) & 0xFFFF) + uint32_t(h.delay[slot(ref)]));
         h.writeSweDeSub(1, b.S + uint32_t(dst));
     }
     // the same with a 16-bit base, selected by the routing mode (cross delay)
     void delay_slot16(int dst, uint32_t refslot, int p) const
     {
-        h.set_offs(slot(dst), int32_t((uint32_t(h.fxMsToSamples(P(p))) & 0xFFFF) + (uint32_t(h.offs(refslot)) & 0xFFFF)));
+        h.delay[slot(dst)] = int32_t((uint32_t(h.fxMsToSamples(P(p))) & 0xFFFF) + (uint32_t(h.delay[refslot]) & 0xFFFF));
         h.writeSweDeSub(1, b.S + uint32_t(dst));
     }
     // the feedback gain words (parameter 9 of every type)
     void gain_words() const
     {
         const uint32_t g = uint32_t(rom::s16(rom::FX_ER_REV + 2) >> 2);
-        h.set_coef(word(1), g);
-        h.set_coef(word(0), g);
+        h.coef[word(1)] = g;
+        h.coef[word(0)] = g;
         const int32_t scaled = rom::s16(rom::FX_ER_REV + 254) >> 2;
         const uint32_t x = uint32_t(b.variation ? h.fxMulTypeTableD(scaled) : h.fxMulTypeTableC(scaled));
-        h.set_coef(word(3), x);
-        h.set_coef(word(2), x);
+        h.coef[word(3)] = x;
+        h.coef[word(2)] = x;
         h.writeSweWordListSub(4, b.W);
     }
     void filters(int p) const
@@ -77,12 +75,12 @@ struct Delay {
     uint32_t half_area() const
     {
         if (!b.variation)
-            return ((h.ram.u32(FX_BASES + 16) - h.ram.u32(FX_BASES + 12)) >> 1) + 1;
-        return ((0x40000u - h.ram.u32(FX_BASES + 16)) >> 1) + 1;
+            return ((AREA[4] - AREA[3]) >> 1) + 1;
+        return ((0x40000u - AREA[4]) >> 1) + 1;
     }
     void bipolar_word(int wi, int p) const
     {
-        h.set_coef(word(wi), uint32_t(h.fxBipolar500(P(p))));
+        h.coef[word(wi)] = uint32_t(h.fxBipolar500(P(p)));
         h.writeSweWordListSub(1, b.W + 2u * uint32_t(wi));
     }
 };
@@ -98,8 +96,8 @@ void delay_lcr(Host& h, const Block& b, int p, void (Host::*self)(int))
     case 4: d.bipolar_word(7, 4); break;
     case 5: {
         const int32_t x = int(double(rom::f32(FX_LEVEL_CURVE + 4u * (uint32_t(d.P(5)) & 0xFFFF))) * 32767.0);
-        h.set_coef(d.word(6), uint32_t(int16_t(x)));
-        h.set_coef(d.word(5), uint32_t(int16_t(x)));
+        h.coef[d.word(6)] = uint32_t(int16_t(x));
+        h.coef[d.word(5)] = uint32_t(int16_t(x));
         h.writeSweWordListSub(1, b.W + 10);
         h.writeSweWordListSub(1, b.W + 12);
         break;
@@ -108,10 +106,10 @@ void delay_lcr(Host& h, const Block& b, int p, void (Host::*self)(int))
     case 9: d.gain_words(); break;
     case 12: case 13: case 14: case 15: d.filters(p); break;
     case 255:
-        h.ram.w8(SWE_SUB_HOLD, 1);
+        h.hold = true;
         for (int q : {0, 1, 2, 3, 4, 5, 6, 9, 12, 14})
             (h.*self)(q);
-        h.ram.w8(SWE_SUB_HOLD, 0);
+        h.hold = false;
         break;
     }
 }
@@ -126,8 +124,8 @@ void delay_lr(Host& h, const Block& b, int p, void (Host::*self)(int))
     case 3: d.delay_slot(4, 0, 3); break;
     case 4: {
         const int32_t x = h.fxBipolar500(d.P(4));
-        h.set_coef(d.word(9), uint32_t(int16_t(x) >> 1));
-        h.set_coef(d.word(7), uint32_t(int16_t(x) >> 1));
+        h.coef[d.word(9)] = uint32_t(int16_t(x) >> 1);
+        h.coef[d.word(7)] = uint32_t(int16_t(x) >> 1);
         h.writeSweWordListSub(1, b.W + 14);
         h.writeSweWordListSub(1, b.W + 18);
         break;
@@ -136,10 +134,10 @@ void delay_lr(Host& h, const Block& b, int p, void (Host::*self)(int))
     case 9: d.gain_words(); break;
     case 12: case 13: case 14: case 15: d.filters(p); break;
     case 255:
-        h.ram.w8(SWE_SUB_HOLD, 1);
+        h.hold = true;
         for (int q : {0, 1, 2, 3, 4, 5, 9, 12, 14})
             (h.*self)(q);
-        h.ram.w8(SWE_SUB_HOLD, 0);
+        h.hold = false;
         break;
     }
 }
@@ -157,19 +155,19 @@ void echo(Host& h, const Block& b, int p, void (Host::*self)(int))
     case 6: d.delay_slot(5, 3, 6); break;
     case 7: {
         const int32_t x = int(32767.0f * rom::f32(FX_LEVEL_CURVE + 4u * (uint32_t(d.P(7)) & 0xFFFF)));
-        h.set_coef(d.word(5), uint32_t(x));
-        h.set_coef(d.word(4), uint32_t(x));
+        h.coef[d.word(5)] = uint32_t(x);
+        h.coef[d.word(4)] = uint32_t(x);
         h.writeSweWordListSub(2, b.W + 8);
         break;
     }
     case 9: d.gain_words(); break;
     case 12: case 13: case 14: case 15: d.filters(p); break;
     case 255:
-        h.set_offs(d.slot(3), int32_t(d.half_area()));
-        h.ram.w8(SWE_SUB_HOLD, 1);
+        h.delay[d.slot(3)] = int32_t(d.half_area());
+        h.hold = true;
         for (int q : {0, 1, 2, 3, 4, 5, 6, 7, 9, 12, 14})
             (h.*self)(q);
-        h.ram.w8(SWE_SUB_HOLD, 0);
+        h.hold = false;
         break;
     }
 }
@@ -186,18 +184,18 @@ void cross_delay(Host& h, const Block& b, int p, void (Host::*self)(int))
     case 1: d.delay_slot16(1, mode == 1 ? d.slot(0) : d.slot(alt), 1); break;
     case 2:
         if (mode == 1) {
-            h.set_coef(d.word(8), 0);
-            h.set_coef(d.word(7), 0);
+            h.coef[d.word(8)] = 0;
+            h.coef[d.word(7)] = 0;
             const uint32_t x = uint32_t(h.fxBipolar500(d.P(2)));
-            h.set_coef(d.word(10), x);
-            h.set_coef(d.word(9), x);
+            h.coef[d.word(10)] = x;
+            h.coef[d.word(9)] = x;
             h.writeSweWordListSub(4, b.W + 14);
         } else {
             const uint32_t x = uint32_t(h.fxBipolar500(d.P(2)));
-            h.set_coef(d.word(8), x);
-            h.set_coef(d.word(7), x);
-            h.set_coef(d.word(10), 0);
-            h.set_coef(d.word(9), 0);
+            h.coef[d.word(8)] = x;
+            h.coef[d.word(7)] = x;
+            h.coef[d.word(10)] = 0;
+            h.coef[d.word(9)] = 0;
             h.writeSweWordListSub(2, b.W + 18);
             h.writeSweWordListSub(2, b.W + 14);
         }
@@ -205,17 +203,17 @@ void cross_delay(Host& h, const Block& b, int p, void (Host::*self)(int))
     case 3: {
         const uint32_t half = d.half_area();
         if (mode == 0) {
-            h.set_coef(d.word(11), 0x4000); h.set_coef(d.word(12), 0x4000); h.set_coef(d.word(13), 0);
-            h.set_offs(d.slot(0), 1);
-            h.set_offs(d.slot(3), int32_t(half));
+            h.coef[d.word(11)] = 0x4000; h.coef[d.word(12)] = 0x4000; h.coef[d.word(13)] = 0;
+            h.delay[d.slot(0)] = 1;
+            h.delay[d.slot(3)] = int32_t(half);
         } else if (mode == 1) {
-            h.set_coef(d.word(11), 0x4000); h.set_coef(d.word(12), 0x4000); h.set_coef(d.word(13), 0);
-            h.set_offs(d.slot(0), int32_t(half));
-            h.set_offs(d.slot(3), 1);
+            h.coef[d.word(11)] = 0x4000; h.coef[d.word(12)] = 0x4000; h.coef[d.word(13)] = 0;
+            h.delay[d.slot(0)] = int32_t(half);
+            h.delay[d.slot(3)] = 1;
         } else {
-            h.set_coef(d.word(11), 0x7FFF); h.set_coef(d.word(12), 0); h.set_coef(d.word(13), 0x7FFF);
-            h.set_offs(d.slot(0), 1);
-            h.set_offs(d.slot(3), int32_t(half));
+            h.coef[d.word(11)] = 0x7FFF; h.coef[d.word(12)] = 0; h.coef[d.word(13)] = 0x7FFF;
+            h.delay[d.slot(0)] = 1;
+            h.delay[d.slot(3)] = int32_t(half);
         }
         h.writeSweWordListSub(3, b.W + 22);
         h.writeSweDeSub(1, b.S);
@@ -227,10 +225,10 @@ void cross_delay(Host& h, const Block& b, int p, void (Host::*self)(int))
     case 9: d.gain_words(); break;
     case 12: case 13: case 14: case 15: d.filters(p); break;
     case 255:
-        h.ram.w8(SWE_SUB_HOLD, 1);
+        h.hold = true;
         for (int q : {3, 0, 1, 4, 9, 12, 14})
             (h.*self)(q);
-        h.ram.w8(SWE_SUB_HOLD, 0);
+        h.hold = false;
         break;
     }
 }

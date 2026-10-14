@@ -1,17 +1,13 @@
 // license:BSD-3-Clause
 // copyright-holders:Wouter van Nifterick
 
-// Shared by the insertion handlers. The insertion block's parameters live at FX_PARAMS + 0x40,
-// its type bytes at FX_TYPE1 + 2 and + 3, its delay memory in areas 2..3. Parameter 9 of nearly
-// every type is Dry/Wet, which also drives the insertion Thru flag.
+// Shared by the insertion handlers. The insertion's delay memory is areas 2..3. Parameter 9 of
+// nearly every type is Dry/Wet.
 #pragma once
 #include "host.h"
 
 namespace fs1r::vop3host::ins {
 
-using namespace ram;
-
-constexpr uint32_t IP = FX_PARAMS + 0x40;            // the insertion parameter block
 constexpr uint32_t MOD_DELAY_TABLE = 0x371BD4;        // u16: modulation delay byte -> 0.1 ms word
 constexpr uint32_t PITCH_DELAY_TABLE = 0x371DD4;      // u16: pitch change / karaoke delay byte -> 0.1 ms word
 constexpr uint32_t LEVEL_CURVE = 0x3717D0;            // f32 x 128: 0..1 law
@@ -29,12 +25,12 @@ constexpr uint32_t LPF_PH = 0x35E55E, LPF_PH_C = 0x35E56A, HPF_PH = 0x35E564, HP
 // the wah + distortion types
 constexpr uint32_t LPF_WAH = 0x35E588, LPF_WAH_C = 0x35E5A0, HPF_WAH = 0x35E58E, HPF_WAH_C = 0x35E5A6;
 
-inline int32_t P(const Host& h, int i) { return h.ram.s16(IP + 2 * i); }
-inline uint32_t PU(const Host& h, int i) { return h.ram.u16(IP + 2 * i); }
-inline int32_t PLO(const Host& h, int i) { return h.ram.s8(IP + 2 * i + 1); }     // low byte, signed
-inline uint32_t PLOU(const Host& h, int i) { return h.ram.u8(IP + 2 * i + 1); }   // low byte
-inline uint32_t lsb(const Host& h) { return h.ram.u8(FX_TYPE1 + 3); }
-inline uint32_t half_area(const Host& h) { return ((h.ram.u32(FX_BASES + 12) - h.ram.u32(FX_BASES + 8)) >> 1) + 1; }
+inline int32_t P(const Host& h, int i) { return h.param[INSERTION][i]; }
+inline uint32_t PU(const Host& h, int i) { return h.param[INSERTION][i]; }
+inline int32_t PLO(const Host& h, int i) { return int8_t(h.param[INSERTION][i]); }     // low byte, signed
+inline uint32_t PLOU(const Host& h, int i) { return (h.param[INSERTION][i] & 0xFF); }   // low byte
+inline uint32_t lsb(const Host& h) { return h.code[INSERTION].lsb; }
+inline uint32_t half_area(const Host& h) { return ((AREA[3] - AREA[2]) >> 1) + 1; }
 inline int32_t ms(Host& h, uint32_t table, int p) { return h.fxMsToSamples(rom::s16(table + 2u * PU(h, p))); }
 
 // the four Dry/Wet words: the dry gain s16(table[128 - wet]) >> shift into steps g0 and g1,
@@ -43,11 +39,11 @@ struct WetLayout { int g0, g1, x0, x1; };
 inline void wet_words(Host& h, uint32_t list, uint32_t table, uint32_t wet, WetLayout L, int shift = 2)
 {
     const uint32_t g = uint32_t(rom::s16(table + 2u * uint32_t(int32_t(128 - int32_t(wet)))) >> shift);
-    h.set_coef(rom::u16(list + 2u * uint32_t(L.g0)), g);
-    h.set_coef(rom::u16(list + 2u * uint32_t(L.g1)), g);
+    h.coef[rom::u16(list + 2u * uint32_t(L.g0))] = g;
+    h.coef[rom::u16(list + 2u * uint32_t(L.g1))] = g;
     const uint32_t x = uint32_t(h.fxMulTypeTableB(rom::s16(table + 2u * wet) >> shift));
-    h.set_coef(rom::u16(list + 2u * uint32_t(L.x0)), x);
-    h.set_coef(rom::u16(list + 2u * uint32_t(L.x1)), x);
+    h.coef[rom::u16(list + 2u * uint32_t(L.x0))] = x;
+    h.coef[rom::u16(list + 2u * uint32_t(L.x1))] = x;
 }
 constexpr WetLayout GGXX{1, 0, 3, 2};   // g, g, x, x in list order
 constexpr WetLayout GXGX{2, 0, 3, 1};   // g, x, g, x

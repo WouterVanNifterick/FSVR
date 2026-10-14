@@ -7,7 +7,6 @@
 
 namespace fs1r::vop3host {
 
-using namespace ram;
 using namespace ins;
 
 namespace {
@@ -31,12 +30,12 @@ inline int32_t wah_cutoff(uint32_t v) { return int32_t((3052u * (v & 0xFFFF)) >>
 void wah_sense(Host& h, int p)
 {
     if (PU(h, p) < 11) {
-        h.set_coef(rom::u16(WAH_SENSE + 2), 0x8000);
-        h.set_coef(rom::u16(WAH_SENSE), 0x8000);
+        h.coef[rom::u16(WAH_SENSE + 2)] = 0x8000;
+        h.coef[rom::u16(WAH_SENSE)] = 0x8000;
     } else {
         const int32_t x = int(-327680.0 / double(float(PU(h, p))));
-        h.set_coef(rom::u16(WAH_SENSE + 2), uint32_t(int16_t(x)));
-        h.set_coef(rom::u16(WAH_SENSE), uint32_t(int16_t(x)));
+        h.coef[rom::u16(WAH_SENSE + 2)] = uint32_t(int16_t(x));
+        h.coef[rom::u16(WAH_SENSE)] = uint32_t(int16_t(x));
     }
     h.writeSweWordListSub(2, WAH_SENSE);
 }
@@ -44,34 +43,34 @@ void wah_sense(Host& h, int p)
 // and eight pan words whose layout follows whether the distortion is on (parameter 10)
 void wah_dist_wet(Host& h, int drive_index, bool second_pair)
 {
-    h.fxStoreScaled(P(h, 10), drive_index, WAH_DRIVE, 0);
-    h.set_coef(rom::u16(WAH_MODE + 2), 23170);
-    h.set_coef(rom::u16(WAH_MODE), 23170);
-    if (second_pair) { h.set_coef(rom::u16(WAH_MODE2 + 2), 0x5A81); h.set_coef(rom::u16(WAH_MODE2), 0x5A81); }
+    h.fxStoreScaled(P(h, 10), drive_index, WAH_DRIVE);
+    h.coef[rom::u16(WAH_MODE + 2)] = 23170;
+    h.coef[rom::u16(WAH_MODE)] = 23170;
+    if (second_pair) { h.coef[rom::u16(WAH_MODE2 + 2)] = 0x5A81; h.coef[rom::u16(WAH_MODE2)] = 0x5A81; }
     const uint32_t wet = PU(h, 9);
     h.writeSweWordListSub(2, WAH_MODE);
     if (second_pair)
         h.writeSweWordListSub(2, WAH_MODE2);
     const uint32_t g = uint32_t(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet)))) >> 2);
     const uint32_t w = uint32_t(rom::s16(PAN_LAW + 2u * wet) >> 2);
-    h.set_coef(rom::u16(WAH_WET + 8), g);
-    h.set_coef(rom::u16(WAH_WET), g);
+    h.coef[rom::u16(WAH_WET + 8)] = g;
+    h.coef[rom::u16(WAH_WET)] = g;
     if (PU(h, 10) == 0) {
         const uint32_t x = uint32_t(h.fxMulTypeTableB(int32_t(w)));
-        h.set_coef(rom::u16(WAH_WET + 10), x);
-        h.set_coef(rom::u16(WAH_WET + 2), x);
-        h.set_coef(rom::u16(WAH_WET + 12), 8192);
-        h.set_coef(rom::u16(WAH_WET + 4), 8192);
-        h.set_coef(rom::u16(WAH_WET + 14), 0);
-        h.set_coef(rom::u16(WAH_WET + 6), 0);
+        h.coef[rom::u16(WAH_WET + 10)] = x;
+        h.coef[rom::u16(WAH_WET + 2)] = x;
+        h.coef[rom::u16(WAH_WET + 12)] = 8192;
+        h.coef[rom::u16(WAH_WET + 4)] = 8192;
+        h.coef[rom::u16(WAH_WET + 14)] = 0;
+        h.coef[rom::u16(WAH_WET + 6)] = 0;
     } else {
-        h.set_coef(rom::u16(WAH_WET + 12), g);
-        h.set_coef(rom::u16(WAH_WET + 4), g);
-        h.set_coef(rom::u16(WAH_WET + 10), w);
-        h.set_coef(rom::u16(WAH_WET + 2), w);
+        h.coef[rom::u16(WAH_WET + 12)] = g;
+        h.coef[rom::u16(WAH_WET + 4)] = g;
+        h.coef[rom::u16(WAH_WET + 10)] = w;
+        h.coef[rom::u16(WAH_WET + 2)] = w;
         const uint32_t x = uint32_t(h.fxMulTypeTableB(int32_t(w)));
-        h.set_coef(rom::u16(WAH_WET + 14), x);
-        h.set_coef(rom::u16(WAH_WET + 6), x);
+        h.coef[rom::u16(WAH_WET + 14)] = x;
+        h.coef[rom::u16(WAH_WET + 6)] = x;
     }
     h.writeSweWordListSub(8, WAH_WET);
 }
@@ -79,8 +78,8 @@ void wah_dist_wet(Host& h, int drive_index, bool second_pair)
 // over DIST_WET
 void dist_wet(Host& h, uint32_t a, uint32_t b, bool two_lists)
 {
-    h.set_coef(rom::u16(DIST_MODE), a);
-    h.set_coef(rom::u16(two_lists ? DIST_LEVEL : DIST_MODE + 2), b);
+    h.coef[rom::u16(DIST_MODE)] = a;
+    h.coef[rom::u16(two_lists ? DIST_LEVEL : DIST_MODE + 2)] = b;
     const uint32_t wet = PU(h, 9);
     if (two_lists) {
         h.writeSweWordListSub(1, DIST_MODE);
@@ -89,12 +88,12 @@ void dist_wet(Host& h, uint32_t a, uint32_t b, bool two_lists)
         h.writeSweWordListSub(2, DIST_MODE);
     }
     const uint32_t g = uint32_t(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet)))) >> 2);
-    h.set_coef(rom::u16(DIST_WET + 4), g);
-    h.set_coef(rom::u16(DIST_WET), g);
+    h.coef[rom::u16(DIST_WET + 4)] = g;
+    h.coef[rom::u16(DIST_WET)] = g;
     const uint32_t x = uint32_t(h.fxMulTypeTableB(rom::s16(PAN_LAW + 2u * wet) >> 2));
-    h.set_coef(rom::u16(DIST_WET + 8), x);
-    h.set_coef(rom::u16(DIST_WET + 2), x);
-    h.set_coef(rom::u16(DIST_WET + 6), 0);
+    h.coef[rom::u16(DIST_WET + 8)] = x;
+    h.coef[rom::u16(DIST_WET + 2)] = x;
+    h.coef[rom::u16(DIST_WET + 6)] = 0;
     h.writeSweWordListSub(5, DIST_WET);
 }
 // the compressor / noise gate output level words through table B
@@ -102,11 +101,11 @@ void dyn_level(Host& h, int p)
 {
     const int32_t i = int(double(rom::f32(LEVEL_CURVE + 4u * PU(h, p))) * 8192.0);
     const uint32_t x = uint32_t(h.fxMulTypeTableB(int16_t(i)));
-    h.set_coef(rom::u16(DIST_WET + 6), x);
-    h.set_coef(rom::u16(DIST_WET + 2), x);
-    h.set_coef(rom::u16(DIST_WET + 8), 0);
-    h.set_coef(rom::u16(DIST_WET + 4), 0);
-    h.set_coef(rom::u16(DIST_WET), 0);
+    h.coef[rom::u16(DIST_WET + 6)] = x;
+    h.coef[rom::u16(DIST_WET + 2)] = x;
+    h.coef[rom::u16(DIST_WET + 8)] = 0;
+    h.coef[rom::u16(DIST_WET + 4)] = 0;
+    h.coef[rom::u16(DIST_WET)] = 0;
     h.writeSweWordListSub(5, DIST_WET);
 }
 void dyn_filters(Host& h)
@@ -138,8 +137,8 @@ void Host::fxInsAutoWahDist(int p)
         break;
     case 1: case 2: {
         const int32_t w = wah_cutoff(PU(*this, 2));
-        set_coef(rom::u16(WAH_CUTOFF), uint32_t(w));
-        set_coef(rom::u16(WAH_DEPTH), PU(*this, 1) * uint32_t(32767 - int16_t(w)) / 127);
+        coef[rom::u16(WAH_CUTOFF)] = uint32_t(w);
+        coef[rom::u16(WAH_DEPTH)] = PU(*this, 1) * uint32_t(32767 - int16_t(w)) / 127;
         writeSweWordListSub(1, WAH_CUTOFF);
         writeSweWordListSub(1, WAH_DEPTH);
         break;
@@ -163,7 +162,7 @@ void Host::fxInsAutoWahDist(int p)
         fxDesignFilter(2, 1, 4, P(*this, 13), 64, 7, 0x35E7FA);
         break;
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         if (t == 4) {
             fxFillBand(104, 0x35E9E2);
             fxDesignFilter(1, 1, 1, 8, 64, 0, 0x35E594);
@@ -175,7 +174,7 @@ void Host::fxInsAutoWahDist(int p)
         }
         for (int q : {0, 1, 3, 5, 7, 9, 11, 12, 13})
             fxInsAutoWahDist(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -187,11 +186,11 @@ void Host::fxInsTouchWahDist(int p)
     const uint32_t t = lsb(*this);
     switch (p) {
     case 0:
-        set_coef(rom::u16(WAH_ATTACK), uint32_t(P(*this, 0) * 258));
+        coef[rom::u16(WAH_ATTACK)] = uint32_t(P(*this, 0) * 258);
         writeSweWordListSub(1, WAH_ATTACK);
         [[fallthrough]];
     case 1:
-        set_coef(rom::u16(WAH_CUTOFF), uint32_t(wah_cutoff(PU(*this, 1))));
+        coef[rom::u16(WAH_CUTOFF)] = uint32_t(wah_cutoff(PU(*this, 1)));
         writeSweWordListSub(1, WAH_CUTOFF);
         break;
     case 2:
@@ -221,7 +220,7 @@ void Host::fxInsTouchWahDist(int p)
         break;
     }
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         if (t == 6) {
             fxDesignFilter(1, 1, 1, 8, 64, 0, 0x35E594);
             fxDesignFilter(1, 1, 0, 44, 64, 0, 0x35E59A);
@@ -235,7 +234,7 @@ void Host::fxInsTouchWahDist(int p)
         fxDesignFilter(1, 0, 0, 54, 64, 0, 0x35E582);
         for (int q : {0, 1, 2, 5, 7, 9, 11, 12, 13, 15})
             fxInsTouchWahDist(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -246,7 +245,7 @@ void Host::fxInsDistortion(int p)
     p &= 0xFF;
     switch (p) {
     case 0: case 4:
-        fxStoreScaled(P(*this, 0), P(*this, 4), DIST_DRIVE, 0);
+        fxStoreScaled(P(*this, 0), P(*this, 4), DIST_DRIVE);
         break;
     case 1: case 2:
         fxDesignFilter(2, 4, 2, P(*this, 1), P(*this, 2), 0, DIST_EQ);
@@ -265,7 +264,7 @@ void Host::fxInsDistortion(int p)
         fxFillBand(P(*this, 10), DIST_FILL);
         break;
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         fxStoreMirrorX32(0, DYN_THRESH);
         fxWriteComplementPair(11, DYN_PAIR);
         fxWriteNegated(73, DYN_WORD);
@@ -278,7 +277,7 @@ void Host::fxInsDistortion(int p)
         }
         for (int q : {1, 3, 6, 9, 10})
             fxInsDistortion(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -289,7 +288,7 @@ void Host::fxInsAmpSim(int p)
     p &= 0xFF;
     switch (p) {
     case 0: case 3:
-        fxStoreScaled(P(*this, 0), P(*this, 3), DIST_DRIVE, 0);
+        fxStoreScaled(P(*this, 0), P(*this, 3), DIST_DRIVE);
         break;
     case 1: {
         const uint32_t row = AMP_ROWS + uint32_t(int8_t(14 * PLO(*this, 1)));
@@ -314,13 +313,13 @@ void Host::fxInsAmpSim(int p)
         fxFillBand(P(*this, 10), DIST_FILL);
         break;
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         fxStoreMirrorX32(0, DYN_THRESH);
         fxWriteComplementPair(11, DYN_PAIR);
         fxWriteNegated(73, DYN_WORD);
         for (int q : {1, 2, 9, 10})
             fxInsAmpSim(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -337,17 +336,17 @@ void Host::fxInsCompDist(int p)
     case 4: dyn_level(*this, 4); break;
     case 9: {
         const uint32_t w = 7240;
-        set_coef(rom::u16(DIST_LEVEL + 2), w);
-        set_coef(rom::u16(DIST_LEVEL), w);
+        coef[rom::u16(DIST_LEVEL + 2)] = w;
+        coef[rom::u16(DIST_LEVEL)] = w;
         writeSweWordListSub(2, DIST_LEVEL);
         break;
     }
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         dyn_filters(*this);
         for (int q : {0, 1, 2, 3, 4, 9})
             fxInsCompDist(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -358,7 +357,7 @@ void Host::fxInsCompDistDelay(int p)
     p &= 0xFF;
     switch (p) {
     case 0: case 4:
-        fxStoreScaled(P(*this, 0), P(*this, 4), DIST_DRIVE, 0);
+        fxStoreScaled(P(*this, 0), P(*this, 4), DIST_DRIVE);
         break;
     case 1: case 2:
         fxDesignFilter(2, 4, 2, P(*this, 1), P(*this, 2), 0, DIST_EQ);
@@ -381,12 +380,12 @@ void Host::fxInsCompDistDelay(int p)
     case 13: fxWriteWord(P(*this, 13), DYN_WORD); break;
     case 14: fxWriteRow8(P(*this, 14), DYN_ROW); break;
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         fxDesignFilter(2, 1, 1, 0, 64, 0, DIST_LPF);
         fxDesignFilter(1, 1, 0, 54, 64, 0, DIST_HPF);
         for (int q : {1, 3, 6, 9, 10, 11, 12, 13, 14})
             fxInsCompDistDelay(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -404,34 +403,34 @@ void Host::fxInsHmEnhancer(int p)
         break;
     case 1: {
         const uint32_t w = uint32_t(P(*this, 1) * 258);
-        set_coef(rom::u16(0x35DA16), w);
-        set_coef(rom::u16(0x35DA14), w);
+        coef[rom::u16(0x35DA16)] = w;
+        coef[rom::u16(0x35DA14)] = w;
         writeSweWordListSub(2, 0x35DA14);
         break;
     }
     case 2: {
         const uint32_t x = uint32_t(fxMulTypeTableB(int32_t((PU(*this, 2) * 0x81u) >> 1)));
-        set_coef(rom::u16(DIST_WET + 6), x);
-        set_coef(rom::u16(DIST_WET + 2), x);
+        coef[rom::u16(DIST_WET + 6)] = x;
+        coef[rom::u16(DIST_WET + 2)] = x;
         writeSweWordListSub(1, DIST_WET + 2);
         writeSweWordListSub(1, DIST_WET + 6);
         break;
     }
     case 9: {
         const uint32_t w = 1448;
-        set_coef(rom::u16(DIST_LEVEL + 2), w);
-        set_coef(rom::u16(DIST_LEVEL), w);
+        coef[rom::u16(DIST_LEVEL + 2)] = w;
+        coef[rom::u16(DIST_LEVEL)] = w;
         writeSweWordListSub(2, DIST_LEVEL);
         break;
     }
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         fxDesignFilter(2, 1, 11, 0, 64, 0, DIST_PRE);
         fxCopyWords5(DIST_PRE, DIST_PRE_C);
         fxDesignFilter(2, 4, 11, 0, 64, 0, DIST_EQ);
         for (int q : {0, 1, 2, 9})
             fxInsHmEnhancer(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -446,11 +445,11 @@ void Host::fxInsNoiseGate(int p)
     case 2: fxWriteNegated(P(*this, 2), DYN_WORD); break;
     case 3: dyn_level(*this, 3); break;
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         dyn_filters(*this);
         for (int q : {0, 1, 2, 3})
             fxInsNoiseGate(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -465,20 +464,20 @@ void Host::fxInsWahDistDelay(int p)
     const uint32_t t = lsb(*this);
     switch (p) {
     case 0: {
-        const int32_t d = fxMsToSamples(P(*this, 0)) + offs(rom::u8(SL));
+        const int32_t d = fxMsToSamples(P(*this, 0)) + delay[rom::u8(SL)];
         for (uint32_t i = 1; i <= 4; i++)
-            set_offs(rom::u8(SL + i), d);
+            delay[rom::u8(SL + i)] = d;
         writeSweDeSub(4, SL + 1);
         break;
     }
     case 1:
-        set_coef(rom::u16(FB), uint32_t(fxBipolar500(P(*this, 1))));
+        coef[rom::u16(FB)] = uint32_t(fxBipolar500(P(*this, 1)));
         writeSweWordListSub(1, FB);
         break;
     case 2: {
         const int32_t i = int(8192.0f * rom::f32(LEVEL_CURVE + 4u * PU(*this, 2)));
-        set_coef(rom::u16(LEVEL + 4), uint32_t(i));
-        set_coef(rom::u16(LEVEL), uint32_t(i));
+        coef[rom::u16(LEVEL + 4)] = uint32_t(i);
+        coef[rom::u16(LEVEL)] = uint32_t(i);
         writeSweWordListSub(1, LEVEL);
         writeSweWordListSub(1, LEVEL + 4);
         break;
@@ -499,49 +498,49 @@ void Host::fxInsWahDistDelay(int p)
             fxDesignFilter(2, 1, 10, 43, PLO(*this, 6), 10, 0x35DF16);
             fxFillBand(120, 0x35DE82);
         }
-        fxStoreScaled(P(*this, 3), P(*this, 4), DRIVE, 0);
-        set_coef(rom::u16(MODE + 2), 23170); set_coef(rom::u16(MODE), 23170);
-        set_coef(rom::u16(MODE2 + 2), 0x5A81); set_coef(rom::u16(MODE2), 0x5A81);
+        fxStoreScaled(P(*this, 3), P(*this, 4), DRIVE);
+        coef[rom::u16(MODE + 2)] = 23170; coef[rom::u16(MODE)] = 23170;
+        coef[rom::u16(MODE2 + 2)] = 0x5A81; coef[rom::u16(MODE2)] = 0x5A81;
         const uint32_t wet = PU(*this, 9);
         writeSweWordListSub(2, MODE);
         writeSweWordListSub(2, MODE2);
         const int32_t dry = rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet))));
         const int32_t wetw = rom::s16(PAN_LAW + 2u * wet);
-        set_coef(rom::u16(WET + 8), uint32_t(dry >> 2));
-        set_coef(rom::u16(WET), uint32_t(dry >> 2));
+        coef[rom::u16(WET + 8)] = uint32_t(dry >> 2);
+        coef[rom::u16(WET)] = uint32_t(dry >> 2);
         if (P(*this, 3) == 0) {
             const uint32_t x = uint32_t(fxMulTypeTableB(wetw >> 2));
-            set_coef(rom::u16(WET + 10), x);
-            set_coef(rom::u16(WET + 2), x);
-            set_coef(rom::u16(WET + 12), 0x4000);
-            set_coef(rom::u16(WET + 4), 0x4000);
-            set_coef(rom::u16(WET + 14), 0);
-            set_coef(rom::u16(WET + 6), 0);
+            coef[rom::u16(WET + 10)] = x;
+            coef[rom::u16(WET + 2)] = x;
+            coef[rom::u16(WET + 12)] = 0x4000;
+            coef[rom::u16(WET + 4)] = 0x4000;
+            coef[rom::u16(WET + 14)] = 0;
+            coef[rom::u16(WET + 6)] = 0;
         } else {
-            set_coef(rom::u16(WET + 12), uint32_t(dry >> 1));
-            set_coef(rom::u16(WET + 4), uint32_t(dry >> 1));
-            set_coef(rom::u16(WET + 10), uint32_t(wetw >> 2));
-            set_coef(rom::u16(WET + 2), uint32_t(wetw >> 2));
+            coef[rom::u16(WET + 12)] = uint32_t(dry >> 1);
+            coef[rom::u16(WET + 4)] = uint32_t(dry >> 1);
+            coef[rom::u16(WET + 10)] = uint32_t(wetw >> 2);
+            coef[rom::u16(WET + 2)] = uint32_t(wetw >> 2);
             const uint32_t x = uint32_t(fxMulTypeTableB(wetw >> 1));
-            set_coef(rom::u16(WET + 14), x);
-            set_coef(rom::u16(WET + 6), x);
+            coef[rom::u16(WET + 14)] = x;
+            coef[rom::u16(WET + 6)] = x;
         }
         writeSweWordListSub(8, WET);
         break;
     }
     case 10:
-        set_coef(rom::u16(WD_ATTACK), uint32_t(P(*this, 10) * 258));
+        coef[rom::u16(WD_ATTACK)] = uint32_t(P(*this, 10) * 258);
         writeSweWordListSub(1, WD_ATTACK);
         [[fallthrough]];
     case 12:
         if (PU(*this, 12) <= 10)
-            set_coef(rom::u16(WD_SENSE), 0x8000);
+            coef[rom::u16(WD_SENSE)] = 0x8000;
         else
-            set_coef(rom::u16(WD_SENSE), uint32_t(int16_t(int(-327680.0 / double(float(PU(*this, 12)))))));
+            coef[rom::u16(WD_SENSE)] = uint32_t(int16_t(int(-327680.0 / double(float(PU(*this, 12))))));
         writeSweWordListSub(1, WD_SENSE);
         break;
     case 11:
-        set_coef(rom::u16(WD_CUTOFF), uint32_t(int32_t((3052u * PU(*this, 11)) >> 4) + 7483));
+        coef[rom::u16(WD_CUTOFF)] = uint32_t(int32_t((3052u * PU(*this, 11)) >> 4) + 7483);
         writeSweWordListSub(1, WD_CUTOFF);
         break;
     case 13: {
@@ -550,14 +549,14 @@ void Host::fxInsWahDistDelay(int p)
         if (c < 0 || c > 15)
             v = c < 0 ? 0 : 15;
         const int32_t w = rom::s16(0x36F6A4 + 2u * uint32_t(int8_t(v)));
-        set_coef(rom::u16(WD_MIRROR + 2), uint32_t(w));
-        set_coef(rom::u16(WD_MIRROR), uint32_t(w));
-        set_coef(rom::u16(WD_MIRROR + 4), uint32_t((-32768 - w) * 2));
+        coef[rom::u16(WD_MIRROR + 2)] = uint32_t(w);
+        coef[rom::u16(WD_MIRROR)] = uint32_t(w);
+        coef[rom::u16(WD_MIRROR + 4)] = uint32_t((-32768 - w) * 2);
         writeSweWordListSub(3, WD_MIRROR);
         break;
     }
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         for (int q : {0, 1, 2, 3, 10, 11, 12, 13})
             fxInsWahDistDelay(q);
         fxDesignFilter(1, 1, 1, 0, 64, 0, 0x35DEB8);
@@ -567,7 +566,7 @@ void Host::fxInsWahDistDelay(int p)
         fxDesignFilter(1, 2, 3, 46, 64, 0, 0x35DECA);
         fxCopyWords3(0x35DECA, 0x35DEF4);
         fxDesignFilter(1, 1, 0, 60, 64, 0, 0x35DEE8);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -579,20 +578,20 @@ void Host::fxInsCompressor(int p)
     const uint32_t t = lsb(*this);
     switch (p) {
     case 0: {
-        const int32_t d = fxMsToSamples(P(*this, 0)) + offs(rom::u8(DD_SLOTS));
+        const int32_t d = fxMsToSamples(P(*this, 0)) + delay[rom::u8(DD_SLOTS)];
         for (uint32_t i = 1; i <= 4; i++)
-            set_offs(rom::u8(DD_SLOTS + i), d);
+            delay[rom::u8(DD_SLOTS + i)] = d;
         writeSweDeSub(4, DD_SLOTS + 1);
         break;
     }
     case 1:
-        set_coef(rom::u16(DD_FB), uint32_t(fxBipolar500(P(*this, 1))));
+        coef[rom::u16(DD_FB)] = uint32_t(fxBipolar500(P(*this, 1)));
         writeSweWordListSub(1, DD_FB);
         break;
     case 2: {
         const int32_t i = int(8192.0f * rom::f32(LEVEL_CURVE + 4u * PU(*this, 2)));
-        set_coef(rom::u16(DD_LEVEL + 4), uint32_t(i));
-        set_coef(rom::u16(DD_LEVEL), uint32_t(i));
+        coef[rom::u16(DD_LEVEL + 4)] = uint32_t(i);
+        coef[rom::u16(DD_LEVEL)] = uint32_t(i);
         writeSweWordListSub(1, DD_LEVEL);
         writeSweWordListSub(1, DD_LEVEL + 4);
         break;
@@ -613,11 +612,11 @@ void Host::fxInsCompressor(int p)
             fxDesignFilter(2, 1, 10, 43, PLO(*this, 6), 10, 0x35DF34);
             fxFillBand(120, 0x35DE9A);
         }
-        fxStoreScaled(P(*this, 3), P(*this, 4), DD_DRIVE, 0);
+        fxStoreScaled(P(*this, 3), P(*this, 4), DD_DRIVE);
         break;
     case 9: {
-        set_coef(rom::u16(DD_MODE), 5792);
-        set_coef(rom::u16(DD_MODE + 4), 14481);
+        coef[rom::u16(DD_MODE)] = 5792;
+        coef[rom::u16(DD_MODE + 4)] = 14481;
         const uint32_t wet = PU(*this, 9);
         writeSweWordListSub(1, DD_MODE);
         writeSweWordListSub(1, DD_MODE + 4);
@@ -630,11 +629,11 @@ void Host::fxInsCompressor(int p)
     case 12: fxWriteWord(P(*this, 12), DD_WORD); break;
     case 13: fxWriteRow8(P(*this, 13), DD_ROW); break;
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         for (int q : {0, 1, 2, 3, 9, 10, 11, 12, 13})
             fxInsCompressor(q);
         fxDesignFilter(1, 1, 0, 60, 64, 0, 0x35DF06);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -646,34 +645,34 @@ void Host::fxInsDistDelay(int p)
     const uint32_t t = lsb(*this);
     switch (p) {
     case 0: {
-        const int32_t d = fxMsToSamples(P(*this, 0)) + offs(rom::u8(DD_SLOTS));
-        set_offs(rom::u8(DD_SLOTS + 4), d);
-        set_offs(rom::u8(DD_SLOTS + 3), d);
+        const int32_t d = fxMsToSamples(P(*this, 0)) + delay[rom::u8(DD_SLOTS)];
+        delay[rom::u8(DD_SLOTS + 4)] = d;
+        delay[rom::u8(DD_SLOTS + 3)] = d;
         writeSweDeSub(2, DD_SLOTS + 3);
         break;
     }
     case 1:
-        set_offs(rom::u8(DD_SLOTS + 2), fxMsToSamples(P(*this, 1)) + offs(rom::u8(DD_SLOTS)));
+        delay[rom::u8(DD_SLOTS + 2)] = fxMsToSamples(P(*this, 1)) + delay[rom::u8(DD_SLOTS)];
         writeSweDeSub(1, DD_SLOTS + 2);
         break;
     case 2:
-        set_offs(rom::u8(DD_SLOTS + 1), fxMsToSamples(P(*this, 2)) + offs(rom::u8(DD_SLOTS)));
+        delay[rom::u8(DD_SLOTS + 1)] = fxMsToSamples(P(*this, 2)) + delay[rom::u8(DD_SLOTS)];
         writeSweDeSub(1, DD_SLOTS + 1);
         break;
     case 3:
-        set_coef(rom::u16(DD_FB), uint32_t(fxBipolar500(P(*this, 3))));
+        coef[rom::u16(DD_FB)] = uint32_t(fxBipolar500(P(*this, 3)));
         writeSweWordListSub(1, DD_FB);
         break;
     case 4: {
         const int32_t i = int(8192.0f * rom::f32(LEVEL_CURVE + 4u * PU(*this, 4)));
-        set_coef(rom::u16(DD_LEVEL + 4), uint32_t(i));
-        set_coef(rom::u16(DD_LEVEL), uint32_t(i));
+        coef[rom::u16(DD_LEVEL + 4)] = uint32_t(i);
+        coef[rom::u16(DD_LEVEL)] = uint32_t(i);
         writeSweWordListSub(1, DD_LEVEL);
         writeSweWordListSub(1, DD_LEVEL + 4);
         break;
     }
     case 5: case 6:
-        fxStoreScaled(P(*this, 5), P(*this, 6), DD_DRIVE, 0);
+        fxStoreScaled(P(*this, 5), P(*this, 6), DD_DRIVE);
         break;
     case 7:
         fxDesignFilter(2, 4, 2, t == 4 ? 24 : 20, PLO(*this, 7), 0, 0x35DF3E);
@@ -682,8 +681,8 @@ void Host::fxInsDistDelay(int p)
         fxDesignFilter(2, 1, 10, t == 4 ? 41 : 43, PLO(*this, 8), 10, 0x35DF34);
         break;
     case 9: {
-        set_coef(rom::u16(DD_MODE), 1448);
-        set_coef(rom::u16(DD_MODE + 2), 0);
+        coef[rom::u16(DD_MODE)] = 1448;
+        coef[rom::u16(DD_MODE + 2)] = 0;
         const uint32_t wet = PU(*this, 9);
         writeSweWordListSub(2, DD_MODE);
         dd_wet(*this, wet, 1);
@@ -691,7 +690,7 @@ void Host::fxInsDistDelay(int p)
         break;
     }
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         fxStoreMirrorX32(0, DD_THRESH);
         fxWriteComplementPair(11, DD_PAIR);
         fxWriteNegated(73, DD_WORD);
@@ -709,7 +708,7 @@ void Host::fxInsDistDelay(int p)
         for (int q : {0, 1, 2, 3, 4, 5, 7, 8, 9})
             fxInsDistDelay(q);
         fxDesignFilter(1, 1, 0, 60, 64, 0, 0x35DF06);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -735,17 +734,17 @@ void Host::fxLfoDirection(int lfo, int v)
 {
     const uint32_t a = lfo == 12 ? LFO_DIR_STEPS : LFO_DIR_STEPS + 4;
     const uint32_t w = uint32_t(fxInsPitchRatio(v));
-    set_coef(rom::u16(a + 2), w);
-    set_coef(rom::u16(a), w);
+    coef[rom::u16(a + 2)] = w;
+    coef[rom::u16(a)] = w;
     writeSweWordListSub(4, LFO_DIR_STEPS);
     const uint32_t l = uint32_t(lfo) & 0xFF;
     const int32_t s = 100 * (P(*this, 0) - 64) + int16_t(v) - 64;
     if (s > 0) {
-        ram.w16(FX_LFO25 + 2 * l, (ram.u16(FX_LFO25 + 2 * l) & 0xFF1F) | 0x20);
-        ram.w16(FX_LFO27 + 2 * l, 0x7FFF);
+        lfoReg[1][l] = (lfoReg[1][l] & 0xFF1F) | 0x20;
+        lfoReg[3][l] = 0x7FFF;
     } else {
-        ram.w16(FX_LFO25 + 2 * l, (ram.u16(FX_LFO25 + 2 * l) & 0xFF1F) | 0x40);
-        ram.w16(FX_LFO27 + 2 * l, 0);
+        lfoReg[1][l] = (lfoReg[1][l] & 0xFF1F) | 0x40;
+        lfoReg[3][l] = 0;
     }
     writeSwe25Sub(lfo);
     writeSwe27Sub(lfo);
@@ -756,10 +755,10 @@ void Host::fxInsPitchSlots()
 {
     constexpr uint32_t SL = 0x35D8A4;
     const int32_t d = fxMsToSamples(rom::s16(PITCH_DELAY_TABLE + 2u * PU(*this, 1))) + 1;
-    set_offs(rom::u8(SL + 2), d);
-    set_offs(rom::u8(SL + 1), d);
-    set_offs(rom::u8(SL + 4), d + 384);
-    set_offs(rom::u8(SL + 3), d + 384);
+    delay[rom::u8(SL + 2)] = d;
+    delay[rom::u8(SL + 1)] = d;
+    delay[rom::u8(SL + 4)] = d + 384;
+    delay[rom::u8(SL + 3)] = d + 384;
     writeSweDeSub(4, SL + 1);
 }
 
@@ -770,11 +769,11 @@ void Host::fxStoreSpan5(int v)
     const int32_t t = fxMsToSamples(rom::s16(PITCH_DELAY_TABLE + 2u * uint32_t(int16_t(v))));
     const int32_t half = int32_t(half_area(*this));
     const int32_t d = half + t + 1;
-    set_offs(rom::u8(SL + 5), half);
-    set_offs(rom::u8(SL + 7), d);
-    set_offs(rom::u8(SL + 6), d);
-    set_offs(rom::u8(SL + 9), d + 384);
-    set_offs(rom::u8(SL + 8), d + 384);
+    delay[rom::u8(SL + 5)] = half;
+    delay[rom::u8(SL + 7)] = d;
+    delay[rom::u8(SL + 6)] = d;
+    delay[rom::u8(SL + 9)] = d + 384;
+    delay[rom::u8(SL + 8)] = d + 384;
     writeSweDeSub(5, SL + 5);
 }
 
@@ -787,7 +786,7 @@ void Host::fxInsPitchChange(int p)
         fxLfoDirection(12, P(*this, 2));
         fxLfoDirection(13, P(*this, 3));
         auto set24 = [&](int lfo, uint32_t v) {
-            ram.w16(FX_LFO24 + 2u * uint32_t(lfo), (ram.u16(FX_LFO24 + 2u * uint32_t(lfo)) & 0xFC00) | v);
+            lfoReg[0][lfo] = (lfoReg[0][lfo] & 0xFC00) | v;
         };
         const uint32_t v = uint32_t(rom::s16(0x36F1B6 + 2u * uint32_t(int32_t(PU(*this, 0)) - 40)));
         set24(12, v);
@@ -808,28 +807,28 @@ void Host::fxInsPitchChange(int p)
         break;
     case 4: {
         const uint32_t x = uint32_t(fxBipolar500(P(*this, 4)));
-        set_coef(rom::u16(PC_FB + 2), x);
-        set_coef(rom::u16(PC_FB), x);
+        coef[rom::u16(PC_FB + 2)] = x;
+        coef[rom::u16(PC_FB)] = x;
         const uint32_t v = PU(*this, 4);
         if (v >= 32 && v <= 96) {
-            set_coef(rom::u16(PC_FB + 8), uint32_t(-6144));
-            set_coef(rom::u16(PC_FB + 4), uint32_t(-6144));
-            set_coef(rom::u16(PC_FB + 10), uint32_t(-10240));
-            set_coef(rom::u16(PC_FB + 6), uint32_t(-10240));
+            coef[rom::u16(PC_FB + 8)] = uint16_t(-6144);
+            coef[rom::u16(PC_FB + 4)] = uint16_t(-6144);
+            coef[rom::u16(PC_FB + 10)] = uint16_t(-10240);
+            coef[rom::u16(PC_FB + 6)] = uint16_t(-10240);
         }
         if (v <= 31) {
             const uint32_t i = uint32_t(int((double(v) - 1.0) * 2048.0 / 31.0)) & 0xFFFF;
-            set_coef(rom::u16(PC_FB + 8), i - 8192u);
-            set_coef(rom::u16(PC_FB + 4), i - 8192u);
-            set_coef(rom::u16(PC_FB + 10), uint32_t(-8192) - i);
-            set_coef(rom::u16(PC_FB + 6), uint32_t(-8192) - i);
+            coef[rom::u16(PC_FB + 8)] = i - 8192u;
+            coef[rom::u16(PC_FB + 4)] = i - 8192u;
+            coef[rom::u16(PC_FB + 10)] = uint32_t(-8192) - i;
+            coef[rom::u16(PC_FB + 6)] = uint32_t(-8192) - i;
         }
         if (v >= 97) {
             const uint32_t i = uint32_t(int((-double(v) + 127.0) * 2048.0 / 31.0)) & 0xFFFF;
-            set_coef(rom::u16(PC_FB + 8), i - 8192u);
-            set_coef(rom::u16(PC_FB + 4), i - 8192u);
-            set_coef(rom::u16(PC_FB + 10), uint32_t(-8192) - i);
-            set_coef(rom::u16(PC_FB + 6), uint32_t(-8192) - i);
+            coef[rom::u16(PC_FB + 8)] = i - 8192u;
+            coef[rom::u16(PC_FB + 4)] = i - 8192u;
+            coef[rom::u16(PC_FB + 10)] = uint32_t(-8192) - i;
+            coef[rom::u16(PC_FB + 6)] = uint32_t(-8192) - i;
         }
         writeSweWordListSub(2, PC_FB);
         writeSweWordListSub(4, PC_FB + 4);
@@ -839,36 +838,36 @@ void Host::fxInsPitchChange(int p)
         const uint32_t wet = PU(*this, 9);
         const float dry = float(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet)))) >> 2);
         const uint32_t g = uint32_t(int16_t(int(dry)));
-        set_coef(rom::u16(PC_WET + 2), g);
-        set_coef(rom::u16(PC_WET), g);
+        coef[rom::u16(PC_WET + 2)] = g;
+        coef[rom::u16(PC_WET)] = g;
         const float wf = float(rom::s16(PAN_LAW + 2u * wet) >> 2);
         const uint32_t x = uint32_t(fxMulTypeTableB(int16_t(int(wf))));
-        set_coef(rom::u16(PC_LEVEL + 2), x);
-        set_coef(rom::u16(PC_LEVEL), x);
+        coef[rom::u16(PC_LEVEL + 2)] = x;
+        coef[rom::u16(PC_LEVEL)] = x;
         writeSweWordListSub(2, PC_LEVEL);
         writeSweWordListSub(2, PC_WET);
         break;
     }
     case 10: case 11: {
         const float c = rom::f32(LEVEL_CURVE + 4u * PU(*this, 11));
-        set_coef(rom::u16(0x35D888), uint32_t(int16_t(int(float(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(PU(*this, 10)))))) * c))));
-        set_coef(rom::u16(0x35D88E), uint32_t(int(float(rom::s16(PAN_LAW + 2u * PU(*this, 10))) * c)));
+        coef[rom::u16(0x35D888)] = uint32_t(int16_t(int(float(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(PU(*this, 10)))))) * c)));
+        coef[rom::u16(0x35D88E)] = uint32_t(int(float(rom::s16(PAN_LAW + 2u * PU(*this, 10))) * c));
         writeSweWordListSub(1, 0x35D888);
         writeSweWordListSub(1, 0x35D88E);
         break;
     }
     case 12: case 13: {
         const float c = rom::f32(LEVEL_CURVE + 4u * PU(*this, 13));
-        set_coef(rom::u16(0x35D88C), uint32_t(int16_t(int(float(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(PU(*this, 12)))))) * c))));
-        set_coef(rom::u16(0x35D88A), uint32_t(int(float(rom::s16(PAN_LAW + 2u * PU(*this, 12))) * c)));
+        coef[rom::u16(0x35D88C)] = uint32_t(int16_t(int(float(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(PU(*this, 12)))))) * c)));
+        coef[rom::u16(0x35D88A)] = uint32_t(int(float(rom::s16(PAN_LAW + 2u * PU(*this, 12))) * c));
         writeSweWordListSub(2, 0x35D88A);
         break;
     }
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         for (int q : {2, 3, 4, 0, 1, 9, 10, 12})
             fxInsPitchChange(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -882,36 +881,36 @@ void Host::fxInsEnsDetune(int p)
     case 0: {
         const uint32_t v = PU(*this, 0);
         const double K = 65527.48886, NK = -65527.48886;
-        const uint32_t lo = FX_LFO25 + 24, hi = FX_LFO25 + 26;   // LFO 12 and 13
+        uint16_t &lo = lfoReg[1][12], &hi = lfoReg[1][13];   // LFO 12 and 13
         if (v < 64) {
             const double a = double(rom::f32(DETUNE_TABLE + 4u * (114u - v))) * K;
             const int32_t w0 = int(a + NK);
             const double b = double(rom::f32(DETUNE_TABLE + 4u * (v - 14u))) * K;
             const int32_t w1 = int(K - b);
-            set_coef(rom::u16(LFO_DIR_STEPS + 2), uint32_t(int16_t(w0)));
-            set_coef(rom::u16(LFO_DIR_STEPS), uint32_t(int16_t(w0)));
-            set_coef(rom::u16(LFO_DIR_STEPS + 6), uint32_t(int16_t(w1)));
-            set_coef(rom::u16(LFO_DIR_STEPS + 4), uint32_t(int16_t(w1)));
-            ram.w16(lo, (ram.u16(lo) & 0xFF1F) | 0x20);
-            ram.w16(FX_LFO27 + 24, 0x7FFF);
-            ram.w16(hi, (ram.u16(hi) & 0xFF1F) | 0x40);
-            ram.w16(FX_LFO27 + 26, 0);
+            coef[rom::u16(LFO_DIR_STEPS + 2)] = uint32_t(int16_t(w0));
+            coef[rom::u16(LFO_DIR_STEPS)] = uint32_t(int16_t(w0));
+            coef[rom::u16(LFO_DIR_STEPS + 6)] = uint32_t(int16_t(w1));
+            coef[rom::u16(LFO_DIR_STEPS + 4)] = uint32_t(int16_t(w1));
+            lo = (lo & 0xFF1F) | 0x20;
+            lfoReg[3][12] = 0x7FFF;
+            hi = (hi & 0xFF1F) | 0x40;
+            lfoReg[3][13] = 0;
         } else if (v > 64) {
             const double a = double(rom::f32(DETUNE_TABLE + 4u * (114u - v))) * K;
             const int32_t w0 = int(-a + K);
             const double b = double(rom::f32(DETUNE_TABLE + 4u * (v - 14u))) * K;
             const int32_t w1 = int(b + NK);
-            set_coef(rom::u16(LFO_DIR_STEPS + 2), uint32_t(int16_t(w0)));
-            set_coef(rom::u16(LFO_DIR_STEPS), uint32_t(int16_t(w0)));
-            set_coef(rom::u16(LFO_DIR_STEPS + 6), uint32_t(int16_t(w1)));
-            set_coef(rom::u16(LFO_DIR_STEPS + 4), uint32_t(int16_t(w1)));
-            ram.w16(lo, (ram.u16(lo) & 0xFF1F) | 0x40);
-            ram.w16(FX_LFO27 + 24, 0);
-            ram.w16(hi, (ram.u16(hi) & 0xFF1F) | 0x20);
-            ram.w16(FX_LFO27 + 26, 0x7FFF);
+            coef[rom::u16(LFO_DIR_STEPS + 2)] = uint32_t(int16_t(w0));
+            coef[rom::u16(LFO_DIR_STEPS)] = uint32_t(int16_t(w0));
+            coef[rom::u16(LFO_DIR_STEPS + 6)] = uint32_t(int16_t(w1));
+            coef[rom::u16(LFO_DIR_STEPS + 4)] = uint32_t(int16_t(w1));
+            lo = (lo & 0xFF1F) | 0x40;
+            lfoReg[3][12] = 0;
+            hi = (hi & 0xFF1F) | 0x20;
+            lfoReg[3][13] = 0x7FFF;
         } else {
             for (int i = 0; i < 4; i++)
-                set_coef(rom::u16(LFO_DIR_STEPS + 2u * uint32_t(i)), 0);
+                coef[rom::u16(LFO_DIR_STEPS + 2u * uint32_t(i))] = 0;
         }
         writeSweWordListSub(4, LFO_DIR_STEPS);
         writeSwe25Sub(12);
@@ -921,18 +920,18 @@ void Host::fxInsEnsDetune(int p)
         break;
     }
     case 1: {
-        const int32_t d = ms(*this, MOD_DELAY_TABLE, 1) + offs(rom::u8(SL)) + 1;
+        const int32_t d = ms(*this, MOD_DELAY_TABLE, 1) + delay[rom::u8(SL)] + 1;
         for (uint32_t i = 1; i <= 4; i++)
-            set_offs(rom::u8(SL + i), d);
+            delay[rom::u8(SL + i)] = d;
         writeSweDeSub(5, SL);
         break;
     }
     case 2: {
         const int32_t half = int32_t(half_area(*this));
-        set_offs(rom::u8(SL + 5), half);
+        delay[rom::u8(SL + 5)] = half;
         const int32_t d = ms(*this, MOD_DELAY_TABLE, 2) + half + 1;
         for (uint32_t i = 6; i <= 9; i++)
-            set_offs(rom::u8(SL + i), d);
+            delay[rom::u8(SL + i)] = d;
         writeSweDeSub(5, SL + 5);
         break;
     }
@@ -949,10 +948,10 @@ void Host::fxInsEnsDetune(int p)
         fxCopyWords5(EQ7_C, EQ7_C_C);
         break;
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         for (int q : {0, 1, 2, 9, 10, 12})
             fxInsEnsDetune(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -977,28 +976,28 @@ void Host::fxIns3BandEq(int p)
         break;
     case 14:
         if (P(*this, 14) != 0) {
-            set_coef(rom::u16(MIX), 0x4000);
-            set_coef(rom::u16(MIX + 2), 0);
-            set_coef(rom::u16(MIX + 4), 0x4000);
-            set_coef(rom::u16(MIX + 6), uint32_t(fxMulTypeTableB(8192)));
-            set_coef(rom::u16(0x35D890), uint32_t(fxMulTypeTableB(0)));
+            coef[rom::u16(MIX)] = 0x4000;
+            coef[rom::u16(MIX + 2)] = 0;
+            coef[rom::u16(MIX + 4)] = 0x4000;
+            coef[rom::u16(MIX + 6)] = uint32_t(fxMulTypeTableB(8192));
+            coef[rom::u16(0x35D890)] = uint32_t(fxMulTypeTableB(0));
         } else {
-            set_coef(rom::u16(MIX), 0);
-            set_coef(rom::u16(MIX + 2), 8192);
-            set_coef(rom::u16(MIX + 4), 8192);
-            set_coef(rom::u16(MIX + 6), uint32_t(fxMulTypeTableB(0)));
-            set_coef(rom::u16(0x35D890), uint32_t(fxMulTypeTableB(8192)));
+            coef[rom::u16(MIX)] = 0;
+            coef[rom::u16(MIX + 2)] = 8192;
+            coef[rom::u16(MIX + 4)] = 8192;
+            coef[rom::u16(MIX + 6)] = uint32_t(fxMulTypeTableB(0));
+            coef[rom::u16(0x35D890)] = uint32_t(fxMulTypeTableB(8192));
         }
         writeSweWordListSub(3, MIX);
         writeSweWordListSub(1, MIX + 6);
         writeSweWordListSub(1, 0x35D890);
         break;
     case 255:
-        set_coef(rom::u16(PC_PAN + 2), uint32_t(fxMulTypeTableB(8192)));
-        ram.w8(SWE_SUB_HOLD, 1);
+        coef[rom::u16(PC_PAN + 2)] = uint32_t(fxMulTypeTableB(8192));
+        hold = true;
         for (int q : {5, 6, 1, 14})
             fxIns3BandEq(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }
@@ -1011,7 +1010,7 @@ void Host::fxInsLoFi(int p)
     constexpr uint32_t GAIN = 0x35DDC2, GAIN2 = 0x35DDC4, OUT = 0x35DDF4;
     switch (p) {
     case 0:
-        set_coef(rom::u16(RATE), uint32_t(P(*this, 0)));
+        coef[rom::u16(RATE)] = uint32_t(P(*this, 0));
         writeSweWordListSub(1, RATE);
         break;
     case 1: {
@@ -1025,7 +1024,7 @@ void Host::fxInsLoFi(int p)
         else if (v < 112) w = uint32_t(((s - 95) << 4) + 286);
         else if (v < 127) w = uint32_t(((s - 111) << 5) + 542);
         else w = 32767;
-        set_coef(rom::u16(BITS), w);
+        coef[rom::u16(BITS)] = w;
         writeSweWordListSub(1, BITS);
         break;
     }
@@ -1052,10 +1051,10 @@ void Host::fxInsLoFi(int p)
         const uint32_t wet = PU(*this, 9);
         const int32_t dry = rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet)))) >> 1;
         const int32_t wetw = rom::s16(PAN_LAW + 2u * wet) >> 1;
-        set_coef(rom::u16(WET), uint32_t(dry));
-        set_coef(rom::u16(WET + 2), uint32_t(dry));
-        set_coef(rom::u16(WET2), uint32_t(fxMulTypeTableB(wetw)));
-        set_coef(rom::u16(WET2 + 2), uint32_t(fxMulTypeTableB(wetw)));
+        coef[rom::u16(WET)] = uint32_t(dry);
+        coef[rom::u16(WET + 2)] = uint32_t(dry);
+        coef[rom::u16(WET2)] = uint32_t(fxMulTypeTableB(wetw));
+        coef[rom::u16(WET2 + 2)] = uint32_t(fxMulTypeTableB(wetw));
         const uint32_t sel = PU(*this, 6);
         const uint32_t lawrow = 0x370F70 + 2u * PU(*this, 2);
         int32_t a = rom::s16(lawrow), b;
@@ -1069,11 +1068,11 @@ void Host::fxInsLoFi(int p)
         case 6: a = rom::s16(lawrow + 24); b = 32767; break;
         default: b = wetw; break;
         }
-        set_coef(rom::u16(LEVEL), uint32_t(a));
-        set_coef(rom::u16(OUT), uint32_t(b));
+        coef[rom::u16(LEVEL)] = uint32_t(a);
+        coef[rom::u16(OUT)] = uint32_t(b);
         const int32_t gsh = (32767 >> sel) >> 1;
-        set_coef(rom::u16(GAIN), uint32_t(gsh));
-        set_coef(rom::u16(GAIN2), uint32_t(gsh));
+        coef[rom::u16(GAIN)] = uint32_t(gsh);
+        coef[rom::u16(GAIN2)] = uint32_t(gsh);
         writeSweWordListSub(1, GAIN);
         writeSweWordListSub(1, GAIN2);
         writeSweWordListSub(2, WET);
@@ -1083,10 +1082,10 @@ void Host::fxInsLoFi(int p)
         break;
     }
     case 255:
-        ram.w8(SWE_SUB_HOLD, 1);
+        hold = true;
         for (int q : {0, 1, 2, 3, 4, 7})
             fxInsLoFi(q);
-        ram.w8(SWE_SUB_HOLD, 0);
+        hold = false;
         break;
     }
 }

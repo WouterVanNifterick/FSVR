@@ -4,14 +4,12 @@
 // The performance into the effect chip: applySubDirtyMask, which the effect task runs for
 // every message posted to it, and the functions it reaches. Mask 0x8000 is a performance load.
 //
-// The parameter cache holds 16-bit words: reverb at +0, insertion at +0x20, variation at
-// +0x40, master EQ at +0x60. The blocks the per-type handlers read (FX_PARAMS + 0x20 * kind)
-// are filled from it here.
+// The caches hold the parameters as read from the performance; the blocks the per-type
+// handlers read (param[kind]) are filled from them here.
 #include "host.h"
+#include <algorithm>
 
 namespace fs1r::vop3host {
-
-using namespace ram;
 
 namespace {
 
@@ -22,17 +20,13 @@ constexpr uint32_t TYPE_MAP_REVERB = rom::FX_TYPE_MAP_REVERB, TYPE_MAP_VARIATION
 constexpr uint32_t STEPS_B = rom::FX_STEPS_MIXER_B, STEPS_C = rom::FX_STEPS_MIXER_C;
 constexpr uint32_t STEPS_ROUTE = rom::FX_STEPS_INDIVIDUAL_OUT;
 
-// parameter block words, as offsets from SWE_SHADOW
-constexpr uint32_t BLK_REVERB = SWE_SHADOW + 2304, BLK_INSERTION = SWE_SHADOW + 2368, BLK_DELAY = SWE_SHADOW + 2400,
-                   BLK_VARIATION = SWE_SHADOW + 2432, BLK_EQ = SWE_SHADOW + 2464, BLK_SYS = SWE_SHADOW + 2512;
-
 }  // namespace
 
 // flash 0x306C0 through 0x3074C (which = 0, the minimum) and 0x30740 (which = 1, the maximum):
 // the range of an insertion parameter from the descriptor table of the current insertion type
 int32_t Host::insertionParamBound(uint32_t id, uint32_t which)
 {
-    const uint32_t type = ram.u8(PERFORMANCE + 175);
+    const uint32_t type = perf[175];
     const uint32_t desc = rom::u32(rom::PARAM_DESC_INSERTION + 4 * type) + (((id & 0xFFFF & 255) - 136) << 4);
     return (which & 0xFFFF) == 0 ? rom::s16(desc + 6) : rom::s16(desc + 8);
 }
@@ -49,106 +43,100 @@ int32_t Host::insertionParamMin(uint32_t id) { return insertionParamBound(id, 0)
 //   0x100   dirty master EQ parameters (handlers at 0x3F104)
 void Host::applySubDirtyMask(uint32_t mask)
 {
-    const uint32_t cache = FX_PARAM_CACHE;
-    auto perf = [&](uint32_t i) -> uint32_t { return ram.u8(PERFORMANCE + (i & 255)); };
-    auto copy16 = [&](uint32_t dst, uint32_t src) {
-        for (uint32_t i = 0; i < 16; i++)
-            ram.w16(dst + 2 * i, ram.u16(src + 2 * i));
-    };
     auto is_delay = [&](uint32_t type) -> bool { return rom::u8(TYPE_MAP_REVERB + ((type & 0xFF) << 1)) != 0; };
 
     if ((mask & 0x80) || (mask & 0x8000)) {
         if (mask & 0x8000) {
             for (uint32_t i = 0; i < 16; i++) {
                 if (i < 8)
-                    ram.w16(cache + 2 * i, uint32_t(readParameter(0x50 + 2 * i)));
+                    reverbCache[i] = uint32_t(readParameter(0x50 + 2 * i));
                 else
-                    ram.w16(cache + 2 * i, uint32_t(readParameter(0x58 + i)));
-                ram.w16(cache + 0x40 + 2 * i, uint32_t(readParameter(0x68 + 2 * i)));
-                ram.w16(cache + 0x20 + 2 * i, uint32_t(readParameter(136 + 2 * i)));
+                    reverbCache[i] = uint32_t(readParameter(0x58 + i));
+                variationCache[i] = uint32_t(readParameter(0x68 + 2 * i));
+                insertionCache[i] = uint32_t(readParameter(136 + 2 * i));
             }
             for (uint32_t i = 0; i < 10; i++)
-                ram.w16(cache + 0x60 + 2 * i, uint32_t(readParameter(180 + i)));
+                eqCache[i] = uint32_t(readParameter(180 + i));
         }
-        ram.w16(cache + 18, 127);
-        ram.w16(cache + 82, 127);
+        reverbCache[9] = 127;
+        variationCache[9] = 127;
         setSubFlag(0, 1);
         setSubFlag(2, 1);
         setSubFlag(3, 1);
         setSubFlag(4, 1);
         for (uint32_t i = 0; i < 16; i++)
-            ram.w16(FX_VAR_WORD + 2 * i, 0);
+            controlOffset[i] = 0;
         const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
-        ram.w16(BLK_SYS + 2 * 4, 90);
+        mixParam[4] = 90;
         fxParamEntry(6, 4);
         int delay_entry;
         if (!is_delay(rev)) {
-            copy16(BLK_REVERB, cache);
-            ram.w8(SWE_SHADOW + 0x21, rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1)));
+            std::copy_n(reverbCache, 16, param[REVERB]);
+            code[REVERB].lsb = rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1));
             fxParamEntry(0, 254);
-            ram.w8(SWE_SHADOW + 0x26, 0);
-            ram.w8(SWE_SHADOW + 0x27, 1);
+            code[REVERB_DELAY].msb = 0;
+            code[REVERB_DELAY].lsb = 1;
             delay_entry = 255;
         } else {
-            copy16(BLK_DELAY, cache);
-            ram.w8(SWE_SHADOW + 0x21, 0);
+            std::copy_n(reverbCache, 16, param[REVERB_DELAY]);
+            code[REVERB].lsb = 0;
             fxParamEntry(0, 255);
-            ram.w8(SWE_SHADOW + 0x26, 8);
-            ram.w8(SWE_SHADOW + 0x27, rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1)));
+            code[REVERB_DELAY].msb = 8;
+            code[REVERB_DELAY].lsb = rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1));
             delay_entry = 254;
         }
         fxParamEntry(3, delay_entry);
 
-        const uint32_t var = perf(171);
-        copy16(BLK_VARIATION, cache + 0x40);
-        ram.w8(SWE_SHADOW + 0x28, rom::u8(TYPE_MAP_VARIATION + (var << 1)));
-        ram.w8(SWE_SHADOW + 0x29, rom::u8(TYPE_MAP_VARIATION + (var << 1) + 1));
+        const uint32_t var = perf[171];
+        std::copy_n(variationCache, 16, param[VARIATION]);
+        code[VARIATION].msb = rom::u8(TYPE_MAP_VARIATION + (var << 1));
+        code[VARIATION].lsb = rom::u8(TYPE_MAP_VARIATION + (var << 1) + 1);
         fxParamEntry(4, 254);
 
-        const uint32_t ins = perf(175);
-        copy16(BLK_INSERTION, cache + 0x20);
-        ram.w8(SWE_SHADOW + 0x24, rom::u8(TYPE_MAP_INSERTION + (ins << 1)));
-        ram.w8(SWE_SHADOW + 0x25, rom::u8(TYPE_MAP_INSERTION + (ins << 1) + 1));
+        const uint32_t ins = perf[175];
+        std::copy_n(insertionCache, 16, param[INSERTION]);
+        code[INSERTION].msb = rom::u8(TYPE_MAP_INSERTION + (ins << 1));
+        code[INSERTION].lsb = rom::u8(TYPE_MAP_INSERTION + (ins << 1) + 1);
         fxParamEntry(2, 254);
 
         // the mixer: reverb pan and return go to the words of the reverb or of the delay block
-        const uint32_t rtype = perf(168);
-        const uint32_t pan = perf(169);
+        const uint32_t rtype = perf[168];
+        const uint32_t pan = perf[169];
         if (!is_delay(rtype)) {
-            ram.w16(BLK_SYS + 2 * 0, pan);
+            mixParam[0] = pan;
             fxParamEntry(6, 0);
-            ram.w16(BLK_SYS + 2 * 10, 64);
+            mixParam[10] = 64;
         } else {
-            ram.w16(BLK_SYS + 2 * 0, 64);
+            mixParam[0] = 64;
             fxParamEntry(6, 0);
-            ram.w16(BLK_SYS + 2 * 10, pan);
+            mixParam[10] = pan;
         }
         fxParamEntry(6, 10);
-        const uint32_t ret = perf(170);
+        const uint32_t ret = perf[170];
         if (!is_delay(rtype)) {
-            ram.w16(BLK_SYS + 2 * 1, ret);
+            mixParam[1] = ret;
             fxParamEntry(6, 1);
-            ram.w16(BLK_SYS + 2 * 3, 0);
+            mixParam[3] = 0;
         } else {
-            ram.w16(BLK_SYS + 2 * 1, 0);
+            mixParam[1] = 0;
             fxParamEntry(6, 1);
-            ram.w16(BLK_SYS + 2 * 3, ret);
+            mixParam[3] = ret;
         }
         fxParamEntry(6, 3);
-        ram.w16(BLK_SYS + 2 * 11, perf(172));
+        mixParam[11] = perf[172];
         fxParamEntry(6, 11);
-        ram.w16(BLK_SYS + 2 * 6, perf(173));
+        mixParam[6] = perf[173];
         fxParamEntry(6, 6);
-        ram.w16(BLK_SYS + 2 * 8, perf(174));
+        mixParam[8] = perf[174];
         fxParamEntry(6, 8);
-        ram.w16(BLK_SYS + 2 * 5, perf(176));
+        mixParam[5] = perf[176];
         fxParamEntry(6, 5);
-        ram.w16(BLK_SYS + 2 * 14, perf(16));
+        mixParam[14] = perf[16];
         setSubMasterShift();
-        setSubInsToReverb(perf(177));
-        setSubInsToVariation(perf(178));
-        setSubInsLevel(perf(179));
-        setSubIndividualOut(perf(20));
+        setSubInsToReverb(perf[177]);
+        setSubInsToVariation(perf[178]);
+        setSubInsLevel(perf[179]);
+        setSubIndividualOut(perf[20]);
         copySubEqWords();
         fxParamEntry(5, 0);
         fxParamEntry(5, 8);
@@ -168,36 +156,36 @@ void Host::applySubDirtyMask(uint32_t mask)
         setSubFlag(0, 1);
         setSubFlag(3, 1);
         const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
-        ram.w16(BLK_SYS + 2 * 4, 90);
+        mixParam[4] = 90;
         fxParamEntry(6, 4);
         if (!is_delay(rev)) {
-            ram.w8(SWE_SHADOW + 0x21, rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1)));
+            code[REVERB].lsb = rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1));
             fxParamEntry(0, 255);
-            ram.w8(SWE_SHADOW + 0x26, 0);
-            ram.w8(SWE_SHADOW + 0x27, 1);
+            code[REVERB_DELAY].msb = 0;
+            code[REVERB_DELAY].lsb = 1;
             fxParamEntry(3, 255);
-            ram.w16(BLK_SYS + 2 * 0, uint32_t(readParameter(169)) & 0xFF);
+            mixParam[0] = uint32_t(readParameter(169)) & 0xFF;
             fxParamEntry(6, 0);
-            ram.w16(BLK_SYS + 2 * 10, 64);
+            mixParam[10] = 64;
             fxParamEntry(6, 10);
-            ram.w16(BLK_SYS + 2 * 1, uint32_t(readParameter(170)) & 0xFF);
+            mixParam[1] = uint32_t(readParameter(170)) & 0xFF;
             fxParamEntry(6, 1);
-            ram.w16(BLK_SYS + 2 * 3, 0);
+            mixParam[3] = 0;
         } else {
-            ram.w8(SWE_SHADOW + 0x21, 0);
+            code[REVERB].lsb = 0;
             fxParamEntry(0, 255);
-            ram.w8(SWE_SHADOW + 0x26, 8);
-            ram.w8(SWE_SHADOW + 0x27, rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1)));
+            code[REVERB_DELAY].msb = 8;
+            code[REVERB_DELAY].lsb = rom::u8(TYPE_MAP_REVERB + 1 + (rev << 1));
             fxParamEntry(3, 255);
             const uint32_t pan = uint32_t(readParameter(169)) & 0xFF;
-            ram.w16(BLK_SYS + 2 * 0, 64);
+            mixParam[0] = 64;
             fxParamEntry(6, 0);
-            ram.w16(BLK_SYS + 2 * 10, pan);
+            mixParam[10] = pan;
             fxParamEntry(6, 10);
             const uint32_t ret = uint32_t(readParameter(170)) & 0xFF;
-            ram.w16(BLK_SYS + 2 * 1, 0);
+            mixParam[1] = 0;
             fxParamEntry(6, 1);
-            ram.w16(BLK_SYS + 2 * 3, ret);
+            mixParam[3] = ret;
         }
         fxParamEntry(6, 3);
         loadSubEffectType(0);
@@ -209,15 +197,15 @@ void Host::applySubDirtyMask(uint32_t mask)
     if (mask & 0x20) {
         const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
         for (uint32_t i = 0; i < 16; i++) {
-            if (ram.u8(FX_DIRTY_REVERB + i) != 1)
+            if (reverbChanged[i] != 1)
                 continue;
-            const uint32_t w = ram.u16(cache + 2 * i);
-            ram.w8(FX_DIRTY_REVERB + i, 0);
+            const uint32_t w = reverbCache[i];
+            reverbChanged[i] = 0;
             if (!is_delay(rev)) {
-                ram.w16(BLK_REVERB + 2 * i, w);
+                param[REVERB][i] = w;
                 fxParamEntry(0, int(i));
             } else {
-                ram.w16(BLK_DELAY + 2 * i, w);
+                param[REVERB_DELAY][i] = w;
                 fxParamEntry(3, int(i));
             }
         }
@@ -226,8 +214,8 @@ void Host::applySubDirtyMask(uint32_t mask)
     if (mask & 0x10) {
         setSubFlag(4, 1);
         const uint32_t var = uint32_t(readParameter(171)) & 0xFF;
-        ram.w8(SWE_SHADOW + 0x28, rom::u8(TYPE_MAP_VARIATION + (var << 1)));
-        ram.w8(SWE_SHADOW + 0x29, rom::u8(TYPE_MAP_VARIATION + (var << 1) + 1));
+        code[VARIATION].msb = rom::u8(TYPE_MAP_VARIATION + (var << 1));
+        code[VARIATION].lsb = rom::u8(TYPE_MAP_VARIATION + (var << 1) + 1);
         fxParamEntry(4, 255);
         loadSubEffectType(4);
         if (var != 0)
@@ -237,11 +225,11 @@ void Host::applySubDirtyMask(uint32_t mask)
     if (mask & 0x08) {
         readParameter(171);
         for (uint32_t i = 0; i < 16; i++) {
-            if (ram.u8(FX_DIRTY_VARIATION + i) != 1)
+            if (variationChanged[i] != 1)
                 continue;
-            const uint32_t w = ram.u16(cache + 0x40 + 2 * i);
-            ram.w8(FX_DIRTY_VARIATION + i, 0);
-            ram.w16(BLK_VARIATION + 2 * i, w);
+            const uint32_t w = variationCache[i];
+            variationChanged[i] = 0;
+            param[VARIATION][i] = w;
             fxParamEntry(4, int(i));
         }
     }
@@ -249,10 +237,10 @@ void Host::applySubDirtyMask(uint32_t mask)
     if (mask & 0x04) {
         setSubFlag(2, 1);
         for (uint32_t i = 0; i < 16; i++)
-            ram.w16(FX_VAR_WORD + 2 * i, 0);
+            controlOffset[i] = 0;
         const uint32_t ins = uint32_t(readParameter(175)) & 0xFF;
-        ram.w8(SWE_SHADOW + 0x24, rom::u8(TYPE_MAP_INSERTION + (ins << 1)));
-        ram.w8(SWE_SHADOW + 0x25, rom::u8(TYPE_MAP_INSERTION + (ins << 1) + 1));
+        code[INSERTION].msb = rom::u8(TYPE_MAP_INSERTION + (ins << 1));
+        code[INSERTION].lsb = rom::u8(TYPE_MAP_INSERTION + (ins << 1) + 1);
         fxParamEntry(2, 255);
         loadSubEffectType(2);
         setSubFlag(2, 0);
@@ -263,40 +251,40 @@ void Host::applySubDirtyMask(uint32_t mask)
         // to the range of the parameter, offset * (max - min) / 127, clamped to that range
         readParameter(175);
         for (uint32_t i = 0; i < 16; i++) {
-            if (ram.u8(FX_DIRTY_INSERTION + i) != 1)
+            if (insertionChanged[i] != 1)
                 continue;
             const int32_t lo = int32_t(uint32_t(insertionParamMin(136 + 2 * i)) & 0xFFFF);
             const int32_t hi = int32_t(uint32_t(insertionParamMax(136 + 2 * i)) & 0xFFFF);
-            const int32_t span = ram.s16(FX_VAR_WORD + 2 * i) * (hi - lo);
+            const int32_t span = controlOffset[i] * (hi - lo);
             const int32_t add = int16_t(span / 127);
-            int32_t v = int16_t(ram.s16(cache + 0x20 + 2 * i) + add);
+            int32_t v = int16_t(insertionCache[i] + add);
             if (!(v > lo)) v = lo;
             v = int16_t(v);
             const int32_t out = v >= hi ? hi : v;
-            ram.w8(FX_DIRTY_INSERTION + i, 0);
-            ram.w16(BLK_INSERTION + 2 * i, uint32_t(out));
+            insertionChanged[i] = 0;
+            param[INSERTION][i] = uint32_t(out);
             fxParamEntry(2, int(i));
         }
     }
 
     if (mask & 0x200) {
-        // The firmware clears byte i of the insertion flags here, not of the mixer flags (0x3B63C, 0x3B644).
+        // The firmware clears the insertion flags here, and past the sixteenth the EQ's, never the mixer's (0x3B63C).
         for (uint32_t i = 0; i < 21; i++) {
-            if (ram.u8(FX_DIRTY_MIXER + i) != 1)
+            if (mixerChanged[i] != 1)
                 continue;
             subMixerHandler(i);
-            ram.w8(FX_DIRTY_INSERTION + i, 0);
+            if (i < 16) insertionChanged[i] = 0; else eqChanged[i - 16] = 0;
         }
     }
 
     if (mask & 0x100) {
         for (uint32_t i = 0; i < 11; i++)
-            if (ram.u8(FX_DIRTY_EQ + i) == 1)
+            if (eqChanged[i] == 1)
                 subEqHandler(i);
     }
 }
 
-// the handler table at flash 0x3F0B0, indexed like FX_DIRTY_MIXER: the system parameter
+// the handler table at flash 0x3F0B0, indexed like mixerChanged: the system parameter
 // number for 0..14, then 16 send A, 17 send B, 18 insertion level, 19 individual out, 20 master shift
 void Host::subMixerHandler(uint32_t i)
 {
@@ -314,7 +302,7 @@ void Host::subMixerHandler(uint32_t i)
     }
 }
 
-// the handler table at flash 0x3F104, indexed like FX_DIRTY_EQ (master EQ bytes 180..190)
+// the handler table at flash 0x3F104, indexed like eqChanged (master EQ bytes 180..190)
 void Host::subEqHandler(uint32_t i)
 {
     if (i < 4) copySubEqLow(i);
@@ -325,55 +313,55 @@ void Host::subEqHandler(uint32_t i)
 // flash 0x3B766 applySubReverbPanReturn: reverb pan and return from the performance
 void Host::applySubReverbPanReturn()
 {
-    const uint32_t rtype = ram.u8(PERFORMANCE + 168);
-    const bool delay = rom::u8(TYPE_MAP_REVERB + (rtype << 1)) != 0;
-    const uint32_t pan = ram.u8(PERFORMANCE + 169);
-    if (!delay) {
-        ram.w16(BLK_SYS + 2 * 0, pan);
+    const uint32_t rtype = perf[168];
+    const bool isDelay = rom::u8(TYPE_MAP_REVERB + (rtype << 1)) != 0;
+    const uint32_t pan = perf[169];
+    if (!isDelay) {
+        mixParam[0] = pan;
         fxParamEntry(6, 0);
-        ram.w16(BLK_SYS + 2 * 10, 64);
+        mixParam[10] = 64;
     } else {
-        ram.w16(BLK_SYS + 2 * 0, 64);
+        mixParam[0] = 64;
         fxParamEntry(6, 0);
-        ram.w16(BLK_SYS + 2 * 10, pan);
+        mixParam[10] = pan;
     }
     fxParamEntry(6, 10);
-    const uint32_t ret = ram.u8(PERFORMANCE + 170);
-    if (!delay) {
-        ram.w16(BLK_SYS + 2 * 1, ret);
+    const uint32_t ret = perf[170];
+    if (!isDelay) {
+        mixParam[1] = ret;
         fxParamEntry(6, 1);
-        ram.w16(BLK_SYS + 2 * 3, 0);
+        mixParam[3] = 0;
     } else {
-        ram.w16(BLK_SYS + 2 * 1, 0);
+        mixParam[1] = 0;
         fxParamEntry(6, 1);
-        ram.w16(BLK_SYS + 2 * 3, ret);
+        mixParam[3] = ret;
     }
     fxParamEntry(6, 3);
 }
 
 void Host::applySubVarPan()                                                    // flash 0x3B81C
 {
-    ram.w16(BLK_SYS + 2 * 11, ram.u8(PERFORMANCE + 172));
+    mixParam[11] = perf[172];
     fxParamEntry(6, 11);
 }
 void Host::applySubVarReturn()                                                 // flash 0x3B82E
 {
-    ram.w16(BLK_SYS + 2 * 6, ram.u8(PERFORMANCE + 173));
+    mixParam[6] = perf[173];
     fxParamEntry(6, 6);
 }
 void Host::applySubVarToReverb()                                               // flash 0x3B840
 {
-    ram.w16(BLK_SYS + 2 * 8, ram.u8(PERFORMANCE + 174));
+    mixParam[8] = perf[174];
     fxParamEntry(6, 8);
 }
 void Host::applySubInsPan()                                                    // flash 0x3B852
 {
-    ram.w16(BLK_SYS + 2 * 5, ram.u8(PERFORMANCE + 176));
+    mixParam[5] = perf[176];
     fxParamEntry(6, 5);
 }
 void Host::applySubPerfVolume()                                                // flash 0x3B864
 {
-    ram.w16(BLK_SYS + 2 * 14, ram.u8(PERFORMANCE + 16));
+    mixParam[14] = perf[16];
     fxParamEntry(6, 14);
 }
 
@@ -381,38 +369,37 @@ void Host::applySubPerfVolume()                                                /
 // controller offset, clamped to 0..127
 void Host::applySubInsToReverb()
 {
-    int32_t v = int16_t(ram.u8(PERFORMANCE + 177) + uint32_t(ram.s16(FX_SENDA_OFFSET)));
+    int32_t v = int16_t(perf[177] + uint32_t(sendReverbOffset));
     if (!(v > 0)) v = 0;
     setSubInsToReverb(uint32_t(v >= 127 ? 127 : v));
 }
 // flash 0x3B8EC applySubInsToVariation: the same for the insertion to variation send
 void Host::applySubInsToVariation()
 {
-    int32_t v = int16_t(ram.u8(PERFORMANCE + 178) + uint32_t(ram.s16(FX_SENDB_OFFSET)));
+    int32_t v = int16_t(perf[178] + uint32_t(sendVariationOffset));
     if (!(v > 0)) v = 0;
     setSubInsToVariation(uint32_t(v >= 127 ? 127 : v));
 }
 
-void Host::applySubInsLevel() { setSubInsLevel(ram.u8(PERFORMANCE + 179)); }  // flash 0x3B91C
-void Host::applySubIndividualOut() { setSubIndividualOut(ram.u8(PERFORMANCE + 20)); }   // flash 0x3B92C
+void Host::applySubInsLevel() { setSubInsLevel(perf[179]); }  // flash 0x3B91C
+void Host::applySubIndividualOut() { setSubIndividualOut(perf[20]); }   // flash 0x3B92C
 
 // flash 0x3B940 copySubEqLow: cached EQ word i (bytes 180..183) to master EQ parameter i
 void Host::copySubEqLow(uint32_t i)
 {
-    i = i & 0xFFFF;
-    ram.w16(FX_PARAMS_EQ + (i << 1), ram.u16(FX_PARAM_CACHE + 0x60 + (i << 1)));
-    fxParamEntry(5, int(int16_t(i)));
+    eqParam[i] = eqCache[i];
+    fxParamEntry(5, int(i));
 }
 // flash 0x3B95C copySubEqMid: cached EQ word i (bytes 184..186) to master EQ parameter i + 4
 void Host::copySubEqMid(uint32_t i)
 {
-    ram.w16(FX_PARAMS_EQ + 0x10 + (((i & 0xFFFF) - 4) << 1), ram.u16(FX_PARAM_CACHE + 0x60 + ((i & 0xFFFF) << 1)));
+    eqParam[4 + i] = eqCache[i];
     fxParamEntry(5, int(i + 4));
 }
 // flash 0x3B97E copySubEqHigh: cached EQ word i (bytes 187..190) to master EQ parameter i + 9
 void Host::copySubEqHigh(uint32_t i)
 {
-    ram.w16(FX_PARAMS_EQ + 0x20 + (((i & 0xFFFF) - 7) << 1), ram.u16(FX_PARAM_CACHE + 0x60 + ((i & 0xFFFF) << 1)));
+    eqParam[9 + i] = i < 10 ? eqCache[i] : eqHighShape();
     fxParamEntry(5, int(i + 9));
 }
 
@@ -420,21 +407,18 @@ void Host::copySubEqHigh(uint32_t i)
 // 0-3, 8-10, 16-19)
 void Host::copySubEqWords()
 {
-    const uint32_t src = FX_PARAM_CACHE + 0x60;
-    for (uint32_t i = 0; i < 4; i++)
-        ram.w16(BLK_EQ + 2 * i, ram.u16(src + 2 * i));
-    for (uint32_t i = 0; i < 3; i++)
-        ram.w16(BLK_EQ + 16 + 2 * i, ram.u16(src + 8 + 2 * i));
-    for (uint32_t i = 0; i < 4; i++)
-        ram.w16(BLK_EQ + 32 + 2 * i, ram.u16(src + 14 + 2 * i));
+    for (int i = 0; i < 4; i++) eqParam[i] = eqCache[i];
+    for (int i = 0; i < 3; i++) eqParam[8 + i] = eqCache[4 + i];
+    for (int i = 0; i < 3; i++) eqParam[16 + i] = eqCache[7 + i];
+    eqParam[19] = eqHighShape();
 }
 
 // flash 0x3BA2C setSubInsToReverb: insertion to reverb send, v * 2896 / 127, into two mixer steps
 void Host::setSubInsToReverb(uint32_t v)
 {
     const int32_t w = int16_t(int(float(v & 0xFF) * 2896.0f / 127.0f));
-    set_coef(rom::u16(STEPS_C + 34), uint32_t(w));
-    set_coef(rom::u16(STEPS_C + 46), uint32_t(w));
+    coef[rom::u16(STEPS_C + 34)] = uint32_t(w);
+    coef[rom::u16(STEPS_C + 46)] = uint32_t(w);
     writeSweWordListSub(1, STEPS_C + 34);
     writeSweWordListSub(1, STEPS_C + 46);
 }
@@ -442,8 +426,8 @@ void Host::setSubInsToReverb(uint32_t v)
 void Host::setSubInsToVariation(uint32_t v)
 {
     const int32_t w = int16_t(int(float(v & 0xFF) * 2896.0f / 127.0f));
-    set_coef(rom::u16(STEPS_C + 56), uint32_t(w));
-    set_coef(rom::u16(STEPS_C + 66), uint32_t(w));
+    coef[rom::u16(STEPS_C + 56)] = uint32_t(w);
+    coef[rom::u16(STEPS_C + 66)] = uint32_t(w);
     writeSweWordListSub(1, STEPS_C + 56);
     writeSweWordListSub(1, STEPS_C + 66);
 }
@@ -451,8 +435,8 @@ void Host::setSubInsToVariation(uint32_t v)
 void Host::setSubInsLevel(uint32_t v)
 {
     const int32_t w = int16_t(int(float(v & 0xFF) * 8192.0f / 127.0f)) >> 2;
-    set_coef(rom::u16(STEPS_B + 16), uint32_t(w));
-    set_coef(rom::u16(STEPS_B + 18), uint32_t(w));
+    coef[rom::u16(STEPS_B + 16)] = uint32_t(w);
+    coef[rom::u16(STEPS_B + 18)] = uint32_t(w);
     writeSweWordListSub(1, STEPS_B + 16);
     writeSweWordListSub(1, STEPS_B + 18);
 }
@@ -463,9 +447,9 @@ void Host::setSubIndividualOut(uint32_t mode)
 {
     auto step = [&](int i) -> uint32_t { return rom::u16(STEPS_ROUTE + 2 * i); };
     switch (mode & 0xFF) {
-    case 0: set_coef(step(0), 0); set_coef(step(1), 0); set_coef(step(2), 0); set_coef(step(3), 0); break;
-    case 1: set_coef(step(0), 0x0B50); set_coef(step(1), 0x0B50); set_coef(step(2), 0); set_coef(step(3), 0); break;
-    case 2: set_coef(step(0), 0); set_coef(step(1), 0); set_coef(step(2), 0x0B50); set_coef(step(3), 0x0B50); break;
+    case 0: coef[step(0)] = 0; coef[step(1)] = 0; coef[step(2)] = 0; coef[step(3)] = 0; break;
+    case 1: coef[step(0)] = 0x0B50; coef[step(1)] = 0x0B50; coef[step(2)] = 0; coef[step(3)] = 0; break;
+    case 2: coef[step(0)] = 0; coef[step(1)] = 0; coef[step(2)] = 0x0B50; coef[step(3)] = 0x0B50; break;
     }
     writeSweWordListSub(4, STEPS_ROUTE);
 }
@@ -473,7 +457,7 @@ void Host::setSubIndividualOut(uint32_t mode)
 // flash 0x3BCA0 setSubMasterShift: the master level word, then the master volume step
 void Host::setSubMasterShift()
 {
-    ram.w16(FX_SUB_LEVEL, 0x1FFF);
+    masterLevel = 0x1FFF;
     fxParamEntry(6, 14);
 }
 
@@ -504,15 +488,14 @@ bool Host::pollSubDirtyLoop()
 // EPROM into the kind's parameter block (the tables fxParamEntry reads for an odd p)
 void Host::loadSubTypeDefaults(uint32_t kind)
 {
-    uint32_t src, dst;
-    switch (kind & 0xFF) {
+    uint32_t src = 0;
+    switch (kind) {
     case 0:
-        src = rom::FX_DEFAULTS_REVERB + (ram.u8(SWE_SHADOW + 0x21) << 5);
-        dst = BLK_REVERB;
+        src = rom::FX_DEFAULTS_REVERB + (code[REVERB].lsb << 5);
         break;
     case 2: {
-        const uint32_t lsb = ram.u8(SWE_SHADOW + 0x25) << 5;
-        switch (ram.u8(SWE_SHADOW + 0x24)) {
+        const uint32_t lsb = code[INSERTION].lsb << 5;
+        switch (code[INSERTION].msb) {
         case 1: src = 0x3614F4; break;
         case 2: src = 0x36319C; break;
         case 3: src = 0x3650EA; break;
@@ -525,16 +508,14 @@ void Host::loadSubTypeDefaults(uint32_t kind)
         default: src = 0x3612B4; break;
         }
         src += lsb;
-        dst = BLK_INSERTION;
         break;
     }
     case 3:
-        src = (ram.u8(SWE_SHADOW + 0x26) == 8 ? 0x361914 : 0x361694) + (ram.u8(SWE_SHADOW + 0x27) << 5);
-        dst = BLK_DELAY;
+        src = (code[REVERB_DELAY].msb == 8 ? 0x361914 : 0x361694) + (code[REVERB_DELAY].lsb << 5);
         break;
     case 4: {
-        const uint32_t lsb = ram.u8(SWE_SHADOW + 0x29) << 5;
-        switch (ram.u8(SWE_SHADOW + 0x28)) {
+        const uint32_t lsb = code[VARIATION].lsb << 5;
+        switch (code[VARIATION].msb) {
         case 1: src = 0x361854; break;
         case 2: src = 0x3633FC; break;
         case 3: src = 0x36347C; break;
@@ -548,12 +529,11 @@ void Host::loadSubTypeDefaults(uint32_t kind)
         default: src = 0x361694; break;
         }
         src += lsb;
-        dst = BLK_VARIATION;
         break;
     }
     }
     for (uint32_t i = 0; i < 16; i++)
-        ram.w16(dst + 2 * i, rom::u16(src + 2 * i));
+        param[kind][i] = rom::u16(src + 2 * i);
 }
 
 // The three type changes: the new type's bytes, its default parameters into the block, and
@@ -565,35 +545,35 @@ void Host::syncSubReverbType()
 {
     const uint32_t rev = uint32_t(readParameter(168)) & 0xFF;
     const uint32_t map = TYPE_MAP_REVERB + (rev << 1);
-    const bool delay = rom::u8(map) != 0;
-    if (!delay) {
-        ram.w8(SWE_SHADOW + 0x21, rom::u8(map + 1));
+    const bool isDelay = rom::u8(map) != 0;
+    if (!isDelay) {
+        code[REVERB].lsb = rom::u8(map + 1);
         loadSubTypeDefaults(0);
-        ram.w8(SWE_SHADOW + 0x26, 0);
-        ram.w8(SWE_SHADOW + 0x27, 1);
+        code[REVERB_DELAY].msb = 0;
+        code[REVERB_DELAY].lsb = 1;
         loadSubTypeDefaults(3);
     } else {
-        ram.w8(SWE_SHADOW + 0x21, 0);
+        code[REVERB].lsb = 0;
         loadSubTypeDefaults(0);
-        ram.w8(SWE_SHADOW + 0x26, 8);
-        ram.w8(SWE_SHADOW + 0x27, rom::u8(map + 1));
+        code[REVERB_DELAY].msb = 8;
+        code[REVERB_DELAY].lsb = rom::u8(map + 1);
         loadSubTypeDefaults(3);
     }
-    const uint32_t blk = delay ? BLK_DELAY : BLK_REVERB;
+    const uint16_t* blk = param[isDelay ? REVERB_DELAY : REVERB];
     for (uint32_t i = 0; i < 8; i++) {
-        ram.w8(PERFORMANCE + 80 + 2 * i + 1, ram.u8(blk + 2 * i + 1) & 0x7F);
-        ram.w8(PERFORMANCE + 80 + 2 * i, (ram.u16(blk + 2 * i) & 0x3F80) >> 7);
-        ram.w16(FX_PARAM_CACHE + 2 * i, ram.u16(blk + 2 * i));
-        ram.w8(FX_DIRTY_REVERB + i, 0);
+        perf[80 + 2 * i + 1] = (blk[i] & 0xFF) & 0x7F;
+        perf[80 + 2 * i] = (blk[i] & 0x3F80) >> 7;
+        reverbCache[i] = blk[i];
+        reverbChanged[i] = 0;
     }
     for (uint32_t i = 8; i < 16; i++) {
-        ram.w8(PERFORMANCE + 96 + i - 8, ram.u8(blk + 2 * i + 1));
-        ram.w16(FX_PARAM_CACHE + 2 * i, ram.u16(blk + 2 * i));
-        ram.w8(FX_DIRTY_REVERB + i, 0);
+        perf[96 + i - 8] = (blk[i] & 0xFF);
+        reverbCache[i] = blk[i];
+        reverbChanged[i] = 0;
     }
-    if (delay) {
-        ram.w8(PERFORMANCE + 97, 0);
-        ram.w16(FX_PARAM_CACHE + 18, 127);
+    if (isDelay) {
+        perf[97] = 0;
+        reverbCache[9] = 127;
     }
 }
 
@@ -601,33 +581,33 @@ void Host::syncSubReverbType()
 void Host::syncSubVariationType()
 {
     const uint32_t var = uint32_t(readParameter(171)) & 0xFF;
-    ram.w8(SWE_SHADOW + 0x28, rom::u8(TYPE_MAP_VARIATION + (var << 1)));
-    ram.w8(SWE_SHADOW + 0x29, rom::u8(TYPE_MAP_VARIATION + (var << 1) + 1));
+    code[VARIATION].msb = rom::u8(TYPE_MAP_VARIATION + (var << 1));
+    code[VARIATION].lsb = rom::u8(TYPE_MAP_VARIATION + (var << 1) + 1);
     loadSubTypeDefaults(4);
     if (var != 0)
         loadSubTypeDefaults(4);
     for (uint32_t i = 0; i < 16; i++) {
-        ram.w8(PERFORMANCE + 104 + 2 * i + 1, ram.u8(BLK_VARIATION + 2 * i + 1) & 0x7F);
-        ram.w8(PERFORMANCE + 104 + 2 * i, (ram.u16(BLK_VARIATION + 2 * i) & 0x3F80) >> 7);
-        ram.w16(FX_PARAM_CACHE + 0x40 + 2 * i, ram.u16(BLK_VARIATION + 2 * i));
-        ram.w8(FX_DIRTY_VARIATION + i, 0);
+        perf[104 + 2 * i + 1] = (param[VARIATION][i] & 0xFF) & 0x7F;
+        perf[104 + 2 * i] = (param[VARIATION][i] & 0x3F80) >> 7;
+        variationCache[i] = param[VARIATION][i];
+        variationChanged[i] = 0;
     }
-    ram.w8(PERFORMANCE + 122, 0);
-    ram.w16(FX_PARAM_CACHE + 0x52, 127);
+    perf[122] = 0;
+    variationCache[9] = 127;
 }
 
 // flash 0x3C118 syncSubInsertionType: performance byte 175, the insertion type
 void Host::syncSubInsertionType()
 {
     const uint32_t ins = uint32_t(readParameter(175)) & 0xFF;
-    ram.w8(SWE_SHADOW + 0x24, rom::u8(TYPE_MAP_INSERTION + (ins << 1)));
-    ram.w8(SWE_SHADOW + 0x25, rom::u8(TYPE_MAP_INSERTION + (ins << 1) + 1));
+    code[INSERTION].msb = rom::u8(TYPE_MAP_INSERTION + (ins << 1));
+    code[INSERTION].lsb = rom::u8(TYPE_MAP_INSERTION + (ins << 1) + 1);
     loadSubTypeDefaults(2);
     for (uint32_t i = 0; i < 16; i++) {
-        ram.w8(PERFORMANCE + 136 + 2 * i + 1, ram.u8(BLK_INSERTION + 2 * i + 1) & 0x7F);
-        ram.w8(PERFORMANCE + 136 + 2 * i, (ram.u16(BLK_INSERTION + 2 * i) & 0x3F80) >> 7);
-        ram.w16(FX_PARAM_CACHE + 0x20 + 2 * i, ram.u16(BLK_INSERTION + 2 * i));
-        ram.w8(FX_DIRTY_INSERTION + i, 0);
+        perf[136 + 2 * i + 1] = (param[INSERTION][i] & 0xFF) & 0x7F;
+        perf[136 + 2 * i] = (param[INSERTION][i] & 0x3F80) >> 7;
+        insertionCache[i] = param[INSERTION][i];
+        insertionChanged[i] = 0;
     }
 }
 
@@ -640,27 +620,27 @@ void Host::markSubParamDirty(uint32_t id)
     if ((n >= 80 && n <= 95) || (n >= 104 && n <= 167)) n &= ~1;
     auto half = [](int32_t d) -> uint32_t { return uint32_t((d + (0 > d ? 1 : 0)) >> 1); };
     auto mixer = [&](uint32_t flag) {
-        ram.w8(FX_DIRTY_MIXER + flag, 1);
+        mixerChanged[flag] = 1;
         postSubMask(513);
     };
     if (n >= 80 && !(n > 94)) {
-        ram.w8(FX_DIRTY_REVERB + half(n - 80), 1);
-        ram.w16(FX_PARAM_CACHE + (half(n - 80) << 1), uint32_t(readParameter(uint32_t(n))));
+        reverbChanged[half(n - 80)] = 1;
+        reverbCache[half(n - 80)] = uint32_t(readParameter(uint32_t(n)));
         postSubMask(33);
     }
     if (n >= 96 && !(n > 103)) {
-        ram.w8(FX_DIRTY_REVERB + 8 + uint32_t(n - 96), 1);
-        ram.w16(FX_PARAM_CACHE + (uint32_t(n - 96 + 8) << 1), uint32_t(readParameter(uint32_t(n))));
+        reverbChanged[8 + uint32_t(n - 96)] = 1;
+        reverbCache[uint32_t(n - 96 + 8)] = uint32_t(readParameter(uint32_t(n)));
         postSubMask(33);
     }
     if (n >= 104 && !(n > 134)) {
-        ram.w8(FX_DIRTY_VARIATION + half(n - 104), 1);
-        ram.w16(FX_PARAM_CACHE + 0x40 + (half(n - 104) << 1), uint32_t(readParameter(uint32_t(n))));
+        variationChanged[half(n - 104)] = 1;
+        variationCache[half(n - 104)] = uint32_t(readParameter(uint32_t(n)));
         postSubMask(9);
     }
     if (n >= 136 && !(n > 166)) {
-        ram.w8(FX_DIRTY_INSERTION + half(n - 136), 1);
-        ram.w16(FX_PARAM_CACHE + 0x20 + (half(n - 136) << 1), uint32_t(readParameter(uint32_t(n))));
+        insertionChanged[half(n - 136)] = 1;
+        insertionCache[half(n - 136)] = uint32_t(readParameter(uint32_t(n)));
         postSubMask(3);
     }
     if (n == 168) {
@@ -686,9 +666,13 @@ void Host::markSubParamDirty(uint32_t id)
     if (n == 178) mixer(17);
     if (n == 179) mixer(18);
     if (n == 20) mixer(19);
-    if (n >= 180 && !(n > 190)) {
-        ram.w8(FX_DIRTY_EQ + uint32_t(n - 180), 1);
-        ram.w16(FX_PARAM_CACHE + 0x60 + (uint32_t(n - 180) << 1), uint32_t(readParameter(uint32_t(n))));
+    if (n >= 180 && n <= 190) {
+        // The firmware keeps ten EQ words where it uses eleven: the eleventh, the high band's
+        // shape, lands on the first two reverb flags and is read back from them.
+        eqChanged[n - 180] = 1;
+        const int v = readParameter(uint32_t(n));
+        if (n < 190) eqCache[n - 180] = uint16_t(v);
+        else { reverbChanged[0] = uint8_t(v >> 8); reverbChanged[1] = uint8_t(v); }
         postSubMask(257);
     }
 }
@@ -696,22 +680,22 @@ void Host::markSubParamDirty(uint32_t id)
 // flash 0x3C8D4 setSubInsCtlOffset: a controller's offset for insertion parameter i
 void Host::setSubInsCtlOffset(uint32_t i, uint32_t v)
 {
-    ram.w16(FX_VAR_WORD + ((i & 0xFF) << 1), v);
-    ram.w8(FX_DIRTY_INSERTION + (i & 0xFF), 1);
+    controlOffset[i & 15] = int16_t(v);
+    insertionChanged[i & 15] = 1;
     postSubMask(3);
 }
 // flash 0x3C8EC setSubSendBOffset: a controller's offset for the insertion to variation send
 void Host::setSubSendBOffset(uint32_t v)
 {
-    ram.w16(FX_SENDB_OFFSET, v);
-    ram.w8(FX_DIRTY_MIXER + 17, 1);
+    sendVariationOffset = v;
+    mixerChanged[17] = 1;
     postSubMask(513);
 }
 // flash 0x3C8FE setSubSendAOffset: the same for the insertion to reverb send
 void Host::setSubSendAOffset(uint32_t v)
 {
-    ram.w16(FX_SENDA_OFFSET, v);
-    ram.w8(FX_DIRTY_MIXER + 16, 1);
+    sendReverbOffset = v;
+    mixerChanged[16] = 1;
     postSubMask(513);
 }
 

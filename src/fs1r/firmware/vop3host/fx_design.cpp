@@ -7,8 +7,6 @@
 
 namespace fs1r::vop3host {
 
-using namespace ram;
-
 namespace {
 
 constexpr uint32_t FX_DB_SQRT = 0x37176C;   // f32: 10^((g - 64) / 40) for gain bytes 52..76
@@ -192,9 +190,9 @@ void Host::fxDesignFilter(int order, int scale, int kind, int freq, int gain, in
         } else if (0.5 < double(e1 + e0)) {
             if (e1 < e0) w0 = bump(w0, -1.0); else w1 = bump(w1, -1.0);
         }
-        set_coef(rom::u16(steps), word(w0));
-        set_coef(rom::u16(steps + 2), word(w1));
-        set_coef(rom::u16(steps + 4), raw(w2));
+        coef[rom::u16(steps)] = word(w0);
+        coef[rom::u16(steps + 2)] = word(w1);
+        coef[rom::u16(steps + 4)] = raw(w2);
         writeSweWordListSub(3, steps);
         return;
     }
@@ -216,11 +214,11 @@ void Host::fxDesignFilter(int order, int scale, int kind, int freq, int gain, in
         if (e4 < e2) w2 = bump(w2, -1.0); else w4 = bump(w4, -1.0);
     }
     // 0x38FFE
-    set_coef(rom::u16(steps), word(w0));
-    set_coef(rom::u16(steps + 2), word(w1));
-    set_coef(rom::u16(steps + 4), word(w3));
-    set_coef(rom::u16(steps + 6), raw(w2));
-    set_coef(rom::u16(steps + 8), word(w4));
+    coef[rom::u16(steps)] = word(w0);
+    coef[rom::u16(steps + 2)] = word(w1);
+    coef[rom::u16(steps + 4)] = word(w3);
+    coef[rom::u16(steps + 6)] = raw(w2);
+    coef[rom::u16(steps + 8)] = word(w4);
     writeSweWordListSub(5, steps);
 }
 
@@ -237,8 +235,8 @@ void Host::fxFloatCurveB(int scale, int v, int gain, uint32_t steps)
         c0 = 0.99997f;
     const float S = float(16 >> scale) * 2048.0f;
     const float w0 = round_word(S, c0), w1 = round_word(S, c1);
-    set_coef(rom::u16(steps), uint32_t(int(w0)));
-    set_coef(rom::u16(steps + 2), uint32_t(int16_t(int(w1))));
+    coef[rom::u16(steps)] = uint32_t(int(w0));
+    coef[rom::u16(steps + 2)] = uint32_t(int16_t(int(w1)));
     writeSweWordListSub(2, steps);
 }
 
@@ -254,12 +252,12 @@ void Host::fxFillBand(int v, uint32_t steps)
     acc = acc * f2 + 1.0f;
     const float f10 = acc / 5.0f;
     const int32_t i12 = int(32767.0f / f10);
-    set_coef(rom::u16(steps + 2), uint32_t(i12));
+    coef[rom::u16(steps + 2)] = uint32_t(i12);
     for (int i = 2; i <= 5; i++)
-        set_coef(rom::u16(steps + 2 * i), uint32_t(x));
-    set_coef(rom::u16(steps + 12), 0);
+        coef[rom::u16(steps + 2 * i)] = uint32_t(x);
+    coef[rom::u16(steps + 12)] = 0;
     for (int i = 7; i <= 11; i++)
-        set_coef(rom::u16(steps + 2 * i), 6553);
+        coef[rom::u16(steps + 2 * i)] = 6553;
     writeSweWordListSub(5, steps + 2);
 }
 
@@ -267,19 +265,19 @@ void Host::fxFillBand(int v, uint32_t steps)
 void Host::fxCopyWords3(uint32_t src, uint32_t dst)
 {
     for (int i = 0; i < 3; i++)
-        set_coef(rom::u16(dst + 2 * i), coef(rom::u16(src + 2 * i)));
+        coef[rom::u16(dst + 2 * i)] = coef[rom::u16(src + 2 * i)];
     writeSweWordListSub(3, dst);
 }
 void Host::fxCopyWords5(uint32_t src, uint32_t dst)
 {
     for (int i = 0; i < 5; i++)
-        set_coef(rom::u16(dst + 2 * i), coef(rom::u16(src + 2 * i)));
+        coef[rom::u16(dst + 2 * i)] = coef[rom::u16(src + 2 * i)];
     writeSweWordListSub(5, dst);
 }
 void Host::fxCopyWords2(uint32_t src, uint32_t dst)
 {
     for (int i = 0; i < 2; i++)
-        set_coef(rom::u16(dst + 2 * i), coef(rom::u16(src + 2 * i)));
+        coef[rom::u16(dst + 2 * i)] = coef[rom::u16(src + 2 * i)];
     writeSweWordListSub(2, dst);
 }
 

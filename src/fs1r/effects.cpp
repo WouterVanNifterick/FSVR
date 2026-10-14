@@ -9,22 +9,20 @@
 namespace vop3 = fs1r::vop3host;
 
 namespace {
-const uint32_t PERF = vop3::ram::PERFORMANCE;   // also where the host's RAM starts
-static_assert(PERF == vop3::Ram::BASE);
 const int TYPE_BYTE[3] = {168, 171, 175};       // reverb, variation, insertion
 // Bus sample to serial word, so that a dry performance leaves the chip at cal::OUT_GAIN.
 const double BUS = cal::OUT_GAIN / cal::FX_DRY_GAIN * Vop3::WORD;
 }
 
 void Effects::sync(uint8_t* c) {
-    uint8_t was[192]; std::memcpy(was, host.ram.bytes(), 192);
+    uint8_t was[192]; std::memcpy(was, host.perf, 192);
     bool type = false;
     for (int i : TYPE_BYTE)                      // types first: they load defaults, which the other changes then override
         if (c[i] != was[i]) { host.set_performance_byte(i, was[i] = c[i]); type = true; }
     for (int i = 0; i < 192; i++)
         if ((c[i] & 0x7f) != was[i]) { host.store(i, c[i]); host.markSubParamDirty(i); }
     host.pollSubDirtyLoop();
-    if (type) std::memcpy(c + 80, host.ram.bytes() + 80, 111);   // the new type's defaults
+    if (type) std::memcpy(c + 80, host.perf + 80, 111);   // the new type's defaults
 }
 
 void Effects::setType(Block b, int type) { host.set_performance_byte(TYPE_BYTE[b], type); }
@@ -38,14 +36,14 @@ void Effects::setParam(Block b, int slot, int word) {
 }
 
 void Effects::control(int dest, int offset) {
-    uint32_t at = dest == 15 ? vop3::ram::FX_SENDA_OFFSET : vop3::ram::FX_SENDB_OFFSET;
+    int16_t* at = dest == 15 ? &host.sendReverbOffset : &host.sendVariationOffset;
     int param = 0;
     if (dest <= 14) {                            // an insertion parameter, by the type's row of the controller map
         param = vop3::rom::u8(0x3895F2 + host.readParameter(175) * 14 + dest - 1);
         if (param == 0xff) return;
-        at = vop3::ram::FX_VAR_WORD + 2 * param;
+        at = &host.controlOffset[param];
     }
-    if (host.ram.s16(at) == offset) return;
+    if (*at == offset) return;
     if (dest <= 14) host.setSubInsCtlOffset(param, offset);
     else if (dest == 15) host.setSubSendAOffset(offset);   // insertion to reverb
     else host.setSubSendBOffset(offset);                   // insertion to variation

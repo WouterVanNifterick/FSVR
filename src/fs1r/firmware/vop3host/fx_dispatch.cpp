@@ -6,8 +6,6 @@
 
 namespace fs1r::vop3host {
 
-using namespace ram;
-
 namespace {
 
 // A kind's preset blocks in the EPROM: `base + s16(index[lsb] * stride)` holds the block
@@ -82,21 +80,21 @@ void Host::fxParamEntry(int kind, int p)
 
     auto copy_steps = [&](uint32_t& blk, uint32_t n, uint32_t list) {
         for (uint32_t i = 0; i < n; i++, blk += 2)
-            set_coef(rom::u16(list + 2 * i), rom::u16(blk));
+            coef[rom::u16(list + 2 * i)] = rom::u16(blk);
     };
     auto copy_slots = [&](uint32_t& blk, uint32_t n, uint32_t list) {
         for (uint32_t i = 0; i < n; i++, blk += 2)
-            set_offs(rom::u8(list + i), rom::s16(blk));
+            delay[rom::u8(list + i)] = rom::s16(blk);
     };
     auto copy_lfo = [&](uint32_t& blk, uint32_t ids) {
-        for (uint32_t cache : {FX_LFO24, FX_LFO25, FX_LFO26, FX_LFO27})
+        for (auto& reg : lfoReg)
             for (uint32_t i = 0; i < 4; i++, blk += 2)
-                ram.w16(cache + 2 * rom::u8(ids + i), rom::u16(blk));
+                reg[rom::u8(ids + i)] = rom::u16(blk);
     };
     auto copy_params = [&](uint32_t src, uint32_t n) {
         if (p & 1)
             for (uint32_t i = 0; i < n; i++)
-                set_param(kind, int(i), rom::u16(src + 2 * i));
+                param[kind][i] = rom::u16(src + 2 * i);
     };
     // the block for a kind whose type is (msb, lsb) through its index table, s16 stride product
     auto block = [&](const Preset& pr, uint32_t lsb, uint32_t stride) -> uint32_t {
@@ -105,7 +103,7 @@ void Host::fxParamEntry(int kind, int p)
 
     switch (kind) {
     case 0: {
-        const uint32_t type = ram.u8(FX_TYPE0);
+        const uint32_t type = code[REVERB].lsb;
         uint32_t blk = rom::FX_PRESET_REVERB + uint32_t(int16_t(rom::u8(rom::FX_PRESET_INDEX_REVERB + type) * 296));
         copy_steps(blk, 0x5E, rom::FX_STEPS_REVERB);
         copy_slots(blk, 0x36, rom::FX_SLOTS_REVERB);
@@ -113,7 +111,7 @@ void Host::fxParamEntry(int kind, int p)
         break;
     }
     case 1: {
-        const uint32_t lsb = ram.u8(FX_TYPE1 + 1);
+        const uint32_t lsb = code[AUX].lsb;
         const uint32_t idx = rom::u8(0x3619B4 + lsb);
         uint32_t blk = 0x35EA20 + uint32_t(int16_t(idx * 132));
         copy_steps(blk, 0x28, rom::FX_STEPS_AUX);
@@ -123,7 +121,7 @@ void Host::fxParamEntry(int kind, int p)
         break;
     }
     case 2: {
-        const uint32_t msb = ram.u8(FX_TYPE1 + 2), lsb = ram.u8(FX_TYPE1 + 3);
+        const uint32_t msb = code[INSERTION].msb, lsb = code[INSERTION].lsb;
         const Preset pr = insertion_preset(msb);
         uint32_t blk = block(pr, lsb, 304);
         copy_steps(blk, 0x60, rom::FX_STEPS_INSERTION);
@@ -133,7 +131,7 @@ void Host::fxParamEntry(int kind, int p)
         break;
     }
     case 3: {
-        const uint32_t msb = ram.u8(FX_TYPE1 + 4), lsb = ram.u8(FX_TYPE1 + 5);
+        const uint32_t msb = code[REVERB_DELAY].msb, lsb = code[REVERB_DELAY].lsb;
         const Preset pr = reverb_delay_preset(msb);
         uint32_t blk = block(pr, lsb, 200);
         copy_steps(blk, 0x48, rom::FX_STEPS_REVERB_DELAY);
@@ -143,7 +141,7 @@ void Host::fxParamEntry(int kind, int p)
         break;
     }
     case 4: {
-        const uint32_t msb = ram.u8(FX_TYPE1 + 6), lsb = ram.u8(FX_TYPE1 + 7);
+        const uint32_t msb = code[VARIATION].msb, lsb = code[VARIATION].lsb;
         const Preset pr = variation_preset(msb);
         uint32_t blk;
         if (msb == 7)
@@ -159,14 +157,14 @@ void Host::fxParamEntry(int kind, int p)
     case 5:
         if (p & 1)
             for (uint32_t i = 0; i < 20; i++)
-                ram.w16(FX_PARAMS_EQ + 2 * i, rom::u16(0x36580C + 2 * i));
+                eqParam[i] = rom::u16(0x36580C + 2 * i);
         break;
     default: {
         uint32_t blk = rom::FX_SYSTEM_DEFAULTS;
         copy_steps(blk, 0x58, rom::FX_STEPS_SYSTEM);
         if (p & 1)
             for (uint32_t i = 0; i < 16; i++)
-                ram.w16(FX_PARAMS_SYS + 2 * i, rom::u16(0x36566A + 2 * i));
+                mixParam[i] = rom::u16(0x36566A + 2 * i);
         break;
     }
     }
@@ -190,7 +188,7 @@ void Host::fxDispatchKind(int kind, int p)
 // 0x39C144 fxDispatchReverb: reverb types 1-8 are halls, 9-12 rooms (jump table 0x39C164)
 void Host::fxDispatchReverb(int p)
 {
-    const uint32_t t = ram.u8(FX_TYPE0) - 1;
+    const uint32_t t = code[REVERB].lsb - 1;
     if (t >= 12)
         return;
     if (t < 8)
@@ -202,7 +200,7 @@ void Host::fxDispatchReverb(int p)
 // 0x39C1AC fxDispatchInsertion: insertion types by (msb, lsb) of the type bytes
 void Host::fxDispatchInsertion(int p)
 {
-    const uint32_t msb = ram.u8(FX_TYPE1 + 2), lsb = ram.u8(FX_TYPE1 + 3);
+    const uint32_t msb = code[INSERTION].msb, lsb = code[INSERTION].lsb;
     switch (msb) {
     case 0:   // jump table 0x39C1D8
         if (lsb >= 2 && lsb <= 9) fxInsChorus(p);
@@ -260,7 +258,7 @@ void Host::fxDispatchInsertion(int p)
 // 0x39C48A fxDispatchReverbDelay: reverb types 13-16 are (msb 8, lsb 1-4)
 void Host::fxDispatchReverbDelay(int p)
 {
-    const uint32_t msb = ram.u8(FX_TYPE1 + 4), lsb = ram.u8(FX_TYPE1 + 5);
+    const uint32_t msb = code[REVERB_DELAY].msb, lsb = code[REVERB_DELAY].lsb;
     if (msb != 8)
         return;
     if (lsb == 1) fxRevDelayLCR(p);
@@ -272,7 +270,7 @@ void Host::fxDispatchReverbDelay(int p)
 // 0x39C51C fxDispatchVariation: variation types by (msb, lsb)
 void Host::fxDispatchVariation(int p)
 {
-    const uint32_t msb = ram.u8(FX_TYPE1 + 6), lsb = ram.u8(FX_TYPE1 + 7);
+    const uint32_t msb = code[VARIATION].msb, lsb = code[VARIATION].lsb;
     switch (msb) {
     case 0:   // jump table 0x39C548; lsb 1 (No Effect) returns
         if (lsb >= 2 && lsb <= 9) fxVarChorus(p);
