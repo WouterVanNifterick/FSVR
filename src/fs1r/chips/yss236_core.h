@@ -28,6 +28,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 class yss236_core
@@ -134,9 +135,15 @@ public:
 
 	void decode(int st)
 	{
-		uint16_t const *w = prog[st];
-		op &o = ops[st];
+		op o;
+		decode(prog[st], o);
+		if (std::memcmp(&o, &ops[st], sizeof o))
+			m_stale = true;               // the compiled pass no longer matches the program
+		ops[st] = o;
+	}
 
+	static void decode(uint16_t const *w, op &o)
+	{
 		o.memop  = w[0] & 7;
 		o.dr     = w[1] & 0x7f;
 		o.rcopy  = (w[1] >> 7) & 1;
@@ -215,8 +222,9 @@ public:
 	void pass()
 	{
 		m_skip = 0;
-		for (int st = 0; st < STEPS; st++)
-			step(st);
+		if (!jit_pass())
+			for (int st = 0; st < STEPS; st++)
+				step(st);
 		m_nhist = 0;
 		ptr = (ptr - 1) & (RAM_WORDS - 1);
 	}
@@ -253,6 +261,20 @@ public:
 	int32_t m_iqn;
 	int64_t m_iq_at[4];
 	double m_iq_v[4];
+
+	// The program compiled to native code (yss236_jit.cpp), which pass() runs in place of step() when it
+	// can. A decode that changes a step marks it stale and the next pass compiles again; coefficients and
+	// slot offsets are read from memory, so writing them does not. interpret, or FSVR_VOP3_INTERP in the
+	// environment, keeps a core on the interpreter, for A/B runs.
+	bool interpret = false;
+	bool m_stale = true;
+	struct jit_code;
+	struct jit_free { void operator()(jit_code *) const; };
+	std::unique_ptr<jit_code, jit_free> m_jit;
+	int64_t m_n0;                          // n when the compiled pass started
+	double m_tmp[8];                       // its scratch: helper arguments and saved temporaries
+	bool jit_pass();                       // runs the compiled pass; false when there is none
+	friend struct yss236_jit;
 
 private:
 

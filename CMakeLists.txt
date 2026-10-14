@@ -28,11 +28,27 @@ set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp)
 add_library(vop3host STATIC ${VOP3HOST} src/fs1r/effects.cpp src/fs1r/filter.cpp src/fs1r/chips/vop3.cpp)
 target_include_directories(vop3host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-if(MSVC)
-  target_compile_options(vop3host PRIVATE /W3 /fp:precise /permissive-)
-else()
-  target_compile_options(vop3host PRIVATE -Wall -ffp-contract=off)
-endif()
+# The chip's programs compiled to native code, with AsmJit (third_party/asmjit). AsmJit needs C++20, so it and
+# yss236_jit.cpp, the one file that includes it, are built as C++20; the rest stays C++17.
+file(GLOB ASMJIT CONFIGURE_DEPENDS third_party/asmjit/asmjit/core/*.cpp third_party/asmjit/asmjit/x86/*.cpp
+     third_party/asmjit/asmjit/arm/*.cpp third_party/asmjit/asmjit/axl/*.cpp)
+add_library(asmjit STATIC ${ASMJIT})
+target_include_directories(asmjit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/asmjit)
+target_compile_definitions(asmjit PUBLIC ASMJIT_STATIC ASMJIT_NO_BUILDER ASMJIT_NO_COMPILER ASMJIT_NO_UJIT ASMJIT_NO_FOREIGN ASMJIT_NO_SHM_OPEN)
+find_package(Threads REQUIRED)
+target_link_libraries(asmjit PUBLIC Threads::Threads)
+add_library(vop3jit STATIC src/fs1r/chips/yss236_jit.cpp)
+target_include_directories(vop3jit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(vop3jit PRIVATE asmjit)
+set_target_properties(asmjit vop3jit PROPERTIES CXX_STANDARD 20)
+target_link_libraries(vop3host PUBLIC vop3jit)
+foreach(t vop3host vop3jit)
+  if(MSVC)
+    target_compile_options(${t} PRIVATE /W3 /fp:precise /permissive-)
+  else()
+    target_compile_options(${t} PRIVATE -Wall -ffp-contract=off)
+  endif()
+endforeach()
 
 add_library(fs1rLib STATIC
     src/fs1r/chips/ymp706.cpp

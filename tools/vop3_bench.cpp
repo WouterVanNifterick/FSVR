@@ -1,7 +1,7 @@
 // vop3_bench - the two VOP3 chips' cost, and their output as a bit-exact reference.
 //
 //   build.bat bench                       builds bin\vop3_bench.exe with the vop3host flags
-//   vop3_bench [out.raw]                  10 s at 48 kHz, ns per sample and TSC cycles per step
+//   vop3_bench [-i] [out.raw]             10 s at 48 kHz, ns per sample and TSC cycles per step; -i interprets
 //
 // Effects runs Hall 1 and Chorus, Filter an LPF24 voice on four slots, all fed the same fixed noise with
 // an impulse every second. out.raw (default build\vop3_bench.raw) holds every sample's effect pair and
@@ -20,10 +20,12 @@
 namespace H = fs1r::vop3host;
 
 int main(int argc, char** argv) {
-    const char* path = argc > 1 ? argv[1] : "build\\vop3_bench.raw";
+    const int interp = argc > 1 && !std::strcmp(argv[1], "-i");
+    const char* path = argc > 1 + interp ? argv[1 + interp] : "build\\vop3_bench.raw";
     const int SAMPLES = 480000, OUT = 18;
 
     auto fx = std::make_unique<Effects>();
+    fx->chip.core.interpret = interp;
     uint8_t c[H::COMMON_BYTES] = {};
     c[0x10] = 127; c[0x11] = 64; c[0x12] = 24;   // volume, pan and the rest as init_perf has them
     c[H::EQ_LOW_GAIN] = c[H::EQ_MID_GAIN] = c[H::EQ_HIGH_GAIN] = 64;
@@ -33,6 +35,7 @@ int main(int argc, char** argv) {
     fx->host.setByte(H::VARIATION_TYPE, 1);    // Chorus
 
     auto flt = std::make_unique<Filter>();
+    flt->chip.core.interpret = interp;
     { using namespace H::filter;
       uint8_t v[H::FilterHost::VOICE_BYTES] = {}, r[H::FilterHost::PART_BYTES] = {};
       for (int i = 0x18; i <= 0x23; i++) r[i] = 64;
