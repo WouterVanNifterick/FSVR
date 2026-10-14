@@ -99,6 +99,13 @@ else()
   add_test(NAME engine COMMAND engine_selftest)
 endif()
 
+# The compiled VOP3 programs against the interpreter, on whatever this runs on: x86-64 on Windows and Linux,
+# the arm64 slice of the universal build on an Apple silicon runner. It skips where there is no compiler.
+add_executable(vop3_jit_check tools/vop3_jit_check.cpp)
+target_link_libraries(vop3_jit_check PRIVATE vop3host)
+add_test(NAME vop3_jit COMMAND vop3_jit_check)
+set_tests_properties(vop3_jit PROPERTIES SKIP_RETURN_CODE 77)
+
 option(FSVR_BUILD_PLUGIN "Build the plug-in (downloads its SDKs on the first configure)" OFF)
 if(FSVR_BUILD_PLUGIN)
   add_subdirectory(hollow)

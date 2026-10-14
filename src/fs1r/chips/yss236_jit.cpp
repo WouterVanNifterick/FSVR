@@ -28,7 +28,7 @@
 
 #if defined(_M_X64) || defined(__x86_64__)
 #include <asmjit/x86.h>
-#define YSS236_JIT 1
+#define YSS236_JIT "x86-64"
 #endif
 
 struct yss236_core::jit_code { void (*fn)(yss236_core *, double *); };
@@ -45,7 +45,7 @@ struct yss236_jit
 	static double wrap_acc(C *c, int) { return C::pymod(c->m_tmp[0], 2 * C::ACC) - C::ACC; }
 };
 
-#if YSS236_JIT
+#ifdef YSS236_JIT
 namespace {
 
 using namespace asmjit;
@@ -653,9 +653,11 @@ void yss236_core::jit_free::operator()(jit_code *code) const
 	runtime().release(code->fn);
 	delete code;
 }
+const char *const yss236_core::jit_target = YSS236_JIT;
 #else
 static yss236_core::jit_code *compile(yss236_core &) { return nullptr; }
 void yss236_core::jit_free::operator()(jit_code *code) const { delete code; }
+const char *const yss236_core::jit_target = nullptr;
 #endif
 
 bool yss236_core::jit_pass()

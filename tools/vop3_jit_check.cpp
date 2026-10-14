@@ -7,7 +7,8 @@
 // type on the same noise, each type loaded over the last so the program changes under running state. Two
 // filter sections do the same through the six filter types, with notes starting and releasing on all
 // sixteen slots. After every pass the two cores must hold the same state, and the first field that does not
-// is printed with the pass it went wrong in. Exit code 0 when everything matched.
+// is printed with the pass it went wrong in. Exit code 0 when everything matched, 77 (ctest's skip) when this
+// architecture has no compiler, so the interpreter runs alone. A compiler that is there and fails is a failure.
 #define _CRT_SECURE_NO_WARNINGS
 #include <cstdio>
 #include <cstdlib>
@@ -82,6 +83,10 @@ static uint32_t rnd() { rng ^= rng << 13; rng ^= rng >> 7; rng ^= rng << 17; ret
 
 int main(int argc, char** argv) {
     const int N = argc > 1 ? std::atoi(argv[1]) : 9600;
+    if (!yss236_core::jit_target) {
+        std::printf("no VOP3 compiler for this architecture: the interpreter runs alone, nothing to compare\n");
+        return 77;
+    }
 
     // The effect section: every type of each block, loaded over the last
     auto ea = std::make_unique<Effects>(), eb = std::make_unique<Effects>();
@@ -185,6 +190,6 @@ int main(int argc, char** argv) {
         std::printf("%-10s %2d programs of %d passes: %s\n", "random", PROGRAMS, PASSES, bad ? "DIFFERS" : "identical");
         coverage("random");
     }
-    std::printf("%lld passes compared, %s\n", passes, fails ? "FAIL" : "all identical");
+    std::printf("%lld passes compared on %s, %s\n", passes, yss236_core::jit_target, fails ? "FAIL" : "all identical");
     return fails ? 1 : 0;
 }

@@ -274,6 +274,7 @@ public:
 	int64_t m_n0;                          // n when the compiled pass started
 	double m_tmp[8];                       // its scratch: helper arguments and saved temporaries
 	bool jit_pass();                       // runs the compiled pass; false when there is none
+	static const char *const jit_target;   // the architecture compile() emits, or null where it has none
 	friend struct yss236_jit;
 
 private:
