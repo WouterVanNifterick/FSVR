@@ -281,8 +281,8 @@ private:
 				return a - RANGE;
 			return pymod(a, 2 * RANGE) - RANGE;
 		}
-		y = std::max(-RANGE, std::min(RANGE - 1.0 / 256, y));
-		return mo == 2 ? std::max(0.0, y) : mo == 3 ? std::fabs(y) : y;
+		y = clip2(y, -RANGE, RANGE - 1.0 / 256);
+		return mo == 2 ? (0.0 < y ? y : 0.0) : mo == 3 ? std::fabs(y) : y;
 	}
 
 	// The running value has its own width: mode 0 wraps at +-256
@@ -296,7 +296,9 @@ private:
 		return pymod(a, 2 * ACC) - ACC;
 	}
 
-	static double clip(double v, double c) { return std::max(-c, std::min(c, v)); }
+	// std::max(lo, std::min(hi, v)) by value: MSVC compiles the std forms, which return references, through the stack
+	static double clip2(double v, double lo, double hi) { double const m = v < hi ? v : hi; return lo < m ? m : lo; }
+	static double clip(double v, double c) { return clip2(v, -c, c); }
 
 	uint32_t addr(int s, int older) const
 	{
@@ -356,7 +358,7 @@ private:
 		// t as a 1.15 multiplier of the register value, or the fraction below one delay sample
 		// (y * 256 is the delay in samples and the index its floor)
 		double const w = y * 256.0;
-		double const v = o.tfrac ? (w - std::floor(w)) : std::clamp(w, -32768.0, 32767.0) / 32768.0;
+		double const v = o.tfrac ? (w - std::floor(w)) : (w < -32768.0 ? -32768.0 : 32767.0 < w ? 32767.0 : w) / 32768.0;
 		if (o.tw & 2)
 			queue_t(o.tn, v);
 		else if (o.tw & 1)
