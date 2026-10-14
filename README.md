@@ -54,7 +54,8 @@ Thank you to **Wouter van Nifterick** ([WouterVanNifterick](https://github.com/W
 
 * **Checked against the real firmware.** For all 87 effect types, the host uploads word for word what the FS1R's firmware uploads, traced in MAME. Fed the unit's own upload and recorded input, the five reverbs checked so far match the hardware to within 2 to 12 LSB (correlation 0.99999 or better). The delay, modulation and insertion programs run the same uploads but are not yet checked against a recording, since they take their send from the serial port and need a purpose-built take.
 * **An optimized JIT.** 0.8.0 compiles each chip's program to x86-64 at run time with [AsmJit](https://github.com/asmjit/asmjit), recompiling only when the program changes, a performance increase of around 8x vs the interpreter. Its output is checked byte for byte against the interpreter over every reverb, variation and insertion type, all six filter types and 400 random programs. ARM builds (Apple silicon included), 32-bit builds, CPUs without SSE4.1 and any host that refuses executable memory fall back to the interpreter; an ARM64 compiler is next. `FSVR_VOP3_INTERP=1` forces the interpreter for A/B listening.
-* **Next: the effects in C++.** For now FSVR ships the optimized JIT emulation layer. The next step is rewriting the effects as native C++, each one checked against the emulation, which is now an exact reference.
+
+**Next: the effects in C++.** For now FSVR ships the optimized JIT emulation layer. The next step is rewriting the effects as native C++. This is in progress. The VOP3 JIT is a stop-gap solution until this hard work and verification is complete.
 
 ## FS1R vs FSVR
 
