@@ -7,12 +7,6 @@
 
 namespace fs1r::vop3host {
 
-// one 16-bit write to the effect chip's register window
-void EffectHost::writeReg(uint32_t reg, uint32_t value)
-{
-    sink->write(reg, value & 0xFFFF);
-}
-
 // the constants of n listed steps, unless the hold flag is set
 void EffectHost::writeCoefs(uint32_t n, const uint16_t* steps)
 {
@@ -51,13 +45,6 @@ void EffectHost::writeTagsBurst(uint32_t n, const uint16_t* steps)
         writeReg(TAG, tag[steps[i]]);
 }
 
-// entry `index` of the CONFIG table
-void EffectHost::writeConfig(uint32_t index, uint32_t value)
-{
-    writeReg(SELECT, index + 1);
-    writeReg(CONFIG, value);
-}
-
 // the offsets of n listed delay slots, unless held. The
 // first slot's area is where every slot of the list is taken to start.
 void EffectHost::writeDelays(uint32_t n, const uint8_t* slots)
@@ -75,19 +62,10 @@ void EffectHost::writeDelays(uint32_t n, const uint8_t* slots)
 }
 
 // one of an LFO's four registers, LFO_SPEED..LFO_DIRECTION, from its shadow, unless held
-void EffectHost::writeLfo(uint32_t reg, uint32_t lfo)
+void EffectHost::writeLfo(Reg reg, uint32_t lfo)
 {
-    if (hold)
-        return;
-    writeReg(SELECT, lfo);
-    writeReg(reg, lfoReg[reg - LFO_SPEED][lfo]);
-}
-
-// the LFOs of a mask back to their start phase, then register 0x1C cleared
-void EffectHost::resetLfoPhase(uint32_t mask)
-{
-    writeReg(LFO_RESET, mask);
-    writeReg(0x1C, 0);
+    if (!hold)
+        ChipHost::writeLfo(reg, lfo);
 }
 
 const Window WINDOWS[5] = {
@@ -145,7 +123,7 @@ void EffectHost::uploadWindow(int kind)
             writeDelays(w.nslots, w.slots);
             writeCoefsBurst(w.nsteps, w.steps);
             for (int i = 0; i < 4; i++)
-                for (uint32_t reg = LFO_SPEED; reg <= LFO_DIRECTION; reg++)
+                for (Reg reg : {LFO_SPEED, LFO_WAVE, LFO_DEPTH, LFO_DIRECTION})
                     writeLfo(reg, w.lfos[i]);
             resetLfoPhase(w.lfoMask);
             break;

@@ -92,9 +92,7 @@ extern const Window WINDOWS[5];
 // A pair of shelving filters, a low and a high one, and the other channel's copies of their words
 struct Shelves { const uint16_t *low, *lowCopy, *high, *highCopy; int order = 1, highScale = 2; };
 
-struct EffectHost {
-    WriteSink* sink = nullptr;
-
+struct EffectHost : ChipHost {
     void init();                                                        // the chip and every window as the firmware starts them
     // A performance byte enters here: seven bits, and no effect type past the last one.
     void store(uint32_t index, uint32_t value)
@@ -138,7 +136,6 @@ struct EffectHost {
     uint16_t coef[512]      = {};    // each step's COEF
     uint8_t  tag[512]       = {};    // and TAG
     int32_t  delay[128]     = {};    // each delay slot's offset inside its area
-    uint16_t lfoReg[4][16]  = {};    // LFO_SPEED, LFO_WAVE, LFO_DEPTH and LFO_DIRECTION of the sixteen LFOs
     TypeCode code[5]        = {};    // each window's type
     uint8_t  mute[6]        = {};    // nonzero silences the five windows and the OUTPUT
     uint16_t masterLevel    = 0;     // the master volume's scale
@@ -153,15 +150,12 @@ struct EffectHost {
     int16_t  sendVariationOffset = 0, sendReverbOffset = 0;   // and on the insertion's two sends
 
     // ---- chip registers ----
-    void writeReg(uint32_t reg, uint32_t value);
     void writeCoefs(uint32_t n, const uint16_t* steps);                 // the constants of n listed steps
     void writeCoefsBurst(uint32_t n, const uint16_t* steps);            // of n steps in a row, from the first listed
     void writeTags(uint32_t n, const uint16_t* steps);                  // the tags of n listed steps
     void writeTagsBurst(uint32_t n, const uint16_t* steps);
-    void writeConfig(uint32_t index, uint32_t value);                   // entry `index` of CONFIG
     void writeDelays(uint32_t n, const uint8_t* slots);                 // the offsets of n listed delay slots
-    void writeLfo(uint32_t reg, uint32_t lfo);                          // one of an LFO's four registers
-    void resetLfoPhase(uint32_t mask);
+    void writeLfo(Reg reg, uint32_t lfo);                               // ChipHost's, unless held
     void uploadProgram(int window, int clear);                          // a window's program words and tags
     void uploadWindow(int kind);                                        // its program, constants, delays and LFOs
     void uploadAll();

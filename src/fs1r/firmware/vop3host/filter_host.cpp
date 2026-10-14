@@ -82,28 +82,25 @@ int level(int byte) { return (byte - 50) * 256 / 50; }
 int keyScaled(int time, int note, int scale) { return scale * time * (note - 60) / 1407; }
 
 // ---- registers ----
-void reg(Host& h, int r, int v) { h.sink->write(uint32_t(r), uint32_t(v) & 0xFFFF); }
-void config(Host& h, int index, int v) { reg(h, SELECT, index + 1); reg(h, CONFIG, v); }
-void egRate(Host& h, int ch, int v) { reg(h, SELECT, ch); reg(h, EG_RATE, v & 0xFF); }
-void egTarget(Host& h, int ch, int v) { reg(h, SELECT, ch); reg(h, EG_TARGET, v); }
-void egAim(Host& h, int ch, int v) { reg(h, SELECT, ch); reg(h, EG_AIM, v); }
-void egInterrupts(Host& h, bool on) { reg(h, EG_STATUS, on ? 0xFFFF : 0); }
-void writeLfo(Host& h, int r, int ch) { reg(h, SELECT, ch); reg(h, r, h.lfoReg[r - LFO_SPEED][ch]); }
+void egRate(Host& h, int ch, int v) { h.writeReg(SELECT, ch); h.writeReg(EG_RATE, v & 0xFF); }
+void egTarget(Host& h, int ch, int v) { h.writeReg(SELECT, ch); h.writeReg(EG_TARGET, v); }
+void egAim(Host& h, int ch, int v) { h.writeReg(SELECT, ch); h.writeReg(EG_AIM, v); }
+void egInterrupts(Host& h, bool on) { h.writeReg(EG_STATUS, on ? 0xFFFF : 0); }
 void writeProgram(Host& h, int step)
 {
-    reg(h, SELECT, step);
+    h.writeReg(SELECT, step);
     for (int w = 0; w < 5; w++)
-        reg(h, PROGRAM - w, h.prog[step][w]);
+        h.writeReg(PROGRAM - w, h.prog[step][w]);
 }
 void setCoef(Host& h, int step, int v)
 {
-    reg(h, SELECT, step);
-    reg(h, COEF, v);
+    h.writeReg(SELECT, step);
+    h.writeReg(COEF, v);
 }
 void setTag(Host& h, int step, int v)
 {
-    reg(h, SELECT, step);
-    reg(h, TAG, v);
+    h.writeReg(SELECT, step);
+    h.writeReg(TAG, v);
 }
 
 // ---- a slot's parameters ----
@@ -186,27 +183,26 @@ void lfoWave(Host& h, int ch, int wave)
 {
     const int bits = wave <= 5 ? wave << 5 : wave == 6 ? 224 : wave;    // past 6 the firmware ORs the byte in as it came
     h.lfoReg[1][ch] = uint16_t((h.lfoReg[1][ch] & 0xFF1F) | bits);
-    writeLfo(h, LFO_WAVE, ch);
+    h.writeLfo(LFO_WAVE, ch);
 }
 void lfoSpeed(Host& h, int ch, int v)
 {
     h.lfoReg[0][ch] = flt::LFO2_SPEED[v] | (h.lfoReg[0][ch] & 0x0C00);
-    writeLfo(h, LFO_SPEED, ch);
+    h.writeLfo(LFO_SPEED, ch);
 }
 void lfoPhase(Host& h, int ch, int v)
 {
     h.lfoReg[1][ch] = (flt::LFO2_PHASE[v] & 0x1F) | (h.lfoReg[1][ch] & 0xFFE0);
-    writeLfo(h, LFO_WAVE, ch);
-    reg(h, LFO_RESET, 1 << ch);                             // back to that phase
-    reg(h, 0x1C, 0);
+    h.writeLfo(LFO_WAVE, ch);
+    h.resetLfoPhase(1 << ch);                               // back to that phase
 }
 // the two sawtooths run at full amount with an offset word, the others at half; then the slot's depth
 void lfoDepth(Host& h, int ch, int wave, int depth)
 {
     h.lfoReg[2][ch] = wave == SAW_DOWN || wave == SAW_UP ? 0x7FFF : (64 << 15) / 127;
-    writeLfo(h, LFO_DEPTH, ch);
+    h.writeLfo(LFO_DEPTH, ch);
     h.lfoReg[3][ch] = wave == SAW_DOWN ? 0x4000 : wave == SAW_UP ? 0xC000 : 0;
-    writeLfo(h, LFO_DIRECTION, ch);
+    h.writeLfo(LFO_DIRECTION, ch);
     const int s = (ch + 14) & 15;
     setCoef(h, page(s) + 3 * lane(s) + 1, 124 * depth);
 }
@@ -225,32 +221,32 @@ void setLfo(Host& h, int s, const uint8_t* V, const uint8_t* R, int p)
 void FilterHost::boot()
 {
     Host& h = *this;
-    reg(h, 1, 1);
-    reg(h, 5, 0x1004);
+    h.writeReg(1, 1);
+    h.writeReg(5, 0x1004);
     for (int i = 0; i < 15; i++)
-        config(h, i, flt::CFG16[i]);
+        h.writeConfig(i, flt::CFG16[i]);
     for (int r : {0x28, 0x29, 0x2A})
         for (int i = 0; i < 15; i++) {
-            reg(h, SELECT, i);
-            reg(h, r, r == 0x2A ? 0 : 21);
+            h.writeReg(SELECT, i);
+            h.writeReg(r, r == 0x2A ? 0 : 21);
         }
     for (int i = 0; i < 15; i++)
         lfoReg[1][i] = 0x1000;
-    reg(h, 1, 0);
-    config(h, 0, 0x40);
-    reg(h, UPLOADING, 0x23);
-    reg(h, SELECT, AUTO_INCREMENT);
+    h.writeReg(1, 0);
+    h.writeConfig(0, 0x40);
+    h.writeReg(UPLOADING, 0x23);
+    h.writeReg(SELECT, AUTO_INCREMENT);
     for (int i = 0; i < 512; i++)
-        reg(h, TAG, flt::TAGS[i]);
+        h.writeReg(TAG, flt::TAGS[i]);
     for (int w = 0; w < 5; w++) {
-        reg(h, SELECT, AUTO_INCREMENT);
+        h.writeReg(SELECT, AUTO_INCREMENT);
         for (int i = 0; i < 512; i++)
-            reg(h, PROGRAM - w, prog[i][w] = flt::PROGRAM[i][w]);
+            h.writeReg(PROGRAM - w, prog[i][w] = flt::PROGRAM[i][w]);
     }
     for (int i = 0; i < 512; i++)
         setCoef(h, i, flt::CONSTANTS[i]);
-    config(h, 0, flt::CFG16[0]);
-    reg(h, UPLOADING, 0);
+    h.writeConfig(0, flt::CFG16[0]);
+    h.writeReg(UPLOADING, 0);
     for (int s = 0; s < 16; s++) {
         setGain(h, s, false, 0);
         setGain(h, s, true, -1);
@@ -288,7 +284,7 @@ void FilterHost::clearStates()
             prog[5 + j][1] = uint16_t((prog[5 + j][1] & 0xFF80) | (6 * ((s + 4) & 15) + 1 + j));
             writeProgram(*this, 5 + j);
         }
-        reg(*this, TRIGGER, 1);
+        writeReg(TRIGGER, 1);
     }
 }
 
