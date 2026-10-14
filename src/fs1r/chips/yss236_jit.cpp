@@ -781,6 +781,8 @@ class gen
 				e.ram_st(0);
 				e.set8(&c.haswl, 0);
 				e.bind(none);
+				if (o.idxa)
+					e.ld(1, &c.x);                    // x again for the adder: the index call keeps no register
 			}
 			if (o.alu)
 			{
