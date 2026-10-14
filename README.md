@@ -14,33 +14,25 @@ The tone generator, the CPU-side firmware logic and everything that feeds them m
 
 ## Demos
 
-### FS1R DEMO SONG 2: Full Tines
-
-**FS1R Hardware Recording**
-
-https://github.com/user-attachments/assets/fc235492-d053-4abb-af04-8e1041c32d46
-
-**FSVR (v0.8.0, VOP3 emulation)**
-
-<!-- drop docs/media/fs1r_demo02_engine.mp4 here -->
-
-**FSVR (v0.4.2, modelled effects)**
-
-https://github.com/user-attachments/assets/cd14ac04-0fbb-4622-a766-381059fc2659
-
 ### FS1R DEMO SONG 1: Vokodrone
 
 **FS1R Hardware Recording**
 
 https://github.com/user-attachments/assets/8afa466b-e7c4-4427-a058-392120f1a15d
 
-**FSVR (v0.8.0, VOP3 emulation)**
+**FSVR (v0.8.0 w/ VOP3 emulation)**
 
-<!-- drop docs/media/fs1r_demo01_engine.mp4 here -->
+https://github.com/user-attachments/assets/bd0fc75f-4aa0-4bf9-9219-08d003f38e84
 
-**FSVR (v0.4.2, modelled effects)**
+### FS1R DEMO SONG 2: Full Tines
 
-https://github.com/user-attachments/assets/8e32c342-dfe5-4d7e-b1a8-d9215826331c
+**FS1R Hardware Recording**
+
+https://github.com/user-attachments/assets/fc235492-d053-4abb-af04-8e1041c32d46
+
+**FSVR (v0.8.0, w/ VOP3 emulation)**
+
+https://github.com/user-attachments/assets/db4cbe31-0bfa-451b-b8e1-563970ff559d
 
 ## Background and History
 
