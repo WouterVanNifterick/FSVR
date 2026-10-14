@@ -256,23 +256,20 @@ struct EffectHost {
     void phaser1(int w, int p);        void phaser2(int w, int p);        void ensembleDetune(int w, int p);
     void rotarySpeaker(int w, int p);  void tremolo(int w, int p);        void autoPan(int w, int p);
     void twoWayRotary(int w, int p);   void ambience(int w, int p);       void pitchChange(int w, int p);
+    void delayLCR(int w, int p);       void delayLR(int w, int p);        void echo(int w, int p);
+    void crossDelay(int w, int p);     void karaoke(int w, int p);
 
     // ---- a handler per type: reverb 1-12, then 13-16 ----
     void fxRevHall(int p);
     void fxRevRoom(int p);
-    void fxRevDelayLCR(int p);
-    void fxRevDelayLR(int p);
-    void fxRevEcho(int p);
-    void fxRevCrossDelay(int p);
-    // variation
    
+   
+    // variation
     void fxVarAutoWah(int p); void fxVarTouchWah(int p); void fxVar3BandEq(int p);
     void fxVarHmEnhancer(int p); void fxVarCompressor(int p); void fxVarNoiseGate(int p);
     void fxVarDistortion(int p); void fxVarAmpSim(int p);
-    void fxVarDelayLCR(int p); void fxVarDelayLR(int p); void fxVarEcho(int p); void fxVarCrossDelay(int p);
-    void fxVarKaraoke(int p); void fxVarReverb(int p);
+    void fxVarReverb(int p);
     // insertion
-    void fxInsDelayLR(int p); void fxInsDelayLCR(int p); void fxInsEcho(int p); void fxInsEr1(int p);
    
     void fxInsCrossDelayEr(int p);
     void fxInsAutoWahDist(int p); void fxInsTouchWahDist(int p);

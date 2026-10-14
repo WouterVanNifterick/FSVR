@@ -95,10 +95,10 @@ void EffectHost::dispatchInsertion(int p)
         if (lsb >= 2 && lsb <= 9) chorus(INSERTION, p);
         else if (lsb >= 10 && lsb <= 12) flanger(INSERTION, p);
         else if (lsb == 13) symphonic(INSERTION, p);
-        else if (lsb == 14) fxInsDelayLR(p);
-        else if (lsb == 15) fxInsDelayLCR(p);
-        else if (lsb == 16) fxInsEcho(p);
-        else if (lsb == 17) fxInsEr1(p);
+        else if (lsb == 14) delayLCR(INSERTION, p);
+        else if (lsb == 15) delayLR(INSERTION, p);
+        else if (lsb == 16) echo(INSERTION, p);
+        else if (lsb == 17) crossDelay(INSERTION, p);
         break;
     case 1:
         if (lsb == 1) rotarySpeaker(INSERTION, p);
@@ -150,10 +150,10 @@ void EffectHost::dispatchReverbDelay(int p)
     const uint32_t msb = code[REVERB_DELAY].msb, lsb = code[REVERB_DELAY].lsb;
     if (msb != 8)
         return;
-    if (lsb == 1) fxRevDelayLCR(p);
-    else if (lsb == 2) fxRevDelayLR(p);
-    else if (lsb == 3) fxRevEcho(p);
-    else if (lsb == 4) fxRevCrossDelay(p);
+    if (lsb == 1) delayLCR(REVERB_DELAY, p);
+    else if (lsb == 2) delayLR(REVERB_DELAY, p);
+    else if (lsb == 3) echo(REVERB_DELAY, p);
+    else if (lsb == 4) crossDelay(REVERB_DELAY, p);
 }
 
 // variation types by (msb, lsb)
@@ -195,13 +195,13 @@ void EffectHost::dispatchVariation(int p)
         if (lsb == 2) fxVar3BandEq(p);
         break;
     case 8:
-        if (lsb == 1) fxVarDelayLCR(p);
-        else if (lsb == 2) fxVarDelayLR(p);
-        else if (lsb == 3) fxVarEcho(p);
-        else if (lsb == 4) fxVarCrossDelay(p);
+        if (lsb == 1) delayLCR(VARIATION, p);
+        else if (lsb == 2) delayLR(VARIATION, p);
+        else if (lsb == 3) echo(VARIATION, p);
+        else if (lsb == 4) crossDelay(VARIATION, p);
         break;
     case 9:
-        if (lsb >= 1 && lsb <= 3) fxVarKaraoke(p);
+        if (lsb >= 1 && lsb <= 3) karaoke(VARIATION, p);
         break;
     case 10:
         if (lsb >= 1 && lsb <= 8) fxVarReverb(p);

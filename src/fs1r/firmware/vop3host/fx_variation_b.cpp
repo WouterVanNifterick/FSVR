@@ -449,53 +449,6 @@ void EffectHost::fxVarAmpSim(int p)
     }
 }
 
-// type 24
-void EffectHost::fxVarKaraoke(int p)
-{
-    switch (p) {
-    case 0: {
-        const uint32_t t = mod_delay(*this, rom::PITCH_DELAY, 0);
-        delay[KARAOKE_SLOTS[1]] = uint32_t(delay[KARAOKE_SLOTS[0]]) + t;
-        writeDelays(1, KARAOKE_SLOTS + 1);
-        break;
-    }
-    case 1: {
-        const uint32_t w = (P(*this, 1) - 64) * 250;
-        coef[KARAOKE_LEVEL[1]] = w;
-        coef[KARAOKE_LEVEL[0]] = w;
-        writeCoefs(2, KARAOKE_LEVEL);
-        break;
-    }
-    case 2:
-        designFilter(1, 1, HPF1, P(*this, 2), 64, 0, KARAOKE_HPF);
-        break;
-    case 3:
-        designFilter(1, 1, LPF1, P(*this, 3), 64, 0, KARAOKE_LPF);
-        break;
-    case 9: {
-        const uint32_t g = rom::ER_REV[1] >> 2;
-        coef[KARAOKE_PAN[2]] = g;
-        coef[KARAOKE_PAN[0]] = g;
-        const uint32_t x = typeGain(VARIATION, rom::ER_REV[127] >> 2);
-        coef[KARAOKE_PAN[3]] = x;
-        coef[KARAOKE_PAN[1]] = x;
-        writeCoefs(4, KARAOKE_PAN);
-        break;
-    }
-    case 10:
-        diffusers(P(*this, 10) > 3 ? 3 : P(*this, 10), 5, 3, 4, 0, KARAOKE_ROW_STEPS, KARAOKE_ROW_SLOTS);   // a hidden parameter; the table has four rows
-        writeCoefs(16, KARAOKE_ROW_STEPS);
-        writeDelays(8, KARAOKE_ROW_SLOTS);
-        break;
-    case ALL:
-        hold = true;
-        for (int q : {0, 1, 2, 3, 9, 10})
-            fxVarKaraoke(q);
-        hold = false;
-        break;
-    }
-}
-
 // Hall, Room, Stage, Plate (types 25-28); the comb selector row is
 // indexed by the type's lsb byte; p1 re-runs p12
 void EffectHost::fxVarReverb(int p)
