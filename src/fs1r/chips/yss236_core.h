@@ -275,7 +275,12 @@ private:
 	static double mode(double y, int mo)
 	{
 		if (mo == 0)
-			return pymod(y + RANGE, 2 * RANGE) - RANGE;
+		{
+			double const a = y + RANGE;
+			if (a >= 0 && a < 2 * RANGE)      // fmod of an in-range value is that value: skip the call
+				return a - RANGE;
+			return pymod(a, 2 * RANGE) - RANGE;
+		}
 		y = std::max(-RANGE, std::min(RANGE - 1.0 / 256, y));
 		return mo == 2 ? std::max(0.0, y) : mo == 3 ? std::fabs(y) : y;
 	}
@@ -283,7 +288,12 @@ private:
 	// The running value has its own width: mode 0 wraps at +-256
 	static double accmode(double y, int mo)
 	{
-		return mo == 0 ? pymod(y + ACC, 2 * ACC) - ACC : mode(y, mo);
+		if (mo != 0)
+			return mode(y, mo);
+		double const a = y + ACC;
+		if (a >= 0 && a < 2 * ACC)
+			return a - ACC;
+		return pymod(a, 2 * ACC) - ACC;
 	}
 
 	static double clip(double v, double c) { return std::max(-c, std::min(c, v)); }
