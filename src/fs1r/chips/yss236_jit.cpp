@@ -1,8 +1,8 @@
 // license:BSD-3-Clause
 // copyright-holders:James Hansen
 
-// The YSS236 program compiled to x86-64: one straight-line function per program, run once per pass in place
-// of step(). Each step becomes only the code its decoded fields select. The interpreter in yss236_core.h
+// The YSS236 program compiled to x86-64 or arm64: one straight-line function per program, run once per pass in
+// place of step(). Each step becomes only the code its decoded fields select. The interpreter in yss236_core.h
 // stays the reference: tools/vop3_jit_check.cpp runs the two side by side over every effect and filter type
 // and compares their whole state after every pass.
 //
@@ -15,9 +15,11 @@
 //   - A gate or a conditional skip that does not run is a forward branch to a path that lands the writes
 //     due in the steps it skips, then joins the step it skips to.
 //   - The arithmetic is the interpreter's, operation for operation, in double precision with no FMA. Its
-//     clamps compare in the order minsd and maxsd do, so NaN and signed zero agree as well. A scaling by a
-//     power of two is a multiply where the interpreter divides; both round the same exact value.
+//     clamps compare in the order minsd and maxsd do, so NaN and signed zero agree as well; arm64 compares
+//     and selects, since its fmin and fmax return NaN. A scaling by a power of two is a multiply where the
+//     interpreter divides; both round the same exact value.
 //   - Captures, the delay index queue and a mode-0 result that wraps call the interpreter's own code.
+// The steps are written once, in gen, over the few operations struct emit gives for each architecture.
 // Built with the hosts' floating-point flags, like the interpreter it stands in for. AsmJit needs C++20.
 #define _CRT_SECURE_NO_WARNINGS
 #include "fs1r/chips/yss236_core.h"
@@ -29,6 +31,9 @@
 #if defined(_M_X64) || defined(__x86_64__)
 #include <asmjit/x86.h>
 #define YSS236_JIT "x86-64"
+#elif defined(_M_ARM64) || defined(__aarch64__)
+#include <asmjit/a64.h>
+#define YSS236_JIT "arm64"
 #endif
 
 struct yss236_core::jit_code { void (*fn)(yss236_core *, double *); };
@@ -49,16 +54,9 @@ struct yss236_jit
 namespace {
 
 using namespace asmjit;
-using namespace asmjit::x86;
 using C = yss236_core;
 
-#ifdef _WIN32
-const Gp ARG0 = rcx, ARG1 = edx;
-#else
-const Gp ARG0 = rdi, ARG1 = esi;
-#endif
-
-// The constants the code reads, through r13
+// The constants the code reads
 struct alignas(16) consts
 {
 	uint64_t abs[2] = { ~0ull >> 1, ~0ull >> 1 };
@@ -85,22 +83,116 @@ struct failure : ErrorHandler
 	void handle_error(Error, const char *, BaseEmitter *) override { failed = true; }
 };
 
-class gen
-{
-	enum { R, D, T };                  // the three write queues
+static_assert(sizeof(C::xfer) == 16, "m_hist entries are 16 bytes");
 
+// Each architecture's operations on values 0 to 5, its floating-point registers of those numbers, and on the
+// core's fields by address. Value 5 is scratch, and a call keeps none of them.
+#if defined(_M_X64) || defined(__x86_64__)
+using namespace asmjit::x86;
+
+#ifdef _WIN32
+const Gp ARG0 = rcx, ARG1 = edx;
+#else
+const Gp ARG0 = rdi, ARG1 = esi;
+#endif
+
+// x86-64: the core through rbx, the delay RAM through r12 and the constants through r13. rax and rdx are
+// scratch, and rcx holds the delay RAM address from address() to the access.
+struct emit
+{
 	Assembler &a;
 	C &c;
-	Label step_at[C::STEPS];
-	std::vector<std::function<void()>> stubs;   // out-of-line code, emitted after the pass's return
-	int8_t writes[C::STEPS][3];        // the register, cell or t register a step writes when it runs, or -1
-	bool skippable[C::STEPS] = {};     // a control step before it may skip it
 
 	int32_t off(const void *p) const { return int32_t((const char *)p - (const char *)&c); }
 	Mem q(const void *p) const { return qword_ptr(rbx, off(p)); }
 	Mem k(const double &v) const { return qword_ptr(r13, int32_t((const char *)&v - (const char *)&K)); }
-	C::pend *queue(int w, int i) const { return &(w == R ? c.m_rq : w == D ? c.m_dq : c.m_tq)[i & 3]; }
-	double *file(int w) const { return w == R ? c.r : w == D ? c.m : c.t; }
+
+	static bool usable() { return CpuInfo::host().features().x86().has_sse4_1(); }   // roundsd
+	static void regs(FuncFrame &frame, FuncArgsAssignment &args)
+	{
+		frame.add_dirty_regs(rax, rcx, rdx, rbx, r12, r13, ARG0.r64(), ARG1.r64());
+		frame.add_dirty_regs(xmm0, xmm1, xmm2, xmm3, xmm4, xmm5);
+		frame.update_call_stack_size(32);     // the callee's home area on Windows
+		args.assign_all(rbx, r12);
+	}
+	void start() { a.mov(r13, Imm(uint64_t(&K))); }
+
+	void ld(int v, const double *p) { a.movsd(xmm(v), q(p)); }
+	void st(const double *p, int v) { a.movsd(q(p), xmm(v)); }
+	void ldk(int v, const double &x) { a.movsd(xmm(v), k(x)); }
+	void mov(int v, int w) { if (v != w) a.movapd(xmm(v), xmm(w)); }
+	void zero(int v) { a.xorpd(xmm(v), xmm(v)); }
+	void add(int v, int w) { a.addsd(xmm(v), xmm(w)); }
+	void sub(int v, int w) { a.subsd(xmm(v), xmm(w)); }
+	void mul(int v, int w) { a.mulsd(xmm(v), xmm(w)); }
+	void addk(int v, const double &x) { a.addsd(xmm(v), k(x)); }
+	void subk(int v, const double &x) { a.subsd(xmm(v), k(x)); }
+	void mulk(int v, const double &x) { a.mulsd(xmm(v), k(x)); }
+	void neg(int v) { a.xorpd(xmm(v), ptr_128(r13, offsetof(consts, sign))); }
+	void abs(int v) { a.andpd(xmm(v), ptr_128(r13, offsetof(consts, abs))); }
+	void floor(int v, int w) { a.roundsd(xmm(v), xmm(w), 9); }
+	// v = v < w ? v : w, and v = w < v ? v : w
+	void min(int v, int w) { a.minsd(xmm(v), xmm(w)); }
+	void max(int v, int w) { a.maxsd(xmm(v), xmm(w)); }
+	void mink(int v, const double &x) { a.minsd(xmm(v), k(x)); }
+	void maxk(int v, const double &x) { a.maxsd(xmm(v), k(x)); }
+
+	// s16(*p) times scale into v
+	void coef(int v, const uint16_t *p, const double &scale)
+	{
+		a.movsx(eax, word_ptr(rbx, off(p)));
+		a.xorpd(xmm(v), xmm(v));
+		a.cvtsi2sd(xmm(v), eax);
+		a.mulsd(xmm(v), k(scale));
+	}
+
+	// m_flag from v's sign
+	void flag(int v)
+	{
+		a.xorpd(xmm5, xmm5);
+		a.comisd(xmm(v), xmm5);
+		a.seta(al);
+		a.comisd(xmm5, xmm(v));
+		a.seta(cl);
+		a.movzx(eax, al);
+		a.movzx(ecx, cl);
+		a.sub(eax, ecx);
+		a.mov(dword_ptr(rbx, off(&c.m_flag)), eax);
+	}
+
+	void set32(const int32_t *p, int v) { a.mov(dword_ptr(rbx, off(p)), v); }
+	void set8(const bool *p, int v) { a.mov(byte_ptr(rbx, off(p)), v); }
+	void copy8(const bool *to, const bool *from)
+	{
+		a.movzx(eax, byte_ptr(rbx, off(from)));
+		a.mov(byte_ptr(rbx, off(to)), al);
+	}
+
+	Label label() { return a.new_label(); }
+	void bind(Label l) { a.bind(l); }
+	void jmp(Label l) { a.jmp(l); }
+	void if_zero(const bool *p, Label l)
+	{
+		a.cmp(byte_ptr(rbx, off(p)), 0);
+		a.je(l);
+	}
+	// to l when m_flag is positive, or negative
+	void if_flag(bool positive, Label l)
+	{
+		a.cmp(dword_ptr(rbx, off(&c.m_flag)), 0);
+		if (positive)
+			a.jg(l);
+		else
+			a.jl(l);
+	}
+	// to l unless 0 <= v < x, and when v is NaN
+	void if_outside(int v, const double &x, Label l)
+	{
+		a.comisd(xmm(v), k(K.zero));
+		a.jb(l);
+		a.comisd(xmm(v), k(x));
+		a.jae(l);
+	}
 
 	void call(void *fn, int st)
 	{
@@ -109,6 +201,298 @@ class gen
 		a.mov(rax, Imm(uint64_t(fn)));
 		a.call(rax);
 	}
+
+	// The delay RAM address of the step's slot into ecx; with the index, cur_idx() is called first
+	void address(int st, int older, bool index)
+	{
+		if (index)
+			call((void *)&yss236_jit::index, st);
+		int const s = st >> 2;
+		a.movzx(ecx, word_ptr(rbx, off(&c.slot[s][0])));
+		a.and_(ecx, 0x1ff);
+		a.shl(ecx, 9);
+		a.movzx(edx, word_ptr(rbx, off(&c.slot[s][1])));
+		a.and_(edx, 0x1ff);
+		a.or_(ecx, edx);
+		a.add(ecx, dword_ptr(rbx, off(&c.ptr)));
+		if (older)
+			a.add(ecx, older);
+		if (index)
+			a.add(ecx, eax);
+		a.and_(ecx, C::RAM_WORDS - 1);
+	}
+	void ram_ld(int v) { a.movsd(xmm(v), qword_ptr(r12, rcx, 3)); }
+	void ram_st(int v) { a.movsd(qword_ptr(r12, rcx, 3), xmm(v)); }
+
+	// push_hist(st, value 0)
+	void hist(int st)
+	{
+		Label full = a.new_label();
+		a.mov(eax, dword_ptr(rbx, off(&c.m_nhist)));
+		a.cmp(eax, C::STEPS);
+		a.jge(full);
+		a.mov(edx, eax);
+		a.shl(edx, 4);
+		a.mov(dword_ptr(rbx, rdx, 0, off(&c.m_hist[0].st)), st);
+		a.movsd(qword_ptr(rbx, rdx, 0, off(&c.m_hist[0].v)), xmm0);
+		a.inc(eax);
+		a.mov(dword_ptr(rbx, off(&c.m_nhist)), eax);
+		a.bind(full);
+	}
+
+	// The write in a queue slot lands in file[reg] if the slot says it was issued (reg > 0 for r, >= 0 else)
+	void land(C::pend *slot, double *file, bool r)
+	{
+		Label none = a.new_label();
+		a.movsxd(rax, dword_ptr(rbx, off(&slot->reg)));
+		a.test(eax, eax);
+		if (r)
+			a.jle(none);
+		else
+			a.js(none);
+		a.movsd(xmm0, q(&slot->v));
+		a.movsd(qword_ptr(rbx, rax, 3, off(file)), xmm0);
+		a.bind(none);
+		a.mov(dword_ptr(rbx, off(&slot->reg)), -1);
+	}
+};
+#else
+using namespace asmjit::a64;
+
+// arm64: the core through x19, the delay RAM through x20 and the constants through x21. Most of the core's
+// fields lie past what an offset from x19 reaches, so x22 points at r[], below them. w9, w11, x16, x17 and d16
+// are scratch, and w10 holds the delay RAM address from address() to the access. x18 is the platform's on
+// Apple and Windows and is never touched.
+struct emit
+{
+	Assembler &a;
+	C &c;
+
+	static Vec V(int v) { return a64::d(uint32_t(v)); }
+	int32_t off(const void *p) const { return int32_t((const char *)p - (const char *)&c); }
+	static bool fits(int32_t o, int size) { return o >= 0 && o % size == 0 && o / size < 4096; }
+	// A field of size bytes: an unsigned offset from x19 or x22, or its address in x17
+	Mem at(const void *p, int size)
+	{
+		int32_t const o = off(p), h = o - off(c.r);
+		if (fits(o, size))
+			return ptr(x19, o);
+		if (fits(h, size))
+			return ptr(x22, h);
+		a.mov(x17, Imm(int64_t(o)));
+		a.add(x17, x19, x17);
+		return ptr(x17);
+	}
+	// A field's address into r
+	void addr(Gp const &r, const void *p)
+	{
+		int32_t const o = off(p), h = o - off(c.r);
+		if (h >= 0 && h < 4096)
+			a.add(r, x22, Imm(h));
+		else
+		{
+			a.mov(r, Imm(int64_t(o)));
+			a.add(r, x19, r);
+		}
+	}
+	Mem k(const double &v) const { return ptr(x21, int32_t((const char *)&v - (const char *)&K)); }
+
+	static bool usable() { return true; }
+	static void regs(FuncFrame &frame, FuncArgsAssignment &args)
+	{
+		frame.add_dirty_regs(x19, x20, x21, x22);
+		args.assign_all(x19, x20);
+	}
+	void start()
+	{
+		a.mov(x21, Imm(uint64_t(&K)));
+		a.mov(x22, Imm(int64_t(off(c.r))));
+		a.add(x22, x19, x22);
+	}
+
+	void ld(int v, const double *p) { a.ldr(V(v), at(p, 8)); }
+	void st(const double *p, int v) { a.str(V(v), at(p, 8)); }
+	void ldk(int v, const double &x) { a.ldr(V(v), k(x)); }
+	void mov(int v, int w) { if (v != w) a.fmov(V(v), V(w)); }
+	void zero(int v) { a.fmov(V(v), xzr); }
+	void add(int v, int w) { a.fadd(V(v), V(v), V(w)); }
+	void sub(int v, int w) { a.fsub(V(v), V(v), V(w)); }
+	void mul(int v, int w) { a.fmul(V(v), V(v), V(w)); }
+	void addk(int v, const double &x) { ldk(16, x); add(v, 16); }
+	void subk(int v, const double &x) { ldk(16, x); sub(v, 16); }
+	void mulk(int v, const double &x) { ldk(16, x); mul(v, 16); }
+	void neg(int v) { a.fneg(V(v), V(v)); }
+	void abs(int v) { a.fabs(V(v), V(v)); }
+	void floor(int v, int w) { a.frintm(V(v), V(w)); }
+	// v = v < w ? v : w, and v = w < v ? v : w. mi and gt are false when unordered, which selects w as
+	// minsd and maxsd do.
+	void min(int v, int w)
+	{
+		a.fcmp(V(v), V(w));
+		a.fcsel(V(v), V(v), V(w), Imm(CondCode::kMI));
+	}
+	void max(int v, int w)
+	{
+		a.fcmp(V(v), V(w));
+		a.fcsel(V(v), V(v), V(w), Imm(CondCode::kGT));
+	}
+	void mink(int v, const double &x) { ldk(16, x); min(v, 16); }
+	void maxk(int v, const double &x) { ldk(16, x); max(v, 16); }
+
+	// s16(*p) times scale into v
+	void coef(int v, const uint16_t *p, const double &scale)
+	{
+		a.ldrsh(w9, at(p, 2));
+		a.scvtf(V(v), w9);
+		mulk(v, scale);
+	}
+
+	// m_flag from v's sign
+	void flag(int v)
+	{
+		a.fcmp(V(v), Imm(0));
+		a.cset(w9, Imm(CondCode::kGT));
+		a.cset(w11, Imm(CondCode::kMI));
+		a.sub(w9, w9, w11);
+		a.str(w9, at(&c.m_flag, 4));
+	}
+
+	void set32(const int32_t *p, int v)
+	{
+		if (v)
+		{
+			a.mov(w9, Imm(v));
+			a.str(w9, at(p, 4));
+		}
+		else
+			a.str(wzr, at(p, 4));
+	}
+	void set8(const bool *p, int v)
+	{
+		if (v)
+		{
+			a.mov(w9, Imm(v));
+			a.strb(w9, at(p, 1));
+		}
+		else
+			a.strb(wzr, at(p, 1));
+	}
+	void copy8(const bool *to, const bool *from)
+	{
+		a.ldrb(w9, at(from, 1));
+		a.strb(w9, at(to, 1));
+	}
+
+	Label label() { return a.new_label(); }
+	void bind(Label l) { a.bind(l); }
+	void jmp(Label l) { a.b(l); }
+	void if_zero(const bool *p, Label l)
+	{
+		a.ldrb(w9, at(p, 1));
+		a.cbz(w9, l);
+	}
+	// to l when m_flag is positive, or negative
+	void if_flag(bool positive, Label l)
+	{
+		a.ldr(w9, at(&c.m_flag, 4));
+		a.cmp(w9, Imm(0));
+		if (positive)
+			a.b_gt(l);
+		else
+			a.b_lt(l);
+	}
+	// to l unless 0 <= v < x, and when v is NaN: lt holds for unordered, ge does not
+	void if_outside(int v, const double &x, Label l)
+	{
+		a.fcmp(V(v), Imm(0));
+		a.b_lt(l);
+		ldk(16, x);
+		a.fcmp(V(v), V(16));
+		a.b_ge(l);
+	}
+
+	void call(void *fn, int st)
+	{
+		a.mov(x0, x19);
+		a.mov(w1, Imm(st));
+		a.mov(x16, Imm(uint64_t(fn)));
+		a.blr(x16);
+	}
+
+	// The delay RAM address of the step's slot into w10; with the index, cur_idx() is called first
+	void address(int st, int older, bool index)
+	{
+		if (index)
+			call((void *)&yss236_jit::index, st);
+		int const s = st >> 2;
+		a.ldrh(w10, at(&c.slot[s][0], 2));
+		a.and_(w10, w10, Imm(0x1ff));
+		a.ldrh(w11, at(&c.slot[s][1], 2));
+		a.and_(w11, w11, Imm(0x1ff));
+		a.orr(w10, w11, w10, Imm(lsl(9)));
+		a.ldr(w11, at(&c.ptr, 4));
+		a.add(w10, w10, w11);
+		if (older)
+			a.add(w10, w10, Imm(older));
+		if (index)
+			a.add(w10, w10, w0);
+		a.and_(w10, w10, Imm(C::RAM_WORDS - 1));
+	}
+	void ram_ld(int v) { a.ldr(V(v), ptr(x20, x10, lsl(3))); }
+	void ram_st(int v) { a.str(V(v), ptr(x20, x10, lsl(3))); }
+
+	// push_hist(st, value 0)
+	void hist(int st)
+	{
+		Label full = a.new_label();
+		a.ldr(w9, at(&c.m_nhist, 4));
+		a.cmp(w9, Imm(C::STEPS));
+		a.b_ge(full);
+		addr(x16, &c.m_hist[0]);
+		a.add(x16, x16, x9, Imm(lsl(4)));
+		a.mov(w11, Imm(st));
+		a.str(w11, ptr(x16, int32_t(offsetof(C::xfer, st))));
+		a.str(d0, ptr(x16, int32_t(offsetof(C::xfer, v))));
+		a.add(w9, w9, Imm(1));
+		a.str(w9, at(&c.m_nhist, 4));
+		a.bind(full);
+	}
+
+	// The write in a queue slot lands in file[reg] if the slot says it was issued (reg > 0 for r, >= 0 else)
+	void land(C::pend *slot, double *file, bool r)
+	{
+		Label none = a.new_label();
+		a.ldrsw(x9, at(&slot->reg, 4));
+		if (r)
+		{
+			a.cmp(w9, Imm(0));
+			a.b_le(none);
+		}
+		else
+			a.tbnz(w9, Imm(31), none);
+		a.ldr(d0, at(&slot->v, 8));
+		addr(x16, file);
+		a.str(d0, ptr(x16, x9, lsl(3)));
+		a.bind(none);
+		a.mov(w9, Imm(-1));
+		a.str(w9, at(&slot->reg, 4));
+	}
+};
+#endif
+
+class gen
+{
+	enum { R, D, T };                  // the three write queues
+
+	emit e;
+	C &c;
+	Label step_at[C::STEPS];
+	std::vector<std::function<void()>> stubs;   // out-of-line code, emitted after the pass's return
+	int8_t writes[C::STEPS][3];        // the register, cell or t register a step writes when it runs, or -1
+	bool skippable[C::STEPS] = {};     // a control step before it may skip it
+
+	C::pend *queue(int w, int i) const { return &(w == R ? c.m_rq : w == D ? c.m_dq : c.m_tq)[i & 3]; }
+	double *file(int w) const { return w == R ? c.r : w == D ? c.m : c.t; }
 
 	// What each step writes and which steps may be skipped
 	void analyse()
@@ -156,191 +540,132 @@ class gen
 				continue;                             // nothing was issued
 			if (from >= 0 && !skippable[from])
 			{
-				a.movsd(xmm0, q(&slot->v));           // issued for sure, to a known register
-				a.movsd(q(file(w) + writes[from][w]), xmm0);
+				e.ld(0, &slot->v);                    // issued for sure, to a known register
+				e.st(file(w) + writes[from][w], 0);
 				continue;
 			}
-			Label none = a.new_label();               // the slot says
-			a.movsxd(rax, dword_ptr(rbx, off(&slot->reg)));
-			a.test(eax, eax);
-			if (w == R)
-				a.jle(none);
-			else
-				a.js(none);
-			a.movsd(xmm0, q(&slot->v));
-			a.movsd(qword_ptr(rbx, rax, 3, off(file(w))), xmm0);
-			a.bind(none);
-			a.mov(dword_ptr(rbx, off(&slot->reg)), -1);
+			e.land(slot, file(w), w == R);            // the slot says
 		}
 	}
 
 	// Issue a write from v
-	void put(int w, int st, Vec v)
+	void put(int w, int st, int v)
 	{
 		C::pend *slot = queue(w, st);
-		a.movsd(q(&slot->v), v);
+		e.st(&slot->v, v);
 		if (skippable[st] || st + C::LAT >= C::STEPS)
-			a.mov(dword_ptr(rbx, off(&slot->reg)), writes[st][w]);
-	}
-
-	// The delay RAM address of the step's slot into ecx; with the index, cur_idx() is called first
-	void address(int st, int older, bool index)
-	{
-		if (index)
-			call((void *)&yss236_jit::index, st);
-		int const s = st >> 2;
-		a.movzx(ecx, word_ptr(rbx, off(&c.slot[s][0])));
-		a.and_(ecx, 0x1ff);
-		a.shl(ecx, 9);
-		a.movzx(edx, word_ptr(rbx, off(&c.slot[s][1])));
-		a.and_(edx, 0x1ff);
-		a.or_(ecx, edx);
-		a.add(ecx, dword_ptr(rbx, off(&c.ptr)));
-		if (older)
-			a.add(ecx, older);
-		if (index)
-			a.add(ecx, eax);
-		a.and_(ecx, C::RAM_WORDS - 1);
+			e.set32(&slot->reg, writes[st][w]);
 	}
 
 	// mode(), or accmode() with acc set, of src into dst
-	void mode(Vec dst, Vec src, int mo, bool acc, int st)
+	void mode(int dst, int src, int mo, bool acc, int st)
 	{
-		if (dst.id() != src.id())
-			a.movapd(dst, src);
+		e.mov(dst, src);
 		if (mo)
 		{
-			a.minsd(dst, k(K.hi));
-			a.maxsd(dst, k(K.lo));
+			e.mink(dst, K.hi);
+			e.maxk(dst, K.lo);
 			if (mo == 2)
-				a.maxsd(dst, k(K.zero));
+				e.maxk(dst, K.zero);
 			else if (mo == 3)
-				a.andpd(dst, ptr_128(r13, offsetof(consts, abs)));
+				e.abs(dst);
 			return;
 		}
-		Label slow = a.new_label(), back = a.new_label();
-		a.addsd(dst, k(acc ? K.acc : K.range));
-		a.comisd(dst, k(K.zero));
-		a.jb(slow);
-		a.comisd(dst, k(acc ? K.acc2 : K.range2));
-		a.jae(slow);
-		a.subsd(dst, k(acc ? K.acc : K.range));
-		a.bind(back);
+		Label slow = e.label(), back = e.label();
+		e.addk(dst, acc ? K.acc : K.range);
+		e.if_outside(dst, acc ? K.acc2 : K.range2, slow);
+		e.subk(dst, acc ? K.acc : K.range);
+		e.bind(back);
 		stubs.push_back([this, dst, acc, st, slow, back] {
-			a.bind(slow);
+			e.bind(slow);
 			for (int i = 0; i < 6; i++)
-				if (i != int(dst.id()))
-					a.movsd(q(&c.m_tmp[2 + i]), xmm(i));
-			a.movsd(q(&c.m_tmp[0]), dst);
-			call(acc ? (void *)&yss236_jit::wrap_acc : (void *)&yss236_jit::wrap, st);
-			if (dst.id() != 0)
-				a.movapd(dst, xmm0);
+				if (i != dst)
+					e.st(&c.m_tmp[2 + i], i);
+			e.st(&c.m_tmp[0], dst);
+			e.call(acc ? (void *)&yss236_jit::wrap_acc : (void *)&yss236_jit::wrap, st);
+			e.mov(dst, 0);
 			for (int i = 0; i < 6; i++)
-				if (i != int(dst.id()))
-					a.movsd(xmm(i), q(&c.m_tmp[2 + i]));
-			a.jmp(back);
+				if (i != dst)
+					e.ld(i, &c.m_tmp[2 + i]);
+			e.jmp(back);
 		});
 	}
 
-	void clip(Vec v, double const &c, double const &nc)
+	void clip(int v, double const &c, double const &nc)
 	{
-		a.minsd(v, k(c));
-		a.maxsd(v, k(nc));
+		e.mink(v, c);
+		e.maxk(v, nc);
 	}
 
-	// m_flag from y's sign
-	void flag(Vec y)
-	{
-		a.xorpd(xmm5, xmm5);
-		a.comisd(y, xmm5);
-		a.seta(al);
-		a.comisd(xmm5, y);
-		a.seta(cl);
-		a.movzx(eax, al);
-		a.movzx(ecx, cl);
-		a.sub(eax, ecx);
-		a.mov(dword_ptr(rbx, off(&c.m_flag)), eax);
-	}
-
-	// The adder input into dst. x is in xmm1 and the m operand in xmm2.
-	void adder(Vec dst, C::op const &o)
+	// The adder input into dst. x is in 1 and the m operand in 2.
+	void adder(int dst, C::op const &o)
 	{
 		switch (o.asel)
 		{
-			case C::A_P: a.movsd(dst, q(&c.acc)); break;
+			case C::A_P: e.ld(dst, &c.acc); break;
 			case C::A_R:
 			case C::A_M:
 				if (o.asel == C::A_R ? o.sr : o.sm)
-					a.movapd(dst, o.asel == C::A_R ? xmm1 : xmm2);
+					e.mov(dst, o.asel == C::A_R ? 1 : 2);
 				else
 				{
-					a.movsd(dst, q(&c.acc));
-					a.mulsd(dst, k(K.inv32768));
+					e.ld(dst, &c.acc);
+					e.mulk(dst, K.inv32768);
 				}
 				break;
-			default: a.xorpd(dst, dst); break;
+			default: e.zero(dst); break;
 		}
 	}
 
-	// s16(coef[st]) times scale into dst
-	void coef(Vec dst, int st, double const &scale)
-	{
-		a.movsx(eax, word_ptr(rbx, off(&c.coef[st])));
-		a.xorpd(dst, dst);
-		a.cvtsi2sd(dst, eax);
-		a.mulsd(dst, k(scale));
-	}
-
-	// px = x; haspx = hasx; x = xv; hasx = sr != 0, with xv into xmm1
+	// px = x; haspx = hasx; x = xv; hasx = sr != 0, with xv into 1
 	void fetch_x(C::op const &o)
 	{
 		if (o.sr)
-			a.movsd(xmm1, q(&c.r[o.sr]));
+			e.ld(1, &c.r[o.sr]);
 		else
-			a.xorpd(xmm1, xmm1);
-		a.movsd(xmm0, q(&c.x));
-		a.movsd(q(&c.px), xmm0);
-		a.movzx(eax, byte_ptr(rbx, off(&c.hasx)));
-		a.mov(byte_ptr(rbx, off(&c.haspx)), al);
-		a.movsd(q(&c.x), xmm1);
-		a.mov(byte_ptr(rbx, off(&c.hasx)), o.sr != 0);
+			e.zero(1);
+		e.ld(0, &c.x);
+		e.st(&c.px, 0);
+		e.copy8(&c.haspx, &c.hasx);
+		e.st(&c.x, 1);
+		e.set8(&c.hasx, o.sr != 0);
 	}
 
-	// psrc = src; src = m[sm], with the new src into xmm2
+	// psrc = src; src = m[sm], with the new src into 2
 	void fetch_m(C::op const &o)
 	{
-		a.movsd(xmm0, q(&c.src));
-		a.movsd(q(&c.psrc), xmm0);
-		a.movsd(xmm2, q(&c.m[o.sm]));
-		a.movsd(q(&c.src), xmm2);
+		e.ld(0, &c.src);
+		e.st(&c.psrc, 0);
+		e.ld(2, &c.m[o.sm]);
+		e.st(&c.src, 2);
 	}
 
-	void t_write(int st, Vec y)
+	void t_write(int st, int y)
 	{
 		C::op const &o = c.ops[st];
 		if (o.tw & 2)
 		{
-			a.movapd(xmm0, y);
-			a.mulsd(xmm0, k(K.k256));
+			e.mov(0, y);
+			e.mulk(0, K.k256);
 			if (o.tfrac)
 			{
-				a.roundsd(xmm5, xmm0, 9);             // floor
-				a.subsd(xmm0, xmm5);
+				e.floor(5, 0);
+				e.sub(0, 5);
 			}
 			else
 			{
-				a.movsd(xmm5, k(K.thi));
-				a.minsd(xmm5, xmm0);
-				a.movsd(xmm0, k(K.tlo));
-				a.maxsd(xmm0, xmm5);
-				a.mulsd(xmm0, k(K.inv32768));
+				e.ldk(5, K.thi);
+				e.min(5, 0);
+				e.ldk(0, K.tlo);
+				e.max(0, 5);
+				e.mulk(0, K.inv32768);
 			}
-			put(T, st, xmm0);
+			put(T, st, 0);
 		}
 		else if (o.tw & 1)
 		{
-			coef(xmm0, st, K.inv32768);
-			put(T, st, xmm0);
+			e.coef(0, &c.coef[st], K.inv32768);
+			put(T, st, 0);
 		}
 	}
 
@@ -348,33 +673,27 @@ class gen
 	{
 		C::op const &o = c.ops[st];
 		int const to = (st & 0x100) | o.target;
-		Label run = a.new_label();
+		Label run = e.label();
 		if (o.cskip == 6 || o.cskip == 4)
-		{
-			a.cmp(dword_ptr(rbx, off(&c.m_flag)), 0);
-			if (o.cskip == 6)
-				a.jg(run);
-			else
-				a.jl(run);
-		}
-		a.mov(dword_ptr(rbx, off(&c.m_skip)), to);
+			e.if_flag(o.cskip == 6, run);
+		e.set32(&c.m_skip, to);
 		if (to > st + 1)
 		{
-			Label skip = a.new_label();
-			a.jmp(skip);
+			Label skip = e.label();
+			e.jmp(skip);
 			stubs.push_back([this, st, to, skip] {
-				a.bind(skip);
+				e.bind(skip);
 				for (int s = st + 1; s < to && s <= st + C::LAT; s++)
 					land(s);                          // later ones were issued inside the skip
-				a.jmp(step_at[to]);
+				e.jmp(step_at[to]);
 			});
 		}
-		a.bind(run);
+		e.bind(run);
 	}
 
 	void step(int st)
 	{
-		a.bind(step_at[st]);
+		e.bind(step_at[st]);
 		land(st);
 		C::op const &o = c.ops[st];
 		if (o.ctlop)
@@ -389,36 +708,25 @@ class gen
 
 		if (xfer && (o.memop == 2 || o.memop == 3 || o.memop == 4 || o.memop == 6))
 		{
-			address(st, (o.memop & 4) ? 1 : 0, o.idxa);
-			a.movsd(xmm0, qword_ptr(r12, rcx, 3));
-			Label full = a.new_label();               // push_hist
-			a.mov(eax, dword_ptr(rbx, off(&c.m_nhist)));
-			a.cmp(eax, C::STEPS);
-			a.jge(full);
-			a.mov(edx, eax);
-			a.shl(edx, 4);
-			static_assert(sizeof(C::xfer) == 16, "m_hist entries are 16 bytes");
-			a.mov(dword_ptr(rbx, rdx, 0, off(&c.m_hist[0].st)), st);
-			a.movsd(qword_ptr(rbx, rdx, 0, off(&c.m_hist[0].v)), xmm0);
-			a.inc(eax);
-			a.mov(dword_ptr(rbx, off(&c.m_nhist)), eax);
-			a.bind(full);
+			e.address(st, (o.memop & 4) ? 1 : 0, o.idxa);
+			e.ram_ld(0);
+			e.hist(st);
 		}
 
 		if (o.dm)
 			switch (o.msrc)
 			{
 				case C::M_SERIAL: case C::M_SERIAL2: case C::M_EG:
-					a.movsd(xmm0, q(&c.in[o.msrc][page]));
-					put(D, st, xmm0);
+					e.ld(0, &c.in[o.msrc][page]);
+					put(D, st, 0);
 					break;
 				case C::M_LFO:
-					a.movsd(xmm0, q(&c.lfo[st >> 5]));
-					put(D, st, xmm0);
+					e.ld(0, &c.lfo[st >> 5]);
+					put(D, st, 0);
 					break;
 				case C::M_CAPTURE: case C::M_CAPTURE2:
-					call((void *)&yss236_jit::capture, st);
-					put(D, st, xmm0);
+					e.call((void *)&yss236_jit::capture, st);
+					put(D, st, 0);
 					break;
 				default:
 					break;
@@ -426,8 +734,8 @@ class gen
 
 		if (o.sout)
 		{
-			a.movsd(xmm0, q(&c.m[o.sm]));
-			a.movsd(q(&c.out[page]), xmm0);
+			e.ld(0, &c.m[o.sm]);
+			e.st(&c.out[page], 0);
 		}
 
 		if (cls < 2)
@@ -436,29 +744,29 @@ class gen
 		if (cls == 1)
 		{
 			fetch_m(o);
-			adder(xmm4, o);
-			coef(xmm3, st, K.inv256);                 // LOADK * s16(coef)
+			adder(4, o);
+			e.coef(3, &c.coef[st], K.inv256);         // LOADK * s16(coef)
 			if (o.sub)
-				a.xorpd(xmm4, ptr_128(r13, offsetof(consts, sign)));
-			a.addsd(xmm3, xmm4);
+				e.neg(4);
+			e.add(3, 4);
 			if (o.shift)
-				a.mulsd(xmm3, k(K.rscale[o.shift]));
+				e.mulk(3, K.rscale[o.shift]);
 			if (o.dr)
 			{
-				mode(xmm0, xmm3, o.clamp, false, st);
-				put(R, st, xmm0);
+				mode(0, 3, o.clamp, false, st);
+				put(R, st, 0);
 			}
-			mode(xmm3, xmm3, o.clamp, true, st);
-			a.movsd(q(&c.acc), xmm3);
+			mode(3, 3, o.clamp, true, st);
+			e.st(&c.acc, 3);
 			if (o.cmp)
-				flag(xmm3);
+				e.flag(3);
 			if (o.msrc == C::M_RESULT && o.dm && (o.dwr || !o.dr))
 			{
-				a.movapd(xmm0, xmm3);
-				clip(xmm0, K.dsat, K.ndsat);
-				put(D, st, xmm0);
+				e.mov(0, 3);
+				clip(0, K.dsat, K.ndsat);
+				put(D, st, 0);
 			}
-			t_write(st, xmm3);
+			t_write(st, 3);
 			return;
 		}
 
@@ -466,32 +774,31 @@ class gen
 		{
 			if (write)
 			{
-				Label none = a.new_label();
-				a.cmp(byte_ptr(rbx, off(&c.haswl)), 0);
-				a.je(none);
-				address(st, 0, o.idxa);
-				a.movsd(xmm0, q(&c.wlatch));
-				a.movsd(qword_ptr(r12, rcx, 3), xmm0);
-				a.mov(byte_ptr(rbx, off(&c.haswl)), 0);
-				a.bind(none);
+				Label none = e.label();
+				e.if_zero(&c.haswl, none);
+				e.address(st, 0, o.idxa);
+				e.ld(0, &c.wlatch);
+				e.ram_st(0);
+				e.set8(&c.haswl, 0);
+				e.bind(none);
 			}
 			if (o.alu)
 			{
 				fetch_m(o);
-				adder(xmm3, o);
+				adder(3, o);
 				if (o.sub)
-					a.xorpd(xmm3, ptr_128(r13, offsetof(consts, sign)));
+					e.neg(3);
 				if (o.shift)
-					a.mulsd(xmm3, k(K.rscale[o.shift]));
+					e.mulk(3, K.rscale[o.shift]);
 				if (o.dr && !o.rcopy)
 				{
-					mode(xmm0, xmm3, o.clamp, false, st);
-					put(R, st, xmm0);
+					mode(0, 3, o.clamp, false, st);
+					put(R, st, 0);
 				}
-				mode(xmm3, xmm3, o.clamp, true, st);
-				a.movsd(q(&c.acc), xmm3);
+				mode(3, 3, o.clamp, true, st);
+				e.st(&c.acc, 3);
 				if (o.cmp)
-					flag(xmm3);
+					e.flag(3);
 			}
 			return;
 		}
@@ -499,98 +806,97 @@ class gen
 		// classes 2 and 3
 		fetch_x(o);
 		fetch_m(o);
-		Vec const m2 = o.m2m ? xmm2 : xmm1;
+		int const m2 = o.m2m ? 2 : 1;
 		if (cls == 3)
-			a.movapd(xmm3, m2);
+			e.mov(3, m2);
 		else
 		{
 			if (o.m1 >= 2)
-				a.movsd(xmm3, q(&c.t[((o.m1 & 1) << 3) | o.t]));
+				e.ld(3, &c.t[((o.m1 & 1) << 3) | o.t]);
 			else
-				coef(xmm3, st, K.inv32768);
-			a.mulsd(xmm3, m2);
+				e.coef(3, &c.coef[st], K.inv32768);
+			e.mul(3, m2);
 		}
-		adder(xmm4, o);
+		adder(4, o);
 		if (o.sub)
-			a.subsd(xmm3, xmm4);
+			e.sub(3, 4);
 		else
-			a.addsd(xmm3, xmm4);
+			e.add(3, 4);
 		if (o.shift)
-			a.mulsd(xmm3, k(K.rscale[o.shift]));
+			e.mulk(3, K.rscale[o.shift]);
 		if (o.dr && o.rcopy)
 		{
-			Label none = a.new_label();               // the previous step's x, if it had one
-			a.movapd(xmm0, xmm1);
-			a.cmp(byte_ptr(rbx, off(&c.haspx)), 0);
-			a.je(none);
-			a.movsd(xmm0, q(&c.px));
-			a.bind(none);
-			put(R, st, xmm0);
+			Label none = e.label();                   // the previous step's x, if it had one
+			e.mov(0, 1);
+			e.if_zero(&c.haspx, none);
+			e.ld(0, &c.px);
+			e.bind(none);
+			put(R, st, 0);
 		}
 		else if (o.dr)
 		{
-			mode(xmm0, xmm3, o.clamp, false, st);
-			put(R, st, xmm0);
+			mode(0, 3, o.clamp, false, st);
+			put(R, st, 0);
 		}
-		mode(xmm3, xmm3, o.clamp, true, st);
-		a.movsd(q(&c.acc), xmm3);
+		mode(3, 3, o.clamp, true, st);
+		e.st(&c.acc, 3);
 		if (o.cmp)
-			flag(xmm3);
+			e.flag(3);
 		if (o.dm && o.msrc == C::M_PREVIOUS)
 		{
-			a.movsd(xmm0, q(&c.psrc));
-			put(D, st, xmm0);
+			e.ld(0, &c.psrc);
+			put(D, st, 0);
 		}
 		else if (o.dm && o.msrc == C::M_RESULT && (!(o.m2m && o.asel == C::A_NONE) || o.dm != o.sm))
 		{
-			a.movapd(xmm0, xmm3);
-			clip(xmm0, K.dsat, K.ndsat);
-			put(D, st, xmm0);
+			e.mov(0, 3);
+			clip(0, K.dsat, K.ndsat);
+			put(D, st, 0);
 		}
-		t_write(st, xmm3);
+		t_write(st, 3);
 		if (o.idxw)
 		{
-			a.movsd(q(&c.m_tmp[0]), xmm3);
-			call((void *)&yss236_jit::queue_index, st);
+			e.st(&c.m_tmp[0], 3);
+			e.call((void *)&yss236_jit::queue_index, st);
 		}
 		if (o.wdata)
 		{
 			if (write)
-				a.mov(byte_ptr(rbx, off(&c.haswl)), 0);
+				e.set8(&c.haswl, 0);
 			else
 			{
-				a.movsd(xmm0, q(&c.acc));
-				clip(xmm0, K.sat, K.nsat);
-				a.movsd(q(&c.wlatch), xmm0);
-				a.mov(byte_ptr(rbx, off(&c.haswl)), 1);
+				e.ld(0, &c.acc);
+				clip(0, K.sat, K.nsat);
+				e.st(&c.wlatch, 0);
+				e.set8(&c.haswl, 1);
 			}
 		}
 		if (write)
 		{
-			address(st, 0, o.idxa);
-			a.movsd(xmm0, q(&c.acc));
-			clip(xmm0, K.sat, K.nsat);
+			e.address(st, 0, o.idxa);
+			e.ld(0, &c.acc);
+			clip(0, K.sat, K.nsat);
 			if (!o.wdata)
 			{
-				Label none = a.new_label();           // a latched word goes instead
-				a.cmp(byte_ptr(rbx, off(&c.haswl)), 0);
-				a.je(none);
-				a.movsd(xmm0, q(&c.wlatch));
-				a.mov(byte_ptr(rbx, off(&c.haswl)), 0);
-				a.bind(none);
+				Label none = e.label();               // a latched word goes instead
+				e.if_zero(&c.haswl, none);
+				e.ld(0, &c.wlatch);
+				e.set8(&c.haswl, 0);
+				e.bind(none);
 			}
-			a.movsd(qword_ptr(r12, rcx, 3), xmm0);
+			e.ram_st(0);
 		}
 	}
 
 public:
-	gen(Assembler &a, C &c) : a(a), c(c) {}
+	gen(Assembler &a, C &c) : e{ a, c }, c(c) {}
 
 	void pass()
 	{
 		analyse();
+		e.start();
 		for (auto &l : step_at)
-			l = a.new_label();
+			l = e.label();
 		for (int st = 0; st < C::STEPS; st++)
 			step(st);
 	}
@@ -604,8 +910,8 @@ public:
 
 C::jit_code *compile(C &c)
 {
-	static bool const sse41 = CpuInfo::host().features().x86().has_sse4_1();   // roundsd
-	if (!sse41)
+	static bool const usable = emit::usable();
+	if (!usable)
 		return nullptr;
 	std::lock_guard<std::mutex> guard(lock);
 	JitRuntime &rt = runtime();
@@ -620,18 +926,14 @@ C::jit_code *compile(C &c)
 	func.init(FuncSignature::build<void, C *, double *>(), rt.environment());
 	FuncFrame frame;
 	frame.init(func);
-	frame.add_dirty_regs(rax, rcx, rdx, rbx, r12, r13, ARG0.r64(), ARG1.r64());
-	frame.add_dirty_regs(xmm0, xmm1, xmm2, xmm3, xmm4, xmm5);
 	frame.set_func_calls();
-	frame.update_call_stack_size(32);         // the callee's home area on Windows
 	FuncArgsAssignment args(&func);
-	args.assign_all(rbx, r12);
+	emit::regs(frame, args);
 	args.update_func_frame(frame);
 	frame.finalize();
 
 	a.emit_prolog(frame);
 	a.emit_args_assignment(frame, args);
-	a.mov(r13, Imm(uint64_t(&K)));
 	gen g(a, c);
 	g.pass();
 	a.emit_epilog(frame);
