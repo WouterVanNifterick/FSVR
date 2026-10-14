@@ -9,9 +9,9 @@ namespace fs1r::vop3host {
 
 const rom::ParamRange& EffectHost::descriptor(uint32_t index) const
 {
-    if (index >= REVERB_PARAM_BYTES    && index < REVERB_PARAM_BYTES    + 24) return rom::REVERB_PARAMS   [perf[REVERB_TYPE]   ][index - REVERB_PARAM_BYTES   ];
-    if (index >= VARIATION_PARAM_BYTES && index < VARIATION_PARAM_BYTES + 31) return rom::VARIATION_PARAMS[perf[VARIATION_TYPE]][index - VARIATION_PARAM_BYTES];
-    if (index >= INSERTION_PARAM_BYTES && index < INSERTION_PARAM_BYTES + 31) return rom::INSERTION_PARAMS[perf[INSERTION_TYPE]][index - INSERTION_PARAM_BYTES];
+    if (index >= REVERB_PARAM_BYTES    && index < REVERB_PARAM_BYTES    + std::size(rom::REVERB_PARAMS[0]))    return rom::REVERB_PARAMS   [perf[REVERB_TYPE]   ][index - REVERB_PARAM_BYTES   ];
+    if (index >= VARIATION_PARAM_BYTES && index < VARIATION_PARAM_BYTES + std::size(rom::VARIATION_PARAMS[0])) return rom::VARIATION_PARAMS[perf[VARIATION_TYPE]][index - VARIATION_PARAM_BYTES];
+    if (index >= INSERTION_PARAM_BYTES && index < INSERTION_PARAM_BYTES + std::size(rom::INSERTION_PARAMS[0])) return rom::INSERTION_PARAMS[perf[INSERTION_TYPE]][index - INSERTION_PARAM_BYTES];
     return rom::COMMON_PARAMS[index];
 }
 

@@ -29,7 +29,7 @@ void EffectHost::clearWindow(int kind)
     switch (kind & 0xFF) {
         case REVERB:
             // the second tag image behind the base tags: the base program's silent tags
-            std::copy_n(rom::BASE_TAGS[1], 232, tag);
+            std::copy_n(rom::BASE_TAGS[1], std::size(rom::BASE_TAGS[1]), tag);
             writeTags(WINDOWS[REVERB].nsteps, rom::STEPS_REVERB);
             zero(REVERB);
             spread(rom::RESET_SLOTS_REVERB, AREA[1] - AREA[0]);
@@ -160,7 +160,7 @@ void EffectHost::mixerParam(int p)
             mixerParam(MIX_VARIATION_RETURN);
             mixerParam(7);
             mixerParam(MIX_VARIATION_TO_REVERB);
-            applyParam(INSERTION, 9);
+            applyParam(INSERTION, DRY_WET);
             break;
         case MIX_DELAY_PAN:
             if (muted(REVERB_DELAY)) zeroPair(MIXER_A, 4); else panPair(MIXER_A, 4, m[MIX_DELAY_PAN]);

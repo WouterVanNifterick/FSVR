@@ -131,7 +131,7 @@ void EffectHost::resetWindow(int kind, bool defaults)
         if (defaults)
             std::copy_n(rom::EQ_DEFAULTS, 20, eqParam);
     } else {
-        for (int i = 0; i < 88; i++)
+        for (int i = 0; i < int(std::size(rom::STEPS_SYSTEM)); i++)
             coef[rom::STEPS_SYSTEM[i]] = rom::SYSTEM_COEF_DEFAULTS[i];
         if (defaults)
             std::copy_n(rom::SYSTEM_PARAM_DEFAULTS, 16, mixParam);

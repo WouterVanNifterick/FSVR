@@ -11,8 +11,6 @@ namespace fs1r::vop3host {
 
 namespace {
 
-constexpr int DRY_WET = 9;                          // the insertion's Dry/Wet, in every type that has one
-
 // What the wahs of a block write to
 struct Wah {
     int lfo;                                        // which of the window's LFOs sweeps it

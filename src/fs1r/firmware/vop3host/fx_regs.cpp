@@ -69,7 +69,7 @@ void EffectHost::writeLfo(Reg reg, uint32_t lfo)
 }
 
 const Window WINDOWS[5] = {
-    {rom::STEPS_REVERB, 94, rom::SLOTS_REVERB, 54},
+    {rom::STEPS_REVERB, int(std::size(rom::STEPS_REVERB)), rom::SLOTS_REVERB, int(std::size(rom::SLOTS_REVERB))},
     {rom::STEPS_AUX, 40, rom::SLOTS_AUX, 10, rom::LFOS_AUX, 0x000F, rom::AUX_PROGRAM, rom::AUX_TAGS},
     {rom::STEPS_INSERTION, 96, rom::SLOTS_INSERTION, 40, rom::LFOS_INSERTION, 0xF000, rom::INSERTION_PROGRAMS, rom::INSERTION_TAGS, 14},
     {rom::STEPS_REVERB_DELAY, 72, rom::SLOTS_REVERB_DELAY, 12, rom::LFOS_REVERB_DELAY, 0x00F0, rom::REVERB_DELAY_PROGRAMS, rom::DELAY_TAGS, 11},
@@ -94,12 +94,12 @@ void EffectHost::uploadProgram(int kind, int clear)
         }
         return;
     }
-    std::copy_n(rom::BASE_TAGS[0], 232, tag);
-    writeTags(50, rom::STEPS_MASTER_EQ);
-    writeTags(88, rom::STEPS_SYSTEM);
+    std::copy_n(rom::BASE_TAGS[0], std::size(rom::BASE_TAGS[0]), tag);
+    writeTags(int(std::size(rom::STEPS_MASTER_EQ)), rom::STEPS_MASTER_EQ);
+    writeTags(int(std::size(rom::STEPS_SYSTEM)), rom::STEPS_SYSTEM);
     for (int word = 0; word < 5; word++) {
         writeReg(SELECT, AUTO_INCREMENT);
-        for (int s = 0; s < 232; s++)
+        for (int s = 0; s < int(std::size(rom::BASE_PROGRAM)); s++)
             writeReg(PROGRAM - word, rom::BASE_PROGRAM[s][word]);
     }
 }
@@ -111,12 +111,14 @@ void EffectHost::uploadWindow(int kind)
     writeConfig(0, 0x40);
     writeReg(UPLOADING, 0x23);
     switch (kind) {
-        case REVERB:
-            writeDelays(54, rom::SLOTS_REVERB);
-            writeCoefs(94, rom::STEPS_REVERB);
-            std::copy_n(rom::BASE_TAGS[0], 232, tag);
-            writeTags(94, rom::STEPS_REVERB);
+        case REVERB: {
+            const Window& w = WINDOWS[REVERB];
+            writeDelays(w.nslots, w.slots);
+            writeCoefs(w.nsteps, w.steps);
+            std::copy_n(rom::BASE_TAGS[0], std::size(rom::BASE_TAGS[0]), tag);
+            writeTags(w.nsteps, w.steps);
             break;
+        }
         case AUX: case INSERTION: case REVERB_DELAY: case VARIATION: {
             const Window& w = WINDOWS[kind];
             uploadProgram(kind, 0);
@@ -129,11 +131,11 @@ void EffectHost::uploadWindow(int kind)
             break;
         }
         case MASTER_EQ:
-            writeCoefs(50, rom::STEPS_MASTER_EQ);
+            writeCoefs(int(std::size(rom::STEPS_MASTER_EQ)), rom::STEPS_MASTER_EQ);
             break;
         default:
-            writeTags(88, rom::STEPS_SYSTEM);
-            writeCoefs(88, rom::STEPS_SYSTEM);
+            writeTags(int(std::size(rom::STEPS_SYSTEM)), rom::STEPS_SYSTEM);
+            writeCoefs(int(std::size(rom::STEPS_SYSTEM)), rom::STEPS_SYSTEM);
             break;
     }
     writeConfig(0, rom::CFG16[0]);

@@ -69,8 +69,8 @@ void EffectHost::applyChanges(uint32_t mask)
         }
         for (uint32_t i = 0; i < 10; i++)
             eqCache[i] = uint32_t(readParameter(EQ_LOW_GAIN + i));
-        reverbCache[9]    = 127;
-        variationCache[9] = 127;
+        reverbCache[DRY_WET]    = 127;                // fully wet
+        variationCache[DRY_WET] = 127;
         for (int w : {REVERB, INSERTION, REVERB_DELAY, VARIATION})
             setMute(w, 1);
         std::fill_n(controlOffset, 16, 0);
@@ -326,8 +326,8 @@ void EffectHost::reverbTypeChanged()
         reverbChanged[i] = 0;
     }
     if (delay) {
-        perf[reverbByte(9)] = 0;
-        reverbCache[9] = 127;
+        perf[reverbByte(DRY_WET)] = 0;
+        reverbCache[DRY_WET] = 127;
     }
 }
 
@@ -340,8 +340,8 @@ void EffectHost::variationTypeChanged()
         variationCache[i] = param[VARIATION][i];
         variationChanged[i] = 0;
     }
-    perf[VARIATION_PARAM_BYTES + 2 * 9] = 0;
-    variationCache[9] = 127;
+    perf[VARIATION_PARAM_BYTES + 2 * DRY_WET] = 0;
+    variationCache[DRY_WET] = 127;
 }
 
 void EffectHost::insertionTypeChanged()

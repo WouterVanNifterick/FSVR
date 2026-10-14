@@ -7,6 +7,7 @@
 #include <cfloat>
 #include <cstdint>
 #include <initializer_list>
+#include <iterator>
 
 #include "rom_tables.h"
 #include "sink.h"
@@ -26,6 +27,7 @@ struct TypeCode { uint8_t msb, lsb; };                                  // a typ
 
 // A handler's p for every parameter at once
 enum { ALL = 255 };
+constexpr int DRY_WET = 9;                                             // a type's Dry/Wet, where it has one
 
 // What can be posted to the effect task. Every post carries WAKE.
 enum : uint32_t {

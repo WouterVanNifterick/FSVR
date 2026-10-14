@@ -201,7 +201,7 @@ void EffectHost::applyAll(int w, Handler handler, std::initializer_list<int> ps)
 // gain into 2 and 3, or interleaved: dry, wet, dry, wet. Then the four are written.
 void EffectHost::dryWet(int w, const uint16_t* s, bool interleaved, const int16_t* law, int shift)
 {
-    const uint32_t wet = w == INSERTION ? param[INSERTION][9] : 127;
+    const uint32_t wet = w == INSERTION ? param[INSERTION][DRY_WET] : 127;
     const uint32_t dry = law[128 - wet] >> shift, x = typeGain(w, law[wet] >> shift);
     coef[s[0]] = dry;
     coef[s[interleaved ? 2 : 1]] = dry;
