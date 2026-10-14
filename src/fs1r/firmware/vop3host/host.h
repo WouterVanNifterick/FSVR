@@ -4,11 +4,15 @@
 // The FS1R's effect host: what the CPU does to turn a performance into register writes for
 // the effect chip. Each function carries its address in the firmware; `p` is a parameter index.
 #pragma once
+#include <cfloat>
 #include <cstdint>
 
 #include "ram.h"
 #include "rom_tables.h"
-#include "softfloat.h"
+
+// The arithmetic is the firmware's, bit for bit, as long as nothing is evaluated in a wider
+// type and a * b + c is not fused: build with /fp:strict or -ffp-contract=off.
+static_assert(FLT_EVAL_METHOD == 0, "the effect host needs float and double arithmetic without excess precision");
 
 namespace fs1r::vop3host {
 

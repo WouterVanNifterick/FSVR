@@ -432,7 +432,7 @@ void Host::copySubEqWords()
 // flash 0x3BA2C setSubInsToReverb: insertion to reverb send, v * 2896 / 127, into two mixer steps
 void Host::setSubInsToReverb(uint32_t v)
 {
-    const int32_t w = int16_t(sh::ftoi(sh::fdiv(sh::from_bits(0x42FE0000), sh::fmul(sh::utof(v & 0xFF), sh::from_bits(0x45350000)))));
+    const int32_t w = int16_t(int(float(v & 0xFF) * 2896.0f / 127.0f));
     set_coef(rom::u16(STEPS_C + 34), uint32_t(w));
     set_coef(rom::u16(STEPS_C + 46), uint32_t(w));
     writeSweWordListSub(1, STEPS_C + 34);
@@ -441,7 +441,7 @@ void Host::setSubInsToReverb(uint32_t v)
 // flash 0x3BA8E setSubInsToVariation: insertion to variation send, the same law, two other steps
 void Host::setSubInsToVariation(uint32_t v)
 {
-    const int32_t w = int16_t(sh::ftoi(sh::fdiv(sh::from_bits(0x42FE0000), sh::fmul(sh::utof(v & 0xFF), sh::from_bits(0x45350000)))));
+    const int32_t w = int16_t(int(float(v & 0xFF) * 2896.0f / 127.0f));
     set_coef(rom::u16(STEPS_C + 56), uint32_t(w));
     set_coef(rom::u16(STEPS_C + 66), uint32_t(w));
     writeSweWordListSub(1, STEPS_C + 56);
@@ -450,7 +450,7 @@ void Host::setSubInsToVariation(uint32_t v)
 // flash 0x3BB30 setSubInsLevel: insertion level, (v * 8192 / 127) >> 2, into two mixer steps
 void Host::setSubInsLevel(uint32_t v)
 {
-    const int32_t w = int16_t(sh::ftoi(sh::fdiv(sh::from_bits(0x42FE0000), sh::fmul(sh::utof(v & 0xFF), sh::from_bits(0x46000000))))) >> 2;
+    const int32_t w = int16_t(int(float(v & 0xFF) * 8192.0f / 127.0f)) >> 2;
     set_coef(rom::u16(STEPS_B + 16), uint32_t(w));
     set_coef(rom::u16(STEPS_B + 18), uint32_t(w));
     writeSweWordListSub(1, STEPS_B + 16);
@@ -633,10 +633,11 @@ void Host::syncSubInsertionType()
 
 // flash 0x3C4A8 markSubParamDirty(id): a performance common byte changed. Reads it into the
 // cache or marks its mixer flag, and posts the mask that makes the task apply it. `id` is the
-// byte's index (the first byte of a two-byte parameter).
+// byte's index; either byte of a two-byte parameter stands for the parameter.
 void Host::markSubParamDirty(uint32_t id)
 {
-    const int32_t n = int32_t(id & 0xFFFF);
+    int32_t n = int32_t(id & 0xFFFF);
+    if ((n >= 80 && n <= 95) || (n >= 104 && n <= 167)) n &= ~1;
     auto half = [](int32_t d) -> uint32_t { return uint32_t((d + (0 > d ? 1 : 0)) >> 1); };
     auto mixer = [&](uint32_t flag) {
         ram.w8(FX_DIRTY_MIXER + flag, 1);

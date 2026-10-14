@@ -124,8 +124,8 @@ void Host::fxSystemParam(int p)
     };
     // floatToInt(uintToFloat(v) * scale / 127)
     auto level = [&](uint32_t v, float scale) -> int32_t {
-        const float f = sh::fmul(sh::utof(v), scale);
-        return sh::ftoi(sh::fdiv(127.0f, f));
+        const float f = float(v) * scale;
+        return int(f / 127.0f);
     };
 
     switch (p) {
@@ -134,11 +134,11 @@ void Host::fxSystemParam(int p)
             zero_pair(B, 0);
         } else {
             const uint32_t pan = sys(0);
-            const float gl = sh::fdiv(127.0f, sh::itof(rom::s16(rom::FX_PAN_LAW + uint32_t(128 - int32_t(pan)) * 2)));
-            const float gr = sh::fdiv(127.0f, sh::itof(rom::s16(rom::FX_PAN_LAW + pan * 2)));
-            const int32_t l = sh::ftoi(sh::fmul(sh::utof(sys(1)), gl));
+            const float gl = float(rom::s16(rom::FX_PAN_LAW + uint32_t(128 - int32_t(pan)) * 2)) / 127.0f;
+            const float gr = float(rom::s16(rom::FX_PAN_LAW + pan * 2)) / 127.0f;
+            const int32_t l = int(float(sys(1)) * gl);
             set_coef(step(B, 0), uint32_t(int16_t(l) >> 3));
-            const int32_t r = sh::ftoi(sh::fmul(sh::utof(sys(1)), gr));
+            const int32_t r = int(float(sys(1)) * gr);
             set_coef(step(B, 1), uint32_t(int16_t(r) >> 3));
         }
         writeSweWordListSub(2, B);

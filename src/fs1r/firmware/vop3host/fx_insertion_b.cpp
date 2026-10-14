@@ -34,7 +34,7 @@ void wah_sense(Host& h, int p)
         h.set_coef(rom::u16(WAH_SENSE + 2), 0x8000);
         h.set_coef(rom::u16(WAH_SENSE), 0x8000);
     } else {
-        const int32_t x = sh::dtoi(sh::ddiv(-327680.0, sh::ftod(sh::utof(PU(h, p)))));
+        const int32_t x = int(-327680.0 / double(float(PU(h, p))));
         h.set_coef(rom::u16(WAH_SENSE + 2), uint32_t(int16_t(x)));
         h.set_coef(rom::u16(WAH_SENSE), uint32_t(int16_t(x)));
     }
@@ -100,7 +100,7 @@ void dist_wet(Host& h, uint32_t a, uint32_t b, bool two_lists)
 // the compressor / noise gate output level words through table B
 void dyn_level(Host& h, int p)
 {
-    const int32_t i = sh::dtoi(sh::dmul(sh::ftod(rom::f32(LEVEL_CURVE + 4u * PU(h, p))), 8192.0));
+    const int32_t i = int(double(rom::f32(LEVEL_CURVE + 4u * PU(h, p))) * 8192.0);
     const uint32_t x = uint32_t(h.fxMulTypeTableB(int16_t(i)));
     h.set_coef(rom::u16(DIST_WET + 6), x);
     h.set_coef(rom::u16(DIST_WET + 2), x);
@@ -476,7 +476,7 @@ void Host::fxInsWahDistDelay(int p)
         writeSweWordListSub(1, FB);
         break;
     case 2: {
-        const int32_t i = sh::ftoi(sh::fmul(8192.0f, rom::f32(LEVEL_CURVE + 4u * PU(*this, 2))));
+        const int32_t i = int(8192.0f * rom::f32(LEVEL_CURVE + 4u * PU(*this, 2)));
         set_coef(rom::u16(LEVEL + 4), uint32_t(i));
         set_coef(rom::u16(LEVEL), uint32_t(i));
         writeSweWordListSub(1, LEVEL);
@@ -537,7 +537,7 @@ void Host::fxInsWahDistDelay(int p)
         if (PU(*this, 12) <= 10)
             set_coef(rom::u16(WD_SENSE), 0x8000);
         else
-            set_coef(rom::u16(WD_SENSE), uint32_t(int16_t(sh::dtoi(sh::ddiv(-327680.0, sh::ftod(sh::utof(PU(*this, 12))))))));
+            set_coef(rom::u16(WD_SENSE), uint32_t(int16_t(int(-327680.0 / double(float(PU(*this, 12)))))));
         writeSweWordListSub(1, WD_SENSE);
         break;
     case 11:
@@ -590,7 +590,7 @@ void Host::fxInsCompressor(int p)
         writeSweWordListSub(1, DD_FB);
         break;
     case 2: {
-        const int32_t i = sh::ftoi(sh::fmul(8192.0f, rom::f32(LEVEL_CURVE + 4u * PU(*this, 2))));
+        const int32_t i = int(8192.0f * rom::f32(LEVEL_CURVE + 4u * PU(*this, 2)));
         set_coef(rom::u16(DD_LEVEL + 4), uint32_t(i));
         set_coef(rom::u16(DD_LEVEL), uint32_t(i));
         writeSweWordListSub(1, DD_LEVEL);
@@ -665,7 +665,7 @@ void Host::fxInsDistDelay(int p)
         writeSweWordListSub(1, DD_FB);
         break;
     case 4: {
-        const int32_t i = sh::ftoi(sh::fmul(8192.0f, rom::f32(LEVEL_CURVE + 4u * PU(*this, 4))));
+        const int32_t i = int(8192.0f * rom::f32(LEVEL_CURVE + 4u * PU(*this, 4)));
         set_coef(rom::u16(DD_LEVEL + 4), uint32_t(i));
         set_coef(rom::u16(DD_LEVEL), uint32_t(i));
         writeSweWordListSub(1, DD_LEVEL);
@@ -818,14 +818,14 @@ void Host::fxInsPitchChange(int p)
             set_coef(rom::u16(PC_FB + 6), uint32_t(-10240));
         }
         if (v <= 31) {
-            const uint32_t i = uint32_t(sh::dtoi(sh::ddiv(sh::dmul(sh::dadd(sh::utod(v), -1.0), 2048.0), 31.0))) & 0xFFFF;
+            const uint32_t i = uint32_t(int((double(v) - 1.0) * 2048.0 / 31.0)) & 0xFFFF;
             set_coef(rom::u16(PC_FB + 8), i - 8192u);
             set_coef(rom::u16(PC_FB + 4), i - 8192u);
             set_coef(rom::u16(PC_FB + 10), uint32_t(-8192) - i);
             set_coef(rom::u16(PC_FB + 6), uint32_t(-8192) - i);
         }
         if (v >= 97) {
-            const uint32_t i = uint32_t(sh::dtoi(sh::ddiv(sh::dmul(sh::dadd(sh::dneg(sh::utod(v)), 127.0), 2048.0), 31.0))) & 0xFFFF;
+            const uint32_t i = uint32_t(int((-double(v) + 127.0) * 2048.0 / 31.0)) & 0xFFFF;
             set_coef(rom::u16(PC_FB + 8), i - 8192u);
             set_coef(rom::u16(PC_FB + 4), i - 8192u);
             set_coef(rom::u16(PC_FB + 10), uint32_t(-8192) - i);
@@ -837,12 +837,12 @@ void Host::fxInsPitchChange(int p)
     }
     case 9: {
         const uint32_t wet = PU(*this, 9);
-        const float dry = sh::itof(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet)))) >> 2);
-        const uint32_t g = uint32_t(int16_t(sh::ftoi(dry)));
+        const float dry = float(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(wet)))) >> 2);
+        const uint32_t g = uint32_t(int16_t(int(dry)));
         set_coef(rom::u16(PC_WET + 2), g);
         set_coef(rom::u16(PC_WET), g);
-        const float wf = sh::itof(rom::s16(PAN_LAW + 2u * wet) >> 2);
-        const uint32_t x = uint32_t(fxMulTypeTableB(int16_t(sh::ftoi(wf))));
+        const float wf = float(rom::s16(PAN_LAW + 2u * wet) >> 2);
+        const uint32_t x = uint32_t(fxMulTypeTableB(int16_t(int(wf))));
         set_coef(rom::u16(PC_LEVEL + 2), x);
         set_coef(rom::u16(PC_LEVEL), x);
         writeSweWordListSub(2, PC_LEVEL);
@@ -851,16 +851,16 @@ void Host::fxInsPitchChange(int p)
     }
     case 10: case 11: {
         const float c = rom::f32(LEVEL_CURVE + 4u * PU(*this, 11));
-        set_coef(rom::u16(0x35D888), uint32_t(int16_t(sh::ftoi(sh::fmul(sh::itof(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(PU(*this, 10)))))), c)))));
-        set_coef(rom::u16(0x35D88E), uint32_t(sh::ftoi(sh::fmul(sh::itof(rom::s16(PAN_LAW + 2u * PU(*this, 10))), c))));
+        set_coef(rom::u16(0x35D888), uint32_t(int16_t(int(float(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(PU(*this, 10)))))) * c))));
+        set_coef(rom::u16(0x35D88E), uint32_t(int(float(rom::s16(PAN_LAW + 2u * PU(*this, 10))) * c)));
         writeSweWordListSub(1, 0x35D888);
         writeSweWordListSub(1, 0x35D88E);
         break;
     }
     case 12: case 13: {
         const float c = rom::f32(LEVEL_CURVE + 4u * PU(*this, 13));
-        set_coef(rom::u16(0x35D88C), uint32_t(int16_t(sh::ftoi(sh::fmul(sh::itof(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(PU(*this, 12)))))), c)))));
-        set_coef(rom::u16(0x35D88A), uint32_t(sh::ftoi(sh::fmul(sh::itof(rom::s16(PAN_LAW + 2u * PU(*this, 12))), c))));
+        set_coef(rom::u16(0x35D88C), uint32_t(int16_t(int(float(rom::s16(PAN_LAW + 2u * uint32_t(int32_t(128 - int32_t(PU(*this, 12)))))) * c))));
+        set_coef(rom::u16(0x35D88A), uint32_t(int(float(rom::s16(PAN_LAW + 2u * PU(*this, 12))) * c)));
         writeSweWordListSub(2, 0x35D88A);
         break;
     }
@@ -881,13 +881,13 @@ void Host::fxInsEnsDetune(int p)
     switch (p) {
     case 0: {
         const uint32_t v = PU(*this, 0);
-        const double K = sh::from_bits64(0x40EFFEEFA4BDBA0AULL), NK = sh::from_bits64(0xC0EFFEEFA4BDBA0AULL);
+        const double K = 65527.48886, NK = -65527.48886;
         const uint32_t lo = FX_LFO25 + 24, hi = FX_LFO25 + 26;   // LFO 12 and 13
         if (v < 64) {
-            const double a = sh::dmul(sh::ftod(rom::f32(DETUNE_TABLE + 4u * (114u - v))), K);
-            const int32_t w0 = sh::dtoi(sh::dadd(a, NK));
-            const double b = sh::dmul(sh::ftod(rom::f32(DETUNE_TABLE + 4u * (v - 14u))), K);
-            const int32_t w1 = sh::dtoi(sh::dsub(K, b));
+            const double a = double(rom::f32(DETUNE_TABLE + 4u * (114u - v))) * K;
+            const int32_t w0 = int(a + NK);
+            const double b = double(rom::f32(DETUNE_TABLE + 4u * (v - 14u))) * K;
+            const int32_t w1 = int(K - b);
             set_coef(rom::u16(LFO_DIR_STEPS + 2), uint32_t(int16_t(w0)));
             set_coef(rom::u16(LFO_DIR_STEPS), uint32_t(int16_t(w0)));
             set_coef(rom::u16(LFO_DIR_STEPS + 6), uint32_t(int16_t(w1)));
@@ -897,10 +897,10 @@ void Host::fxInsEnsDetune(int p)
             ram.w16(hi, (ram.u16(hi) & 0xFF1F) | 0x40);
             ram.w16(FX_LFO27 + 26, 0);
         } else if (v > 64) {
-            const double a = sh::dmul(sh::ftod(rom::f32(DETUNE_TABLE + 4u * (114u - v))), K);
-            const int32_t w0 = sh::dtoi(sh::dadd(sh::dneg(a), K));
-            const double b = sh::dmul(sh::ftod(rom::f32(DETUNE_TABLE + 4u * (v - 14u))), K);
-            const int32_t w1 = sh::dtoi(sh::dadd(b, NK));
+            const double a = double(rom::f32(DETUNE_TABLE + 4u * (114u - v))) * K;
+            const int32_t w0 = int(-a + K);
+            const double b = double(rom::f32(DETUNE_TABLE + 4u * (v - 14u))) * K;
+            const int32_t w1 = int(b + NK);
             set_coef(rom::u16(LFO_DIR_STEPS + 2), uint32_t(int16_t(w0)));
             set_coef(rom::u16(LFO_DIR_STEPS), uint32_t(int16_t(w0)));
             set_coef(rom::u16(LFO_DIR_STEPS + 6), uint32_t(int16_t(w1)));

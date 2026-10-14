@@ -612,7 +612,7 @@ void Host::fxInsDelayLR(int p)
         writeSweWordListSub(1, mw(8));
         break;
     case 5: {
-        const int32_t x = sh::dtoi(sh::dmul(sh::ftod(rom::f32(LEVEL_CURVE + 4u * PU(*this, 5))), 32767.0));
+        const int32_t x = int(double(rom::f32(LEVEL_CURVE + 4u * PU(*this, 5))) * 32767.0);
         set_coef(rom::u16(mw(7)), uint32_t(int16_t(x)));
         set_coef(rom::u16(mw(5)), uint32_t(int16_t(x)));
         writeSweWordListSub(1, mw(5));
@@ -695,7 +695,7 @@ void Host::fxInsEcho(int p)
         fxCopyWords2(0x35E53A, 0x35E540);
         break;
     case 7: {
-        const int32_t i = sh::ftoi(sh::fmul(32767.0f, rom::f32(LEVEL_CURVE + 4u * PU(*this, 7))));
+        const int32_t i = int(32767.0f * rom::f32(LEVEL_CURVE + 4u * PU(*this, 7)));
         const uint32_t x = uint32_t(fxMulTypeTableB(int16_t(i)));
         set_coef(rom::u16(mw(5)), x);
         set_coef(rom::u16(mw(4)), x);

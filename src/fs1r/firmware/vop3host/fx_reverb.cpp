@@ -80,8 +80,8 @@ void Host::fxDesignCombs(int time, int damp, int count, int sel, uint32_t list)
         }
         const uint32_t unit = list + 8u * uint32_t(i);
         set_coef(rom::u16(unit), g);
-        const float f = sh::fmul(sh::itof(int16_t(coef(rom::u16(list + 2 * r10)))), sh::utof(loss));
-        const int32_t x = sh::ftoi(sh::fdiv(32768.0f, f));
+        const float f = float(int16_t(coef(rom::u16(list + 2 * r10)))) * float(loss);
+        const int32_t x = int(f / 32768.0f);
         set_coef(rom::u16(unit + 2), uint32_t(int16_t(x)));
         set_coef(rom::u16(unit + 4), uint32_t(int16_t(x)));
         set_coef(rom::u16(unit + 6), coef(rom::u16(list + 2 * r10 + 4)));
@@ -207,9 +207,9 @@ void Host::fxCopyScaled12(int balance, uint32_t list)
 {
     const uint32_t idx = uint32_t(balance) & 0xFFFF;
     for (int i = 0; i < 10; i++) {
-        const float f1 = sh::itof(int16_t(coef(rom::u16(ER_WORDS + 2u * uint32_t(i)))));
-        const float f2 = sh::itof(rom::s16(rom::FX_ER_REV + 2u * ((128u - idx) & 0xFFFFFFFFu)));
-        const int32_t x = sh::ftoi(sh::fdiv(32768.0f, sh::fmul(f2, f1)));
+        const float f1 = float(int16_t(coef(rom::u16(ER_WORDS + 2u * uint32_t(i)))));
+        const float f2 = float(rom::s16(rom::FX_ER_REV + 2u * ((128u - idx) & 0xFFFFFFFFu)));
+        const int32_t x = int(f2 * f1 / 32768.0f);
         set_coef(rom::u16(list + 2u * uint32_t(i)), uint32_t(int16_t(x) >> 1));
     }
     const uint32_t g = rom::u16(rom::FX_ER_REV + 2u * idx);
@@ -244,13 +244,12 @@ void Host::fxRoomPairs(int clampSrc, int index, int span, uint32_t ids)
 // extra * RT60[time] / 10
 void Host::fxDesignRooms(int time, int y0, int y1, int damp, int extra, uint32_t list)
 {
-    const float target = sh::dtof(sh::ddiv(sh::ftod(sh::fmul(sh::utof(uint32_t(extra) & 0xFFFF),
-                                                             rom::f32(rom::FX_RT60_SECONDS + 4u * (uint32_t(time) & 0xFFFF)))), 10.0));
+    const float target = float(double(float(uint32_t(extra) & 0xFFFF) * rom::f32(rom::FX_RT60_SECONDS + 4u * (uint32_t(time) & 0xFFFF))) / 10.0);
     int32_t k = 0;
-    while (sh::fgt(target, rom::f32(rom::FX_RT60_SECONDS + 4u * uint32_t(k) + 4)))
+    while (target > rom::f32(rom::FX_RT60_SECONDS + 4u * uint32_t(k) + 4))
         k++;
-    const float mid = sh::fadd(rom::f32(rom::FX_RT60_SECONDS + 4u * uint32_t(k) + 4), rom::f32(rom::FX_RT60_SECONDS + 4u * uint32_t(k)));
-    if (sh::fgt(0.0f, sh::fsub(sh::fmul(2.0f, target), mid)))
+    const float mid = rom::f32(rom::FX_RT60_SECONDS + 4u * uint32_t(k) + 4) + rom::f32(rom::FX_RT60_SECONDS + 4u * uint32_t(k));
+    if (0.0f > mid - 2.0f * target)
         k++;
     const uint32_t rowp = rom::FX_TIME_ROW + uint32_t(int16_t(k));
     const int32_t dampf = rom::s8(rom::FX_DAMP_FREQ + (uint32_t(damp) & 0xFFFF));
@@ -261,8 +260,8 @@ void Host::fxDesignRooms(int time, int y0, int y1, int damp, int extra, uint32_t
         v = v < 0 ? 0 : v > 255 ? 255 : v;
         const uint32_t entry = rom::FX_COMB_GAIN + 4u * uint32_t(v);
         set_coef(rom::u16(u), rom::u16(entry + 2));
-        const float f = sh::fmul(sh::itof(int16_t(coef(rom::u16(lpf)))), sh::utof(rom::u16(entry)));
-        const int32_t x = sh::ftoi(sh::fdiv(32768.0f, f));
+        const float f = float(int16_t(coef(rom::u16(lpf)))) * float(rom::u16(entry));
+        const int32_t x = int(f / 32768.0f);
         set_coef(rom::u16(u + 2), uint32_t(int16_t(x)));
         set_coef(rom::u16(u + 4), uint32_t(int16_t(x)));
         set_coef(rom::u16(u + 6), coef(rom::u16(lpf + 4)));

@@ -66,7 +66,7 @@ void wah_sense(Host& h, int p, uint32_t steps)
         h.set_coef(rom::u16(steps + 2), 0x8000);
         h.set_coef(rom::u16(steps), 0x8000);
     } else {
-        const int32_t x = sh::dtoi(sh::ddiv(-327680.0, sh::ftod(sh::utof(h.ram.u16(VP + 2 * p)))));
+        const int32_t x = int(-327680.0 / double(float(h.ram.u16(VP + 2 * p))));
         h.set_coef(rom::u16(steps + 2), uint32_t(int16_t(x)));
         h.set_coef(rom::u16(steps), uint32_t(int16_t(x)));
     }
@@ -87,24 +87,24 @@ void Host::fxStoreScaled(int v, int index, uint32_t steps, int flag)
     const int32_t drive = 704 + int32_t(32063u * (uint32_t(v) & 0xFFFF)) / 127;
     set_coef(rom::u16(steps + 2), uint32_t(drive));
     set_coef(rom::u16(steps + 4), uint32_t(drive));
-    const float f3 = sh::itof(int16_t(drive));
+    const float f3 = float(int16_t(drive));
     double d;
     if ((uint32_t(v) & 0xFFFF) > 10)
-        d = sh::from_bits64(0x4035085F06F69446ULL);
+        d = 21.0327;
     else
-        d = sh::ftod(sh::fdiv(495616.0f, sh::fmul(f3, f3)));
-    const float f10 = sh::dtof(d);
-    const float f11 = sh::fmul(8192.0f, rom::f32(FX_LEVEL_CURVE + 4u * (uint32_t(index) & 0xFFFF)));
-    float x = sh::fmul(sh::fdiv(f10, f11), 0.5f);
+        d = double(f3 * f3 / 495616.0f);
+    const float f10 = float(d);
+    const float f11 = 8192.0f * rom::f32(FX_LEVEL_CURVE + 4u * (uint32_t(index) & 0xFFFF));
+    float x = f11 / f10 * 0.5f;
     if ((ram.u16(FX_PARAMS_SYS + 2 * 9) & 1) == 0 || (flag & 0xFF) == 1)
-        x = sh::dtof(sh::dmul(sh::ftod(x), sh::from_bits64(0x3FF6A09E667F3BCCULL)));
+        x = float(double(x) * 1.414213562373095);
     uint32_t word;
-    if (sh::deq(0.0, sh::ftod(x)))
-        word = uint32_t(int16_t(sh::ftoi(x)));
-    else if (sh::dgt(1.0, sh::ftod(x)))
+    if (0.0 == double(x))
+        word = uint32_t(int16_t(int(x)));
+    else if (1.0 > double(x))
         word = 1;
     else
-        word = uint32_t(int16_t(sh::ftoi(x)));
+        word = uint32_t(int16_t(int(x)));
     set_coef(rom::u16(steps + 6), word);
     writeSweWordListSub(3, steps + 2);
 }
@@ -298,13 +298,13 @@ void Host::fxVarEnsDetune(int p)
     switch (p) {
     case 0: {
         const uint32_t v = ram.u16(VP);
-        const double K = sh::from_bits64(0x40EFFEEFA4BDBA0AULL), NK = sh::from_bits64(0xC0EFFEEFA4BDBA0AULL);
+        const double K = 65527.48886, NK = -65527.48886;
         const uint32_t lo = FX_LFO25 + 16, hi = FX_LFO25 + 18;   // LFO 8 and 9
         if (v < 0x40) {
-            const double a = sh::dmul(sh::ftod(rom::f32(DETUNE_TABLE + 4u * (114u - v))), K);
-            const int32_t w0 = sh::dtoi(sh::dadd(a, NK));
-            const double b = sh::dmul(sh::ftod(rom::f32(DETUNE_TABLE + 4u * (v - 14u))), K);
-            const int32_t w1 = sh::dtoi(sh::dsub(K, b));
+            const double a = double(rom::f32(DETUNE_TABLE + 4u * (114u - v))) * K;
+            const int32_t w0 = int(a + NK);
+            const double b = double(rom::f32(DETUNE_TABLE + 4u * (v - 14u))) * K;
+            const int32_t w1 = int(K - b);
             set_coef(rom::u16(DET + 2), uint32_t(int16_t(w0)));
             set_coef(rom::u16(DET), uint32_t(int16_t(w0)));
             set_coef(rom::u16(DET + 6), uint32_t(int16_t(w1)));
@@ -317,10 +317,10 @@ void Host::fxVarEnsDetune(int p)
             for (int i = 0; i < 4; i++)
                 set_coef(rom::u16(DET + 2u * uint32_t(i)), 0);
         } else {
-            const double a = sh::dmul(sh::ftod(rom::f32(DETUNE_TABLE + 4u * (114u - v))), K);
-            const int32_t w0 = sh::dtoi(sh::dadd(sh::dneg(a), K));
-            const double b = sh::dmul(sh::ftod(rom::f32(DETUNE_TABLE + 4u * (v - 14u))), K);
-            const int32_t w1 = sh::dtoi(sh::dadd(b, NK));
+            const double a = double(rom::f32(DETUNE_TABLE + 4u * (114u - v))) * K;
+            const int32_t w0 = int(-a + K);
+            const double b = double(rom::f32(DETUNE_TABLE + 4u * (v - 14u))) * K;
+            const int32_t w1 = int(b + NK);
             set_coef(rom::u16(DET + 2), uint32_t(int16_t(w0)));
             set_coef(rom::u16(DET), uint32_t(int16_t(w0)));
             set_coef(rom::u16(DET + 6), uint32_t(int16_t(w1)));
@@ -543,7 +543,7 @@ namespace {
 void dynamics_level(Host& h, int p)
 {
     constexpr uint32_t OUT = 0x35DA6A;
-    const int32_t i = sh::dtoi(sh::dmul(sh::ftod(rom::f32(FX_LEVEL_CURVE + 4u * (uint32_t(P(h, p)) & 0xFFFF))), 8192.0));
+    const int32_t i = int(double(rom::f32(FX_LEVEL_CURVE + 4u * (uint32_t(P(h, p)) & 0xFFFF))) * 8192.0);
     const uint32_t x = uint32_t(h.fxMulTypeTableD(int16_t(i)));
     h.set_coef(rom::u16(OUT + 6), x);
     h.set_coef(rom::u16(OUT + 2), x);

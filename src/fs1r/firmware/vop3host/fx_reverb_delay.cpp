@@ -97,7 +97,7 @@ void delay_lcr(Host& h, const Block& b, int p, void (Host::*self)(int))
     case 3: d.delay_slot(1, 0, 3); break;
     case 4: d.bipolar_word(7, 4); break;
     case 5: {
-        const int32_t x = sh::dtoi(sh::dmul(sh::ftod(rom::f32(FX_LEVEL_CURVE + 4u * (uint32_t(d.P(5)) & 0xFFFF))), 32767.0));
+        const int32_t x = int(double(rom::f32(FX_LEVEL_CURVE + 4u * (uint32_t(d.P(5)) & 0xFFFF))) * 32767.0);
         h.set_coef(d.word(6), uint32_t(int16_t(x)));
         h.set_coef(d.word(5), uint32_t(int16_t(x)));
         h.writeSweWordListSub(1, b.W + 10);
@@ -156,7 +156,7 @@ void echo(Host& h, const Block& b, int p, void (Host::*self)(int))
     case 5: d.delay_slot(2, 0, 5); break;
     case 6: d.delay_slot(5, 3, 6); break;
     case 7: {
-        const int32_t x = sh::ftoi(sh::fmul(32767.0f, rom::f32(FX_LEVEL_CURVE + 4u * (uint32_t(d.P(7)) & 0xFFFF))));
+        const int32_t x = int(32767.0f * rom::f32(FX_LEVEL_CURVE + 4u * (uint32_t(d.P(7)) & 0xFFFF)));
         h.set_coef(d.word(5), uint32_t(x));
         h.set_coef(d.word(4), uint32_t(x));
         h.writeSweWordListSub(2, b.W + 8);

@@ -12,8 +12,6 @@ namespace {
 const uint32_t PERF = vop3::ram::PERFORMANCE;   // also where the host's RAM starts
 static_assert(PERF == vop3::Ram::BASE);
 const int TYPE_BYTE[3] = {168, 171, 175};       // reverb, variation, insertion
-// A two-byte parameter is marked by its first byte: reverb 1-8 at 80, variation and insertion at 104..167.
-int firstByte(int i) { return (i >= 80 && i <= 95) || (i >= 104 && i <= 167) ? i & ~1 : i; }
 // Bus sample to serial word, so that a dry performance leaves the chip at cal::OUT_GAIN.
 const double BUS = cal::OUT_GAIN / cal::FX_DRY_GAIN * Vop3::WORD;
 }
@@ -24,7 +22,7 @@ void Effects::sync(uint8_t* c) {
     for (int i : TYPE_BYTE)                      // types first: they load defaults, which the other changes then override
         if (c[i] != was[i]) { host.set_performance_byte(i, was[i] = c[i]); type = true; }
     for (int i = 0; i < 192; i++)
-        if ((c[i] & 0x7f) != was[i]) { host.store(i, c[i]); host.markSubParamDirty(firstByte(i)); }
+        if ((c[i] & 0x7f) != was[i]) { host.store(i, c[i]); host.markSubParamDirty(i); }
     host.pollSubDirtyLoop();
     if (type) std::memcpy(c + 80, host.ram.bytes() + 80, 111);   // the new type's defaults
 }
