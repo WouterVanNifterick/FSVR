@@ -176,6 +176,8 @@ FILTER = [("PROGRAM", 0x375E1A, "u16", 512, 5), ("CONSTANTS", 0x37541A, "u16", 5
 COMMON_PARAMS = 0x37E654                      # by performance byte
 TYPED_PARAMS = [("REVERB_PARAMS", 0x388DBC, 17, 24), ("VARIATION_PARAMS", 0x388E00, 29, 31), ("INSERTION_PARAMS", 0x388E74, 41, 31)]
 
+if len(sys.argv) != 2:
+    sys.exit(__doc__)
 rom = Path(sys.argv[1]).read_bytes()
 if not hashlib.sha256(rom).hexdigest().startswith("3be337ed29bc44c0"):
     sys.exit("not the FS1R v1.20 EPROM in CPU byte order")
@@ -210,7 +212,7 @@ for ns, tables in TABLES.items():
     if ns: h.append(f"namespace {ns} {{"); c.append(f"namespace {ns} {{")
     for name, addr, elem, n in tables:
         vals = read(name, addr, elem, n)
-        if "STEPS" in name or (ns and elem == "u16") or name in ("LFO_DIR_STEPS",):
+        if "STEPS" in name or (ns and elem == "u16"):
             if elem == "u16" and max(vals) >= 512: sys.exit(f"{name}: a step past 511")
         if (ns and elem == "u8") or name.startswith(("SLOTS_", "RESET_SLOTS_")):
             if max(vals) >= 128: sys.exit(f"{name}: a delay slot past 127")
