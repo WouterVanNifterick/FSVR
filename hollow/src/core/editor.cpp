@@ -780,14 +780,22 @@ const std::vector<uint32_t>& Gui::pixels() {
 
 // Fills and widget artwork go through the skin's surface (skin.json "surface"); text never does.
 void Gui::drawFill(Canvas& c, const Fill& f, Rect r, int tile, bool stretch) {
-    if (f.image >= 0) drawImage(c, skin_->images[f.image], f.tile >= 0 ? f.tile : tile, r, stretch, surf());
+    if (f.image >= 0) drawImage(c, skin_->images[f.image], f.tile >= 0 ? f.tile : tile, r, stretch, surf(), f.tint);
     else if (f.hasColour) fillRect(c, r, f.colour, surf());
 }
 
-void Gui::drawCaption(Canvas& c, const Text& t, const std::string& s, Rect r, const int pad[4], int dx, int dy, bool multiline) {
-    if (s.empty() || t.font < 0) return;
+void Gui::drawCaption(Canvas& c, const Text& t, const std::string& s, Rect r, const int pad[4], int dx, int dy, bool multiline, int font) {
+    if (font < 0) font = t.font;
+    if (s.empty() || font < 0) return;
     Rect tr{r.x + pad[0] + dx, r.y + pad[1] + dy, r.w - pad[0] - pad[2], r.h - pad[1] - pad[3]};
-    drawText(c, skin_->fonts[t.font], s, tr, t.align, t.valign, multiline);
+    drawText(c, skin_->fonts[font], s, tr, t.align, t.valign, multiline);
+}
+
+// A colour a kind reads where it draws: "#rrggbbaa", or "@name" from skin.json's "colours" with the
+// widget's {vars} resolved first, so "@op{op}" follows the operator shown.
+uint32_t Gui::colour(const Node& n, const std::string& s, uint32_t def) const {
+    if (s.size() < 2 || s[0] != '@') return parseColour(s, def);
+    return parseColour(paletteColour(skin_->colours, subst(n, s)), def);
 }
 
 void Gui::paint(Canvas& c, Node& n) {
@@ -843,13 +851,22 @@ int Gui::buttonTile(const Node& n, int i) const {
     bool pressed = w.pressedTiles && live(press_) && press_ == me;
     bool hovered = w.hoverTiles && live(hover_) && hover_ == me;
     int group = pressed ? 1 : hovered ? 1 + w.pressedTiles : 0;
-    int value = w.onIf.op != Cond::None ? test(n, w.onIf, w.onIf.param.empty() ? -1 : state_.indexOf(subst(n, w.onIf.param)))
-              : w.source == Widget::MidiIn || w.source == Widget::Modified ? sourceValue(w) == "1"
-              : w.action.type == Action::Goto || w.action.type == Action::Set ? active(n, i)
-              : w.action.type == Action::Value ? n.w[i].param >= 0 && state_.get(n.w[i].param) == w.action.amount
-              : w.action.type == Action::Scale && w.action.amount > 0 ? std::fabs(w.action.amount - (base_->scales.empty() ? scale_ : zoom_)) < 1e-9
-              : w.action.type == Action::Step ? 0 : index(n, i);
-    return std::clamp(value, 0, states - 1) + states * group;
+    return std::clamp(buttonValue(n, i), 0, states - 1) + states * group;
+}
+
+bool Gui::onIf(const Node& n, int i) const {
+    const Cond& c = n.view->widgets[i].onIf;
+    return c.op != Cond::None && test(n, c, c.param.empty() ? -1 : state_.indexOf(subst(n, c.param)));
+}
+
+int Gui::buttonValue(const Node& n, int i) const {
+    const Widget& w = n.view->widgets[i];
+    return w.onIf.op != Cond::None ? onIf(n, i)
+         : w.source == Widget::MidiIn || w.source == Widget::Modified ? sourceValue(w) == "1"
+         : w.action.type == Action::Goto || w.action.type == Action::Set ? active(n, i)
+         : w.action.type == Action::Value ? n.w[i].param >= 0 && state_.get(n.w[i].param) == w.action.amount
+         : w.action.type == Action::Scale && w.action.amount > 0 ? std::fabs(w.action.amount - (base_->scales.empty() ? scale_ : zoom_)) < 1e-9
+         : w.action.type == Action::Step ? 0 : index(n, i);
 }
 
 // What a "source" shows: CPU load in percent or the voice count as text, MIDI activity or the
@@ -926,14 +943,24 @@ void Gui::paintWidget(Canvas& c, Node& n, int i, Rect r) {
     static const int noPad[4] = {0, 0, 0, 0};
     if (s.param >= 0) s.drawn = state_.get(s.param);
     if (s.param2 >= 0) s.drawn2 = state_.get(s.param2);
+    Fill own;   // a tint naming a {var}, or a number's {value} (the text it shows), is resolved here: "@op{value}"
+    if (!w.fill.tintRef.empty()) {
+        own = w.fill;
+        std::string t = own.tintRef;
+        if (size_t at = t.find("{value}"); at != std::string::npos && w.kind == Kind::Number) t.replace(at, 7, numberText(n, i));
+        own.tint = colour(n, t, 0);
+    }
+    const Fill& fill = w.fill.tintRef.empty() ? w.fill : own;
     switch (w.kind) {
-    case Kind::Plate:
-        drawFill(c, w.fill, r, w.source == Widget::MidiIn || w.source == Widget::Modified ? sourceValue(w) == "1" : 0);
-        drawCaption(c, w.text, withData(n, shownText(n, i)), r, w.pad, 0, 0, true);
+    case Kind::Plate: {   // with an onIf: tile 1 and the text's onFont while it holds
+        bool on = onIf(n, i);
+        drawFill(c, fill, r, on || ((w.source == Widget::MidiIn || w.source == Widget::Modified) && sourceValue(w) == "1"));
+        drawCaption(c, w.text, withData(n, shownText(n, i)), r, w.pad, 0, 0, true, on ? w.text.onFont : -1);
         break;
+    }
     case Kind::Button:
     case Kind::Dropdown: {
-        drawFill(c, w.fill, r, buttonTile(n, i));
+        drawFill(c, fill, r, buttonTile(n, i));
         bool pressed = w.pressedTiles && live(press_) && press_ == Hit{&n, i};   // offset only with pressed tiles
         std::string caption = w.source == Widget::Cpu || w.source == Widget::Voices || w.source == Widget::Scale ? sourceValue(w) : s.text;
         if (w.captionFromItem) {
@@ -949,12 +976,14 @@ void Gui::paintWidget(Canvas& c, Node& n, int i, Rect r) {
             };
             find(w.itemsData.empty() ? w.items : itemsOf(n, i));
         }
-        drawCaption(c, w.text, withData(n, caption), r, w.pad, pressed ? w.pressOffset[0] : 0, pressed ? w.pressOffset[1] : 0, true);
+        bool lit = w.text.onFont >= 0 && buttonValue(n, i) > 0;   // a lit button's text in its onFont
+        drawCaption(c, w.text, withData(n, caption), r, w.pad, pressed ? w.pressOffset[0] : 0, pressed ? w.pressOffset[1] : 0, true,
+                    lit ? w.text.onFont : -1);
         break;
     }
     case Kind::Dial:
     case Kind::Meter:
-        if (w.kind == Kind::Dial) drawFill(c, w.fill, r, 0);
+        if (w.kind == Kind::Dial) drawFill(c, fill, r, 0);
         if (w.image >= 0 && w.slider && w.kind == Kind::Dial) {   // slider: tile 0 moved along the axis
             const Image& img = skin_->images[w.image];
             Rect t = img.tile(0);
@@ -971,7 +1000,7 @@ void Gui::paintWidget(Canvas& c, Node& n, int i, Rect r) {
         }
         break;
     case Kind::Number: {
-        drawFill(c, w.fill, r, 0);
+        drawFill(c, fill, r, 0);
         int pad[4] = {w.pad[0], w.pad[1], w.pad[2], w.pad[3]};
         if (const Skin::Stepper* st = stepperOf(n, i)) {   // down at the left end, up at the right, lit while held
             bool held = live(press_) && press_ == Hit{&n, i} && stepDir_ != 0;
@@ -991,12 +1020,15 @@ void Gui::paintWidget(Canvas& c, Node& n, int i, Rect r) {
         break;
     }
     case Kind::Textbox:
-        drawFill(c, w.fill, r, 0);
+        drawFill(c, fill, r, 0);
         if (editing(n, i)) paintEdit(c);
         else drawCaption(c, w.text, shownText(n, i), r, w.pad, 0, 0, w.multiline);
         break;
     case Kind::Plot: {   // the processor's scope values across the width, or zero data (a trace on the bottom row, no bars)
-        drawFill(c, w.fill, r, 0);
+        drawFill(c, fill, r, 0);
+        // the colours read here, where a palette name's {vars} have values ("@op{op}" follows the var)
+        const uint32_t line = colour(n, w.json["line"].str(), w.line), line2 = colour(n, w.json["line2"].str(), w.line2),
+                       glow = colour(n, w.json["glow"].str(), 0);
         std::vector<int> col((size_t)std::max(r.w, 0), 0);
         float vals[256];
         int n = w.source == Widget::Scope ? std::min(state_.scope(vals, 256), 256) : 0;
@@ -1016,8 +1048,8 @@ void Gui::paintWidget(Canvas& c, Node& n, int i, Rect r) {
             double lw = std::max(1.0, w.json["width"].num(1) * skin_->density), inner = r.h - lw;
             for (int k = 0; k < n; ++k)
                 pts.push_back({r.x + 0.5 + (r.w - 1) * double(k) / (n - 1), r.y + lw / 2 + inner * (1 - std::clamp((double)vals[k], 0.0, 1.0))});
-            if (uint32_t glow = parseColour(w.json["glow"].str(), 0); glow >> 24) drawPolyline(c, pts, glow, 4 * lw);
-            drawPolyline(c, pts, w.line, lw);
+            if (glow >> 24) drawPolyline(c, pts, glow, 4 * lw);
+            drawPolyline(c, pts, line, lw);
             break;
         }
         if (n > 0 && w.drawMode == 0) {   // a trace: each column reads the value under it
@@ -1030,11 +1062,11 @@ void Gui::paintWidget(Canvas& c, Node& n, int i, Rect r) {
                     if (x + b >= 0 && x + b < r.w) col[(size_t)(x + b)] = height(vals[k]);
             }
         }
-        drawScope(c, r, col, w.drawMode, w.line, w.line2, skin_->lw());
+        drawScope(c, r, col, w.drawMode, line, line2, skin_->lw());
         break;
     }
     case Kind::List:
-        drawFill(c, w.fill, r, 0);
+        drawFill(c, fill, r, 0);
         if (w.rowHeight > 0 && (!w.columns.empty() || w.source != Widget::NoSource || !w.rows.empty())) paintList(c, n, i, r);
         else drawCaption(c, w.header, w.header.text, {r.x, r.y, r.w, w.rowHeight > 0 ? w.rowHeight : r.h}, noPad, 0, 0, false);
         break;
@@ -1043,12 +1075,12 @@ void Gui::paintWidget(Canvas& c, Node& n, int i, Rect r) {
         paintScrollbar(c, n, i);
         break;
     case Kind::Custom:
-        drawFill(c, w.fill, r, 0);
+        drawFill(c, fill, r, 0);
         if (w.ops && w.ops->draw) w.ops->draw(*this, c, Hit{&n, i, gen_}, r);
         break;
     case Kind::Veil:
     case Kind::Tree:
-        drawFill(c, w.fill, r, 0);
+        drawFill(c, fill, r, 0);
         break;
     }
 }
@@ -2721,6 +2753,10 @@ void Gui::checkValues(Node& n) {
         if (changed && !s.key.empty() && w.kind == Kind::Custom) {   // kinds keep no copy of their data at paint
             s.stored = state_.hasData(s.key);
             s.data = state_.data(s.key);
+        }
+        if (w.onIf.op != Cond::None && onIf(n, (int)i) != (s.lit == 1)) {   // a lit state that turned with another param
+            s.lit = onIf(n, (int)i);
+            changed = true;
         }
         if (s.text.find("{data:") != std::string::npos) {   // a caption follows the text data it names
             std::string t = withData(n, s.text);

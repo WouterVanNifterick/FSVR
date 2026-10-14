@@ -234,14 +234,19 @@
    "text": {
     "text": "{op}",
     "font": "title_dark_bold_12",
-    "align": "right"
+    "align": "center",
+    "valign": "middle"
    },
    "pad": [
     0,
-    2,
+    1,
     0,
-    2
-   ]
+    1
+   ],
+   "fill": {
+    "image": "buttons/nav_small",
+    "tint": "@op{op}"
+   }
   },
   {
    "type": "plate",
@@ -824,7 +829,8 @@
     "text": "Ratio",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     1,
@@ -863,7 +869,8 @@
     "text": "Fixed",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     1,
@@ -1368,7 +1375,8 @@
     "text": "V",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -1404,7 +1412,8 @@
     "text": "N",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -2600,12 +2609,12 @@
    ],
    "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
    "grid": "#ffffff24",
-   "area": "#86eac24d",
-   "curve": "#86eac2ff",
+   "area": "@op{op}_line/40",
+   "curve": "@op{op}_line",
    "handle": "#effff8ff",
    "dots": "#ffffff59",
-   "area2": "#86eac205",
-   "glow": "#86eac222",
+   "area2": "@op{op}_line/05",
+   "glow": "@op{op}_line/22",
    "ring": "#25292cff",
    "model": "fs1r.aeg",
    "inputs": {
@@ -2640,7 +2649,8 @@
    },
    "text": {
     "font": "plot_tiny"
-   }
+   },
+   "overlayCurve": "@op{op}_line/80"
   },
   {
    "type": "number",

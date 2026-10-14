@@ -250,7 +250,11 @@
      "op": "1"
     }
    },
-   "tip": "Operator 1's page"
+   "tip": "Operator 1's page",
+   "fill": {
+    "image": "buttons/nav_small",
+    "tint": "@op1"
+   }
   },
   {
    "type": "plate",
@@ -282,7 +286,7 @@
    "rightDepth": "op.1.v.ls_right_depth.{part}",
    "leftCurve": "op.1.v.ls_left_curve.{part}",
    "rightCurve": "op.1.v.ls_right_curve.{part}",
-   "line": "#879ea0ff",
+   "line": "@op1_line",
    "grid": "#5f7172ff",
    "dots": "#c80800ff"
   },
@@ -555,7 +559,11 @@
      "op": "2"
     }
    },
-   "tip": "Operator 2's page"
+   "tip": "Operator 2's page",
+   "fill": {
+    "image": "buttons/nav_small",
+    "tint": "@op2"
+   }
   },
   {
    "type": "plate",
@@ -587,7 +595,7 @@
    "rightDepth": "op.2.v.ls_right_depth.{part}",
    "leftCurve": "op.2.v.ls_left_curve.{part}",
    "rightCurve": "op.2.v.ls_right_curve.{part}",
-   "line": "#879ea0ff",
+   "line": "@op2_line",
    "grid": "#5f7172ff",
    "dots": "#c80800ff"
   },
@@ -860,7 +868,11 @@
      "op": "3"
     }
    },
-   "tip": "Operator 3's page"
+   "tip": "Operator 3's page",
+   "fill": {
+    "image": "buttons/nav_small",
+    "tint": "@op3"
+   }
   },
   {
    "type": "plate",
@@ -892,7 +904,7 @@
    "rightDepth": "op.3.v.ls_right_depth.{part}",
    "leftCurve": "op.3.v.ls_left_curve.{part}",
    "rightCurve": "op.3.v.ls_right_curve.{part}",
-   "line": "#879ea0ff",
+   "line": "@op3_line",
    "grid": "#5f7172ff",
    "dots": "#c80800ff"
   },
@@ -1165,7 +1177,11 @@
      "op": "4"
     }
    },
-   "tip": "Operator 4's page"
+   "tip": "Operator 4's page",
+   "fill": {
+    "image": "buttons/nav_small",
+    "tint": "@op4"
+   }
   },
   {
    "type": "plate",
@@ -1197,7 +1213,7 @@
    "rightDepth": "op.4.v.ls_right_depth.{part}",
    "leftCurve": "op.4.v.ls_left_curve.{part}",
    "rightCurve": "op.4.v.ls_right_curve.{part}",
-   "line": "#879ea0ff",
+   "line": "@op4_line",
    "grid": "#5f7172ff",
    "dots": "#c80800ff"
   },
@@ -1470,7 +1486,11 @@
      "op": "5"
     }
    },
-   "tip": "Operator 5's page"
+   "tip": "Operator 5's page",
+   "fill": {
+    "image": "buttons/nav_small",
+    "tint": "@op5"
+   }
   },
   {
    "type": "plate",
@@ -1502,7 +1522,7 @@
    "rightDepth": "op.5.v.ls_right_depth.{part}",
    "leftCurve": "op.5.v.ls_left_curve.{part}",
    "rightCurve": "op.5.v.ls_right_curve.{part}",
-   "line": "#879ea0ff",
+   "line": "@op5_line",
    "grid": "#5f7172ff",
    "dots": "#c80800ff"
   },
@@ -1775,7 +1795,11 @@
      "op": "6"
     }
    },
-   "tip": "Operator 6's page"
+   "tip": "Operator 6's page",
+   "fill": {
+    "image": "buttons/nav_small",
+    "tint": "@op6"
+   }
   },
   {
    "type": "plate",
@@ -1807,7 +1831,7 @@
    "rightDepth": "op.6.v.ls_right_depth.{part}",
    "leftCurve": "op.6.v.ls_left_curve.{part}",
    "rightCurve": "op.6.v.ls_right_curve.{part}",
-   "line": "#879ea0ff",
+   "line": "@op6_line",
    "grid": "#5f7172ff",
    "dots": "#c80800ff"
   },
@@ -2080,7 +2104,11 @@
      "op": "7"
     }
    },
-   "tip": "Operator 7's page"
+   "tip": "Operator 7's page",
+   "fill": {
+    "image": "buttons/nav_small",
+    "tint": "@op7"
+   }
   },
   {
    "type": "plate",
@@ -2112,7 +2140,7 @@
    "rightDepth": "op.7.v.ls_right_depth.{part}",
    "leftCurve": "op.7.v.ls_left_curve.{part}",
    "rightCurve": "op.7.v.ls_right_curve.{part}",
-   "line": "#879ea0ff",
+   "line": "@op7_line",
    "grid": "#5f7172ff",
    "dots": "#c80800ff"
   },
@@ -2385,7 +2413,11 @@
      "op": "8"
     }
    },
-   "tip": "Operator 8's page"
+   "tip": "Operator 8's page",
+   "fill": {
+    "image": "buttons/nav_small",
+    "tint": "@op8"
+   }
   },
   {
    "type": "plate",
@@ -2417,7 +2449,7 @@
    "rightDepth": "op.8.v.ls_right_depth.{part}",
    "leftCurve": "op.8.v.ls_left_curve.{part}",
    "rightCurve": "op.8.v.ls_right_curve.{part}",
-   "line": "#879ea0ff",
+   "line": "@op8_line",
    "grid": "#5f7172ff",
    "dots": "#c80800ff"
   },

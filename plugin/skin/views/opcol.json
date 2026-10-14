@@ -36,7 +36,8 @@
     "text": "V",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -72,7 +73,8 @@
     "text": "N",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -102,13 +104,15 @@
     24
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/nav_small",
+    "tint": "@op1"
    },
    "text": {
     "text": "1",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -138,13 +142,15 @@
     24
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/nav_small",
+    "tint": "@op2"
    },
    "text": {
     "text": "2",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -174,13 +180,15 @@
     24
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/nav_small",
+    "tint": "@op3"
    },
    "text": {
     "text": "3",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -210,13 +218,15 @@
     24
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/nav_small",
+    "tint": "@op4"
    },
    "text": {
     "text": "4",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -246,13 +256,15 @@
     24
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/nav_small",
+    "tint": "@op5"
    },
    "text": {
     "text": "5",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -282,13 +294,15 @@
     24
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/nav_small",
+    "tint": "@op6"
    },
    "text": {
     "text": "6",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -318,13 +332,15 @@
     24
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/nav_small",
+    "tint": "@op7"
    },
    "text": {
     "text": "7",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -354,13 +370,15 @@
     24
    ],
    "fill": {
-    "image": "buttons/nav_small"
+    "image": "buttons/nav_small",
+    "tint": "@op8"
    },
    "text": {
     "text": "8",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -519,13 +537,13 @@
     38
    ],
    "key": "live.wave.{part}.{op}",
-   "line": "#86eac2ff",
+   "line": "@op{op}_line",
    "showIf": {
     "var": "layer",
     "equals": "v"
    },
    "tip": "The operator's waveform alone, as the engine makes it",
-   "glow": "#86eac222"
+   "glow": "@op{op}_line/22"
   },
   {
    "type": "plot",
@@ -538,7 +556,7 @@
    ],
    "key": "live.harmonics.{part}.{op}",
    "draw": "bars",
-   "line": "#86eac299",
+   "line": "@op{op}_line/99",
    "showIf": {
     "var": "layer",
     "equals": "v"
@@ -1002,7 +1020,8 @@
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
-    "text": "Ratio"
+    "text": "Ratio",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -1049,7 +1068,8 @@
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
-    "text": "Fixed"
+    "text": "Fixed",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -1631,12 +1651,12 @@
    ],
    "tip": "Drag a point: sideways its time, up and down its level",
    "grid": "#ffffff24",
-   "area": "#86eac24d",
-   "curve": "#86eac2ff",
+   "area": "@op{op}_line/40",
+   "curve": "@op{op}_line",
    "handle": "#effff8ff",
    "dots": "#ffffff59",
-   "area2": "#86eac205",
-   "glow": "#86eac222",
+   "area2": "@op{op}_line/05",
+   "glow": "@op{op}_line/22",
    "ring": "#25292cff",
    "width": 1
   },

@@ -68,7 +68,8 @@
     "text": "V",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -104,7 +105,8 @@
     "text": "N",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     2,
@@ -173,7 +175,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op1"
    },
    "text": {
     "text": "Op 1",
@@ -304,12 +307,12 @@
     ]
    ],
    "grid": "#ffffff24",
-   "area": "#86eac24d",
-   "curve": "#86eac2ff",
+   "area": "@op1_line/40",
+   "curve": "@op1_line",
    "handle": "#effff8ff",
    "dots": "#ffffff59",
-   "area2": "#86eac205",
-   "glow": "#86eac222",
+   "area2": "@op1_line/05",
+   "glow": "@op1_line/22",
    "ring": "#25292cff",
    "model": "fs1r.aeg",
    "inputs": {
@@ -358,7 +361,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op2"
    },
    "text": {
     "text": "Op 2",
@@ -489,12 +493,12 @@
     ]
    ],
    "grid": "#ffffff24",
-   "area": "#86eac24d",
-   "curve": "#86eac2ff",
+   "area": "@op2_line/40",
+   "curve": "@op2_line",
    "handle": "#effff8ff",
    "dots": "#ffffff59",
-   "area2": "#86eac205",
-   "glow": "#86eac222",
+   "area2": "@op2_line/05",
+   "glow": "@op2_line/22",
    "ring": "#25292cff",
    "model": "fs1r.aeg",
    "inputs": {
@@ -543,7 +547,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op3"
    },
    "text": {
     "text": "Op 3",
@@ -674,12 +679,12 @@
     ]
    ],
    "grid": "#ffffff24",
-   "area": "#86eac24d",
-   "curve": "#86eac2ff",
+   "area": "@op3_line/40",
+   "curve": "@op3_line",
    "handle": "#effff8ff",
    "dots": "#ffffff59",
-   "area2": "#86eac205",
-   "glow": "#86eac222",
+   "area2": "@op3_line/05",
+   "glow": "@op3_line/22",
    "ring": "#25292cff",
    "model": "fs1r.aeg",
    "inputs": {
@@ -728,7 +733,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op4"
    },
    "text": {
     "text": "Op 4",
@@ -859,12 +865,12 @@
     ]
    ],
    "grid": "#ffffff24",
-   "area": "#86eac24d",
-   "curve": "#86eac2ff",
+   "area": "@op4_line/40",
+   "curve": "@op4_line",
    "handle": "#effff8ff",
    "dots": "#ffffff59",
-   "area2": "#86eac205",
-   "glow": "#86eac222",
+   "area2": "@op4_line/05",
+   "glow": "@op4_line/22",
    "ring": "#25292cff",
    "model": "fs1r.aeg",
    "inputs": {
@@ -913,7 +919,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op5"
    },
    "text": {
     "text": "Op 5",
@@ -1044,12 +1051,12 @@
     ]
    ],
    "grid": "#ffffff24",
-   "area": "#86eac24d",
-   "curve": "#86eac2ff",
+   "area": "@op5_line/40",
+   "curve": "@op5_line",
    "handle": "#effff8ff",
    "dots": "#ffffff59",
-   "area2": "#86eac205",
-   "glow": "#86eac222",
+   "area2": "@op5_line/05",
+   "glow": "@op5_line/22",
    "ring": "#25292cff",
    "model": "fs1r.aeg",
    "inputs": {
@@ -1098,7 +1105,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op6"
    },
    "text": {
     "text": "Op 6",
@@ -1229,12 +1237,12 @@
     ]
    ],
    "grid": "#ffffff24",
-   "area": "#86eac24d",
-   "curve": "#86eac2ff",
+   "area": "@op6_line/40",
+   "curve": "@op6_line",
    "handle": "#effff8ff",
    "dots": "#ffffff59",
-   "area2": "#86eac205",
-   "glow": "#86eac222",
+   "area2": "@op6_line/05",
+   "glow": "@op6_line/22",
    "ring": "#25292cff",
    "model": "fs1r.aeg",
    "inputs": {
@@ -1283,7 +1291,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op7"
    },
    "text": {
     "text": "Op 7",
@@ -1414,12 +1423,12 @@
     ]
    ],
    "grid": "#ffffff24",
-   "area": "#86eac24d",
-   "curve": "#86eac2ff",
+   "area": "@op7_line/40",
+   "curve": "@op7_line",
    "handle": "#effff8ff",
    "dots": "#ffffff59",
-   "area2": "#86eac205",
-   "glow": "#86eac222",
+   "area2": "@op7_line/05",
+   "glow": "@op7_line/22",
    "ring": "#25292cff",
    "model": "fs1r.aeg",
    "inputs": {
@@ -1468,7 +1477,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op8"
    },
    "text": {
     "text": "Op 8",
@@ -1599,12 +1609,12 @@
     ]
    ],
    "grid": "#ffffff24",
-   "area": "#86eac24d",
-   "curve": "#86eac2ff",
+   "area": "@op8_line/40",
+   "curve": "@op8_line",
    "handle": "#effff8ff",
    "dots": "#ffffff59",
-   "area2": "#86eac205",
-   "glow": "#86eac222",
+   "area2": "@op8_line/05",
+   "glow": "@op8_line/22",
    "ring": "#25292cff",
    "model": "fs1r.aeg",
    "inputs": {

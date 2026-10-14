@@ -42,7 +42,8 @@
    "text": {
     "text": "",
     "font": "value_dark_12"
-   }
+   },
+   "tint": "@op1"
   },
   {
    "type": "custom",
@@ -68,7 +69,8 @@
    "text": {
     "text": "",
     "font": "value_dark_12"
-   }
+   },
+   "tint": "@op2"
   },
   {
    "type": "custom",
@@ -94,7 +96,8 @@
    "text": {
     "text": "",
     "font": "value_dark_12"
-   }
+   },
+   "tint": "@op3"
   },
   {
    "type": "custom",
@@ -120,7 +123,8 @@
    "text": {
     "text": "",
     "font": "value_dark_12"
-   }
+   },
+   "tint": "@op4"
   },
   {
    "type": "custom",
@@ -146,7 +150,8 @@
    "text": {
     "text": "",
     "font": "value_dark_12"
-   }
+   },
+   "tint": "@op5"
   },
   {
    "type": "custom",
@@ -172,7 +177,8 @@
    "text": {
     "text": "",
     "font": "value_dark_12"
-   }
+   },
+   "tint": "@op6"
   },
   {
    "type": "custom",
@@ -198,7 +204,8 @@
    "text": {
     "text": "",
     "font": "value_dark_12"
-   }
+   },
+   "tint": "@op7"
   },
   {
    "type": "custom",
@@ -224,7 +231,8 @@
    "text": {
     "text": "",
     "font": "value_dark_12"
-   }
+   },
+   "tint": "@op8"
   },
   {
    "type": "custom",
@@ -239,7 +247,8 @@
    "layer": 3,
    "algorithm": "voice.alg.{part}",
    "table": "algorithms",
-   "first": 1
+   "first": 1,
+   "wire": "@op{n}_line"
   },
   {
    "type": "number",

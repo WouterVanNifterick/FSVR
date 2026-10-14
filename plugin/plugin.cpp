@@ -27,6 +27,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <map>
 #include <mutex>
 #include <thread>
 
@@ -336,6 +337,7 @@ private:
     int perfProgram = -1, perfBank = -1, perfUser = -1, fseqBank = -1, fseqNumber = -1, fseqUser = -1, fseqPart = -1, fseqPos = -1, panic = -1;
     int partBank[4], partProgram[4], partUser[4], morphX[4], morphY[4], jitterX[4], jitterY[4], morphSeed[4], morphEdit[4];
     int browseBank = -1, browseCategory = -1, browsePerf = -1, browseFseq = -1, browseVoice[4], knob[4];
+    int browseFocus = -1, partOn[4];   // the Parts page's voice field (the part, from 1) and its lamps
     int perfCategory = -1, edited = -1, saveBank = -1, itemCategory = -1, itemReadonly = -1, itemKind = -1, bankReadonly = -1;
     // The user performance, each part's user voice and the user Fseq loaded, by U number: what the browser lights.
     // The params hold the same numbers up to their 16,384, a host's range; the library has no such limit.
@@ -380,6 +382,7 @@ private:
     bool quit = false;
     bool notify = false;               // the worker changed params; the host re-reads them
     std::vector<int> browsed[3];       // the browsed bank's rows as U numbers: performances, voices, Fseqs
+    std::map<std::pair<int, int>, int> listed;   // factory voices by bank and number: their category in the browser
     std::vector<uint8_t> fseqShown;    // the Fseq the page's display last had
     int messageTicks = 0;              // worker ticks until the status line clears
 
@@ -424,6 +427,7 @@ private:
         loadLast = P("opt.load_last"); speed = P("opt.speed");
         itemCategory = P("item.category"); itemReadonly = P("item.readonly"); itemKind = P("item.kind"); bankReadonly = P("bank.readonly");
         browseBank = P("browse.bank"); browseCategory = P("browse.category"); browsePerf = P("browse.perf"); browseFseq = P("browse.fseq");
+        browseFocus = P("browse.focus");
         for (int p = 0; p < 4; ++p) {
             const std::string s = "p" + std::to_string(p + 1);
             partBank[p] = P("part.bank." + s); partProgram[p] = P("part.program." + s); partUser[p] = P("part.user." + s);
@@ -431,6 +435,7 @@ private:
             jitterX[p] = P("part.morph_jitter_x." + s); jitterY[p] = P("part.morph_jitter_y." + s);
             morphSeed[p] = P("part.morph_seed." + s); morphEdit[p] = P("part.morph_edit." + s);
             browseVoice[p] = P("browse.voice." + s);
+            partOn[p] = P("part.on." + s);
             knob[p] = P("knob." + std::to_string(p + 1));
         }
         for (int c = 0; c < 16; ++c) bankMsb[c] = bankLsb[c] = -1;
@@ -859,12 +864,16 @@ private:
             else loadFactoryPerf((int)get(perfProgram));
         }
         for (int p = 0; p < 4; ++p) {
+            if (moved(partOn[p])) lamp(p);
             bool voice = false;
             for (int i : {partBank[p], partProgram[p], partUser[p]}) voice |= moved(i);
             if (voice && !perf) {
                 if (get(partBank[p]) == 1) userVoice[p] = (int)get(partUser[p]);
                 loadPartVoice(p);
             }
+            // the lamp follows the bank, whatever set it: a performance, the browser, the host
+            if (partOn[p] >= 0 && st.get((size_t)partOn[p]) == sel[(size_t)partOn[p]] && (get(partOn[p]) != 0) != (get(partBank[p]) != 0))
+                put(partOn[p], get(partBank[p]) != 0 ? 1 : 0);
             if (moved(morphEdit[p])) {
                 if (edit(p) < 4) lastCorner[p] = edit(p);
                 show(p);
@@ -875,6 +884,10 @@ private:
             else loadUserFseq(userFseq = (int)get(fseqUser));
         }
         if (moved(panic) && get(panic) > 0) dev.allNotesOff();
+        if (moved(browseFocus) && get(browseFocus) >= 1) {
+            focus((int)get(browseFocus) - 1);
+            put(browseFocus, 0);
+        }
         const bool bank = moved(browseBank);
         if (bank && get(browseCategory) != 0) put(browseCategory, 0);   // another bank opens on All, never on an empty filter
         bool lists = bank | moved(browseCategory);
@@ -883,6 +896,62 @@ private:
         if (moved(browseFseq) && get(browseFseq) >= 1) pick(2, (int)get(browseFseq), 0);
         for (int p = 0; p < 4; ++p)
             if (moved(browseVoice[p]) && get(browseVoice[p]) >= 1) pick(1, (int)get(browseVoice[p]), p);
+    }
+
+    // The Parts page's lamp turns a part off and on: off is voice bank off, as the unit has it, and the bank is
+    // kept with the session for on to bring back, with the voice it held.
+    void lamp(int p) {
+        const std::string key = "part.bank_was.p" + std::to_string(p + 1);
+        const int b = (int)get(partBank[p]);
+        if (get(partOn[p]) == 0) {
+            if (b == 0) return;
+            st.setData(key, std::to_string(b));
+            choose(partBank[p], 0);
+        } else if (b == 0) {
+            const int was = std::atoi(st.data(key).c_str());
+            choose(partBank[p], was >= 1 && was <= 12 ? was : 2);
+            loadPartVoice(p);
+        }
+    }
+
+    // The Parts page's voice field opens the browser on what the part plays: the bank holding its voice, and the
+    // category the browser had while the voice is in it, else All. Nothing moves for a part that is off, or whose
+    // internal voice no bank holds.
+    void focus(int p) {
+        const int vb = (int)get(partBank[p]);
+        int bank = -1, cat = 0;   // browse.bank, and the voice's browse.category
+        if (vb == 1 && userVoice[p] >= 1 && userVoice[p] <= (int)lib.voices.size()) {
+            const Library::Ref& r = lib.voices[(size_t)userVoice[p] - 1];
+            const Item& v = lib.banks[(size_t)r.bank].voices[(size_t)r.index];
+            bank = r.bank + 1;
+            cat = (v.address ? v.category : 0) + 2;
+        } else if (vb >= 2) {
+            bank = 0;
+            cat = listedCategory(vb, (int)get(partProgram[p]));
+        }
+        if (bank < 0) return;
+        const int c = (int)get(browseCategory);
+        if (bank == (int)get(browseBank) && (c == 0 || c == cat)) return;
+        put(browseBank, bank);
+        if (c != 0 && c != cat) put(browseCategory, 0);
+        writeLists();
+    }
+
+    // A factory voice's category as the browser's lists file it (the DX banks' voices carry no category byte, so
+    // the skin's are the only ones): its browse.category value, 2 up, or 0 when the lists do not have it.
+    int listedCategory(int bank, int program) {
+        if (listed.empty()) {
+            Json v;
+            if (hollow::parseJson(skinFile("views/library_browser.json"), v))
+                for (auto& w : v["widgets"].items)
+                    if (w["name"].str() == "voices_all")
+                        for (size_t i = 0; i < w["rows"].size(); ++i)
+                            for (int c = 0; c < 23; ++c)
+                                if (w["rows"][i][2].str() == kCategories[c])
+                                    listed[{w["set"]["part.bank.{part}"][i].integer(), w["values"][i].integer()}] = c + 2;
+        }
+        const auto it = listed.find({bank, program});
+        return it == listed.end() ? 0 : it->second;
     }
 
     // ---- loading -----------------------------------------------------------------------------------

@@ -36383,6 +36383,66 @@
   "host": false
  },
  {
+  "id": "browse.focus",
+  "name": "Browse Focus",
+  "min": 0,
+  "max": 4,
+  "steps": 4,
+  "host": false
+ },
+ {
+  "id": "part.on.p1",
+  "name": "P1 On",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "labels": [
+   "Off",
+   "On"
+  ],
+  "host": false
+ },
+ {
+  "id": "part.on.p2",
+  "name": "P2 On",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "labels": [
+   "Off",
+   "On"
+  ],
+  "host": false
+ },
+ {
+  "id": "part.on.p3",
+  "name": "P3 On",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "labels": [
+   "Off",
+   "On"
+  ],
+  "host": false
+ },
+ {
+  "id": "part.on.p4",
+  "name": "P4 On",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "labels": [
+   "Off",
+   "On"
+  ],
+  "host": false
+ },
+ {
   "id": "keys.pitch_wheel",
   "name": "Pitch Wheel",
   "min": -1,

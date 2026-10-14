@@ -1072,7 +1072,8 @@
     "text": "Scratch",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     1,
@@ -1106,7 +1107,8 @@
     "text": "Fseq",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     1,
@@ -1164,7 +1166,8 @@
     "text": "First",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     1,
@@ -1198,7 +1201,8 @@
     "text": "All",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     1,
@@ -1256,7 +1260,8 @@
     "text": "Fseq",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     1,
@@ -1290,7 +1295,8 @@
     "text": "Fixed",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     1,
@@ -1648,7 +1654,8 @@
     "text": "One Way",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     1,
@@ -1682,7 +1689,8 @@
     "text": "Round",
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "pad": [
     1,
@@ -1847,8 +1855,8 @@
    "surface": false,
    "fseq": "fseq.number",
    "layer": 4,
-   "line": "#dfe9eaff",
-   "line2": "#ff9f00ff",
+   "line": "@op{n}_line",
+   "line2": "#f2f6f6ff",
    "dots": "#c80800ff",
    "loop": [
     "fseq.loop_start",
@@ -1859,7 +1867,7 @@
     "param": "fseq.bank",
     "equals": 1
    },
-   "tip": "The Fseq's eight voiced formant tracks (lighter where louder) and its pitch"
+   "tip": "The Fseq's eight voiced formant tracks, each in its operator's colour and lighter where louder, and its pitch"
   },
   {
    "type": "custom",
@@ -1874,8 +1882,8 @@
    "surface": false,
    "key": "fseq.display",
    "layer": 4,
-   "line": "#dfe9eaff",
-   "line2": "#ff9f00ff",
+   "line": "@op{n}_line",
+   "line2": "#f2f6f6ff",
    "dots": "#c80800ff",
    "loop": [
     "fseq.loop_start",
@@ -1886,7 +1894,7 @@
     "param": "fseq.bank",
     "equals": 0
    },
-   "tip": "Your Fseq's eight voiced formant tracks (lighter where louder) and its pitch"
+   "tip": "Your Fseq's eight voiced formant tracks, each in its operator's colour and lighter where louder, and its pitch"
   },
   {
    "type": "plate",
@@ -1934,7 +1942,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op1"
    },
    "text": {
     "text": "Op 1",
@@ -2074,7 +2083,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op2"
    },
    "text": {
     "text": "Op 2",
@@ -2214,7 +2224,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op3"
    },
    "text": {
     "text": "Op 3",
@@ -2354,7 +2365,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op4"
    },
    "text": {
     "text": "Op 4",
@@ -2494,7 +2506,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op5"
    },
    "text": {
     "text": "Op 5",
@@ -2634,7 +2647,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op6"
    },
    "text": {
     "text": "Op 6",
@@ -2774,7 +2788,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op7"
    },
    "text": {
     "text": "Op 7",
@@ -2914,7 +2929,8 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "panels/label_plate",
+    "tint": "@op8"
    },
    "text": {
     "text": "Op 8",

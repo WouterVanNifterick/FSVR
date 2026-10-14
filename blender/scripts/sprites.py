@@ -497,8 +497,9 @@ for _n in ('all_ops', 'all_envs', 'mod', 'keysc', 'filter', 'pitch'):
 for _n, _ink in (('', 'ink'), ('_inv', 'glyph_dim')):
     GLYPHS['buttons/step_down' + _n] = (9, 14, flat_glyph(9, 14, 'down', [_ink, 'lit'], 11), {})
     GLYPHS['buttons/step_up' + _n] = (9, 14, flat_glyph(9, 14, 'up', [_ink, 'lit'], 11), {})
+# the Parts page's Poly, Mono and priority icons: ink, and white over their buttons' dark lit tile
 for _n in ('kbd_poly', 'kbd_mono', 'prio_last', 'prio_first', 'prio_top', 'prio_bottom'):
-    GLYPHS['icons/' + _n] = (22, 18, flat_glyph(22, 18, _n, ['ink'], 22), {})
+    GLYPHS['icons/' + _n] = (22, 18, flat_glyph(22, 18, _n, ['ink', 'glyph'], 22), {})
 
 FAMILIES = {'buttons': BUTTONS, 'panels': PANELS, 'displays': DISPLAYS, 'glyphs': GLYPHS}
 

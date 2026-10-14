@@ -614,6 +614,7 @@ int main() {
                 }
                 u.set("gui.eg_overlay", 1);
                 u.run(2);
+                u.shot("eg_overlay");   // All: the other operators' envelopes, each in its own colour
                 const uint64_t db = picture();
                 u.click("pages/env_db");
                 CHECK(u.get("gui.eg_db") == 0 && picture() != db, "the dB toggle did not redraw the plot as linear amplitude");
@@ -708,10 +709,26 @@ int main() {
             CHECK(u.get("part.priority.p1") == 1, "Top set the priority to %g", u.get("part.priority.p1"));
             u.click("pages/poly_1");
             CHECK(u.get("part.poly.p1") == 1 && !u.shows("pages/prio_top_1"), "Poly did not bring the part back");
-            // the voice: its menu goes to the Browser's voices for the part, or turns the part off
-            if (u.click("pages/voice_1")) u.menuIs({"Choose in the Browser...", "-", "Off"}, "the voice's");
-            u.choose("Choose in the Browser...");
-            CHECK(u.shows("pages/library") && u.ui().find("\"browse\":\"voice\"") != std::string::npos, "Choose in the Browser did not open the voices");
+            // the lamp turns the part off, its voice bank off, and on again with the bank it had
+            const double bank = u.get("part.bank.p1");
+            u.click("pages/part_1_select");
+            CHECK(u.until([&] { return u.get("part.bank.p1") == 0 && u.data("part.voice.p1") == "off"; }) && u.get("part.on.p1") == 0,
+                  "the lamp left the part's bank at %g, the lamp at %g", u.get("part.bank.p1"), u.get("part.on.p1"));
+            u.click("pages/part_1_select");
+            CHECK(u.until([&] { return u.get("part.bank.p1") == bank && u.data("part.voice.p1") != "off"; }) && u.get("part.on.p1") == 1,
+                  "the lamp brought the bank back as %g, not %g", u.get("part.bank.p1"), bank);
+            // the voice opens the Browser's voices on it (B021, Sound FX): the category the browser had stays while the
+            // voice is in it, and gives way to All when it is not
+            for (const double cat : {18.0, 3.0}) {
+                u.set("browse.category", cat);
+                u.settle();
+                u.click("pages/voice_1");
+                CHECK(u.shows("pages/library") && u.ui().find("\"browse\":\"voice\"") != std::string::npos, "the voice did not open the Browser's voices");
+                CHECK(u.until([&] { return u.get("browse.focus") == 0 && u.get("browse.bank") == 0 && u.get("browse.category") == (cat == 18 ? 18 : 0); }),
+                      "from category %g the voice opened the browser on bank %g, category %g", cat, u.get("browse.bank"), u.get("browse.category"));
+                u.click("tab_parts");
+            }
+            u.click("tab_browser");
             u.click("pages/library/tab_perf");   // back to the performances, where the browser's checks start
         }
 

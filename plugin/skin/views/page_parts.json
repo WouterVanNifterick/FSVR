@@ -55,13 +55,10 @@
     0,
     0
    ],
-   "action": {
-    "set": {
-     "part": "p1"
-    }
-   },
-   "tip": "Edit part 1",
-   "layer": 1
+   "tip": "Part 1 on or off: off, its voice bank is off and it plays nothing",
+   "layer": 1,
+   "param": "part.on.p1",
+   "toggle": true
   },
   {
    "type": "plate",
@@ -88,7 +85,7 @@
    ]
   },
   {
-   "type": "dropdown",
+   "type": "button",
    "name": "voice_1",
    "rect": [
     80,
@@ -97,7 +94,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/dropdown_small"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "{data:part.voice.p1|...}",
@@ -107,36 +104,24 @@
    "pad": [
     11,
     2,
-    21,
+    6,
     2
    ],
    "pressOffset": [
-    2,
-    2
+    1,
+    1
    ],
-   "param": "part.bank.p1",
-   "items": [
-    {
-     "label": "Choose in the Browser...",
-     "value": -1,
-     "action": {
-      "goto": "page_library",
-      "stack": "pages",
-      "set": {
-       "browse": "voice",
-       "part": "p1"
-      }
-     }
-    },
-    {
-     "separator": true
-    },
-    {
-     "label": "Off",
-     "value": 0
+   "param": "browse.focus",
+   "action": {
+    "value": 1,
+    "goto": "page_library",
+    "stack": "pages",
+    "set": {
+     "browse": "voice",
+     "part": "p1"
     }
-   ],
-   "tip": "The voice part 1 plays: choose one in the Browser, or turn the part off"
+   },
+   "tip": "The voice part 1 plays: click to find it in the Browser"
   },
   {
    "type": "plate",
@@ -721,7 +706,8 @@
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
-    "text": "Poly"
+    "text": "Poly",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -752,6 +738,10 @@
    "layer": 4,
    "fill": {
     "image": "icons/kbd_poly"
+   },
+   "onIf": {
+    "param": "part.poly.p1",
+    "equals": 1
    }
   },
   {
@@ -770,7 +760,8 @@
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
-    "text": "Mono"
+    "text": "Mono",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -801,6 +792,10 @@
    "layer": 4,
    "fill": {
     "image": "icons/kbd_mono"
+   },
+   "onIf": {
+    "param": "part.poly.p1",
+    "equals": 0
    }
   },
   {
@@ -818,7 +813,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -851,6 +847,10 @@
    "showIf": {
     "param": "part.poly.p1",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p1",
+    "equals": 0
    }
   },
   {
@@ -868,7 +868,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -901,6 +902,10 @@
    "showIf": {
     "param": "part.poly.p1",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p1",
+    "equals": 1
    }
   },
   {
@@ -918,7 +923,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -951,6 +957,10 @@
    "showIf": {
     "param": "part.poly.p1",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p1",
+    "equals": 2
    }
   },
   {
@@ -968,7 +978,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -1001,6 +1012,10 @@
    "showIf": {
     "param": "part.poly.p1",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p1",
+    "equals": 3
    }
   },
   {
@@ -1833,13 +1848,10 @@
     0,
     0
    ],
-   "action": {
-    "set": {
-     "part": "p2"
-    }
-   },
-   "tip": "Edit part 2",
-   "layer": 1
+   "tip": "Part 2 on or off: off, its voice bank is off and it plays nothing",
+   "layer": 1,
+   "param": "part.on.p2",
+   "toggle": true
   },
   {
    "type": "plate",
@@ -1866,7 +1878,7 @@
    ]
   },
   {
-   "type": "dropdown",
+   "type": "button",
    "name": "voice_2",
    "rect": [
     385,
@@ -1875,7 +1887,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/dropdown_small"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "{data:part.voice.p2|...}",
@@ -1885,36 +1897,24 @@
    "pad": [
     11,
     2,
-    21,
+    6,
     2
    ],
    "pressOffset": [
-    2,
-    2
+    1,
+    1
    ],
-   "param": "part.bank.p2",
-   "items": [
-    {
-     "label": "Choose in the Browser...",
-     "value": -1,
-     "action": {
-      "goto": "page_library",
-      "stack": "pages",
-      "set": {
-       "browse": "voice",
-       "part": "p2"
-      }
-     }
-    },
-    {
-     "separator": true
-    },
-    {
-     "label": "Off",
-     "value": 0
+   "param": "browse.focus",
+   "action": {
+    "value": 2,
+    "goto": "page_library",
+    "stack": "pages",
+    "set": {
+     "browse": "voice",
+     "part": "p2"
     }
-   ],
-   "tip": "The voice part 2 plays: choose one in the Browser, or turn the part off"
+   },
+   "tip": "The voice part 2 plays: click to find it in the Browser"
   },
   {
    "type": "plate",
@@ -2499,7 +2499,8 @@
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
-    "text": "Poly"
+    "text": "Poly",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -2530,6 +2531,10 @@
    "layer": 4,
    "fill": {
     "image": "icons/kbd_poly"
+   },
+   "onIf": {
+    "param": "part.poly.p2",
+    "equals": 1
    }
   },
   {
@@ -2548,7 +2553,8 @@
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
-    "text": "Mono"
+    "text": "Mono",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -2579,6 +2585,10 @@
    "layer": 4,
    "fill": {
     "image": "icons/kbd_mono"
+   },
+   "onIf": {
+    "param": "part.poly.p2",
+    "equals": 0
    }
   },
   {
@@ -2596,7 +2606,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -2629,6 +2640,10 @@
    "showIf": {
     "param": "part.poly.p2",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p2",
+    "equals": 0
    }
   },
   {
@@ -2646,7 +2661,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -2679,6 +2695,10 @@
    "showIf": {
     "param": "part.poly.p2",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p2",
+    "equals": 1
    }
   },
   {
@@ -2696,7 +2716,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -2729,6 +2750,10 @@
    "showIf": {
     "param": "part.poly.p2",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p2",
+    "equals": 2
    }
   },
   {
@@ -2746,7 +2771,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -2779,6 +2805,10 @@
    "showIf": {
     "param": "part.poly.p2",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p2",
+    "equals": 3
    }
   },
   {
@@ -3611,13 +3641,10 @@
     0,
     0
    ],
-   "action": {
-    "set": {
-     "part": "p3"
-    }
-   },
-   "tip": "Edit part 3",
-   "layer": 1
+   "tip": "Part 3 on or off: off, its voice bank is off and it plays nothing",
+   "layer": 1,
+   "param": "part.on.p3",
+   "toggle": true
   },
   {
    "type": "plate",
@@ -3644,7 +3671,7 @@
    ]
   },
   {
-   "type": "dropdown",
+   "type": "button",
    "name": "voice_3",
    "rect": [
     690,
@@ -3653,7 +3680,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/dropdown_small"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "{data:part.voice.p3|...}",
@@ -3663,36 +3690,24 @@
    "pad": [
     11,
     2,
-    21,
+    6,
     2
    ],
    "pressOffset": [
-    2,
-    2
+    1,
+    1
    ],
-   "param": "part.bank.p3",
-   "items": [
-    {
-     "label": "Choose in the Browser...",
-     "value": -1,
-     "action": {
-      "goto": "page_library",
-      "stack": "pages",
-      "set": {
-       "browse": "voice",
-       "part": "p3"
-      }
-     }
-    },
-    {
-     "separator": true
-    },
-    {
-     "label": "Off",
-     "value": 0
+   "param": "browse.focus",
+   "action": {
+    "value": 3,
+    "goto": "page_library",
+    "stack": "pages",
+    "set": {
+     "browse": "voice",
+     "part": "p3"
     }
-   ],
-   "tip": "The voice part 3 plays: choose one in the Browser, or turn the part off"
+   },
+   "tip": "The voice part 3 plays: click to find it in the Browser"
   },
   {
    "type": "plate",
@@ -4223,7 +4238,8 @@
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
-    "text": "Poly"
+    "text": "Poly",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -4254,6 +4270,10 @@
    "layer": 4,
    "fill": {
     "image": "icons/kbd_poly"
+   },
+   "onIf": {
+    "param": "part.poly.p3",
+    "equals": 1
    }
   },
   {
@@ -4272,7 +4292,8 @@
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
-    "text": "Mono"
+    "text": "Mono",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -4303,6 +4324,10 @@
    "layer": 4,
    "fill": {
     "image": "icons/kbd_mono"
+   },
+   "onIf": {
+    "param": "part.poly.p3",
+    "equals": 0
    }
   },
   {
@@ -4320,7 +4345,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -4353,6 +4379,10 @@
    "showIf": {
     "param": "part.poly.p3",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p3",
+    "equals": 0
    }
   },
   {
@@ -4370,7 +4400,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -4403,6 +4434,10 @@
    "showIf": {
     "param": "part.poly.p3",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p3",
+    "equals": 1
    }
   },
   {
@@ -4420,7 +4455,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -4453,6 +4489,10 @@
    "showIf": {
     "param": "part.poly.p3",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p3",
+    "equals": 2
    }
   },
   {
@@ -4470,7 +4510,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -4503,6 +4544,10 @@
    "showIf": {
     "param": "part.poly.p3",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p3",
+    "equals": 3
    }
   },
   {
@@ -5335,13 +5380,10 @@
     0,
     0
    ],
-   "action": {
-    "set": {
-     "part": "p4"
-    }
-   },
-   "tip": "Edit part 4",
-   "layer": 1
+   "tip": "Part 4 on or off: off, its voice bank is off and it plays nothing",
+   "layer": 1,
+   "param": "part.on.p4",
+   "toggle": true
   },
   {
    "type": "plate",
@@ -5368,7 +5410,7 @@
    ]
   },
   {
-   "type": "dropdown",
+   "type": "button",
    "name": "voice_4",
    "rect": [
     995,
@@ -5377,7 +5419,7 @@
     18
    ],
    "fill": {
-    "image": "buttons/dropdown_small"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "{data:part.voice.p4|...}",
@@ -5387,36 +5429,24 @@
    "pad": [
     11,
     2,
-    21,
+    6,
     2
    ],
    "pressOffset": [
-    2,
-    2
+    1,
+    1
    ],
-   "param": "part.bank.p4",
-   "items": [
-    {
-     "label": "Choose in the Browser...",
-     "value": -1,
-     "action": {
-      "goto": "page_library",
-      "stack": "pages",
-      "set": {
-       "browse": "voice",
-       "part": "p4"
-      }
-     }
-    },
-    {
-     "separator": true
-    },
-    {
-     "label": "Off",
-     "value": 0
+   "param": "browse.focus",
+   "action": {
+    "value": 4,
+    "goto": "page_library",
+    "stack": "pages",
+    "set": {
+     "browse": "voice",
+     "part": "p4"
     }
-   ],
-   "tip": "The voice part 4 plays: choose one in the Browser, or turn the part off"
+   },
+   "tip": "The voice part 4 plays: click to find it in the Browser"
   },
   {
    "type": "plate",
@@ -5947,7 +5977,8 @@
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
-    "text": "Poly"
+    "text": "Poly",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -5978,6 +6009,10 @@
    "layer": 4,
    "fill": {
     "image": "icons/kbd_poly"
+   },
+   "onIf": {
+    "param": "part.poly.p4",
+    "equals": 1
    }
   },
   {
@@ -5996,7 +6031,8 @@
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
-    "text": "Mono"
+    "text": "Mono",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -6027,6 +6063,10 @@
    "layer": 4,
    "fill": {
     "image": "icons/kbd_mono"
+   },
+   "onIf": {
+    "param": "part.poly.p4",
+    "equals": 0
    }
   },
   {
@@ -6044,7 +6084,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -6077,6 +6118,10 @@
    "showIf": {
     "param": "part.poly.p4",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p4",
+    "equals": 0
    }
   },
   {
@@ -6094,7 +6139,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -6127,6 +6173,10 @@
    "showIf": {
     "param": "part.poly.p4",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p4",
+    "equals": 1
    }
   },
   {
@@ -6144,7 +6194,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -6177,6 +6228,10 @@
    "showIf": {
     "param": "part.poly.p4",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p4",
+    "equals": 2
    }
   },
   {
@@ -6194,7 +6249,8 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "hoverTiles": true,
    "pressOffset": [
@@ -6227,6 +6283,10 @@
    "showIf": {
     "param": "part.poly.p4",
     "equals": 0
+   },
+   "onIf": {
+    "param": "part.priority.p4",
+    "equals": 3
    }
   },
   {
