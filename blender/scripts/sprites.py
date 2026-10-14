@@ -189,7 +189,7 @@ def silver(w, h, r=4):
     return build
 
 
-def cap_key(w, h, r, bevel, height, states=True):
+def cap_key(w, h, r, bevel, height):
     """The operator keys: a pillow of the pots' cap plastic in grey, so a fill's tint gives each its operator's
     colour with the pots' finish; while on, inset: a well cut into the key's outline, 45 degree walls 1.5 px wide
     down 2 px to a floor a little lighter than the key at rest. Drawn at the size of the widgets it fills, a
@@ -197,8 +197,6 @@ def cap_key(w, h, r, bevel, height, states=True):
     def build(c):
         b = kit.prism('Body', kit.rounded_rect(1, 1, w - 2, h - 3, r, 8), 0, height, M['cap'], collection=c)
         kit.bevel(b, bevel, 8)
-        if not states:
-            return [None]
         well = kit.prism('Well', kit.rounded_rect(1, 1, w - 2, h - 3, r, 8), 0, 3, M['cap_lit'], collection=c)
         kit.bevel(well, 0.8, 4)
         # the cutter: the floor's outline 2.5 px in (a 1 px rim, then the wall), 1 px up, its top pulled out 1.5 px
@@ -337,10 +335,9 @@ BUTTONS = {
     'buttons/dark_up': (17, 17, dark_step(17, 17, 'up'), {}),
     'buttons/dark_down': (17, 17, dark_step(17, 17, 'down'), {}),
     'buttons/nav_small': (26, 26, silver(26, 26), {'slice': [0, 8, 0, 8]}),
-    # the operator keys: the operator panel's 1 to 8 and the All Operators and Key Scaling rows' numbers, and the
-    # operator page's number, each the size it is drawn at
+    # the operator keys: the operator panel's 1 to 8, the All Operators and Key Scaling rows' numbers and the
+    # operator page's number, at the size they are drawn at
     'buttons/op_key': (28, 24, cap_key(28, 24, 6, 5, 6), {}),
-    'buttons/op_key_small': (24, 20, cap_key(24, 20, 5, 4, 5, states=False), {}),
     'buttons/page_button': (116, 38, page_button(116, 38), {}),
     'buttons/pill': (38, 18, pill(38, 18), {}),
     'buttons/part_radio': (16, 20, radio(16, 20), {}),

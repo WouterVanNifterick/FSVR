@@ -430,9 +430,6 @@
    "tiles": 4,
    "surface": false
   },
-  "buttons/op_key_small": {
-   "surface": false
-  },
   "buttons/page_button": {
    "tiles": 4,
    "surface": false

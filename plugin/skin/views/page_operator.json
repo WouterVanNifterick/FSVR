@@ -227,24 +227,24 @@
    "name": "op_number",
    "rect": [
     17,
-    73,
-    24,
-    20
+    70,
+    28,
+    24
    ],
    "text": {
     "text": "{op}",
-    "font": "title_dark_bold_12",
+    "font": "caption_grey_12",
     "align": "center",
     "valign": "middle"
    },
    "pad": [
-    0,
-    1,
-    0,
-    1
+    2,
+    2,
+    2,
+    2
    ],
    "fill": {
-    "image": "buttons/op_key_small",
+    "image": "buttons/op_key",
     "tint": "@op{op}"
    }
   },
@@ -252,8 +252,8 @@
    "type": "plate",
    "name": "op_layer_v",
    "rect": [
-    18,
-    94,
+    20,
+    96,
     22,
     19
    ],
@@ -278,8 +278,8 @@
    "type": "plate",
    "name": "op_layer_u",
    "rect": [
-    18,
-    94,
+    20,
+    96,
     22,
     19
    ],

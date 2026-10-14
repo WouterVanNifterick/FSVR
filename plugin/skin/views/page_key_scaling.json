@@ -234,9 +234,10 @@
    ],
    "text": {
     "text": "1",
-    "font": "title_dark_bold_12",
+    "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "press": "up",
    "pressOffset": [
@@ -254,7 +255,14 @@
    "fill": {
     "image": "buttons/op_key",
     "tint": "@op1"
-   }
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true
   },
   {
    "type": "plate",
@@ -543,9 +551,10 @@
    ],
    "text": {
     "text": "2",
-    "font": "title_dark_bold_12",
+    "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "press": "up",
    "pressOffset": [
@@ -563,7 +572,14 @@
    "fill": {
     "image": "buttons/op_key",
     "tint": "@op2"
-   }
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true
   },
   {
    "type": "plate",
@@ -852,9 +868,10 @@
    ],
    "text": {
     "text": "3",
-    "font": "title_dark_bold_12",
+    "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "press": "up",
    "pressOffset": [
@@ -872,7 +889,14 @@
    "fill": {
     "image": "buttons/op_key",
     "tint": "@op3"
-   }
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true
   },
   {
    "type": "plate",
@@ -1161,9 +1185,10 @@
    ],
    "text": {
     "text": "4",
-    "font": "title_dark_bold_12",
+    "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "press": "up",
    "pressOffset": [
@@ -1181,7 +1206,14 @@
    "fill": {
     "image": "buttons/op_key",
     "tint": "@op4"
-   }
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true
   },
   {
    "type": "plate",
@@ -1470,9 +1502,10 @@
    ],
    "text": {
     "text": "5",
-    "font": "title_dark_bold_12",
+    "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "press": "up",
    "pressOffset": [
@@ -1490,7 +1523,14 @@
    "fill": {
     "image": "buttons/op_key",
     "tint": "@op5"
-   }
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true
   },
   {
    "type": "plate",
@@ -1779,9 +1819,10 @@
    ],
    "text": {
     "text": "6",
-    "font": "title_dark_bold_12",
+    "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "press": "up",
    "pressOffset": [
@@ -1799,7 +1840,14 @@
    "fill": {
     "image": "buttons/op_key",
     "tint": "@op6"
-   }
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true
   },
   {
    "type": "plate",
@@ -2088,9 +2136,10 @@
    ],
    "text": {
     "text": "7",
-    "font": "title_dark_bold_12",
+    "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "press": "up",
    "pressOffset": [
@@ -2108,7 +2157,14 @@
    "fill": {
     "image": "buttons/op_key",
     "tint": "@op7"
-   }
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true
   },
   {
    "type": "plate",
@@ -2397,9 +2453,10 @@
    ],
    "text": {
     "text": "8",
-    "font": "title_dark_bold_12",
+    "font": "caption_grey_12",
     "align": "center",
-    "valign": "middle"
+    "valign": "middle",
+    "onFont": "caption_white_12"
    },
    "press": "up",
    "pressOffset": [
@@ -2417,7 +2474,14 @@
    "fill": {
     "image": "buttons/op_key",
     "tint": "@op8"
-   }
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "hoverTiles": true
   },
   {
    "type": "plate",
