@@ -1,6 +1,5 @@
 // fsvr/selftest.cpp - the engine self check. Ours, not the hardware's.
 #include "fs1r/internal.h"
-#include "fs1r/firmware/vop3host/filter_host.h"
 #include "display.h"
 #include "egview.h"
 #include <cstring>
@@ -37,20 +36,8 @@ int selftest(Synth& S) {
         apply_param_change_locked(S, m, 10);
         ck("reverb and variation words take both bytes", S.perf.fx[al - 0x50] == 0 && S.perf.fx[al - 0x50 + 1] == 76);
     }
-    ck("voice decode followed the change", S.perf.part[2].voice.fltType == 2);
+    ck("the voice image followed the change", S.perf.part[2].voice.raw[0x54] == 2);
     ck("op level decode followed the change", S.perf.part[3].voice.v[5].level == 77);
-    // The ladder's zero-delay solve and its (1 + k) normalisation: a DC input has to come back out at
-    // unity from every tap, at every feedback the resonance table can reach. The mean over the second
-    // half of the run averages the ring away, and a loop that has gone unstable blows this up.
-    for (int raw : {0, 32, 64, 116}) {
-        for (int tap = 2; tap <= 4; tap++) {
-            Ladder L; L.set(1000.0, reso_fb(raw - 16), 0.0);
-            double acc = 0; int n = 0;
-            for (int i = 0; i < 96000; i++) { double y = L.run(1.0, tap); if (i >= 48000) { acc += y; n++; } }
-            ck("ladder unity passband", fabs(acc / n - 1.0) < 0.05);
-        }
-    }
-
     // The chip's EG key rate scaling, against the 24 rates 02_envelope_3 measured. Key codes 85, 93
     // and 101 are notes 36, 60 and 84; the rows are the rate offset at time scaling 0 to 7, and the
     // truncation toward zero is what separates the middle row from a flooring divide. docs/aeg.md.
@@ -376,46 +363,76 @@ int selftest(Synth& S) {
     // check below it (the filter EG, the formant window, the DX7 conversion, the voice edit) printed its
     // failure and then reported "selftest: ok" above it, and the caller's exit code was the only place
     // the truth showed.
-    // The filter EG as the firmware steps it (FUN_0000D050 / FUN_0000CB6C): every segment reaches its end
-    // level exactly, a flat segment still ends (asymptote target + 3), the hold is a hold, and the release
-    // returns to L4. Time per rate word is the chip's and unmeasured, so only the structure is checked.
-    {
-        StepEG e; double L[4] = {200, 100, 100, -100}; int R[4] = {20, 20, 50, 20};   // times, not rate words: 0 is the slowest
-        e.start(L, R);
-        int n = 0; while (e.stage == 0 && n < 100000) { e.tick(); n++; }
-        ck("filter EG attack lands on L1", e.stage == 1 && e.cur == 200 && n > 1);
-        n = 0; while (e.stage == 1 && n < 100000) { e.tick(); n++; }
-        ck("filter EG decay lands on L2", e.stage == 2 && e.cur == 100);
-        n = 0; while (e.stage == 2 && n < 100000) { e.tick(); n++; }
-        ck("filter EG flat segment holds FEG_FLAT_S", e.stage == 9 && e.cur == 100 && fabs(n / TICK_HZ - cal::FEG_FLAT_S) < 0.01);
-        for (int i = 0; i < 1000; i++) e.tick();
-        ck("filter EG holds at L3", e.cur == 100);
-        e.release(); n = 0; while (e.stage == 3 && n < 100000) { e.tick(); n++; }
-        ck("filter EG release lands on L4", e.stage == 9 && e.cur == -100);
-        // Named rather than compound literals: a (int[4]){...} temporary is a clang extension that
-        // GCC rejects as taking the address of a temporary array and MSVC as C4576.
-        const int rateSlow[4] = {60, 0, 0, 0}, rateFast[4] = {20, 0, 0, 0};
-        StepEG slow, fast; slow.start(L, rateSlow); fast.start(L, rateFast);
-        int ns = 0, nf = 0; while (slow.stage == 0 && ns < 10000000) { slow.tick(); ns++; }
-        while (fast.stage == 0 && nf < 10000000) { fast.tick(); nf++; }
-        ck("filter EG time 60 vs 20: 2^(40/15.5) = 6x per 15 words... 15x over 40 (flteg 0.81 vs 0.052 s)", ns > 12 * nf && ns < 18 * nf);
-    }
+    // The voice filters, on their chip. A slot's passband, that no slot leaks into another, the corner's
+    // octave per twelve cutoff bytes and the resonance's lift.
+    { auto f = std::make_unique<Filter>();
+      uint8_t v[112] = {}, r[52] = {};
+      for (int i = 0x18; i <= 0x23; i++) r[i] = 64;
+      r[0x2E] = r[0x2F] = 64;
+      v[0x56] = v[0x58] = 7; v[0x57] = 127; v[0x5B] = 64; v[0x5C] = 60; v[0x5D] = 12; v[0x64] = 64;   // LPF24 wide open, 0 dB in, no EG, no LFO
+      for (int i = 0x65; i <= 0x68; i++) v[i] = 50;
+      auto set = [&](int byte, int val) { v[byte] = (uint8_t)val; f->sync(0, v, r, 0, 0, 0); };
+      // the gain of a sine through slot s, and the most that reaches any other slot
+      auto gain = [&](int s, double hz, double* leak = nullptr) {
+          double in = 0, out = 0, other = 0;
+          for (int i = 0; i < 2400; i++) {
+              double x[16] = {}; const double a = 0.3 * sin(2 * PI * hz * i / SR);
+              x[s] = a; f->run(x);
+              if (i >= 960) { in += a * a; out += x[s] * x[s]; for (int k = 0; k < 16; k++) if (k != s) other = std::max(other, fabs(x[k])); }
+          }
+          if (leak) *leak = other;
+          return sqrt(out / in);
+      };
+      set(0x57, 127);
+      bool pass = true, tight = true;
+      for (int s : {0, 5, 15}) {
+          f->host.noteOn(s, 0, 60, 100);
+          double leak, g = gain(s, 100, &leak);
+          pass = pass && fabs(20 * log10(g / cal::FLT_LOSS)) < 0.1; tight = tight && leak < 1e-9;
+      }
+      ck("filter chip: a slot's passband comes back at FLT_LOSS", pass);
+      ck("filter chip: nothing of a slot reaches another", tight);
+      auto corner = [&](int cutoff) {                      // where the lowpass is 3 dB under its 50 Hz level
+          set(0x57, cutoff); f->host.noteOn(0, 0, 60, 100);
+          double ref = gain(0, 50), lo = 60, hi = 4000;
+          for (int k = 0; k < 9; k++) { double mid = sqrt(lo * hi); (gain(0, mid) > ref * 0.7071 ? lo : hi) = mid; }
+          return sqrt(lo * hi);
+      };
+      double c52 = corner(52), c64 = corner(64);
+      ck("filter chip: twelve cutoff bytes are an octave of corner", fabs(c64 / c52 / 2 - 1) < 0.08);
+      auto peak = [&](int reso) {
+          set(0x55, reso); f->host.noteOn(0, 0, 60, 100);
+          double best = 0;
+          for (double hz = c64; hz < 2.4 * c64; hz *= 1.12) best = std::max(best, gain(0, hz));
+          return best / gain(0, 50);
+      };
+      ck("filter chip: resonance lifts the corner", 20 * log10(peak(76) / peak(16)) > 10); }
 
-    // The part's filter switch is live: a held note picks it up on the tick, as cutoff and resonance
-    // already do. Ours, not the unit's, which latches it at note-on. docs/Differences.md.
-    {
-        Part& pt = S.perf.part[0]; pt.p[7] = 0;
-        S.midi_in(0x90, 60, 100);
-        std::vector<float> l(1024), r(1024);
-        S.render(l.data(), r.data(), 1024);
-        Chan* c = nullptr; for (auto& x : S.ch) if (x.active && x.note == 60) { c = &x; break; }
-        ck("note on with the filter off leaves it off", c && !c->fltOn);
-        pt.p[7] = 1; S.render(l.data(), r.data(), 1024);
-        ck("filter switched on mid-note reaches the held note", c && c->fltOn);
-        pt.p[7] = 0; S.render(l.data(), r.data(), 1024);
-        ck("and switched off again mid-note", c && !c->fltOn);
-        S.midi_in(0x80, 60, 0); S.midi_in(0xB0, 120, 0);
-    }
+    // The filter through the engine. A part with its filter on plays on the chip's sixteen channels and the
+    // others on the rest; a filtered note loses its top; and a part without a filter sounds exactly as it
+    // does in a performance that has none.
+    { auto note = [](Synth& T, int part, int n, std::vector<float>& l, std::vector<float>& r) {
+          srand(7); T.note_on(part, n, 100); T.render(l.data(), r.data(), (int)l.size()); };
+      auto energy = [](const std::vector<float>& x) { double e = 0; for (float s : x) e += (double)s * s; return e; };
+      std::vector<float> l0(4800), r0(4800), l1(4800), r1(4800), l2(4800), r2(4800);
+      auto open = [](Synth& T) { uint8_t* b = T.perf.part[0].voice.raw; b[0x54] = 0; b[0x55] = 0; b[0x57] = 40; b[0x59] = b[0x5A] = 0; b[0x5D] = 12; b[0x64] = 64; };
+      auto A = std::make_unique<Synth>(), B = std::make_unique<Synth>(), C = std::make_unique<Synth>();
+      open(*A); open(*B); open(*C);
+      B->perf.part[0].p[7] = 1; C->perf.part[0].p[7] = 1;
+      note(*A, 0, 96, l0, r0);                             // no filter anywhere
+      note(*B, 0, 96, l1, r1);                             // the same note with part 1's filter on, cutoff 40
+      int at = -1; for (int i = 0; i < NCHAN; i++) if (B->ch[i].active) at = i;
+      ck("engine: a part with its filter on plays on the filter's channels", at >= 0 && at < 16 && B->flt.host.slotPart[at] == 0);
+      ck("engine: a filtered note loses its top", energy(l1) < 0.1 * energy(l0) && energy(l1) > 0);
+      auto D = std::make_unique<Synth>();
+      note(*D, 1, 60, l0, r0);                             // part 2 alone, no filter anywhere
+      note(*C, 1, 60, l2, r2);                             // part 2 alone, beside a part with its filter on
+      at = -1; for (int i = 0; i < NCHAN; i++) if (C->ch[i].active) at = i;
+      ck("engine: a part without a filter plays on the other channels", at >= 16);
+      ck("engine: and sounds exactly as it does with no filter anywhere", l2 == l0 && r2 == r0 && energy(l0) > 0);
+      // a switch that changes stops every channel, as on the unit
+      C->perf.part[1].p[7] = 1; C->render(l2.data(), r2.data(), 16);
+      ck("engine: changing a filter switch stops every note", C->active_chans() == 0); }
 
     // A part whose voice bank is off receives nothing even with a receive channel (A011 Sho, parts 3 and 4).
     { S.perf.part[1].p[1] = 0; S.perf.part[1].p[4] = 0x10; ck("bank off silences the part", !S.part_listens(1, 0)); S.perf.part[1].p[1] = 2; ck("bank on hears it again", S.part_listens(1, 0)); }
@@ -532,7 +549,7 @@ int selftest(Synth& S) {
       // the channel the allocator will actually take, found the same way the allocator picks it:
       // strike the note, then see which channel now holds it (age no longer decides this)
       double before[NCHAN];
-      for (int i = 0; i < NCHAN; i++) before[i] = fabs(S.ch[i].lastL) + fabs(S.ch[i].lastR);
+      for (int i = 0; i < NCHAN; i++) before[i] = fabs(S.ch[i].last);
       S.midi_in(0x90, 100, 100);                       // one more note: the allocator has to steal
       Chan* victim = nullptr;
       for (auto& c : S.ch) if (c.active && c.note == 100) victim = &c;
@@ -540,11 +557,11 @@ int selftest(Synth& S) {
       if (victim) {
           int vi = int(victim - S.ch);
           ck("the victim channel was making sound", before[vi] > 1e-4);
-          double damp = fabs(victim->dampL) + fabs(victim->dampR);
+          double damp = fabs(victim->damp);
           ck("note-on damps the stolen channel rather than zeroing it", damp > 0.5 * before[vi]);
           double first = damp;
           for (int k = 0; k < 400; k++) S.render(l, r, 1);
-          double later = fabs(victim->dampL) + fabs(victim->dampR);
+          double later = fabs(victim->damp);
           ck("the damp decays", later < 0.5 * first);
       }
       S.all_off(); init_perf(S.perf); }
@@ -556,7 +573,7 @@ int selftest(Synth& S) {
     { init_perf(S.perf); Voice& V = S.perf.part[0].voice;
       V.v[0].form = 0; V.v[0].level = 99; V.v[0].fixed = 0; V.v[0].coarse = 1; V.v[0].keysync = 1;
       for (int i = 0; i < 4; i++) { V.v[0].L[i] = i == 3 ? 0 : 99; V.v[0].T[i] = i == 3 ? 60 : 0; }
-      S.all_off(); S.nextChan = 0; for (int i = 0; i < 4; i++) S.partChan[i] = 0;
+      S.all_off(); S.nextChan[0] = 0; for (int i = 0; i < 4; i++) S.partChan[i] = 0;
       float l[8], r[8];
       int order[NCHAN], n = 0;
       for (int note = 36; note < 36 + NCHAN; note++) {
@@ -602,9 +619,9 @@ int selftest(Synth& S) {
       init_default_voice(V);
       pt.p[1] = 2; pt.p[4] = 0x10; pt.p[0x1A] = 70; pt.p[0x1B] = 58; pt.p[0x1C] = 64; pt.p[0x20] = 60; pt.p[0x21] = 70; pt.p[0x22] = 64; pt.p[0x23] = 64;
       const int L[4] = {99, 70, 40, 0}, T[4] = {20, 45, 60, 50}, pL[5] = {30, 80, 40, 40, 50}, pT[4] = {30, 40, 50, 60}, fL[4] = {100, 20, 70, 50}, fT[4] = {30, 40, 50, 60};
-      for (int i = 0; i < 4; i++) V.v[0].L[i] = L[i], V.v[0].T[i] = T[i], V.pegT[i] = pT[i], V.fltL[i] = fL[i], V.fltT[i] = fT[i];
+      for (int i = 0; i < 4; i++) V.v[0].L[i] = L[i], V.v[0].T[i] = T[i], V.pegT[i] = pT[i];
       for (int i = 0; i < 5; i++) V.pegL[i] = pL[i];
-      V.v[0].hold = 30; V.v[0].tscale = 7; V.pegVel = 1; V.pegRange = 1; V.pegTscale = 3; V.fltAtkVel = 3; V.fltTscale = 2;
+      V.v[0].hold = 30; V.v[0].tscale = 7; V.pegVel = 1; V.pegRange = 1; V.pegTscale = 3;
       S.all_off();
       S.midi_in(0x90, 72, 100);
       Chan* c = nullptr; for (auto& x : S.ch) if (x.active && x.note == 72) c = &x;
@@ -634,12 +651,37 @@ int selftest(Synth& S) {
           Chan pc = *c;
           agree("egview: the pitch EG ends its stages where the engine does", egview::curve(in),
                 ends([&] { S.peg_tick(pc); }, [&] { return pc.pegStage; }, TICK_HZ, 3), 0.51 / TICK_HZ);
-          in = egview::Input(); in.note = c->noteP; in.vel = c->vel;
-          in.egKind = egview::FILTER; in.velSens = 3; in.timeScale = 2;
-          for (int i = 0; i < 4; i++) in.L[i] = fL[i], in.T[i] = fT[i];
-          StepEG f = c->feg;
-          agree("egview: the filter EG ends its stages where the engine does", egview::curve(in),
-                ends([&] { f.tick(); }, [&] { return f.stage; }, TICK_HZ, 3), 0.51 / TICK_HZ);
+          // The filter EG runs in the chip: its first two segments end where the EG view puts its corners,
+          // and one segment's time after the key comes up the level has covered two thirds of the way back.
+          Part& fp = S.perf.part[0]; uint8_t* b = fp.voice.raw;
+          S.all_off(); fp.p[7] = 1;
+          for (int i = 0; i < 3; i++) b[0x66 + i] = (uint8_t)fL[i], b[0x69 + i] = (uint8_t)(fT[i] - 22);
+          b[0x65] = (uint8_t)fL[3]; b[0x6C] = (uint8_t)(fT[3] - 22); b[0x6E] = 3 << 3 | 2; b[0x64] = 64;
+          S.midi_in(0x90, 72, 100);
+          int slot = -1; for (int i = 0; i < 16; i++) if (S.ch[i].active) slot = i;
+          ck("egview: a filtered note to hold it to", slot >= 0);
+          if (slot >= 0) {
+              in = egview::Input(); in.note = S.ch[slot].noteP; in.vel = S.ch[slot].vel;
+              in.egKind = egview::FILTER; in.velSens = 3; in.timeScale = 2; in.part[0] = 70; in.part[1] = 58; in.part[2] = 64;
+              for (int i = 0; i < 4; i++) in.L[i] = fL[i], in.T[i] = fT[i] - 22;
+              const egview::EgCurve g = egview::curve(in);
+              const Vop3::Eg& eg = S.flt.chip.eg[(slot + 2) & 15];
+              float l[1], r[1]; std::vector<double> at;
+              for (int k = 1, st = 1; k < SR * 2 && at.size() < 2; k++) {
+                  S.render(l, r, 1);
+                  if (S.flt.host.stage[slot] != st) st = S.flt.host.stage[slot], at.push_back(k / (double)SR);
+              }
+              bool ok = at.size() == 2;
+              for (size_t i = 0; ok && i < 2; i++) ok = fabs(g.t[(size_t)g.corner[i]] / at[i] - 1) < 0.05;
+              ck("egview: the filter EG ends its first two segments where the chip does", ok);
+              ck("filter EG: the host's stage follows the chip's reports", S.flt.host.stage[slot] == 3);
+              // the view draws the release from level 3 to within a unit of level 4, which gives its segment's time
+              const double from = eg.level, to = (fL[3] - 50) * 256 / 50, T4 = g.t.back() * log(3.0) / log(fabs((fL[2] - fL[3]) * 256 / 50.0));
+              S.midi_in(0x80, 72, 0);
+              for (int k = 0; k < (int)(T4 * SR); k++) S.render(l, r, 1);
+              ck("filter EG: the release moves, two thirds of the way in its segment's time", fabs((eg.level - from) / (to - from) - 2.0 / 3) < 0.05);
+          }
+          S.all_off(); fp.p[7] = 0;
       }
       S.all_off(); init_perf(S.perf); }
 

@@ -15,6 +15,7 @@
 #include "audio_fseq.h"
 #include "fs1r.h"
 #include "fsvr/egview.h"
+#include "fsvr/tuning.h"
 #include "library.h"
 #include <algorithm>
 #include <array>
@@ -29,10 +30,6 @@
 #include <mutex>
 #include <thread>
 
-#if defined(_M_X64) || defined(__x86_64__) || defined(_M_IX86) || defined(__i386__)
-#include <xmmintrin.h>
-#endif
-
 namespace hollow {   // the factory banks, embedded by plugin/CMakeLists.txt
 extern const EmbeddedFile kFactoryFiles[];
 extern const size_t kFactoryFileCount;
@@ -44,23 +41,6 @@ using hollow::Json;
 using hollow::State;
 
 // ---- small helpers ---------------------------------------------------------------------------------
-
-// Denormals flushed to zero while the engine renders (docs/performance.md: without it a heavy
-// performance costs half as much again), the host's own mode back afterwards.
-struct NoDenormals {
-#if defined(_M_X64) || defined(__x86_64__) || defined(_M_IX86) || defined(__i386__)
-    unsigned old = _mm_getcsr();
-    NoDenormals() { _mm_setcsr(old | 0x8040); }   // flush to zero, denormals are zero
-    ~NoDenormals() { _mm_setcsr(old); }
-#elif defined(__aarch64__)
-    uint64_t old = 0;
-    NoDenormals() {
-        asm volatile("mrs %0, fpcr" : "=r"(old));
-        asm volatile("msr fpcr, %0" : : "r"(old | (1ull << 24)));   // FZ
-    }
-    ~NoDenormals() { asm volatile("msr fpcr, %0" : : "r"(old)); }
-#endif
-};
 
 static const char kB64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -221,7 +201,7 @@ static const bool kEgModels = [] {
             e.timeScale = (int)get("timeScale", 0), e.velSens = (int)get("velocity", 0), e.range = (int)get("range", 0);
             static const char* const kAmp[4] = {"attack", "decay", "release", ""};
             static const char* const kPitch[4] = {"initOffset", "attackOffset", "releaseLevelOffset", "releaseOffset"};
-            for (int i = 0; i < 4; i++) e.part[i] = (int)get(kind == egview::AMP ? kAmp[i] : kPitch[i], 64);
+            for (int i = 0; i < 4; i++) e.part[i] = (int)get(kind == egview::PITCH ? kPitch[i] : kAmp[i], 64);
             egview::EgCurve c = egview::curve(e);
             hollow::StageCurve out;
             out.t = std::move(c.t), out.v = std::move(c.v), out.keyOff = c.keyOff, out.corner = std::move(c.corner);
@@ -296,7 +276,7 @@ public:
     }
 
     void process(const float* const*, float* const* out, int frames) override {
-        const NoDenormals flush;
+        const tuning::NoDenormals flush;
         if (const int s = (int)std::lround(get(speed)); s != speedSent) dev.setSpeed(speedSent = s);
         std::unique_lock<std::mutex> lk(ctl, std::try_to_lock);
         const unsigned loads = st.loads();

@@ -28,7 +28,7 @@ struct Input {
     double L[4] = {}, T[4] = {};   // levels and times 1-4, 0..99 (pitch and filter levels 0..100)
     double init = 50, hold = 0;    // pitch level 0 (0..100), amplitude hold (0..99)
     int timeScale = 0, velSens = 0, range = 0;
-    int part[4] = {64, 64, 64, 64};   // part offsets. Amp: attack, decay, release. Pitch: init, attack, release level, release time
+    int part[4] = {64, 64, 64, 64};   // part offsets. Amp and filter: attack, decay, release. Pitch: init, attack, release level, release time
     int note = 60, vel = 64;          // the note we assume: middle C, medium velocity
 };
 
@@ -159,37 +159,43 @@ inline EgCurve pitch(const Input& in) {
     return p.c;
 }
 
-// Filter EG, after Synth::start_filter and StepEG. Levels -50..50, starting at level 4.
-// A stage aims half its swing past the target and stops when it gets there.
-// A stage with no swing holds for FEG_FLAT_S.
+// Filter EG, after the filter host and the chip's EG generators. Levels -50..50, starting at level 4.
+// The attack and decay 1 aim half their swing past their level and end when they reach it; with no swing
+// they take FEG_FLAT_S. Decay 2 and the release only approach theirs: they are drawn to within a unit.
 inline EgCurve filter(const Input& in) {
     Path p;
     p.c.lo = -50, p.c.hi = 50, p.c.corner.assign(4, -1);
     auto word = [&](int i) {
         return between(in.L[i], [](int l) { return static_cast<double>((l - 50) * 256 / 50); });
     };
-    auto coef = [&](int i) {
+    // A segment's time: the part's offset, the key scaling, and on the attack the velocity.
+    auto secs = [&](int i) {
+        const int off = (i == 0 ? in.part[0] : i == 3 ? in.part[2] : in.part[1]) - 64;   // the part's decay offset applies to T2 and T3
         return between(in.T[i], [&](int t) {
-            t = ci(t, 0, 99);
-            int t2 = t - ((in.note - 60) * t * in.timeScale) / 0x57F;
-            if (i == 0) t2 -= ((in.vel - 127) * t * in.velSens) / 0x6F2;
-            return cal::FEG_RATE_K * std::pow(2.0, -FEGRATE[ci(t2, 0, 99)] / 15.5);
+            t = i == 3 ? t + off : ci(t + off, 0, 99);     // the release is scaled before it is clamped
+            int t2 = t - (in.timeScale * t * (in.note - 60)) / 0x57F;
+            if (i == 0) t2 -= (in.velSens * t * (in.vel - 127)) / 0x6F2;
+            return cal::FEG_SEG_S * std::pow(2.0, FEGRATE[ci(t2, 0, 99)] / cal::FEG_RATE_OCT);
         });
     };
     auto shown = [](double w) { return w * 50 / 256; };
     double w = word(3);
-    auto segment = [&](int i) {
-        const double to = word(i), c0 = w, k = coef(i);
-        if (to == c0) return p.along(int(cal::FEG_FLAT_S * TICK_HZ) / TICK_HZ, 1, [](double) { return 0.0; }, shown(c0));
-        const double aim = std::clamp(to + (to - c0) / 2, -511.0, 511.0);
-        const double n0 = k >= 1 ? 0 : std::log((aim - to) / (aim - c0)) / std::log(1 - k), n = ticks(n0);
-        p.along(n / TICK_HZ, 12, [&](double u) { return shown(aim - (aim - c0) * std::pow(1 - k, std::min(n * u, n0))); }, shown(w = to));
+    auto arrive = [&](int i) {
+        const double to = word(i), c0 = w, tau = secs(i) / std::log(3.0);
+        if (to == c0) return p.along(cal::FEG_FLAT_S, 1, [](double) { return 0.0; }, shown(c0));
+        const double aim = std::clamp(to + (to - c0) / 2, -511.0, 511.0), d = tau * std::log((aim - c0) / (aim - to));
+        p.along(d, 12, [&](double u) { return shown(aim - (aim - c0) * std::exp(-d * u / tau)); }, shown(w = to));
+    };
+    auto approach = [&](int i) {
+        const double to = word(i), c0 = w, tau = secs(i) / std::log(3.0), d = tau * std::log(std::max(1.0, std::fabs(to - c0)));
+        p.along(d, 12, [&](double u) { return shown(to - (to - c0) * std::exp(-d * u / tau)); }, shown(w = to));
     };
     p.put(shown(w));
-    for (int s = 0; s < 3; ++s) segment(s), p.corner(s);
+    arrive(0), p.corner(0);
+    arrive(1), p.corner(1);
+    approach(2), p.corner(2);
     p.keyOff(shown(w));
-    segment(3);
-    p.corner(3);
+    approach(3), p.corner(3);
     return p.c;
 }
 

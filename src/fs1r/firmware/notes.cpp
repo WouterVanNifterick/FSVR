@@ -10,7 +10,31 @@ void Synth::init_system() {
     sys[0x47] = 0; sys[0x48] = 4; sys[0x49] = 0; sys[0x4A] = 0;
 }
 
+// FUN_0002087e: the four filter switches are latched, and a change stops every channel. From then on the
+// parts with a filter play on the sixteen channels the filter chip is wired to.
+void Synth::filter_latch() {
+    int sw = 0;
+    for (int p = 0; p < 4; p++) sw |= (perf.part[p].p[7] & 1) << p;
+    if (sw == fltSw) return;
+    all_off();
+    fltSw = sw;
+    flt.reset();
+    nextChan[0] = nextChan[1] = 0; nextChan[2] = 16;
+    for (int p = 0; p < 4; p++) partChan[p] = sw && !(sw >> p & 1) ? 16 : 0;
+}
+
+// The filter host reads the voice and the part record. Destinations 21 to 26 edit the record, as the firmware
+// has them do (FUN_00017192 and the five after it); 42, 44 and 45 are offsets the host keeps itself.
+void Synth::filter_sync(int part) {
+    const Part& pt = perf.part[part];
+    static const int BYTE[6] = {0x18, 0x19, 0x1F, 0x1A, 0x1B, 0x1C};   // cutoff, resonance, EG depth, attack, decay, release
+    uint8_t rec[52]; memcpy(rec, pt.p, 52);
+    for (int d = 0; d < 6; d++) rec[BYTE[d]] = (uint8_t)ctrl_part(part, 21 + d, pt.p[BYTE[d]]);
+    flt.sync(part, pt.voice.raw, rec, ctrl_offset(part, 42), ctrl_offset(part, 44), ctrl_offset(part, 45));
+}
+
 void Synth::note_on(int part, int note, int vel) {
+    filter_latch();
     Part& pt = perf.part[part]; const Voice& V = pt.voice;
     int lo = pt.p[0x0F], hi = pt.p[0x10];
     if (hi < lo ? (note > hi && note < lo) : (note > hi || note < lo)) return;
@@ -43,28 +67,38 @@ void Synth::note_on(int part, int note, int vel) {
     //     table; the sum rule is the reading that fits the one measured point, 2026-09-25-7.)
     //  3. within that part the walk starts after the part's own cursor and takes the first channel whose
     //     stored note is ABOVE the arriving one; failing that, the lowest stored note it saw.
+    // While a part has its filter on, FUN_000112c0 walks half the channels instead: 0 to 15 for a part with
+    // a filter (FUN_0000fa5c), 16 to 31 for one without (FUN_0000fcfa), each with a cursor of its own.
+    // OPEN: the two halves' walks are taken to follow the whole walk's three rules; only that one was measured.
+    const bool filtered = fltSw >> part & 1;
+    const int first = fltSw && !filtered ? 16 : 0, count = fltSw ? 16 : NCHAN;
+    int& cursor = nextChan[!fltSw ? 0 : filtered ? 1 : 2];
+    auto at = [&](int from, int k) { return first + ((from - first + k) % count + count) % count; };
     Chan* c = nullptr;
-    for (int k = 1; k <= NCHAN; k++) { Chan& x = ch[(nextChan + k) % NCHAN]; if (!x.active) { c = &x; break; } }
+    for (int k = 1; k <= count; k++) { Chan& x = ch[at(cursor, k)]; if (!x.active) { c = &x; break; } }
     if (!c) {
         int best = part, excess = -1;
         for (int k = 0; k < 4; k++) {
             int p = (part + k) & 3, others = 0, n = 0;
+            if (fltSw && (fltSw >> p & 1) != (int)filtered) continue;   // its notes are in the other half
             for (int q = 0; q < 4; q++) if (q != p) others += perf.part[q].p[0x00];
             int res = clampi(perf.part[p].p[0x00], 0, std::max(0, NCHAN - others));
             for (auto& x : ch) if (x.active && x.part == p) n++;
             if (n > res && n - res > excess) { excess = n - res; best = p; }
         }
         int thr = note, fb = -1;
-        for (int k = 1; k <= NCHAN; k++) {
-            int i = (partChan[best] + k) % NCHAN;
+        for (int k = 1; k <= count; k++) {
+            int i = at(partChan[best], k);
             if (!ch[i].active || ch[i].part != best) continue;
             if (thr < ch[i].note) { c = &ch[i]; break; }
             if (fb >= 0) { c = &ch[fb]; break; }
             fb = i; thr = ch[i].note;
         }
-        if (!c) c = &ch[fb >= 0 ? fb : 0];
+        if (!c) c = &ch[fb >= 0 ? fb : first];
     }
-    nextChan = int(c - ch); partChan[part] = nextChan;
+    const int slot = int(c - ch);
+    cursor = slot; partChan[part] = slot;
+    if (filtered) flt.host.kill(slot);          // FUN_000112c0: the filter slot is silenced before the note takes it
     Chan& C = *c; bool sync = V.lfo1sync != 0; uint32_t keepPhase = C.lfoPhase;
     // FUN_00023000: the firmware damps the channel it is about to take, it does not silence it. The mask
     // it is called with comes out of the one-hot table at 0x35B260 indexed by the allocated channel, and
@@ -72,11 +106,10 @@ void Synth::note_on(int part, int note, int vel) {
     // landing on a channel that is still sounding fades the old waveform out over cal::DAMP_MS. Zeroing
     // the struct instead put a step the size of the old note's own output into the output between two
     // samples, which is a click the unit does not make.
-    double dL = C.active ? C.lastL + C.dampL : 0.0, dR = C.active ? C.lastR + C.dampR : 0.0;
+    double damp = C.active ? C.last + C.damp : 0.0;
     C = Chan(); C.active = true; C.part = part; C.note = note; C.vel = vel; C.held = true; C.age = ++clock;
-    C.dampL = dL; C.dampR = dR;
+    C.damp = damp;
     C.lfoPhase = sync ? 0 : keepPhase;
-    C.lfo2Phase = V.lfo2sync ? (uint32_t)(V.lfo2phase * 0x4000) : (uint32_t)(rand() & 0xFFFF);
     C.panBase = pt.p[0x0E] ? pt.p[0x0E] : (rand() % 128);       // part pan 0 = random per note; the rest is the table index
     compute_pitch(C, pt, note);
     // portamento start (FUN_000124fe)
@@ -88,11 +121,9 @@ void Synth::note_on(int part, int note, int vel) {
     setup_peg(C, pt, vel);
     // Fseq trigger (FUN_0000fffa): first note only, or every note
     if (fseq.valid && fseqPart == part && ((perf.c[0x24] & 1) || !anyOther(C))) fseq_start(vel);
-    // The filter EG is staged before the coefficients are written, as FUN_0000B0E8 does (FUN_0000D050
-    // stages the EG, then writes cutoff, resonance and input gain in one pass). It used to run at the end
-    // of note_on, after refresh_regs, so the note's first tick reached the chip with the EG of whatever
-    // played on this channel last.
-    start_filter(C, pt, vel);
+    // The filter slot starts before the tone generator's registers are written: its modulation word
+    // (FUN_0002a47c), then the note (FUN_0000b0e8), which takes the note after its shifts and the curved velocity.
+    if (filtered) { filter_sync(part); flt.host.setSlotCutoffMod(slot, filter_mod(C)); flt.host.noteOn(slot, part, C.noteP, vel); }
     refresh_regs(C, pt);
     if (getenv("FS1R_DEBUG")) {
         printf("note %d vel %d -> note' %d pitch %d keyfact %d C0 %d\n", note, vel, C.noteP, C.pitchNote, C.keyfact, C.regC0);
@@ -112,23 +143,6 @@ void Synth::note_on(int part, int note, int vel) {
         s.rng = 0x9E3779B9u * (o + 1) ^ clock; if (!s.rng) s.rng = 1;
         s.attS = -1e9;                    // the level glide starts at the new note's own level
     }
-}
-
-void Synth::start_filter(Chan& C, const Part& pt, int vel) {
-    const Voice& V = pt.voice;
-    C.flt.clear();
-    // FUN_0000D050 / FUN_0000CB6C / FUN_0000D7B0: the level words are (L - 50) * 256 / 50 and each
-    // time is clamped to 0..99 after the part offset, then shortened by the time scaling term
-    // (note - 60) * time * tscale / 0x57F and, on the attack alone, by the velocity term
-    // (vel - 127) * time * atkvel / 0x6F2. Both divide toward zero, as the firmware's sdiv does.
-    double lv[4]; int rt[4];
-    for (int i = 0; i < 4; i++) {
-        lv[i] = (V.fltL[i] - 50) * 256 / 50;
-        int t = clampi(V.fltT[i], 0, 99), t2 = t - ((C.noteP - 60) * t * V.fltTscale) / 0x57F;
-        if (i == 0) t2 -= ((vel - 127) * t * V.fltAtkVel) / 0x6F2;
-        rt[i] = clampi(t2, 0, 99);
-    }
-    C.feg.start(lv, rt);
 }
 
 void Synth::compute_pitch(Chan& C, const Part& pt, int note) {
@@ -261,7 +275,8 @@ void Synth::note_off(int part, int note) {
 
 void Synth::release(Chan& C) {
     for (auto& s : C.op) { s.eg.release(); s.ueg.release(); }
-    C.feg.release();
+    const int slot = int(&C - ch);
+    if (slot < 16 && (fltSw >> C.part & 1)) flt.host.noteOff(slot);   // FUN_00010a52
     C.pegStage = 4; C.pegTarget = C.pegLvl[4]; C.pegRate = C.pegRt[4];
     fseq_keys();
 }
@@ -286,27 +301,6 @@ void Synth::lfo_tick(Chan& C, const Part& pt) {
     default: { uint32_t t = (C.lfoPhase << 1); if (t > 0xFFFF) t = ~t & 0xFFFF; val = (int)((t >> 8) & 0xFF) - 0x80; }
     }
     C.lfoVal = val;
-}
-
-void Synth::lfo2_tick(Chan& C, const Part& pt) {
-    // LFO2 is not the CPU's: FUN_0000D050 / FUN_0000E2A0 hand VOP3-1 the waveform (FUN_0000C1AC, the
-    // 0x20-per-step field the docs had as the filter type) and the speed word LFO2SPD[speed] (FUN_0000C130)
-    // and the chip runs it. The speed byte is voice + part - 64 + the destination 45 word, clamped 0..127.
-    // What the chip makes of the increment is INFERRED: read as a 16 bit phase per tick it puts speed 64
-    // at 0.19 Hz and 127 at 1.6 Hz, and the register run in FS1R.unlock fs1r_capture_session3 `lfo2` is what settles it.
-    const Voice& V = pt.voice;
-    int sp = clampi(V.lfo2speed + pt.p[0x2E] - 64 + ctrl_offset(C.part, 45), 0, 127);
-    uint32_t inc = LFO2SPD[sp] * cal::LFO2_INC_K;
-    uint32_t ph = C.lfo2Phase + inc; bool wrapped = ph > 0xFFFF; C.lfo2Phase = ph & 0xFFFF;
-    int hi = C.lfo2Phase >> 8;
-    switch (V.lfo2wave) {
-    case 1: C.lfo2Val = (int8_t)(~hi); break;
-    case 2: C.lfo2Val = (int8_t)hi; break;
-    case 3: C.lfo2Val = (hi & 0x80) ? -128 : 127; break;
-    case 4: { int idx = hi & 0x3F; if (hi & 0x40) idx ^= 0x3F; int v = SINE64[idx]; C.lfo2Val = (hi & 0x80) ? (int8_t)(~v) : v; break; }
-    case 5: if (wrapped) C.lfo2SH = SHTAB[((C.lfo2SH & 0xFF) * 0xB3 + (rand() & 0xFF)) & 0x7FF]; C.lfo2Val = C.lfo2SH; break;
-    default: { uint32_t t = (C.lfo2Phase << 1); if (t > 0xFFFF) t = ~t & 0xFFFF; C.lfo2Val = (int)((t >> 8) & 0xFF) - 0x80; }
-    }
 }
 
 void Synth::peg_tick(Chan& C) {
@@ -367,7 +361,7 @@ void Synth::refresh_regs(Chan& C, const Part& pt) {
     }
     int vAtt, uAtt; part_levels(part, vAtt, uAtt);
     C.partV = db2lin(-LEVEL_DB * vAtt); C.partU = db2lin(-LEVEL_DB * uAtt);
-    refresh_pan(C, pt); refresh_filter(C, pt);
+    refresh_pan(C, pt);
 }
 
 void Synth::voice_ctrl(Chan& C, const Part& pt) {
@@ -402,63 +396,15 @@ void Synth::refresh_pan(Chan& C, const Part& pt) {
     C.panL = db2lin(-LEVEL_DB * PANL[idx]); C.panR = db2lin(-LEVEL_DB * PANR[idx]);
 }
 
-void Synth::refresh_filter(Chan& C, const Part& pt) {
-    const Voice& V = pt.voice; int part = C.part;
-    // The switch, the type and the input gain are read on the tick rather than latched at note-on, so a
-    // held note follows them as it already follows cutoff and resonance. Ours, and not the unit's:
-    // FUN_0000B0E8 hands the switch to the filter channel at note-on only (FUN_00010B48 reads part 0x07
-    // into DAT_01029160 and gates the whole call on it), so on hardware a sounding note keeps whatever it
-    // started with. docs/Differences.md.
-    bool on = (pt.p[7] & 1) != 0;
-    if (on && !C.fltOn) C.flt.clear();          // switched in mid-note: start from rest, not from stale state
-    C.fltOn = on; C.fltType = V.fltType;
-    C.fltInGain = db2lin(V.fltInGain); C.fltGain = C.fltInGain * cal::FLT_LOSS;
-    if (!on) return;
-    // FUN_0000DB3C, FUN_0000D050 and FUN_0000E170, with the firmware's own integer arithmetic. Every
-    // division is the flash's sdiv, which truncates toward zero.
-    auto sdiv = [](long long n, long long d) { return (int)(n / d); };
-    int vel = C.vel;
-    // Destinations 42 and 44 add to the LFO depths, not to the cutoff: the controller word is scaled by
-    // 99/127 and added to the voice's own depth before the clamp.
-    int lfo1d = clampi(V.fltLfo1 + sdiv(ctrl_offset(part, 42) * 99, 127), 0, 99);
-    int lfo2d = clampi(V.fltLfo2 + pt.p[0x2F] - 64 + sdiv(ctrl_offset(part, 44) * 99, 127), 0, 99);
-    // Cutoff: voice byte plus the part offset, plus LFO1 * depth * 0x3000 / 0x2076F9, clamped 0..127.
-    // The LFO2 term is not here: LFO2 runs on VOP3-1 itself (FUN_0000C130 and FUN_0000CA30 hand it
-    // the speed and depth) and the engine adds it below as the chip would, INFERRED in shape.
-    // The LFO word the CPU keeps per channel (FUN_0002C36C, +0x14) is lfo * fade >> 8 as a signed byte,
-    // and the depth byte goes in raw, not through eb86.
-    int lfoW = (int8_t)((C.lfoVal * clampi(C.lfoFade >> 8, 0, 255)) >> 8);
-    int cut = V.fltCut + (ctrl_part(part, 21, pt.p[0x18]) - 64) + sdiv((long long)lfoW * lfo1d * 0x3000, 0x2076F9);
-    cut = clampi(cut, 0, 127);
-    // FUN_0000C36C: the key scaling reaches the coefficient as ((ks - 64) << 11) / 0x180 per semitone
-    // from the breakpoint, in the same units as 0xA9 per cutoff byte, so in cutoff bytes it is
-    // (ks - 64) * (note - bp) * 16 / (3 * 0xA9), about a byte per 32 semitone-steps at full depth.
-    double ks = (double)((V.fltKsDepth << 11) / 0x180) * (C.noteP - clampi(V.fltKsPoint, 0, 127)) / 0xA9;
-    // Filter EG depth: FUN_0000D050 and FUN_0000E4AC. depth = voice + part - 128, then the velocity term
-    // multiplies it: depth * egvel_sens * (vel - 127) / 0x379 (or * vel for a negative sense), and the
-    // sum is clamped to -64..64 and shipped as 0x120 * depth (FUN_0000CB1C). How many cutoff bytes the
-    // chip makes of that word against the EG level is cal::FEG_DEPTH_BYTES.
-    int egd = V.fegDepth + (ctrl_part(part, 23, pt.p[0x1F]) - 64);
-    int egv = V.fltEgVel;
-    egd = clampi(egd + sdiv((long long)(egv > 0 ? vel - 127 : vel) * egd * egv, 0x379), -64, 64);
-    double cutf = cut + ks + C.feg.cur / 256.0 * egd / 64.0 * cal::FEG_DEPTH_BYTES;
-    cutf += C.lfo2Val * eb86(lfo2d) / 16384.0 * 64.0;                              // LFO2 filter mod, INFERRED
-    // FUN_0000DB3C: the part's resonance offset counts double, and the velocity sense scales
-    // (vel - 127) * 0x74 / 0x379 (or vel * 0x74 / 0x379 for a negative sense) by the sense, then the
-    // sum is clamped to the raw 0..116 the chip takes. fltReso here is the byte less 16, which reso_q
-    // and reso_fb put back.
-    int rv = V.fltResoVel;
-    int reso = V.fltReso + 16 + (ctrl_part(part, 22, pt.p[0x19]) - 64) * 2 + sdiv((long long)(rv > 0 ? vel - 127 : vel) * 0x74, 0x379) * rv;
-    reso = clampi(reso, 0, 116) - 16;
-    C.flt.setup(C.fltType, cut_hz(cutf), reso);
-}
-
 void Synth::tick() {
     double dt = 1.0 / TICK_HZ;
     fseq_tick(dt);
-    for (auto& C : ch) {
+    for (int n = 0; n < NCHAN; n++) {
+        Chan& C = ch[n];
         if (!C.active) continue;
         const Part& pt = perf.part[C.part];
-        lfo_tick(C, pt); lfo2_tick(C, pt); peg_tick(C); porta_tick(C); C.feg.tick(); refresh_regs(C, pt);
+        lfo_tick(C, pt); peg_tick(C); porta_tick(C); refresh_regs(C, pt);
+        if (n < 16 && (fltSw >> C.part & 1)) flt.host.setSlotCutoffMod(n, filter_mod(C));   // FUN_0002c998
     }
+    if (fltSw) flt.host.flush();
 }

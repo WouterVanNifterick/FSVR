@@ -206,9 +206,9 @@ void Synth::refresh_ctl(Chan& C) {
     }
 }
 
-void Synth::render_chan(Chan& C, double& outL, double& outR) {
+double Synth::render_chan(Chan& C) {
     if (C.silent) {
-        // Ours. The carriers and the noise are over and the filter has rung down, so the channel's output
+        // Ours. The carriers and the noise are over, so the channel's output
         // is zero from here to its end; what is left is when the allocator may treat it as free, which
         // is the sample its last envelope passes -120 dB. Every envelope still running is in its release
         // and falling linearly, so that sample is arithmetic, and the channel costs nothing until then.
@@ -230,8 +230,8 @@ void Synth::render_chan(Chan& C, double& outL, double& outR) {
             for (auto& s : C.op) { s.eg.tick(); s.ueg.tick(); if (!s.eg.done() || !s.ueg.done()) alive = true; }
             if (!alive) C.active = false;
         }
-        outL = outR = 0.0; C.lastL = C.lastR = 0.0;
-        return;
+        C.last = 0.0;
+        return 0.0;
     }
     if (C.ctlLeft-- <= 0) { C.ctlLeft = ctlDecimation - 1; refresh_ctl(C); }
     const Voice& V = perf.part[C.part].voice; const unsigned char* alg = FS1R_ALG[V.alg];
@@ -288,31 +288,33 @@ void Synth::render_chan(Chan& C, double& outL, double& outR) {
     bool alive = false;
     for (auto& s : C.op) if (!s.eg.done() || !s.ueg.done()) { alive = true; break; }
     if (!alive) C.active = false;
-    // The channel goes silent once every carrier's EG is over with no grain in flight, every noise EG
-    // is over, and the filter has rung down: 64 samples of nothing, with no damp left from the note before.
+    // The channel goes silent once every carrier's EG is over with no grain in flight and every noise EG
+    // is over: 64 samples of nothing, with no damp left from the note before.
     bool carriersDone = true;
     for (int o = 0; o < 8; o++) { const OpState& s = C.op[o]; if (((alg[2 * o + 1] & 1) && (!s.eg.done() || s.g[0].on || s.g[1].on)) || !s.ueg.done()) { carriersDone = false; break; } }
-    if (carriersDone && fabs(mix) < 1e-9 && C.dampL == 0.0 && C.dampR == 0.0) { if (++C.quiet >= 64) C.silent = true; } else C.quiet = 0;
+    if (carriersDone && fabs(mix) < 1e-9 && C.damp == 0.0) { if (++C.quiet >= 64) C.silent = true; } else C.quiet = 0;
     // The channel accumulator saturates before the filter loop, which is where the capture puts it:
     // eight carriers stacked in one channel clip flat, while the filter's own output on ingain-12 rides
     // 4 dB above that ceiling, so nothing downstream of CHOUT can be what clips.
     mix = std::clamp(mix, -cal::CHAN_CLIP, cal::CHAN_CLIP);
-    if (C.fltOn) mix = C.flt.run(C.fltType, mix * C.fltGain);
-    outL = mix * C.panL; outR = mix * C.panR;
     // Remember this channel's own output, so a note-on that takes this channel has something to fade,
     // and add whatever the previous note left behind (FUN_00023000, see note_on).
-    C.lastL = outL; C.lastR = outR;
-    if (C.dampL != 0.0 || C.dampR != 0.0) {
-        outL += C.dampL; outR += C.dampR;
-        C.dampL *= DAMP_K; C.dampR *= DAMP_K;
-        if (fabs(C.dampL) < 1e-7 && fabs(C.dampR) < 1e-7) C.dampL = C.dampR = 0.0;
+    C.last = mix;
+    if (C.damp != 0.0) {
+        mix += C.damp;
+        C.damp *= DAMP_K;
+        if (fabs(C.damp) < 1e-7) C.damp = 0.0;
         else C.active = true;                      // a damp still sounding keeps the channel rendering
     }
+    return mix;
 }
 
 void Synth::render(float* outL, float* outR, int frames) {
     std::lock_guard<std::mutex> lk(mtx);
+    const tuning::NoDenormals flush;
     fx.sync((uint8_t*)&perf);
+    filter_latch();
+    for (int p = 0; p < 4; p++) if (fltSw >> p & 1) filter_sync(p);
     // Part routing: a part with its insertion switch on feeds the insertion bus only, any other the dry bus and both sends.
     double dry[4], varS[4], revS[4]; bool insSw[4];
     for (int p = 0; p < 4; p++) {
@@ -324,8 +326,19 @@ void Synth::render(float* outL, float* outR, int frames) {
     sense_tick(frames / (double)SR);
     for (int i = 0; i < frames; i++) {
         tickAcc += TICK_HZ / SR; while (tickAcc >= 1) { tickAcc -= 1; tick(); }
-        double pl[4] = {}, pr[4] = {};
-        for (auto& c : ch) if (c.active) { double a, b; render_chan(c, a, b); pl[c.part] += a; pr[c.part] += b; }
+        // The channels, each panned onto its part's pair. While a part has its filter on the first sixteen
+        // pass through the filter chip first, sounding or not, so that a filter rings out after its note.
+        double pl[4] = {}, pr[4] = {}, v[16] = {};
+        for (int n = 0; n < NCHAN; n++) {
+            Chan& c = ch[n];
+            if (!c.active) continue;
+            const double m = render_chan(c);
+            if (fltSw && n < 16) v[n] = m; else { pl[c.part] += m * c.panL; pr[c.part] += m * c.panR; }
+        }
+        if (fltSw) {
+            flt.run(v);
+            for (int n = 0; n < 16; n++) { pl[ch[n].part] += v[n] * ch[n].panL; pr[ch[n].part] += v[n] * ch[n].panR; }
+        }
         // Four stereo buses into the effect chip: dry, insertion, variation send, reverb send. The rest is the chip's.
         double bus[8] = {}, l, r;
         for (int p = 0; p < 4; p++) {

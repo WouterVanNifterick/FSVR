@@ -331,7 +331,8 @@ every filter parameter goes over VOP3-1's own register block at 0x800200 (the ch
 **The path.** A parameter change lands in `FUN_0000B2E4(address, part)`, which compares the address against
 the filter's own bytes and sets one of four per-part dirty flags at 0x01068F14/18/1C/20, then posts
 `FUN_00009FA4(7, 3)`. The groups are voice 0x54 (type) alone; 0x55, 0x56, 0x57, 0x59, 0x5B, 0x5C, 0x5D with
-part 0x18 and 0x19; 0x5A with part 0x18, 0x19, 0x2E, 0x2F; and 0x56, 0x64 with part 0x1F. Controller
+part 0x18 and 0x19; voice 0x5A, 0x18 and 0x19 (LFO2's depth, wave and speed) with part 0x2E and 0x2F; and 0x56,
+0x64 with part 0x1F. Controller
 destinations write their own values first: `FUN_0000B3F4` (from ctrlDest_42) into 0x0106AE6C, `FUN_0000B40E`
 into 0x0106AE74 and `FUN_0000B428` into 0x0106AE7C, one 16-bit word per part.
 
@@ -356,20 +357,18 @@ measured at bytes 0, 64 and 116 (staged words 0x0000, 0x7800, 0x7F28, exactly th
 (`docs/research.md` section 8): A in a run of four adjacent slots, one per channel of a block, and B alongside
 that channel's two input-gain slots, which is where a feedforward term would sit.
 
-**Type** (`FUN_0000C1AC`): 0..6 become 0x00, 0x20, 0x40, 0x60, 0x80, 0xA0, 0xE0 in bits 5-7 of the channel's
-register word. **Input gain** goes through `FUN_0000C576` and the table at 0x00374D24.
+**Type** (`FUN_0000C280`): the channel's output step is patched to read the type's tap, one of the four
+poles' registers for LPF24, LPF18 and LPF12 and the bandpass's, or a scratch register for HPF and BEF, and to
+shift it once, except the bandpass. **Input gain** goes through `FUN_0000C576` and the table at 0x00374D24.
 
-`FUN_0000CA44` adds a mix coefficient per type: LPF18 gets +0x4000 and a unity input scaler, LPF12 gets
--0x4000 with the same scaler, and every other type gets 0 with a half scaler, which is what a tapped ladder
-needs to turn one cascade into 24, 18 and 12 dB slopes.
+LFO2 is the chip's own LFO on the slot's channel. `FUN_0000C1AC` writes its waveform, 0..6 as 0x00, 0x20,
+0x40, 0x60, 0x80, 0xA0, 0xE0 in bits 5-7 of register 0x25 (this page once read that as the filter type), and
+`FUN_0000CA44` its amount and register 0x27: full amount with 0x4000 or 0xC000 for the two sawtooths, half
+amount and 0 for the rest, then the depth into the slot's constant.
 
-What the chip does with the coefficients is still the unknown part, but their shape narrows it. One cutoff
-coefficient, one resonance coefficient, one input-side coefficient per channel, and three lowpass slopes taken
-off the same thing by FUN_0000CA44's tap mix, is a ladder and not three separate topologies. `namespace cal`
-reads it that way now: the cutoff coefficient is a one-pole `a = 1 - e^(-2 pi f / fs)`, which puts byte 0 at
-755 Hz and byte 127 at 10.6 kHz, resonance table A scales the ladder's feedback (`LADDER_K`) and table B is
-available as passband compensation (`RESO_COMP`). HPF, BPF and BEF are separate chip modes and keep the 2-pole
-reading. Those constants are the calibration targets; the formulas around them are the firmware's.
+What the chip does with all of it is its own program's business: since 2026-10-14 the firmware's filter
+program runs on the measured core (`docs/filter.md`), and the ladder reading of these coefficients that stood
+here went with the model.
 
 ## Pan (FUN_00025BC8, FUN_00025C12, FUN_00025C5C, events 0x211 and 0x222-0x225)
 

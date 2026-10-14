@@ -11,13 +11,6 @@ void decode_voice(Voice& V) {
     memcpy(V.name, b, 10); V.name[10] = 0; V.cat = b[0x0E];
     V.lfo1wave = std::min<int>(b[0x10], 5); V.lfo1speed = b[0x11]; V.lfo1delay = b[0x12]; V.lfo1sync = b[0x13] & 1;
     V.pmd = b[0x15]; V.amd = b[0x16]; V.fmd = b[0x17];
-    V.lfo2wave = std::min<int>(b[0x18], 5); V.lfo2speed = b[0x19]; V.lfo2phase = b[0x1C] & 3; V.lfo2sync = b[0x1D] & 1;
-    V.fltType = std::min<int>(b[0x54], 5); V.fltReso = (b[0x55] & 0x7F) - 16; V.fltResoVel = (b[0x56] & 0xF) - 7;
-    V.fltCut = b[0x57]; V.fltEgVel = (b[0x58] & 0xF) - 7; V.fltLfo1 = b[0x59]; V.fltLfo2 = b[0x5A];
-    V.fltKsDepth = b[0x5B] - 64; V.fltKsPoint = b[0x5C]; V.fltInGain = (b[0x5D] & 0x1F) - 12; V.fegDepth = b[0x64] - 64;
-    V.fltL[0] = b[0x66]; V.fltL[1] = b[0x67]; V.fltL[2] = b[0x68]; V.fltL[3] = b[0x65];   // L1 L2 L3, L4 is the start level
-    for (int i = 0; i < 4; i++) V.fltT[i] = b[0x69 + i];
-    V.fltAtkVel = b[0x6E] >> 3 & 7; V.fltTscale = b[0x6E] & 7;
     V.noteshift = (b[0x1E] & 0x3F) - 24;
     V.pegL[0] = b[0x1F]; V.pegL[1] = b[0x20]; V.pegL[2] = b[0x21]; V.pegL[4] = b[0x22]; V.pegL[3] = b[0x3E];
     for (int i = 0; i < 4; i++) V.pegT[i] = b[0x23 + i];

@@ -34,11 +34,11 @@ if "%~1"=="" (
 )
 goto :done
 
-rem The console. The effect host and the effect section are bit-exact only under /fp:strict, so they are compiled apart.
+rem The console. The two chip hosts and the sections over them are bit-exact only under /fp:strict, so they are compiled apart.
 :console
 if exist build\vop3host rmdir /s /q build\vop3host
 mkdir build\vop3host
-cl /nologo /c /MP /O2 /EHsc /W3 /std:c++17 /fp:strict /I src src\fs1r\firmware\vop3host\*.cpp src\fs1r\effects.cpp /Fobuild\vop3host\ || exit /b 1
+cl /nologo /c /MP /O2 /EHsc /W3 /std:c++17 /fp:strict /I src src\fs1r\firmware\vop3host\*.cpp src\fs1r\effects.cpp src\fs1r\filter.cpp /Fobuild\vop3host\ || exit /b 1
 cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\fastmath.cpp src\fsvr\selftest.cpp build\vop3host\*.obj src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
 exit /b %ERRORLEVEL%
 

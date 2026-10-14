@@ -64,7 +64,7 @@ Three words carry the status of each piece below. **Read** is lifted out of the 
 
 The practical result is that patches, performances and Fseqs load and play with the same parameter interpretation the hardware uses, because the same logic computes them. What still differs from a real unit lives inside the two custom chips.
 
-A short list of places FSVR behaves differently **on purpose** is kept in [docs/Differences.md](docs/Differences.md), with the firmware address behind each one where there is one. The engine has one entry: a part's filter switch is live here, so turning the filter on or off reaches the notes already sounding, where the unit latches that switch per note at note-on and only its cutoff and resonance follow a held note. The rest are the plug-in's additions, things the unit never had: user libraries without the unit's memory limits and Import Audio.
+A short list of places FSVR behaves differently **on purpose** is kept in [docs/Differences.md](docs/Differences.md), with the firmware address behind each one where there is one. The engine has none left since the filter switch latched as the unit's does (2026-10-14); what is listed are the plug-in's additions, things the unit never had: user libraries without the unit's memory limits and Import Audio.
 
 ### The processors
 
@@ -197,8 +197,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 
 - `cal.h` the calibration surface, every modelled constant in one place
 - `ymp706.cpp` the tone generator: operators, envelopes, the formant window, and the render path
-- `vop3_filter.h` VOP3-1's filter, still a model
-- `yss236_core.h` the YSS236 microcode engine, measured on the unit; `vop3.h` the chip around it: its registers and LFOs. `src/fs1r/effects.h` is the host that feeds it, over the firmware's effect task in `src/fs1r/firmware/vop3host/`
+- `yss236_core.h` the YSS236 microcode engine, measured on the unit; `vop3.h` the chip around it: its registers, LFOs and EG generators. `src/fs1r/effects.h` and `src/fs1r/filter.h` are the two boards around it, over the firmware's effect and filter tasks in `src/fs1r/firmware/vop3host/`
 
 `src/fsvr/` is **ours**. Nothing in the hardware corresponds to any of it.
 
