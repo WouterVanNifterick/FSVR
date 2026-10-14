@@ -13,6 +13,8 @@ struct Effects final : fs1r::vop3host::WriteSink {
     Vop3 chip;
 
     Effects() { host.sink = this; host.init(); }
+    Effects(const Effects&) = delete;             // the host writes to this board's chip
+    Effects& operator=(const Effects&) = delete;
     void write(uint32_t reg, uint32_t v) override { chip.write(reg, (uint16_t)v); }
     void load(const uint8_t* common) { host.load(common); }   // a whole performance
     void sync(uint8_t* common);                  // what changed since; a new type's defaults are written back

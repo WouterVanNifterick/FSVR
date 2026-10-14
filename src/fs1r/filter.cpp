@@ -8,8 +8,8 @@
 namespace {
 // OPEN: the level a channel reaches the chip at. A channel at its clip level is taken to be a full-scale
 // serial word. What comes back is scaled so that the passband loses cal::FLT_LOSS, as measured on the unit.
-const double IN = Vop3::WORD / cal::CHAN_CLIP;
-const double OUT = cal::CHAN_CLIP * cal::FLT_LOSS / Vop3::WORD;
+const double TO_CHIP = Vop3::WORD / cal::CHAN_CLIP;
+const double FROM_CHIP = cal::CHAN_CLIP * cal::FLT_LOSS / Vop3::WORD;
 }
 
 void Filter::sync(int p, const uint8_t* voice, const uint8_t* rec, int cutoffMod, int lfo2Depth, int lfo2Speed) {
@@ -25,8 +25,8 @@ void Filter::sync(int p, const uint8_t* voice, const uint8_t* rec, int cutoffMod
 // is served in the sample it reports.
 void Filter::run(double v[16]) {
     yss236_core& core = chip.core;
-    for (int n = 0; n < 16; n++) core.in[0][(n + 2) & 15] = v[n] * IN;
+    for (int n = 0; n < 16; n++) core.in[0][(n + 2) & 15] = v[n] * TO_CHIP;
     chip.run();
     if (chip.read(vop3::EG_STATUS)) host.egInterrupt();
-    for (int n = 0; n < 16; n++) v[n] = core.out[(n + 12) & 15] * OUT;
+    for (int n = 0; n < 16; n++) v[n] = core.out[(n + 12) & 15] * FROM_CHIP;
 }

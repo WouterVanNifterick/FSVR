@@ -15,14 +15,15 @@ const double BUS = cal::OUT_GAIN / cal::FX_DRY_GAIN * Vop3::WORD;
 }
 
 void Effects::sync(uint8_t* c) {
-    uint8_t was[192]; std::memcpy(was, host.perf, 192);
+    uint8_t was[vop3host::COMMON_BYTES]; std::memcpy(was, host.perf, sizeof was);
     bool type = false;
     for (int i : TYPE_BYTE)                      // types first: they load defaults, which the other changes then override
         if (c[i] != was[i]) { host.setByte(i, was[i] = c[i]); type = true; }
-    for (int i = 0; i < 192; i++)
+    for (uint32_t i = 0; i < vop3host::COMMON_BYTES; i++)
         if ((c[i] & 0x7f) != was[i]) { host.store(i, c[i]); host.byteChanged(i); }
     host.runPosted();
-    if (type) std::memcpy(c + vop3host::REVERB_PARAM_BYTES, host.perf + vop3host::REVERB_PARAM_BYTES, 111);   // the new type's defaults
+    const uint32_t from = vop3host::REVERB_PARAM_BYTES, to = vop3host::EQ_HIGH_SHAPE + 1;   // every effect byte
+    if (type) std::memcpy(c + from, host.perf + from, to - from);   // the new type's defaults
 }
 
 void Effects::control(int dest, int offset) {

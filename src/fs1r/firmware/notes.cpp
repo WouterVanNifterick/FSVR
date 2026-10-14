@@ -19,8 +19,8 @@ void Synth::filter_latch() {
     all_off();
     fltSw = sw;
     flt.reset();
-    nextChan[0] = nextChan[1] = 0; nextChan[2] = 16;
-    for (int p = 0; p < 4; p++) partChan[p] = sw && !(sw >> p & 1) ? 16 : 0;
+    nextChan[0] = nextChan[1] = 0; nextChan[2] = FILTER_CHANNELS;
+    for (int p = 0; p < 4; p++) partChan[p] = sw && !(sw >> p & 1) ? FILTER_CHANNELS : 0;
 }
 
 // The filter host reads the voice and the part record. Destinations 21 to 26 edit the record, as the firmware
@@ -72,7 +72,7 @@ void Synth::note_on(int part, int note, int vel) {
     // a filter (FUN_0000fa5c), 16 to 31 for one without (FUN_0000fcfa), each with a cursor of its own.
     // OPEN: the two halves' walks are taken to follow the whole walk's three rules; only that one was measured.
     const bool filtered = fltSw >> part & 1;
-    const int first = fltSw && !filtered ? 16 : 0, count = fltSw ? 16 : NCHAN;
+    const int first = fltSw && !filtered ? FILTER_CHANNELS : 0, count = !fltSw ? NCHAN : filtered ? FILTER_CHANNELS : NCHAN - FILTER_CHANNELS;
     int& cursor = nextChan[!fltSw ? 0 : filtered ? 1 : 2];
     auto at = [&](int from, int k) { return first + ((from - first + k) % count + count) % count; };
     Chan* c = nullptr;
@@ -277,7 +277,7 @@ void Synth::note_off(int part, int note) {
 void Synth::release(Chan& C) {
     for (auto& s : C.op) { s.eg.release(); s.ueg.release(); }
     const int slot = int(&C - ch);
-    if (slot < 16 && (fltSw >> C.part & 1)) flt.host.noteOff(slot);   // FUN_00010a52
+    if (slot < FILTER_CHANNELS && (fltSw >> C.part & 1)) flt.host.noteOff(slot);   // FUN_00010a52
     C.pegStage = 4; C.pegTarget = C.pegLvl[4]; C.pegRate = C.pegRt[4];
     fseq_keys();
 }
@@ -405,7 +405,7 @@ void Synth::tick() {
         if (!C.active) continue;
         const Part& pt = perf.part[C.part];
         lfo_tick(C, pt); peg_tick(C); porta_tick(C); refresh_regs(C, pt);
-        if (n < 16 && (fltSw >> C.part & 1)) flt.host.setSlotCutoffMod(n, filter_mod(C));   // FUN_0002c998
+        if (n < FILTER_CHANNELS && (fltSw >> C.part & 1)) flt.host.setSlotCutoffMod(n, filter_mod(C));   // FUN_0002c998
     }
     if (fltSw) flt.host.flush();
 }

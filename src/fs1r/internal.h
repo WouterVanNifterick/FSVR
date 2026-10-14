@@ -346,7 +346,7 @@ struct Synth {
     // While a part has its filter on there are two more walks, each over half the channels: the parts
     // with a filter take the sixteen the filter chip is wired to, the others the rest (FUN_0000fa5c,
     // FUN_0000fcfa). nextChan is the cursor of the whole, the low and the high walk.
-    int nextChan[3] = {0, 0, 16}, partChan[4] = {0, 0, 0, 0};
+    int nextChan[3] = {0, 0, FILTER_CHANNELS}, partChan[4] = {0, 0, 0, 0};
     Effects fx;
     // The voice filters, on their own chip. fltSw is the parts' filter switches as last latched, a bit a part.
     Filter flt; int fltSw = 0;
@@ -452,7 +452,7 @@ struct Synth {
         for (auto& c : ch) c.active = false;
         for (auto& p : perf.part) { p.nheld = 0; }
         fseqRun = false; fseqHeld = false;
-        if (fltSw) for (int s = 0; s < 16; s++) flt.host.kill(s);   // FUN_00010384
+        if (fltSw) for (int s = 0; s < FILTER_CHANNELS; s++) flt.host.kill(s);   // FUN_00010384
     }
     void all_release() { for (auto& c : ch) if (c.active && (c.held || c.sustained)) { c.held = c.sustained = false; release(c); } for (auto& p : perf.part) p.nheld = 0; }
 

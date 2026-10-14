@@ -84,7 +84,7 @@ void Synth::control_change(int p, int cc, int v) {
     case 100: pt.rpnL = v; pt.nrpnSel = false; break;
     case 101: pt.rpnM = v; pt.nrpnSel = false; break;
     case 120: all_off(); break;
-    case 121: pt.reset_ctl(); break;
+    case 121: pt.reset_ctl(); fx_controls(p); break;
     case 123: all_release(); break;
     case 126: pt.p[5] = 0; break;
     case 127: pt.p[5] = 1; break;

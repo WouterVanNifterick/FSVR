@@ -13,6 +13,8 @@ struct Filter final : fs1r::vop3host::WriteSink {
     Vop3 chip;
 
     Filter() { host.sink = this; chip.filter = true; host.boot(); reset(); }
+    Filter(const Filter&) = delete;                          // the host writes to this board's chip
+    Filter& operator=(const Filter&) = delete;
     void write(uint32_t reg, uint32_t v) override { chip.write(reg, (uint16_t)v); }
     uint32_t read(uint32_t reg) override { return chip.read(reg); }
     void reset() { host.freeSlots(); host.clearStates(); }   // as at a performance's start

@@ -257,6 +257,19 @@ int selftest(Synth& S) {
         memset(T.perf.c + 0x28, 0, 0x28);
         init_default_voice(V);
     }
+    // An effect destination follows its sources, a controller reset included (CC 121 zeroes them).
+    {
+        Synth& T = S;
+        memset(T.perf.c + 0x28, 0, 0x28);
+        T.perf.c[0x30] = 0; T.perf.c[0x31] = 1 << Synth::SRC_KN1;     // set 1: KN1
+        T.perf.c[0x40] = 15;                                          // to the insertion's send to the reverb
+        T.perf.c[0x48] = 64 + 32;
+        T.set_source(T.perf.part[0], Synth::SRC_KN1, 127);
+        ck("an effect destination follows its source", T.fx.host.sendReverbOffset == Synth::scale_f9c(127, 32));
+        T.control_change(0, 121, 0);
+        ck("and a controller reset", T.fx.host.sendReverbOffset == 0);
+        memset(T.perf.c + 0x28, 0, 0x28);
+    }
 
     // 5b. the detune law: the ROM's own key scaled table, against what 11_detune measured. The band is
     // (pitchNote >> 8) + 10 - 0x50, which advances four per octave, so note 60 is band 13.

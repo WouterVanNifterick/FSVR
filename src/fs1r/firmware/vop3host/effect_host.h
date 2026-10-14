@@ -41,7 +41,8 @@ enum : uint32_t {
     LOADED                 = 0x8000,     // a new performance: every window, the mixer and the master EQ
 };
 
-// The performance's common bytes the host reads.
+// The performance's common bytes the host reads, of COMMON_BYTES.
+constexpr uint32_t COMMON_BYTES = 192;
 enum : uint32_t {
     VOLUME                = 16,
     INDIVIDUAL_OUT        = 20,
@@ -97,17 +98,17 @@ struct EffectHost : ChipHost {
     // A performance byte enters here: seven bits, and no effect type past the last one.
     void store(uint32_t index, uint32_t value)
     {
-        if (index >= 192) return;
+        if (index >= COMMON_BYTES) return;
         value &= 0x7F;
         if (index == REVERB_TYPE    && value > 16) value = 16;
         if (index == VARIATION_TYPE && value > 28) value = 28;
         if (index == INSERTION_TYPE && value > 40) value = 40;
         perf[index] = uint8_t(value);
     }
-    // A performance's 192 common bytes, loaded as the firmware loads a performance.
+    // A performance's common bytes, loaded as the firmware loads a performance.
     void load(const uint8_t* bytes)
     {
-        for (uint32_t i = 0; i < 192; i++)
+        for (uint32_t i = 0; i < COMMON_BYTES; i++)
             store(i, bytes[i]);
         setSendVariationOffset(0);
         setSendReverbOffset(0);
@@ -130,7 +131,7 @@ struct EffectHost : ChipHost {
     const rom::ParamRange& descriptor(uint32_t index) const;            // its range under the current types
 
     // ---- state ----
-    uint8_t  perf[192]      = {};    // the performance's common bytes
+    uint8_t  perf[COMMON_BYTES] = {};    // the performance's common bytes
     uint32_t posted         = 0;     // what was posted to the effect task and not handled yet
     bool     hold           = false; // while set, changes go to the shadows and nothing is written to the chip
     uint16_t coef[512]      = {};    // each step's COEF

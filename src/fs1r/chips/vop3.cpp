@@ -112,7 +112,7 @@ void Vop3::run()
             rnd = rnd * 1664525u + 1013904223u;
             hold[n] = (float)(int16_t)(rnd >> 16) * (1.0f / 32768.0f);
         }
-        core.lfo[n] = lfo(n) * 128.0;
+        core.lfo[n] = lfo(n) * yss236_core::RANGE;
     }
     core.pass();
 }

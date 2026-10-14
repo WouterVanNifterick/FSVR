@@ -328,16 +328,16 @@ void Synth::render(float* outL, float* outR, int frames) {
         tickAcc += TICK_HZ / SR; while (tickAcc >= 1) { tickAcc -= 1; tick(); }
         // The channels, each panned onto its part's pair. While a part has its filter on the first sixteen
         // pass through the filter chip first, sounding or not, so that a filter rings out after its note.
-        double pl[4] = {}, pr[4] = {}, v[16] = {};
+        double pl[4] = {}, pr[4] = {}, v[FILTER_CHANNELS] = {};
         for (int n = 0; n < NCHAN; n++) {
             Chan& c = ch[n];
             if (!c.active) continue;
             const double m = render_chan(c);
-            if (fltSw && n < 16) v[n] = m; else { pl[c.part] += m * c.panL; pr[c.part] += m * c.panR; }
+            if (fltSw && n < FILTER_CHANNELS) v[n] = m; else { pl[c.part] += m * c.panL; pr[c.part] += m * c.panR; }
         }
         if (fltSw) {
             flt.run(v);
-            for (int n = 0; n < 16; n++) { pl[ch[n].part] += v[n] * ch[n].panL; pr[ch[n].part] += v[n] * ch[n].panR; }
+            for (int n = 0; n < FILTER_CHANNELS; n++) { pl[ch[n].part] += v[n] * ch[n].panL; pr[ch[n].part] += v[n] * ch[n].panR; }
         }
         // Four stereo buses into the effect chip: dry, insertion, variation send, reverb send. The rest is the chip's.
         double bus[8] = {}, l, r;
@@ -348,7 +348,9 @@ void Synth::render(float* outL, float* outR, int frames) {
             bus[6] += pl[p] * revS[p]; bus[7] += pr[p] * revS[p];
         }
         fx.run(bus, l, r);
-        // gain stands in for the analogue volume pot, after the DAC
+        // Ours: whatever happens upstream, the host never gets a NaN. gain stands in for the analogue volume
+        // pot, after the DAC.
+        if (!std::isfinite(l) || !std::isfinite(r)) l = r = 0.0;
         outL[i] = (float)(l * gain); outR[i] = (float)(r * gain);
     }
 }
