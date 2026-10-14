@@ -17,7 +17,7 @@
 //   - 64 m cells
 //   - 16 t registers
 //   - 128 delay slots into a 2^18-word delay RAM
-//   - 16 LFOs
+//   - 16 LFO values
 //   - 16 EG levels
 //   - 16 serial input slots (two banks)
 //   - 16 serial output slots
@@ -94,7 +94,6 @@ public:
 	uint16_t coef[STEPS];
 	uint8_t  tag[STEPS];
 	uint16_t slot[SLOTS][2];      // registers 0x0D (bits 17-9) and 0x0E (bits 8-0)
-	uint16_t lfo_reg[LFOS][4];    // registers 0x24..0x27
 
 	// Decoded program
 	op ops[STEPS];
@@ -124,11 +123,10 @@ public:
 
 	yss236_core()
 	{
-		std::memset(prog   , 0, sizeof(prog));
-		std::memset(coef   , 0, sizeof(coef));
-		std::memset(tag    , 0, sizeof(tag));
-		std::memset(slot   , 0, sizeof(slot));
-		std::memset(lfo_reg, 0, sizeof(lfo_reg));
+		std::memset(prog, 0, sizeof(prog));
+		std::memset(coef, 0, sizeof(coef));
+		std::memset(tag , 0, sizeof(tag));
+		std::memset(slot, 0, sizeof(slot));
 		ram.resize(RAM_WORDS);
 		decode_all();
 		reset();

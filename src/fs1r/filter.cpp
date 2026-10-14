@@ -29,6 +29,6 @@ void Filter::run(double v[16]) {
     yss236_core& core = chip.core;
     for (int n = 0; n < 16; n++) core.in[0][(n + 2) & 15] = v[n] * IN;
     chip.run();
-    if (chip.read(fs1r::vop3host::EG_STATUS)) host.egInterrupt();
+    if (chip.read(vop3::EG_STATUS)) host.egInterrupt();
     for (int n = 0; n < 16; n++) v[n] = core.out[(n + 12) & 15] * OUT;
 }

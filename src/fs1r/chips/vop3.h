@@ -8,8 +8,8 @@
 #include <cmath>
 #include <cstdint>
 #include "../hardware.h"
-#include "../firmware/vop3host/sink.h"
 #include "cal.h"
+#include "vop3_regs.h"
 #include "yss236_core.h"
 
 struct Vop3 {
@@ -17,6 +17,7 @@ struct Vop3 {
 
     yss236_core core;
     uint16_t select = 0;                    // the register latch
+    uint16_t lfoReg[yss236_core::LFOS][4] = {};   // LFO_SPEED, LFO_WAVE, LFO_DEPTH and LFO_DIRECTION
     uint32_t phase[yss236_core::LFOS] = {}, rnd = 1;
     float hold[yss236_core::LFOS] = {};     // sample and hold
     bool filter = false;                    // the board's filter chip: picks the reading of LFO_DIRECTION, see lfo()
@@ -26,7 +27,7 @@ struct Vop3 {
     uint16_t done = 0, enable = 0;          // the segments that ended, and EG_STATUS as written
 
     void write(uint32_t reg, uint16_t v) {
-        using namespace fs1r::vop3host;
+        using namespace vop3;
         reg &= 0xff;
         if (reg == SELECT) { select = v; return; }
         const int step = select & (yss236_core::STEPS - 1);
@@ -40,11 +41,11 @@ struct Vop3 {
             case SLOT_LOW:      core.slot[step & (yss236_core::SLOTS - 1)][reg - SLOT_HIGH] = v; break;
             case TRIGGER:       core.trigger(); break;
             case LFO_RESET:     // to the start phase, LFO_WAVE's low 5 bits
-                for (int n = 0; n < yss236_core::LFOS; n++) if (v >> n & 1) phase[n] = (uint32_t)(core.lfo_reg[n][1] & 0x1f) << 27;
+                for (int n = 0; n < yss236_core::LFOS; n++) if (v >> n & 1) phase[n] = (uint32_t)(lfoReg[n][1] & 0x1f) << 27;
                 break;
             case EG_STATUS:     enable = v; break;
             case LFO_SPEED: case LFO_WAVE: case LFO_DEPTH:
-            case LFO_DIRECTION: core.lfo_reg[step & (yss236_core::LFOS - 1)][reg - LFO_SPEED] = v; break;
+            case LFO_DIRECTION: lfoReg[step & (yss236_core::LFOS - 1)][reg - LFO_SPEED] = v; break;
             case EG_RATE: case EG_TARGET:
             case EG_AIM:        if (step < 16) egWrite(step, reg, v); break;
             default:            break;      // serial port setup and the mute: not modelled
@@ -53,7 +54,7 @@ struct Vop3 {
     // EG_STATUS read: bit 4 and the lowest channel whose segment ended, of those enabled.
     uint16_t read(uint32_t reg) const {
         const uint16_t p = done & enable;
-        if ((reg & 0xff) != fs1r::vop3host::EG_STATUS || !p) return 0;
+        if ((reg & 0xff) != vop3::EG_STATUS || !p) return 0;
         int n = 0;
         while (!(p >> n & 1)) n++;
         return (uint16_t)(0x10 | n);
@@ -66,7 +67,7 @@ struct Vop3 {
     // OPEN: a segment armed within two units of its target ends after cal::FEG_FLAT_S whatever its rate.
     // That is what the unit was measured to do. How it does it is not known.
     void egWrite(int n, uint32_t reg, uint16_t v) {
-        using namespace fs1r::vop3host;
+        using namespace vop3;
         Eg& g = eg[n];
         if (reg == EG_AIM) { g.aim = (int16_t)v; return; }
         if (reg == EG_RATE) {
@@ -83,8 +84,8 @@ struct Vop3 {
     }
     // An LFO's value, -1..1 times its depth: its LFO_SPEED, LFO_WAVE and start phase, LFO_DEPTH, LFO_DIRECTION.
     float lfo(int n) const {
-        using namespace fs1r::vop3host;
-        const uint16_t* reg = core.lfo_reg[n];
+        using namespace vop3;
+        const uint16_t* reg = lfoReg[n];
         const float x = (float)phase[n] * (1.0f / 4294967296.0f);
         float v;
         switch ((reg[1] >> 5) & 7) {
@@ -115,8 +116,8 @@ struct Vop3 {
         }
         for (int n = 0; n < yss236_core::LFOS; n++) {
             const uint32_t was = phase[n];
-            phase[n] = was + ((uint32_t)(core.lfo_reg[n][0] & 0x3ff) << 12);
-            if (((core.lfo_reg[n][1] >> 5) & 7) == fs1r::vop3host::SAMPLE_HOLD && phase[n] < was) {
+            phase[n] = was + ((uint32_t)(lfoReg[n][0] & 0x3ff) << 12);
+            if (((lfoReg[n][1] >> 5) & 7) == vop3::SAMPLE_HOLD && phase[n] < was) {
                 rnd = rnd * 1664525u + 1013904223u;
                 hold[n] = (float)(int16_t)(rnd >> 16) * (1.0f / 32768.0f);
             }

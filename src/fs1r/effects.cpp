@@ -6,10 +6,10 @@
 #include <cstring>
 #include "fs1r/chips/cal.h"
 
-namespace vop3 = fs1r::vop3host;
+namespace vop3host = fs1r::vop3host;
 
 namespace {
-const int TYPE_BYTE[3] = {vop3::REVERB_TYPE, vop3::VARIATION_TYPE, vop3::INSERTION_TYPE};   // by Block
+const int TYPE_BYTE[3] = {vop3host::REVERB_TYPE, vop3host::VARIATION_TYPE, vop3host::INSERTION_TYPE};   // by Block
 // Bus sample to serial word, so that a dry performance leaves the chip at cal::OUT_GAIN.
 const double BUS = cal::OUT_GAIN / cal::FX_DRY_GAIN * Vop3::WORD;
 }
@@ -22,15 +22,15 @@ void Effects::sync(uint8_t* c) {
     for (int i = 0; i < 192; i++)
         if ((c[i] & 0x7f) != was[i]) { host.store(i, c[i]); host.byteChanged(i); }
     host.runPosted();
-    if (type) std::memcpy(c + vop3::REVERB_PARAM_BYTES, host.perf + vop3::REVERB_PARAM_BYTES, 111);   // the new type's defaults
+    if (type) std::memcpy(c + vop3host::REVERB_PARAM_BYTES, host.perf + vop3host::REVERB_PARAM_BYTES, 111);   // the new type's defaults
 }
 
 void Effects::setType(Block b, int type) { host.setByte(TYPE_BYTE[b], type); }
 
 // Reverb slots 1-8 are two bytes and 9-16 one byte. Variation and insertion slots are two bytes.
 void Effects::setParam(Block b, int slot, int word) {
-    if (b == REVERB && slot > 8) { host.setByte(vop3::REVERB_PARAM_BYTES_9 + slot - 9, word); return; }
-    int i = (b == REVERB ? vop3::REVERB_PARAM_BYTES : b == VARIATION ? vop3::VARIATION_PARAM_BYTES : vop3::INSERTION_PARAM_BYTES) + 2 * (slot - 1);
+    if (b == REVERB && slot > 8) { host.setByte(vop3host::REVERB_PARAM_BYTES_9 + slot - 9, word); return; }
+    int i = (b == REVERB ? vop3host::REVERB_PARAM_BYTES : b == VARIATION ? vop3host::VARIATION_PARAM_BYTES : vop3host::INSERTION_PARAM_BYTES) + 2 * (slot - 1);
     host.store(i + 1, word & 0x7f);
     host.setByte(i, word >> 7);
 }
@@ -39,7 +39,7 @@ void Effects::control(int dest, int offset) {
     int16_t* at = dest == 15 ? &host.sendReverbOffset : &host.sendVariationOffset;
     int param = 0;
     if (dest <= 14) {                            // an insertion parameter, by the type's row of the controller map
-        param = vop3::rom::INSERTION_CONTROL[host.readParameter(vop3::INSERTION_TYPE)][dest - 1];
+        param = vop3host::rom::INSERTION_CONTROL[host.readParameter(vop3host::INSERTION_TYPE)][dest - 1];
         if (param == 0xff) return;
         at = &host.controlOffset[param];
     }
