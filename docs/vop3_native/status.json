@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T22:49:13Z",
+ "updated": "2026-10-15T22:51:57Z",
  "programs": [
   {
    "key": "flt",
@@ -400,13 +400,16 @@
     "ins-12 Auto Pan",
     "ins-13 Ambience"
    ],
-   "stage": "todo",
+   "stage": "reading",
    "check": null,
    "passes": 0,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Rotary SP, 2WayRotary, Tremolo, Auto Pan, Ambience",
-   "note": "",
-   "updated": null
+   "note": "Program 0x1a0-0x1ff, 96 steps, 5 types (ins-09 Rotary SP, ins-10 2WayRotary, ins-11 Tremolo, ins-12 Auto Pan, ins-13 Ambience), all under msb 1 = INSERTION_PROGRAMS[1]. No control steps and no class-0 steps: every step is class 1, 2 or 3, so no gate or skip guard inside the range. Same skeleton as ins-m00 (three sweep accumulators into fractional delay taps, two tone-shaped channels, dry/wet, two delay-line writes). Host names for the registers: ROT_LEVEL 0x1C3/0x1B4/0x1CD/0x1CC/0x1C6/0x1C4/0x1CE/0x1BC, ROT_WORDS 0x1FB/0x1FD/0x1FC/0x1FE, ROT_PAN 0x1F3/0x1F6/0x1F5/0x1F8, TREM_WORDS 0x1F9/0x1FA, TREM_SLOTS 0x7E/0x6D/0x6E/0x71/0x72/0x7F/0x73/0x74, BAL_STEP_A/D/B 0x1A6/0x1A3/0x1AB, MODE_STEPS_A/B 0x1BF,0x1C0 / 0x1B6,0x1B7, LPF_ROT 0x1D3/0x1D1/0x1D2 + LPF_ROT_C 0x1E0/0x1DE/0x1DF, HPF_ROT 0x1DB/0x1D9/0x1DA + HPF_ROT_C 0x1E8/0x1E6/0x1E7, EQ_ROT 0x1D8/0x1D4..0x1D7 + EQ_ROT_C 0x1E5/0x1E1..0x1E4. Next: straight transcription, one case per step in step() order.",
+   "updated": "2026-10-15T22:51:57Z",
+   "claimed": "2026-10-15T22:50:01Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "ins-m02",
