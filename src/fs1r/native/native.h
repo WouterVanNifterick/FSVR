@@ -27,6 +27,7 @@ void aux(yss236_core& c, int from, int to);         // aux: the aux window's pro
 void dly_m00(yss236_core& c, int from, int to);     // dly-m00: the reverb delay window's program for type msb 00
 void dly_m08(yss236_core& c, int from, int to);     // dly-m08: the reverb delay window's program for type msb 08
 void flt(yss236_core& c, int from, int to);         // flt: the filter chip's program, all 512 steps
+void ins_m00(yss236_core& c, int from, int to);     // ins-m00: the insertion window's program for type msb 00
 void rev(yss236_core& c, int from, int to);         // rev: the reverb's steps of the base program
 void var_m00(yss236_core& c, int from, int to);     // var-m00: the variation window's program for type msb 00
 void var_m01(yss236_core& c, int from, int to);     // var-m01: the variation window's program for type msb 01

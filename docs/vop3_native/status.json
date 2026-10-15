@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T22:19:42Z",
+ "updated": "2026-10-15T22:49:13Z",
  "programs": [
   {
    "key": "flt",
@@ -377,13 +377,16 @@
     "ins-35 Echo",
     "ins-36 CrossDelay"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 528000,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Thru, Chorus, Celeste, Flanger, Symphonic, Delay LCR, Delay L,R, Echo, CrossDelay",
-   "note": "",
-   "updated": null
+   "note": "Done. The 96 steps 0x1a0-0x1ff in six groups: the LFO cell m[12] through a rectifier into three accumulators (r[121], r[125], r[123]) that name the three delay lengths in t[9], t[10] and t[11] and the index the taps read at; the left channel's three bands (ins::LPF_MOD, ins::EQ_MOD, ins::HPF_MOD) with the slots 0x6E/0x6F and 0x70/0x71 read on the way; the other two tap pairs 0x72/0x73 and 0x75/0x76, their four interpolations into r[79], r[119], r[81] and r[120], the fixed taps of 0x68 and 0x69 latched at 0x1cc and 0x1ea and spent on the slots 0x74 and 0x7A, and the right channel's bands with ins::DELAY_CURVE and ins::DELAY_CURVE_COPY; the dry and wet ins::MOD_WORDS into r[17] and r[18] and the two delay lines' writes at 0x1fb and 0x1ff. Two things the next row should know: a writer without w1[13] spends the latch an earlier latching step left (0x1d3 and 0x1eb), which is what puts the fixed tap into the slot 0x74 instead of the step's own value, and a step that carries w1[13] and is a writer drops it and writes its own value; and every slot the insertion window touches holds the same offset until a handler programs one, so its taps and its writes land on one RAM word and a difference there hides for thousands of passes before a capture picks it up. One reading to check separately: the three accumulators are seeded at 0x1A7, 0x1AA, 0x1AF and 0x1B1, whose words belong to ins::PC_FB and ins::LFO_DIR_STEPS (the ensemble detune) and the phaser's tables, and none of chorus(), flanger(), symphonic(), delayLCR(), delayLR(), echo() or crossDelay() writes them, so under those types the index is zero and the taps sit at the offsets the host wrote. vop3_native_check ins-m00: identical, 55 types, 528000 native passes.",
+   "updated": "2026-10-15T22:49:13Z",
+   "claimed": "2026-10-15T22:20:00Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "ins-m01",
