@@ -63,20 +63,16 @@ def row(doc, key):
 
 
 def ready(doc):
-    """The next row to work on: the first not done or blocked. retire-jit is never handed out: retiring the
-    JIT is Claude's job, not the agent's, so the row is only there for the status page."""
+    """The next row to work on: the first not done or blocked."""
     for r in doc["programs"]:
-        if r["stage"] in ("done", "blocked") or r["key"] == "retire-jit":
-            continue
-        return r
+        if r["stage"] not in ("done", "blocked"):
+            return r
     return None
 
 
 def title(r):
     """The thread's name for a row: its key and what it is, within Discord's 100 characters."""
     k = r["key"]
-    if k == "retire-jit":
-        return "retire-jit: retiring the VOP3 JIT"
     fixed = {"base": "the mixer and master EQ", "aux": "the aux window"}
     if r["window"] in fixed:
         return f"{k}: {fixed[r['window']]}"

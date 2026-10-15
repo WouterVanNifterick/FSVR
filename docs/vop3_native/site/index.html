@@ -42,7 +42,7 @@
 <body>
 <main>
   <h1>FSVR native VOP3</h1>
-  <p class="lede">The FS1R's filter and effect programs, ported from the VOP3 chips' microcode to C++, one program at a time. A program is done when it matches the emulation bit for bit on every effect type that runs it. When every program is done, FSVR's VOP3 JIT retires. The work runs on the <a href="https://github.com/musicastudio/FSVR/tree/vop3-native">vop3-native branch</a>; <a href="https://github.com/musicastudio/FSVR/blob/vop3-native/docs/vop3_native/README.md">how it works</a>.</p>
+  <p class="lede">The FS1R's filter and effect programs, ported from the VOP3 chips' microcode to C++, one program at a time. A program is done when it matches the emulation bit for bit on every effect type that runs it. The work runs on the <a href="https://github.com/musicastudio/FSVR/tree/vop3-native">vop3-native branch</a>; <a href="https://github.com/musicastudio/FSVR/blob/vop3-native/docs/vop3_native/README.md">how it works</a>.</p>
   <div class="banner" id="paused">Paused: no new sessions start until the port is resumed.</div>
   <div class="bars" id="bars"></div>
   <div id="rows"><p>Loading…</p></div>
@@ -53,7 +53,7 @@ const SRC = "https://raw.githubusercontent.com/musicastudio/FSVR/vop3-native/doc
 const CODE = "https://github.com/musicastudio/FSVR/blob/vop3-native/src/fs1r/native/";
 const GROUPS = [
   ["filter", "Filter chip (VOP3-1)"], ["reverb", "Reverb"], ["reverb-delay", "Reverb-delay window"], ["aux", "Aux window"],
-  ["variation", "Variation window"], ["insertion", "Insertion window"], ["base", "Mixer and master EQ"], ["-", "Retiring the JIT"]];
+  ["variation", "Variation window"], ["insertion", "Insertion window"], ["base", "Mixer and master EQ"]];
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 function ago(t) {
@@ -69,13 +69,11 @@ function bar(name, done, total, text) {
 function render(doc) {
   const rows = doc.programs, isDone = r => r.stage === "done";
   const flt = rows.filter(r => r.chip === "VOP3-1"), fx = rows.filter(r => r.chip === "VOP3-2");
-  const retire = rows.find(r => r.key === "retire-jit");
   const blocked = rows.filter(r => r.stage === "blocked").length;
   document.getElementById("paused").style.display = doc.paused ? "block" : "none";
   document.getElementById("bars").innerHTML =
     bar("Filter", flt.filter(isDone).length, flt.length, `${flt.filter(isDone).length} of ${flt.length} program`) +
-    bar("Effects", fx.filter(isDone).length, fx.length, `${fx.filter(isDone).length} of ${fx.length} programs` + (blocked ? `, ${blocked} blocked` : "")) +
-    bar("JIT", retire && isDone(retire) ? 1 : 0, 1, retire && isDone(retire) ? "retired" : retire && retire.stage !== "todo" ? "retiring: " + retire.stage : "still running the microcode");
+    bar("Effects", fx.filter(isDone).length, fx.length, `${fx.filter(isDone).length} of ${fx.length} programs` + (blocked ? `, ${blocked} blocked` : ""));
   let html = "";
   for (const [win, title] of GROUPS) {
     const g = rows.filter(r => r.window === win);

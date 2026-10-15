@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T20:29:11Z",
+ "updated": "2026-10-15T20:31:18Z",
  "programs": [
   {
    "key": "flt",
@@ -77,13 +77,13 @@
     "rev-11 Basement",
     "rev-12 Canyon"
    ],
-   "stage": "writing",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 124800,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of No Effect, Hall1, Hall2, Room1, Room2, Room3, Stage1, Stage2, Plate, White Room, Tunnel, Basement, Canyon",
    "note": "Straight transcription of all 72 steps in dly_m00.cpp, declared in native.h and registered in native.cpp. build/vop3_native_check dly-m00: 13 types, 124800 native passes, identical. Next session: tidy the step comments and the naming to the DSP the steps form.",
-   "updated": "2026-10-15T20:28:09Z",
+   "updated": "2026-10-15T20:31:18Z",
    "claimed": "2026-10-15T20:20:05Z",
    "nudges": 1,
    "sessions": 1,
@@ -524,20 +524,6 @@
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the mixer and the master EQ",
    "note": "",
    "updated": null
-  },
-  {
-   "key": "retire-jit",
-   "chip": "both",
-   "window": "-",
-   "steps": 0,
-   "types": [],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
-   "commit": null,
-   "start_from": "docs/vop3_native/README.md, Retiring the JIT",
-   "note": "Claude retires the JIT once every program is done; it is not the openCode agent's job.",
-   "updated": "2026-10-15T20:29:11Z"
   }
  ]
 }

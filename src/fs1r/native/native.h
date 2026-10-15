@@ -3,7 +3,7 @@
 // One function per chip program, ported from the microcode the firmware uploads. Each runs a range of its
 // program's steps on the core's own state exactly as yss236_core::step would, bit for bit, so it can stand
 // in for the interpreter one range at a time (yss236_core::natives) and be checked against it
-// (tools/vop3_native_check). When every program has one, the interpreter and the JIT go.
+// (tools/vop3_native_check).
 // docs/vop3_native/README.md is the brief, docs/vop3_native/status.json the tracker.
 #pragma once
 #include "fs1r/chips/yss236_core.h"

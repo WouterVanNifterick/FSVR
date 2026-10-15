@@ -1,6 +1,6 @@
 # The VOP3 programs in C++
 
-FSVR runs both of the FS1R's VOP3 chips on an emulated YSS236: the filter chip (VOP3-1) and the effect chip (VOP3-2) execute the firmware's own microcode, compiled at run time by the JIT in `src/fs1r/chips/yss236_jit.cpp` and checked against the interpreter in `src/fs1r/chips/yss236_core.h` by the `vop3_jit` test. This port replaces that microcode, program by program, with C++ that produces the same result bit for bit. When every program is ported, Claude retires the JIT, the interpreter and AsmJit; that last step is not part of this brief.
+FSVR runs both of the FS1R's VOP3 chips on an emulated YSS236: the filter chip (VOP3-1) and the effect chip (VOP3-2) execute the firmware's own microcode, compiled at run time by the JIT in `src/fs1r/chips/yss236_jit.cpp` and checked against the interpreter in `src/fs1r/chips/yss236_core.h` by the `vop3_jit` test. This port replaces that microcode, program by program, with C++ that produces the same result bit for bit.
 
 The tracker is `docs/vop3_native/status.json`, one row per chip program the FS1R loads, and the public view of it is https://ai.musica.studio/effects. Work happens on the `vop3-native` branch only.
 
@@ -91,7 +91,3 @@ python3 tools/vop3_native.py status                        # every row
 python3 tools/vop3_native.py check <key>                   # check and record
 ctest --test-dir build                                     # everything, before each push
 ```
-
-## Retiring the JIT is not yours
-
-The `retire-jit` row is on the tracker only so the status page shows it; the routine never hands it out. Claude retires the JIT once every program is done, so leave the JIT, the interpreter, AsmJit, `vop3_jit_check` and the production path alone: never make the natives the default in `Effects` or `Filter`, and never remove or disable anything the emulation runs on. When the last program row is done, close that session as usual and stop; the routine then has nothing left to start.
