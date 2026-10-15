@@ -11,6 +11,7 @@ const Program PROGRAMS[] = {
     {"dly-m08", dly_m08},
     {"flt", flt},
     {"rev", rev},
+    {"var-m00", var_m00},
     {nullptr, nullptr},
 };
 

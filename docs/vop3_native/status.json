@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T20:49:42Z",
+ "updated": "2026-10-15T20:57:02Z",
  "programs": [
   {
    "key": "flt",
@@ -143,13 +143,16 @@
     "var-03 Flanger",
     "var-04 Symphonic"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 211200,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of No Effect, Chorus, Celeste, Flanger, Symphonic",
-   "note": "",
-   "updated": null
+   "note": "72 steps, identical over 22 types. Two delay lines (slots 0x66/0x67), eight LFO-modulated taps read at cur_idx() (slots 0x5b-0x62), each captured 5 steps later into m[56]-m[63]; four pairwise tap sums in r[119]-r[122] use t[9], t[10], t[11], which also load the delay index. Outputs r[15]/r[16]. Six published reads in m[28]-m[33].",
+   "updated": "2026-10-15T20:57:02Z",
+   "claimed": "2026-10-15T20:50:00Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "var-m01",
