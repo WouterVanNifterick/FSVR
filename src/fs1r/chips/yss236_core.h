@@ -42,6 +42,8 @@ public:
 
 	// Measured on the unit (sNN: the session in docs/vop3_isa.md)
 	static constexpr int LAT = 3;              // s24 r10: a register written at step n is read from n + 3
+	static constexpr int CAPMIN = 5;           // s40c: a capture takes a RAM transfer made 5..11 steps earlier
+	static constexpr int XFER_FROM = 3;        // s40a/b/d: RAM marks on steps 000..002 transfer nothing
 	static constexpr int DLAT = 3;             // s30/s31: m cell writes and captures land 3 steps later
 	static constexpr double RANGE = 128.0;     // s24: registers span [-128, 128), word / 256
 	static constexpr double ACC = 256.0;       // s24: the running value wraps at +-256 (mode 0)
@@ -67,7 +69,7 @@ public:
 		uint8_t dwr;     // w1[12:8] nonzero: a class-1 step also writes its m cell (s29)
 		uint8_t idxw;    // w2[2]    delay address index from p, in effect 3 steps later (the scale is OPEN)
 		uint8_t idxa;    // w2[3]    add the index to this memory cycle
-		uint8_t tbl;     // w2[5]    set on every delay RAM access of the AN boards, on none of the FS1R's (docs/vop3_an_ram.md)
+		uint8_t tbl;     // w2[5]    the RAM access ignores the ring pointer (s40; the AN boards' tables, docs/vop3_an_ram.md)
 		uint8_t dm;      // w2[12:7] m cell written
 		uint8_t msrc;    // w2[15:13] m write source: 0 serial, 1 serial bank 2, 2 LFO, 3 EG level, 4/5 capture, 6 p, 7 previous operand
 		uint8_t t;       // w3[2:0]  t register read
@@ -325,27 +327,24 @@ private:
 	static double clip2(double v, double lo, double hi) { double const m = v < hi ? v : hi; return lo < m ? m : lo; }
 	static double clip(double v, double c) { return clip2(v, -c, c); }
 
-	uint32_t addr(int s, int older, bool tbl = false) const
+	// s40a/b/d: a w2[5] access, read or write, addresses the RAM at the slot offset without the ring pointer
+	// (the AN boards' lookup tables)
+	uint32_t addr(int s, int older, bool tbl) const
 	{
-#ifdef YSS236_TABLE_ADDR
-		// Candidate rule, OPEN: a w2[5] access addresses the RAM absolutely (no pointer), as the AN boards' lookup
-		// tables need. tools/vop3_an_ram.cpp builds with it; the compiled pass does not have it (jit_pass).
 		if (tbl)
 			return uint32_t(int32_t(slot_offset(s)) + older) & (RAM_WORDS - 1);
-#endif
-		(void)tbl;
 		return uint32_t(ptr + int32_t(slot_offset(s)) + older) & (RAM_WORDS - 1);
 	}
 
-	// s36k: a capture at step st takes the latest delay RAM read of this pass made
-	// 3..11 steps earlier, else keeps its old value. A pass pushes its reads in step order.
+	// s36k/s40c: a capture at step st takes the latest delay RAM read of this pass made
+	// 5..11 steps earlier, else keeps its old value. A pass pushes its reads in step order.
 	double captured(double old, int st) const
 	{
 		for (int i = m_nhist; i-- > 0;)
 		{
 			if (m_hist[i].st <= st - 12)
 				break;
-			if (m_hist[i].st <= st - 3)
+			if (m_hist[i].st <= st - CAPMIN)
 				return m_hist[i].v;
 		}
 		return old;
@@ -434,7 +433,7 @@ private:
 		int const mo = o.clamp;
 		int const page = (st >> 5) & 15;   // I/O slot: page * 2 + half
 		int const s = st >> 2;
-		bool const xfer_phase = (st & 3) == 3 || (st & 3) == 1;   // s16 phase 3, s17/s30 phase 1
+		bool const xfer_phase = st >= XFER_FROM;   // s40f: every phase transfers; s40a/b/d: steps 000..002 never
 
 		// delay RAM read for this slot
 		if (xfer_phase && (o.memop == 2 || o.memop == 3 || o.memop == 4 || o.memop == 6))
@@ -492,7 +491,7 @@ private:
 			// s34: a class-0 write step writes the latched data, otherwise nothing
 			if (xfer_phase && o.memop == 1 && haswl)
 			{
-				ram[addr(s, o.idxa ? cur_idx() : 0)] = wlatch;
+				ram[addr(s, o.idxa ? cur_idx() : 0, o.tbl)] = wlatch;
 				haswl = false;
 			}
 			if (o.alu)
@@ -549,7 +548,7 @@ private:
 				outv = wlatch;
 				haswl = false;
 			}
-			ram[addr(s, o.idxa ? cur_idx() : 0)] = outv;
+			ram[addr(s, o.idxa ? cur_idx() : 0, o.tbl)] = outv;
 		}
 	}
 

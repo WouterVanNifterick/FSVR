@@ -8,6 +8,18 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-15, session 40: how the VOP3 addresses a lookup table, and the phase rule was a capture window
+
+Seven takes on rgwan's FS1R, run from here over SSH on the s25 runner, settled the two points the AN-board RAM work left open, and corrected a rule the effect model had carried since session 16. Details, every probe and the numbers: `docs/vop3_an_ram.md`, section "Session 40".
+
+**`r8[5]` drops the ring pointer.** With a write and a read at the same slot offset, both carrying `r8[5]`, the read returns the word written in the same pass (R with L, 0 late); one word apart, nothing. Bit 5 on only one side gives no echo at the expected lag. The AN boards' own mark bytes 0x28 and 0x68 behave as 0x60. So the AN programs' table reads land on the table at the slot offset, which is what the AN1x mask ROM's wiring needs.
+
+**There is no phase rule.** Hall1's phase-1 read moved to phases 0, 2, 3 and back to 1 gives the shipped echo at 1346 on all four. Session 16's "transfers only on steps 3 mod 4" and session 17's "and 1" were a capture rule seen through moved reads: a capture takes the latest transfer made **5..11** steps back (s36k had 3..11; 40c shows 1 to 4 steps hold). Separately, a RAM mark on steps 000..002 transfers nothing on any phase. Insertion program 13 ships phase-0 reads at 1a4..1b0, and clearing 1a4's mark silences the insertion on the unit.
+
+**What moved in the engine.** `yss236_core.h`, its compiled pass and `tools/vop3_interp.py` carry the three rules. Of the 384 factory performances rendered before and after, 379 are bit-identical and the five on insertion program 13 change (-13 to -19 dB of peak, rms within 4%), as 40g says they should. The old interpreter matched 27 of 49 timed s40 probes; the new one matches 46. The interpreter self-check (398/398), the s26k/s27a probe boards and `vop3_jit_check` (229,600 passes) are unchanged.
+
+**Open.** The AN boards boot register 5 = 2 where the FS1R writes 0x1FF4, and writing 2 on the FS1R silences its program. That register is the likeliest place a table or RAM mode lives.
+
 ## 2026-10-15, the AN boards' VOP3 RAM is a lookup table, and the AN1x mask ROM is rebuilt from the PLG150-AN's
 
 The PLG150-AN's H8 loads 0x6121 words of tables into the VOP3's DRAM once at boot (`FUN_00081358`: registers 0x0F/0x10 = 0, then each word of ROM 0xC245C into 0x11). Nothing writes it again, no PLG150-AN or AN1x program carries a single RAM write mark, and every RAM read on both boards sets `r8[5]`, a bit no FS1R delay access sets. So on the AN boards the delay port is a table ROM, which is why the AN1x can put a 1 Mbit mask ROM where the PLG150-AN has DRAM. The nine tables are exp, powers of two, decay, two sines, an odd periodic shape, a soft clipper, a ramp and a reciprocal.

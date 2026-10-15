@@ -91,22 +91,21 @@ def operation(step, f, voices=0):
             out.append("rd w[%x]" % f["rd"])
     d = f["daddr"]
     if d >> 7 == 2:
-        out.append("d[%02x] <- xfer(slot %02x, else %02x)" % (d & 0x7f, (step >> 2) - 2, (step >> 2) - 1))
+        out.append("d[%02x] <- xfer(steps %03x..%03x)" % (d & 0x7f, max(0, step - 11), max(0, step - 5)))   # s40c: the latest 5..11 back
     elif d and d >> 8 == 0:
         out.append("d[%03x]" % d)                      # table pointer
     elif d >> 7 == 3 and f["f6a"] != 2:
         out.append("d[%03x]" % d)
     m, slot = f["mem"], step >> 2
-    if m and step & 3 != 3:
-        # s16: a read on phase 0/2 transfers nothing. That is the chip, so it holds for the AN images' off-phase marks
-        # too; phase 1 and off-phase writes are the only cases no take has tried.
-        out.append("mem%d(phase %d: %s)" % (m, step & 3, "no xfer" if step & 3 in (0, 2) and m in (2, 3) else "untested"))
+    ram = "table" if f["mmode"] & 0x20 else "dram"     # s40: r8[5] addresses the slot offset with no ring pointer
+    if m and step < 3:
+        out.append("mem%d(step < 3: no xfer)" % m)     # s40a/b/d: steps 000..002 never transfer; every phase does (s40f)
     elif m == 1:
-        out.append("dram[%02x] = y%s" % (slot, ROUTE[f["f7b"]]))
+        out.append("%s[%02x] = y%s" % (ram, slot, ROUTE[f["f7b"]]))
     elif m in (2, 3):
-        out.append("xfer = dram[%02x]" % slot)
+        out.append("xfer = %s[%02x]" % (ram, slot))
     elif m in (4, 6):
-        out.append("xfer = dram[%02x] older" % slot)   # one pass older than 2/3
+        out.append("xfer = %s[%02x] older" % (ram, slot))   # one pass older than 2/3
     elif m:
         out.append("mem%d[slot %02x] untested" % (m, slot))
     return out
@@ -247,9 +246,11 @@ def demo():
     assert "y = s -> w[04]" in disasm(0xd3, (0x0001, 0x2000, 0x0040, 0x7100, 0x8004)) and \
         "dram[34] = y" in disasm(0xd3, (0x0001, 0x2000, 0x0040, 0x7100, 0x8004))
     assert "xfer = dram[36]" in disasm(0xdb, (0x0002, 0, 0x0040, 0, 0))
-    assert "d[0b] <- xfer(slot 36, else 37)" in disasm(0xe0, (0, 0, 0x8580, 0, 0))
+    assert "d[0b] <- xfer(steps 0d5..0db)" in disasm(0xe0, (0, 0, 0x8580, 0, 0))
     assert "y = k*d[0b]" in disasm(0xe9, encode(op=7, route=1, daddr=0x18b))
-    assert "mem2(phase 0: no xfer)" in disasm(0xd8, (0x0002, 0, 0x0040, 0, 0))
+    assert "xfer = dram[36]" in disasm(0xd8, (0x0002, 0, 0x0040, 0, 0))            # s40f: phase 0 transfers
+    assert "mem2(step < 3: no xfer)" in disasm(0x000, (0x0002, 0, 0x0040, 0, 0))
+    assert "xfer = table[04]" in disasm(0x011, (0x0002, 0, 0x0068, 0x4112, 0x800A))   # PLG150-AN mode 0's exp read
     assert "y = |-s + k*s|" in disasm(0, encode(op=0, sel=1, r7x=0x800)) and "d[0b] = y/16" in disasm(0, encode(op=4, daddr=0x18b))
     assert "y = s + k*(r[31] + r[30])" in disasm(0xd3, encode(op=0, ra=0x31, rb=0x30))       # s15 sum
     assert "y = r[30] + k*r[30]" in disasm(0xd3, encode(op=1, rb=0x30, route=3))            # s14 op 1

@@ -42,23 +42,23 @@
 1c9  path=0.0 route=0 op=2 r7=0.01 class=2  y = k*r[4c]
 1ca  path=0.0 route=0 op=4s r7=0.0a class=2  y = -s -> w[39]
 1cb  path=0.0 route=0 op=0s r7=2.08 class=2  y = -s + k*r[4b] xfer = dram[72]
-1cc  path=0.0 route=0 op=4 r7=1.02 class=2  y = s -> w[39] d[3c] <- xfer(slot 71, else 72)
+1cc  path=0.0 route=0 op=4 r7=1.02 class=2  y = s -> w[39] d[3c] <- xfer(steps 1c1..1c7)
 1cd  path=0.0 route=3 op=3 r7=1.01 class=2  y = k*(r[79] + r[78]) b=1
 1ce  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[4c]
 1cf  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[4c] xfer = dram[73]
-1d0  path=0.0 route=0 op=0 r7=1.04 class=2  y = s + k*(r[4d] + r[4d]) d[3d] <- xfer(slot 72, else 73)
+1d0  path=0.0 route=0 op=0 r7=1.04 class=2  y = s + k*(r[4d] + r[4d]) d[3d] <- xfer(steps 1c5..1cb)
 1d1  path=0.0 route=3 op=3 r7=1.01 class=2  y = k*(r[7a] + r[79]) b=1
 1d2  path=0.0 route=0 op=3 r7=0.01 class=1  r[00] = k/256 b=1
 1d3  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[0c] xfer = dram[74] b=1
-1d4  path=1.9 route=0 op=0 r7=1.00 class=2  y = s + k*(r[7c] + r[4d]) d[3e] <- xfer(slot 73, else 74)
+1d4  path=1.9 route=0 op=0 r7=1.00 class=2  y = s + k*(r[7c] + r[4d]) d[3e] <- xfer(steps 1c9..1cf)
 1d5  path=0.0 route=3 op=3 r7=1.01 class=2  y = k*(r[7b] + r[7a]) b=1
 1d6  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[3c]
 1d7  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[30] d[70] = y/16
-1d8  path=0.0 route=1 op=0 r7=1.00 class=2  y = s + k*(r[55] + r[55]) d[3f] <- xfer(slot 74, else 75)
+1d8  path=0.0 route=1 op=0 r7=1.00 class=2  y = s + k*(r[55] + r[55]) d[3f] <- xfer(steps 1cd..1d3)
 1d9  path=1.9 route=0 op=3 r7=1.01 class=2  y = 0
 1da  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[3a] b=3
 1db  path=0.0 route=1 op=4 r7=0.02 class=2  y = s -> w[3b] b=3
-1dc  path=2.0 route=0 op=0 r7=1.00 class=2  y = s + k*r[55] mem1(phase 0: untested) b=1
+1dc  path=2.0 route=0 op=0 r7=1.00 class=2  y = s + k*r[55] dram[77] = y/16 b=1
 1dd  path=0.0 route=0 op=3 r7=0.01 class=2  y = 0
 1de  path=1.9 route=0 op=0 r7=1.00 class=1  r[00] = k/256 b=1
 1df  path=0.0 route=3 op=3 r7=1.01 class=2  y = k*(r[77] + r[7b]) b=1

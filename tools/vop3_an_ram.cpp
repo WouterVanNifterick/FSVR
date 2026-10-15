@@ -5,8 +5,6 @@
 //                                            ram[i] = i so the value a read returns is its address)
 //   step <st> <r10> <r9> <r8> <r7> <r6> <k> <offset>   one step, hex; offset is the slot's 18-bit RAM offset
 //   run <passes>                             run and print "read <st> <address> <ram word>" per transfer
-// Built twice by the script: as is (the FS1R's delay ring, address = pointer + offset) and with
-// -DYSS236_TABLE_ADDR (the candidate absolute addressing of w2[5] accesses, docs/vop3_an_ram.md).
 #include <cstdio>
 #include <iostream>
 #include <sstream>

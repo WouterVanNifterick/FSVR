@@ -222,11 +222,11 @@
 0dd  nop
 0de  nop
 0df  path=0.0 route=0 op=0 r7=0.00 class=0  xfer = dram[37]
-0e0  path=0.0 route=0 op=0 r7=0.00 class=0  d[0b] <- xfer(slot 36, else 37)
+0e0  path=0.0 route=0 op=0 r7=0.00 class=0  d[0b] <- xfer(steps 0d5..0db)
 0e1  nop
 0e2  nop
 0e3  nop
-0e4  path=0.0 route=0 op=0 r7=0.00 class=0  d[0c] <- xfer(slot 37, else 38)
+0e4  path=0.0 route=0 op=0 r7=0.00 class=0  d[0c] <- xfer(steps 0d9..0df)
 0e5  nop
 0e6  nop
 0e7  nop

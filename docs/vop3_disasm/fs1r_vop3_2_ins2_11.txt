@@ -6,15 +6,15 @@
 15d  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[69] d[046]
 15e  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[6a]
 15f  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[6b] xfer = dram[57] b=3
-160  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[6c] d[1c] <- xfer(slot 56, else 57)
+160  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[6c] d[1c] <- xfer(steps 155..15b)
 161  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[6d]
 162  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[6e]
 163  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[6f] xfer = dram[58]
-164  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[70] d[1d] <- xfer(slot 57, else 58)
+164  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[70] d[1d] <- xfer(steps 159..15f)
 165  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[71] b=3
 166  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[72] d[08b]
 167  path=2.0 route=0 op=3 r7=0.01 class=0  rA=r[73] dram[59] = y/16
-168  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[74] d[1e] <- xfer(slot 58, else 59)
+168  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[74] d[1e] <- xfer(steps 15d..163)
 169  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[75] d[1b6] b=3
 16a  path=0.0 route=0 op=3 r7=0.01 class=0  rA=r[76] d[1b7]
 16b  path=2.0 route=0 op=3 r7=0.01 class=0  dram[5a] = y/16
@@ -58,15 +58,15 @@
 191  path=0.0 route=0 op=3 r7=0.01 class=0  
 192  path=0.0 route=0 op=3 r7=0.01 class=0  
 193  path=0.0 route=0 op=3 r7=0.01 class=0  xfer = dram[64]
-194  path=0.0 route=0 op=3 r7=0.01 class=0  d[1f] <- xfer(slot 63, else 64)
+194  path=0.0 route=0 op=3 r7=0.01 class=0  d[1f] <- xfer(steps 189..18f)
 195  path=0.0 route=0 op=3 r7=0.01 class=0  
 196  path=0.0 route=0 op=3 r7=0.01 class=0  
 197  path=0.0 route=0 op=3 r7=0.01 class=0  xfer = dram[65]
-198  path=0.0 route=0 op=3 r7=0.01 class=0  d[20] <- xfer(slot 64, else 65)
+198  path=0.0 route=0 op=3 r7=0.01 class=0  d[20] <- xfer(steps 18d..193)
 199  path=0.0 route=0 op=3 r7=0.01 class=0  
 19a  path=0.0 route=0 op=3 r7=0.01 class=0  
 19b  path=2.0 route=0 op=3 r7=0.01 class=0  dram[66] = y/16
-19c  path=0.0 route=0 op=3 r7=0.01 class=0  d[21] <- xfer(slot 65, else 66)
+19c  path=0.0 route=0 op=3 r7=0.01 class=0  d[21] <- xfer(steps 191..197)
 19d  path=0.0 route=0 op=3 r7=0.01 class=0  
 19e  path=0.0 route=0 op=3 r7=0.01 class=0  
 19f  path=2.0 route=0 op=3 r7=0.01 class=0  dram[67] = y/16

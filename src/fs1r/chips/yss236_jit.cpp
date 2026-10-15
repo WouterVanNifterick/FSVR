@@ -203,7 +203,7 @@ struct emit
 	}
 
 	// The delay RAM address of the step's slot into ecx; with the index, cur_idx() is called first
-	void address(int st, int older, bool index)
+	void address(int st, int older, bool index, bool tbl)
 	{
 		if (index)
 			call((void *)&yss236_jit::index, st);
@@ -214,7 +214,8 @@ struct emit
 		a.movzx(edx, word_ptr(rbx, off(&c.slot[s][1])));
 		a.and_(edx, 0x1ff);
 		a.or_(ecx, edx);
-		a.add(ecx, dword_ptr(rbx, off(&c.ptr)));
+		if (!tbl)
+			a.add(ecx, dword_ptr(rbx, off(&c.ptr)));
 		if (older)
 			a.add(ecx, older);
 		if (index)
@@ -420,7 +421,7 @@ struct emit
 	}
 
 	// The delay RAM address of the step's slot into w10; with the index, cur_idx() is called first
-	void address(int st, int older, bool index)
+	void address(int st, int older, bool index, bool tbl)
 	{
 		if (index)
 			call((void *)&yss236_jit::index, st);
@@ -430,8 +431,11 @@ struct emit
 		a.ldrh(w11, at(&c.slot[s][1], 2));
 		a.and_(w11, w11, Imm(0x1ff));
 		a.orr(w10, w11, w10, Imm(lsl(9)));
-		a.ldr(w11, at(&c.ptr, 4));
-		a.add(w10, w10, w11);
+		if (!tbl)
+		{
+			a.ldr(w11, at(&c.ptr, 4));
+			a.add(w10, w10, w11);
+		}
 		if (older)
 			a.add(w10, w10, Imm(older));
 		if (index)
@@ -703,12 +707,12 @@ class gen
 		}
 		int const cls = o.mmode;
 		int const page = (st >> 5) & 15;
-		bool const xfer = (st & 3) == 3 || (st & 3) == 1;
+		bool const xfer = st >= C::XFER_FROM;
 		bool const write = xfer && o.memop == 1;
 
 		if (xfer && (o.memop == 2 || o.memop == 3 || o.memop == 4 || o.memop == 6))
 		{
-			e.address(st, (o.memop & 4) ? 1 : 0, o.idxa);
+			e.address(st, (o.memop & 4) ? 1 : 0, o.idxa, o.tbl);
 			e.ram_ld(0);
 			e.hist(st);
 		}
@@ -776,7 +780,7 @@ class gen
 			{
 				Label none = e.label();
 				e.if_zero(&c.haswl, none);
-				e.address(st, 0, o.idxa);
+				e.address(st, 0, o.idxa, o.tbl);
 				e.ld(0, &c.wlatch);
 				e.ram_st(0);
 				e.set8(&c.haswl, 0);
@@ -875,7 +879,7 @@ class gen
 		}
 		if (write)
 		{
-			e.address(st, 0, o.idxa);
+			e.address(st, 0, o.idxa, o.tbl);
 			e.ld(0, &c.acc);
 			clip(0, K.sat, K.nsat);
 			if (!o.wdata)
@@ -969,9 +973,6 @@ bool yss236_core::jit_pass()
 	static bool const off = std::getenv("FSVR_VOP3_INTERP") != nullptr;
 	if (interpret || off || (n & 3))
 		return false;
-#ifdef YSS236_TABLE_ADDR
-	return false;   // the candidate table addressing is in the interpreter only
-#endif
 	if (m_stale)
 	{
 		m_jit.reset(compile(*this));

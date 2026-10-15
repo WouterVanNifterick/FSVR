@@ -39,7 +39,7 @@ carry no `mem` marks. The disassembler and interpreter decode every image with t
   `| 0x1a` / `| 0x1c` are the byte offsets of the same two registers). FW: AN uploaders, FS1R VOP3-2. On the
   AN boards the same port reads **lookup tables**: the PLG150-AN's H8 loads 0x6121 words into it at boot
   (`FUN_00081358`, registers 0x0F..0x12), the AN1x wires a mask ROM there, no AN program writes it, and every
-  AN access sets `r8[5]`, which no FS1R access does (`docs/vop3_an_ram.md`).
+  AN access sets `r8[5]`, which no FS1R access does. CHIP (session 40): `r8[5]` makes the access, read or write, address the RAM at the slot offset without the ring pointer; marks transfer on every phase from step 3 on; a capture takes a transfer 5..11 steps back (`docs/vop3_an_ram.md`).
 * **`r[]` is one 7-bit space laid out per voice, and `w[]` is not its upper half.** FW
   (`tools/vop3_verify.py`): FS1R filter channel c of group g reads exactly the register the same-position
   channel of group 0 reads plus 24g, or a group-shared one (444/444 reads), so group 2 reads `r[3b..4d]`

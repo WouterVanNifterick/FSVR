@@ -6,12 +6,12 @@
 0ed  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[3e]
 0ee  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[3f]
 0ef  path=0.0 route=2 op=0 r7=1.04 class=2  y = s + k*(r[3f] + r[3e]) xfer = dram[3b]
-0f0  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[08] d[39] <- xfer(slot 3a, else 3b) b=1
+0f0  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[08] d[39] <- xfer(steps 0e5..0eb) b=1
 0f1  path=1.9 route=0 op=0 r7=1.00 class=1  r[77] = k/256 b=1
 0f2  path=0.0 route=0 op=7 r7=0.03 class=2  y = k*in -> w[28] b=1
 0f3  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[29] b=1
 0f4  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[39] b=1
-0f5  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[42] d[38] <- xfer(slot 3b, else 3c) b=1
+0f5  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[42] d[38] <- xfer(steps 0ea..0f0) b=1
 0f6  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[28] b=1
 0f7  path=0.0 route=1 op=4 r7=1.02 class=2  y = s -> w[29] b=1
 0f8  path=0.0 route=1 op=3 r7=0.01 class=2  y = k*r[3f] b=1
@@ -35,6 +35,6 @@
 10a  path=0.0 route=0 op=4s r7=1.0e class=2  y = -s -> w[28] d[29] = y/16 rd w[1]
 10b  path=0.0 route=0 op=7 r7=0.03 class=3  -> w[29]
 10c  path=0.0 route=0 op=4s r7=0.0a class=2  y = -s -> w[39] rd w[1]
-10d  path=2.0 route=0 op=4s r7=1.0e class=2  y = -s -> w[29] rd w[1] mem1(phase 1: untested)
+10d  path=2.0 route=0 op=4s r7=1.0e class=2  y = -s -> w[29] rd w[1] dram[43] = y/16
 10e  path=0.0 route=0 op=3 r7=0.01 class=1  r[00] = k/256
 10f  path=1.1 route=0 op=0s r7=1.08 class=2  y = -s -> w[11]

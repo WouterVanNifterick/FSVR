@@ -26,35 +26,35 @@
 1b9  path=0.0 route=0 op=3 r7=1.01 class=2  y = 0
 1ba  path=0.0 route=0 op=3 r7=3.01 class=3  rB=r[7a]
 1bb  path=0.0 route=1 op=0 r7=1.00 class=1  r[7a] = k/256 xfer = dram[6e] older
-1bc  path=5.3 route=0 op=3 r7=1.01 class=2  y = k*r[7c] d[38] <- xfer(slot 6d, else 6e) b=6
+1bc  path=5.3 route=0 op=3 r7=1.01 class=2  y = k*r[7c] d[38] <- xfer(steps 1b1..1b7) b=6
 1bd  path=0.0 route=0 op=3 r7=1.01 class=2  y = 0
 1be  path=1.b route=1 op=3 r7=1.01 class=2  y = k*(r[7a] + r[7a])
 1bf  path=0.0 route=3 op=3 r7=1.01 class=2  y = k*r[7b] xfer = dram[6f]
-1c0  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[03] d[39] <- xfer(slot 6e, else 6f)
+1c0  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[03] d[39] <- xfer(steps 1b5..1bb)
 1c1  path=0.0 route=0 op=0 r7=2.00 class=1  r[7b] = k/256
 1c2  path=0.0 route=0 op=3 r7=1.01 class=2  y = 0
 1c3  path=1.9 route=0 op=3 r7=1.01 class=2  y = k*r[79] xfer = dram[70] older b=6
-1c4  path=5.e route=0 op=3 r7=1.01 class=2  y = k*r[7b] d[3e] <- xfer(slot 6f, else 70) b=6
+1c4  path=5.e route=0 op=3 r7=1.01 class=2  y = k*r[7b] d[3e] <- xfer(steps 1b9..1bf) b=6
 1c5  path=0.0 route=0 op=3 r7=1.01 class=2  y = 0
 1c6  path=1.d route=0 op=3 r7=1.01 class=2  y = k*r[7b] b=6
 1c7  path=0.0 route=3 op=3 r7=1.01 class=2  y = k*r[7a] d[08e] xfer = dram[71]
-1c8  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[02] d[3f] <- xfer(slot 70, else 71)
+1c8  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[02] d[3f] <- xfer(steps 1bd..1c3)
 1c9  path=0.0 route=0 op=0 r7=2.00 class=1  r[7a] = k/256
 1ca  path=0.0 route=0 op=6s r7=0.0b class=2  y = 0 -> w[38] rd w[a]
 1cb  path=0.0 route=0 op=4s r7=1.0a class=2  y = -s -> w[39] rd w[a] xfer = dram[72] older
-1cc  path=5.c route=0 op=3 r7=1.01 class=2  y = k*r[7a] d[3c] <- xfer(slot 71, else 72) b=6
+1cc  path=5.c route=0 op=3 r7=1.01 class=2  y = k*r[7a] d[3c] <- xfer(steps 1c1..1c7) b=6
 1cd  path=1.b route=0 op=3 r7=1.01 class=2  y = k*r[7a] b=6
 1ce  path=1.f route=0 op=3 r7=1.01 class=2  y = k*r[7c] b=6
 1cf  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[07] xfer = dram[73] b=3
-1d0  path=0.0 route=1 op=0 r7=1.00 class=2  y = s + k*(r[43] + r[08]) d[3d] <- xfer(slot 72, else 73) b=3
+1d0  path=0.0 route=1 op=0 r7=1.00 class=2  y = s + k*(r[43] + r[08]) d[3d] <- xfer(steps 1c5..1cb) b=3
 1d1  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[43] d[004]
 1d2  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[44]
 1d3  path=0.0 route=1 op=0 r7=1.04 class=2  y = s + k*(r[44] + r[43]) xfer = dram[74] older
-1d4  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[44] d[3a] <- xfer(slot 73, else 74)
+1d4  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[44] d[3a] <- xfer(steps 1c9..1cf)
 1d5  path=0.0+ route=0 op=0 r7=0.00 class=2  y = s + k*(r[45] + r[45])
 1d6  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[46]
 1d7  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[47]
-1d8  path=0.0 route=1 op=0 r7=1.04 class=2  y = s + k*(r[46] + r[44]) d[3b] <- xfer(slot 74, else 75)
+1d8  path=0.0 route=1 op=0 r7=1.04 class=2  y = s + k*(r[46] + r[44]) d[3b] <- xfer(steps 1cd..1d3)
 1d9  path=0.0 route=0 op=3 r7=0.01 class=2  y = k*r[46]
 1da  path=0.0+ route=0 op=0 r7=0.00 class=2  y = s + k*(r[47] + r[48])
 1db  path=0.0 route=2 op=0 r7=1.04 class=2  y = s + k*(r[48] + r[46])

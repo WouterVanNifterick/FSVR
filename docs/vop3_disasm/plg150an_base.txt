@@ -238,22 +238,22 @@
 0ed  path=0.0 route=2 op=7 r7=1.03 class=2  y = k*in -> w[13] rd w[5]
 0ee  path=0.0 route=2 op=7 r7=1.03 class=2  y = k*in -> w[10] rd w[6]
 0ef  path=0.2 route=2 op=3 r7=1.01 class=2  y = k*r[02] b=1
-0f0  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[0a] d[4f] <- xfer(slot 3a, else 3b) b=3
+0f0  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[0a] d[4f] <- xfer(steps 0e5..0eb) b=3
 0f1  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[1d] b=3
 0f2  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[0f] b=3
 0f3  path=0.0 route=0 op=4 r7=1.02 class=2  y = s -> w[0f] d[0f] = y/16 b=3
 0f4  path=0.0 route=2 op=3 r7=1.01 class=2  y = 0
-0f5  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[09] d[51] <- xfer(slot 3b, else 3c) b=4
+0f5  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[09] d[51] <- xfer(steps 0ea..0f0) b=4
 0f6  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[29] b=4
 0f7  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[11] b=4
 0f8  path=0.0 route=0 op=4 r7=1.02 class=2  y = s -> w[11] d[11] = y/16 b=4
 0f9  path=0.0 route=2 op=3 r7=1.01 class=2  y = 0
-0fa  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[08] d[52] <- xfer(slot 3c, else 3d) b=5
+0fa  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[08] d[52] <- xfer(steps 0ef..0f5) b=5
 0fb  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[2c] b=5
 0fc  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[12] d[0e3] b=5
 0fd  path=0.0 route=0 op=4 r7=1.02 class=2  y = s -> w[12] d[12] = y/16 b=5
 0fe  path=0.0 route=2 op=3 r7=1.01 class=2  y = 0 d[0ad]
-0ff  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[07] d[53] <- xfer(slot 3d, else 3e) b=6
+0ff  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[07] d[53] <- xfer(steps 0f4..0fa) b=6
 100  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[30] b=6
 101  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[13] d[031] b=6
 102  path=0.0 route=0 op=4 r7=1.02 class=2  y = s -> w[13] d[0f] = y/16 b=6
@@ -266,7 +266,7 @@
 109  nop
 10a  nop
 10b  path=0.0 route=2 op=3 r7=1.01 class=2  y = 0
-10c  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[02] d[4f] <- xfer(slot 41, else 42) b=7
+10c  path=0.0 route=0 op=0 r7=0.00 class=2  y = s + k*r[02] d[4f] <- xfer(steps 101..107) b=7
 10d  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[33] b=7
 10e  path=0.0 route=0 op=4 r7=0.02 class=2  y = s -> w[10] b=7
 10f  path=0.0 route=0 op=4 r7=1.02 class=2  y = s -> w[0f] d[32] = y/16 b=7
