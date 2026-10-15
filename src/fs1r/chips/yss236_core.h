@@ -223,15 +223,38 @@ public:
 		return (uint32_t(slot[s & 0x7f][0] & 0x1ff) << 9) | (slot[s & 0x7f][1] & 0x1ff);
 	}
 
+	// A program written in C++ (src/fs1r/native/) for steps [from, to): it runs them in place of the
+	// interpreter and must leave every field of the core as step() would, so one can stand in for the
+	// other a step range at a time and be checked bit for bit (tools/vop3_native_check.cpp).
+	struct native_run { int from, to; void (*run)(yss236_core &, int from, int to); };
+	std::vector<native_run> natives;      // in step order and not overlapping; empty runs the program as uploaded
+
 	// One pass of the program over the current in[], lfo[]; fills out[].
 	void pass()
 	{
 		m_skip = 0;
-		if (!jit_pass())
+		if (!natives.empty())
+			native_pass();
+		else if (!jit_pass())
 			for (int st = 0; st < STEPS; st++)
 				step(st);
 		m_nhist = 0;
 		ptr = (ptr - 1) & (RAM_WORDS - 1);
+	}
+
+	// The native ranges, and the interpreter between them
+	void native_pass()
+	{
+		int st = 0;
+		for (native_run const &nr : natives)
+		{
+			for (; st < nr.from; st++)
+				step(st);
+			nr.run(*this, nr.from, nr.to);
+			st = nr.to;
+		}
+		for (; st < STEPS; st++)
+			step(st);
 	}
 
 	// The host's trigger, register 0x14: the constant loads of every gated block land at once.
@@ -282,7 +305,8 @@ public:
 	static const char *const jit_target;   // the architecture compile() emits, or null where it has none
 	friend struct yss236_jit;
 
-private:
+	// Public for the native programs, which reuse the step's own arithmetic and pipeline
+	// to stay bit for bit with it.
 
 	static double s16(uint16_t k) { return int16_t(k) / 32768.0; }
 
@@ -397,24 +421,27 @@ private:
 			queue_t(o.tn, s16(coef[st]));
 	}
 
-	void step(int st)
+	// What every step does first, run or skipped: count it, and land the writes issued LAT steps ago
+	void begin_step()
 	{
 		n++;
-		// writes issued LAT steps ago land now
-		{
-			pend &q = m_rq[n & 3];
-			if (q.reg > 0)
-				r[q.reg] = q.v;
-			q.reg = -1;
-			pend &d = m_dq[n & 3];
-			if (d.reg >= 0)
-				m[d.reg] = d.v;
-			d.reg = -1;
-			pend &tq = m_tq[n & 3];
-			if (tq.reg >= 0)
-				t[tq.reg] = tq.v;
-			tq.reg = -1;
-		}
+		pend &q = m_rq[n & 3];
+		if (q.reg > 0)
+			r[q.reg] = q.v;
+		q.reg = -1;
+		pend &d = m_dq[n & 3];
+		if (d.reg >= 0)
+			m[d.reg] = d.v;
+		d.reg = -1;
+		pend &tq = m_tq[n & 3];
+		if (tq.reg >= 0)
+			t[tq.reg] = tq.v;
+		tq.reg = -1;
+	}
+
+	void step(int st)
+	{
+		begin_step();
 
 		op const &o = ops[st];
 		if (st < m_skip)

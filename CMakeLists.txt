@@ -25,7 +25,8 @@ set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 # The chip, its two hosts and the sections over them. They are bit-exact only without FMA contraction, so they
 # are a library of their own with its own flags; excess precision effect_host.h refuses at compile time.
-file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp)
+# The chip's programs written in C++ (src/fs1r/native/) are bit-exact for the same reason, so they live here too.
+file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp src/fs1r/native/*.cpp)
 add_library(vop3host STATIC ${VOP3HOST} src/fs1r/effects.cpp src/fs1r/filter.cpp src/fs1r/chips/vop3.cpp)
 target_include_directories(vop3host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 # The chip's programs compiled to native code, with AsmJit (third_party/asmjit). AsmJit needs C++20, so it and
@@ -105,6 +106,13 @@ add_executable(vop3_jit_check tools/vop3_jit_check.cpp)
 target_link_libraries(vop3_jit_check PRIVATE vop3host)
 add_test(NAME vop3_jit COMMAND vop3_jit_check)
 set_tests_properties(vop3_jit PROPERTIES SKIP_RETURN_CODE 77)
+# The programs written in C++ against the interpreter, each on every type that runs it (docs/vop3_native/).
+add_executable(vop3_native_check tools/vop3_native_check.cpp)
+target_link_libraries(vop3_native_check PRIVATE vop3host)
+if(NOT MSVC)
+  target_compile_options(vop3_native_check PRIVATE -ffp-contract=off)
+endif()
+add_test(NAME vop3_native COMMAND vop3_native_check)
 
 option(FSVR_BUILD_PLUGIN "Build the plug-in (downloads its SDKs on the first configure)" OFF)
 if(FSVR_BUILD_PLUGIN)

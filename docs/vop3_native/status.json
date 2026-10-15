@@ -1,0 +1,534 @@
+{
+ "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
+ "paused": false,
+ "updated": null,
+ "programs": [
+  {
+   "key": "flt",
+   "chip": "VOP3-1",
+   "window": "filter",
+   "steps": 512,
+   "types": [
+    "LPF24",
+    "LPF18",
+    "LPF12",
+    "HPF",
+    "BPF",
+    "BEF"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show a9cb37d^:src/fs1r/chips/vop3_filter.h (the measured 4-pole ladder and 2-pole state-variable structure), docs/filter.md",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "rev",
+   "chip": "VOP3-2",
+   "window": "reverb",
+   "steps": 94,
+   "types": [
+    "rev-00 No Effect",
+    "rev-01 Hall1",
+    "rev-02 Hall2",
+    "rev-03 Room1",
+    "rev-04 Room2",
+    "rev-05 Room3",
+    "rev-06 Stage1",
+    "rev-07 Stage2",
+    "rev-08 Plate",
+    "rev-09 White Room",
+    "rev-10 Tunnel",
+    "rev-11 Basement",
+    "rev-12 Canyon"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the reverb block's model of No Effect, Hall1, Hall2, Room1, Room2, Room3, Stage1, Stage2, Plate, White Room, Tunnel, Basement, Canyon",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "dly-m00",
+   "chip": "VOP3-2",
+   "window": "reverb-delay",
+   "steps": 72,
+   "types": [
+    "rev-00 No Effect",
+    "rev-01 Hall1",
+    "rev-02 Hall2",
+    "rev-03 Room1",
+    "rev-04 Room2",
+    "rev-05 Room3",
+    "rev-06 Stage1",
+    "rev-07 Stage2",
+    "rev-08 Plate",
+    "rev-09 White Room",
+    "rev-10 Tunnel",
+    "rev-11 Basement",
+    "rev-12 Canyon"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of No Effect, Hall1, Hall2, Room1, Room2, Room3, Stage1, Stage2, Plate, White Room, Tunnel, Basement, Canyon",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "dly-m08",
+   "chip": "VOP3-2",
+   "window": "reverb-delay",
+   "steps": 72,
+   "types": [
+    "rev-13 Delay LCR",
+    "rev-14 Delay L,R",
+    "rev-15 Echo",
+    "rev-16 CrossDelay"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Delay LCR, Delay L,R, Echo, CrossDelay",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "aux",
+   "chip": "VOP3-2",
+   "window": "aux",
+   "steps": 40,
+   "types": [
+    "every performance"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "no old model: the aux window has no parameters",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "var-m00",
+   "chip": "VOP3-2",
+   "window": "variation",
+   "steps": 72,
+   "types": [
+    "var-00 No Effect",
+    "var-01 Chorus",
+    "var-02 Celeste",
+    "var-03 Flanger",
+    "var-04 Symphonic"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of No Effect, Chorus, Celeste, Flanger, Symphonic",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "var-m01",
+   "chip": "VOP3-2",
+   "window": "variation",
+   "steps": 72,
+   "types": [
+    "var-08 Rotary SP",
+    "var-09 Tremolo",
+    "var-10 Auto Pan"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Rotary SP, Tremolo, Auto Pan",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "var-m02",
+   "chip": "VOP3-2",
+   "window": "variation",
+   "steps": 72,
+   "types": [
+    "var-17 Distortion",
+    "var-18 Overdrive",
+    "var-19 Amp Sim"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Distortion, Overdrive, Amp Sim",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "var-m03",
+   "chip": "VOP3-2",
+   "window": "variation",
+   "steps": 72,
+   "types": [
+    "var-14 HM Enhncer",
+    "var-15 Noise Gate",
+    "var-16 Compressor"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of HM Enhncer, Noise Gate, Compressor",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "var-m04",
+   "chip": "VOP3-2",
+   "window": "variation",
+   "steps": 72,
+   "types": [
+    "var-11 Auto Wah",
+    "var-12 Touch Wah"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Auto Wah, Touch Wah",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "var-m05",
+   "chip": "VOP3-2",
+   "window": "variation",
+   "steps": 72,
+   "types": [
+    "var-05 Phaser1",
+    "var-06 Phaser2"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Phaser1, Phaser2",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "var-m06",
+   "chip": "VOP3-2",
+   "window": "variation",
+   "steps": 72,
+   "types": [
+    "var-07 Ens Detune"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Ens Detune",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "var-m07",
+   "chip": "VOP3-2",
+   "window": "variation",
+   "steps": 72,
+   "types": [
+    "var-13 3-Band EQ"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of 3-Band EQ",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "var-m08",
+   "chip": "VOP3-2",
+   "window": "variation",
+   "steps": 72,
+   "types": [
+    "var-20 Delay LCR",
+    "var-21 Delay L,R",
+    "var-22 Echo",
+    "var-23 CrossDelay"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Delay LCR, Delay L,R, Echo, CrossDelay",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "var-m09",
+   "chip": "VOP3-2",
+   "window": "variation",
+   "steps": 72,
+   "types": [
+    "var-24 Karaoke"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Karaoke",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "var-m10",
+   "chip": "VOP3-2",
+   "window": "variation",
+   "steps": 72,
+   "types": [
+    "var-25 Hall",
+    "var-26 Room",
+    "var-27 Stage",
+    "var-28 Plate"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Hall, Room, Stage, Plate",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "ins-m00",
+   "chip": "VOP3-2",
+   "window": "insertion",
+   "steps": 96,
+   "types": [
+    "ins-00 Thru",
+    "ins-01 Chorus",
+    "ins-02 Celeste",
+    "ins-03 Flanger",
+    "ins-04 Symphonic",
+    "ins-33 Delay LCR",
+    "ins-34 Delay L,R",
+    "ins-35 Echo",
+    "ins-36 CrossDelay"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Thru, Chorus, Celeste, Flanger, Symphonic, Delay LCR, Delay L,R, Echo, CrossDelay",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "ins-m01",
+   "chip": "VOP3-2",
+   "window": "insertion",
+   "steps": 96,
+   "types": [
+    "ins-09 Rotary SP",
+    "ins-10 2WayRotary",
+    "ins-11 Tremolo",
+    "ins-12 Auto Pan",
+    "ins-13 Ambience"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Rotary SP, 2WayRotary, Tremolo, Auto Pan, Ambience",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "ins-m02",
+   "chip": "VOP3-2",
+   "window": "insertion",
+   "steps": 96,
+   "types": [
+    "ins-05 Phaser1",
+    "ins-06 Phaser2"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Phaser1, Phaser2",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "ins-m03",
+   "chip": "VOP3-2",
+   "window": "insertion",
+   "steps": 96,
+   "types": [
+    "ins-37 ER 1",
+    "ins-38 ER 2",
+    "ins-39 Gate Rev",
+    "ins-40 Revrs Gate"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of ER 1, ER 2, Gate Rev, Revrs Gate",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "ins-m04",
+   "chip": "VOP3-2",
+   "window": "insertion",
+   "steps": 96,
+   "types": [
+    "ins-14 A-Wah+Dist",
+    "ins-15 A-Wah+Odrv",
+    "ins-16 T-Wah+Dist",
+    "ins-17 T-Wah+Odrv"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of A-Wah+Dist, A-Wah+Odrv, T-Wah+Dist, T-Wah+Odrv",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "ins-m05",
+   "chip": "VOP3-2",
+   "window": "insertion",
+   "steps": 96,
+   "types": [
+    "ins-22 HM Enhncer",
+    "ins-23 Noise Gate",
+    "ins-24 Compressor",
+    "ins-25 Comp+Dist",
+    "ins-28 Distortion",
+    "ins-30 Overdrive",
+    "ins-32 Amp Sim"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of HM Enhncer, Noise Gate, Compressor, Comp+Dist, Distortion, Overdrive, Amp Sim",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "ins-m07",
+   "chip": "VOP3-2",
+   "window": "insertion",
+   "steps": 96,
+   "types": [
+    "ins-07 Pitch Chng",
+    "ins-08 Ens Detune",
+    "ins-21 3-Band EQ"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Pitch Chng, Ens Detune, 3-Band EQ",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "ins-m10",
+   "chip": "VOP3-2",
+   "window": "insertion",
+   "steps": 96,
+   "types": [
+    "ins-20 Lo-Fi"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Lo-Fi",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "ins-m12",
+   "chip": "VOP3-2",
+   "window": "insertion",
+   "steps": 96,
+   "types": [
+    "ins-18 Wah+DS+Dly",
+    "ins-19 Wah+OD+Dly"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Wah+DS+Dly, Wah+OD+Dly",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "ins-m13",
+   "chip": "VOP3-2",
+   "window": "insertion",
+   "steps": 96,
+   "types": [
+    "ins-26 Cmp+DS+Dly",
+    "ins-27 Cmp+OD+Dly",
+    "ins-29 Dist+Delay",
+    "ins-31 Odrv+Delay"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Cmp+DS+Dly, Cmp+OD+Dly, Dist+Delay, Odrv+Delay",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "base",
+   "chip": "VOP3-2",
+   "window": "base",
+   "steps": 138,
+   "types": [
+    "every performance: the mixer, sends, returns, pans and the master EQ"
+   ],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the mixer and the master EQ",
+   "note": "",
+   "updated": null
+  },
+  {
+   "key": "retire-jit",
+   "chip": "both",
+   "window": "-",
+   "steps": 0,
+   "types": [],
+   "stage": "todo",
+   "check": null,
+   "passes": 0,
+   "commit": null,
+   "start_from": "docs/vop3_native/README.md, Retiring the JIT",
+   "note": "",
+   "updated": null
+  }
+ ]
+}
