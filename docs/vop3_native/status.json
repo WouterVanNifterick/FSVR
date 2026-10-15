@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T21:57:52Z",
+ "updated": "2026-10-15T22:06:09Z",
  "programs": [
   {
    "key": "flt",
@@ -308,13 +308,16 @@
     "var-22 Echo",
     "var-23 CrossDelay"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 38400,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Delay LCR, Delay L,R, Echo, CrossDelay",
    "note": "",
-   "updated": null
+   "updated": "2026-10-15T22:06:09Z",
+   "claimed": "2026-10-15T21:59:00Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "var-m09",
