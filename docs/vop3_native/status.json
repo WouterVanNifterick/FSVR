@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T21:42:18Z",
+ "updated": "2026-10-15T21:51:59Z",
  "programs": [
   {
    "key": "flt",
@@ -267,13 +267,16 @@
    "types": [
     "var-07 Ens Detune"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 9600,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Ens Detune",
-   "note": "",
-   "updated": null
+   "note": "72 steps 0x158-0x19f, identical over 1 type and 9600 passes. Groups: the two LFO cells m[8] and m[9] into six registers (0x158-0x163: r[123] and r[126] the cell doubled, r[124] and r[1] its absolute value, then four class-1 loads leaving r[125] and r[2] at max(0, 64 + the LFO) as the two base delays and r[123], r[124], r[126], r[1] at max(0, |2 * the LFO| - 24) and max(0, |2 * the LFO| - 40) as the four crossfade weights, both channels the same two, 0x15b, 0x15f and 0x163 reading the slots 0x56 to 0x58 and publishing them into m[22] to m[24] on the next steps); the four detune words DETUNE_DET at 0x164, 0x16c, 0x173 and 0x17b, each loading the delay index and its fraction into a t (t[10], t[12], t[14], t[7]); the two channels' input and two order-1 EQ shelves (0x165-0x16b and 0x174-0x17a, DETUNE_LOW_SHELF and DETUNE_HIGH_SHELF and their copies), which also read the first tap pair's two slots at the index just loaded; the four interpolated taps (0x17c-0x17d, 0x17f-0x180, 0x186-0x187, 0x18a-0x18b, each a linear interpolation of two words one sample apart, the eight words captured into m[56] to m[63] in the order left, right, left, right by pair); the two crossfades (0x183-0x184 and 0x18e-0x18f) weighting the two taps by t[9] and 1 - t[11], and by t[13] and 1 - t[15]; the two copies at 0x191-0x194 on the ROM's near-unity and zero words, which are copies because 0x19a reuses r[119] for what goes into the left line; and the outputs and the two delay writes at 0x195-0x19f, DETUNE_PAN's four words with the variation's wet word 8186 and no dry, so each output is 0.9993 of its tap, 0x19a latching the left one for the slot 0x66 write at 0x19b and 0x19f writing the right into the slot 0x67 itself. Each channel's two taps are 256 * w * 64 samples apart, w the word the two detune steps share: 572 samples on the ROM's own 0.034943, which is what the index holds with the LFO cell at zero. The LFO cells reach +-128 (chips/vop3.cpp's lfo() scales by RANGE), so a tap's index sweeps 256 * w * 128 samples and the weights top out at 232/16384 and 216/16384. 0x16d writes r[1], not r[126], which is what makes the two channels' weights symmetric. ctest: 3 of 3 pass.",
+   "updated": "2026-10-15T21:51:59Z",
+   "claimed": "2026-10-15T21:43:00Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "var-m07",
