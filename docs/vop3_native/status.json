@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T23:33:48Z",
+ "updated": "2026-10-15T23:41:33Z",
  "programs": [
   {
    "key": "flt",
@@ -490,13 +490,16 @@
     "ins-30 Overdrive",
     "ins-32 Amp Sim"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 67200,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of HM Enhncer, Noise Gate, Compressor, Comp+Dist, Distortion, Overdrive, Amp Sim",
-   "note": "",
-   "updated": null
+   "note": "Done in one session: read the dump, generated the straight transcription of all 96 steps straight from the program words, and it came out identical on the first build, so there was nothing to bisect. Reading, from rom_tables.cpp's ins:: names and the six handlers fx_dispatch.cpp routes to msb 5: 0x1a0-0x1af the two inputs and the two channels' input filters ins::DIST_INPUT and DIST_INPUT_C (five words each, b0, b1, b2, -a1, -a2, with the two z^-1 words on the steps that carry rcopy) plus the drive's first three words; 0x1b0-0x1c1 the shaper's gain word, ins::HM_DRIVE into r[120] and r[119], ins::DIST_LEVEL summing and rectifying the two channels into m[49], the detector's states r[75], r[76] and r[121] under ins::DYN_RELEASE, and ins::DYN_ATTACK smoothing m[42], m[43] and m[44] into t[9]; 0x1c2-0x1cb ins::DIST_BAND[5] to [11], the four-word monomial chain then the polynomial sum, the level times t[9] passed on in t[10] and t[11], and ins::DIST_DRIVE[3] into r[79]; 0x1cc-0x1db ins::DYN_THRESHOLD into r[123] and the three tone filters ins::DIST_PRE, DIST_PRE_C and DIST_EQ into r[85]; 0x1dc-0x1ec ins::DIST_MODE and the output filters ins::DIST_OUTPUT into m[45] and DIST_OUTPUT_C into m[46], with ins::DIST_WET mixing into r[17] and r[18]; 0x1ed-0x1ff the gain curve's eight class-1 breakpoints off r[123] (a quarter, a half, one, two, four, eight, sixteen, sixty-four, negatives clamped to zero), ins::DYN_RATIO's eight weights, the biased total into m[42] and the two dry signals. Two details worth keeping: r[124] and r[125] carry the level times the smoother early in the pass and the curve's last two breakpoints later in it, and m[3], m[7] and m[13] are taken for the base program and read nowhere here. No delay RAM and no control step anywhere in this program.",
+   "updated": "2026-10-15T23:41:33Z",
+   "claimed": "2026-10-15T23:35:01Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "ins-m07",
