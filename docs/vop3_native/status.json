@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": null,
+ "updated": "2026-10-15T19:50:08Z",
  "programs": [
   {
    "key": "flt",
@@ -16,13 +16,14 @@
     "BPF",
     "BEF"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "checking",
+   "check": "identical",
+   "passes": 57600,
    "commit": null,
    "start_from": "git show a9cb37d^:src/fs1r/chips/vop3_filter.h (the measured 4-pole ladder and 2-pole state-variable structure), docs/filter.md",
-   "note": "",
-   "updated": null
+   "note": "Transcription identical over all six types (57600 native passes). Next: the tidy pass, naming the registers and cells and grouping the blocks.",
+   "updated": "2026-10-15T19:50:08Z",
+   "sessions": 1
   },
   {
    "key": "rev",

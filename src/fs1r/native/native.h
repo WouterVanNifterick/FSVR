@@ -23,5 +23,6 @@ extern const Program PROGRAMS[];                 // ends with {nullptr, nullptr}
 const Program* find(const char* key);            // null until the program is ported
 
 // The ported programs, one line each in key order, as `void ins_m03(yss236_core&, int from, int to);`
+void flt(yss236_core& c, int from, int to);         // flt: the filter chip's program, all 512 steps
 
 }  // namespace fs1r::native
