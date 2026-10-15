@@ -24,6 +24,7 @@ const Program* find(const char* key);            // null until the program is po
 
 // The ported programs, one line each in key order, as `void ins_m03(yss236_core&, int from, int to);`
 void dly_m00(yss236_core& c, int from, int to);     // dly-m00: the reverb delay window's program for type msb 00
+void dly_m08(yss236_core& c, int from, int to);     // dly-m08: the reverb delay window's program for type msb 08
 void flt(yss236_core& c, int from, int to);         // flt: the filter chip's program, all 512 steps
 void rev(yss236_core& c, int from, int to);         // rev: the reverb's steps of the base program
 

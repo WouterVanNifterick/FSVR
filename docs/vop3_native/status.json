@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T20:31:48Z",
+ "updated": "2026-10-15T20:42:37Z",
  "programs": [
   {
    "key": "flt",
@@ -100,13 +100,17 @@
     "rev-15 Echo",
     "rev-16 CrossDelay"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 710400,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Delay LCR, Delay L,R, Echo, CrossDelay",
-   "note": "",
-   "updated": null
+   "note": "Done. 72 steps 0x110-0x157 in four groups: the two inputs and four one-pole tone filters (0x110-0x11d), the four delay taps and the two damped feedbacks (0x11e-0x12f), the two line writes with the wet sums and the dry/wet mix (0x130-0x140), and the published reads and the output (0x141-0x157). One program for all four delay types: only rom::rev::DELAY_WORDS, the damp curve and the six DELAY_SLOTS offsets differ between them. Check: 74 types, 710400 native passes identical.",
+   "updated": "2026-10-15T20:42:37Z",
+   "claimed": "2026-10-15T20:33:05Z",
+   "nudges": 2,
+   "sessions": 1,
+   "session": "ses_ebebb441effeTIRmBcBXju31Qk"
   },
   {
    "key": "aux",
