@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T20:20:05Z",
+ "updated": "2026-10-15T20:21:32Z",
  "programs": [
   {
    "key": "flt",
@@ -50,8 +50,8 @@
    "passes": 835200,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the reverb block's model of No Effect, Hall1, Hall2, Room1, Room2, Room3, Stage1, Stage2, Plate, White Room, Tunnel, Basement, Canyon",
-   "note": "rev.cpp transcribed, build/vop3_native_check rev reports identical over 87 types and 835200 passes",
-   "updated": "2026-10-15T20:19:46Z",
+   "note": "rev.cpp done: the 94 steps of the reverb window transcribed into ten blocks, one per run of rom::STEPS_REVERB. build/vop3_native_check rev: identical over 87 types and 835200 passes, every effect parameter changed halfway. ctest: 3 of 3 pass.",
+   "updated": "2026-10-15T20:21:32Z",
    "claimed": "2026-10-15T20:01:05Z",
    "sessions": 1,
    "nudges": 4,
