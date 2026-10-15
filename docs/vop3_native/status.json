@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T21:17:00Z",
+ "updated": "2026-10-15T21:23:52Z",
  "programs": [
   {
    "key": "flt",
@@ -207,16 +207,17 @@
     "var-15 Noise Gate",
     "var-16 Compressor"
    ],
-   "stage": "reading",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 28800,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of HM Enhncer, Noise Gate, Compressor",
-   "note": "",
-   "updated": "2026-10-15T21:17:00Z",
+   "note": "72 steps 0x158-0x19f, identical over 3 types and 28800 passes. Groups: the two inputs and their identical five-word filters (0x158-0x164, DYN_HPF2 and DYN_HPF2_COPY, left and right), the threshold and the enhancer drive (0x165-0x167), an eight-step threshold ladder of class-1 steps each adding a constant to r[126] and clamping negatives (0x168-0x16f), DYN_RATIO's eight-word weighted sum of that ladder (0x170-0x177), the one-pole smoother DYN_ATTACK drives with its result into t[9] (0x178-0x17b), the rectified detector level in r[119] (0x17c-0x17d), DYN_RELEASE's three words across two accumulators in m[54] and m[55] (0x17e-0x186) where m[55] feeds the threshold step 0x165 a pass later, the two output filters DYN_HPF and DYN_HPF_COPY (0x187-0x194) whose taps come from t[10] and t[11], and DYN_OUT's dry and wet into r[15] and r[16] (0x195-0x199). 0x18d and 0x18e both write r[112]; the first lands at 0x190 and the second at 0x191 and nothing reads the register between, so the first value is dead. r[124] and r[125] read zero under this row's ladder constants since r[126] saturates at 128. ctest: 3 of 3 pass.",
+   "updated": "2026-10-15T21:23:52Z",
    "claimed": "2026-10-15T21:17:00Z",
-   "nudges": 0,
-   "sessions": 1
+   "nudges": 2,
+   "sessions": 1,
+   "session": "ses_ebe930debffe5fBg14Ra3R0iPa"
   },
   {
    "key": "var-m04",
