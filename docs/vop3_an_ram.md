@@ -60,10 +60,10 @@ Laid in at the offsets the AN1x reads, it fits: the AN1x reads the sine at 3420 
 - `1020..301F` decay at the AN1x's 4x resolution, from the CPU copy
 - `3020..401F` sine
 - `4020..5020` clipper +-18022
-- `5021..6021` clipper +-4506, the next table in the CPU copy. No AN1x step reads it, so its place is inferred
-- `6022..FFFF` unknown, zero. The CPU copy runs on into other data after 0xF0990 (word 0x6012), and no step reads past 0x4820 + 0x800
+- `5021..6021` clipper +-4506, the next table in the CPU copy. No AN1x step reads it, so its place was inferred, wrongly (below)
+- `6022..FFFF` unknown, zero at the time of writing
 
-What is solid: the five tables the AN1x voice reads (exp, pow2, decay, sine, clipper) and their offsets. What is inferred: the doubled pow2 (taken from the PLG150-AN), the second clipper's place, and everything past 0x6022. A dump of the AN1x mask ROM, or a read of the chip's RAM bus on a running unit, settles all three.
+**Checked against the ROM.** rgwan dumped the AN1x's VOP3 mask ROM (FS1R.unlock `dmps/an1x_vop3.bin`, 2026-10-15, now `docs/vop3_an1x/maskrom.bin`, 64 Ki words little-endian). Against it the rebuild is **word for word equal over 0000..5020**, every table the AN1x voice reads, the doubled pow2 included (`tools/vop3_an_ram.py` asserts it). The one guess was wrong: from 5021 the ROM holds eleven more soft clippers, 4097 words each, the same shape as the +-18022 one at 4020 with peaks 18432, 18842, 19251, 19661, 20480, 21299, 22938, 17613, 17203, 16794, then 0xFFFF fill from F02C. The CPU copy's +-4506 clipper is not in the ROM. No AN1x step reads those clippers at the shipped offsets, so a drive or character parameter must move a slot offset onto them at run time; which parameter is open.
 
 ## Session 40: the rules, measured on the FS1R
 
@@ -105,6 +105,6 @@ The probe drives the serial inputs, not the hardware inputs the AN voice reads i
 
 ## What is still open
 
-- The mask ROM itself: a dump of the AN1x's VOP3 ROM, or its address bus during a note, settles the inferred parts (the doubled pow2, the second clipper's place, everything past 0x6022).
+- Which AN1x parameter moves a slot offset onto the clippers at 5021..F02A (the dump has them, no shipped offset reads them).
 - Register 5's bits, and register 0x1B, which only the AN boards write.
 - A read at the writer's own ring offset (`wr5`, `same`): 6425 and 5079 passes, not 0 and not 2^18.

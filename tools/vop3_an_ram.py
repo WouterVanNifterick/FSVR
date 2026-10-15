@@ -2,7 +2,8 @@
 """The VOP3 external RAM on the PLG150-AN and AN1x: what the H8 uploads, what the programs read, and the AN1x
 mask ROM rebuilt from it. Findings in docs/vop3_an_ram.md.
 
-    python tools/vop3_an_ram.py            print the map, check it, write docs/vop3_an1x/maskrom.bin
+    python tools/vop3_an_ram.py            print the map, check the rebuilt AN1x mask ROM against rgwan's dump
+                                           (docs/vop3_an1x/maskrom.bin)
     python tools/vop3_an_ram.py --probe    also run both programs through yss236_core (tools/vop3_an_ram.cpp)
     python tools/vop3_an_ram.py --check    the s40 takes against tools/vop3_interp.py's RAM rules (slow, ~10 min)
     python tools/vop3_an_ram.py --rig a|b  write docs/vop3_ship/40a|40b.probes.json (session 40, the FS1R.unlock s25 runner)
@@ -46,7 +47,11 @@ TABLES = [
 # PLG150-AN mode 0 offset -> AN1x voice offset read by the same step (tools output, docs/vop3_an_ram.md)
 ROLES = {0x0000: 0x0000, 0x1010: 0x1010, 0x1020: 0x1020, 0x1C20: 0x3420, 0x2020: 0x3820, 0x5020: 0x4820}
 
-# The AN1x mask ROM, word ranges [a, b): source image and its word offset. Everything past 0x6022 is unknown (0).
+# The AN1x mask ROM as rebuilt from the PLG150-AN image and the AN1x CPU ROM's copy, word ranges [a, b): source
+# image and word offset. rgwan's dump (FS1R.unlock dmps/an1x_vop3.bin, commit 23696cd, copied to
+# docs/vop3_an1x/maskrom.bin) is the ROM itself; main() checks the rebuild against it: 0000..5020 equal, the 5021..
+# guess wrong (the ROM has eleven clippers, not the CPU copy's +-4506).
+DUMP = ROOT / "docs" / "vop3_an1x" / "maskrom.bin"
 MASKROM = [
     (0x0000, 0x1000, "PLG", 0x0000, "exp; = CPU copy +0000, read at 0000"),
     (0x1000, 0x1020, "PLG", 0x1000, "powers of two, doubled; CPU copy +1000 has them single; read at 1010"),
@@ -155,17 +160,17 @@ def main(argv):
     an1x = (ROMS / "an1x_v104_cpuview.bin").read_bytes()
     cpu = words(an1x[0xE496C:], ">")
     rom = [0] * MASKROM_WORDS
-    print("\nAN1x mask ROM (docs/vop3_an1x/maskrom.bin):")
     for a, b, src, at, why in MASKROM:
-        data = ram[at:at + b - a] if src == "PLG" else cpu[at:at + b - a]
-        rom[a:b] = data
-        print("  %04X..%04X  %-3s %04X  %s" % (a, b - 1, src, at, why))
-    for name, plg, cpu_at, n in (("exp", 0x0000, 0x0000, 0x1000), ("sine", 0x1820, 0x3010, 0x1000), ("clipper", 0x4820, 0x4010, 0x1001)):
-        assert ram[plg:plg + n] == cpu[cpu_at:cpu_at + n], name           # the copy is the PLG150-AN's table, word for word
-    assert cpu[0x1000:0x1010] == ram[0x1000:0x1020:2]                   # pow2: the CPU copy is the PLG's, undoubled
-    assert ram[0x1020:0x1820] == cpu[0x1010:0x3010:4]                   # decay: the PLG's is every 4th AN1x word
-    OUT.mkdir(exist_ok=True)
-    (OUT / "maskrom.bin").write_bytes(struct.pack("<%dH" % MASKROM_WORDS, *rom))
+        rom[a:b] = ram[at:at + b - a] if src == "PLG" else cpu[at:at + b - a]
+    dump = words(DUMP.read_bytes())
+    assert len(dump) == MASKROM_WORDS
+    print("\nrebuild against the dump (%s):" % DUMP.name)
+    for a, b, src, at, why in MASKROM:
+        eq = sum(rom[i] == dump[i] for i in range(a, b))
+        print("  %04X..%04X  %5d / %5d equal  %s" % (a, b - 1, eq, b - a, why))
+    assert rom[:0x5021] == dump[:0x5021], "the tables the AN1x voice reads must match the dump"
+    print("  every table the AN1x voice reads (0000..5020): equal. Past 5020 the dump holds clippers of peak "
+          + " ".join("%d" % max(x - 65536 if x & 0x8000 else x for x in dump[o:o + 4097]) for o in range(0x5021, 0xF02B, 0x1001)))
 
     if "--probe" in argv:
         probe()
@@ -180,7 +185,7 @@ def probe():
     hdr = ROOT / "src/fs1r/chips/yss236_core.h"
     if not out.exists() or out.stat().st_mtime < max(src.stat().st_mtime, hdr.stat().st_mtime):
         subprocess.run(["g++", "-std=c++17", "-O2", "-I", str(ROOT / "src"), str(src), "-o", str(out)], check=True)
-    an1x_rom = words((OUT / "maskrom.bin").read_bytes())[:0x6022]
+    an1x_rom = words((OUT / "maskrom.bin").read_bytes())
     for name, prog, ram in (("PLG150-AN mode 0", plg_program(0), plg_ram()), ("AN1x voice", an1x_program(), an1x_rom)):
         lines = ["ram " + " ".join("%x" % w for w in ram)]
         for st, w in sorted(prog.items()):
