@@ -52,6 +52,7 @@ Grouped by what blocks each item rather than by subsystem. This file is the list
 
 **Ready, needs no hardware**
 
+- The effect LFOs' depth. Session 41 settled their rate (each wave spans 1; chorus, flanger, rotary and phaser modulate at the set LFO Freq as on the unit), not their amount: Vokodrone's flanger FM is 4x the unit's, the variation Flanger's and the phasers' smaller ([findings](docs/findings.md), 2026-10-15 session 41; take `FS1R.unlock/captures/2026-10-15-155937-s25`)
 - The emulated delay, modulation and insertion programs against the effect recordings. The reverbs checked so far are within 2 to 12 LSB; the Data List models they replace read 17 to 29 dB over three files and eighty-four segments
 - The effects rewritten in C++, each checked against the emulation, which stays the exact reference
 - The render regression's reference is stale. With the EPROM image present, fifteen of `tools/regress.py`'s nineteen cases fail on this machine at `8618c17` and after the Hollow plug-in change alike, with the same numbers, and the two builds render those cases bit for bit the same, so the drift came in with an earlier engine change and was never folded into `regress_ref.json`. Find which commit moved each case, say why in its message, then `--update`

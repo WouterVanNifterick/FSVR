@@ -8,6 +8,14 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-15, session 41: the effect LFOs ran at twice their rate; each wave spans 1, not 2
+
+WouterVanNifterick reported the effect LFOs, Chorus first, running twice as fast as the unit, and rgwan that Vokodrone's insertion (type 3, Flanger) sounds as if it feeds back more and leans towards a flanger. Session 41 put a 1 kHz sine through eight modulation effects one at a time, each with the block of the first ROM performance using it (Full B3's Rotary SP and 2WayRotary, Vokodrone's own flanger from the demo), on rgwan's FS1R over SSH (`FS1R.unlock/captures/2026-10-15-155937-s25`, `docs/vop3_ship/41b.probes.json`, `tools/vop3_lfo_rate.py`), and read the three strongest lines of the tone's envelope and frequency modulation over 212 s each.
+
+**The chip's LFO registers were right; its wave was twice too tall.** The engine set every LFO at the Data List's frequency (Full B3's rotary 2.335 Hz, Chorus 0.137 Hz) and the unit modulates at exactly that and its odd harmonics. The engine modulated at twice it in all eight, because a -1..1 wave swept the delay or allpass through zero and folded. `Vop3::lfo` now spans 1 on the effect chip: the saws -0.5..0.5, the triangle 0..1 (a centred triangle doubles both phasers, a 0..1 saw doubles both rotaries, so each was fitted on its own). Afterwards all eight land on the unit's lines, frequencies to the bin and relative heights within a few percent: Chorus 0.137 / 0.410 / 0.688 Hz FM, Flanger 0.642 / 1.921 / 1.284, Rotary SP 2.335 Hz FM and 7.006 Hz AM, 2WayRotary 7.324, Phaser1 0.779 and 0.273, insertion Chorus 0.547. The effect programs only use the triangle and the saws; square, sine and S&H keep -1..1 (Rotary SP reads a speed-0 sine as a constant), and the filter chip is untouched.
+
+**Open: the depth.** The rates are settled, the amounts are not. Vokodrone's flanger frequency modulation is 0.0117 in the engine against the unit's 0.0027, four times, with an 11.7 Hz line the unit does not have. That is rgwan's "feeds back more"; the variation Flanger's and both phasers' FM is the other way, smaller than the unit's. Next is the depth path, LFO_DEPTH against the program's scaling of the LFO cell.
+
 ## 2026-10-15, session 40: how the VOP3 addresses a lookup table, and the phase rule was a capture window
 
 Seven takes on rgwan's FS1R, run from here over SSH on the s25 runner, settled the two points the AN-board RAM work left open, and corrected a rule the effect model had carried since session 16. Details, every probe and the numbers: `docs/vop3_an_ram.md`, section "Session 40".

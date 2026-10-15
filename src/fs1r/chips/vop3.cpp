@@ -77,6 +77,24 @@ float Vop3::lfo(int n) const
     const uint16_t* reg = lfoReg[n];
     const float x = (float)phase[n] * (1.0f / 4294967296.0f);
     float v;
+    // s41: on the effect chip every wave spans 1, half the old -1..1. A 1 kHz tone through Chorus, Flanger,
+    // Rotary SP, 2WayRotary and both Phaser1s on the unit (FS1R.unlock 2026-10-15-155937-s25) carries the set
+    // LFO rate and its harmonics; the -1..1 waves doubled every one (the sweep folded). Fitted per wave: the
+    // saws centred (-0.5..0.5, a 0..1 saw puts the rotaries back on twice the rate), the triangle 0..1 (a
+    // centred one doubles both phasers). Square, sine and S&H keep the old -1..1, unmeasured: Rotary SP reads
+    // a speed-0 sine as a constant and needs its 1.0. The filter chip keeps its own reading below.
+    if (!filter) {
+        switch ((reg[1] >> 5) & 7) {
+            case SAW_DOWN: v = 0.5f - x; break;
+            case SAW_UP:   v = x - 0.5f; break;
+            case SQUARE:   v = x < 0.5f ? 1.0f : -1.0f; break;
+            case SINE:     v = std::sin(2.0f * 3.14159265f * x); break;
+            case SAMPLE_HOLD: v = hold[n]; break;
+            default:       v = x < 0.5f ? 2.0f * x : 2.0f - 2.0f * x; break;   // the triangle
+        }
+        if (reg[3] & 0x8000) v = -v;    // OPEN: LFO_DIRECTION, read as a negation
+        return v * ((float)reg[2] * (1.0f / 32768.0f));
+    }
     switch ((reg[1] >> 5) & 7) {
         case SAW_DOWN:    v = 1.0f - 2.0f * x; break;
         case SAW_UP:      v = 2.0f * x - 1.0f; break;
@@ -85,14 +103,14 @@ float Vop3::lfo(int n) const
         case SAMPLE_HOLD: v = hold[n]; break;
         default:          v = x < 0.25f ? 4.0f * x : x < 0.75f ? 2.0f - 4.0f * x : 4.0f * x - 4.0f; break;   // the triangle
     }
-    // OPEN: LFO_DIRECTION. The two programs send the same words and cannot mean the same by them: the effect
-    // programs' 0x8000 reads as a negation, the filter program's 0x4000 as a halving. Neither is measured.
-    if (filter) { if (reg[3] & 0x4000) v *= 0.5f; } else if (reg[3] & 0x8000) v = -v;
+    // OPEN: LFO_DIRECTION on the filter chip: its 0x4000 reads as a halving. Not measured.
+    if (reg[3] & 0x4000) v *= 0.5f;
     return v * ((float)reg[2] * (1.0f / 32768.0f));
 }
 
 // One sample: step the EGs and the LFOs, then run the program over core.in into core.out.
-// OPEN: the speed word is 10 bits, cycles per sample * 2^20, and a full LFO fills a register at 128.
+// The speed word is 10 bits, cycles per sample * 2^20 (s41: the effects modulate at the Data List's LFO Freq).
+// A full LFO fills a register at 128.
 // OPEN: the EGs step once a sample here; the chip's own step rate is not known.
 void Vop3::run()
 {
