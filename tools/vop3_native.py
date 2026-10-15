@@ -140,6 +140,13 @@ def main(argv):
             if known is None:
                 print("kimaki did not answer; trying again next minute")
                 return 1
+            # One session at a time in this checkout, whoever started it: the routine, a nudge or a person.
+            # Kimaki's own busy check only knows the routine's last session, which let a new row start
+            # while the previous row's session was still committing (2026-10-15).
+            busy = [x for x in known if x.get("status") != "idle"]
+            if busy:
+                print(f"one session at a time: '{busy[0]['title'][:60]}' is still running")
+                return 1
             if r.get("claimed") and not r.get("session"):
                 # the routine's session started for this claim is the row's thread from now on
                 since = datetime.datetime.fromisoformat(r["claimed"].replace("Z", "+00:00")).timestamp() - 120
@@ -148,9 +155,6 @@ def main(argv):
                 if mine:
                     r["session"] = mine[-1]["id"]
             here = next((x for x in known if x["id"] == r.get("session")), None) if r.get("session") else None
-            if here and here.get("status") != "idle":
-                print(f"{r['key']} is still running in its thread")
-                return 1
             if here:
                 if r.get("nudges", 0) >= NUDGES:
                     r["stage"] = "blocked"
