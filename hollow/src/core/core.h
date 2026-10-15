@@ -390,6 +390,10 @@ struct MenuEntry {
     std::vector<MenuEntry> items; // a submenu
 };
 PlatformWindow* platformOpen(void* parent, Gui* gui);
+// A window of its own for a modal the editor's window cannot hold: top-level, owned by owner's window and
+// centred over it, holding gui (its view's size); platformClose closes it. Null where the platform has none,
+// and the editor grows around the modal instead.
+PlatformWindow* platformPopup(PlatformWindow* owner, Gui* gui);
 void platformClose(PlatformWindow* w);
 // Editor holds the GUI while it calls into it from the host's thread; only Linux runs the GUI on a
 // thread of its own, so elsewhere this does nothing.
@@ -531,6 +535,8 @@ public:
     bool live(const Hit& h) const { return h.node && h.gen == gen_; }
     bool standalone() const { return kAudioSettings && host_ && host_->standalone(); }   // the app's settings are ours to open
     bool closeRequested();                       // the standalone's window is closing: false when a modal asks first
+    void dismiss();                              // closes the modal, as Escape would: a popup's window closing
+    void closePopup();                           // a modal's own window goes (the editor's window is closing)
     // For tests that drive the GUI without a window (tools/check_gui.cpp).
     bool widgetRect(const std::string& path, Rect& r);   // a visible widget's rect, by embed path and name
     std::string tipOf(const std::string& path);           // the tooltip it would show, its shortcut included
@@ -634,6 +640,11 @@ private:
     bool contextLit_ = false;                    // a list row lit by a right-click (Inst::context)
     int modalVeil_ = -1, modalBox_ = -1;         // the root's veil and embed for a modal (skin.cpp adds them)
     std::string modalShown_;                     // the view it shows, "" when closed
+    // A modal the window cannot hold shows in a window of its own (platformPopup) where the platform has one:
+    // a Gui of the modal's view, sharing this one's skin, which never writes the session's GUI state.
+    std::unique_ptr<Gui> popup_;
+    PlatformWindow* popupWin_ = nullptr;
+    bool isPopup_ = false;                       // this Gui is such a window's
     bool closing_ = false;                       // the standalone closes without asking
     double deviceSent_[6] = {-1, -1, -1, -1, -1, -1};   // the settings view: each device param as last read
     bool devicesShown_ = false;                          // the settings view was in sight at the last tick
@@ -746,6 +757,8 @@ private:
     void writeScroll(const Node& n, std::string& out) const;
     void saveUi();
     void syncModal();                            // shows the view the modal key names, or closes it
+    void contentSize(int& w, int& h) const;      // the window's visible widgets' extent, the modal's left out
+    bool openPopup(const std::string& view);
     void setModal(const std::string& view);
     void standaloneVar();
     bool readDevices();

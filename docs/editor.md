@@ -178,7 +178,7 @@ The unit has no keyboard, so these are ours (issue #11): a way to reach any page
 
 ### Modals
 
-Every dialog but the About box is a Hollow modal: a view named `dialog_*`, opened by a `modal` action or by the processor through the text data `hollow.modal`, drawn centred over the window behind a dimming veil, with the keyboard (Escape closes it). They share one frame: a dark title bar with the title and a close X, the content well's brushed floor around the browser's dark stripes, a dark rim, dark buttons along the bottom right, text fields dark on a thin light rim, and lists in the browser's colours. The window grows to hold a modal when the editor is hidden.
+Every dialog, the About box too, is a Hollow modal: a view named `dialog_*`, opened by a `modal` action or by the processor through the text data `hollow.modal`, drawn centred over the window behind a dimming veil, with the keyboard (Escape closes it). They share one frame: a dark title bar with the title and a close X, the content well's brushed floor around the browser's dark stripes, a dark rim, dark buttons along the bottom right, text fields dark on a thin light rim, and lists in the browser's colours. With the editor hidden the window is a bar too small for a dialog, so on Windows the dialog opens in a window of its own over it (Hollow's `platformPopup`) and the bar keeps its size; on macOS and Linux the window still grows to hold it.
 
 | Modal | Opened by |
 |---|---|

@@ -282,10 +282,10 @@ int main() {
         u.rclickAt(3, 3);
         CHECK(u.gui.menuLabels().empty(), "a right-click on empty space opened a menu");
 
-        u.click("topbar/logo");
-        CHECK(u.get("gui.about_open") == 1 && u.shows("about_box/close_x"), "the logo did not open About");
-        u.click("about_box/close_x");
-        CHECK(u.get("gui.about_open") == 0, "About's X did not close it");
+        u.click("topbar/logo");   // About is a modal: in the window here, or in a window of its own where this one is a bar
+        CHECK(u.gui.modal() == "dialog_about" && u.shows(M + "close_x"), "the logo did not open About (modal \"%s\")", u.gui.modal().c_str());
+        u.click(M + "close_x");
+        CHECK(u.gui.modal().empty(), "About's X did not close it");
 
         // ---- every page: the tabs, and the operator column's buttons ----------------------------------
         const std::pair<const char*, const char*> pages[] = {

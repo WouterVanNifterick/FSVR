@@ -17,9 +17,8 @@
     480
    ],
    "press": "up",
-   "param": "gui.about_open",
    "action": {
-    "step": -1
+    "modal": ""
    }
   },
   {
@@ -192,9 +191,8 @@
    },
    "hoverTiles": true,
    "press": "up",
-   "param": "gui.about_open",
    "action": {
-    "step": -1
+    "modal": ""
    },
    "text": {
     "text": "x",

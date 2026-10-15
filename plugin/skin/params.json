@@ -36539,19 +36539,6 @@
   "host": false
  },
  {
-  "id": "gui.about_open",
-  "name": "About Open",
-  "min": 0,
-  "max": 1,
-  "steps": 1,
-  "labels": [
-   "Off",
-   "On"
-  ],
-  "default": 0,
-  "host": false
- },
- {
   "id": "gui.edited",
   "name": "Edited",
   "min": 0,

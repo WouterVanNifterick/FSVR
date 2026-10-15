@@ -29,6 +29,7 @@ struct PlatformWindow {
     HWND root = nullptr;        // the standalone's window, while its close asks the GUI first
     WNDPROC rootProc = nullptr; // and its own procedure
     bool closing = false;       // platformCloseApp: it closes without asking
+    HWND frame = nullptr;       // platformPopup: the top-level window this one fills
 };
 
 static int classUsers = 0;
@@ -380,6 +381,63 @@ PlatformWindow* platformOpen(void* parent, Gui* gui) {
     return w;
 }
 
+// ---- a modal's own window ------------------------------------------------------------------------
+
+static int popupUsers = 0;
+static wchar_t popupClass[64];
+
+static LRESULT CALLBACK popupProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    auto* w = (PlatformWindow*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+    if (msg == WM_CLOSE) {   // Alt+F4 and the like close the modal, as Escape does; the GUI then closes this
+        if (w) w->gui->dismiss();
+        return 0;
+    }
+    if (msg == WM_ACTIVATE && LOWORD(wp) != WA_INACTIVE && w) {   // the keyboard goes to the view inside
+        SetFocus(w->hwnd);
+        return 0;
+    }
+    return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+// A frameless top-level window with the system's drop shadow, owned by the editor's top-level window so it
+// stays over it and goes with it: centred over the editor, never above its top and kept on its monitor, with
+// the Gui's view in it as platformOpen puts one in any window. The view draws its own title and close box.
+PlatformWindow* platformPopup(PlatformWindow* owner, Gui* gui) {
+    HMODULE mod = thisModule();
+    if (popupUsers++ == 0) {
+        std::swprintf(popupClass, 64, L"HollowPopup%p", (void*)mod);
+        WNDCLASSEXW wc = {sizeof wc};
+        wc.style = CS_DROPSHADOW;
+        wc.lpfnWndProc = popupProc;
+        wc.hInstance = mod;
+        wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+        wc.lpszClassName = popupClass;
+        RegisterClassExW(&wc);
+    }
+    const int width = gui->width() * gui->scale(), height = gui->height() * gui->scale();
+    RECT r;
+    GetWindowRect(owner->hwnd, &r);
+    MONITORINFO mi = {sizeof mi};
+    GetMonitorInfoW(MonitorFromWindow(owner->hwnd, MONITOR_DEFAULTTONEAREST), &mi);
+    const RECT& a = mi.rcWork;
+    const int x = std::clamp((int)(r.left + r.right - width) / 2, (int)a.left, std::max((int)a.left, (int)a.right - width));
+    const int y = std::clamp(std::max((int)(r.top + r.bottom - height) / 2, (int)r.top), (int)a.top, std::max((int)a.top, (int)a.bottom - height));
+    HWND frame = CreateWindowExW(0, popupClass, L"", WS_POPUP | WS_CLIPCHILDREN, x, y, width, height, GetAncestor(owner->hwnd, GA_ROOT),
+                                 nullptr, mod, nullptr);
+    PlatformWindow* w = frame ? platformOpen(frame, gui) : nullptr;
+    if (!w) {
+        if (frame) DestroyWindow(frame);
+        if (--popupUsers == 0) UnregisterClassW(popupClass, mod);
+        return nullptr;
+    }
+    w->frame = frame;
+    SetWindowLongPtrW(frame, GWLP_USERDATA, (LONG_PTR)w);
+    ShowWindow(frame, SW_SHOW);
+    SetForegroundWindow(frame);
+    SetFocus(w->hwnd);
+    return w;
+}
+
 void platformClose(PlatformWindow* w) {
     if (!w->gui->skin().keys.empty()) removeKeyHook(w);   // before the window goes, so the hook sees no stale one
     if (w->root && IsWindow(w->root)) {   // the standalone's close goes back to its own procedure
@@ -390,6 +448,11 @@ void platformClose(PlatformWindow* w) {
     KillTimer(w->hwnd, 1);
     SetWindowLongPtrW(w->hwnd, GWLP_USERDATA, 0);
     DestroyWindow(w->hwnd);
+    if (w->frame) {   // a popup's: its own window goes too
+        SetWindowLongPtrW(w->frame, GWLP_USERDATA, 0);
+        DestroyWindow(w->frame);
+        if (--popupUsers == 0) UnregisterClassW(popupClass, thisModule());
+    }
     delete w;
     if (--classUsers == 0) UnregisterClassW(className, thisModule());
 }

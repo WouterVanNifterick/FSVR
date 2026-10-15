@@ -79,6 +79,7 @@ Gui::Gui(const Skin* skin, State& state, Editor::Host* host, const std::string& 
 }
 
 Gui::~Gui() {   // closed mid-gesture: notes stop, springs return, the host's gesture ends
+    closePopup();
     releasePress();
     end();
 }
@@ -330,14 +331,10 @@ void Gui::relayout() {
     flow(root_);
     if (modalBox_ >= 0 && !modalShown_.empty()) {   // the modal centred over the window, which grows to hold it
         const View* mv = skin_->view(modalShown_);
-        int bw = root_.view->w, bh = root_.view->h, m = skin_->dp(16);
-        if (root_.view->fit) {
-            bw = bh = 1;
-            for (size_t i = 0; i < root_.w.size(); ++i)
-                if ((int)i != modalVeil_ && (int)i != modalBox_ && visible(root_.w[i]))
-                    bw = std::max(bw, root_.w[i].r.x + root_.w[i].r.w), bh = std::max(bh, root_.w[i].r.y + root_.w[i].r.h);
-        }
+        int bw, bh, m = skin_->dp(16);
+        contentSize(bw, bh);
         int mw = mv ? mv->w : 0, mh = mv ? mv->h : 0, W = std::max(bw, mw + 2 * m), H = std::max(bh, mh + 2 * m);
+        if (popup_) W = bw, H = bh;   // in a window of its own: the veil over this one as it is
         root_.w[modalVeil_].r = {0, 0, W, H};
         root_.w[modalBox_].r = {(W - mw) / 2, (H - mh) / 2, mw, mh};
     }
@@ -355,6 +352,15 @@ void Gui::relayout() {
     }
     place(root_, 0, 0, {0, 0, w_, h_});
     invalidateAll();
+}
+
+void Gui::contentSize(int& w, int& h) const {
+    w = root_.view->w, h = root_.view->h;
+    if (!root_.view->fit) return;
+    w = h = 1;
+    for (size_t i = 0; i < root_.w.size(); ++i)
+        if ((int)i != modalVeil_ && (int)i != modalBox_ && visible(root_.w[i]))
+            w = std::max(w, root_.w[i].r.x + root_.w[i].r.w), h = std::max(h, root_.w[i].r.y + root_.w[i].r.h);
 }
 
 int Gui::fullHeight(const Node& n, int i) const {
@@ -2065,8 +2071,8 @@ bool Gui::keyDown(Key k, bool shift, bool ctrl, bool alt, unsigned ch, bool from
         if (!live(listFocus_)) {
             // Nothing in the editor owns the keyboard, so the skin's shortcuts get the key; a modal keeps
             // them to itself, since its own controls are what the keyboard is for while it is up.
-            if (modalShown_.empty()) return runKey(k, ch, shift, ctrl, alt, fromHost);
-            if (k == KeyEscape) setModal("");   // Escape closes a modal, as its Cancel would
+            if (modalShown_.empty() && !isPopup_) return runKey(k, ch, shift, ctrl, alt, fromHost);
+            if (k == KeyEscape) dismiss();   // Escape closes a modal, as its Cancel would
             return true;
         }
         if (k == KeyEscape) listFocus_ = {};
@@ -2804,7 +2810,7 @@ void Gui::tick() {
         nextRepeat_ = now + ms(100);
         stepNumber(press_, stepDir_);
     }
-    if (state_.ui() != savedUi_) {   // the host loaded a state
+    if (!isPopup_ && state_.ui() != savedUi_) {   // the host loaded a state
         loaded = true;
         applyUi(state_.ui());
         kindsLoaded(*this);
@@ -2827,7 +2833,7 @@ void Gui::tick() {
         unlight(root_);   // by the tree, since a modal's show may have left a Hit on the list dead
         contextLit_ = false;
     }
-    if (standalone() && window && state_.data(kCloseKey) == "1") {
+    if (!isPopup_ && standalone() && window && state_.data(kCloseKey) == "1") {
         state_.setData(kCloseKey, "");
         closing_ = true;
         platformCloseApp(window);
@@ -2952,6 +2958,7 @@ std::string Gui::uiJson() const {
 }
 
 void Gui::saveUi() {
+    if (isPopup_) return;   // a modal's window: the session's GUI state is the editor's
     savedUi_ = uiJson();
     state_.setUi(savedUi_);
 }
@@ -3007,10 +3014,14 @@ void Gui::setModal(const std::string& view) {
     syncModal();
 }
 
+void Gui::dismiss() { setModal(""); }
+
 // The modal shows the view the text data under kModalKey names: over the window behind a veil, with
-// the keyboard (Escape closes it). An action or the processor sets the key; "" closes it.
+// the keyboard (Escape closes it). An action or the processor sets the key; "" closes it. A modal the
+// window cannot hold (a fitted window shrunk to a bar) goes into a window of its own, where the platform
+// has one, rather than growing this one around it: this one keeps its size under the veil.
 void Gui::syncModal() {
-    if (modalBox_ < 0) return;
+    if (modalBox_ < 0 || isPopup_) return;
     std::string v = state_.data(kModalKey);
     if (!skin_->view(v)) v.clear();
     if (v == modalShown_) return;
@@ -3018,11 +3029,44 @@ void Gui::syncModal() {
     finishEdit(false);
     listFocus_ = {};
     hover_ = {};
+    closePopup();
     modalShown_ = v;
-    root_.w[modalVeil_].hidden = root_.w[modalBox_].hidden = v.empty();
-    if (!v.empty()) show(root_, modalBox_, v, {});
+    bool popped = false;
+    if (!v.empty() && window) {
+        const View* mv = skin_->view(v);
+        int bw, bh, m = skin_->dp(16);
+        contentSize(bw, bh);
+        popped = (mv->w + 2 * m > bw || mv->h + 2 * m > bh) && openPopup(v);
+    }
+    root_.w[modalVeil_].hidden = v.empty();
+    root_.w[modalBox_].hidden = v.empty() || popped;
+    if (!v.empty() && !popped) show(root_, modalBox_, v, {});
     else relayout();
-    if (window) platformFocus(window, !v.empty());
+    if (window) platformFocus(window, !v.empty() && !popped);
+}
+
+// A Gui of the modal's view in a window of its own, drawn with this one's skin at this one's scale and vars.
+bool Gui::openPopup(const std::string& view) {
+    popup_ = std::make_unique<Gui>(base_, state_, host_, view);
+    Gui& p = *popup_;
+    p.isPopup_ = true;
+    p.zoomed_ = zoomed_;
+    p.zoom_ = zoom_;
+    p.scale_ = scale_;
+    p.skin_ = skin_;
+    std::string ui = "{\"vars\":{";
+    for (size_t i = 0; i < vars_.size(); ++i) ui += (i ? "," : "") + jsonQuote(vars_[i].first) + ":" + jsonQuote(vars_[i].second);
+    p.applyUi(ui + "}}", false);
+    popupWin_ = p.window = platformPopup(window, &p);
+    if (!popupWin_) popup_.reset();
+    return popupWin_ != nullptr;
+}
+
+void Gui::closePopup() {
+    if (popupWin_) platformClose(popupWin_);   // the window first, then the GUI it drew
+    if (popup_) popup_->window = nullptr;
+    popupWin_ = nullptr;
+    popup_.reset();
 }
 
 // The standalone's window is closing: with a "close" modal and its condition holding, that modal opens
@@ -3071,7 +3115,7 @@ bool Gui::settingsShown(const Node& n) const {
 // While the settings view shows: it is read when it comes into sight, a choice made there goes to the
 // app's settings window, and everything is read back, since a new API or device changes what the others offer.
 void Gui::syncDevices() {
-    const bool shown = window && !skin_->settingsView.empty() && settingsShown(root_);
+    const bool shown = window && !skin_->settingsView.empty() && (settingsShown(root_) || (isPopup_ && rootName_ == skin_->settingsView));
     if (shown != devicesShown_) {
         devicesShown_ = shown;
         if (shown) readDevices();
@@ -3090,6 +3134,7 @@ void Gui::syncDevices() {
 
 // A new skin at 1x (live reload); a GUI at another scale loads it again at that scale.
 void Gui::setSkin(const Skin* skin) {
+    closePopup();   // it draws with the skin going
     std::string ui = uiJson(), err;
     int w = w_, h = h_;
     auto old = std::move(zoomed_);   // the tree still points into it until applyUi rebuilds
@@ -3137,6 +3182,7 @@ void Editor::detach() {
     if (!impl_->gui.window) return;
     platformHold(impl_->gui.window, true);
     impl_->gui.focusLost();   // commits text entry and closes menus while the window still exists
+    impl_->gui.closePopup();
     platformHold(impl_->gui.window, false);
     platformClose(impl_->gui.window);
     impl_->gui.window = nullptr;

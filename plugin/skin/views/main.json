@@ -504,34 +504,6 @@
     ]
    },
    "fit": true
-  },
-  {
-   "type": "veil",
-   "name": "about_veil",
-   "rect": [
-    0,
-    0,
-    1514,
-    744
-   ],
-   "layer": 7,
-   "fill": {
-    "colour": "#00000000"
-   },
-   "showIf": "gui.about_open"
-  },
-  {
-   "type": "embed",
-   "name": "about_box",
-   "rect": [
-    437,
-    236,
-    640,
-    480
-   ],
-   "layer": 7,
-   "view": "dialog_about",
-   "showIf": "gui.about_open"
   }
  ]
 }
