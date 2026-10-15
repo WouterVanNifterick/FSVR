@@ -194,10 +194,14 @@ unit's depth. Rendered the way the rig plays it (performance and sine-voice bulk
 engine / unit: Vokodrone's flanger 0.0028 / 0.0030, insertion Chorus 0.00185 / 0.00184, 2WayRotary 0.00229 /
 0.00232, Rotary SP 0.00169 / 0.00184, variation Phaser1 0.00036 / 0.00037; every envelope p1/p50/p99 within 12%.
 The 4.3x Vokodrone excess of s41b was the probe, not the engine: it pushed a 0.25 sine straight into the bus,
-hotter than the rig's voice, and drove the feedback node into the +-8 clip (section 4). Open, and not the
-LFO: the variation Flanger, variation Chorus and insertion Phaser1 differ in FM shape. On the unit the FM spikes
-at the momentary notches (sd 10 to 23 Hz there, the engine's 0.4 to 5); away from them the variation Flanger
-agrees (2.1 / 2.0 Hz), the variation Chorus wobbles 0.7 Hz on the unit and 5.7 in the engine, Phaser1 4.6 / 0.8.
+hotter than the rig's voice, and drove the feedback node into the +-8 clip (section 4). Over all eight
+effects the FM p5..p95 band and the envelope p1/p50/p99 agree with the unit (2WayRotary 977.2..1028.8 Hz against
+977.2..1027.2; variation Chorus, on 41a's 40 s hold, an 11.10 Hz FM step against the engine's 11.08). Two things
+in the unit takes are not the effect: every s25 take has a one-sample phase glitch every 1.451 s, in every
+effect, that reads as an FM spike; and the variation Chorus (0.137 Hz) needs a hold longer than s41b's 4 s.
+Vokodrone's flanger taps (s41k: 1d5, 1e9, 1f5) match the unit within 6% over their whole distribution with the
++-32 RAM clip. Left: Vokodrone's notch peaks are 10% under the unit's at |FB| 60 (0.177 / 0.195); at FB -30..+30
+they match within 1%.
 
 ## 8. EGs
 
@@ -212,8 +216,7 @@ the filter EG takes, `docs/findings.md` 2026-09-23; `vop3.cpp`).
 * Register 5's bits (the AN boards' 2 silences the FS1R program), register 0x1B, 0x0F..0x12's control word 0x12,
   0x16's entries 1..14, 0x28..0x2A, 0x1C, and the LFO speed word's bits 10..11.
 * `LFO_DIRECTION`'s low bits, the square, sine and sample-and-hold waves on the effect chip, and VOP3-1's LFO2 reading.
-* The flangers' notch shape: Vokodrone's notch peaks 10 to 20% low, the variation Flanger's and Chorus's notches
-  shallower than the unit's (section 7).
+* Vokodrone's flanger notch peaks are 10% low at |FB| 60 (section 7).
 * VOP3-1's register bank per channel (the journal's sessions 38q..39): the filter runs on the measured core with
   the firmware's program, and the bank map is what the replay still leans on.
 * The tag byte's meaning to the chip, if any.

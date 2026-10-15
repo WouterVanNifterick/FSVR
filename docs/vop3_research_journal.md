@@ -1110,4 +1110,10 @@ steps (1b4 / 1d3) tapped on the unit.
   selector: clear = unipolar 0..1 with 0x8000 centring (VOP3-2, measured), set = bipolar -1..1 with 0x4000 halving
   (VOP3-1, `20_fltmod` LFO2 envelopes 6.1 dB rms against 12.7 dB unipolar). Inferred, not probed: no take has
   flipped bit 12.
+* The "deeper notches" of the variation Flanger, Chorus and insertion Phaser1 were the measurement. Every s25 take
+  carries a one-sample phase glitch every 1.451 s, in every effect, read as FM spikes at the notches; and 41b's 4 s
+  holds cannot show the 0.137 Hz chorus. On 41a's 40 s hold the variation Chorus's FM is a square of 11.10 Hz
+  step on the unit, 11.08 in the engine. Tried and rejected: the fraction inverted (`1 - f`): it puts the chorus
+  wobble at the unit's sd only by adding 18 Hz noise, and breaks insertion Chorus (FM sd 4.5x).
+* With the +-32 clip, Vokodrone's 41k taps (1d5, 1e9, 1f5) match the unit within 6% over p50..max.
 

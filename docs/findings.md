@@ -16,7 +16,7 @@ The unit agreed step by step (s41h-l, FS1R.unlock `2026-10-15-201341/-202658/-20
 
 Hikari pointed out that VOP3-1 and VOP3-2 are the same chip, so `Vop3::lfo` no longer branches on which board it is: `LFO_WAVE` bit 12, which only the filter host sets, selects the bipolar range. The filter renders bit-identical and the effect renders are unchanged; that bit 12 is the selector is inferred, not probed.
 
-Still open, and not the LFO: the variation Flanger, variation Chorus and insertion Phaser1 have deeper momentary notches on the unit, with FM spikes there the engine does not make.
+The variation Flanger, Chorus and Phaser1 "deeper notches" were the measurement: every s25 take has a one-sample phase glitch every 1.451 s, and the 4 s holds were too short for the 0.137 Hz chorus; on a 40 s hold the chorus's FM step is 11.10 Hz on the unit and 11.08 in the engine. All eight effects now agree on FM band and envelope. Left: Vokodrone's notch peaks 10% low at |FB| 60.
 
 ## 2026-10-15, session 41 (cont.): the effect LFO is unipolar, and LFO_DIRECTION centres it
 
