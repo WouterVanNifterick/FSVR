@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T19:53:53Z",
+ "updated": "2026-10-15T20:20:05Z",
  "programs": [
   {
    "key": "flt",
@@ -45,13 +45,17 @@
     "rev-11 Basement",
     "rev-12 Canyon"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 835200,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the reverb block's model of No Effect, Hall1, Hall2, Room1, Room2, Room3, Stage1, Stage2, Plate, White Room, Tunnel, Basement, Canyon",
-   "note": "",
-   "updated": null
+   "note": "rev.cpp transcribed, build/vop3_native_check rev reports identical over 87 types and 835200 passes",
+   "updated": "2026-10-15T20:19:46Z",
+   "claimed": "2026-10-15T20:01:05Z",
+   "sessions": 1,
+   "nudges": 4,
+   "session": "ses_ebed8919effeI30EchtZi67oLp"
   },
   {
    "key": "dly-m00",
@@ -73,13 +77,16 @@
     "rev-11 Basement",
     "rev-12 Canyon"
    ],
-   "stage": "todo",
+   "stage": "reading",
    "check": null,
    "passes": 0,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of No Effect, Hall1, Hall2, Room1, Room2, Room3, Stage1, Stage2, Plate, White Room, Tunnel, Basement, Canyon",
    "note": "",
-   "updated": null
+   "updated": "2026-10-15T20:20:05Z",
+   "claimed": "2026-10-15T20:20:05Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "dly-m08",
