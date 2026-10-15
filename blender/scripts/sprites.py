@@ -343,8 +343,8 @@ BUTTONS = {
     'buttons/part_radio': (16, 20, radio(16, 20), {}),
     'buttons/toggle_row': (50, 18, toggle(50, 18, 31), {'slice': [0, 21, 0, 2]}),
     'buttons/led_toggle_inv': (71, 18, toggle(71, 18, 27, plate=False), {}),
-    # the Parts page's part lamps: toggle_row's lamp without its plate, at the right edge of the part's name
-    'buttons/lamp_row': (23, 18, toggle(23, 18, 4, plate=False), {'slice': [0, 21, 0, 2]}),
+    # the Parts page's part lamps: toggle_row's lamp without its plate, at the left edge of the part's name
+    'buttons/lamp_row': (23, 18, toggle(23, 18, 4, plate=False), {'slice': [0, 2, 0, 21]}),
     'buttons/library_blank_narrow': (21, 29, blank(21, 29), {'slice': [0, 3, 0, 3]}),
     'buttons/dropdown_small': (50, 18, dropdown(50, 18), {'slice': [0, 23, 0, 2]}),
     'buttons/dropdown_small_inv': (50, 18, dropdown(50, 18, True), {'slice': [0, 23, 0, 2]}),

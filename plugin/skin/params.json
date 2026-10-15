@@ -3407,8 +3407,8 @@
   "steps": 2,
   "labels": [
    "Off",
-   "Pre Ins",
-   "Post Ins"
+   "Pre Insertion FX",
+   "Post Insertion FX"
   ]
  },
  {

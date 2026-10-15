@@ -4,7 +4,9 @@
 #                         when the editor is hidden
 #   backgrounds/keys_compact  the same strip with the compact keyboard's shorter well, for the keys view
 #   backgrounds/page      the content well's floor behind the dialogs, as big as the biggest (dialog_audio)
-#   buttons/tab_<name>    x4 tiles: raised, sunk into the content well, raised under the pointer, sunk under it
+#   buttons/tab_<n>       the tab at slot n (1-based), x4 tiles: raised, sunk into the content well, raised under
+#                         the pointer, sunk under it. Named by slot, not by page: each is cut from the chrome where
+#                         it stands, so its shading belongs to the slot and stays there when the pages are reordered
 # In Blender (blender/scripts on sys.path): import render_chrome; render_chrome.run()
 # or: blender -b blender/chrome.blend -P blender/scripts/render_chrome.py
 import os, sys
@@ -40,7 +42,7 @@ def run(scales=kit.SCALES):
     for i, (name, caption, page) in enumerate(L.TABS):
         x, y, w, h = L.tab_rect(i)
         rect = (x - 2, y - 2, w + 4, h + 2 + L.DEPTH + 2)
-        kit.tiles('buttons/tab_' + name, rect, [
+        kit.tiles('buttons/tab_%d' % (i + 1), rect, [
             lambda: (B.sink(None), B.hover(name, False)),
             lambda: B.sink(name),
             lambda: (B.sink(None), B.hover(name, True)),

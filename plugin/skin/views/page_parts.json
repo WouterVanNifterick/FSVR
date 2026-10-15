@@ -51,9 +51,9 @@
     "valign": "middle"
    },
    "pad": [
-    2,
+    24,
     0,
-    21,
+    2,
     0
    ],
    "tip": "Part 1 on or off: off, its voice bank is off and it plays nothing",
@@ -149,7 +149,7 @@
    ]
   },
   {
-   "type": "number",
+   "type": "dropdown",
    "name": "rcv_1",
    "rect": [
     80,
@@ -158,23 +158,100 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "buttons/dropdown_small"
    },
    "text": {
-    "text": "",
+    "text": "...",
     "font": "value_dark_12",
-    "align": "center",
     "valign": "middle"
    },
    "pad": [
+    11,
     2,
-    2,
+    21,
+    2
+   ],
+   "pressOffset": [
     2,
     2
    ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
+   "items": [
+    {
+     "label": "1",
+     "value": 0
+    },
+    {
+     "label": "2",
+     "value": 1
+    },
+    {
+     "label": "3",
+     "value": 2
+    },
+    {
+     "label": "4",
+     "value": 3
+    },
+    {
+     "label": "5",
+     "value": 4
+    },
+    {
+     "label": "6",
+     "value": 5
+    },
+    {
+     "label": "7",
+     "value": 6
+    },
+    {
+     "label": "8",
+     "value": 7
+    },
+    {
+     "label": "9",
+     "value": 8,
+     "columnBreak": true
+    },
+    {
+     "label": "10",
+     "value": 9
+    },
+    {
+     "label": "11",
+     "value": 10
+    },
+    {
+     "label": "12",
+     "value": 11
+    },
+    {
+     "label": "13",
+     "value": 12
+    },
+    {
+     "label": "14",
+     "value": 13
+    },
+    {
+     "label": "15",
+     "value": 14
+    },
+    {
+     "label": "16",
+     "value": 15
+    },
+    {
+     "label": "Pfm",
+     "value": 16,
+     "columnBreak": true
+    },
+    {
+     "label": "Off",
+     "value": 17
+    }
+   ],
+   "captionFromItem": true,
    "param": "part.rcv_ch.p1",
    "tip": "The channel this part receives on: 1-16, the performance channel (Pfm), or off"
   },
@@ -203,7 +280,7 @@
    ]
   },
   {
-   "type": "number",
+   "type": "dropdown",
    "name": "rcv_max_1",
    "rect": [
     178,
@@ -212,23 +289,96 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "buttons/dropdown_small"
    },
    "text": {
-    "text": "",
+    "text": "...",
     "font": "value_dark_12",
-    "align": "center",
     "valign": "middle"
    },
    "pad": [
+    11,
     2,
-    2,
+    21,
+    2
+   ],
+   "pressOffset": [
     2,
     2
    ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
+   "items": [
+    {
+     "label": "1",
+     "value": 0
+    },
+    {
+     "label": "2",
+     "value": 1
+    },
+    {
+     "label": "3",
+     "value": 2
+    },
+    {
+     "label": "4",
+     "value": 3
+    },
+    {
+     "label": "5",
+     "value": 4
+    },
+    {
+     "label": "6",
+     "value": 5
+    },
+    {
+     "label": "7",
+     "value": 6
+    },
+    {
+     "label": "8",
+     "value": 7
+    },
+    {
+     "label": "9",
+     "value": 8,
+     "columnBreak": true
+    },
+    {
+     "label": "10",
+     "value": 9
+    },
+    {
+     "label": "11",
+     "value": 10
+    },
+    {
+     "label": "12",
+     "value": 11
+    },
+    {
+     "label": "13",
+     "value": 12
+    },
+    {
+     "label": "14",
+     "value": 13
+    },
+    {
+     "label": "15",
+     "value": 14
+    },
+    {
+     "label": "16",
+     "value": 15
+    },
+    {
+     "label": "Off",
+     "value": 16,
+     "columnBreak": true
+    }
+   ],
+   "captionFromItem": true,
    "param": "part.rcv_max.p1",
    "tip": "The top of a channel range, or Off for the one channel"
   },
@@ -305,7 +455,7 @@
    "rect": [
     80,
     148,
-    58,
+    50,
     18
    ],
    "fill": {
@@ -330,36 +480,12 @@
    "tip": "The lowest note it plays"
   },
   {
-   "type": "plate",
-   "name": "note_low_1_to",
-   "rect": [
-    140,
-    148,
-    22,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "font": "caption_grey_12",
-    "align": "center",
-    "text": "to"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "note_high_1",
    "rect": [
-    164,
+    134,
     148,
-    58,
+    50,
     18
    ],
    "fill": {
@@ -387,9 +513,9 @@
    "type": "plate",
    "name": "reserve_1_label",
    "rect": [
-    228,
+    200,
     148,
-    34,
+    60,
     18
    ],
    "fill": {
@@ -398,7 +524,7 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "Rsv"
+    "text": "Reserve"
    },
    "pad": [
     1,
@@ -1032,7 +1158,7 @@
     "image": "buttons/toggle_row"
    },
    "text": {
-    "text": "Insertion",
+    "text": "Insertion FX",
     "font": "caption_grey_12",
     "valign": "middle"
    },
@@ -1048,7 +1174,7 @@
     2
    ],
    "param": "part.ins_sw.p1",
-   "tip": "Through the insertion effect"
+   "tip": "Enables this part going through the insertion effect"
   },
   {
    "type": "button",
@@ -1124,7 +1250,7 @@
     "image": "buttons/toggle_row"
    },
    "text": {
-    "text": "Porta",
+    "text": "Portamento",
     "font": "caption_grey_12",
     "valign": "middle"
    },
@@ -1288,7 +1414,7 @@
    "name": "rev_send_1_label",
    "rect": [
     156,
-    324,
+    476,
     74,
     18
    ],
@@ -1310,7 +1436,7 @@
    "name": "rev_send_1",
    "rect": [
     171,
-    340,
+    492,
     44,
     44
    ],
@@ -1326,7 +1452,7 @@
    "name": "rev_send_1_value",
    "rect": [
     156,
-    384,
+    536,
     74,
     14
    ],
@@ -1352,7 +1478,7 @@
    "name": "var_send_1_label",
    "rect": [
     230,
-    324,
+    476,
     74,
     18
    ],
@@ -1374,7 +1500,7 @@
    "name": "var_send_1",
    "rect": [
     245,
-    340,
+    492,
     44,
     44
    ],
@@ -1390,7 +1516,7 @@
    "name": "var_send_1_value",
    "rect": [
     230,
-    384,
+    536,
     74,
     14
    ],
@@ -1416,7 +1542,7 @@
    "name": "dry_1_label",
    "rect": [
     82,
-    400,
+    476,
     74,
     18
    ],
@@ -1438,7 +1564,7 @@
    "name": "dry_1",
    "rect": [
     97,
-    416,
+    492,
     44,
     44
    ],
@@ -1454,7 +1580,7 @@
    "name": "dry_1_value",
    "rect": [
     82,
-    460,
+    536,
     74,
     14
    ],
@@ -1479,16 +1605,16 @@
    "type": "plate",
    "name": "vn_balance_1_label",
    "rect": [
-    156,
+    154,
     400,
-    74,
+    78,
     18
    ],
    "layer": 1,
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "V/N Bal"
+    "text": "V/N Balance"
    },
    "pad": [
     2,
@@ -1543,7 +1669,7 @@
    "type": "plate",
    "name": "detune_1_label",
    "rect": [
-    230,
+    82,
     400,
     74,
     18
@@ -1565,7 +1691,7 @@
    "type": "dial",
    "name": "detune_1",
    "rect": [
-    245,
+    97,
     416,
     44,
     44
@@ -1581,7 +1707,7 @@
    "type": "number",
    "name": "detune_1_value",
    "rect": [
-    230,
+    82,
     460,
     74,
     14
@@ -1607,8 +1733,8 @@
    "type": "plate",
    "name": "pan_lfo_1_label",
    "rect": [
-    82,
-    476,
+    156,
+    324,
     74,
     18
    ],
@@ -1629,8 +1755,8 @@
    "type": "dial",
    "name": "pan_lfo_1",
    "rect": [
-    97,
-    492,
+    171,
+    340,
     44,
     44
    ],
@@ -1646,8 +1772,8 @@
    "type": "number",
    "name": "pan_lfo_1_value",
    "rect": [
-    82,
-    536,
+    156,
+    384,
     74,
     14
    ],
@@ -1672,8 +1798,8 @@
    "type": "plate",
    "name": "expr_1_label",
    "rect": [
-    156,
-    476,
+    230,
+    400,
     74,
     18
    ],
@@ -1681,7 +1807,7 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "Expr Lo"
+    "text": "Exp Low"
    },
    "pad": [
     2,
@@ -1694,8 +1820,8 @@
    "type": "dial",
    "name": "expr_1",
    "rect": [
-    171,
-    492,
+    245,
+    416,
     44,
     44
    ],
@@ -1711,8 +1837,8 @@
    "type": "number",
    "name": "expr_1_value",
    "rect": [
-    156,
-    536,
+    230,
+    460,
     74,
     14
    ],
@@ -1738,7 +1864,7 @@
    "name": "pan_scale_1_label",
    "rect": [
     230,
-    476,
+    324,
     74,
     18
    ],
@@ -1760,7 +1886,7 @@
    "name": "pan_scale_1",
    "rect": [
     245,
-    492,
+    340,
     44,
     44
    ],
@@ -1777,7 +1903,7 @@
    "name": "pan_scale_1_value",
    "rect": [
     230,
-    536,
+    384,
     74,
     14
    ],
@@ -1845,9 +1971,9 @@
     "valign": "middle"
    },
    "pad": [
-    2,
+    24,
     0,
-    21,
+    2,
     0
    ],
    "tip": "Part 2 on or off: off, its voice bank is off and it plays nothing",
@@ -1943,7 +2069,7 @@
    ]
   },
   {
-   "type": "number",
+   "type": "dropdown",
    "name": "rcv_2",
    "rect": [
     385,
@@ -1952,23 +2078,100 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "buttons/dropdown_small"
    },
    "text": {
-    "text": "",
+    "text": "...",
     "font": "value_dark_12",
-    "align": "center",
     "valign": "middle"
    },
    "pad": [
+    11,
     2,
-    2,
+    21,
+    2
+   ],
+   "pressOffset": [
     2,
     2
    ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
+   "items": [
+    {
+     "label": "1",
+     "value": 0
+    },
+    {
+     "label": "2",
+     "value": 1
+    },
+    {
+     "label": "3",
+     "value": 2
+    },
+    {
+     "label": "4",
+     "value": 3
+    },
+    {
+     "label": "5",
+     "value": 4
+    },
+    {
+     "label": "6",
+     "value": 5
+    },
+    {
+     "label": "7",
+     "value": 6
+    },
+    {
+     "label": "8",
+     "value": 7
+    },
+    {
+     "label": "9",
+     "value": 8,
+     "columnBreak": true
+    },
+    {
+     "label": "10",
+     "value": 9
+    },
+    {
+     "label": "11",
+     "value": 10
+    },
+    {
+     "label": "12",
+     "value": 11
+    },
+    {
+     "label": "13",
+     "value": 12
+    },
+    {
+     "label": "14",
+     "value": 13
+    },
+    {
+     "label": "15",
+     "value": 14
+    },
+    {
+     "label": "16",
+     "value": 15
+    },
+    {
+     "label": "Pfm",
+     "value": 16,
+     "columnBreak": true
+    },
+    {
+     "label": "Off",
+     "value": 17
+    }
+   ],
+   "captionFromItem": true,
    "param": "part.rcv_ch.p2",
    "tip": "The channel this part receives on: 1-16, the performance channel (Pfm), or off"
   },
@@ -1997,7 +2200,7 @@
    ]
   },
   {
-   "type": "number",
+   "type": "dropdown",
    "name": "rcv_max_2",
    "rect": [
     483,
@@ -2006,23 +2209,96 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "buttons/dropdown_small"
    },
    "text": {
-    "text": "",
+    "text": "...",
     "font": "value_dark_12",
-    "align": "center",
     "valign": "middle"
    },
    "pad": [
+    11,
     2,
-    2,
+    21,
+    2
+   ],
+   "pressOffset": [
     2,
     2
    ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
+   "items": [
+    {
+     "label": "1",
+     "value": 0
+    },
+    {
+     "label": "2",
+     "value": 1
+    },
+    {
+     "label": "3",
+     "value": 2
+    },
+    {
+     "label": "4",
+     "value": 3
+    },
+    {
+     "label": "5",
+     "value": 4
+    },
+    {
+     "label": "6",
+     "value": 5
+    },
+    {
+     "label": "7",
+     "value": 6
+    },
+    {
+     "label": "8",
+     "value": 7
+    },
+    {
+     "label": "9",
+     "value": 8,
+     "columnBreak": true
+    },
+    {
+     "label": "10",
+     "value": 9
+    },
+    {
+     "label": "11",
+     "value": 10
+    },
+    {
+     "label": "12",
+     "value": 11
+    },
+    {
+     "label": "13",
+     "value": 12
+    },
+    {
+     "label": "14",
+     "value": 13
+    },
+    {
+     "label": "15",
+     "value": 14
+    },
+    {
+     "label": "16",
+     "value": 15
+    },
+    {
+     "label": "Off",
+     "value": 16,
+     "columnBreak": true
+    }
+   ],
+   "captionFromItem": true,
    "param": "part.rcv_max.p2",
    "tip": "The top of a channel range, or Off for the one channel"
   },
@@ -2099,7 +2375,7 @@
    "rect": [
     385,
     148,
-    58,
+    50,
     18
    ],
    "fill": {
@@ -2124,36 +2400,12 @@
    "tip": "The lowest note it plays"
   },
   {
-   "type": "plate",
-   "name": "note_low_2_to",
-   "rect": [
-    445,
-    148,
-    22,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "font": "caption_grey_12",
-    "align": "center",
-    "text": "to"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "note_high_2",
    "rect": [
-    469,
+    439,
     148,
-    58,
+    50,
     18
    ],
    "fill": {
@@ -2181,9 +2433,9 @@
    "type": "plate",
    "name": "reserve_2_label",
    "rect": [
-    533,
+    505,
     148,
-    34,
+    60,
     18
    ],
    "fill": {
@@ -2192,7 +2444,7 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "Rsv"
+    "text": "Reserve"
    },
    "pad": [
     1,
@@ -2826,7 +3078,7 @@
     "image": "buttons/toggle_row"
    },
    "text": {
-    "text": "Insertion",
+    "text": "Insertion FX",
     "font": "caption_grey_12",
     "valign": "middle"
    },
@@ -2842,7 +3094,7 @@
     2
    ],
    "param": "part.ins_sw.p2",
-   "tip": "Through the insertion effect"
+   "tip": "Enables this part going through the insertion effect"
   },
   {
    "type": "button",
@@ -2918,7 +3170,7 @@
     "image": "buttons/toggle_row"
    },
    "text": {
-    "text": "Porta",
+    "text": "Portamento",
     "font": "caption_grey_12",
     "valign": "middle"
    },
@@ -3082,7 +3334,7 @@
    "name": "rev_send_2_label",
    "rect": [
     461,
-    324,
+    476,
     74,
     18
    ],
@@ -3104,7 +3356,7 @@
    "name": "rev_send_2",
    "rect": [
     476,
-    340,
+    492,
     44,
     44
    ],
@@ -3120,7 +3372,7 @@
    "name": "rev_send_2_value",
    "rect": [
     461,
-    384,
+    536,
     74,
     14
    ],
@@ -3146,7 +3398,7 @@
    "name": "var_send_2_label",
    "rect": [
     535,
-    324,
+    476,
     74,
     18
    ],
@@ -3168,7 +3420,7 @@
    "name": "var_send_2",
    "rect": [
     550,
-    340,
+    492,
     44,
     44
    ],
@@ -3184,7 +3436,7 @@
    "name": "var_send_2_value",
    "rect": [
     535,
-    384,
+    536,
     74,
     14
    ],
@@ -3210,7 +3462,7 @@
    "name": "dry_2_label",
    "rect": [
     387,
-    400,
+    476,
     74,
     18
    ],
@@ -3232,7 +3484,7 @@
    "name": "dry_2",
    "rect": [
     402,
-    416,
+    492,
     44,
     44
    ],
@@ -3248,7 +3500,7 @@
    "name": "dry_2_value",
    "rect": [
     387,
-    460,
+    536,
     74,
     14
    ],
@@ -3273,16 +3525,16 @@
    "type": "plate",
    "name": "vn_balance_2_label",
    "rect": [
-    461,
+    459,
     400,
-    74,
+    78,
     18
    ],
    "layer": 1,
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "V/N Bal"
+    "text": "V/N Balance"
    },
    "pad": [
     2,
@@ -3337,7 +3589,7 @@
    "type": "plate",
    "name": "detune_2_label",
    "rect": [
-    535,
+    387,
     400,
     74,
     18
@@ -3359,7 +3611,7 @@
    "type": "dial",
    "name": "detune_2",
    "rect": [
-    550,
+    402,
     416,
     44,
     44
@@ -3375,7 +3627,7 @@
    "type": "number",
    "name": "detune_2_value",
    "rect": [
-    535,
+    387,
     460,
     74,
     14
@@ -3401,8 +3653,8 @@
    "type": "plate",
    "name": "pan_lfo_2_label",
    "rect": [
-    387,
-    476,
+    461,
+    324,
     74,
     18
    ],
@@ -3423,8 +3675,8 @@
    "type": "dial",
    "name": "pan_lfo_2",
    "rect": [
-    402,
-    492,
+    476,
+    340,
     44,
     44
    ],
@@ -3440,8 +3692,8 @@
    "type": "number",
    "name": "pan_lfo_2_value",
    "rect": [
-    387,
-    536,
+    461,
+    384,
     74,
     14
    ],
@@ -3466,8 +3718,8 @@
    "type": "plate",
    "name": "expr_2_label",
    "rect": [
-    461,
-    476,
+    535,
+    400,
     74,
     18
    ],
@@ -3475,7 +3727,7 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "Expr Lo"
+    "text": "Exp Low"
    },
    "pad": [
     2,
@@ -3488,8 +3740,8 @@
    "type": "dial",
    "name": "expr_2",
    "rect": [
-    476,
-    492,
+    550,
+    416,
     44,
     44
    ],
@@ -3505,8 +3757,8 @@
    "type": "number",
    "name": "expr_2_value",
    "rect": [
-    461,
-    536,
+    535,
+    460,
     74,
     14
    ],
@@ -3532,7 +3784,7 @@
    "name": "pan_scale_2_label",
    "rect": [
     535,
-    476,
+    324,
     74,
     18
    ],
@@ -3554,7 +3806,7 @@
    "name": "pan_scale_2",
    "rect": [
     550,
-    492,
+    340,
     44,
     44
    ],
@@ -3571,7 +3823,7 @@
    "name": "pan_scale_2_value",
    "rect": [
     535,
-    536,
+    384,
     74,
     14
    ],
@@ -3639,9 +3891,9 @@
     "valign": "middle"
    },
    "pad": [
-    2,
+    24,
     0,
-    21,
+    2,
     0
    ],
    "tip": "Part 3 on or off: off, its voice bank is off and it plays nothing",
@@ -3737,7 +3989,7 @@
    ]
   },
   {
-   "type": "number",
+   "type": "dropdown",
    "name": "rcv_3",
    "rect": [
     690,
@@ -3746,23 +3998,100 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "buttons/dropdown_small"
    },
    "text": {
-    "text": "",
+    "text": "...",
     "font": "value_dark_12",
-    "align": "center",
     "valign": "middle"
    },
    "pad": [
+    11,
     2,
-    2,
+    21,
+    2
+   ],
+   "pressOffset": [
     2,
     2
    ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
+   "items": [
+    {
+     "label": "1",
+     "value": 0
+    },
+    {
+     "label": "2",
+     "value": 1
+    },
+    {
+     "label": "3",
+     "value": 2
+    },
+    {
+     "label": "4",
+     "value": 3
+    },
+    {
+     "label": "5",
+     "value": 4
+    },
+    {
+     "label": "6",
+     "value": 5
+    },
+    {
+     "label": "7",
+     "value": 6
+    },
+    {
+     "label": "8",
+     "value": 7
+    },
+    {
+     "label": "9",
+     "value": 8,
+     "columnBreak": true
+    },
+    {
+     "label": "10",
+     "value": 9
+    },
+    {
+     "label": "11",
+     "value": 10
+    },
+    {
+     "label": "12",
+     "value": 11
+    },
+    {
+     "label": "13",
+     "value": 12
+    },
+    {
+     "label": "14",
+     "value": 13
+    },
+    {
+     "label": "15",
+     "value": 14
+    },
+    {
+     "label": "16",
+     "value": 15
+    },
+    {
+     "label": "Pfm",
+     "value": 16,
+     "columnBreak": true
+    },
+    {
+     "label": "Off",
+     "value": 17
+    }
+   ],
+   "captionFromItem": true,
    "param": "part.rcv_ch.p3",
    "tip": "The channel this part receives on: 1-16, the performance channel (Pfm), or off"
   },
@@ -3839,7 +4168,7 @@
    "rect": [
     690,
     148,
-    58,
+    50,
     18
    ],
    "fill": {
@@ -3864,36 +4193,12 @@
    "tip": "The lowest note it plays"
   },
   {
-   "type": "plate",
-   "name": "note_low_3_to",
-   "rect": [
-    750,
-    148,
-    22,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "font": "caption_grey_12",
-    "align": "center",
-    "text": "to"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "note_high_3",
    "rect": [
-    774,
+    744,
     148,
-    58,
+    50,
     18
    ],
    "fill": {
@@ -3921,9 +4226,9 @@
    "type": "plate",
    "name": "reserve_3_label",
    "rect": [
-    838,
+    810,
     148,
-    34,
+    60,
     18
    ],
    "fill": {
@@ -3932,7 +4237,7 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "Rsv"
+    "text": "Reserve"
    },
    "pad": [
     1,
@@ -4566,7 +4871,7 @@
     "image": "buttons/toggle_row"
    },
    "text": {
-    "text": "Insertion",
+    "text": "Insertion FX",
     "font": "caption_grey_12",
     "valign": "middle"
    },
@@ -4582,7 +4887,7 @@
     2
    ],
    "param": "part.ins_sw.p3",
-   "tip": "Through the insertion effect"
+   "tip": "Enables this part going through the insertion effect"
   },
   {
    "type": "button",
@@ -4658,7 +4963,7 @@
     "image": "buttons/toggle_row"
    },
    "text": {
-    "text": "Porta",
+    "text": "Portamento",
     "font": "caption_grey_12",
     "valign": "middle"
    },
@@ -4822,7 +5127,7 @@
    "name": "rev_send_3_label",
    "rect": [
     766,
-    324,
+    476,
     74,
     18
    ],
@@ -4844,7 +5149,7 @@
    "name": "rev_send_3",
    "rect": [
     781,
-    340,
+    492,
     44,
     44
    ],
@@ -4860,7 +5165,7 @@
    "name": "rev_send_3_value",
    "rect": [
     766,
-    384,
+    536,
     74,
     14
    ],
@@ -4886,7 +5191,7 @@
    "name": "var_send_3_label",
    "rect": [
     840,
-    324,
+    476,
     74,
     18
    ],
@@ -4908,7 +5213,7 @@
    "name": "var_send_3",
    "rect": [
     855,
-    340,
+    492,
     44,
     44
    ],
@@ -4924,7 +5229,7 @@
    "name": "var_send_3_value",
    "rect": [
     840,
-    384,
+    536,
     74,
     14
    ],
@@ -4950,7 +5255,7 @@
    "name": "dry_3_label",
    "rect": [
     692,
-    400,
+    476,
     74,
     18
    ],
@@ -4972,7 +5277,7 @@
    "name": "dry_3",
    "rect": [
     707,
-    416,
+    492,
     44,
     44
    ],
@@ -4988,7 +5293,7 @@
    "name": "dry_3_value",
    "rect": [
     692,
-    460,
+    536,
     74,
     14
    ],
@@ -5013,16 +5318,16 @@
    "type": "plate",
    "name": "vn_balance_3_label",
    "rect": [
-    766,
+    764,
     400,
-    74,
+    78,
     18
    ],
    "layer": 1,
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "V/N Bal"
+    "text": "V/N Balance"
    },
    "pad": [
     2,
@@ -5077,7 +5382,7 @@
    "type": "plate",
    "name": "detune_3_label",
    "rect": [
-    840,
+    692,
     400,
     74,
     18
@@ -5099,7 +5404,7 @@
    "type": "dial",
    "name": "detune_3",
    "rect": [
-    855,
+    707,
     416,
     44,
     44
@@ -5115,7 +5420,7 @@
    "type": "number",
    "name": "detune_3_value",
    "rect": [
-    840,
+    692,
     460,
     74,
     14
@@ -5141,8 +5446,8 @@
    "type": "plate",
    "name": "pan_lfo_3_label",
    "rect": [
-    692,
-    476,
+    766,
+    324,
     74,
     18
    ],
@@ -5163,8 +5468,8 @@
    "type": "dial",
    "name": "pan_lfo_3",
    "rect": [
-    707,
-    492,
+    781,
+    340,
     44,
     44
    ],
@@ -5180,8 +5485,8 @@
    "type": "number",
    "name": "pan_lfo_3_value",
    "rect": [
-    692,
-    536,
+    766,
+    384,
     74,
     14
    ],
@@ -5206,8 +5511,8 @@
    "type": "plate",
    "name": "expr_3_label",
    "rect": [
-    766,
-    476,
+    840,
+    400,
     74,
     18
    ],
@@ -5215,7 +5520,7 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "Expr Lo"
+    "text": "Exp Low"
    },
    "pad": [
     2,
@@ -5228,8 +5533,8 @@
    "type": "dial",
    "name": "expr_3",
    "rect": [
-    781,
-    492,
+    855,
+    416,
     44,
     44
    ],
@@ -5245,8 +5550,8 @@
    "type": "number",
    "name": "expr_3_value",
    "rect": [
-    766,
-    536,
+    840,
+    460,
     74,
     14
    ],
@@ -5272,7 +5577,7 @@
    "name": "pan_scale_3_label",
    "rect": [
     840,
-    476,
+    324,
     74,
     18
    ],
@@ -5294,7 +5599,7 @@
    "name": "pan_scale_3",
    "rect": [
     855,
-    492,
+    340,
     44,
     44
    ],
@@ -5311,7 +5616,7 @@
    "name": "pan_scale_3_value",
    "rect": [
     840,
-    536,
+    384,
     74,
     14
    ],
@@ -5379,9 +5684,9 @@
     "valign": "middle"
    },
    "pad": [
-    2,
+    24,
     0,
-    21,
+    2,
     0
    ],
    "tip": "Part 4 on or off: off, its voice bank is off and it plays nothing",
@@ -5477,7 +5782,7 @@
    ]
   },
   {
-   "type": "number",
+   "type": "dropdown",
    "name": "rcv_4",
    "rect": [
     995,
@@ -5486,23 +5791,100 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate"
+    "image": "buttons/dropdown_small"
    },
    "text": {
-    "text": "",
+    "text": "...",
     "font": "value_dark_12",
-    "align": "center",
     "valign": "middle"
    },
    "pad": [
+    11,
     2,
-    2,
+    21,
+    2
+   ],
+   "pressOffset": [
     2,
     2
    ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
+   "items": [
+    {
+     "label": "1",
+     "value": 0
+    },
+    {
+     "label": "2",
+     "value": 1
+    },
+    {
+     "label": "3",
+     "value": 2
+    },
+    {
+     "label": "4",
+     "value": 3
+    },
+    {
+     "label": "5",
+     "value": 4
+    },
+    {
+     "label": "6",
+     "value": 5
+    },
+    {
+     "label": "7",
+     "value": 6
+    },
+    {
+     "label": "8",
+     "value": 7
+    },
+    {
+     "label": "9",
+     "value": 8,
+     "columnBreak": true
+    },
+    {
+     "label": "10",
+     "value": 9
+    },
+    {
+     "label": "11",
+     "value": 10
+    },
+    {
+     "label": "12",
+     "value": 11
+    },
+    {
+     "label": "13",
+     "value": 12
+    },
+    {
+     "label": "14",
+     "value": 13
+    },
+    {
+     "label": "15",
+     "value": 14
+    },
+    {
+     "label": "16",
+     "value": 15
+    },
+    {
+     "label": "Pfm",
+     "value": 16,
+     "columnBreak": true
+    },
+    {
+     "label": "Off",
+     "value": 17
+    }
+   ],
+   "captionFromItem": true,
    "param": "part.rcv_ch.p4",
    "tip": "The channel this part receives on: 1-16, the performance channel (Pfm), or off"
   },
@@ -5579,7 +5961,7 @@
    "rect": [
     995,
     148,
-    58,
+    50,
     18
    ],
    "fill": {
@@ -5604,36 +5986,12 @@
    "tip": "The lowest note it plays"
   },
   {
-   "type": "plate",
-   "name": "note_low_4_to",
-   "rect": [
-    1055,
-    148,
-    22,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "font": "caption_grey_12",
-    "align": "center",
-    "text": "to"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
    "type": "number",
    "name": "note_high_4",
    "rect": [
-    1079,
+    1049,
     148,
-    58,
+    50,
     18
    ],
    "fill": {
@@ -5661,9 +6019,9 @@
    "type": "plate",
    "name": "reserve_4_label",
    "rect": [
-    1143,
+    1115,
     148,
-    34,
+    60,
     18
    ],
    "fill": {
@@ -5672,7 +6030,7 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "Rsv"
+    "text": "Reserve"
    },
    "pad": [
     1,
@@ -6306,7 +6664,7 @@
     "image": "buttons/toggle_row"
    },
    "text": {
-    "text": "Insertion",
+    "text": "Insertion FX",
     "font": "caption_grey_12",
     "valign": "middle"
    },
@@ -6322,7 +6680,7 @@
     2
    ],
    "param": "part.ins_sw.p4",
-   "tip": "Through the insertion effect"
+   "tip": "Enables this part going through the insertion effect"
   },
   {
    "type": "button",
@@ -6398,7 +6756,7 @@
     "image": "buttons/toggle_row"
    },
    "text": {
-    "text": "Porta",
+    "text": "Portamento",
     "font": "caption_grey_12",
     "valign": "middle"
    },
@@ -6562,7 +6920,7 @@
    "name": "rev_send_4_label",
    "rect": [
     1071,
-    324,
+    476,
     74,
     18
    ],
@@ -6584,7 +6942,7 @@
    "name": "rev_send_4",
    "rect": [
     1086,
-    340,
+    492,
     44,
     44
    ],
@@ -6600,7 +6958,7 @@
    "name": "rev_send_4_value",
    "rect": [
     1071,
-    384,
+    536,
     74,
     14
    ],
@@ -6626,7 +6984,7 @@
    "name": "var_send_4_label",
    "rect": [
     1145,
-    324,
+    476,
     74,
     18
    ],
@@ -6648,7 +7006,7 @@
    "name": "var_send_4",
    "rect": [
     1160,
-    340,
+    492,
     44,
     44
    ],
@@ -6664,7 +7022,7 @@
    "name": "var_send_4_value",
    "rect": [
     1145,
-    384,
+    536,
     74,
     14
    ],
@@ -6690,7 +7048,7 @@
    "name": "dry_4_label",
    "rect": [
     997,
-    400,
+    476,
     74,
     18
    ],
@@ -6712,7 +7070,7 @@
    "name": "dry_4",
    "rect": [
     1012,
-    416,
+    492,
     44,
     44
    ],
@@ -6728,7 +7086,7 @@
    "name": "dry_4_value",
    "rect": [
     997,
-    460,
+    536,
     74,
     14
    ],
@@ -6753,16 +7111,16 @@
    "type": "plate",
    "name": "vn_balance_4_label",
    "rect": [
-    1071,
+    1069,
     400,
-    74,
+    78,
     18
    ],
    "layer": 1,
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "V/N Bal"
+    "text": "V/N Balance"
    },
    "pad": [
     2,
@@ -6817,7 +7175,7 @@
    "type": "plate",
    "name": "detune_4_label",
    "rect": [
-    1145,
+    997,
     400,
     74,
     18
@@ -6839,7 +7197,7 @@
    "type": "dial",
    "name": "detune_4",
    "rect": [
-    1160,
+    1012,
     416,
     44,
     44
@@ -6855,7 +7213,7 @@
    "type": "number",
    "name": "detune_4_value",
    "rect": [
-    1145,
+    997,
     460,
     74,
     14
@@ -6881,8 +7239,8 @@
    "type": "plate",
    "name": "pan_lfo_4_label",
    "rect": [
-    997,
-    476,
+    1071,
+    324,
     74,
     18
    ],
@@ -6903,8 +7261,8 @@
    "type": "dial",
    "name": "pan_lfo_4",
    "rect": [
-    1012,
-    492,
+    1086,
+    340,
     44,
     44
    ],
@@ -6920,8 +7278,8 @@
    "type": "number",
    "name": "pan_lfo_4_value",
    "rect": [
-    997,
-    536,
+    1071,
+    384,
     74,
     14
    ],
@@ -6946,8 +7304,8 @@
    "type": "plate",
    "name": "expr_4_label",
    "rect": [
-    1071,
-    476,
+    1145,
+    400,
     74,
     18
    ],
@@ -6955,7 +7313,7 @@
    "text": {
     "font": "caption_grey_12",
     "align": "center",
-    "text": "Expr Lo"
+    "text": "Exp Low"
    },
    "pad": [
     2,
@@ -6968,8 +7326,8 @@
    "type": "dial",
    "name": "expr_4",
    "rect": [
-    1086,
-    492,
+    1160,
+    416,
     44,
     44
    ],
@@ -6985,8 +7343,8 @@
    "type": "number",
    "name": "expr_4_value",
    "rect": [
-    1071,
-    536,
+    1145,
+    460,
     74,
     14
    ],
@@ -7012,7 +7370,7 @@
    "name": "pan_scale_4_label",
    "rect": [
     1145,
-    476,
+    324,
     74,
     18
    ],
@@ -7034,7 +7392,7 @@
    "name": "pan_scale_4",
    "rect": [
     1160,
-    492,
+    340,
     44,
     44
    ],
@@ -7051,7 +7409,7 @@
    "name": "pan_scale_4_value",
    "rect": [
     1145,
-    536,
+    384,
     74,
     14
    ],

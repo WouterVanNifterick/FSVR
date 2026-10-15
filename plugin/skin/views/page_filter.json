@@ -91,7 +91,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light_tab"
+    "image": "panels/group_box_tab"
    }
   },
   {
@@ -194,15 +194,46 @@
     0
    ],
    "fill": {
-    "image": "panels/group_tab_light"
+    "image": "panels/group_tab"
    }
+  },
+  {
+   "type": "button",
+   "name": "filter_sw",
+   "rect": [
+    24,
+    80,
+    100,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "Enable",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    11,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "part.filter_sw.{part}",
+   "tip": "Enable filter for currently selected part"
   },
   {
    "type": "dropdown",
    "name": "type",
    "rect": [
     24,
-    76,
+    102,
     100,
     18
    ],
@@ -252,46 +283,15 @@
    ],
    "captionFromItem": true,
    "param": "voice.filter.type.{part}",
-   "tip": "Filter type"
-  },
-  {
-   "type": "button",
-   "name": "filter_sw",
-   "rect": [
-    24,
-    100,
-    100,
-    18
-   ],
-   "fill": {
-    "image": "buttons/toggle_row"
-   },
-   "text": {
-    "text": "Part Filter",
-    "font": "caption_grey_12",
-    "valign": "middle"
-   },
-   "pad": [
-    11,
-    2,
-    2,
-    2
-   ],
-   "toggle": true,
-   "pressOffset": [
-    2,
-    2
-   ],
-   "param": "part.filter_sw.{part}",
-   "tip": "The part's filter switch"
+   "tip": "Selects the filter type"
   },
   {
    "type": "plate",
    "name": "gain_label",
    "rect": [
     24,
-    126,
-    46,
+    124,
+    48,
     18
    ],
    "fill": {
@@ -313,9 +313,9 @@
    "type": "number",
    "name": "gain",
    "rect": [
-    72,
-    126,
-    52,
+    76,
+    124,
+    48,
     18
    ],
    "fill": {
@@ -471,9 +471,9 @@
    "type": "plate",
    "name": "key_0_label",
    "rect": [
-    335,
+    337,
     80,
-    70,
+    66,
     18
    ],
    "fill": {
@@ -495,9 +495,9 @@
    "type": "number",
    "name": "key_0",
    "rect": [
-    335,
+    337,
     102,
-    70,
+    66,
     20
    ],
    "fill": {
@@ -524,9 +524,9 @@
    "type": "plate",
    "name": "key_1_label",
    "rect": [
-    407,
+    408,
     80,
-    70,
+    66,
     18
    ],
    "fill": {
@@ -548,9 +548,9 @@
    "type": "number",
    "name": "key_1",
    "rect": [
-    407,
+    408,
     102,
-    70,
+    66,
     20
    ],
    "fill": {
@@ -577,9 +577,9 @@
    "type": "plate",
    "name": "key_2_label",
    "rect": [
-    479,
+    478,
     80,
-    70,
+    66,
     18
    ],
    "fill": {
@@ -601,9 +601,9 @@
    "type": "number",
    "name": "key_2",
    "rect": [
-    479,
+    478,
     102,
-    70,
+    66,
     20
    ],
    "fill": {
@@ -630,9 +630,9 @@
    "type": "plate",
    "name": "key_3_label",
    "rect": [
-    551,
+    548,
     80,
-    70,
+    66,
     18
    ],
    "fill": {
@@ -654,9 +654,9 @@
    "type": "number",
    "name": "key_3",
    "rect": [
-    551,
+    548,
     102,
-    70,
+    66,
     20
    ],
    "fill": {
@@ -1281,7 +1281,7 @@
    "type": "number",
    "name": "feg_t1",
    "rect": [
-    169,
+    286,
     483,
     50,
     18
@@ -1310,7 +1310,7 @@
    "type": "number",
    "name": "feg_t2",
    "rect": [
-    336,
+    420,
     483,
     50,
     18
@@ -1339,7 +1339,7 @@
    "type": "number",
    "name": "feg_t3",
    "rect": [
-    503,
+    553,
     483,
     50,
     18
@@ -1368,7 +1368,7 @@
    "type": "number",
    "name": "feg_t4",
    "rect": [
-    670,
+    687,
     483,
     50,
     18
@@ -1397,7 +1397,7 @@
    "type": "number",
    "name": "feg_l1",
    "rect": [
-    169,
+    286,
     504,
     50,
     18
@@ -1426,7 +1426,7 @@
    "type": "number",
    "name": "feg_l2",
    "rect": [
-    336,
+    420,
     504,
     50,
     18
@@ -1455,7 +1455,7 @@
    "type": "number",
    "name": "feg_l3",
    "rect": [
-    503,
+    553,
     504,
     50,
     18
@@ -1484,7 +1484,7 @@
    "type": "number",
    "name": "feg_l4",
    "rect": [
-    670,
+    687,
     504,
     50,
     18
@@ -1521,7 +1521,7 @@
    ],
    "text": {
     "text": "Time",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1532,7 +1532,7 @@
     2
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "showIf": {
     "param": "gui.eg_modern",
@@ -1550,7 +1550,7 @@
    ],
    "text": {
     "text": "Level",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1561,7 +1561,7 @@
     2
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "showIf": {
     "param": "gui.eg_modern",
@@ -1572,9 +1572,9 @@
    "type": "plate",
    "name": "env_col_1",
    "rect": [
-    110,
+    244,
     467,
-    167,
+    134,
     14
    ],
    "layer": 1,
@@ -1599,9 +1599,9 @@
    "type": "plate",
    "name": "env_col_2",
    "rect": [
-    277,
+    378,
     467,
-    167,
+    134,
     14
    ],
    "layer": 1,
@@ -1626,9 +1626,9 @@
    "type": "plate",
    "name": "env_col_3",
    "rect": [
-    444,
+    511,
     467,
-    167,
+    134,
     14
    ],
    "layer": 1,
@@ -1653,9 +1653,9 @@
    "type": "plate",
    "name": "env_col_4",
    "rect": [
-    612,
+    645,
     467,
-    167,
+    134,
     14
    ],
    "layer": 1,
@@ -1680,17 +1680,17 @@
    "type": "plate",
    "name": "feg_t1_label",
    "rect": [
-    135,
+    252,
     483,
     32,
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T1",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1708,17 +1708,17 @@
    "type": "plate",
    "name": "feg_l1_label",
    "rect": [
-    135,
+    252,
     504,
     32,
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L1",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1736,17 +1736,17 @@
    "type": "plate",
    "name": "feg_t2_label",
    "rect": [
-    302,
+    386,
     483,
     32,
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T2",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1764,17 +1764,17 @@
    "type": "plate",
    "name": "feg_l2_label",
    "rect": [
-    302,
+    386,
     504,
     32,
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L2",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1792,17 +1792,17 @@
    "type": "plate",
    "name": "feg_t3_label",
    "rect": [
-    469,
+    519,
     483,
     32,
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T3",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1820,17 +1820,17 @@
    "type": "plate",
    "name": "feg_l3_label",
    "rect": [
-    469,
+    519,
     504,
     32,
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L3",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1848,17 +1848,17 @@
    "type": "plate",
    "name": "feg_t4_label",
    "rect": [
-    636,
+    653,
     483,
     32,
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T4",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1876,17 +1876,17 @@
    "type": "plate",
    "name": "feg_l4_label",
    "rect": [
-    636,
+    653,
     504,
     32,
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L4",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [

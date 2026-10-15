@@ -1233,87 +1233,9 @@
   },
   {
    "type": "plate",
-   "name": "peg_release_level_label",
-   "rect": [
-    407,
-    303,
-    80,
-    21
-   ],
-   "layer": 1,
-   "text": {
-    "text": "Rel Lvl",
-    "font": "caption_grey_12",
-    "align": "center"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ]
-  },
-  {
-   "type": "plate",
-   "name": "peg_release_level_track",
-   "rect": [
-    437,
-    324,
-    20,
-    173
-   ],
-   "fill": {
-    "image": "faders/track_narrow"
-   }
-  },
-  {
-   "type": "dial",
-   "name": "peg_release_level",
-   "rect": [
-    426,
-    324,
-    42,
-    173
-   ],
-   "image": "faders/pot_cap",
-   "slider": true,
-   "sensitivity": 1.5,
-   "fine": 0.2,
-   "wheel": 0.09,
-   "reset": "default",
-   "param": "part.peg_release_level.{part}"
-  },
-  {
-   "type": "number",
-   "name": "peg_release_level_value",
-   "rect": [
-    417,
-    497,
-    60,
-    22
-   ],
-   "text": {
-    "text": "",
-    "font": "value_dark_12",
-    "align": "center",
-    "valign": "middle"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
-   "param": "part.peg_release_level.{part}"
-  },
-  {
-   "type": "plate",
    "name": "peg_release_label",
    "rect": [
-    493,
+    407,
     303,
     80,
     21
@@ -1335,7 +1257,7 @@
    "type": "plate",
    "name": "peg_release_track",
    "rect": [
-    523,
+    437,
     324,
     20,
     173
@@ -1348,7 +1270,7 @@
    "type": "dial",
    "name": "peg_release",
    "rect": [
-    512,
+    426,
     324,
     42,
     173
@@ -1364,6 +1286,84 @@
   {
    "type": "number",
    "name": "peg_release_value",
+   "rect": [
+    417,
+    497,
+    60,
+    22
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.peg_release.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "peg_release_level_label",
+   "rect": [
+    493,
+    303,
+    80,
+    21
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Rel Lvl",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "peg_release_level_track",
+   "rect": [
+    523,
+    324,
+    20,
+    173
+   ],
+   "fill": {
+    "image": "faders/track_narrow"
+   }
+  },
+  {
+   "type": "dial",
+   "name": "peg_release_level",
+   "rect": [
+    512,
+    324,
+    42,
+    173
+   ],
+   "image": "faders/pot_cap",
+   "slider": true,
+   "sensitivity": 1.5,
+   "fine": 0.2,
+   "wheel": 0.09,
+   "reset": "default",
+   "param": "part.peg_release_level.{part}"
+  },
+  {
+   "type": "number",
+   "name": "peg_release_level_value",
    "rect": [
     503,
     497,
@@ -1385,7 +1385,7 @@
    "fine": 0.2,
    "reset": false,
    "editable": true,
-   "param": "part.peg_release.{part}"
+   "param": "part.peg_release_level.{part}"
   },
   {
    "type": "plate",
