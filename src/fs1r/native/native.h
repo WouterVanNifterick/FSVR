@@ -30,5 +30,6 @@ void flt(yss236_core& c, int from, int to);         // flt: the filter chip's pr
 void rev(yss236_core& c, int from, int to);         // rev: the reverb's steps of the base program
 void var_m00(yss236_core& c, int from, int to);     // var-m00: the variation window's program for type msb 00
 void var_m01(yss236_core& c, int from, int to);     // var-m01: the variation window's program for type msb 01
+void var_m02(yss236_core& c, int from, int to);     // var-m02: the variation window's program for type msb 02
 
 }  // namespace fs1r::native
