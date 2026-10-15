@@ -3,7 +3,8 @@
 
     vop3_native.py status                    every row and its stage
     vop3_native.py next [--claim]            the brief for the next row; exit 1 when paused, finished or nothing is ready.
-                                             --claim (the routine's) counts a session on it and moves todo to reading
+                                             --claim (the routine's) counts a session on it and moves todo to reading,
+                                             and refuses a row it claimed less than COOLDOWN minutes ago
     vop3_native.py set <key> <stage> [--note TEXT]   reading, writing, checking, blocked or todo; a note replaces the last
     vop3_native.py check <key>               runs build/vop3_native_check <key>; identical marks the row done
     vop3_native.py pause | resume            stop or restart the routine's nudges
@@ -23,6 +24,10 @@ STATUS = os.path.join(ROOT, "docs", "vop3_native", "status.json")
 CHECKER = os.environ.get("VOP3_NATIVE_CHECK", os.path.join(ROOT, "build", "vop3_native_check"))
 STAGES = ("todo", "reading", "writing", "checking", "blocked")
 STUCK = 8   # sessions on one row before the brief says to block it rather than go round again
+# The routine looks every minute, so the next row starts as soon as a session ends. A session that ends
+# without finishing its row hands the same row back, though, and one that fails at once would then start
+# a new thread every minute: so the same row is claimed again only after this many minutes.
+COOLDOWN = 10
 
 
 def now():
@@ -121,6 +126,12 @@ def main(argv):
             print("nothing ready: every row is done or blocked")
             return 1
         if "--claim" in argv:
+            if r.get("claimed"):
+                waited = (datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(r["claimed"].replace("Z", "+00:00"))).total_seconds() / 60
+                if waited < COOLDOWN:
+                    print(f"{r['key']} was claimed {waited:.0f} min ago; it is claimed again after {COOLDOWN}")
+                    return 1
+            r["claimed"] = now()
             r["sessions"] = r.get("sessions", 0) + 1
             if r["stage"] == "todo":
                 r["stage"] = "reading"
