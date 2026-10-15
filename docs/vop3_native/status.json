@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T23:13:23Z",
+ "updated": "2026-10-15T23:31:01Z",
  "programs": [
   {
    "key": "flt",
@@ -464,13 +464,17 @@
     "ins-16 T-Wah+Dist",
     "ins-17 T-Wah+Odrv"
    ],
-   "stage": "todo",
+   "stage": "reading",
    "check": null,
    "passes": 0,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of A-Wah+Dist, A-Wah+Odrv, T-Wah+Dist, T-Wah+Odrv",
    "note": "",
-   "updated": null
+   "updated": "2026-10-15T23:31:01Z",
+   "claimed": "2026-10-15T23:15:01Z",
+   "nudges": 9,
+   "sessions": 1,
+   "session": "ses_ebe270427ffe2vp61VLDvy04xy"
   },
   {
    "key": "ins-m05",

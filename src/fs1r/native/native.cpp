@@ -14,6 +14,7 @@ const Program PROGRAMS[] = {
     {"ins-m01", ins_m01},
     {"ins-m02", ins_m02},
     {"ins-m03", ins_m03},
+    {"ins-m04", ins_m04},
     {"rev", rev},
     {"var-m00", var_m00},
     {"var-m01", var_m01},
