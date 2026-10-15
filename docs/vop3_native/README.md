@@ -37,7 +37,47 @@ If you are stuck, do not go round in circles. Set the row to `blocked` with a no
 - Build without FMA contraction: the natives are compiled into `vop3host`, which already has `-ffp-contract=off`. Keep each operation in the order `step()` does it, since doubles are not associative.
 - Commit to `vop3-native` only, never `main`, and never force-push. One commit per finished row, plus progress commits while one is in hand, each with a message that says what changed and the check's result. Never add a co-author line for a tool or a model; the container's commit hook adds the people.
 - Before a session ends, record where the row stands with `set ... --note`, commit and push, so the next session (which may not be you) starts from the note and the branch, not from memory.
-- Keep each session to one row. Close it with a short summary in the thread: what you did, what the checker said, what comes next.
+- Keep each session to one row, and report in the thread as the next section says.
+- **Always English.** Every message, note, commit and file you write is in English, whatever language your model leans toward. Code identifiers and quoted tool output stay as they are. No other script and no mixed-language words, not even one, not even in a passing note: if a draft has any, rewrite it in English before you send or save it.
+- **Evidence on every claim.** Say where a finding comes from: the checker's output, a `--dump` listing, `step()`'s code, the old model, or that it is an inference. The checker beats everything else.
+
+## Reporting in the thread
+
+Everything you write as text goes straight into this session's Discord thread, where the team follows the port; your commands do not show there. So the thread is the only view of your work, and it has to make sense to someone who cannot see your commands.
+
+- **Open** with a short plan once the thread is named: the row, the stage you are picking up from (the note in the brief says where the last session stopped) and what this session will do.
+- **Say what you are doing as you go.** Before each new step of the work (not each command), write one plain sentence saying what it does and why: `Dumping the filter program to see which steps form the ladder.`, not `Running the dump.` Before anything that will take minutes, say so and roughly how long.
+- **Update at every milestone and at least every 15 minutes.** A milestone is a stage change, the first build of the native, every check run with its result, and every commit. A long stretch of silence reads as a stuck agent.
+- **Close** with a summary: what this session did, what the checker said, what was committed and pushed, and what the next session picks up.
+
+### How a message reads
+
+Write every update and summary the same way, so the thread reads at a glance. Discord renders it as Markdown.
+
+- **Lead line.** One or two plain sentences: what happened and what happens now.
+- **Blocks under short labels.** After the lead line, group the rest under labels of one to four words ending in a colon, alone on their line (`Check:`, `Found:`, `Committed:`, `Next:`), with a blank line before each label. No `#` headings, no tables, and no code blocks except for a command the reader must run.
+- **Bullets, one fact each.** A bullet is a short sentence or a `name: value` pair. Indent one level for the parts of one item. Never a paragraph of more than three sentences.
+- **Numbers, ids and paths exactly.** Paths, file names, keys, step numbers, registers and fields in backticks; counts with what they count (`9,600 samples`, `13 types`).
+- **Plain and direct.** Say what is, not what might be. No greetings, no thanks, no restating the task, no closing pleasantries; the last block is what happens next.
+- Keep each message under 1500 characters. The detail belongs in the files and the commits.
+
+A message shaped this way:
+
+```
+The straight transcription of `flt` builds, and the check finds one difference; fixing it is next.
+
+Check:
+
+• `vop3_native_check flt`: differs, `m_rq[2]` after sample 214 under LPF18.
+• The 5 types before it matched for 9,600 samples each.
+
+Found:
+
+• Step `0x07c` is a z^-1 copy (`rcopy`), and my version lands it one step early.
+   • `step()` queues it with `queue_r`, so it lands 3 steps later.
+
+Next: queue the `0x07c` copy the way `step()` does and run the check again.
+```
 
 ## Commands
 
