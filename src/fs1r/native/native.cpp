@@ -14,6 +14,7 @@ const Program PROGRAMS[] = {
     {"var-m00", var_m00},
     {"var-m01", var_m01},
     {"var-m02", var_m02},
+    {"var-m03", var_m03},
     {nullptr, nullptr},
 };
 

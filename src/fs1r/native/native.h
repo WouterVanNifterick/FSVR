@@ -31,5 +31,6 @@ void rev(yss236_core& c, int from, int to);         // rev: the reverb's steps o
 void var_m00(yss236_core& c, int from, int to);     // var-m00: the variation window's program for type msb 00
 void var_m01(yss236_core& c, int from, int to);     // var-m01: the variation window's program for type msb 01
 void var_m02(yss236_core& c, int from, int to);     // var-m02: the variation window's program for type msb 02
+void var_m03(yss236_core& c, int from, int to);     // var-m03: the variation window's program for type msb 03
 
 }  // namespace fs1r::native
