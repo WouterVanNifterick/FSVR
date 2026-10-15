@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T20:57:02Z",
+ "updated": "2026-10-15T21:06:36Z",
  "programs": [
   {
    "key": "flt",
@@ -164,13 +164,16 @@
     "var-09 Tremolo",
     "var-10 Auto Pan"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 28800,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Rotary SP, Tremolo, Auto Pan",
-   "note": "",
-   "updated": null
+   "note": "72 steps 0x158-0x19f decoded from step(). Groups: three decay chains off m[8] (0x158-0x166), four fractional positions t[7] t[10] t[12] t[14] and two modulated positions r[123] r[125] (0x167-0x16e), left channel r[5]-r[103]-r[104]-r[105] with taps 0x5a-0x5e (0x16f-0x17e), right channel mirror (0x17f-0x185), four interpolations into r[119] r[121] r[122] scaled by (1+t[9]) (1+t[13]) (1+t[15]), the m[58]/m[59] pair on t[12] into r[120] scaled by (1+t[11]) (0x186-0x197), outputs r[15] r[16] and the delay writes to slots 0x66 and 0x67 (0x198-0x19f). Straight transcription written.",
+   "updated": "2026-10-15T21:06:36Z",
+   "claimed": "2026-10-15T20:58:00Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "var-m02",
