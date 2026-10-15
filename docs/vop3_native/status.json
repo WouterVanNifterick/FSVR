@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T21:23:52Z",
+ "updated": "2026-10-15T21:34:44Z",
  "programs": [
   {
    "key": "flt",
@@ -228,13 +228,16 @@
     "var-11 Auto Wah",
     "var-12 Touch Wah"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 19200,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Auto Wah, Touch Wah",
-   "note": "",
-   "updated": null
+   "note": "72 steps 0x158-0x19f, identical over 2 types and 19200 passes. Groups: the two channels' two order-1 EQ shelves each (WAH_FILTER, WAH_FILTER_2, WAH_FILTER_3, WAH_FILTER_4), the cutoff word with the Auto Wah's LFO depth on it (WAH_CUTOFF, WAH_DEPTH), the one-pole that smooths it into t[9], the highpass touchWah designs (WAH_HPF), the resonator's input summer with WAH_SENSE, the sensitivity level off WAH_ATTACK, the accumulators r[114]/r[115] and the feedback m[54]/m[55] that close the loop, the lowpass (WAH_LPF), the dry and wet (WAH_PAN) and the tail's six published reads. The two types' own words differ where no list writes them: the Auto Wah's 0x169 and 0x16a are zero, so its highpass is silent, and its 0x171 leaves m[58] at zero, so only the Touch Wah's sensitivity path runs.",
+   "updated": "2026-10-15T21:34:44Z",
+   "claimed": "2026-10-15T21:25:00Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "var-m05",
