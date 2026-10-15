@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """VOP3 (YSS236) microcode disassembler. Each step prints its raw fields, then its operation as measured on the
-FS1R (docs/vop3_isa.md, sessions 8-16): s = the running value, k = the step's constant, x = r[rB] (+ r[rA]),
+FS1R (docs/vop3_research_journal.md, sessions 8-16; the rules in docs/vop3_isa.md): s = the running value, k = the step's constant, x = r[rB] (+ r[rA]),
 y = the result (clipped at +-8; the next step's s). `d[n] = y/4` is a route-scaled write to data cell n,
 `dram[slot] = y` a delay-memory write, `xfer = dram[slot]` a read, `d[n] <- xfer(...)` a capture.
 VOP3-1 and VOP3-2 are one chip: every decode here applies to every image (FS1R, PLG150-AN, AN1x) alike.
@@ -21,7 +21,7 @@ import struct
 
 
 def fields(r10, r9, r8, r7, r6):
-    # Meanings are from docs/vop3_isa.md: CHIP = measured on the FS1R (VOP3-1 filter, sessions 8-10; VOP3-2 digital
+    # Meanings are from docs/vop3_research_journal.md: CHIP = measured on the FS1R (VOP3-1 filter, sessions 8-10; VOP3-2 digital
     # out, sessions 11-16), FW = read from the firmwares. VOP3-1 and VOP3-2 are the same chip (ISA doc "One chip"):
     # a result from either applies to every VOP3 image. Key names are kept for tools/vop3_interp.py.
     return dict(

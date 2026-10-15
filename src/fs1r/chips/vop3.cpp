@@ -77,22 +77,22 @@ float Vop3::lfo(int n) const
     const uint16_t* reg = lfoReg[n];
     const float x = (float)phase[n] * (1.0f / 4294967296.0f);
     float v;
-    // s41: on the effect chip every wave spans 1, half the old -1..1. A 1 kHz tone through Chorus, Flanger,
-    // Rotary SP, 2WayRotary and both Phaser1s on the unit (FS1R.unlock 2026-10-15-155937-s25) carries the set
-    // LFO rate and its harmonics; the -1..1 waves doubled every one (the sweep folded). Fitted per wave: the
-    // saws centred (-0.5..0.5, a 0..1 saw puts the rotaries back on twice the rate), the triangle 0..1 (a
-    // centred one doubles both phasers). Square, sine and S&H keep the old -1..1, unmeasured: Rotary SP reads
-    // a speed-0 sine as a constant and needs its 1.0. The filter chip keeps its own reading below.
+    // s41: on the effect chip the saws and the triangle are unipolar, 0..1 (s41c/g: an LFO moved into an m cell
+    // and played on the DAC reads 0..+128 on the unit), and LFO_DIRECTION 0x8000 centres the wave, -0.5..0.5
+    // (s41g: 2WayRotary's LFO, direction 0xC000, reads -64..+64 rising). With both, a 1 kHz tone through Chorus,
+    // Flanger, Rotary SP, 2WayRotary and both Phaser1s modulates at the unit's LFO rate and harmonics; the old
+    // -1..1 doubled every one of them. Square, sine and S&H are not used by the effect programs and keep -1..1,
+    // unmeasured. The filter chip keeps its own reading below.
     if (!filter) {
         switch ((reg[1] >> 5) & 7) {
-            case SAW_DOWN: v = 0.5f - x; break;
-            case SAW_UP:   v = x - 0.5f; break;
+            case SAW_DOWN: v = 1.0f - x; break;
+            case SAW_UP:   v = x; break;
             case SQUARE:   v = x < 0.5f ? 1.0f : -1.0f; break;
             case SINE:     v = std::sin(2.0f * 3.14159265f * x); break;
             case SAMPLE_HOLD: v = hold[n]; break;
             default:       v = x < 0.5f ? 2.0f * x : 2.0f - 2.0f * x; break;   // the triangle
         }
-        if (reg[3] & 0x8000) v = -v;    // OPEN: LFO_DIRECTION, read as a negation
+        if (reg[3] & 0x8000) v -= 0.5f;    // OPEN: the low bits of LFO_DIRECTION (2WayRotary writes 0xC000)
         return v * ((float)reg[2] * (1.0f / 32768.0f));
     }
     switch ((reg[1] >> 5) & 7) {

@@ -794,6 +794,21 @@ int selftest(Synth& S) {
             for (size_t k = 0; k < env.size(); k++) { double ph = 2 * PI * f * k / 100.0; re += (env[k] - mean) * cos(ph); im -= (env[k] - mean) * sin(ph); }
             double m = sqrt(re * re + im * im); if (m > best) { best = m; hz = f; } }
         ck("effect chip: the insertion Tremolo runs at its default LFO Freq, 1.831 Hz", fabs(hz - 1.831) < 0.06); }
+      // 4b. s41: the insertion Chorus sweeps its delay at its default LFO Freq, 0.275 Hz, not twice it: the strongest
+      // 0.1..4 Hz component of the left output's instantaneous frequency, from its zero crossings
+      { auto t = fresh({{176, 64}, {179, 127}});
+        fx::setType(t->host, fx::INSERTION, 1);
+        drive(*t, 1, tone(1000, 8 * SR, 8 * SR), l, r);
+        std::vector<double> per; double last = -1;          // zero-crossing periods, one per cycle of the 1 kHz tone
+        for (size_t i = SR; i + 1 < l.size(); i++) if (l[i] <= 0 && l[i + 1] > 0) {
+            const double z = i + l[i] / (l[i] - l[i + 1]); if (last >= 0) per.push_back(z - last); last = z; }
+        double mean = 0; for (double v : per) mean += v; mean /= per.size();
+        double best = 0, hz = 0;
+        for (double f = 0.1; f < 4; f += 0.005) {
+            double re = 0, im = 0;
+            for (size_t k = 0; k < per.size(); k++) { double ph = 2 * PI * f * k / 1000.0; re += (per[k] - mean) * cos(ph); im -= (per[k] - mean) * sin(ph); }
+            double m = sqrt(re * re + im * im); if (m > best) { best = m; hz = f; } }
+        ck("effect chip: the insertion Chorus sweeps at its default LFO Freq, 0.275 Hz (s41)", fabs(hz - 0.275) < 0.03); }
       // 5. the variation Rotary SP on a 220 Hz sine does not hiss: under -70 dB of its energy above 4 kHz, from 1 s on
       { auto t = fresh({{172, 64}, {173, 100}});               // variation pan centre, return 100
         fx::setType(t->host, fx::VARIATION, 8);

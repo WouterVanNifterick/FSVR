@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""What the measured VOP3 decode cannot yet run, as numbers (docs/vop3_isa.md section 8).
+"""What the measured VOP3 decode cannot yet run, as numbers (docs/vop3_research_journal.md, the old section 8).
 
     python tools/vop3_gaps.py
 

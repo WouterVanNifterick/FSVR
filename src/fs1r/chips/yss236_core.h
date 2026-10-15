@@ -40,7 +40,7 @@ public:
 	static constexpr int RAM_WORDS = 1 << 18;
 	static constexpr int MCELLS = 64;
 
-	// Measured on the unit (sNN: the session in docs/vop3_isa.md)
+	// Measured on the unit (sNN: the session in docs/vop3_research_journal.md; the rules in docs/vop3_isa.md)
 	static constexpr int LAT = 3;              // s24 r10: a register written at step n is read from n + 3
 	static constexpr int CAPMIN = 5;           // s40c: a capture takes a RAM transfer made 5..11 steps earlier
 	static constexpr int XFER_FROM = 3;        // s40a/b/d: RAM marks on steps 000..002 transfer nothing

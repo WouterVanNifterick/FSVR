@@ -105,7 +105,7 @@ The session 11 nop walk (FS1R.unlock `captures/2026-10-01-12/README.md`, recorde
 
 Sixteen on VOP3-1, a chip that returns sixteen filtered channels to FS1B (SO3/SO7), and four on VOP3-2, a chip that drives two stereo DACs, is the count the output reading predicts. On the AN programs the declared slots line up with the cells the voice's final mixer writes: PLG150-AN base `1fc..1ff` write `d[1e] d[20] d[18] d[22]` at route 1 with k = 0x7FFF, and the AN1x voice ends `1fb..1ff` writing `d[03] d[2e] d[1b] d[2f]` at route 1 (k 0x7FFF), with `w[03]`, `w[1b]`, `w[2e]`, `w[2f]` among its `r6[6]` slots. Those are the AN programs' output steps by the same rule.
 
-`docs/vop3_isa.md` section 2 marks `r6[6]` as inert ("`-`") because flipping it on a compute step did nothing; the nop walk above is the only time a step carrying it was removed.
+`docs/vop3_research_journal.md` section 2 marked `r6[6]` as inert ("`-`") because flipping it on a compute step did nothing; the nop walk above is the only time a step carrying it was removed.
 
 `r7[15:14]` is 1..3 on hundreds of steps in every program and does not sit at program ends, so it is not an output marker. `route` alone is not either: route 3 is common, and the four output cells are told apart by having no reader, not by their route.
 

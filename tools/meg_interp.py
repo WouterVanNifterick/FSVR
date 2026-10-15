@@ -5,7 +5,7 @@
     python tools/meg_interp.py --an --trace       run the EX5 AN voice program one pass, print every p
 
 The MEG is the EX5's effects/AN DSP; MAME executes it with explicit arithmetic, so it is value-transparent
-where the VOP3 is not (docs/vop3_isa.md section 7, docs/ex5_meg.md). This is MAME's step() line for line:
+where the VOP3 is not (docs/vop3_research_journal.md section 7, docs/ex5_meg.md). This is MAME's step() line for line:
 3-cycle delayed r/m/index writes, 2-cycle memory ports, the m1/m2/a selectors, adder, shifter,
 saturation, p (42-bit 27.15), pack24 to the 24-bit registers. Dither is off (MAME adds rand() & 0x7e0
 unless bit 0x0a is set; a deterministic run needs it off). LFOs read 0 unless `lfo` is set.
