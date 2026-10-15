@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T23:56:53Z",
+ "updated": "2026-10-15T23:59:07Z",
  "programs": [
   {
    "key": "flt",
@@ -530,13 +530,13 @@
    "types": [
     "ins-20 Lo-Fi"
    ],
-   "stage": "writing",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 9600,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Lo-Fi",
-   "note": "Straight transcription of all 96 steps written and identical on the first check: build/vop3_native_check ins-m10 reports identical, 1 type, 9600 native passes, ctest 3 of 3. The decode the transcription came from was checked field by field against the checker's --dump (/tmp/decode_m10.py, 0 differences). Next: rewrite the header and comment each block with the structure the arithmetic shows, then check again.",
-   "updated": "2026-10-15T23:56:53Z",
+   "note": "Done in one session. Straight transcription first (136eba0, identical on the first run, so nothing had to be bisected), then the tidy pass with the header rewritten to the structure the arithmetic shows; both check runs identical, 1 type, 9600 native passes, ctest 3 of 3. The 96 steps 0x1a0-0x1ff are a bit crusher: 0x1dd-0x1ff are 35 zero class-0 steps, so the program proper is 0x1a0-0x1dc. In order: r[81] climbs 1/256 a pass and ins::LOFI_RATE is the threshold 0x1a3 compares it against, so the cskip-6 block 0x1b0-0x1b3 latches m[42] = r[70] and zeroes r[81] (a sample and hold); the input is r[67] = ins::LOFI_GAIN * (r[7] + r[8]), then ins::LOFI_HIGH_SHELF (order 1) and ins::LOFI_LPF2 (order 2, a biquad) into r[70]; 0x1b4 takes m[42] - r[79] as the quantizer's input; ins::LOFI_BITS is the step in m[56]; 0x1b7, 0x1bb, 0x1bd and 0x1c1 clamp that input to +-step around a dead zone from zero to the step (0x1bc is a cskip 1, so the negative branch 0x1bd-0x1c3 only runs when 0x1ba skipped, and 0x1c0's cskip 4 guards 0x1c1); r[80] and r[79] are two integrators around the quantizer, which is where the error shaping comes from and 0x1b4 is where r[79] comes back; ins::LOFI_LEVEL and ins::LOFI_OUT scale it into r[72]; then ins::LOFI_FILTER (order 1), ins::LOFI_FILTER_2 (order 2), ins::LOFI_FILTER_3 (order 1) and ins::LOFI_HIGH_SHELF_2 (order 1, the emphasis switch) into r[78]. Four things the next rows should know: the wet signal r[119] is r[78] one pass old, read at 0x1a4 before 0x1dc writes it, so the wet is a sample behind and both outputs share one crushed signal and differ only in their dry side; the three cells m[3], m[7] and m[4] take the serial inputs of pages 13, 13 and 14 and nothing in this window reads them; no step touches the delay RAM, a t register or the index queue, and every w0 is zero; and ins::LOFI_RATE is not a rate in samples at all but the threshold the counter r[81] is compared against, so its period is 256 * 128 * the word. The old vop3_effects.h model is a floating-point decimation, quantizer and two-pole lowpass and has none of these words.",
+   "updated": "2026-10-15T23:59:07Z",
    "claimed": "2026-10-15T23:52:01Z",
    "nudges": 0,
    "sessions": 1
