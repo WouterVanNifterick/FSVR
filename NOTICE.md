@@ -30,7 +30,15 @@ These are Yamaha's data. They are included because the emulation is worthless wi
 
 **Downloaded by the plug-in build, not redistributed here:** the CLAP SDK and [clap-wrapper](https://github.com/free-audio/clap-wrapper) (MIT), which fetches Steinberg's VST3 SDK (GPL-3 or proprietary), Apple's AudioUnitSDK (Apache License 2.0), RtAudio and RtMidi (MIT-style, and RtAudio carries Steinberg's ASIO SDK, which the Windows standalone builds for its ASIO back end); and Import Audio's decoders, [dr_libs](https://github.com/mackron/dr_libs) (dr_wav and dr_mp3) and [stb_vorbis](https://github.com/nothings/stb), both public domain or MIT No Attribution. Release binaries contain them.
 
-**Import Audio's method** follows [fseq-flash](https://github.com/zkarcher/fseq-flash) by Zach Archer (MIT): its pitch detector, spectral analysis and formant picking, rewritten here in C++ with the engine's own byte scales.
+**Import Audio's method** follows [fseq-flash](https://github.com/zkarcher/fseq-flash) by Zach Archer (MIT): its pitch detector, spectral analysis and formant picking, rewritten here in C++ with the engine's own byte scales. Its licence, from fseq-flash's `docs/license.txt`:
+
+> Copyright (c) 2011, Zach Archer
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## Trademarks
 
