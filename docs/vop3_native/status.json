@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T21:06:36Z",
+ "updated": "2026-10-15T21:17:00Z",
  "programs": [
   {
    "key": "flt",
@@ -185,13 +185,17 @@
     "var-18 Overdrive",
     "var-19 Amp Sim"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 28800,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Distortion, Overdrive, Amp Sim",
    "note": "",
-   "updated": null
+   "updated": "2026-10-15T21:16:31Z",
+   "claimed": "2026-10-15T21:07:00Z",
+   "nudges": 2,
+   "sessions": 1,
+   "session": "ses_ebe9c362cffeKfef0Y8xbugs7X"
   },
   {
    "key": "var-m03",
@@ -203,13 +207,16 @@
     "var-15 Noise Gate",
     "var-16 Compressor"
    ],
-   "stage": "todo",
+   "stage": "reading",
    "check": null,
    "passes": 0,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of HM Enhncer, Noise Gate, Compressor",
    "note": "",
-   "updated": null
+   "updated": "2026-10-15T21:17:00Z",
+   "claimed": "2026-10-15T21:17:00Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "var-m04",
