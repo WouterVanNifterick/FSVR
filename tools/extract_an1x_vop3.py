@@ -2,7 +2,9 @@
 """Extract the AN1x's VOP3 AN-voice program from an1x_v104.bin (byte-swapped dump).
 
 FUN_00056028 uploads images of the form: u16 count, count x 6 words (coef, r10 | byte<<4, r9, r8, r7, r6),
-then (count+3)/4 x 2 words of delay-memory slot data, then 15 words of bus setup.
+then (count+3)/4 x 2 words of delay-memory slot data (slot s: register 0xD, then 0xE), then 15 words of bus
+setup. The slot column is written in the PLG150-AN's packing, (0xD << 9) | 0xE, so both boards' offsets compare
+as one number (docs/vop3_an_ram.md).
 Writes docs/vop3_an1x/<name>.bin in the 8-word row format of docs/vop3_an (r0C, slot, r0B, r10, r9, r8, r7, r6)
 so tools/vop3_disasm.py reads it unchanged.
 """
@@ -26,7 +28,9 @@ def main():
         slots = [struct.unpack_from(">2H", rom, o + 4 * i) for i in range((n + 3) // 4)]
         out = bytearray()
         for i, (coef, r10b, r9, r8, r7, r6) in enumerate(rows):
-            slot = slots[i >> 2][i & 1] if (r10b & 7) else 0   # ponytail: slot word pairing (lo/hi) unverified
+            hi, lo = slots[i >> 2]                              # FUN_00056028: slot s -> reg 0xD, 0xE
+            assert hi < 0x80, hi                                # the offset fits the 16-bit slot column
+            slot = (hi << 9 | (lo & 0x1FF)) if (r10b & 7) else 0      # the PLG150-AN's packing: w1 = offset
             out += struct.pack(">8H", (r10b >> 4) & 0xF, slot, coef, r10b & 7, r9, r8, r7, r6)
         (OUT / f"{name}.bin").write_bytes(out)
         print(f"{name}: {n} steps from {addr:#x} -> {OUT / (name + '.bin')}")

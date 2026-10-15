@@ -9,7 +9,7 @@ From the decompiled driver FUN_0007f87c (Ghidra project PLG150AN, VOP3 at 0x4000
 at base + 2*reg, same layout as the FS1R's FUN_0000B5E2):
     image = u16 first_step, u16 count, then per step 8 words:
       w0 -> reg 0xC (& 0xF)       byte table
-      w1 -> regs 0x1A/0x1C        DRAM address (only if w3 & 7 != 0; VOP3-1 on the FS1R has no DRAM)
+      w1 -> regs 0x1A/0x1C        RAM slot offset (regs 0xD/0xE) (only if w3 & 7 != 0; VOP3-1 on the FS1R has no DRAM)
       w2 -> reg 0xB               coefficient
       w3 -> reg 10 (& 7)
       w4 -> reg 9
@@ -18,6 +18,13 @@ at base + 2*reg, same layout as the FS1R's FUN_0000B5E2):
       w7 -> reg 6
     then, when the flag argument is 1, 15 words to reg 0x16 (per-bus levels, as the FS1R's 0x37861A).
 FUN_0007f9e6 applies patch lists (0xC0598, 0xC19D2) on top of the 0xBB9F0 image.
+
+The decompilation names registers by byte offset (base + 2 x reg): "reg 0x1A/0x1C" below are the byte offsets of
+registers 0xD/0xE, the FS1R's slot offset pair, and "reg 0x16" with the 15 words is byte offset 0x2C.
+The external RAM (docs/vop3_an_ram.md): FUN_00081358, called once from boot (FUN_00080a3a), writes 0 to registers
+0xF and 0x10 (the RAM address) and then, per little-endian word of the 0xC242 bytes at ROM 0xC245C, 0 to register
+0x12 and the word to 0x11, so RAM words 0x0000..0x6120 hold the tables. Written to docs/vop3_an/ram.bin (16-bit LE,
+as the chip receives it). The slot word w1 is the 18-bit offset of slot step >> 2: 0xD = w1 >> 9, 0xE = w1 & 0x1FF.
 """
 import struct
 from pathlib import Path
@@ -33,6 +40,7 @@ IMAGES = {   # name: (address, has per-bus levels)   callers: FUN_00080a3a (boot
     "mode1": (0xBE894, False),
     "mode2": (0xBF716, False),
 }
+RAM = (0xC245C, 0xC242)   # FUN_00081358: source, byte count
 COLS = ["r0C", "dram", "r0B", "r10", "r9", "r8", "r7", "r6"]
 
 
@@ -59,6 +67,8 @@ def main():
         for i, s in enumerate(steps):
             if any(s):
                 md.append(f"| {first+i:03X} | " + " | ".join("%04X" % w for w in s) + " |\n")
+    a, n = RAM
+    (OUT / "ram.bin").write_bytes(rom[a:a + n])
     (ROOT / "docs/vop3_an.md").write_text("".join(md))
     print("wrote", OUT, "and docs/vop3_an.md")
 

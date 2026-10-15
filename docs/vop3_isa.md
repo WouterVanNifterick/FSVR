@@ -35,8 +35,11 @@ carry no `mem` marks. The disassembler and interpreter decode every image with t
   **write area `w[0..0x3f]`** (6-bit addresses in `r6`/`r7`, class-2 results, read back through `rsrc`),
   **data memory `d[0..0x1ff]`** (9-bit address in `r8`, one entry per step: the constant table seen as
   memory, used for lookup tables), and on chips with DRAM a **delay memory** by slot (`r10[2:0]` marks
-  the access, slot = step >> 2, base/length in registers 0x1A/0x1C per slot at upload). FW: AN uploaders,
-  FS1R VOP3-2.
+  the access, slot = step >> 2, an 18-bit offset in registers 0x0D/0x0E per slot at upload; the AN drivers'
+  `| 0x1a` / `| 0x1c` are the byte offsets of the same two registers). FW: AN uploaders, FS1R VOP3-2. On the
+  AN boards the same port reads **lookup tables**: the PLG150-AN's H8 loads 0x6121 words into it at boot
+  (`FUN_00081358`, registers 0x0F..0x12), the AN1x wires a mask ROM there, no AN program writes it, and every
+  AN access sets `r8[5]`, which no FS1R access does (`docs/vop3_an_ram.md`).
 * **`r[]` is one 7-bit space laid out per voice, and `w[]` is not its upper half.** FW
   (`tools/vop3_verify.py`): FS1R filter channel c of group g reads exactly the register the same-position
   channel of group 0 reads plus 24g, or a group-shared one (444/444 reads), so group 2 reads `r[3b..4d]`

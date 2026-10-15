@@ -969,6 +969,9 @@ bool yss236_core::jit_pass()
 	static bool const off = std::getenv("FSVR_VOP3_INTERP") != nullptr;
 	if (interpret || off || (n & 3))
 		return false;
+#ifdef YSS236_TABLE_ADDR
+	return false;   // the candidate table addressing is in the interpreter only
+#endif
 	if (m_stale)
 	{
 		m_jit.reset(compile(*this));

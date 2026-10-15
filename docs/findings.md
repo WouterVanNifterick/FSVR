@@ -8,6 +8,16 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-15, the AN boards' VOP3 RAM is a lookup table, and the AN1x mask ROM is rebuilt from the PLG150-AN's
+
+The PLG150-AN's H8 loads 0x6121 words of tables into the VOP3's DRAM once at boot (`FUN_00081358`: registers 0x0F/0x10 = 0, then each word of ROM 0xC245C into 0x11). Nothing writes it again, no PLG150-AN or AN1x program carries a single RAM write mark, and every RAM read on both boards sets `r8[5]`, a bit no FS1R delay access sets. So on the AN boards the delay port is a table ROM, which is why the AN1x can put a 1 Mbit mask ROM where the PLG150-AN has DRAM. The nine tables are exp, powers of two, decay, two sines, an odd periodic shape, a soft clipper, a ramp and a reciprocal.
+
+PLG150-AN mode 0 and the AN1x voice read six offsets each with readers that pair one to one; three offsets are equal and three are shifted. A big-endian copy of the tables in the AN1x CPU ROM at 0xE496C fixes the shift: exp, sine and clipper equal the PLG150-AN's word for word, pow2 is the same values single instead of doubled, and the decay is the PLG150-AN's at four times the resolution (the PLG's is every fourth word, 2048 of 2048). Laid at the offsets the AN1x reads, that is `docs/vop3_an1x/maskrom.bin`: every table the AN1x voice reads is accounted for, the doubled pow2 and the place of a second +-4506 clipper are inferred, and past 0x6022 is unknown.
+
+Two corrections came out of it. The AN1x extractor paired slot words by step parity; it now takes them as the uploader writes them (`FUN_00056028`), and both boards then read the same offsets 0x0000, 0x1010 and 0x1020. And the AN drivers' "registers 0x1A/0x1C/0x2C" are byte offsets: they are registers 0x0D/0x0E/0x16, the FS1R's own slot pair and control table, which closes the alias question in `docs/vop3_outputs.md`.
+
+Run through `yss236_core`, the current ring addressing turns each lookup into a scan of the whole RAM; a candidate rule (an `r8[5]` access drops the ring pointer, `-DYSS236_TABLE_ADDR`, interpreter only, off by default) puts 100% of reads inside the tables. That rule is not measured, and two thirds of the AN table reads sit on phases 0 and 2, which the model does not transfer. Details, the probe and what would settle each point: `docs/vop3_an_ram.md`.
+
 ## 2026-09-29, the PLG100-SG's phoneme table is in the FS1R's own formant word encoding
 
 The SG keeps its formants as log pitch words and converts to the chip's linear frequency number only at the last step, and both the word and the conversion line up with the FS1R. `tools/sg_phonemes.py` decodes the table.

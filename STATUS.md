@@ -73,6 +73,7 @@ Grouped by what blocks each item rather than by subsystem. This file is the list
 
 - Run the real firmware on an SH-2 core. `tools/ghidra_ctrl_dests.py` shows the pattern for reaching code Ghidra never turned into functions
 - VOP3 instruction set decode, then run the real program. The only route to bit-exact effects
+- The AN boards' VOP3 RAM is a table ROM (`docs/vop3_an_ram.md`): the PLG150-AN's tables are extracted and the AN1x mask ROM is rebuilt from them and the AN1x CPU ROM's copy. Open: whether `r8[5]` drops the ring pointer, and RAM reads on phases 0 and 2. One FS1R VOP3-2 probe each settles them
 
 **Parked**
 

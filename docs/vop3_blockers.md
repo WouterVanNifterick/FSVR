@@ -30,7 +30,7 @@ Session 14 measured `rd-en` with rB set as "k is dropped" on an op-1 step (`y = 
 
 ## 7. Delay-memory marks off phase 3
 
-Session 16 found DRAM transfers only on steps 3 mod 4 and reads on phase 0 or 2 transfer nothing. The shipped VOP3-2 programs carry 50 marks off phase 3: 30 writes (`mem1`) on phases 0, 1 and 2, 6 reads on phase 1 and 3 `mem6` marks. Off-phase writes and phase-1 anything were never tried. Yamaha would not ship 50 inert marks, so either the phase rule has more to it or these steps do something else.
+Session 16 found DRAM transfers only on steps 3 mod 4 and reads on phase 0 or 2 transfer nothing. The shipped VOP3-2 programs carry 50 marks off phase 3: 30 writes (`mem1`) on phases 0, 1 and 2, 6 reads on phase 1 and 3 `mem6` marks. Off-phase writes and phase-1 anything were never tried. Yamaha would not ship 50 inert marks, so either the phase rule has more to it or these steps do something else. The AN programs press the point: their RAM is a lookup table (`docs/vop3_an_ram.md`), and PLG150-AN mode 0 puts 59 of its 95 table reads, the AN1x voice 66 of 95, on phases 0 and 2, including every read of the soft clipper.
 
 ## 8. The constants and offsets are not in the images
 

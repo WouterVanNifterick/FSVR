@@ -67,6 +67,7 @@ public:
 		uint8_t dwr;     // w1[12:8] nonzero: a class-1 step also writes its m cell (s29)
 		uint8_t idxw;    // w2[2]    delay address index from p, in effect 3 steps later (the scale is OPEN)
 		uint8_t idxa;    // w2[3]    add the index to this memory cycle
+		uint8_t tbl;     // w2[5]    set on every delay RAM access of the AN boards, on none of the FS1R's (docs/vop3_an_ram.md)
 		uint8_t dm;      // w2[12:7] m cell written
 		uint8_t msrc;    // w2[15:13] m write source: 0 serial, 1 serial bank 2, 2 LFO, 3 EG level, 4/5 capture, 6 p, 7 previous operand
 		uint8_t t;       // w3[2:0]  t register read
@@ -94,7 +95,7 @@ public:
 	uint16_t prog[STEPS][5];
 	uint16_t coef[STEPS];
 	uint8_t  tag[STEPS];
-	uint16_t slot[SLOTS][2];      // registers 0x0D (bits 17-9) and 0x0E (bits 8-0)
+	uint16_t slot[SLOTS][2];      // registers 0x0D (bits 17-9) and 0x0E (bits 8-0); the AN boards' H8 drivers load the same pair
 
 	// Decoded program
 	op ops[STEPS];
@@ -164,6 +165,7 @@ public:
 
 		o.idxw  = (w[2] >> 2) & 1;
 		o.idxa  = (w[2] >> 3) & 1;
+		o.tbl   = (w[2] >> 5) & 1;
 		o.dm    = (w[2] >> 7) & 0x3f;
 		o.msrc  = (w[2] >> 13) & 7;
 
@@ -323,8 +325,15 @@ private:
 	static double clip2(double v, double lo, double hi) { double const m = v < hi ? v : hi; return lo < m ? m : lo; }
 	static double clip(double v, double c) { return clip2(v, -c, c); }
 
-	uint32_t addr(int s, int older) const
+	uint32_t addr(int s, int older, bool tbl = false) const
 	{
+#ifdef YSS236_TABLE_ADDR
+		// Candidate rule, OPEN: a w2[5] access addresses the RAM absolutely (no pointer), as the AN boards' lookup
+		// tables need. tools/vop3_an_ram.cpp builds with it; the compiled pass does not have it (jit_pass).
+		if (tbl)
+			return uint32_t(int32_t(slot_offset(s)) + older) & (RAM_WORDS - 1);
+#endif
+		(void)tbl;
 		return uint32_t(ptr + int32_t(slot_offset(s)) + older) & (RAM_WORDS - 1);
 	}
 
@@ -431,7 +440,7 @@ private:
 		if (xfer_phase && (o.memop == 2 || o.memop == 3 || o.memop == 4 || o.memop == 6))
 		{
 			int const older = (o.memop & 4) ? 1 : 0;
-			uint32_t const a = addr(s, older + (o.idxa ? cur_idx() : 0));
+			uint32_t const a = addr(s, older + (o.idxa ? cur_idx() : 0), o.tbl);
 			push_hist(st, ram[a]);
 		}
 
