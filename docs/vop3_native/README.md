@@ -1,6 +1,6 @@
 # The VOP3 programs in C++
 
-FSVR runs both of the FS1R's VOP3 chips on an emulated YSS236: the filter chip (VOP3-1) and the effect chip (VOP3-2) execute the firmware's own microcode, compiled at run time by the JIT in `src/fs1r/chips/yss236_jit.cpp` and checked against the interpreter in `src/fs1r/chips/yss236_core.h` by the `vop3_jit` test. This port replaces that microcode, program by program, with C++ that produces the same result bit for bit. When every program is ported, the JIT, the interpreter and AsmJit are retired.
+FSVR runs both of the FS1R's VOP3 chips on an emulated YSS236: the filter chip (VOP3-1) and the effect chip (VOP3-2) execute the firmware's own microcode, compiled at run time by the JIT in `src/fs1r/chips/yss236_jit.cpp` and checked against the interpreter in `src/fs1r/chips/yss236_core.h` by the `vop3_jit` test. This port replaces that microcode, program by program, with C++ that produces the same result bit for bit. When every program is ported, Claude retires the JIT, the interpreter and AsmJit; that last step is not part of this brief.
 
 The tracker is `docs/vop3_native/status.json`, one row per chip program the FS1R loads, and the public view of it is https://ai.musica.studio/effects. Work happens on the `vop3-native` branch only.
 
@@ -92,13 +92,6 @@ python3 tools/vop3_native.py check <key>                   # check and record
 ctest --test-dir build                                     # everything, before each push
 ```
 
-## Retiring the JIT
+## Retiring the JIT is not yours
 
-The `retire-jit` row is ready only when every other row is done. Then, in this order, each a separate commit:
-
-1. Make the natives the default. `Effects` and `Filter` set `chip.core.natives` from what the hosts have loaded (the base, reverb and aux programs always; the insertion, variation and reverb-delay programs by the type msb each window holds), so the chip runs no microcode.
-2. Record golden hashes: extend `vop3_native_check` with `--record`, writing a hash of each program's output over its check run per type to `docs/vop3_native/golden.txt`, and a mode that compares against the file, so the check keeps a reference once the interpreter is gone.
-3. Show identical renders before and after with `render_capture`, on the demo pair named in `docs/vop3_blockers.md`, and a full `ctest`.
-4. Remove `yss236_jit.cpp`, `third_party/asmjit`, `vop3_jit_check` and the interpreter's `step()` path from the build, keeping the core's state and the helpers the natives use.
-
-Then set the row to `checking` and ask the Team to review. James merges `vop3-native` into `main`.
+The `retire-jit` row is on the tracker only so the status page shows it; the routine never hands it out. Claude retires the JIT once every program is done, so leave the JIT, the interpreter, AsmJit, `vop3_jit_check` and the production path alone: never make the natives the default in `Effects` or `Filter`, and never remove or disable anything the emulation runs on. When the last program row is done, close that session as usual and stop; the routine then has nothing left to start.

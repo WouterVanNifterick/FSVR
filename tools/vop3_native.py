@@ -63,13 +63,11 @@ def row(doc, key):
 
 
 def ready(doc):
-    """The next row to work on: the first not done or blocked, retire-jit only once every other row is done."""
-    rows = doc["programs"]
-    for r in rows:
-        if r["stage"] in ("done", "blocked"):
+    """The next row to work on: the first not done or blocked. retire-jit is never handed out: retiring the
+    JIT is Claude's job, not the agent's, so the row is only there for the status page."""
+    for r in doc["programs"]:
+        if r["stage"] in ("done", "blocked") or r["key"] == "retire-jit":
             continue
-        if r["key"] == "retire-jit" and any(o["stage"] != "done" for o in rows if o["key"] != "retire-jit"):
-            return None
         return r
     return None
 
@@ -94,10 +92,6 @@ def brief(r):
 
 def body(r):
     k = r["key"]
-    if k == "retire-jit":
-        return ("Row retire-jit: every program is ported. Follow 'Retiring the JIT' in docs/vop3_native/README.md. "
-                "When the removal commit is pushed, `python3 tools/vop3_native.py set retire-jit checking --note \"...\"` "
-                "and ask the Team to review; the row is done when James merges vop3-native.")
     lines = [
         f"Row {k}: {r['chip']} {r['window']} program, {r['steps']} steps, stage {r['stage']}, session {r.get('sessions', 0)}.",
         f"It runs under: {', '.join(r['types'])}.",
