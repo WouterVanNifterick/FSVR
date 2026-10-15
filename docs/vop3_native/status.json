@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T23:31:01Z",
+ "updated": "2026-10-15T23:33:48Z",
  "programs": [
   {
    "key": "flt",
@@ -464,13 +464,13 @@
     "ins-16 T-Wah+Dist",
     "ins-17 T-Wah+Odrv"
    ],
-   "stage": "reading",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 38400,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of A-Wah+Dist, A-Wah+Odrv, T-Wah+Dist, T-Wah+Odrv",
-   "note": "",
-   "updated": "2026-10-15T23:31:01Z",
+   "note": "Done in one session: read the dump, transcribed the 96 steps, three transcription slips found by bisecting the native against the interpreter (the shift-3 route is RSCALE[3] = 16 not 8; 0x1bd and 0x1c1 take m2m 1 so m2 is the cell, not xv), then the header rewritten to the structure the arithmetic shows. The wah and the distortion are two chains, not one: the EQ feeds the resonator r[74]/r[75] whose state the band filters, the drive and the waveshaper take, and the output mix puts the resonator's signal back beside the shaper's. vop3_native_check ins-m04 identical, 4 types, 38400 native passes; ctest 3/3.",
+   "updated": "2026-10-15T23:33:48Z",
    "claimed": "2026-10-15T23:15:01Z",
    "nudges": 9,
    "sessions": 1,
