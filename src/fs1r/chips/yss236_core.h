@@ -47,7 +47,8 @@ public:
 	static constexpr int DLAT = 3;             // s30/s31: m cell writes and captures land 3 steps later
 	static constexpr double RANGE = 128.0;     // s24: registers span [-128, 128), word / 256
 	static constexpr double ACC = 256.0;       // s24: the running value wraps at +-256 (mode 0)
-	static constexpr double SAT = 8.0;         // s14: the delay RAM word clips at +-8
+	static constexpr double SAT = 32.0;        // s41k: the delay RAM word holds at least +-11 (Vokodrone's feedback
+	                                           // node, tapped on the unit); +-32 as d[] (s38l). The s14 +-8 was the DAC
 	static constexpr double DSAT = 128.0;      // s27: an m cell is a full register
 	static constexpr double LOADK = 128.0;     // s14: a class-1 load v reads back as v / 256
 	static constexpr double RSCALE[4] = { 1.0, 2.0, 4.0, 16.0 };   // s24: route 0..3 scales the result

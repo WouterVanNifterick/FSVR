@@ -52,7 +52,7 @@ Grouped by what blocks each item rather than by subsystem. This file is the list
 
 **Ready, needs no hardware**
 
-- The effect modulation depth. Session 41 measured the LFO itself (unipolar 0..1, `LFO_DIRECTION` 0x8000 centres it; the rates match the unit on all eight effects), not what the programs make of it: Vokodrone's flanger FM is 4.3x the unit's, the variation Flanger's and the phasers' 0.04-0.6x. Next: tap the delay-index steps on the unit ([findings](docs/findings.md), 2026-10-15 session 41 cont.; [vop3_isa.md](docs/vop3_isa.md) section 7)
+- The effect notch shape. Session 41 settled the LFO (rate, range, depth: Vokodrone's flanger FM 0.0028 against the unit's 0.0030; the delay-index steps match the unit to 2%). Left: the variation Flanger, variation Chorus and insertion Phaser1 notch deeper on the unit, with FM spikes at the notches the engine does not make ([findings](docs/findings.md), 2026-10-15 session 41 cont.; [vop3_isa.md](docs/vop3_isa.md) section 7)
 - The emulated delay, modulation and insertion programs against the effect recordings. The reverbs checked so far are within 2 to 12 LSB; the Data List models they replace read 17 to 29 dB over three files and eighty-four segments
 - The effects rewritten in C++, each checked against the emulation, which stays the exact reference
 - The render regression's reference is stale. With the EPROM image present, fifteen of `tools/regress.py`'s nineteen cases fail on this machine at `8618c17` and after the Hollow plug-in change alike, with the same numbers, and the two builds render those cases bit for bit the same, so the drift came in with an earlier engine change and was never folded into `regress_ref.json`. Find which commit moved each case, say why in its message, then `--update`

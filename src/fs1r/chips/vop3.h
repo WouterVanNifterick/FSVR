@@ -16,7 +16,6 @@ struct Vop3 {
     uint16_t lfoReg[yss236_core::LFOS][4] = {};   // LFO_SPEED, LFO_WAVE, LFO_DEPTH and LFO_DIRECTION
     uint32_t phase[yss236_core::LFOS] = {}, rnd = 1;
     float hold[yss236_core::LFOS] = {};     // sample and hold
-    bool filter = false;                    // the board's filter chip: picks the reading of LFO_DIRECTION, see lfo()
     // An EG generator: its EG_RATE, EG_TARGET and EG_AIM.
     struct Eg { double level = 0, k = 0; int16_t target = 0, aim = 0; uint8_t rate = 0; int8_t side = 0; int flat = 0; };
     Eg eg[16];

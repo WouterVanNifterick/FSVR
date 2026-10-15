@@ -1087,3 +1087,27 @@ m[2c] and step 0d0 plays m[2c] at k = 1/128 on the right DAC.
 Open: the modulation depth (envelope 0.4-1.1x, FM 0.04-0.8x, Vokodrone's flanger FM 4.3x); next, the delay-index
 steps (1b4 / 1d3) tapped on the unit.
 
+**41h-l, the flanger depth** (FS1R.unlock `2026-10-15-201341-s25`, `-202658-s25`, `-203846-s25`, `-231352-s25`;
+`docs/vop3_ship/41h`..`41l`). Each probe makes one step also write its result to m[11] (the right DAC).
+
+* 41h: Vokodrone's delay-index steps 1b4 / 1d3 read 0 .. 0.2715 on the unit, a triangle at the LFO rate, 1b4 and
+  1d3 in antiphase; the engine's 0 .. 0.2714, mean and sd within 3%. The LFO reaches the delay address at the
+  unit's depth.
+* 41j: 1bd and 1ba write nothing on either side; 1a9 (r7d's load) +7.53 / sd 1.51 on the unit, +7.60 / 1.41 in the
+  engine. m[2a] / m[2b] read 0 on both.
+* 41k: the interpolated tap 1d5, the feedback source 1e9 and the output 1f5: level and envelope within 20%, but
+  the unit's taps exceed the engine's +-8 clip (|R| to 2.77 readout, the engine pinned at 2.000). **The DRAM word
+  is wider than +-8**: the s14 +-8 was the DAC. SAT is now 32 (d[]'s measured +-32, s38l), unbounded beyond +-11.
+* 41l: the variation Flanger's and Chorus's index steps 16c / 182 match the engine to 2% (Flanger 0.0272 / 0.0157
+  mean / sd on the unit, 0.0261 / 0.0157 engine; Chorus 0.4825 / 0.2676, 0.4822 / 0.2733).
+* **The 4.3x was the harness.** `mod.cpp` drove the insertion bus with a 0.25 sine, hotter than the rig's sine
+  voice (0.18 matches the unit's dry level), and at 0.25 the feedback node clips at +-8 and the flanger's FM
+  quadruples. Rendered through the whole device from the same performance and voice bulks the rig sends
+  (`/tmp/voko_mid.py` pattern: an SMF of the two bulks and note 60), Vokodrone's FM sd is 0.0028 against the unit's
+  0.0030, and was 0.0051 before s41 (the pre-s41 doubled LFO is what rgwan heard).
+* Hikari: VOP3-1 and VOP3-2 are one chip, so one LFO rule. `LFO_WAVE` bit 12 is the only LFO bit the two hosts set
+  differently (the filter host boots every channel to 0x1000), so `Vop3::lfo` now reads bit 12 as the range
+  selector: clear = unipolar 0..1 with 0x8000 centring (VOP3-2, measured), set = bipolar -1..1 with 0x4000 halving
+  (VOP3-1, `20_fltmod` LFO2 envelopes 6.1 dB rms against 12.7 dB unipolar). Inferred, not probed: no take has
+  flipped bit 12.
+

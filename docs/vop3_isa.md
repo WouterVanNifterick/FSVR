@@ -121,7 +121,7 @@ The session-era `op` (3 bits, `w3[8:6]`) is `m2m << 2 | asel`: op 0 `p + k*r`, 1
 Numbers are fixed point; the core holds them as doubles at these scales (s24, s27):
 
 * r registers and m cells hold **[-128, 128)** (word / 256). The running value **p** holds [-256, 256). The RAM word
-  clips at **+-8**. A class-1 constant `v` loads as `v / 256` (8.8); a class-2/3 constant is a signed 1.15 gain.
+  clips at **+-32** (s41k: Vokodrone's feedback node, tapped on the unit, reaches +-11; the s14 +-8 is withdrawn). A class-1 constant `v` loads as `v / 256` (8.8); a class-2/3 constant is a signed 1.15 gain.
 * **Class 2**: `y = (g * m2 +- a) * 2^shift`, with `g` the constant (or t[t] when `m1` >= 2), `m2` = m[sm] or
   r[sr], `a` the adder input. **Class 3** is the same with `g` = 1. **Class 1**: `y = (k * 128 +- a) * 2^shift`,
   the constant load plus the adder. **Class 0** writes nothing unless its adder, shift, clamp or sub bits are set,
@@ -168,7 +168,8 @@ variants), each into the cell its delay or allpass coefficient path reads.
 The phase is a 32-bit accumulator stepped by `LFO_SPEED << 12` per sample, so speed s is `s * 48000 / 2^20` Hz.
 The value the program sees is `wave(phase) * LFO_DEPTH / 32768 * 128`.
 
-**On the effect chip the waves are unipolar and `LFO_DIRECTION` 0x8000 centres them** (s41c/e/g, CHIP): an LFO
+**One rule for both chips, picked by `LFO_WAVE` bit 12.** Without it (every VOP3-2 LFO) the saws and the triangle
+are unipolar and `LFO_DIRECTION` 0x8000 centres them (s41c/e/g, CHIP): an LFO
 moved into an m cell at a free step and played on the DAC reads
 
 | effect (wave, direction) | unit | engine before s41 |
@@ -180,18 +181,23 @@ moved into an m cell at a free step and played on the DAC reads
 So saw down is `1 - x`, saw up `x`, the triangle `0 .. 1 .. 0`, and direction 0x8000 subtracts 0.5. The -1..1
 waves the engine ran made every chorus, flanger, rotary and phaser modulate at twice its set rate (the delay or
 allpass sweep folded through zero); with the measured shapes all eight effects of s41b carry the unit's three
-strongest envelope and FM lines, frequencies to the bin. Bits 14..0 of `LFO_DIRECTION` (the 0x4000 of 0xC000) and
-the square, sine and sample-and-hold waves, which no effect program sets, are unmeasured and keep -1..1. VOP3-1's
-LFO2 keeps its own -1..1 reading with 0x4000 halving, also unmeasured.
+strongest envelope and FM lines, frequencies to the bin. With bit 12 set (the VOP3-1 host boots every
+`LFO_WAVE` to 0x1000) the waves are bipolar -1..1 and `LFO_DIRECTION` 0x4000 halves them: `20_fltmod`'s LFO2
+envelopes match the unit at 6.1 dB rms read that way and 12.7 dB read unipolar (CAPTURE, inferred: bit 12 is the
+only LFO register bit the two hosts set differently, so it is taken as the selector; no probe has flipped it).
+Open: 0x4000 without bit 12, 0x8000 with it, and the square, sine and sample-and-hold waves (no measured program
+uses them; they stay -1..1).
 
-**Depth, as far as measured (s41b, f), not settled.** Engine against unit on the 1 kHz tone, sd of the envelope /
-of the instantaneous frequency: Chorus 0.6x / 0.4x, Flanger 0.6x / 0.1x, Rotary SP 0.9x / 0.6x, 2WayRotary 1.1x /
-0.7x, Phaser1 0.4x / 0.1x (variation) and 0.8x / 0.04x (insertion), insertion Chorus 0.8x / 0.8x, Vokodrone's
-flanger 1.0x / **4.3x** with an 11.7 Hz FM line the unit does not have. The LFO itself reaches the program at the
-unit's amplitude (the table above), so the remaining depth error is downstream of it, in how the programs scale
-the LFO cell into a delay index (`idxw`/`tfrac`, section 5) or an allpass coefficient. Vokodrone's flanger at five
-feedback words (s41f) keeps the unit's notch depth (envelope p1/p99) at every setting, its level 1.3x the unit's
-throughout, so its feedback loop is not where it differs.
+**Depth.** The delay-index steps were tapped on the unit (s41h, l: Vokodrone 1b4 / 1d3, the variation Flanger
+and Chorus 16c / 182): each matches the engine's to 2% of its swing, so the LFO reaches the delay address at the
+unit's depth. Rendered the way the rig plays it (performance and sine-voice bulks through the whole device), FM sd,
+engine / unit: Vokodrone's flanger 0.0028 / 0.0030, insertion Chorus 0.00185 / 0.00184, 2WayRotary 0.00229 /
+0.00232, Rotary SP 0.00169 / 0.00184, variation Phaser1 0.00036 / 0.00037; every envelope p1/p50/p99 within 12%.
+The 4.3x Vokodrone excess of s41b was the probe, not the engine: it pushed a 0.25 sine straight into the bus,
+hotter than the rig's voice, and drove the feedback node into the +-8 clip (section 4). Open, and not the
+LFO: the variation Flanger, variation Chorus and insertion Phaser1 differ in FM shape. On the unit the FM spikes
+at the momentary notches (sd 10 to 23 Hz there, the engine's 0.4 to 5); away from them the variation Flanger
+agrees (2.1 / 2.0 Hz), the variation Chorus wobbles 0.7 Hz on the unit and 5.7 in the engine, Phaser1 4.6 / 0.8.
 
 ## 8. EGs
 
@@ -206,7 +212,8 @@ the filter EG takes, `docs/findings.md` 2026-09-23; `vop3.cpp`).
 * Register 5's bits (the AN boards' 2 silences the FS1R program), register 0x1B, 0x0F..0x12's control word 0x12,
   0x16's entries 1..14, 0x28..0x2A, 0x1C, and the LFO speed word's bits 10..11.
 * `LFO_DIRECTION`'s low bits, the square, sine and sample-and-hold waves on the effect chip, and VOP3-1's LFO2 reading.
-* Vokodrone's insertion flanger: its FM is 4x the unit's, with an 11.7 Hz line the unit does not have (section 7).
+* The flangers' notch shape: Vokodrone's notch peaks 10 to 20% low, the variation Flanger's and Chorus's notches
+  shallower than the unit's (section 7).
 * VOP3-1's register bank per channel (the journal's sessions 38q..39): the filter runs on the measured core with
   the firmware's program, and the bank map is what the replay still leans on.
 * The tag byte's meaning to the chip, if any.

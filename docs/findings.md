@@ -8,6 +8,16 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-15, session 41 (cont.): Vokodrone's flanger depth matches; the 4.3x was the probe, the DRAM word is wider than +-8
+
+rgwan's Vokodrone report ("feeds back a little more, sounds like a flanger") was the doubled LFO, fixed by the s41 LFO shapes: rendered through the whole device from the same performance and sine-voice bulks the rig sends, the insertion flanger's FM is 0.0028 rad/sample against the unit's 0.0030, and 0.0051 before s41. The 4.3x excess reported earlier came from the harness, which drove the insertion bus with a 0.25 sine, hotter than the rig's voice, into the program's +-8 clip.
+
+The unit agreed step by step (s41h-l, FS1R.unlock `2026-10-15-201341/-202658/-203846/-231352-s25`): Vokodrone's delay-index steps 1b4 / 1d3, and the variation Flanger's and Chorus's 16c / 182, match the engine to 2% of their swing. One rule moved: the flanger's feedback node reaches +-11 on the unit where the engine pinned it at +-8, so the delay RAM word clips at +-32 now (the s14 +-8 was the DAC, not the word). It changes one of the fourteen spot-checked ROM performances (P78), by 5% of peak.
+
+Hikari pointed out that VOP3-1 and VOP3-2 are the same chip, so `Vop3::lfo` no longer branches on which board it is: `LFO_WAVE` bit 12, which only the filter host sets, selects the bipolar range. The filter renders bit-identical and the effect renders are unchanged; that bit 12 is the selector is inferred, not probed.
+
+Still open, and not the LFO: the variation Flanger, variation Chorus and insertion Phaser1 have deeper momentary notches on the unit, with FM spikes there the engine does not make.
+
 ## 2026-10-15, session 41 (cont.): the effect LFO is unipolar, and LFO_DIRECTION centres it
 
 The first s41 fix (`b89d62b`) halved the -1..1 waves to -0.5..0.5 and so put every modulation back on its set rate, but it was a fit to the audio, not a reading of the LFO. Session 41c-g read the LFO itself: a free step moves the LFO into an m cell and the DAC step plays it (FS1R.unlock `2026-10-15-173459-s25`, `-181203-s25`, `-193346-s25`; `docs/vop3_ship/41c`..`41g`). On the unit the saws read 0 .. +128 rising and Phaser1's triangle 0 .. +44.3 (its depth word), so the waves are unipolar; 2WayRotary's, whose `LFO_DIRECTION` is 0xC000, reads -64 .. +64 rising, so bit 15 of the direction register centres the wave rather than negating it. `Vop3::lfo` now runs exactly that on the effect chip (saw down `1 - x`, saw up `x`, triangle 0..1..0, direction 0x8000 subtracts 0.5) and all eight s41b effects keep the unit's three strongest envelope and FM lines: the unit-measured shapes and the audio fit agree. The two LFO readers of the variation Rotary SP tapped on the unit (s41d) match the engine to 2% of their swing.

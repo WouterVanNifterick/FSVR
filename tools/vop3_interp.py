@@ -50,7 +50,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vop3_disasm import fields, disasm  # noqa: E402
 
-SAT = 8.0                # session 14: what leaves the chip (DRAM word, d[], the DAC) clips at +-8
+SAT = 32.0               # s41k: the DRAM word holds >= +-11 (the s14 +-8 was the DAC); +-32 as d[] (s38l)
 DAC = (0x10, 0x11)       # s27: the DAC takes d[0x10] (L) and d[0x11] (R), base steps 0cf / 0d0; readout = d / 4.
                          # s28: L leaves one sample after R (step onsets: R at n, L at n + 1); see Interp.dac()
 DSAT = 128.0             # s27: d[] range (unit readout clips at the DAC, so only >= 32 is measured)
@@ -246,7 +246,7 @@ class Interp:
         elif f["ra"]:
             self.write(r, f["ra"], mode(y, self.steps[i][3] >> 14))
         y = self.acc = acc_mode(y, self.steps[i][3] >> 14)
-        out = max(-SAT, min(SAT, y))                # what leaves for d[] / DRAM clips at +-8 (s14)
+        out = max(-SAT, min(SAT, y))                # what leaves for d[] / DRAM clips at SAT
         if f["daddr"] & 0x1C0 == 0x1C0:            # s32/s33: daddr bit 6 writes the previous step's operand d[f6c],
             self.dput(f["daddr"] & 0x3F | DHI(st), self.psrc)   # whatever this step's op / k or the previous k (s32a, cumulative)
         elif f["daddr"] & 0x180 == 0x180 and (op != 7 or f["daddr"] & 0x3F != f["f6c"]):   # s30: op 7 writes d[] too (not onto its own source cell)

@@ -77,34 +77,24 @@ float Vop3::lfo(int n) const
     const uint16_t* reg = lfoReg[n];
     const float x = (float)phase[n] * (1.0f / 4294967296.0f);
     float v;
-    // s41: on the effect chip the saws and the triangle are unipolar, 0..1 (s41c/g: an LFO moved into an m cell
-    // and played on the DAC reads 0..+128 on the unit), and LFO_DIRECTION 0x8000 centres the wave, -0.5..0.5
-    // (s41g: 2WayRotary's LFO, direction 0xC000, reads -64..+64 rising). With both, a 1 kHz tone through Chorus,
-    // Flanger, Rotary SP, 2WayRotary and both Phaser1s modulates at the unit's LFO rate and harmonics; the old
-    // -1..1 doubled every one of them. Square, sine and S&H are not used by the effect programs and keep -1..1,
-    // unmeasured. The filter chip keeps its own reading below.
-    if (!filter) {
-        switch ((reg[1] >> 5) & 7) {
-            case SAW_DOWN: v = 1.0f - x; break;
-            case SAW_UP:   v = x; break;
-            case SQUARE:   v = x < 0.5f ? 1.0f : -1.0f; break;
-            case SINE:     v = std::sin(2.0f * 3.14159265f * x); break;
-            case SAMPLE_HOLD: v = hold[n]; break;
-            default:       v = x < 0.5f ? 2.0f * x : 2.0f - 2.0f * x; break;   // the triangle
-        }
-        if (reg[3] & 0x8000) v -= 0.5f;    // OPEN: the low bits of LFO_DIRECTION (2WayRotary writes 0xC000)
-        return v * ((float)reg[2] * (1.0f / 32768.0f));
-    }
+    // One rule for both chips (they are the same part). LFO_WAVE bit 12 picks the range: clear, the saws and the
+    // triangle are unipolar 0..1 and LFO_DIRECTION 0x8000 centres them (s41c/g, VOP3-2: an LFO played on the DAC
+    // reads 0..+128, 2WayRotary's with direction 0xC000 -64..+64); set, they are bipolar -1..1 and 0x4000 halves
+    // (VOP3-1, whose host boots every LFO_WAVE to 0x1000: 20_fltmod's LFO2 envelopes, 6.1 dB, against 12.7 dB
+    // read unipolar). Square, sine and S&H, which no measured program uses, stay -1..1.
+    // OPEN: 0x4000 without bit 12, 0x8000 with it; the quarter-cycle between the two triangles.
+    const bool bipolar = reg[1] & 0x1000;
     switch ((reg[1] >> 5) & 7) {
-        case SAW_DOWN:    v = 1.0f - 2.0f * x; break;
-        case SAW_UP:      v = 2.0f * x - 1.0f; break;
+        case SAW_DOWN:    v = bipolar ? 1.0f - 2.0f * x : 1.0f - x; break;
+        case SAW_UP:      v = bipolar ? 2.0f * x - 1.0f : x; break;
         case SQUARE:      v = x < 0.5f ? 1.0f : -1.0f; break;
         case SINE:        v = std::sin(2.0f * 3.14159265f * x); break;
         case SAMPLE_HOLD: v = hold[n]; break;
-        default:          v = x < 0.25f ? 4.0f * x : x < 0.75f ? 2.0f - 4.0f * x : 4.0f * x - 4.0f; break;   // the triangle
+        default:          v = bipolar ? (x < 0.25f ? 4.0f * x : x < 0.75f ? 2.0f - 4.0f * x : 4.0f * x - 4.0f)
+                                      : (x < 0.5f ? 2.0f * x : 2.0f - 2.0f * x); break;   // the triangle
     }
-    // OPEN: LFO_DIRECTION on the filter chip: its 0x4000 reads as a halving. Not measured.
-    if (reg[3] & 0x4000) v *= 0.5f;
+    if (bipolar) { if (reg[3] & 0x4000) v *= 0.5f; }
+    else if (reg[3] & 0x8000) v -= 0.5f;
     return v * ((float)reg[2] * (1.0f / 32768.0f));
 }
 
