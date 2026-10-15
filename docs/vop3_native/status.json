@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T21:34:44Z",
+ "updated": "2026-10-15T21:42:18Z",
  "programs": [
   {
    "key": "flt",
@@ -248,13 +248,16 @@
     "var-05 Phaser1",
     "var-06 Phaser2"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 19200,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Phaser1, Phaser2",
-   "note": "",
-   "updated": null
+   "note": "72 steps 0x158-0x19f, identical over 2 types and 19200 passes. Groups: the two channels' EQ shelves (0x158-0x165, the four PH_FILTER lists), the left cascade's swept gain (0x166, 0x16f, 0x174-0x175: 128*PH_FB[0] + m[8], squared, then to the fourth less 128 into t[10]), the eight section weights (0x167-0x16e, each scaling one cascade section into a running sum that 0x16a and 0x16e double into r[120] and r[121], so with exactly two words at HALF each sum is its two open sections added), the diffuse tap (0x170-0x173 over r[120], r[121], r[114] and r[117] into r[119]), the feedback into the left cascade (0x176-0x179 into m[54]), the right gain on the same shape (0x17a, 0x17d, 0x189, with m[56] the ROM's zero written by 0x180), the left cascade's five first-order sections (0x17b-0x17c on m[54], 0x17e-0x17f into m[55], 0x181-0x188 on r[110] to r[112]), the right cascade's input r[113] (0x18a-0x18c) and its five sections (0x18d-0x19b), and PH_PAN's dry and wet into r[15] and r[16] (0x19c-0x19f). What separates the two types: phaser1() puts the phase shift 258 in both feedback words and its width at 0x179 alone, phaser2() splits 258 and 242 and puts the width at 0x178 and 0x18B, so the width reaches r[121] under Phaser2 and m[54] under Phaser1, and with the ROM's own words left at 0x172 the diffuse tap is r[114] under Phaser2 and zero under Phaser1 with Diffuse off. ctest: 3 of 3 pass.",
+   "updated": "2026-10-15T21:42:18Z",
+   "claimed": "2026-10-15T21:36:00Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "var-m06",
