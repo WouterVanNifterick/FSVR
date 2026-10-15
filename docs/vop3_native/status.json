@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T20:42:37Z",
+ "updated": "2026-10-15T20:49:42Z",
  "programs": [
   {
    "key": "flt",
@@ -120,13 +120,16 @@
    "types": [
     "every performance"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 835200,
    "commit": null,
    "start_from": "no old model: the aux window has no parameters",
-   "note": "",
-   "updated": null
+   "note": "Eight four-step units (0x0e8-0x107) and a six-step tail (0x108-0x10f). Each unit is a first-order smoother of one cell: state r[61..66,101,102], difference r[31..34,43..46], read by the base program at 0x046, 0x050, 0x056, 0x05f, 0x089, 0x092, 0x0d8 and 0x0e0, and the pole is the gain word on its second step, which is rom::STEPS_OUTPUT_GAIN, written 21 by setOutputGain at boot and 0x18 by the window's own preset, so it is read from c.coef[st] and not folded in. The tail clears the running value into m[40] and m[41] and takes m[17] to out[8]. No control step in the base or reverb program, so m_skip is reachable only from the 0x1xx windows.",
+   "updated": "2026-10-15T20:49:42Z",
+   "claimed": "2026-10-15T20:44:00Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "var-m00",
