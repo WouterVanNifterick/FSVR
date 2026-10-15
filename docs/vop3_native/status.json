@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T21:51:59Z",
+ "updated": "2026-10-15T21:57:52Z",
  "programs": [
   {
    "key": "flt",
@@ -286,13 +286,16 @@
    "types": [
     "var-13 3-Band EQ"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 9600,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of 3-Band EQ",
-   "note": "",
-   "updated": null
+   "note": "72 steps 0x158-0x19f, identical over 1 type and 9600 passes. Groups: EQ3_A the summed left input and the right one (0x158-0x159, 0x169); the two channels' three cascaded order-2 bands, six five-word sections b0, b1, b2, -a1, -a2 off EQ3_LOW_SHELF2, EQ3_PEAK, EQ3_HIGH_SHELF2 and their _COPY lists (0x15a-0x15e, 0x15f-0x163, 0x164-0x168 and 0x16a-0x16e, 0x16f-0x173, 0x174-0x178); EQ3_B the two outputs (0x179-0x17b); and the tail, class 0 and idle but for the reads of the slots 0x63, 0x64 and 0x65 at 0x18f, 0x193 and 0x197, the captures that take them into m[31], m[32] and m[33] five steps later, and the two LFOs published into m[11] and m[12]. Each b0 step closes its section with a route (a shift of one on the two lower bands, three on the high one) that restores the factor designFilter's 2048 * (16 >> scale) took out, the route multiplying the whole section sum, so the five words stand for the designed coefficients. Under the type's own preset all three gains are 0 dB and each band's numerator word pair equals its denominator pair (left low 1.0, -1.949341, +0.950012 against the same two on its own output; middle 1.0, -1.952026, +0.971985; high 1.0, -0.437500, +0.047852), so every section is all-pass and the window is transparent until a band moves: arithmetic off the dump's k values, not measured. The MODE parameter is the only one that touches EQ3_A and EQ3_B: stereo gives r[103] = L, r[111] = R and one chain per output; mono gives r[103] = (L + R) / 2 and both outputs from the left chain with r[117] multiplied by the zero at 0x17B, which is what the type's preset holds. No step reads at a delay index and none writes the delay RAM. ctest: 3 of 3 pass.",
+   "updated": "2026-10-15T21:57:52Z",
+   "claimed": "2026-10-15T21:53:00Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "var-m08",
