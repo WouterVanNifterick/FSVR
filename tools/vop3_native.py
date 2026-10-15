@@ -4,7 +4,7 @@
     vop3_native.py status                    every row and its stage
     vop3_native.py next [--claim]            the brief for the next row; exit 1 when paused, finished or nothing is ready.
                                              --claim (the routine's) counts a session on it and moves todo to reading,
-                                             and refuses a row it claimed less than COOLDOWN minutes ago
+                                             or, when the row's session stopped early, nudges it in its thread
     vop3_native.py set <key> <stage> [--note TEXT]   reading, writing, checking, blocked or todo; a note replaces the last
     vop3_native.py check <key>               runs build/vop3_native_check <key>; identical marks the row done
     vop3_native.py pause | resume            stop or restart the routine's nudges
@@ -24,14 +24,11 @@ STATUS = os.path.join(ROOT, "docs", "vop3_native", "status.json")
 CHECKER = os.environ.get("VOP3_NATIVE_CHECK", os.path.join(ROOT, "build", "vop3_native_check"))
 STAGES = ("todo", "reading", "writing", "checking", "blocked")
 STUCK = 8   # sessions on one row before the brief says to block it rather than go round again
-# The routine looks every minute, so the next row starts as soon as a session ends. A session that ends
-# without finishing its row hands the same row back, though, and one that fails at once would then start
-# a new thread every minute: so the same row is claimed again only after this many minutes.
-COOLDOWN = 10
-# A session can also stop early: the free model sometimes ends its turn with an empty reply. Before a
-# fresh session takes the row, the stopped one is told to carry on in its own thread, keeping what it
-# has worked out, up to this many times.
-NUDGES = 3
+# One row, one thread. The free model sometimes ends a turn with an empty reply mid-row, so when the row's
+# session has stopped before the row is done, the routine (every minute) tells it to carry on in its own
+# thread, keeping what it has worked out. A fresh session starts only for a new row. After this many
+# nudges on one row it is set blocked for a person to look at, and the routine moves on.
+NUDGES = 40
 
 
 def now():
@@ -49,19 +46,13 @@ def save(doc):
         f.write("\n")
 
 
-def routine_session():
-    """The routine's latest session in this project, from kimaki, or None."""
+def sessions():
+    """This project's kimaki sessions, newest first, or None when kimaki cannot be asked."""
     try:
         p = subprocess.run(["kimaki", "session", "list", "--json"], cwd=ROOT, capture_output=True, text=True, timeout=60)
-        tasks = [s for s in json.loads(p.stdout) if s.get("metadata", {}).get("kimaki", {}).get("source") == "task"]
+        return sorted(json.loads(p.stdout), key=lambda s: s["time"]["created"], reverse=True)
     except (OSError, ValueError, subprocess.TimeoutExpired):
         return None
-    return max(tasks, key=lambda s: s["time"]["created"], default=None)
-
-
-def minutes_since(stamp):
-    then = datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
-    return (datetime.datetime.now(datetime.timezone.utc) - then).total_seconds() / 60
 
 
 def row(doc, key):
@@ -145,27 +136,43 @@ def main(argv):
             print("nothing ready: every row is done or blocked")
             return 1
         if "--claim" in argv:
-            # The routine runs this only when its last session is idle. If that session was started for
-            # this row's claim, it stopped before the row was done: tell it to carry on in its thread.
-            s = routine_session() if r.get("claimed") else None
-            started = s and s["time"]["created"] / 1000 >= datetime.datetime.fromisoformat(r["claimed"].replace("Z", "+00:00")).timestamp() - 120
-            if started and r.get("nudges", 0) < NUDGES:
+            known = sessions()
+            if known is None:
+                print("kimaki did not answer; trying again next minute")
+                return 1
+            if r.get("claimed") and not r.get("session"):
+                # the routine's session started for this claim is the row's thread from now on
+                since = datetime.datetime.fromisoformat(r["claimed"].replace("Z", "+00:00")).timestamp() - 120
+                mine = [x for x in known if x["metadata"].get("kimaki", {}).get("source") == "task"
+                        and x["time"]["created"] / 1000 >= since]
+                if mine:
+                    r["session"] = mine[-1]["id"]
+            here = next((x for x in known if x["id"] == r.get("session")), None) if r.get("session") else None
+            if here and here.get("status") != "idle":
+                print(f"{r['key']} is still running in its thread")
+                return 1
+            if here:
+                if r.get("nudges", 0) >= NUDGES:
+                    r["stage"] = "blocked"
+                    r["note"] = f"The session stopped {NUDGES} times before the row was done; a person should look at its thread. " + r["note"]
+                    r["updated"] = now()
+                    save(doc)
+                    print(f"{r['key']} blocked after {NUDGES} nudges")
+                    return 1
                 r["nudges"] = r.get("nudges", 0) + 1
                 r["updated"] = now()
                 save(doc)
-                subprocess.run(["kimaki", "send", "--session", s["id"], "--prompt",
-                                f"You stopped before `{r['key']}` was done (nudge {r['nudges']} of {NUDGES}). Carry on from where you are, "
-                                "in this thread, and keep working: a message without a tool call ends your session. Say what you are doing "
-                                "as you go. Stop only when the row is done, or blocked with a note, or its note is recorded and pushed, and "
-                                "close with the summary the brief asks for."],
+                subprocess.run(["kimaki", "send", "--session", r["session"], "--prompt",
+                                f"You stopped before `{r['key']}` was done (nudge {r['nudges']}). Carry on from where you are, in this "
+                                "thread, and keep working: a reply without a tool call ends your turn. Say what you are doing as you "
+                                "go. Stop only when the row is done, or blocked with a note, and close with the summary the brief asks for."],
                                cwd=ROOT, capture_output=True, timeout=120)
-                print(f"nudged {r['key']} to carry on in its thread ({r['nudges']} of {NUDGES})")
+                print(f"nudged {r['key']} to carry on in its thread (nudge {r['nudges']})")
                 return 1
-            if r.get("claimed") and minutes_since(r["claimed"]) < COOLDOWN:
-                print(f"{r['key']} was claimed {minutes_since(r['claimed']):.0f} min ago; it is claimed again after {COOLDOWN}")
-                return 1
+            # a new row, or its session was deleted: a fresh session and thread
             r["claimed"] = now()
             r["nudges"] = 0
+            r.pop("session", None)
             r["sessions"] = r.get("sessions", 0) + 1
             if r["stage"] == "todo":
                 r["stage"] = "reading"

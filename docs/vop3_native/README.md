@@ -49,7 +49,7 @@ Everything you write as text goes straight into this session's Discord thread, w
 - **Say what you are doing as you go.** Before each new step of the work (not each command), write one plain sentence saying what it does and why: `Dumping the filter program to see which steps form the ladder.`, not `Running the dump.` Before anything that will take minutes, say so and roughly how long.
 - **Update at every milestone and at least every 15 minutes.** A milestone is a stage change, the first build of the native, every check run with its result, and every commit. A long stretch of silence reads as a stuck agent.
 - **Close** with a summary: what this session did, what the checker said, what was committed and pushed, and what the next session picks up.
-- **Keep working until then.** A reply with no tool call in it ends your session, so a progress message must come with the next step's tool call, never on its own. Stop only when the row is done, blocked with a note, or its note is recorded and pushed. If you stop earlier, the routine tells you to carry on in the same thread, up to three times, before a fresh session takes the row.
+- **Keep working until then.** A reply with no tool call in it ends your session, so a progress message must come with the next step's tool call, never on its own. Stop only when the row is done, blocked with a note, or its note is recorded and pushed. If you stop earlier, the routine tells you to carry on in the same thread, so one row stays in one thread; when the context fills, OpenCode compacts it in place.
 
 ### How a message reads
 
