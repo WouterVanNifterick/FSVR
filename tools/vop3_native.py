@@ -59,7 +59,25 @@ def ready(doc):
     return None
 
 
+def title(r):
+    """The thread's name for a row: its key and what it is, within Discord's 100 characters."""
+    k = r["key"]
+    if k == "retire-jit":
+        return "retire-jit: retiring the VOP3 JIT"
+    fixed = {"base": "the mixer and master EQ", "aux": "the aux window"}
+    if r["window"] in fixed:
+        return f"{k}: {fixed[r['window']]}"
+    names = ", ".join(dict.fromkeys(re.sub(r"^\w+-\d\d ", "", t) for t in r["types"]))
+    t = f"{k}: {'the filter' if r['window'] == 'filter' else r['window']} ({names})"
+    return t if len(t) <= 100 else t[:96].rstrip(", ") + "...)"
+
+
 def brief(r):
+    name = f'First name this thread for the row: kimaki session title "{title(r).replace(chr(34), chr(39))}"'
+    return name + "\n" + body(r)
+
+
+def body(r):
     k = r["key"]
     if k == "retire-jit":
         return ("Row retire-jit: every program is ported. Follow 'Retiring the JIT' in docs/vop3_native/README.md. "
