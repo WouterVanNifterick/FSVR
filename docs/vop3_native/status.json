@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T20:21:32Z",
+ "updated": "2026-10-15T20:28:09Z",
  "programs": [
   {
    "key": "flt",
@@ -77,16 +77,17 @@
     "rev-11 Basement",
     "rev-12 Canyon"
    ],
-   "stage": "reading",
+   "stage": "writing",
    "check": null,
    "passes": 0,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of No Effect, Hall1, Hall2, Room1, Room2, Room3, Stage1, Stage2, Plate, White Room, Tunnel, Basement, Canyon",
-   "note": "",
-   "updated": "2026-10-15T20:20:05Z",
+   "note": "Straight transcription of all 72 steps in dly_m00.cpp, declared in native.h and registered in native.cpp. build/vop3_native_check dly-m00: 13 types, 124800 native passes, identical. Next session: tidy the step comments and the naming to the DSP the steps form.",
+   "updated": "2026-10-15T20:28:09Z",
    "claimed": "2026-10-15T20:20:05Z",
-   "nudges": 0,
-   "sessions": 1
+   "nudges": 1,
+   "sessions": 1,
+   "session": "ses_ebec72c4bffeadcnRX6scjb8j8"
   },
   {
    "key": "dly-m08",

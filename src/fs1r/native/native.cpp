@@ -6,6 +6,7 @@ namespace fs1r::native {
 
 // One line per ported program, in key order, as {"ins-m03", ins_m03},
 const Program PROGRAMS[] = {
+    {"dly-m00", dly_m00},
     {"flt", flt},
     {"rev", rev},
     {nullptr, nullptr},
