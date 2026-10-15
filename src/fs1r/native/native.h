@@ -38,5 +38,6 @@ void var_m06(yss236_core& c, int from, int to);     // var-m06: the variation wi
 void var_m07(yss236_core& c, int from, int to);     // var-m07: the variation window's program for type msb 07
 void var_m08(yss236_core& c, int from, int to);     // var-m08: the variation window's program for type msb 08
 void var_m09(yss236_core& c, int from, int to);     // var-m09: the variation window's program for type msb 09
+void var_m10(yss236_core& c, int from, int to);     // var-m10: the variation window's program for type msb 10
 
 }  // namespace fs1r::native
