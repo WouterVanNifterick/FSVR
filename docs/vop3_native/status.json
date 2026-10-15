@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T23:51:13Z",
+ "updated": "2026-10-15T23:56:53Z",
  "programs": [
   {
    "key": "flt",
@@ -530,13 +530,16 @@
    "types": [
     "ins-20 Lo-Fi"
    ],
-   "stage": "todo",
+   "stage": "writing",
    "check": null,
    "passes": 0,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Lo-Fi",
-   "note": "",
-   "updated": null
+   "note": "Straight transcription of all 96 steps written and identical on the first check: build/vop3_native_check ins-m10 reports identical, 1 type, 9600 native passes, ctest 3 of 3. The decode the transcription came from was checked field by field against the checker's --dump (/tmp/decode_m10.py, 0 differences). Next: rewrite the header and comment each block with the structure the arithmetic shows, then check again.",
+   "updated": "2026-10-15T23:56:53Z",
+   "claimed": "2026-10-15T23:52:01Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "ins-m12",
