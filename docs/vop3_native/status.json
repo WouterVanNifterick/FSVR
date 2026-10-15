@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T23:41:33Z",
+ "updated": "2026-10-15T23:51:13Z",
  "programs": [
   {
    "key": "flt",
@@ -511,13 +511,16 @@
     "ins-08 Ens Detune",
     "ins-21 3-Band EQ"
    ],
-   "stage": "todo",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 28800,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Pitch Chng, Ens Detune, 3-Band EQ",
-   "note": "",
-   "updated": null
+   "note": "Reading done. 96 steps 0x1a0-0x1ff, 3 types (ins-07 Pitch Chng, ins-08 Ens Detune on pitchChange/ensembleDetune, ins-21 3-Band EQ on threeBandEq). The ROM's own word lists name every step: LFO_DIR_STEPS={0x1A0,0x1A8,0x1B0,0x1B7} the four fractional read positions (two index loads with idxw, each feeding a t register); PC_SLOTS={0x7E,0x68,0x69,0x6A,0x6B,0x7F,0x6C,0x6D,0x6E,0x6F}; EQ7_A/B/C and _A_C/_B_C/_C_C = {0x1BF,0x1BB,0x1BC,0x1BD,0x1BE},{0x1C4,0x1C0,0x1C1,0x1C2,0x1C3},{0x1C9,0x1C5,0x1C6,0x1C7,0x1C8} and the 0x1CC-0x1D0, 0x1D1-0x1D5, 0x1D6-0x1DA copies: six order-2 sections, three bands per channel, each b0,b1,b2,-a1,-a2 as designFilter writes them; PC_FB={0x1F9,0x1FE,0x1A7,0x1AA,0x1AF,0x1B1} the delay feedback; PC_MIX={0x1BA,0x1CB,0x1CA,0x1E9,0x1EE,0x1EB,0x1F0}, PC_WET={0x1E8,0x1ED}, PC_VOICE1_A/B, PC_VOICE2, EQ3_LEVEL={0x1EA} the mix. Eight taps: 0x68/0x69 read at one position with memop 2 and 4 (two adjacent words) and m[56]/m[57] crossfaded by the t[10] fraction; 0x6A/0x6B the same by t[12]; 0x6C/0x6D by t[14]; 0x6E/0x6F by t[3]. The reads sit inside the EQ steps (0x1BB, 0x1BF, 0x1C3, 0x1C7 are b1, b0, -a2, -a1) and the ten captures land 5 steps later. The two delay lines are 0x7E and 0x7F, written at 0x1FB and 0x1FF off r[81] plus the feedback; 0x7B and 0x7C are published for the base program. No control steps. Old vop3_effects.h models this as two detuned taps crossfaded with floating-point interpolation and a shelf+peak, and has none of these words.",
+   "updated": "2026-10-15T23:51:13Z",
+   "claimed": "2026-10-15T23:42:01Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "ins-m10",
