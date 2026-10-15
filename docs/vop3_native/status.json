@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-15T23:12:09Z",
+ "updated": "2026-10-15T23:13:23Z",
  "programs": [
   {
    "key": "flt",
@@ -442,13 +442,13 @@
     "ins-39 Gate Rev",
     "ins-40 Revrs Gate"
    ],
-   "stage": "writing",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 38400,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of ER 1, ER 2, Gate Rev, Revrs Gate",
-   "note": "Straight transcription of all 96 steps done and identical on the first run: vop3_native_check ins-m03 reports identical, 4 types, 38400 native passes. Structure found: 0x1a0-0x1b3 the mono mix of r[7]/r[8] into r[67], ins::ER_HPF's biquad on r[67]-r[70] and ins::ER_LPF_2's on r[71]-r[74], ins::ER_LPF's one-pole High Damp filter into r[75], with the first five right-channel taps read between the steps; 0x1b4-0x1bb two diffusion rows (slots 0x6d, 0x6e) fed r[73] and their own allpass points (cells m[18], m[19], slots 0x2e, 0x2f) ending at r[119]; 0x1bc-0x1c5 the ten left gains ins::ER_STEPS[0..9] on cells m[22]-m[31], which the base program's steps 0x118-0x194 capture from ins::ER_SLOTS' even entries, summed into m[43]; 0x1c7 writes that into slot 0x71; 0x1d2-0x1db the ten right gains on cells m[56]-m[63], summed into m[44] and written to slot 0x76; 0x1dc-0x1df the two sums through ins::ER_DIFF_SLOTS' allpass points 0x65 and 0x75 into r[121] and r[120]; 0x1e6-0x1ed the last two allpass-and-line rows on slots 0x77/0x79 and 0x78/0x7a; 0x1ef writes r[119] + ins::ER_FEEDBACK[0]*r[75] into slot 0x7b, the line the taps are read from; 0x1f1-0x1f6 ins::ER_WET into r[17] and r[18]. Eleven delay reads and nine writes; no t register, no class 1 or 3, no index, no compare, no control step. Next: tidy pass over the comments, ctest, then check and done.",
-   "updated": "2026-10-15T23:12:09Z",
+   "note": "Done. The 96 steps in eight groups, named from EffectHost::earlyReflections() and the ins:: tables it writes: the mono mix of r[7] and r[8] into r[67] at the ROM word 0x2000 each and doubled, then ins::ER_HPF's biquad over r[67]-r[70] (0x1a2-0x1a6) and ins::ER_LPF_2's over r[71]-r[74] (0x1ac-0x1b0), ins::ER_LPF's one-pole High Damp filter on the twentieth tap into r[75] (0x1b1-0x1b3), with the first five right-channel taps read between the steps (0x1a0-0x1b3); two diffusion rows off r[73] and their own allpass points, the cells m[18] and m[19], into the slots 0x6d and 0x6e and out at r[119] (0x1b4-0x1bb); the ten left gains ins::ER_STEPS[0..9] on the cells m[22]-m[31], which the base program's steps 0x118-0x194 capture from ins::ER_SLOTS' even entries, summed into m[43] (0x1bc-0x1c5) and written to the slot 0x71 by the class-0 step 0x1c7 out of the latch 0x1c5 leaves; the ten right gains ins::ER_STEPS[10..19] on the cells m[56]-m[63], summed into m[44] and written to the slot 0x76 at 0x1db (0x1d2-0x1db); the two sums through ins::ER_DIFF_SLOTS' allpass points, the slots 0x65 and 0x75, into r[121] and r[120] (0x1dc-0x1df); the last two allpass-and-line rows on the slots 0x77/0x79 and 0x78/0x7a (0x1e6-0x1ed); r[119] plus ins::ER_FEEDBACK[0] on r[75] written into the slot 0x7b, ins::ER_SLOTS[21], which is where erPattern() measures the ten right taps from (0x1ee-0x1ef); ins::ER_WET's four words into r[17] and r[18] (0x1f1-0x1f6). Eleven delay reads and nine writes; eleven class-0 steps that only count, two of which write the slots 0x7c and 0x7d with zero every pass. No t register, no class 1 or 3, no delay index, no compare, no control step, no gate. vop3_native_check ins-m03 identical, 4 types, 38400 passes; ctest green.",
+   "updated": "2026-10-15T23:13:23Z",
    "claimed": "2026-10-15T23:07:01Z",
    "nudges": 0,
    "sessions": 1
