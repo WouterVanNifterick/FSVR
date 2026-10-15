@@ -28,6 +28,10 @@ STUCK = 8   # sessions on one row before the brief says to block it rather than 
 # without finishing its row hands the same row back, though, and one that fails at once would then start
 # a new thread every minute: so the same row is claimed again only after this many minutes.
 COOLDOWN = 10
+# A session can also stop early: the free model sometimes ends its turn with an empty reply. Before a
+# fresh session takes the row, the stopped one is told to carry on in its own thread, keeping what it
+# has worked out, up to this many times.
+NUDGES = 3
 
 
 def now():
@@ -43,6 +47,21 @@ def save(doc):
     with open(STATUS, "w", encoding="utf-8", newline="\n") as f:
         json.dump(doc, f, indent=1, ensure_ascii=False)
         f.write("\n")
+
+
+def routine_session():
+    """The routine's latest session in this project, from kimaki, or None."""
+    try:
+        p = subprocess.run(["kimaki", "session", "list", "--json"], cwd=ROOT, capture_output=True, text=True, timeout=60)
+        tasks = [s for s in json.loads(p.stdout) if s.get("metadata", {}).get("kimaki", {}).get("source") == "task"]
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return None
+    return max(tasks, key=lambda s: s["time"]["created"], default=None)
+
+
+def minutes_since(stamp):
+    then = datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    return (datetime.datetime.now(datetime.timezone.utc) - then).total_seconds() / 60
 
 
 def row(doc, key):
@@ -126,12 +145,27 @@ def main(argv):
             print("nothing ready: every row is done or blocked")
             return 1
         if "--claim" in argv:
-            if r.get("claimed"):
-                waited = (datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(r["claimed"].replace("Z", "+00:00"))).total_seconds() / 60
-                if waited < COOLDOWN:
-                    print(f"{r['key']} was claimed {waited:.0f} min ago; it is claimed again after {COOLDOWN}")
-                    return 1
+            # The routine runs this only when its last session is idle. If that session was started for
+            # this row's claim, it stopped before the row was done: tell it to carry on in its thread.
+            s = routine_session() if r.get("claimed") else None
+            started = s and s["time"]["created"] / 1000 >= datetime.datetime.fromisoformat(r["claimed"].replace("Z", "+00:00")).timestamp() - 120
+            if started and r.get("nudges", 0) < NUDGES:
+                r["nudges"] = r.get("nudges", 0) + 1
+                r["updated"] = now()
+                save(doc)
+                subprocess.run(["kimaki", "send", "--session", s["id"], "--prompt",
+                                f"You stopped before `{r['key']}` was done (nudge {r['nudges']} of {NUDGES}). Carry on from where you are, "
+                                "in this thread, and keep working: a message without a tool call ends your session. Say what you are doing "
+                                "as you go. Stop only when the row is done, or blocked with a note, or its note is recorded and pushed, and "
+                                "close with the summary the brief asks for."],
+                               cwd=ROOT, capture_output=True, timeout=120)
+                print(f"nudged {r['key']} to carry on in its thread ({r['nudges']} of {NUDGES})")
+                return 1
+            if r.get("claimed") and minutes_since(r["claimed"]) < COOLDOWN:
+                print(f"{r['key']} was claimed {minutes_since(r['claimed']):.0f} min ago; it is claimed again after {COOLDOWN}")
+                return 1
             r["claimed"] = now()
+            r["nudges"] = 0
             r["sessions"] = r.get("sessions", 0) + 1
             if r["stage"] == "todo":
                 r["stage"] = "reading"
