@@ -1,4 +1,4 @@
-// effects/ins_m10.cpp - VOP3-2, the insertion window's program for Lo-Fi: its 96 steps.
+// effects/ins_m10.cpp - the insertion window's program for Lo-Fi.
 //
 // rom::INSERTION_PROGRAMS[10], the program the insertion window holds under the one type
 // fx_dispatch.cpp's INSERTION_ROUTES files at msb 10: ins-20 Lo-Fi on EffectHost::loFi. Steps 0x1dd to
@@ -21,24 +21,7 @@
 //   0x1a4  r[119] = 2 * r[78], the tone chain's output from the pass before. The mix at 0x1b6 and 0x1b9
 //          read it, so the wet signal reaches the outputs one sample behind the pass that made it.
 //
-//   0x1a5-0x1ae  the input chain. r[67] is ins::LOFI_GAIN times the sum of r[7] and r[8], the two signals
-//          the base program leaves the window, and the gain is the bit assign's: (32767 >> assign) >> 1.
-//          0x1a7 to 0x1a9 are ins::LOFI_HIGH_SHELF, an order-1 section over r[67] into r[68], and 0x1aa to
-//          0x1ae ins::LOFI_LPF2, the order-2 section into r[70]. Both are written by designFilter(), which
-//          emits b0, b1, b2, -a1, -a2 in that order for an order-2 section and b0, b1, -a1 for an order-1
-//          one, and each section's closing step carries the route that restores the scale the designer's
-//          (16 >> scale) took out. The two z^-1 words are the steps that carry rcopy: 0x1ab latches r[70]
-//          into r[71] for the -a2 term and 0x1ac latches r[68] into r[69] for the b2 term, and each is read
-//          a pass later than it is written, so the section is in direct form I. SECTIONS below is those
-//          two and the four of the tone chain.
-//
 //   0x1b0-0x1b3  the latch: m[42] = r[70] and r[81] = 0, run only when the compare at 0x1a3 fired.
-//
-//   0x1b4-0x1b9  the quantizer's input and the output mix. 0x1b4 takes m[42] - r[79], the held signal
-//          less the second error accumulator. 0x1b5 and 0x1b6 are ins::LOFI_WET[0] and ins::LOFI_WET2[0],
-//          the dry and wet gains, into r[17], and 0x1b8 and 0x1b9 the same two words for r[18]. The dry
-//          signal is the input and the wet is r[119], so the two channels share one crushed signal and
-//          differ only in their dry side. MIXES below is those two pairs of steps.
 //
 //   0x1b7-0x1c3  the quantizer, which is one subtraction and two conditional skips. 0x1b7 subtracts m[56]
 //          from r[121] and its sign is the flag; if it is positive the value was above the step, so 0x1ba
@@ -46,11 +29,6 @@
 //          puts the step back and compares against zero: negative goes to -step through 0x1c0 and 0x1c1,
 //          and anything from zero to the step is left as it was. So m[56] is a dead zone and the bit
 //          crush is the clamping to +-step around it.
-//
-//   0x1c4-0x1cb  the error accumulators. r[80] takes the quantized value, ins::LOFI_LEVEL (a word of the
-//          output gain law) scales it into r[121], and r[79] takes that: two integrators around the
-//          quantizer, which is what makes the crush noise-shaped rather than flat, and 0x1b4 is where r[79]
-//          comes back into the loop.
 //
 //   0x1ce  r[72] = ins::LOFI_OUT[0] * r[121] * 16, the bit assign's output level: 2048 up to UNITY, or the
 //          wet gain when the assign is above six.
@@ -71,424 +49,112 @@
 // wet signal; r[121] the scratch every stage hands to the next; m[42] the held signal; m[56] the
 // quantizer's step.
 //
-// Every constant the program reads is read from c.coef[st] on the pass, so no number the firmware chose is
-// folded in here: the program words are fixed per row and each step's fields are folded into the arithmetic
-// below in the order yss236_core::step() runs its own. The old model in vop3_effects.h runs Lo-Fi as a
-// sample-and-hold decimation, a quantizer and a two-pole lowpass in floating point; it has none of these
-// words, so it is no reference for any number here.
-//
-// docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, and effects/steps.h is those shapes, so the arithmetic below is spelled out
-// by name rather than a step at a time.
-//
-// vop3_native_check ins-m10: identical, 1 type, 9600 native passes.
+// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+
 #include "effects/programs.h"
-#include "effects/steps.h"
 
 namespace fs1r::effects {
 
-namespace {
+using namespace word;
 
-using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
-
-// ---------------------------------------------------------------------------------------------
-// The registers and cells the header names, so the arithmetic below can say what it reads
-// ---------------------------------------------------------------------------------------------
-
-// The two signals the base program leaves this window and the two outputs it reads back, the input
-// chain's sum, the bit assign's output level, the sample and hold's rate counter, the two error
-// accumulators, the wet signal the tone chain hands over, and the scratch register every stage passes
-// through. The tone chain's own registers, r[72] to r[78], are named by the sections below, which are
-// what read and write them, and so are the input chain's r[67] to r[71].
-enum
+void ins_m10(State& s)
 {
-	SIG_L = 7,       // the two signals in, r[7] and r[8]: the panned sends the base program leaves here
-	SIG_R = 8,
-	OUT_L = 17,      // the two outputs the base program reads back
-	OUT_R = 18,
-	IN_SUM = 67,     // the input chain's sum, ins::LOFI_GAIN over both signals
-	LEVEL = 72,      // the bit assign's output level, which the tone chain's first section reads
-	RATE = 81,       // the sample and hold's rate counter
-	ERR_A = 80,      // the two error accumulators around the quantizer
-	ERR_B = 79,      // and the one the quantizer's input subtracts from the held signal
-	WET = 119,       // the tone chain's output from the pass before: the wet side of both mixes
-	SCRATCH = 121,   // the register every stage hands to the next
-	HELD = 42,       // m[42], the held signal
-	QSTEP = 56,      // and m[56], the quantizer's step, the two cells this program writes and reads
-};
-
-// ---------------------------------------------------------------------------------------------
-// The six filter sections: two over the input, four over the quantized signal
-// ---------------------------------------------------------------------------------------------
-
-// What one step of a section computes, named after the coefficient designFilter() wrote for it: b0, b1
-// and b2 are the numerator's and -a1 and -a2 the denominator's, in the order that function emits them.
-// The step that opens a section's sum is not in this list, because it is a word of its own and no two
-// sections open theirs on the same register; the three that end in X1 or Y2 are the steps that carry the
-// section's z^-1, which is how it holds x[-1] or y[-2] in a register of its own, and the three that end
-// in CLOSE are the three shapes a section's last step has, one per coefficient that can close it.
-enum part_t
-{
-	B0_CLOSE,   // b0 on the input, closing the section into its output with the section's route
-	B0_X1,      // b0 on the input, and the z^-1 that keeps the input a pass back
-	B1,         // b1 on the input, added to the sum
-	B1_Y2,      // b1 on the input, and the z^-1 that keeps the output two passes back
-	B2_CLOSE,   // b2 on the input a pass back, closing the section
-	A1_SUM,     // -a1 on the output a pass back, added to the sum
-	A1_Y2,      // -a1 on the output a pass back, and the z^-1 that keeps the output two passes back
-	A2,         // -a2 on the output two passes back
-	A2_CLOSE,   // -a2 on the output two passes back, closing the section
-};
-
-// One filter section, in direct form I. `st` is its first step and `nsteps` how many steps it runs,
-// three for the four order-1 sections and five for the two order-2 ones. `open_on` is the register the
-// section opens its sum on, which is its own output for the sections that open on -a1, the input for the
-// one that opens on b1, and x[-1] for the one that opens on b2. `in` is the register the section's input
-// arrives in, `out` the one the closing step writes, which is the next section's input, `x1` the one that
-// holds the input a pass back and `y2` the one that holds the output two passes back.
-struct Section
-{
-	int st, nsteps;
-	int open_on, in, out, x1, y2;
-	step::route_t route;
-	part_t part[4];
-};
-
-// The two sections over the input chain, then the four over the quantized signal. The four steps that
-// carry a z^-1 are the only ones that are not one of a section's own words: two hold the input a pass
-// back for the b2 term and two hold the output two passes back for the -a2 term.
-constexpr Section SECTIONS[6] = {
-    //   st   n  open   in  out  x1  y2  route      the rest of the section's steps
-    {  0x1a7, 3,   68,  67,  68,   0,   0, ROUTE_4, { B1,               B0_CLOSE    } },
-    {  0x1aa, 5,   70,  68,  70,  69,  71, ROUTE_2, { B1_Y2, B0_X1, A2, B2_CLOSE  } },
-    {  0x1cf, 3,   73,  72,  73,   0,   0, ROUTE_2, { B1,               B0_CLOSE    } },
-    {  0x1d2, 5,   74,  73,  75,  74,  76, ROUTE_4, { B1, B0_X1, A1_SUM, A2_CLOSE  } },
-    {  0x1d7, 3,   75,  75,  77,   0,  76, ROUTE_4, { A1_Y2,            B0_CLOSE    } },
-    {  0x1da, 3,   78,  77,  78,   0,   0, ROUTE_4, { B1,               B0_CLOSE    } },
-};
-
-// The section a step belongs to, or -1 when it belongs to none: 0x1a7 to 0x1ae for the input chain and
-// 0x1cf to 0x1dc for the tone chain. The sections never overlap and the index is the same on every
-// pass, so the step reaches its section rather than looking through the six for it.
-constexpr auto SECTIONS_AT = index_by_span(SECTIONS);
-
-// One section's step k. The first opens the sum with its own word and the adder off, and the rest are the
-// section's other words in its own order, which is why they come out of the part list rather than from a
-// fixed shape: the schedule interleaves a section's z^-1 copies among the five words designFilter wrote.
-void section_step(yss236_core& c, int st, Section const& s, int k)
-{
-	if (k == 0)                                       // the section's opening word, the adder off
-	{
-		term(c, st, s.open_on);
-		return;
-	}
-	switch (s.part[k - 1])
-	{
-	case B0_CLOSE: close(c, st, s.in, s.out, s.route); break;
-	case B0_X1:    copy_z(c, st, s.in, s.x1, ADD_ACC, CLAMP_WRAP); break;
-	case B1:       sum(c, st, s.in); break;
-	case B1_Y2:    copy_z(c, st, s.in, s.y2, ADD_ACC, CLAMP_WRAP); break;
-	case B2_CLOSE: close(c, st, s.x1, s.out, s.route); break;
-	case A1_SUM:   sum(c, st, s.out); break;
-	case A1_Y2:    copy_z(c, st, s.out, s.y2, ADD_ACC, CLAMP_WRAP); break;
-	case A2:       sum(c, st, s.y2); break;
-	case A2_CLOSE: close(c, st, s.y2, s.out, s.route); break;
-	}
-}
-
-// ---------------------------------------------------------------------------------------------
-// The two output mixes, one pair of steps each
-// ---------------------------------------------------------------------------------------------
-
-// One channel's mix of the dry signal and the wet one. The first step applies the dry word to the signal
-// the base program leaves this window with the adder off, and the second closes the sum with the wet word
-// on r[119], the tone chain's output from the pass before, into that channel's output register.
-struct Mix { int st, nsteps, dry, out; };
-
-constexpr Mix MIXES[2] = {
-    { 0x1b5, 2, SIG_L, OUT_L },   // ins::LOFI_WET[0] and ins::LOFI_WET2[0], into r[17]
-    { 0x1b8, 2, SIG_R, OUT_R },   // the same two words again, into r[18]
-};
-
-// One mix's two steps. The closing step's route is the x4 both channels' outputs carry.
-void output_mix(yss236_core& c, int st, Mix const& m)
-{
-	if (st == m.st) term(c, st, m.dry);
-	else             close(c, st, WET, m.out, ROUTE_4);
-}
-
-// The mix a step belongs to, or -1 when it belongs to none. Each mix owns two steps and the two do not
-// meet, so the index is the same on every pass and the step reaches its mix rather than looking for it.
-constexpr auto MIXES_AT = index_by_span(MIXES);
-
-// ---------------------------------------------------------------------------------------------
-// What a step moves into a cell before it does any arithmetic
-// ---------------------------------------------------------------------------------------------
-
-// A step of this program usually also takes a serial input, and these three are the only cells the window
-// writes that nothing in it reads: m[3] and m[7] from the two banks of page 13, and m[4] from page 14.
-// SERIAL_L takes its page's left serial input and SERIAL_R its right, and the take comes before the
-// arithmetic of the same step, because step() moves a cell before it does anything else, so the step loop
-// reads this table at the top of every step.
-enum decor_t { SERIAL_L, SERIAL_R };
-
-// One decor, and the step it rides on.
-struct Decor { int st; decor_t kind; int cell; };
-
-constexpr Decor DECORS[3] = {
-    //  the step  the decor                 the cell
-    {  0x1a6, SERIAL_L,  3 },     // on the step that closes the input chain's sum into r[67]
-    {  0x1a7, SERIAL_R,  7 },     // on the first step of the input chain's first section
-    {  0x1c3, SERIAL_L,  4 },     // in the quantizer's padding, after the negative arm
-};
-
-// The decor of a step, or -1 when it carries none. Each of the three is on a step of its own, so the
-// index is the same on every pass and the step loop reaches its decor rather than looking through the
-// three for it.
-constexpr auto DECORS_AT = index_by_step(DECORS);
-
-// Apply the decor, which comes before the step's term.
-void decor(yss236_core& c, int st, Decor const& d)
-{
-	switch (d.kind)
-	{
-		case SERIAL_L: take_serial(c, d.cell, st, 0); break;
-		case SERIAL_R: take_serial(c, d.cell, st, 1); break;
-	}
-}
-
-// ---------------------------------------------------------------------------------------------
-// The blocks of steps that are not a table of anything
-// ---------------------------------------------------------------------------------------------
-
-// The sample and hold's rate counter, 0x1a0 to 0x1a3: the counter, the quantizer's step, the rate the
-// counter is compared against, and the compare. r[RATE] climbs by one word of 1/256 of full scale a pass
-// and saturates rather than wraps, ins::LOFI_BITS lands in m[56] as the word the quantizer clamps to, and
-// ins::LOFI_RATE lands in the running value so the last step has a threshold to test the counter against.
-// That compare's sign is the flag the sample and hold at 0x1b0 is gated on.
-void rate_counter(yss236_core& c, int st)
-{
-	switch (st)
-	{
-	case 0x1a0:
-		// r[81] = k / 256 + r[81], the ROM's own word of one, and the register saturates as it goes
-		load(c, {.st = st, .sr = RATE, .add = ADD_REG, .clamp = CLAMP_SAT, .dr = RATE});
-		break;
-	case 0x1a1:
-		// m[56] = ins::LOFI_BITS[0] / 256, the quantizer's step
-		load(c, {.st = st, .dm = QSTEP});
-		break;
-	case 0x1a2:
-		load(c, {.st = st});                 // acc = ins::LOFI_RATE[0] / 256, the threshold
-		break;
-	default:
-		// the compare: acc = r[81] - acc, and its sign is the flag the latch at 0x1b0 waits on
-		run(c, {.st = st, .sr = RATE, .unity = true, .add = ADD_ACC, .sub = true, .cmp = true});
-		break;
-	}
-}
-
-// The input chain's sum, 0x1a5 and 0x1a6: the two signals the base program leaves the window, each scaled
-// by its own word of ins::LOFI_GAIN and added into r[67], which is what the first of the two sections
-// reads. The gain is the bit assign's, (32767 >> assign) >> 1.
-void input_sum(yss236_core& c, int st)
-{
-	if (st == 0x1a5)
-	{
-		term(c, st, SIG_L);              // acc = ins::LOFI_GAIN[0] * r[7]
-		return;
-	}
-	close(c, st, SIG_R, IN_SUM);         // r[67] = ins::LOFI_GAIN2[0] * r[8] + acc
-}
-
-// The sample and hold, 0x1b0 to 0x1b3: the gate on the counter compare at 0x1a3, the hold itself into
-// m[42], and the counter cleared so it climbs again to the rate. None of the block runs when the gate
-// skips it, which is what makes the quantizer's input a sample and hold at ins::LOFI_RATE.
-void sample_and_hold(yss236_core& c, int st)
-{
-	switch (st)
-	{
-	case 0x1b0:
-		// cskip 6: the three steps to 0x1b3 run only while the flag from the compare at 0x1a3 is positive
-		skip_positive(c, st, 0x1b4);
-		break;
-	case 0x1b1:
-		// m[42] = r[70], the sectioned signal held for the quantizer. A class-3 step's word is 1.0 and
-		// it passes the value through (s19), so nothing is applied to the register here.
-		run(c, {.st = st, .sr = 70, .unity = true, .dm = HELD});
-		break;
-	case 0x1b2:
-		load(c, {.st = st, .dr = RATE});      // r[81] = 0, the counter again
-		break;
-	default:
-		idle(c);                           // 0x1b3
-		break;
-	}
-}
-
-// One of the quantizer's two compares: r[121] less the step, or r[121] plus it, which puts the value
-// back, and the sign of either is the flag the two skips read. Both of these steps saturate, which is
-// what their clamp bits say, so this is the general form and not steps.h's compare(), which wraps.
-void quantizer_compare(yss236_core& c, int st, bool sub)
-{
-	run(c, {.st = st, .sr = SCRATCH, .sm = QSTEP, .unity = true, .add = ADD_CELL, .sub = sub, .clamp = CLAMP_SAT, .cmp = true});
-}
-
-// One arm of the quantizer's dead zone: r[121] takes the quantizer's own step m[56], scaled by the word at
-// this step. The positive arm is a class-3 step, whose word is 1.0 and which passes the cell through
-// (s19), and the negative arm scales that same cell by the ROM's own -1 word at 0x1c1.
-void quantizer_arm(yss236_core& c, int st, bool unity)
-{
-	run(c, {.st = st, .sm = QSTEP, .m2 = M2_CELL, .unity = unity, .dr = SCRATCH});
-}
-
-// The quantizer, 0x1b7 to 0x1c3: two compares, two conditional skips and a jump around one subtraction.
-// r[121] - m[56] lands in r[121] and its sign is the flag, so a value above the step goes to +step and
-// jumps out of the block, a value below zero goes to -step, and anything between the two is left as it
-// was. The right channel's mix sits in the middle of this block and is not here: MIXES_AT takes its two
-// steps before this does, and the decor for m[4] is read at the top of the step loop.
-void quantizer(yss236_core& c, int st)
-{
-	switch (st)
-	{
-	case 0x1b7:
-		quantizer_compare(c, st, true);              // acc = r[121] - m[56]: was the value above the step?
-		break;
-	case 0x1ba:
-		skip_positive(c, st, 0x1bd);                 // 0x1bb runs only while that flag is positive
-		break;
-	case 0x1bb:
-		quantizer_arm(c, st, true);                  // r[121] = +step
-		break;
-	case 0x1bc:
-		jump(c, st, 0x1c4);                          // cskip 1: out to the error accumulators
-		break;
-	case 0x1bd:
-		quantizer_compare(c, st, false);             // acc = r[121] + m[56], which puts the value back,
-		break;                                      // and its sign is the test against zero
-	case 0x1c0:
-		skip_negative(c, st, 0x1c4);                 // 0x1c1 to 0x1c3 run only while that flag is negative
-		break;
-	case 0x1c1:
-		quantizer_arm(c, st, false);                 // r[121] = -step
-		break;
-	case 0x1c3:
-		idle(c);                                     // 0x1c3: the x latch, and m[4] from the decor above
-		break;
-	default:
-		idle(c);                                     // 0x1be, 0x1bf and 0x1c2
-		break;
-	}
-}
-
-// The two error accumulators, 0x1c4 to 0x1cb: the quantized value into r[80] and back out of it through
-// the level law, then into r[79], which 0x1b4 takes back out of the quantizer's input. Two integrators
-// around the quantizer are what make the crush noise-shaped rather than flat.
-void accumulators(yss236_core& c, int st)
-{
-	switch (st)
-	{
-	case 0x1c4:
-		run(c, {.st = st, .sr = SCRATCH, .unity = true});             // acc = r[121], the quantized value
-		break;
-	case 0x1c5:
-		// r[80] = r[80] + acc, the first accumulator, which ins::LOFI_LEVEL scales at 0x1c8
-		run(c, {.st = st, .sr = ERR_A, .unity = true, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = ERR_A});
-		break;
-	case 0x1c8:
-		gain(c, st, ERR_A, SCRATCH, ROUTE_16);                          // r[121] = ins::LOFI_LEVEL * r[80] * 16
-		break;
-	case 0x1c9:
-		run(c, {.st = st, .sr = SCRATCH, .unity = true});             // acc = r[121]
-		break;
-	case 0x1ca:
-		// r[79] = r[79] + acc, the second accumulator, which 0x1b4 subtracts from the held signal
-		run(c, {.st = st, .sr = ERR_B, .unity = true, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = ERR_B});
-		break;
-	case 0x1cb:
-		gain(c, st, SCRATCH, SCRATCH, ROUTE_16);                        // r[121] = r[121] * 16
-		break;
-	default:
-		idle(c);                                                         // 0x1c6 and 0x1c7
-		break;
-	}
-}
-
-// ---------------------------------------------------------------------------------------------
-// The 96 steps
-// ---------------------------------------------------------------------------------------------
-
-// The run of steps 0x1a0 to 0x1ff, the whole of the window's program. The loop is one iteration per
-// step and carries the m_skip guard step() opens with, so a gate in the base program skips these steps
-// as it would the interpreter's. There is no gate in this program, but the three cskip steps below do
-// use the same guard, and the m_skip they set is what selects the quantizer's branch.
-void block_0x1a0(yss236_core& c)
-{
-	for_steps<0x1a0, 0x200>(c, [&](yss236_core& c, auto st)
-	{
-
-		// the three serial inputs this window publishes, before the step's own arithmetic
-		if (int const i = DECORS_AT[st]; i >= 0) decor(c, st, DECORS[i]);
-
-		// ---- 0x1a0 to 0x1a3: the rate counter, the quantizer's step and the compare on the two ----
-		if (st < 0x1a4) { rate_counter(c, st); return; }
-
-		// ---- 0x1a4: the wet signal, r[119] = 2 * r[78] ----
-		if (st == 0x1a4) { gain(c, st, 78, WET, ROUTE_4); return; }
-
-		// ---- 0x1a5 and 0x1a6: the two signals in, summed at ins::LOFI_GAIN ----
-		if (st < 0x1a7) { input_sum(c, st); return; }
-
-		// ---- the six sections: two over the input sum, then the four of the tone chain ----
-		if (int const i = SECTIONS_AT[st]; i >= 0)
-		{
-			Section const& s = SECTIONS[i];
-			section_step(c, st, s, st - s.st);
-			return;
-		}
-
-		// ---- 0x1af: the one step of padding between the input chain and the sample and hold ----
-		if (st < 0x1b0) { idle(c); return; }
-
-		// ---- 0x1b0 to 0x1b3: the sample and hold, gated on the counter compare ----
-		if (st < 0x1b4) { sample_and_hold(c, st); return; }
-
-		// ---- 0x1b4: the held signal less the second error accumulator, into the scratch register ----
-		// The word at this step is the ROM's own -1, so this is m[42] - r[79], the quantizer's input.
-		if (st == 0x1b4)
-		{
-			run(c, {.st = st, .sr = ERR_B, .sm = HELD, .add = ADD_CELL, .clamp = CLAMP_SAT, .dr = SCRATCH});
-			return;
-		}
-
-		// ---- the two output mixes, the left's at 0x1b5 and the right's at 0x1b8, two steps each ----
-		if (int const i = MIXES_AT[st]; i >= 0) { output_mix(c, st, MIXES[i]); return; }
-
-		// ---- 0x1b7 to 0x1c3: the quantizer's dead zone ----
-		if (st < 0x1c4) { quantizer(c, st); return; }
-
-		// ---- 0x1c4 to 0x1cb: the two error accumulators ----
-		if (st < 0x1cc) { accumulators(c, st); return; }
-
-		// ---- 0x1cc and 0x1cd: the padding before the output level ----
-		if (st < 0x1ce) { idle(c); return; }
-
-		// ---- 0x1ce: the bit assign's output level, which is the tone chain's input in r[72] ----
-		if (st == 0x1ce) { gain(c, st, SCRATCH, LEVEL, ROUTE_16); return; }
-
-		// ---- 0x1dd to 0x1ff: 35 zero class-0 steps, nothing but the count and the x latch ----
-		idle(c);
-		});
-}
-
-}  // namespace
-
-// One run of the insertion window's steps, exactly as yss236_core::step() would run them. The program is
-// one run; a range no host builds falls back to the interpreter.
-void ins_m10(yss236_core& c, int from, int to)
-{
-    if (from == 0x1a0 && to == 0x200) { block_0x1a0(c); return; }
-    for (int st = from; st < to; st++) c.step(st);
+	auto& r = s.r;
+	auto& m = s.m;
+	auto const& k = s.k;
+	auto const& in = s.in;
+	double const v0 = sat((k[0x1a6] * r[8]) + sum(k[0x1a5] * r[7]));
+	double const v1 = sat(((k[0x1a9] * v0) + sum(k[0x1a7] * r[68], k[0x1a8] * r[67])) * 4.0);
+	double const v2 = sat(((k[0x1ae] * r[69]) + sum(k[0x1aa] * r[70], k[0x1ab] * r[68], k[0x1ac] * v1, k[0x1ad] * r[71])) * 2.0);
+	double const v3 = sum(v2);
+	double const v4 = sat((128.0 * k[0x1a0]) + r[81]);
+	double const v5 = wrap_sum(v4 - sum(128.0 * k[0x1a2]));
+	bool const v6 = v5 > 0;
+	double const v7 = v6 ? cell(v3) : m[42];
+	double const v8 = sat((k[0x1b4] * r[79]) + v7);
+	bool const v9 = !v6;
+	bool const v10 = v6 || v9;
+	double const v11 = v10 ? sum(k[0x1b5] * r[7]) : (v10 ? v8 : (v6 ? sum(128.0 * k[0x1b2]) : (v6 ? v3 : v2)));
+	double const v12 = sat(((k[0x1a4] * r[78]) + 0.0) * 4.0);
+	double const v13 = sat(((k[0x1b6] * v12) + v11) * 4.0);
+	double const v14 = cell(sum(128.0 * k[0x1a1]));
+	double const v15 = v10 ? v8 : r[121];
+	double const v16 = sat(v15 - v14);
+	double const v17 = v10 ? sum(k[0x1b8] * r[8]) : (v10 ? v16 : (v10 ? v13 : v11));
+	double const v18 = sat(((k[0x1b9] * v12) + v17) * 4.0);
+	double const v19 = v14 + 0.0;
+	double const v20 = v10 ? v16 : v5;
+	bool const v21 = v20 > 0;
+	bool const v22 = v9 && v21;
+	bool const v23 = v6 && v21;
+	bool const v24 = v23 || v22;
+	double const v25 = (k[0x1c1] * v14) + 0.0;
+	double const v26 = sat(v15 + v14);
+	bool const v27 = !v21;
+	bool const v28 = v9 && v27;
+	bool const v29 = v6 && v27;
+	bool const v30 = v29 || v28;
+	bool const v31 = (v30 ? v26 : v20) < 0;
+	bool const v32 = v28 && v31;
+	bool const v33 = v29 && v31;
+	bool const v34 = v33 || v32;
+	double const v35 = v34 ? wrap(v25) : (v24 ? wrap(v19) : v15);
+	double const v36 = sum(v35);
+	bool const v37 = !v31;
+	bool const v38 = ((((v23 || v33) || (v29 && v37)) || v22) || v32) || (v28 && v37);
+	double const v39 = v38 ? v36 : (v34 ? sum(k[0x1c1] * v14) : (v30 ? v26 : (v24 ? sum(v14) : (v10 ? v18 : v17))));
+	double const v40 = sat(r[80] + v39);
+	double const v41 = v38 ? v40 : r[80];
+	double const v42 = sat(((k[0x1c8] * v41) + 0.0) * 16.0);
+	double const v43 = v38 ? v42 : v35;
+	double const v44 = sat(((k[0x1cb] * v43) + 0.0) * 16.0);
+	double const v45 = v38 ? v44 : v43;
+	double const v46 = sat(((k[0x1ce] * v45) + 0.0) * 16.0);
+	double const v47 = v38 ? v36 : (v38 ? v42 : (v38 ? v40 : v39));
+	double const v48 = sat(r[79] + v47);
+	double const v49 = v38 ? sum(k[0x1cf] * r[73]) : (v38 ? v46 : (v38 ? v44 : (v38 ? v48 : v47)));
+	double const v50 = v38 ? sum_on(v49, k[0x1d0] * r[72]) : v49;
+	double const v51 = v38 ? v46 : r[72];
+	double const v52 = sat(((k[0x1d1] * v51) + v50) * 2.0);
+	double const v53 = v38 ? v52 : r[73];
+	double const v54 = v38 ? r[73] : (v38 ? r[74] : (v38 ? v51 : (v38 ? r[72] : (v38 ? r[73] : (v38 ? v45 : (v38 ? 0.0 : (v38 ? 0.0 : (v38 ? v43 : (v38 ? r[79] : (v38 ? v35 : (v38 ? v41 : (v38 ? 0.0 : (v38 ? 0.0 : (v38 ? r[80] : (v38 ? v35 : (v34 ? 0.0 : (v34 ? 0.0 : (v34 ? 0.0 : (v30 ? 0.0 : (v30 ? 0.0 : (v30 ? v15 : (v24 ? 0.0 : (v10 ? v12 : (v10 ? r[8] : (v10 ? v15 : (v10 ? v12 : (v10 ? r[7] : (v10 ? r[79] : (v6 ? 0.0 : (v6 ? 0.0 : (v6 ? v2 : 0.0)))))))))))))))))))))))))))))));
+	double const v55 = v38 ? true : (v38 ? true : (v38 ? true : (v38 ? true : (v38 ? true : (v38 ? true : (v38 ? false : (v38 ? false : (v38 ? true : (v38 ? true : (v38 ? true : (v38 ? true : (v38 ? false : (v38 ? false : (v38 ? true : (v38 ? true : (v34 ? false : (v34 ? false : (v34 ? false : (v30 ? false : (v30 ? false : (v30 ? true : (v24 ? false : (v10 ? true : (v10 ? true : (v10 ? true : (v10 ? true : (v10 ? true : (v10 ? true : (v6 ? false : (v6 ? false : (v6 ? true : false)))))))))))))))))))))))))))))));
+	double const v56 = v38 ? sum(k[0x1d2] * r[74]) : (v38 ? v52 : v50);
+	double const v57 = v38 ? sum_on(v56, k[0x1d3] * r[73]) : v56;
+	double const v58 = v38 ? sum_on(v57, k[0x1d4] * v53) : v57;
+	double const v59 = v38 ? sum_on(v58, k[0x1d5] * r[75]) : v58;
+	double const v60 = sat(((k[0x1d6] * r[76]) + v59) * 4.0);
+	double const v61 = v38 ? sum(k[0x1d7] * r[75]) : (v38 ? v60 : v59);
+	double const v62 = v38 ? sum_on(v61, k[0x1d8] * r[77]) : v61;
+	double const v63 = v38 ? v60 : r[75];
+	double const v64 = sat(((k[0x1d9] * v63) + v62) * 4.0);
+	double const v65 = v38 ? sum(k[0x1da] * r[78]) : (v38 ? v64 : v62);
+	double const v66 = v38 ? v64 : r[77];
+	double const v67 = (128.0 * k[0x1b2]) + 0.0;
+	r[17] = v10 ? v13 : r[17];
+	r[18] = v10 ? v18 : r[18];
+	r[67] = v0;
+	r[69] = r[68];
+	r[71] = r[70];
+	r[72] = v38 ? v46 : r[72];
+	r[73] = v38 ? v52 : r[73];
+	r[74] = v38 ? (v55 ? v54 : v53) : r[74];
+	r[76] = v38 ? ((v38 ? true : (v38 ? true : (v38 ? true : (v38 ? true : v55)))) ? (v38 ? r[75] : (v38 ? r[76] : (v38 ? r[75] : (v38 ? v53 : v54)))) : r[77]) : r[76];
+	r[78] = v38 ? sat(((k[0x1dc] * v66) + (v38 ? sum_on(v65, k[0x1db] * r[77]) : v65)) * 4.0) : r[78];
+	r[79] = v38 ? v48 : r[79];
+	r[80] = v41;
+	r[81] = v6 ? wrap(v67) : v4;
+	r[119] = v12;
+	r[121] = v45;
+	m[3] = in[0][13];
+	m[4] = v34 ? in[0][14] : m[4];
+	m[7] = in[1][13];
+	m[42] = v7;
+	m[56] = v14;
+	r[68] = v1;
+	r[70] = v2;
+	r[75] = v38 ? v60 : r[75];
+	r[77] = v38 ? v64 : r[77];
 }
 
 }  // namespace fs1r::effects

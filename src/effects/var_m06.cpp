@@ -1,4 +1,4 @@
-// effects/var_m06.cpp - VOP3-2, the variation window's program for Ens Detune: its 72 steps.
+// effects/var_m06.cpp - the variation window's program for Ens Detune.
 //
 // rom::VARIATION_PROGRAMS[6], the program the window holds for the one variation type 7, and one of the
 // twelve programs those twenty-nine types share: fx_dispatch.cpp's VARIATION_ROUTES gives msb 6 to
@@ -24,8 +24,6 @@
 // apart and the 'older' bit on the second read is what makes it so. INIT_DELAY_L and INIT_DELAY_R set
 // those four offsets to the base plus one plus the parameter, which puts the whole line that many
 // samples behind the write.
-//
-// The 72 steps, in the groups the step loop below splits them into:
 //
 //   0x158-0x163  the two LFO cells into six registers, and the three oldest delay words published.
 //                m[2] and m[6] take the serial inputs for the base program; the class-3 steps 0x158 and
@@ -79,14 +77,6 @@
 //                ROM's zero words on r[119] and r[120] adding nothing to it, and 0x19f writes it into
 //                the slot 0x67 itself, latching nothing.
 //
-// The units the loop below runs, one table each. HEADS is the twelve steps at the head, which take the
-// two serial inputs and build the two base delays and the four crossfade weights off the LFO cells.
-// EQS is the two channels' seven-step EQ. INDICES is the four tap positions, WEIGHTS the four weights
-// those positions' crossfades scale by. UNITS is the four interpolated taps and the two crossfades, two
-// steps each, with the class-0 steps between them idle. COPIES, OUTPUTS and LINES are the tail: each
-// crossfade copied so the line step can overwrite it, the dry and wet into r[15] and r[16], and the
-// two lines written.
-//
 // The registers: r[5] and r[6] the two inputs the base program leaves this window (0x096 and 0x08d write
 // them) and r[15] and r[16] the two outputs it reads back (0x004 and 0x005). r[103] the left input,
 // r[104] and r[105] its two shelves; r[106] the right input, r[107] and r[108] its two. r[123], r[124]
@@ -113,517 +103,121 @@
 // 64 of the same, and the four weights 232/16384 and 216/16384 at their largest, so the second tap
 // carries almost all of each channel's output.
 //
-// Every constant the program reads is read from c.coef[st] on the pass, and every delay offset through
-// c.addr() off the c.slot[] entry the host last wrote, so no number the firmware chose is folded in here:
-// the program words are fixed per row and each step's fields are folded into the arithmetic below in the
-// order yss236_core::step() runs its own.
-//
-// docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, and effects/steps.h is those shapes, so the arithmetic below is spelled out
-// by name rather than a step at a time.
-//
-// vop3_native_check var-m06: identical, 1 type, 9600 native passes.
+// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
 
 #include "effects/programs.h"
-#include "effects/steps.h"
 
 namespace fs1r::effects {
 
-namespace {
+using namespace word;
 
-using namespace step;   // the step vocabulary: term, sum, close, load, run and the rest
-
-// ---------------------------------------------------------------------------------------------
-// What a step does with a cell or the delay RAM before it does any arithmetic
-// ---------------------------------------------------------------------------------------------
-
-// A step that is more than a term: it reads the delay RAM, publishes a capture of an earlier read, or
-// takes a serial input or an LFO. `cell` is the cell a DEC_CAPTURE, DEC_LFO or DEC_SERIAL_* step moves
-// into, and `lfo` the cell the step also publishes its page's LFO into, which is 0x18f alone: it reads
-// the slot 0x63 and then publishes the LFO, and the read comes first as step() runs it.
-enum decor_t { DEC_NONE, DEC_READ, DEC_READ_INDEX, DEC_READ_INDEX_OLD,
-               DEC_CAPTURE, DEC_LFO, DEC_SERIAL_L, DEC_SERIAL_R };
-
-struct Decor { decor_t kind; int cell; int lfo; };
-
-// A delay RAM read at the index a tap position loaded rather than at the ring pointer, which is what
-// makes a tap pair two words a sample apart: the earlier word at the index itself, the later one word
-// older, and the t register the pair interpolates on the fraction between them. steps.h has the ring
-// pointer read in read_delay(); this is that read with the index added to the offset.
-void read_delay_at(yss236_core& c, int st, bool older)
+void var_m06(State& s)
 {
-	c.push_hist(st, c.ram[c.addr(st >> 2, (older ? 1 : 0) + c.cur_idx(), false)]);
-}
-
-// The decor a step carries. It comes before the step's own arithmetic, because step() moves a cell or
-// reads the delay RAM before it multiplies anything.
-void decor(yss236_core& c, int st, Decor const& d)
-{
-	switch (d.kind)
-	{
-		case DEC_READ:           read_delay(c, st); break;
-		case DEC_READ_INDEX:     read_delay_at(c, st, false); break;
-		case DEC_READ_INDEX_OLD: read_delay_at(c, st, true); break;
-		case DEC_CAPTURE:        take_capture(c, d.cell, st); break;
-		case DEC_LFO:            take_lfo(c, d.cell, st); break;
-		case DEC_SERIAL_L:       take_serial(c, d.cell, st, 0); break;
-		case DEC_SERIAL_R:       take_serial(c, d.cell, st, 1); break;
-		case DEC_NONE: break;
-	}
-	if (d.lfo)
-		take_lfo(c, d.lfo, st);
-}
-
-// ---------------------------------------------------------------------------------------------
-// 0x158 to 0x163, the two LFO cells and what the base delays and the weights come off them
-// ---------------------------------------------------------------------------------------------
-
-// What a step of the head computes. H_SERIAL is the class-3 step that puts 2 * an LFO cell into a
-// register of its own, H_HALF the running value a base delay is built on, H_ABS the absolute value both
-// weights come from, H_BASE the base delay itself, and H_FIRST and H_SECOND the -24 and -40 weights.
-enum head_t { H_SERIAL, H_IDLE, H_HALF, H_BASE, H_ABS, H_FIRST, H_SECOND };
-
-// One step of the head. `cell` is the window's LFO cell H_SERIAL reads, and `reg` and `reg2` the
-// registers the other shapes work on: the doubled LFO for H_SERIAL, H_HALF and H_ABS, and for H_ABS
-// the absolute value lands in `reg2`; the base delay for H_BASE; the first weight for H_FIRST; and
-// for H_SECOND one register, the left channel's |2 * m[8]|, which is what 0x161 takes the -40 off. The
-// two channels' steps interleave one apart and 0x15a is idle between the left channel's first two.
-struct Head { head_t shape; int cell; int reg; int reg2; Decor decor; };
-
-constexpr Head HEADS[12] = {
-	//  shape       cell  reg  reg2  the decor
-	{  H_SERIAL,       8, 123,   0, { DEC_SERIAL_L, 2, 0 } },   // 0x158: the left cell, doubled, with the left serial input
-	{  H_SERIAL,       9, 126,   0, { DEC_SERIAL_R, 6, 0 } },   // 0x159: the right one, and the right serial input
-	{  H_IDLE,         0,   0,   0, { DEC_NONE,     0, 0 } },   // 0x15a
-	{  H_HALF,         0, 123,   0, { DEC_READ,     0, 0 } },   // 0x15b: the slot 0x56, and half of r[123]
-	{  H_BASE,         0, 125,   0, { DEC_NONE,     0, 0 } },   // 0x15c: the left base delay
-	{  H_ABS,          0, 123, 124, { DEC_NONE,     0, 0 } },   // 0x15d: |r[123]| into r[124]
-	{  H_FIRST,        0, 123,   0, { DEC_NONE,     0, 0 } },   // 0x15e: the -24 weight
-	{  H_HALF,         0, 126,   0, { DEC_READ,     0, 0 } },   // 0x15f: the slot 0x57, and half of r[126]
-	{  H_BASE,         0,   2,   0, { DEC_CAPTURE, 22, 0 } },   // 0x160: the right base delay, and the slot 0x56 read published
-	{  H_SECOND,       0, 124,   0, { DEC_NONE,     0, 0 } },   // 0x161: the -40 weight, still the left channel's
-	{  H_ABS,          0, 126,   1, { DEC_NONE,     0, 0 } },   // 0x162: |r[126]| into r[1]
-	{  H_FIRST,        0, 126,   0, { DEC_READ,     0, 0 } },   // 0x163: the slot 0x58, and the -24 weight on it
-};
-
-// One step of the head. The base delay and the two weights are all class-1 loads off the running
-// value, and all hold the negatives at the zero, so a weight below its offset reads as no weight.
-void head(yss236_core& c, int st)
-{
-	Head const& h = HEADS[st - 0x158];
-	decor(c, st, h.decor);
-	switch (h.shape)
-	{
-	case H_SERIAL:  // r[123] and r[126]: the class-3 step, 2 * the LFO cell, wrapped at +-128
-		run(c, {.st = st, .sm = h.cell, .m2 = M2_CELL, .unity = true, .route = ROUTE_2, .dr = h.reg});
-		break;
-	case H_HALF:    // the ROM's half on that register, into the running value
-		term(c, st, h.reg);
-		break;
-	case H_BASE:    // r[125] and r[2]: max(0, 64 + that half), the line's base delay
-		load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_ZERO, .dr = h.reg});
-		break;
-	case H_ABS:     // r[124] and r[1]: |2 * the LFO cell|, which both weights come off
-		run(c, {.st = st, .sr = h.reg, .unity = true, .clamp = CLAMP_ABS, .dr = h.reg2});
-		break;
-	case H_FIRST:   // max(0, that - 24), the first weight of the channel, before its factor
-		load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_ZERO, .dr = h.reg});
-		break;
-	case H_SECOND:  // max(0, the left |2 * m[8]| - 40), the second weight of the left channel
-		load(c, {.st = st, .sr = h.reg, .add = ADD_REG, .clamp = CLAMP_ZERO, .dr = h.reg});
-		break;
-	default:        // 0x15a: class 0, no RAM mark and no ALU, so only the x latch
-		idle(c);
-		break;
-	}
-}
-
-// ---------------------------------------------------------------------------------------------
-// The two channels' EQ, two order-1 shelves each
-// ---------------------------------------------------------------------------------------------
-
-// One channel's seven steps. `src` is the input the base program leaves this window in, `in` this
-// channel's own copy of it on the ROM's near-unity word doubled, `lo` the low shelf's output and `hi`
-// the high shelf's, which is the channel's EQ output: what its line takes and what its dry word scales
-// on the way to the output register.
-//
-// The three registers hold the same quantities a pass apart at different points of the run, because a
-// step's write lands three steps later and each shelf borrows the other's register. `in` is the low
-// shelf's output a pass back until the low shelf's closing step lands the channel's input in it, and
-// `lo` is that low shelf output from then until the high shelf's closing step lands it again.
-struct Eq
-{
-	int base;
-	int src, in, lo, hi;
-	Decor decor[7];
-};
-
-// The left channel, whose steps publish three of the base program's delay reads, then the right one,
-// which publishes the LFO of its page. The seven steps are the channel's input on the ROM's own word,
-// then the low shelf's -a1, b1 and b0, then the high shelf's -a1, b1 and b0, and each row's decor list
-// is in that order.
-constexpr Eq EQS[2] = {
-	//  base   src  in   lo   hi   the seven steps' decor, in that order
-	{  0x165,   5, 103, 104, 105, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_READ_INDEX, 0, 0}, {DEC_CAPTURE, 24, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_READ_INDEX_OLD, 0, 0} } },
-	{  0x174,   6, 106, 107, 108, { {DEC_CAPTURE, 60, 0}, {DEC_LFO, 9, 0}, {DEC_NONE, 0, 0}, {DEC_READ_INDEX, 0, 0}, {DEC_CAPTURE, 61, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
-};
-
-// One channel's EQ step. The first step takes the input the base program wrote into `in`, and the six
-// after it are the two shelves. Each opens on the shelf's own output a pass back, adds the shelf's
-// other word on the register that still holds it, and closes the sum on the value the channel's input
-// or the low shelf's output has just landed in.
-void eq(yss236_core& c, int st, Eq const& q)
-{
-	int const k = st - q.base;
-	decor(c, st, q.decor[k]);
-	switch (k)
-	{
-	case 0:  gain(c, st, q.src, q.in, ROUTE_2); break;   // the channel's input, doubled
-	case 1:  term(c, st, q.lo); break;                   // the low shelf's -a1 on its output a pass back
-	case 2:  sum(c, st, q.in); break;                    // and its b1, r[in] holds that output until 0x168
-	case 3:  close(c, st, q.in, q.lo, ROUTE_2); break;   // its b0 on the input just landed, into the low shelf
-	case 4:  term(c, st, q.hi); break;                   // the high shelf's -a1 on its output a pass back
-	case 5:  sum(c, st, q.lo); break;                    // and its b1 on the low shelf's output a pass back
-	default: close(c, st, q.lo, q.hi, ROUTE_4); break;   // its b0 on that output just landed, into the EQ output
-	}
-}
-
-// ---------------------------------------------------------------------------------------------
-// The four tap positions, and the four crossfade weights
-// ---------------------------------------------------------------------------------------------
-
-// One tap position: DETUNE_DET's word scaled onto the channel's LFO cell, or onto the base delay that
-// cell produced. The result is in delay samples, so its fraction below one goes into the t register the
-// pair interpolates on and its floor is the delay index the pair's two reads take. `cell` is nonzero
-// when the word scales a cell and `reg` when it scales a register.
-struct Index
-{
-	int base;
-	int cell;
-	int reg;
-	int treg;
-	Decor decor;
-};
-
-constexpr Index INDICES[4] = {
-	//  base   cell  reg  treg  the decor
-	{  0x164,     8,   0,   10, { DEC_CAPTURE,      23, 0 } },   // the first left tap, on m[8]
-	{  0x16c,     0, 125,   12, { DEC_CAPTURE,      56, 0 } },   // the second left tap, on r[125]
-	{  0x173,     9,   0,   14, { DEC_READ_INDEX_OLD, 0, 0 } },   // the first right tap, on m[9]
-	{  0x17b,     0,   2,    7, { DEC_READ_INDEX_OLD, 0, 0 } },   // the second right tap, on r[2]
-};
-
-// One tap position's own step: the word on the cell or the register, its fraction into the t register
-// and its whole samples into the delay index. The two taps of a channel share the word and differ only
-// in what it scales, which is what puts them 256 * w * 64 samples apart on the left.
-void tap_index(yss236_core& c, int st, Index const& x)
-{
-	decor(c, st, x.decor);
-	double const y = x.cell ? run(c, {.st = st, .sm = x.cell, .m2 = M2_CELL, .clamp = CLAMP_ZERO})
-	                        : run(c, {.st = st, .sr = x.reg, .clamp = CLAMP_ZERO});
-	t_put_fraction(c, st, x.treg, y);   // the position between the two words the pair reads
-	load_index(c, y);                // and the same value in whole samples, for the reads themselves
-}
-
-// One crossfade weight: its register on the ROM's eighth word and the x16 route, which a t register
-// takes as the accumulator's 256th. So a register of 232 is 232 / 16384 by the time the crossfade
-// scales with it.
-struct Weight { int reg; int treg; Decor decor; };
-
-// The four weights in step order: the left channel's -24 and -40 forms then the right channel's, and
-// the last step publishes this page's LFO for the base program as it goes.
-constexpr Weight WEIGHTS[4] = {
-	//  reg  treg  the decor
-	{   123,     9, { DEC_READ_INDEX, 0, 0 } },    // 0x16f: the slot 0x5b, at the index 0x16c loaded
-	{   124,    11, { DEC_CAPTURE, 57, 0 } },      // 0x170: the read of 0x16b
-	{   126,    13, { DEC_NONE,     0, 0 } },      // 0x171: the right channel's first weight
-	{     1,    15, { DEC_LFO,     11, 0 } },      // 0x172: its second, and this page's LFO
-};
-
-void weight(yss236_core& c, int st, Weight const& w)
-{
-	decor(c, st, w.decor);
-	t_put(c, st, w.treg, run(c, {.st = st, .sr = w.reg, .route = ROUTE_16, .clamp = CLAMP_SAT}));
-}
-
-// ---------------------------------------------------------------------------------------------
-// The four interpolated taps and the two crossfades, two steps each
-// ---------------------------------------------------------------------------------------------
-
-// U_TAP is one tap pair: the two words a sample apart, with the position's fraction taken off the
-// earlier word and applied to the later one, so the register its second step writes holds the line
-// interpolated at the LFO's position. U_XFADE is one channel's crossfade: the second tap on its own
-// weight, then the first tap added on top of that, so the register left is the pair summed.
-enum unit_t { U_TAP, U_XFADE };
-
-// One of the six. `in` is the tap's earlier word's cell or the crossfade's second tap register, `in2`
-// the tap's later word's cell, `pos` the tap's position t register or the crossfade's weight on the
-// second tap, `pos2` the crossfade's weight on the first tap, and `out` the register the second step
-// closes into.
-struct Unit
-{
-	int base;
-	unit_t shape;
-	int in, in2, pos, pos2, out;
-	Decor decor[2];
-};
-
-// The six in step order: the four taps, the left crossfade between the second and third of them, and
-// the right crossfade last. The steps between are class 0 and idle, so the gaps are the program's own
-// rather than anything these rows work around.
-constexpr Unit UNITS[6] = {
-	//  base      shape    in  in2  pos  pos2  out  the two steps' decor
-	{  0x17c, U_TAP,    56,  57,   10,    0, 119, { {DEC_CAPTURE, 58, 0}, {DEC_NONE, 0, 0}          } },
-	{  0x17f, U_TAP,    60,  61,   12,    0, 121, { {DEC_READ_INDEX, 0, 0}, {DEC_CAPTURE, 59, 0}   } },
-	{  0x183, U_XFADE, 121,   0,   11,    9, 119, { {DEC_READ_INDEX_OLD, 0, 0}, {DEC_CAPTURE, 62, 0} } },
-	{  0x186, U_TAP,    58,  59,   14,    0, 120, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}              } },
-	{  0x18a, U_TAP,    62,  63,    7,    0, 122, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}              } },
-	{  0x18e, U_XFADE, 122,   0,   15,   13, 120, { {DEC_NONE, 0, 0}, {DEC_READ, 0, 12}              } },
-};
-
-// One unit's two steps. A tap takes its position's fraction off the earlier word before it applies it
-// to the later one, and a crossfade takes the second tap off the running value before it adds the
-// first tap's weighted value on top. Both close into the register the next unit reads.
-void unit(yss236_core& c, int st, Unit const& u)
-{
-	int const k = st - u.base;
-	decor(c, st, u.decor[k]);
-	if (u.shape == U_TAP)
-	{
-		if (k == 0)
-			run(c, {.st = st, .sm = u.in, .m2 = M2_CELL, .treg = u.pos, .add = ADD_CELL, .sub = true});
-		else
-			run(c, {.st = st, .sm = u.in2, .m2 = M2_CELL, .treg = u.pos, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = u.out});
-		return;
-	}
-	if (k == 0)
-		run(c, {.st = st, .sr = u.in, .treg = u.pos, .add = ADD_REG, .sub = true});
-	else
-		run(c, {.st = st, .sr = u.out, .treg = u.pos2, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = u.out});
-}
-
-// Which of the six a step belongs to, or -1 for the class-0 steps between them.
-int unit_of(int st)
-{
-	for (int i = 0; i < 6; i++)
-		if (st >= UNITS[i].base && st < UNITS[i].base + 2)
-			return i;
-	return -1;
-}
-
-// ---------------------------------------------------------------------------------------------
-// 0x191 to 0x19f, the two copies, the two outputs and the two delay writes
-// ---------------------------------------------------------------------------------------------
-
-// The two copies, two steps each: the crossfaded tap on the ROM's near-unity word opening the running
-// value and the other tap on the ROM's own zero closing it, so a copy is the crossfade less one part
-// in 32768. They are copies because r[119] and r[120] are read again on the way into the two delay
-// lines, so each channel's blend has to be somewhere else for its output step to read.
-struct Copy { int base; int dst; Decor decor[2]; };
-
-constexpr Copy COPIES[2] = {
-	//  base    dst  the two steps' decor
-	{  0x191,   121, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
-	{  0x193,   122, { {DEC_READ, 0, 0}, {DEC_CAPTURE, 25, 0} } },
-};
-
-// One of the two: the crossfaded tap on the ROM's near-unity word opens the running value and the other
-// tap on the ROM's own zero closes it into `dst`.
-void tap_copy(yss236_core& c, int st, Copy const& p)
-{
-	int const k = st - p.base;
-	decor(c, st, p.decor[k]);
-	if (k == 0) term(c, st, 119);
-	else        close(c, st, 120, p.dst);
-}
-
-// One channel's two output steps: DETUNE_PAN's dry word opens the sum on the channel's EQ output and its
-// wet word closes it into the register the base program reads, quadrupled. Returns the running value,
-// which is what the left line's write at 0x19b takes where there is no latched data to write instead.
-struct Output { int base; int out, dry, wet; Decor decor[2]; };
-
-constexpr Output OUTPUTS[2] = {
-	//  base    out  dry  wet  the two steps' decor
-	{  0x195,    15, 105, 121, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
-	{  0x19b,    16, 108, 122, { {DEC_NONE, 0, 0}, {DEC_CAPTURE, 27, 0} } },
-};
-
-double output(yss236_core& c, int st, Output const& o)
-{
-	decor(c, st, o.decor[st - o.base]);
-	if (st == o.base) return run(c, {.st = st, .sr = o.dry});       // the dry word, on the channel's EQ output
-	return run(c, {.st = st, .sr = o.wet, .add = ADD_ACC, .route = ROUTE_4, .clamp = CLAMP_SAT, .dr = o.out});
-}
-
-// One delay line's input: the run of steps that opens on the channel's EQ output, adds the ROM's own
-// zeroes on the other two registers, and closes the sum. The left line's closing step writes no register
-// at all and only latches its result as the data of the write one step later; the right one's is the
-// line's write itself.
-struct Line
-{
-	int base;
-	int n;              // the steps in the run
-	int src[4];         // the register each step scales, in order
-	bool ram;           // the closing step is the line's write rather than a latch
-	Decor decor[4];
-};
-
-constexpr Line LINES[2] = {
-	//  base    n  the registers                    ram  the decor, in step order
-	{  0x197, 4, { 105, 108, 120, 119 },  false, { {DEC_READ, 0, 0}, {DEC_CAPTURE, 26, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
-	{  0x19d, 3, { 108, 119, 120,   0 },  true,  { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
-};
-
-// One step of the run: the first opens the running value on the channel's EQ output, the ones after it
-// add the ROM's own zeroes, and the closing one hands the sum to w1[13] as the line's write data. `src`
-// is the register each step scales and `ram` whether the closing step is the write itself.
-void line(yss236_core& c, int st, Line const& l)
-{
-	int const k = st - l.base;
-	decor(c, st, l.decor[k]);
-	if (k == 0) term(c, st, l.src[0]);
-	else if (k < l.n - 1) sum(c, st, l.src[k]);
-	else
-		run(c, {.st = st, .sr = l.src[k], .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = 0 /* dr */, .wdata = true, .write = l.ram});
-}
-
-// ---------------------------------------------------------------------------------------------
-// The run of steps 0x158 to 0x19f, the whole of the window's program
-// ---------------------------------------------------------------------------------------------
-
-// The loop is one iteration per step and carries the m_skip guard step() opens with, so a gate in the
-// base program's 0x1xx half skips these steps as it would the interpreter's. Each test below is one
-// of the groups the comments at the head of this file open.
-void block_0x158(yss236_core& c)
-{
-	for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
-	{
-
-		if (st < 0x164)
-		{
-			// ---- 0x158 to 0x163, the two LFO cells, the two base delays and the four weights ----
-			head(c, st);
-			return;
-		}
-		if (st == 0x164)
-		{
-			// ---- DETUNE_DET[0]: the first left tap pair's position ----
-			tap_index(c, st, INDICES[0]);
-			return;
-		}
-		if (st < 0x16c)
-		{
-			// ---- 0x165 to 0x16b, the left channel's input and its two shelves ----
-			eq(c, st, EQS[0]);
-			return;
-		}
-		if (st == 0x16c)
-		{
-			// ---- DETUNE_DET[1]: the second left tap pair's position ----
-			tap_index(c, st, INDICES[1]);
-			return;
-		}
-		if (st == 0x16d)
-		{
-			// ---- the right channel's second weight, max(0, |2 * m[9]| - 40), over the first ----
-			load(c, {.st = st, .sr = 1, .add = ADD_REG, .clamp = CLAMP_ZERO, .dr = 1});
-			return;
-		}
-		if (st == 0x16e)
-		{
-			// the idle step between the right weight and the four the weights go into
-			idle(c);
-			return;
-		}
-		if (st < 0x173)
-		{
-			// ---- 0x16f to 0x172, the four crossfade weights ----
-			weight(c, st, WEIGHTS[st - 0x16f]);
-			return;
-		}
-		if (st == 0x173)
-		{
-			// ---- DETUNE_DET[2]: the first right tap pair's position ----
-			tap_index(c, st, INDICES[2]);
-			return;
-		}
-		if (st < 0x17b)
-		{
-			// ---- 0x174 to 0x17a, the right channel's input and its two shelves ----
-			eq(c, st, EQS[1]);
-			return;
-		}
-		if (st == 0x17b)
-		{
-			// ---- DETUNE_DET[3]: the second right tap pair's position ----
-			tap_index(c, st, INDICES[3]);
-			return;
-		}
-		if (st < 0x191)
-		{
-			// ---- 0x17c to 0x190, the four interpolated taps and the two crossfades ----
-			int const u = unit_of(st);
-			if (u < 0)
-			{
-				// 0x188 is the one idle step that moves a cell: m[63] takes up the read of 0x183
-				if (st == 0x188)
-					take_capture(c, 63, st);
-				idle(c);
-			}
-			else
-				unit(c, st, UNITS[u]);
-			return;
-		}
-		if (st < 0x195)
-		{
-			// ---- 0x191 to 0x194, the two copies of the crossfades ----
-			tap_copy(c, st, COPIES[(st - 0x191) / 2]);
-			return;
-		}
-		if (st < 0x197)
-		{
-			// ---- 0x195 and 0x196, the left output ----
-			output(c, st, OUTPUTS[0]);
-			return;
-		}
-		if (st < 0x19b)
-		{
-			// ---- 0x197 to 0x19a, what goes into the left line ----
-			line(c, st, LINES[0]);
-			return;
-		}
-		if (st < 0x19d)
-		{
-			// ---- 0x19b and 0x19c, the right output, on the step that writes the left line ----
-			double const y = output(c, st, OUTPUTS[1]);
-			if (st == 0x19b)
-			{
-				// The left line's write rides on the right channel's dry word: the slot 0x66 takes the
-				// data 0x19a latched, or this step's own result where there is none, as step() has it.
-				double v = yss236_core::clip(y, yss236_core::SAT);
-				if (c.haswl)
-				{
-					v = c.wlatch;
-					c.haswl = false;
-				}
-				write_delay(c, st, v);
-			}
-			return;
-		}
-
-		// ---- 0x19d to 0x19f, what goes into the right line, whose write is its own last step ----
-		line(c, st, LINES[1]);
-		});
-}
-
-}  // namespace
-
-// One run of the variation window's steps, exactly as yss236_core::step() would run them. The program is
-// one run; a range no host builds falls back to the interpreter.
-void var_m06(yss236_core& c, int from, int to)
-{
-	if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
-	for (int st = from; st < to; st++) c.step(st);
+	auto& r = s.r;
+	auto& m = s.m;
+	auto& t = s.t;
+	auto const& k = s.k;
+	auto const& in = s.in;
+	auto const& lfo = s.lfo;
+	double const d0 = s.ram[s.at(0x56)];
+	double const d1 = s.ram[s.at(0x57)];
+	double const d2 = s.ram[s.at(0x58)];
+	double const v0 = pos((k[0x164] * m[8]) + 0.0);
+	double const v1 = index(v0);
+	double const d3 = s.ram[s.at(0x59, int(v1))];
+	double const d4 = s.ram[s.at(0x5a, 1 + int(v1))];
+	double const v2 = wrap((m[8] + 0.0) * 2.0);
+	double const v3 = pos((128.0 * k[0x15c]) + sum(k[0x15b] * v2));
+	double const v4 = pos((k[0x16c] * v3) + 0.0);
+	double const v5 = index(v4);
+	double const d5 = s.ram[s.at(0x5b, int(v5))];
+	double const d6 = s.ram[s.at(0x5c, 1 + int(v5))];
+	double const v6 = pos((k[0x173] * m[9]) + 0.0);
+	double const v7 = index(v6);
+	double const d7 = s.ram[s.at(0x5d, int(v7))];
+	double const d8 = s.ram[s.at(0x5e, 1 + int(v7))];
+	double const v8 = wrap((m[9] + 0.0) * 2.0);
+	double const v9 = pos((128.0 * k[0x160]) + sum(k[0x15f] * v8));
+	double const v10 = pos((k[0x17b] * v9) + 0.0);
+	double const v11 = index(v10);
+	double const d9 = s.ram[s.at(0x5f, int(v11))];
+	double const d10 = s.ram[s.at(0x60, 1 + int(v11))];
+	double const d11 = s.ram[s.at(0x63)];
+	double const d12 = s.ram[s.at(0x64)];
+	double const d13 = s.ram[s.at(0x65)];
+	double const v12 = sat(((k[0x165] * r[5]) + 0.0) * 2.0);
+	double const v13 = sat(((k[0x168] * v12) + sum(k[0x166] * r[104], k[0x167] * r[103])) * 2.0);
+	double const v14 = sat(((k[0x16b] * v13) + sum(k[0x169] * r[105], k[0x16a] * r[104])) * 4.0);
+	double const v15 = sat(((k[0x174] * r[6]) + 0.0) * 2.0);
+	double const v16 = sat(((k[0x177] * v15) + sum(k[0x175] * r[107], k[0x176] * r[106])) * 2.0);
+	double const v17 = sat(((k[0x17a] * v16) + sum(k[0x178] * r[108], k[0x179] * r[107])) * 4.0);
+	double const v18 = frac(v10);
+	double const v19 = sat((v18 * d10) - wrap_sum((v18 * d9) - d9));
+	double const v20 = mag(v8 + 0.0);
+	double const v21 = pos((128.0 * k[0x16d]) + v20);
+	double const v22 = q15(sat(((k[0x172] * v21) + 0.0) * 16.0));
+	double const v23 = frac(v6);
+	double const v24 = pos((128.0 * k[0x163]) + v20);
+	double const v25 = q15(sat(((k[0x171] * v24) + 0.0) * 16.0));
+	double const v26 = sat((v25 * sat((v23 * d8) - wrap_sum((v23 * d7) - d7))) - wrap_sum((v22 * v19) - v19));
+	double const v27 = frac(v4);
+	double const v28 = sat((v27 * d6) - wrap_sum((v27 * d5) - d5));
+	double const v29 = mag(v2 + 0.0);
+	double const v30 = pos((128.0 * k[0x161]) + v29);
+	double const v31 = q15(sat(((k[0x170] * v30) + 0.0) * 16.0));
+	double const v32 = frac(v0);
+	double const v33 = pos((128.0 * k[0x15e]) + v29);
+	double const v34 = q15(sat(((k[0x16f] * v33) + 0.0) * 16.0));
+	double const v35 = sat((v34 * sat((v32 * d4) - wrap_sum((v32 * d3) - d3))) - wrap_sum((v31 * v28) - v28));
+	s.ram[s.at(0x66)] = clip32(sat((k[0x19a] * v35) + sum(k[0x197] * v14, k[0x198] * v17, k[0x199] * v26)));
+	s.ram[s.at(0x67)] = clip32(sat((k[0x19f] * v26) + sum(k[0x19d] * v17, k[0x19e] * v35)));
+	double const v36 = sat((k[0x192] * v26) + sum(k[0x191] * v35));
+	double const v37 = sat((k[0x194] * v26) + sum(k[0x193] * v35));
+	r[1] = v21;
+	r[2] = v9;
+	r[15] = sat(((k[0x196] * v36) + sum(k[0x195] * v14)) * 4.0);
+	r[16] = sat(((k[0x19c] * v37) + sum(k[0x19b] * v17)) * 4.0);
+	r[103] = v12;
+	r[104] = v13;
+	r[105] = v14;
+	r[106] = v15;
+	r[107] = v16;
+	r[108] = v17;
+	r[119] = v35;
+	r[120] = v26;
+	r[121] = v36;
+	r[122] = v37;
+	r[123] = v33;
+	r[124] = v30;
+	r[125] = v3;
+	r[126] = v24;
+	m[2] = in[0][10];
+	m[6] = in[1][10];
+	m[9] = lfo[11];
+	m[11] = lfo[11];
+	m[12] = lfo[12];
+	m[22] = d0;
+	m[23] = d1;
+	m[24] = d2;
+	m[25] = d11;
+	m[26] = d12;
+	m[27] = d13;
+	m[56] = d3;
+	m[57] = d4;
+	m[58] = d7;
+	m[59] = d8;
+	m[60] = d5;
+	m[61] = d6;
+	m[62] = d9;
+	m[63] = d10;
+	t[7] = v18;
+	t[9] = v34;
+	t[10] = v32;
+	t[11] = v31;
+	t[12] = v27;
+	t[13] = v25;
+	t[14] = v23;
+	t[15] = v22;
 }
 
 }  // namespace fs1r::effects

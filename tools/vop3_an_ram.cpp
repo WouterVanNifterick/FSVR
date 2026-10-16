@@ -16,7 +16,6 @@
 
 int main() {
     yss236_core c;
-    c.interpret = true;
     std::vector<unsigned> image;
     std::string line;
     while (std::getline(std::cin, line)) {

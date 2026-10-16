@@ -1,58 +1,65 @@
-// effects/programs.h - the VOP3 chips' programs written in C++. Ours.
+// effects/programs.h - the FS1R's effect programs as plain DSP, and the state they share. Ours.
 //
-// One function per chip program, ported from the microcode the firmware uploads. Each runs a range of its
-// program's steps on the core's own state exactly as yss236_core::step would, bit for bit, so it can stand
-// in for the interpreter one range at a time (yss236_core::natives) and be checked against it
-// (tools/vop3_native_check).
-// docs/vop3_native/README.md is the brief, docs/vop3_native/status.json the tracker.
+// The firmware runs its effects as programs on a DSP: the base program (the mixer, the sends and returns,
+// the master EQ and the reverb), and four windows into it that each hold one of the EPROM's programs for
+// the effect types selected: aux, the reverb delay, the variation and the insertion. Each program below is
+// one of those, as the arithmetic it computes, one function a sample. Effects (effects.h) runs the five
+// the host has loaded, in the order the chip runs them, on one State.
+//
+// The programs talk to each other only through the State: the stereo sends in r[3]..r[8], the returns in
+// r[9]..r[18], a few cells and the delay memory (tools/fx_lift --seal proves nothing else crosses). Their
+// arithmetic is the chip's, in its number format (fs1r/chips/word.h) and its order, so the section is bit for
+// bit the unit's DSP; tools/vop3_native_check compares it with the chip interpreter every sample.
+//
+// A program's file was lifted from the chip's program by tools/fx_lift and can be edited from there:
+// name what it computes, split it into the DSP blocks it is made of. The checker says whether it still is.
 #pragma once
-#include "fs1r/chips/yss236_core.h"
+
+#include <cstdint>
+#include <vector>
+
+#include "fs1r/chips/word.h"
 
 namespace fs1r::effects {
 
-using Run = void (*)(yss236_core& core, int from, int to);
+namespace word = fs1r::word;
 
-// Which of the programs below to run on the effect chip, from the words its registers hold. A window running
-// a program we did not port gets no range and runs on the interpreter, which gives the same answer more
-// slowly. Call it after anything that writes a program word (Vop3::programDirty says when that was).
-// The voice filter is not a chip program here at all: filters/voice_filter.h.
-void install_effect(yss236_core& core);
+// What the programs share, by the names the chip and the host use for it.
+struct State {
+	static constexpr int RAM_WORDS = 1 << 18;
 
-// A ported program, by its key in the tracker:
-//   base                      the effect chip's base program, outside the reverb's steps
-//   rev                       the reverb's steps of the base program
-//   aux                       the aux window's program
-//   ins-mNN, dly-mNN, var-mNN the insertion, reverb-delay and variation windows' program for type msb NN
-struct Program { const char* key; Run run; };
-extern const Program PROGRAMS[];                 // ends with {nullptr, nullptr}
-const Program* find(const char* key);            // null until the program is ported
+	double r[128] = {};          // the registers: the buses between programs, and each program's own state
+	double m[64] = {};           // the cells: the serial inputs, the LFOs and the delay taps as they arrive
+	double t[16] = {};           // the multiplier registers: modulated gains and the delay lines' fractions
+	double k[512] = {};          // the parameter words the host writes, as fractions, by step
+	double in[4][16] = {};       // the serial inputs (in[0]: the buses) and in[3] the EG levels, by slot
+	double lfo[16] = {};         // the sixteen LFOs, this sample
+	double out[16] = {};         // the serial outputs: out[0] and out[8] are the DAC's left and right
 
-// The ported programs, one line each in key order, as `void ins_m03(yss236_core&, int from, int to);`
-void aux(yss236_core& c, int from, int to);         // aux: the aux window's program, its 40 steps
-void base(yss236_core& c, int from, int to);         // base: the effect chip's base program, its 138 steps
-void dly_m00(yss236_core& c, int from, int to);     // dly-m00: the reverb delay window's program for type msb 00
-void dly_m08(yss236_core& c, int from, int to);     // dly-m08: the reverb delay window's program for type msb 08
-void ins_m00(yss236_core& c, int from, int to);     // ins-m00: the insertion window's program for type msb 00
-void ins_m01(yss236_core& c, int from, int to);     // ins-m01: the insertion window's program for type msb 01
-void ins_m02(yss236_core& c, int from, int to);     // ins-m02: the insertion window's program for type msb 02
-void ins_m03(yss236_core& c, int from, int to);     // ins-m03: the insertion window's program for type msb 03
-void ins_m04(yss236_core& c, int from, int to);     // ins-m04: the insertion window's program for type msb 04
-void ins_m05(yss236_core& c, int from, int to);     // ins-m05: the insertion window's program for type msb 05
-void ins_m07(yss236_core& c, int from, int to);     // ins-m07: the insertion window's program for type msb 07
-void ins_m10(yss236_core& c, int from, int to);     // ins-m10: the insertion window's program for type msb 10
-void ins_m12(yss236_core& c, int from, int to);     // ins-m12: the insertion window's program for type msb 12
-void ins_m13(yss236_core& c, int from, int to);     // ins-m13: the insertion window's program for type msb 13
-void rev(yss236_core& c, int from, int to);         // rev: the reverb's steps of the base program
-void var_m00(yss236_core& c, int from, int to);     // var-m00: the variation window's program for type msb 00
-void var_m01(yss236_core& c, int from, int to);     // var-m01: the variation window's program for type msb 01
-void var_m02(yss236_core& c, int from, int to);     // var-m02: the variation window's program for type msb 02
-void var_m03(yss236_core& c, int from, int to);     // var-m03: the variation window's program for type msb 03
-void var_m04(yss236_core& c, int from, int to);     // var-m04: the variation window's program for type msb 04
-void var_m05(yss236_core& c, int from, int to);     // var-m05: the variation window's program for type msb 05
-void var_m06(yss236_core& c, int from, int to);     // var-m06: the variation window's program for type msb 06
-void var_m07(yss236_core& c, int from, int to);     // var-m07: the variation window's program for type msb 07
-void var_m08(yss236_core& c, int from, int to);     // var-m08: the variation window's program for type msb 08
-void var_m09(yss236_core& c, int from, int to);     // var-m09: the variation window's program for type msb 09
-void var_m10(yss236_core& c, int from, int to);     // var-m10: the variation window's program for type msb 10
+	uint32_t offset[128] = {};   // each delay slot's offset, as the host sets it
+	int32_t ptr = 0;             // the delay memory's ring pointer, one word back a sample
+	std::vector<double> ram = std::vector<double>(RAM_WORDS);
+
+	// A delay slot's word, `older` words back: on the ring, or (table) at the slot's own offset.
+	uint32_t at(int slot, int older = 0) const { return uint32_t(ptr + int32_t(offset[slot]) + older) & (RAM_WORDS - 1); }
+	uint32_t table(int slot, int older = 0) const { return uint32_t(int32_t(offset[slot]) + older) & (RAM_WORDS - 1); }
+};
+
+using Program = void (*)(State&);
+
+// The base program, steps 0x000-0x0e7: the mixer, sends, returns, master EQ and the reverb
+void base(State&);
+// The aux window, 0x0e8-0x10f: eight smoothed send levels
+void aux(State&);
+// The reverb delay window, 0x110-0x157, by type msb: the reverb's delay half, the delay types, and the clear
+void dly_m00(State&); void dly_m08(State&); void dly_m11(State&);
+// The variation window, 0x158-0x19f, by type msb (fx_dispatch.cpp's VARIATION_ROUTES); m11 is the clear
+void var_m00(State&); void var_m01(State&); void var_m02(State&); void var_m03(State&);
+void var_m04(State&); void var_m05(State&); void var_m06(State&); void var_m07(State&);
+void var_m08(State&); void var_m09(State&); void var_m10(State&); void var_m11(State&);
+// The insertion window, 0x1a0-0x1ff, by type msb (INSERTION_ROUTES); m14 is the clear
+void ins_m00(State&); void ins_m01(State&); void ins_m02(State&); void ins_m03(State&);
+void ins_m04(State&); void ins_m05(State&); void ins_m07(State&); void ins_m10(State&);
+void ins_m12(State&); void ins_m13(State&); void ins_m14(State&);
 
 }  // namespace fs1r::effects

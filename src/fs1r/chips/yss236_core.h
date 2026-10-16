@@ -219,40 +219,14 @@ public:
 		return (uint32_t(slot[s & 0x7f][0] & 0x1ff) << 9) | (slot[s & 0x7f][1] & 0x1ff);
 	}
 
-	// A program written in C++ (src/effects/) for steps [from, to): it runs them in place of the
-	// interpreter and must leave every field of the core as step() would, so one can stand in for the
-	// other a step range at a time and be checked bit for bit (tools/vop3_native_check.cpp).
-	// fs1r::effects::install() picks the ranges from the words the chip holds; a program we did not port
-	// gets none, and step() runs it.
-	struct native_run { int from, to; void (*run)(yss236_core &, int from, int to); };
-	std::vector<native_run> natives;      // in step order and not overlapping; empty runs the program as uploaded
-
 	// One pass of the program over the current in[], lfo[]; fills out[].
 	void pass()
 	{
 		m_skip = 0;
-		if (interpret || natives.empty())
-			for (int st = 0; st < STEPS; st++)
-				step(st);
-		else
-			native_pass();
+		for (int st = 0; st < STEPS; st++)
+			step(st);
 		m_nhist = 0;
 		ptr = (ptr - 1) & (RAM_WORDS - 1);
-	}
-
-	// The native ranges, and the interpreter between them
-	void native_pass()
-	{
-		int st = 0;
-		for (native_run const &nr : natives)
-		{
-			for (; st < nr.from; st++)
-				step(st);
-			nr.run(*this, nr.from, nr.to);
-			st = nr.to;
-		}
-		for (; st < STEPS; st++)
-			step(st);
 	}
 
 	// The host's trigger, register 0x14: the constant loads of every gated block land at once.
@@ -288,12 +262,7 @@ public:
 	int64_t m_iq_at[4];
 	double m_iq_v[4];
 
-	// interpret, or FSVR_VOP3_INTERP in the environment, keeps a core on the interpreter and off the C++
-	// programs in src/effects/, for A/B runs. Both are bit for bit the same; this only says which runs.
-	bool interpret = []{ return std::getenv("FSVR_VOP3_INTERP") != nullptr; }();
-
-	// Public for the native programs, which reuse the step's own arithmetic and pipeline
-	// to stay bit for bit with it.
+	// The step's arithmetic, which fs1r/chips/word.h names for the native filters and effects.
 
 	static double s16(uint16_t k) { return int16_t(k) / 32768.0; }
 

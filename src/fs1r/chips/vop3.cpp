@@ -19,7 +19,7 @@ void Vop3::write(uint32_t reg, uint16_t v)
     if (select & AUTO_INCREMENT) select = (uint16_t)((select & ~(yss236_core::STEPS - 1)) | ((step + 1) & (yss236_core::STEPS - 1)));
     switch (reg) {
         case PROGRAM - 4: case PROGRAM - 3: case PROGRAM - 2: case PROGRAM - 1:
-        case PROGRAM:       core.prog[step][PROGRAM - reg] = v; core.decode(step); programDirty = true; break;
+        case PROGRAM:       core.prog[step][PROGRAM - reg] = v; core.decode(step); break;
         case COEF:          core.coef[step] = v; break;
         case TAG:           core.tag[step] = (uint8_t)v; break;
         case SLOT_HIGH:

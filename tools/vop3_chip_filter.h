@@ -11,7 +11,7 @@ struct ChipFilter final : fs1r::vop3host::WriteSink {
     fs1r::vop3host::FilterHost host;
     Vop3 chip;
 
-    ChipFilter() { chip.core.interpret = true; host.sink = this; host.boot(); reset(); }
+    ChipFilter() { host.sink = this; host.boot(); reset(); }
     ChipFilter(const ChipFilter&) = delete;
     ChipFilter& operator=(const ChipFilter&) = delete;
     void write(uint32_t reg, uint32_t v) override { chip.write(reg, (uint16_t)v); }

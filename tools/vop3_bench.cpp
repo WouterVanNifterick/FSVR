@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
     const int SAMPLES = 480000, OUT = 18;
 
     auto fx = std::make_unique<Effects>();
-    fx->chip.core.interpret = interp;
+    (void)interp;   // ponytail: -i is gone with the chip; the native section is the only one
     uint8_t c[H::COMMON_BYTES] = {};
     c[0x10] = 127; c[0x11] = 64; c[0x12] = 24;   // volume, pan and the rest as init_perf has them
     c[H::EQ_LOW_GAIN] = c[H::EQ_MID_GAIN] = c[H::EQ_HIGH_GAIN] = 64;

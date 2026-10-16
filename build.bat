@@ -6,7 +6,7 @@ rem   build.bat test                 -> builds and runs the self checks (engine,
 rem   build.bat plugin               -> every plug-in format through CMake into bin\<format>: CLAP, VST3, VST2 and the
 rem                                     standalone (64-bit, build\x64), then the 32-bit VST2 with the DXi in it (build\x86),
 rem                                     then the plug-in's own checks (check_plugin, check_gui)
-rem   build.bat bench                -> bin\vop3_bench.exe, the VOP3 chips' cost and bit-exact output (tools\vop3_bench.cpp)
+rem   build.bat bench                -> bin\vop3_bench.exe, the filter and effects' cost and bit-exact output (tools\vop3_bench.cpp)
 rem   build.bat file.cpp [cl args]   -> compiles whatever you pass (paths relative to this folder)
 rem   set FSVR_MATH=0..3           -> the sample loop's maths backend (src\fsvr\fastmath.h): 0 raw libm, 1 LUT (unset), 2 CORDIC, 3 hybrid
 rem CMakeLists.txt builds the same targets for anything that is not MSVC-on-Windows.
@@ -17,7 +17,7 @@ if not exist bin mkdir bin
 set MATHDEF=
 rem The chip, its two hosts and the sections over them are bit-exact only without FMA contraction, so they are compiled apart.
 rem VS 2022 does not contract under /fp:precise (tools\vop3_bench.cpp writes the same bytes as under /fp:strict).
-rem The chip's programs are the C++ in src\effects\, so nothing is compiled at run time and nothing links a code generator.
+rem The filters and effects are plain C++ DSP in src\filters\ and src\effects\; no chip is emulated at run time.
 set VOP3FLAGS=/nologo /O2 /EHsc /W3 /std:c++20 /fp:precise /I src
 set VOP3OBJ=build\vop3host\*.obj
 if defined FSVR_MATH set MATHDEF=/DFSVR_MATH=%FSVR_MATH%

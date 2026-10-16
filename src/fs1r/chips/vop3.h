@@ -32,7 +32,6 @@ struct Vop3 : Modulators {
 
     yss236_core core;
     uint16_t select = 0;                    // the register latch
-    bool programDirty = true;               // a program word was written since fs1r::effects::install last ran
 
     void write(uint32_t reg, uint16_t v);
     void run();                             // one sample: the EGs, the LFOs, then the program over core.in into core.out

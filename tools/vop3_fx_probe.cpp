@@ -5,11 +5,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
-#include "effects/effects.h"
+#include "vop3_chip_effects.h"
 int main(int argc, char** argv) {
     std::vector<uint8_t> p(400); FILE* f = fopen(argv[1], "rb"); fread(p.data(), 1, 400, f); fclose(f);
     int bus = atoi(argv[2]); double secs = atof(argv[3]);
-    Effects fx; fx.load(p.data()); fx.host.runPosted();
+    ChipEffects fx; fx.load(p.data()); fx.host.runPosted();
     yss236_core& c = fx.chip.core;
     for (int a = 4; a < argc; a++) {
         char* s = argv[a]; int st = strtol(s, &s, 16); s++;

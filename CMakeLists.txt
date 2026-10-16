@@ -29,10 +29,7 @@ set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp src/effects/*.cpp src/filters/*.cpp)
 add_library(vop3host STATIC ${VOP3HOST} src/fs1r/chips/vop3.cpp)
 target_include_directories(vop3host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-# C++20 for the natives' designated initializers ({.st = st, .sr = 5, .add = ADD_ACC}), which name a
-# step's fields instead of counting commas.
 set_target_properties(vop3host PROPERTIES CXX_STANDARD 20)
-# Every program runs as C++, from src/effects/, so nothing else is compiled or linked here.
 foreach(t vop3host)
   if(MSVC)
     target_compile_options(${t} PRIVATE /W3 /fp:precise /permissive-)
@@ -90,20 +87,22 @@ else()
   add_test(NAME engine COMMAND engine_selftest)
 endif()
 
-# The programs written in C++ against the interpreter, each on every type that runs it (docs/vop3_native/).
+# The native filters and effects against the firmware's programs on the chip interpreter, every type.
 add_executable(vop3_native_check tools/vop3_native_check.cpp)
 target_link_libraries(vop3_native_check PRIVATE vop3host)
 if(NOT MSVC)
   target_compile_options(vop3_native_check PRIVATE -ffp-contract=off)
 endif()
 add_test(NAME vop3_native COMMAND vop3_native_check)
+# Lifts the effect programs out of the chip's (rewrites src/effects/<program>.cpp; not a test).
+add_executable(fx_lift EXCLUDE_FROM_ALL tools/fx_lift.cpp)
+set_target_properties(fx_lift PROPERTIES CXX_STANDARD 20)
+target_link_libraries(fx_lift PRIVATE vop3host)
 # The two chips' cost per sample, and their output's hash (not a test: a number to compare builds by).
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
   add_executable(vop3_bench EXCLUDE_FROM_ALL tools/vop3_bench.cpp)
   target_link_libraries(vop3_bench PRIVATE vop3host)
 endif()
-# The same programs as the engine installs them, all at once, which is the path the plugin runs.
-add_test(NAME vop3_installed COMMAND vop3_native_check --installed)
 
 option(FSVR_BUILD_PLUGIN "Build the plug-in (downloads its SDKs on the first configure)" OFF)
 if(FSVR_BUILD_PLUGIN)

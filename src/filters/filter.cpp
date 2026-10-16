@@ -8,7 +8,7 @@
 
 namespace {
 using fs1r::filters::VoiceFilter;
-namespace word = fs1r::filters::word;
+namespace word = fs1r::word;
 
 // OPEN: the level a channel reaches the filter at. A channel at its clip level is taken to be a full-scale
 // serial word. What comes back is scaled so that the passband loses cal::FLT_LOSS, as measured on the unit.

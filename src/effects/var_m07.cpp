@@ -1,4 +1,4 @@
-// effects/var_m07.cpp - VOP3-2, the variation window's program for 3-Band EQ: its 72 steps.
+// effects/var_m07.cpp - the variation window's program for 3-Band EQ.
 //
 // rom::VARIATION_PROGRAMS[13], the program the window holds for the one variation type 13, and one of the
 // twelve programs those twenty-nine types share: fx_dispatch.cpp's VARIATION_ROUTES gives msb 13 to
@@ -22,9 +22,6 @@
 // designer's scale took out. What the section computes is then the difference equation
 //
 //   y[n] = b0 x[n] + b1 x[n-1] + b2 x[n-2] + (-a1) y[n-1] + (-a2) y[n-2]
-//
-// one order-2 section per band, each on the previous band's output: three cascaded sections per channel,
-// and nothing else in the program. BANDS below is those six sections, one row each.
 //
 // The type's own preset holds all three gains at 0 dB, and then each band's numerator word pair is the
 // same polynomial as its denominator pair: the left low band 1.0000, -1.949341, +0.950012 against the
@@ -51,8 +48,6 @@
 // preset holds the mono words (QUARTER, QUARTER, HALF at 0x158, 0x159, 0x169, and zero at 0x17B), which
 // is what the checker runs it under.
 //
-// The 72 steps, in the five groups the loop below splits them into:
-//
 //   0x158-0x159  EQ3_A. m[2] and m[6] take the serial inputs for the base program, and the two words
 //                sum the left input into r[103]: the first into the running value, the second doubling
 //                that plus a quarter of the right one. 0x158 has no adder input and no route, so it is
@@ -67,8 +62,6 @@
 //                cells: the slots 0x63, 0x64 and 0x65 read at 0x18f, 0x193 and 0x197, the captures at
 //                0x194, 0x198 and 0x19c that take them into m[31], m[32] and m[33] five steps later,
 //                which is captured()'s lower bound, and the LFO of page 12 at 0x186 into m[12].
-//
-// Each band's five steps, which band_step() runs in this order:
 //
 //   b1  the word on the band's input, with no adder, which opens the sum
 //   b2  the word on the z^-1 copy of that input, which the same step writes (w1[7]), added to the sum
@@ -97,156 +90,65 @@
 // the base program's INIT_DELAY_* offsets put them. Nothing here writes the delay RAM and nothing reads
 // at a delay index, so no band is a delay line and no step in the program is a tap: the variation
 // window's 3-Band EQ is three cascaded order-2 sections per channel and no memory at all.
-//
-// Every constant the program reads is read from c.coef[st] on the pass, and every delay offset through
-// c.addr() off the c.slot[] entry the host last wrote, so no number the firmware chose is folded in here:
-// the program words are fixed per row and each step's fields are folded into the arithmetic below in the
-// order yss236_core::step() runs its own.
-//
-// docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, and effects/steps.h is those shapes, so the arithmetic below is spelled out
-// by name rather than a step at a time.
-//
-// vop3_native_check var-m07: identical, 1 type, 9600 native passes.
 
 #include "effects/programs.h"
-#include "effects/steps.h"
 
 namespace fs1r::effects {
 
 namespace {
 
-using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
+using word::sat;
+using word::sum;
 
-// One band, in direct form I. `in` is the register its input is in, which b1 and b0 read a pass later
-// than the step before the band wrote it; `x1` holds that input a pass older, which is what b2 reads and
-// what the same step writes; `y1` is the band's output a pass back, which -a1 reads and b0 overwrites;
-// `y2` is its output two passes back, which -a2 reads.
-struct Band
+// One channel's three bands, cascaded, in direct form I. `w` is the channel's fifteen words, five a band in
+// step order (b1, b2, -a1, -a2, b0); `h` its eight history registers: the input's last two samples, then
+// each band's last two outputs, which are also the next band's input history. The high band's route (x16)
+// restores the scale its designer took out (designFilter(2, 4, ...)); the lower two are designed at x2.
+double eq3(double const* w, double* h, double x)
 {
-	int base;                  // the first of the five steps
-	int in, x1, y1, y2;
-	step::route_t route;       // the closing step's route, which restores the designer's scale
-	bool own_y2;               // the -a2 step is also the z^-1 that keeps y[-2] itself
-	Decor decor[5];
-};
-
-// The six bands: three per channel, each one on the last band's output. The left high band and the
-// right high band are the two designFilter(2, 4, ...) sections, so their closing steps carry the x16
-// route the other four do not, and those two are the bands whose own -a2 step keeps their y[-2]: the
-// four lower bands read that delay out of the register the next band up writes.
-constexpr Band BANDS[6] = {
-    //  base   in  x1   y1   y2  route        b1               b2                 -a1            -a2             b0
-    { 0x15a, 103, 104, 105, 106, ROUTE_2,  false, { {},                {DEC_READ, 0x56},  {},            {}, {}                } },
-    { 0x15f, 105, 106, 107, 108, ROUTE_2,  false, { {DEC_READ, 0x57},  {DEC_CAPTURE, 28}, {},            {}, {DEC_READ, 0x58}  } },
-    { 0x164, 107, 108, 109, 110, ROUTE_16, true,  { {DEC_CAPTURE, 29}, {},                {DEC_LFO, 11}, {}, {DEC_CAPTURE, 30} } },
-    { 0x16a, 111, 112, 113, 114, ROUTE_2,  false, { {},                {},                {},            {}, {}                } },
-    { 0x16f, 113, 114, 115, 116, ROUTE_2,  false, { {},                {},                {},            {}, {}                } },
-    { 0x174, 115, 116, 117, 118, ROUTE_16, true,  { {},                {},                {},            {}, {}                } },
-};
-
-// One band's five steps. The decor the step's words carry comes first, because step() moves a cell or
-// reads the delay RAM before it does any arithmetic, and then the band's term for this step.
-void band(yss236_core& c, int st, Band const& b, int k)
-{
-	decor(c, st, b.decor[k]);
-	switch (k)
-	{
-	case 0:  term(c, st, b.in); break;                                   // b1 on x[n]
-	case 1:  copy_z(c, st, b.x1, b.x1, ADD_ACC, CLAMP_WRAP); break;      // b2 on x[n-1], and x[n-1] copied
-	case 2:  sum(c, st, b.y1); break;                                    // -a1 on y[n-1]
-	case 3:
-		// -a2 on the output two passes back. Where that delay is a register of the band's own, this step
-		// keeps it as well, by its own z^-1; the four lower bands read the one the band above writes.
-		if (b.own_y2) copy_z(c, st, b.y2, b.y2, ADD_ACC, CLAMP_WRAP);
-		else          sum(c, st, b.y2);
-		break;
-	default: close(c, st, b.in, b.y1, b.route); break;                  // b0 on x[n], into y[n]
+	constexpr double ROUTE[3] = {2.0, 2.0, 16.0};
+	double y[3];
+	double in = x;
+	for (int b = 0; b < 3; b++) {
+		double const* c = w + 5 * b;
+		double const* z = h + 2 * b;
+		in = y[b] = sat((c[4] * in + sum(c[0] * z[0], c[1] * z[1], c[2] * z[2], c[3] * z[3])) * ROUTE[b]);
 	}
-}
-
-// The run of steps 0x158 to 0x19f, the whole of the window's program. The loop is one iteration per
-// step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half skips
-// these steps as it would the interpreter's.
-void block_0x158(yss236_core& c)
-{
-	for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
-	{
-
-		if (st < 0x15a)
-		{
-			// ---- EQ3_A: the two serial inputs this window publishes for the base program ----
-			if (st == 0x158)
-			{
-				take_serial(c, 2, st, 0);
-				term(c, st, 5);                       // acc = k * r[5], the left input alone
-			}
-			else
-			{
-				take_serial(c, 6, st, 1);
-				// r[103] = (k * r[6] + acc) * 2: the left and right inputs summed for the bands
-				close(c, st, 6, 103, ROUTE_2);
-			}
-			return;
-		}
-
-		if (st < 0x169)
-		{
-			// ---- the left channel's three bands, cascaded ----
-			Band const& b = BANDS[(st - 0x15a) / 5];
-			band(c, st, b, st - b.base);
-			return;
-		}
-
-		if (st == 0x169)
-		{
-			// EQ3_A[2]: the right input doubled on its own, with no adder input
-			gain(c, st, 6, 111, ROUTE_2);
-			return;
-		}
-
-		if (st < 0x179)
-		{
-			// ---- the right channel's three bands, the same six steps on the copy ----
-			Band const& b = BANDS[3 + (st - 0x16a) / 5];
-			band(c, st, b, st - b.base);
-			return;
-		}
-
-		if (st < 0x17c)
-		{
-			// ---- EQ3_B: the two outputs, and the word between them that carries the channel ----
-			switch (st)
-			{
-			case 0x179: gain(c, st, 109, 15, ROUTE_4); break;      // r[15] = 4 k r[109]: the left chain
-			case 0x17a: term(c, st, 109); break;                    // the same word with no route and no register
-			default:    close(c, st, 117, 16, ROUTE_4); break;      // r[16] = 4 (k r[117] + acc): the right chain
-			}
-			return;
-		}
-
-		// ---- the tail: three published reads, the captures that take them up, and the second LFO ----
-		// The reads are at 0x18f, 0x193 and 0x197 and each capture follows five steps later, which is
-		// captured()'s lower bound, so the tail is idle between them but for the x latch.
-		int const k = st - 0x18f;
-		if (k == 0 || k == 4 || k == 8)
-			read_delay(c, st);
-		else if (k == 5 || k == 9 || k == 13)
-			take_capture(c, 31 + (k - 5) / 4, st);
-		else if (st == 0x186)
-			take_lfo(c, 12, st);
-		idle(c);
-		});
+	// every history pair moves one sample on
+	for (int b = 3; b-- > 0;) { h[2 * b + 3] = h[2 * b + 2]; h[2 * b + 2] = y[b]; }
+	h[1] = h[0];
+	h[0] = x;
+	return in;
 }
 
 }  // namespace
 
-// One run of the variation window's steps, exactly as yss236_core::step() would run them. The program is
-// one run; a range no host builds falls back to the interpreter.
-void var_m07(yss236_core& c, int from, int to)
+void var_m07(State& s)
 {
-	if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
-	for (int st = from; st < to; st++) c.step(st);
+	auto& r = s.r;
+	auto const& k = s.k;
+
+	// The window moves cells for the other programs: two serial inputs, two LFOs and six delay taps.
+	constexpr int TAPS[6] = {0x56, 0x57, 0x58, 0x63, 0x64, 0x65};
+	double tap[6];
+	for (int i = 0; i < 6; i++) tap[i] = s.ram[s.at(TAPS[i])];
+
+	// The inputs: left is EQ3_A's mix of the two sends (mono: their average), right the right send
+	double const left = sat((k[0x159] * r[6] + sum(k[0x158] * r[5])) * 2.0);
+	double const right = sat((k[0x169] * r[6] + 0.0) * 2.0);
+
+	double const l = eq3(&k[0x15a], &r[103], left);
+	double const rr = eq3(&k[0x16a], &r[111], right);
+
+	// EQ3_B: the two outputs at the type's level; in mono both carry the left chain
+	r[15] = sat((k[0x179] * l + 0.0) * 4.0);
+	r[16] = sat((k[0x17b] * rr + sum(k[0x17a] * l)) * 4.0);
+
+	s.m[2] = s.in[0][10];
+	s.m[6] = s.in[1][10];
+	s.m[11] = s.lfo[11];
+	s.m[12] = s.lfo[12];
+	for (int i = 0; i < 6; i++) s.m[28 + i] = tap[i];
 }
 
 }  // namespace fs1r::effects

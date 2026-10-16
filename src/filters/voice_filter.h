@@ -6,7 +6,7 @@
 //
 // The arithmetic is the chip's, operation for operation, in its own number format: values are doubles
 // that a register wraps or saturates at +-128, a t register holds as a 1.15 word, and a cell clips at
-// +-128 (word:: below). Keep every operation in this order, including the `+ 0.0`s, which the chip does
+// +-128 (fs1r/chips/word.h). Keep every operation in this order, including the `+ 0.0`s, which the chip does
 // and which turn a -0 into +0: the voice is checked bit for bit against the chip's program
 // (tools/vop3_native_check flt).
 //
@@ -16,40 +16,11 @@
 
 #include <cmath>
 
+#include "fs1r/chips/word.h"
+
 namespace fs1r::filters {
 
-// The chip's number format
-namespace word {
-
-// A register: wraps two's complement at +-128 (mode 0), saturates (1), or saturates and holds the
-// negatives at zero (2). The running sum wraps at +-256 instead. The wraps add and take back the range
-// rather than testing it, because that is what rounds the way the chip's program was measured to.
-inline double floored_mod(double a, double m)
-{
-	double v = std::fmod(a, m);
-	if (v != 0 && ((m < 0) != (v < 0))) v += m;
-	return v;
-}
-inline double wrap_in(double y, double half)
-{
-	double const a = y + half;
-	if (a >= 0 && a < 2 * half) return a - half;
-	return floored_mod(a, 2 * half) - half;
-}
-inline double clip(double v, double lo, double hi) { double const m = v < hi ? v : hi; return lo < m ? m : lo; }
-inline double wrap(double y) { return wrap_in(y, 128.0); }
-inline double wrap_sum(double y) { return wrap_in(y, 256.0); }
-inline double sat(double y) { return clip(y, -128.0, 128.0 - 1.0 / 256); }
-inline double pos(double y) { y = sat(y); return 0.0 < y ? y : 0.0; }
-inline double cell(double y) { return clip(y, -128.0, 128.0); }
-// A value as a t register holds it: a 1.15 multiplier of y / 128
-inline double q15(double y)
-{
-	double const w = y * 256.0;
-	return (w < -32768.0 ? -32768.0 : 32767.0 < w ? 32767.0 : w) / 32768.0;
-}
-
-}  // namespace word
+namespace word = fs1r::word;
 
 struct VoiceFilter
 {

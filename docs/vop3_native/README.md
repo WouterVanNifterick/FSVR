@@ -1,48 +1,40 @@
-# The VOP3 programs in C++
+# The filters and effects as plain DSP
 
-The FS1R runs its voice filters and its effects on two VOP3 chips executing the firmware's own microcode. FSVR replaces that microcode with C++ that produces the same result bit for bit, and the interpreter in `src/fs1r/chips/yss236_core.h` stays only as the reference the C++ is checked against.
+The FS1R runs its voice filters and its effects on two VOP3 chips executing the firmware's own programs. FSVR runs neither chip: `src/filters` and `src/effects` are those programs as plain DSP, bit for bit, and the chip interpreter in `src/fs1r/chips/yss236_core.h` stays only as the reference they are checked against.
 
-The voice filter is done and is no longer a chip program at all: `src/filters/voice_filter.h` is one voice's resonant ladder as plain DSP, and `src/filters/filter.h` runs one per channel (32 of them), programmed by the firmware's filter host. The effect programs are still run on the effect chip's state, one native per program, which is what the rest of this brief describes.
+- **Filters.** `src/filters/voice_filter.h` is one voice's resonant ladder; `src/filters/filter.h` runs one per channel (32 of them), programmed by the firmware's filter host.
+- **Effects.** `src/effects/effects.h` is the effect host, its LFOs and the five programs it has loaded, run on one `State` (`src/effects/programs.h`): the base program (mixer, sends, returns, master EQ, reverb), aux, the reverb delay window, the variation window and the insertion window. Each program is a function `void ins_m03(State&)`, one sample, in `src/effects/<program>.cpp`. The programs talk only through the `State`: the stereo sends and returns in `r[3]`..`r[18]`, a few cells and the delay memory.
 
-The tracker is `docs/vop3_native/status.json`, one row per chip program the FS1R loads, and the public view of it is https://ai.musica.studio/effects. Work happens on the `vop3-native` branch only.
+The tracker is `docs/vop3_native/status.json`, and the public view of it is https://ai.musica.studio/effects. Work happens on the `vop3-native` branch only.
 
-## What a native program is
+## Where the code comes from
 
-A native program is one C++ function per chip program, in `src/effects/<key>.cpp` (the key with `-` as `_`, so `ins-m03` is `ins_m03.cpp` and the function `ins_m03`):
+`tools/fx_lift` writes each effect program's body from the chip's program: it runs the program through a symbolic copy of `yss236_core::step()`, resolves the pipeline, the latches, the delay captures and the conditional skips at lift time, and prints the arithmetic that is left, in the chip's order. `fx_lift --seal` proves that no stage reads a latch or an in-flight write of the stage before it, for every combination of programs the EPROM holds; that proof is what lets a program be a function of the `State` alone.
 
-```cpp
-void ins_m03(yss236_core& core, int from, int to);
+```
+cmake --build build --target fx_lift && build/fx_lift src/effects   # rewrites the bodies, keeps each file's header
+build/vop3_native_check                                             # the filter and every effect type, against the chip
 ```
 
-It runs steps `from` to `to - 1` of its program on the core's own state, exactly as `yss236_core::step()` would run them, and leaves every field of the core as `step()` would leave it: the registers, cells, t file, running value, operands, delay RAM, pointer, step counter, compare flag, skip state and the pending writes in `m_rq`, `m_dq`, `m_tq` and the index queue. That is the whole contract, and `tools/vop3_native_check` enforces it after every sample. The core's helpers are public for this: `begin_step()` (what every step does first), `queue_r`, `queue_d`, `queue_t`, `queue_i`, `cur_idx`, `mode`, `accmode`, `clip`, `s16`, `addr`, `captured`, `push_hist`, `t_write` and `adder`.
+A lifted body is correct, not yet readable. The work on a program is to make it read as the DSP it is, from there:
 
-The constants and delay offsets are not part of the program. The host rewrites them whenever a parameter moves, so a native reads them from `core.coef[st]` and `core.slot[]` every pass, never as numbers in the code. The program words are fixed per row, so a native may fold them: a step whose fields say "class 2, route 1, saturate, write r[67]" becomes that arithmetic written out, with no decode.
+- Name what a run of arithmetic is (a one-pole, a biquad, a delay tap with interpolation, an LFO-swept allpass) and give it a small function or a table of its units, as `voice_filter.h` does for the ladder.
+- Name the registers and cells by what they hold (`state.r[103]` is the variation's summed input under 3-Band EQ). The file's header comment, from the earlier port, already says most of this.
+- Keep every operation and its order, including the `+ 0.0` a sum opens with: `word::sum(a, b, c)` is the chip's running sum in its order, and `word.h` has the number format.
+- Check after every change. A tidy program that is not identical is worth less than a lifted one that is.
 
-`src/effects/steps.h` is where that folding lives. It holds the dozen shapes every step of every chip program has, each one `step()` with a row's program words already read and named the way `step()` names them, so a program reads as the arithmetic it computes instead of as its own plumbing: `term`, `sum`, `close`, `gain`, `copy_z`, `load` and `idle` for the step's arithmetic, `take_serial`/`take_lfo`/`take_capture`/`read_delay`/`tap_delay`/`write_delay`/`serial_out` for what a step does before it, `t_put` and `load_index` for the t file and the delay index, and `gate`/`skip_positive`/`skip_negative`/`jump` for the control steps. `run()` takes the `alu` struct and is the general form for a step that fits none of the named ones; a program reaches for it when the role has no name of its own, not by default. Nothing in that header decides anything, and every function there leaves the core bit for bit as `step()` would.
+Re-run `fx_lift` only for a program that has not been hand-edited, or after a change to `step()` or the EPROM tables; it overwrites the body.
 
-`yss236_core::step()` is the definition of what a step does. `tools/vop3_disasm.py` prints an older reading of the instruction set (see `docs/vop3_blockers.md`) and can be wrong where it disagrees with `step()`.
+## Checking
 
-## A row, start to finish
-
-The routine in #effects nudges you with the next row's brief. Each row moves through these stages, and you record each with `python3 tools/vop3_native.py set <key> <stage> --note "..."`:
-
-1. **reading.** Name this thread for the row first, with the `kimaki session title` command at the top of the brief, so #effects shows which program each thread is on. Then `build/vop3_native_check --dump <key> /tmp` prints every step of the program as the core holds it under a type that runs it, decoded, and writes `/tmp/<key>.prog` and `.coef` for `tools/vop3_disasm.py`. Read the old C++ model the brief names under "Start from" for the structure: which steps form a comb, an allpass, a delay line, an LFO sweep, a filter. The old models were fitted to recordings and are no reference for the numbers.
-2. **writing.** Write the function, from the structures you found rather than from the step list. A native is a table of its repeated units plus the small named functions that run one unit each: `ALLPASS[6]` and `allpass_step()` in `rev.cpp`, `SECTIONS[6]` and `eq_step()` in `base.cpp`, `BANDS[6]` and `band()` in `var_m07.cpp`. The step's arithmetic comes from `steps.h` and the rest is names and tables, so the transcription and the readable form are one pass rather than two. Check after every change; a tidy native that is not identical is worth less than an ugly one that is.
-
-   The block runs through `for_steps<From, To>(c, [&](yss236_core& c, auto st) { ... })`, never a `for` loop. `st` is a compile-time constant there, so every table lookup, `switch` and `if` on it folds away and each step compiles to its own arithmetic alone: that is what makes the natives faster than the JIT was. Keep it that way: tables `constexpr`, a step's fields as designated initialisers (`run(c, {.st = st, .sr = 54, .add = ADD_ACC, .dr = 55})`), anything a step does before its arithmetic as a `Decor` from `steps.h`, and nothing in a block that depends on run-time state other than the core's own. `build/vop3_bench` prints the cost per sample and the output hash, which must not move.
-
-   Four things the checker found in this work that are worth checking for deliberately, because a transcription of the words does not show them. A step can do more than one thing before its arithmetic, since `step()` does the cell moves and the delay RAM read first, and several programs have a step that reads the delay RAM *and* takes the page's LFO or a serial input on the same word: give the two separate fields. A step that both computes and stores the delay RAM needs `wdata` and `write` both set, because the `wdata` flag is what clears any data an earlier step latched. A step that latches a cell does not necessarily scale it, so `m2` is a field of its own. And the clamp is per step, not per program: a step that writes a register usually saturates and one that only moves the running value usually wraps.
-3. **checking.** Declare the function in `src/effects/programs.h`, add `{"<key>", <function>},` to the table in `src/effects/programs.cpp` in key order, build with `cmake --build build -j12` and run `build/vop3_native_check <key>`. It loads every type that runs the program, each over the last, changes every parameter halfway, and compares the whole core after every sample. The first field that differs is printed with the type and the sample. `--selftest` shows the check catching a native that is a hair off.
-4. **done.** `python3 tools/vop3_native.py check <key>` runs the checker and marks the row done only when it reports identical. Then run `ctest --test-dir build` (every test must pass), commit the native, its two registry lines and `status.json` together, and push.
-
-If you are stuck, do not go round in circles. Set the row to `blocked` with a note saying exactly what differs (the field, the type, the step you suspect) and what you tried, push, and stop. A person picks blocked rows up. After eight sessions on one row the brief says the same.
+`build/vop3_native_check <program>` (`flt`, `base`, `aux`, `ins-mNN`, `dly-mNN`, `var-mNN`) loads every effect type, each over the last, randomises every effect parameter halfway, and compares the native section with the chip interpreter after every sample: the outputs, the registers, cells and t registers, and every 256 samples the whole delay memory. The first thing that differs is printed with the type and the sample. With no argument it runs everything; `--selftest` shows it catching a voice or a program a hair off. `build/vop3_bench` prints the cost and an output hash that must not move.
 
 ## Rules
 
 - Bit for bit or not done. Nothing is rounded, tuned or "close enough". The checker is the judge, and the tracker only says done when it said identical.
-- Never change what the interpreter, the JIT, the hosts or the chip programs compute: `step()`, `yss236_jit.cpp`, `src/fs1r/firmware/`, `src/fs1r/chips/cal.h` and the ROM tables stay as they are, and `vop3_jit` must stay green. The natives adapt to them, never the reverse.
+- Never change what the interpreter, the hosts or the chip programs compute: `step()`, `src/fs1r/firmware/`, `src/fs1r/chips/cal.h` and the ROM tables stay as they are. The filters and effects adapt to them, never the reverse.
 - Never hand-edit generated files (FSVR's `AGENTS.md` lists them).
-- Build without FMA contraction: the natives are compiled into `vop3host`, which already has `-ffp-contract=off`. Keep each operation in the order `step()` does it, since doubles are not associative.
+- Build without FMA contraction: `src/effects` and `src/filters` are compiled into `vop3host`, which already has `-ffp-contract=off`. Keep each operation in the order the chip does it, since doubles are not associative.
 - Commit to `vop3-native` only, never `main`, and never force-push. One commit per finished row, plus progress commits while one is in hand, each with a message that says what changed and the check's result. Never add a co-author line for a tool or a model; the container's commit hook adds the people.
 - Before a session ends, record where the row stands with `set ... --note`, commit and push, so the next session (which may not be you) starts from the note and the branch, not from memory.
 - Keep each session to one row, and report in the thread as the next section says.
