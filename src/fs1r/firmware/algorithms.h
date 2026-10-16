@@ -1,7 +1,7 @@
 // FS1R algorithm connection table, lifted from EPROM 0x37C0DC (88 algorithms x 8 operators x {t0,t1}).
-// t0: bits 3-5 = input select (0/1 none, 3 feedback bus, 4 chain (previous op), 5 held bus, 6 sum bus, read-and-clear),
+// t0: bits 3-5 = input select (0/1 none, 3 feedback bus, 4 chain (previous op), 5 held bus, 6 sum bus, a read leaves it),
 //     bit 2 = write feedback bus, bit 1 = write held bus, bit 0 = unknown.  t1: bit 0 = carrier (to mix), bit 2 = add to sum bus,
-//     bit 1 = unknown.  Every op also writes the chain register.  See docs/ymp706_registers.md.
+//     bit 1 = clear the sum bus before this op adds (INFERRED).  Every op also writes the chain register.  See docs/ymp706_registers.md.
 static const unsigned char FS1R_ALG[88][16] = {
   {0x1d,0x03,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01}, // 1
   {0x1c,0x00,0x20,0x00,0x20,0x00,0x21,0x01,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x01}, // 2
