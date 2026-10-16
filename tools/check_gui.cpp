@@ -379,6 +379,11 @@ int main() {
             CHECK(peak > 1e-4f, "at Fastest the engine made no sound (peak %g)", peak);
             CHECK(u.until([&] { return has("\"speed\": 3"); }), "Settings.json did not follow Quality / Speed");
             u.set("opt.speed", 0);
+            // 32 Filtered Voices is on by default and its toggle reaches Settings.json
+            CHECK(u.get("opt.filter32") == 1, "32 Filtered Voices was not on by default");
+            u.click("pages/list/special/filter32");
+            CHECK(u.until([&] { return u.get("opt.filter32") == 0 && has("\"filter32\": 0"); }), "Settings.json did not follow 32 Filtered Voices");
+            u.click("pages/list/special/filter32");
             u.shot("options");
         }
 
@@ -654,6 +659,19 @@ int main() {
                 CHECK(u.get("gui.eg_sync") == 0 && picture() == was, "not synced, operator 2's plot still followed operator 1's");
                 u.click("pages/envs_sync");
             }
+            // The side pane's plot is the same model plot: the wheel zooms, a double-click fits again.
+            if (u.rect("opcol/envelope", env)) {
+                u.set(id("eg_t4"), 40);
+                u.run(2);
+                const int ex = env.x + env.w / 3, ey = env.y + env.h / 2;
+                u.clickAt(env.x + env.w - 10, env.y + 6, true);
+                const uint64_t fit = picture();
+                u.gui.wheel(ex, ey, 3, false);
+                u.run(2);
+                CHECK(picture() != fit, "the wheel did not zoom the side pane's EG plot");
+                u.clickAt(env.x + env.w - 10, env.y + 6, true);
+                CHECK(picture() == fit, "a double-click did not fit the side pane's EG plot again");
+            }
         }
 
         // ---- sliders: the volume knob and Easy's attack fader drag, and a double-click resets ----------
@@ -681,10 +699,15 @@ int main() {
             CHECK(u.get("part.note_reserve.p1") == rsv + 1, "the reserve's up stepper left it at %g, from %g", u.get("part.note_reserve.p1"), rsv);
             if (u.rect("pages/reserve_1", r)) u.clickAt(r.x + 3, r.y + r.h / 2);
             CHECK(u.get("part.note_reserve.p1") == rsv, "the reserve's down stepper left it at %g", u.get("part.note_reserve.p1"));
-            const double ch = u.get("part.rcv_ch.p1");
-            if (u.rect("pages/rcv_1", r)) u.clickAt(r.x + r.w - 3, r.y + r.h / 2);
-            CHECK(u.get("part.rcv_ch.p1") == ch + 1, "the MIDI channel's up stepper gave %g, from %g", u.get("part.rcv_ch.p1"), ch);
-            if (u.rect("pages/rcv_1", r)) u.clickAt(r.x + 3, r.y + r.h / 2);
+            const double ch = u.get("part.rcv_ch.p1");   // the MIDI channel is a menu: 1 to 16, the performance channel and off
+            u.click("pages/rcv_1");
+            u.choose("5");
+            CHECK(u.get("part.rcv_ch.p1") == 4, "the MIDI channel menu's 5 gave %g", u.get("part.rcv_ch.p1"));
+            u.click("pages/rcv_1");
+            u.choose("Pfm");
+            CHECK(u.get("part.rcv_ch.p1") == 16, "the MIDI channel menu's Pfm gave %g", u.get("part.rcv_ch.p1"));
+            u.set("part.rcv_ch.p1", ch);
+            u.settle();
             // the keyboard: a key three quarters up moves the range's top down to it; the slider over the keys shifts
             if (u.rect("pages/keys_1", r)) u.clickAt(r.x + r.w * 3 / 4, r.y + r.h - 3);
             CHECK(u.get("part.note_high.p1") < 127 && u.get("part.note_high.p1") > 64, "a key three quarters up made the top %g", u.get("part.note_high.p1"));
@@ -700,6 +723,31 @@ int main() {
             const double depth = u.get("part.vel_depth.p1");
             if (u.rect("pages/velocity_1", r)) u.drag(r.x + r.w - 7, r.y + 7, 0, 20);
             CHECK(u.get("part.vel_depth.p1") < depth, "dragging the velocity curve's right end down left the depth at %g", u.get("part.vel_depth.p1"));
+            // either end dragged past the other inverts the range: all but the gap between them plays, and is lit
+            u.set("part.note_low.p1", 40);
+            u.set("part.note_high.p1", 80);
+            if (u.rect("pages/keys_1", r)) {
+                auto keyX = [&](int n) {   // white key n's middle, along the 75 white keys
+                    int i = 0;
+                    for (int m = 0; m < n; ++m) i += !(0x54a >> (m % 12) & 1);   // 0x54a: the black keys in an octave
+                    return r.x + (int)((i + 0.4) * r.w / 75);
+                };
+                u.drag(keyX(40), r.y + r.h - 3, keyX(100) - keyX(40), 0);
+                auto keyLit = [&](int n) { return (u.gui.pixels()[(size_t)(r.y + r.h - 3) * u.gui.width() + keyX(n)] & 0xffffff) == 0x82ca9c; };
+                CHECK(u.get("part.note_low.p1") > 90 && u.get("part.note_high.p1") == 80, "dragging the low key past the high one gave %g to %g",
+                      u.get("part.note_low.p1"), u.get("part.note_high.p1"));
+                CHECK(keyLit(21) && keyLit(77) && !keyLit(84) && keyLit(120), "an inverted range lit keys 21 %d, 77 %d, 84 (in the gap) %d, 120 %d",
+                      keyLit(21), keyLit(77), keyLit(84), keyLit(120));
+            }
+            u.set("part.vel_high.p1", 64);
+            if (u.rect("pages/velocity_1", r)) u.drag(r.x + 7, r.y + r.h - 7, r.w - 14, 0);
+            CHECK(u.get("part.vel_low.p1") > 100 && u.get("part.vel_high.p1") == 64, "dragging the velocity's low end past its high one gave %g to %g",
+                  u.get("part.vel_low.p1"), u.get("part.vel_high.p1"));
+            u.shot("parts_inverted");
+            u.set("part.note_low.p1", 0);
+            u.set("part.note_high.p1", 127);
+            u.set("part.vel_low.p1", 1);
+            u.set("part.vel_high.p1", 127);
             // Poly and Mono are radio buttons; the priorities show with Mono only
             u.click("pages/poly_1");
             CHECK(u.get("part.poly.p1") == 1 && !u.shows("pages/prio_top_1"), "Poly left the part at %g, its priorities showing", u.get("part.poly.p1"));

@@ -91,7 +91,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light_tab"
+    "image": "panels/group_box_tab"
    }
   },
   {
@@ -194,7 +194,7 @@
     0
    ],
    "fill": {
-    "image": "panels/group_tab_light"
+    "image": "panels/group_tab"
    }
   },
   {
@@ -203,7 +203,7 @@
    "rect": [
     24,
     80,
-    76,
+    74,
     18
    ],
    "fill": {
@@ -227,7 +227,7 @@
    "rect": [
     24,
     102,
-    76,
+    74,
     20
    ],
    "fill": {
@@ -252,11 +252,64 @@
   },
   {
    "type": "plate",
+   "name": "pitch_3_label",
+   "rect": [
+    102,
+    80,
+    74,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Detune",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "pitch_3",
+   "rect": [
+    102,
+    102,
+    74,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.detune.{part}"
+  },
+  {
+   "type": "plate",
    "name": "pitch_1_label",
    "rect": [
-    104,
+    182,
     80,
-    76,
+    74,
     18
    ],
    "fill": {
@@ -278,9 +331,9 @@
    "type": "number",
    "name": "pitch_1",
    "rect": [
-    104,
+    182,
     102,
-    76,
+    74,
     20
    ],
    "fill": {
@@ -307,9 +360,9 @@
    "type": "plate",
    "name": "pitch_2_label",
    "rect": [
-    184,
+    260,
     80,
-    76,
+    74,
     18
    ],
    "fill": {
@@ -331,9 +384,9 @@
    "type": "number",
    "name": "pitch_2",
    "rect": [
-    184,
+    260,
     102,
-    76,
+    74,
     20
    ],
    "fill": {
@@ -357,65 +410,12 @@
    "param": "part.bend_down.{part}"
   },
   {
-   "type": "plate",
-   "name": "pitch_3_label",
-   "rect": [
-    264,
-    80,
-    76,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "text": "Detune",
-    "font": "caption_grey_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
-   "type": "number",
-   "name": "pitch_3",
-   "rect": [
-    264,
-    102,
-    76,
-    20
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "text": "",
-    "font": "value_dark_12",
-    "align": "center",
-    "valign": "middle"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
-   "param": "part.detune.{part}"
-  },
-  {
    "type": "button",
    "name": "porta",
    "rect": [
     369,
     80,
-    110,
+    128,
     18
    ],
    "fill": {
@@ -442,11 +442,46 @@
   },
   {
    "type": "button",
-   "name": "porta_mode_fingered",
+   "name": "porta_mode_fulltime",
    "rect": [
     369,
     104,
-    58,
+    64,
+    22
+   ],
+   "fill": {
+    "image": "buttons/nav_small"
+   },
+   "text": {
+    "text": "Always",
+    "font": "caption_grey_12",
+    "align": "center",
+    "valign": "middle",
+    "onFont": "caption_white_12"
+   },
+   "pad": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "hoverTiles": true,
+   "pressOffset": [
+    1,
+    1
+   ],
+   "param": "part.porta_mode.{part}",
+   "action": {
+    "value": 1
+   }
+  },
+  {
+   "type": "button",
+   "name": "porta_mode_fingered",
+   "rect": [
+    435,
+    104,
+    64,
     22
    ],
    "fill": {
@@ -473,41 +508,6 @@
    "param": "part.porta_mode.{part}",
    "action": {
     "value": 0
-   }
-  },
-  {
-   "type": "button",
-   "name": "porta_mode_fulltime",
-   "rect": [
-    429,
-    104,
-    58,
-    22
-   ],
-   "fill": {
-    "image": "buttons/nav_small"
-   },
-   "text": {
-    "text": "Fulltime",
-    "font": "caption_grey_12",
-    "align": "center",
-    "valign": "middle",
-    "onFont": "caption_white_12"
-   },
-   "pad": [
-    1,
-    1,
-    1,
-    1
-   ],
-   "hoverTiles": true,
-   "pressOffset": [
-    1,
-    1
-   ],
-   "param": "part.porta_mode.{part}",
-   "action": {
-    "value": 1
    }
   },
   {
@@ -927,62 +927,9 @@
   },
   {
    "type": "plate",
-   "name": "part_2_label",
-   "rect": [
-    190,
-    197,
-    60,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "text": "Rel Lvl",
-    "font": "caption_grey_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ]
-  },
-  {
-   "type": "number",
-   "name": "part_2",
-   "rect": [
-    190,
-    219,
-    60,
-    20
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "text": "",
-    "font": "value_dark_12",
-    "align": "center",
-    "valign": "middle"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
-   "param": "part.peg_release_level.{part}"
-  },
-  {
-   "type": "plate",
    "name": "part_3_label",
    "rect": [
-    254,
+    190,
     197,
     60,
     18
@@ -1006,7 +953,7 @@
    "type": "number",
    "name": "part_3",
    "rect": [
-    254,
+    190,
     219,
     60,
     20
@@ -1030,6 +977,59 @@
    "reset": false,
    "editable": true,
    "param": "part.peg_release.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "part_2_label",
+   "rect": [
+    254,
+    197,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Rel Lvl",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "part_2",
+   "rect": [
+    254,
+    219,
+    60,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "part.peg_release_level.{part}"
   },
   {
    "type": "plate",
@@ -1407,7 +1407,7 @@
    ],
    "text": {
     "text": "Time",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1418,7 +1418,7 @@
     2
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "showIf": {
     "param": "gui.eg_modern",
@@ -1436,7 +1436,7 @@
    ],
    "text": {
     "text": "Level",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center",
     "valign": "middle"
    },
@@ -1447,7 +1447,7 @@
     2
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "showIf": {
     "param": "gui.eg_modern",
@@ -1599,11 +1599,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L0",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1627,11 +1627,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T1",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1655,11 +1655,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L1",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1683,11 +1683,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T2",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1711,11 +1711,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L2",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1739,11 +1739,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T3",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1767,11 +1767,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L3",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1795,11 +1795,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T4",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -1823,11 +1823,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L4",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [

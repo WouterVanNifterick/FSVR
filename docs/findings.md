@@ -8,6 +8,34 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-16, pitch bend keeps the LSB's top bits, and source PB is -128..127
+
+Found by WouterVanNifterick in PR #43 (merged): source PB is a raw signed byte, -128..127, where the engine fed
+it `msb - 64`, and the bend word drops the LSB. Re-read here off the Pitch Bend handler at 0x15B80 (no Ghidra
+function; `tools/ghidra_disasm_sh2.py 0x15b80-0x15c48`), which agrees on both:
+
+- the bend word at DAT_010293F4 is `((msb - 64) << 8 | lsb << 1) >> 4`, `(msb - 64) * 16 + (lsb >> 3)`. The
+  engine's "the firmware keeps the MSB only" was wrong; `FUN_0002022C`'s `bend >> 3` gives the pitch the
+  LSB's top bit, 256 steps.
+- that `>> 3` goes back into the data byte with 0xE0 as the controller number and the handler jumps to
+  `FUN_00014AD0`, where PB is in the raw mask 0x17C0: source PB is `(msb - 64) * 2 + (lsb >> 6)`, -128..127.
+  At `msb - 64` a set on PB reached half its depth.
+- with the LSB dropped `bend >> 3` topped out at 126, so `bend_word` never reached the firmware's 0x7F -> 0x80
+  and an upward bend stopped at 126/128 of its range.
+
+Both are fixed in `midi.cpp`; the engine self check covers them.
+
+---
+## 2026-10-16, the sum bus is cleared by t1 bit 1 of the algorithm word, not by a read: 65 and 80 fan out
+
+`render_chan` cleared the sum bus whenever an operator read it, a guess from the first commit. On two algorithms that cut the routing short. 65 has operators 3 and 4 adding to the bus and 5, 6, 7 and 8 all reading it with nothing in between, and 80 has 1 and 2 adding and 3 to 8 reading; with a clearing read only the first reader was modulated, so 65 played 3 and 4 into 5 alone and 80 played 1 and 2 into 3 alone. The FS1R Algorithm Sheet (p.2), the MONTAGE Data List's Algorithm Chart (pp.172-173) and the Montage plugin's own table all draw 3 and 4 into each of 5 to 8 and 1 and 2 into each of 3 to 8.
+
+The table says where the bus does clear. t1 bit 1, which `algorithms.h` listed as unknown and which reaches the chip as bit 2 of the low algorithm byte, sits exactly where a bus that a read leaves alone needs clearing. Every entry that adds to the bus has it at or before its first add; thirteen set it again on the operator that starts a second sum after the first was read (45, 47, 48, 50, 51, 53, 62, 64, 70, 71, 72, 77, 83); none sets it while an add waits for its reader; the six without it never touch the bus. With a clearing read every one of those thirteen bits did nothing. In six of them one operator reads the first sum, sets the bit and adds, so the clear falls between its read and its add, which is where `render_chan` now does it. Read this way the 88 route as the sheet draws them, and 65 and 80 are the only two that change.
+
+It reaches two ROM voices: native 104 Saws2 (65), where operators 6, 7 and 8 played as plain sines, and native 132 Mukkuri (80), where five of the six formant carriers played unmodulated; and through them ROM performances 118 Mukkuri and 228 OB Pad. The self check now asserts the table's pattern and renders a later reader on 65 and on 80 with one modulator at full level.
+
+**Not measured.** It is the table's reading, INFERRED like the rest of the chip. A capture would settle it: algorithm 80, operator 1 the only modulator at level 99 and operator 4 the only sounding carrier. A clearing read leaves operator 4 a plain sine. `docs/ymp706_registers.md` has the working.
+
 ## 2026-10-15, session 41 (cont.): Vokodrone's flanger depth matches; the 4.3x was the probe, the DRAM word is wider than +-8
 
 rgwan's Vokodrone report ("feeds back a little more, sounds like a flanger") was the doubled LFO, fixed by the s41 LFO shapes: rendered through the whole device from the same performance and sine-voice bulks the rig sends, the insertion flanger's FM is 0.0028 rad/sample against the unit's 0.0030, and 0.0051 before s41. The 4.3x excess reported earlier came from the harness, which drove the insertion bus with a 0.25 sine, hotter than the rig's voice, into the program's +-8 clip.

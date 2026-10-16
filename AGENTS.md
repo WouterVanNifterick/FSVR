@@ -57,7 +57,7 @@ The release job reads that body off the tag *object* through the API, not from a
 - authored by jameshansen: `Co-authored-by: rgwan <h@iloli.bid>`
 - authored by rgwan: `Co-authored-by: jameshansen <1550976+jameshansen@users.noreply.github.com>`
 
-The line goes in that commit only, never in the tag's message or the release notes, which the release page shows as they are. It is the only co-author line this repo carries: never one for Claude or any other tool, on any commit. Put it in the commit before pushing, since adding it afterwards means rewriting a pushed commit.
+The line goes in that commit, never in the tag's message or the release notes, which the release page shows as they are. Any other commit credits the people who contributed to it, one `Co-authored-by` line each: the author of a pull request or commit it builds on or fixes, and anyone else who took part in the work. Never one for Claude or any other tool, on any commit. Put it in the commit before pushing, since adding it afterwards means rewriting a pushed commit.
 
 **One release per request.** A release is cut when asked for, then the next one waits for the next ask: more changes pushed later in the same conversation go to `main` and stay there until the user says to release them. Do not chain point releases on your own because the previous one has already built.
 

@@ -140,7 +140,7 @@ int bank_perf_index(int lsb, int prog) {
 }
 
 void Part::reset_ctl() {
-    bend = 0; expr = 254; memset(src, 0, sizeof src); sustain = false; rpnM = rpnL = 127;
+    bend = bendLsb = 0; expr = 254; memset(src, 0, sizeof src); sustain = false; rpnM = rpnL = 127;
 }
 
 void init_perf(Perf& P) {

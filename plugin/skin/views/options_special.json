@@ -1,7 +1,7 @@
 {
  "size": [
   740,
-  166
+  196
  ],
  "widgets": [
   {
@@ -11,7 +11,7 @@
     0,
     20,
     740,
-    146
+    176
    ],
    "layer": 0,
    "fill": {
@@ -391,6 +391,37 @@
     2,
     0
    ]
+  },
+  {
+   "type": "button",
+   "name": "filter32",
+   "rect": [
+    16,
+    166,
+    708,
+    18
+   ],
+   "fill": {
+    "image": "buttons/toggle_row"
+   },
+   "text": {
+    "text": "32 Filtered Voices (two filter chips)",
+    "font": "caption_grey_12",
+    "valign": "middle"
+   },
+   "pad": [
+    8,
+    2,
+    2,
+    2
+   ],
+   "toggle": true,
+   "pressOffset": [
+    2,
+    2
+   ],
+   "param": "opt.filter32",
+   "tip": "A part with its filter on plays all 32 voices; off, the unit's 16. A change stops every note"
   }
  ]
 }

@@ -25,8 +25,8 @@
    "type": "button",
    "name": "tab_perf",
    "rect": [
-    3,
-    3,
+    8,
+    8,
     150,
     29
    ],
@@ -61,8 +61,8 @@
    "type": "button",
    "name": "tab_voice",
    "rect": [
-    153,
-    3,
+    158,
+    8,
     110,
     29
    ],
@@ -97,8 +97,8 @@
    "type": "button",
    "name": "tab_fseq",
    "rect": [
-    263,
-    3,
+    268,
+    8,
     100,
     29
    ],
