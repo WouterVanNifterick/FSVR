@@ -2652,11 +2652,12 @@ static void levelScaleDraw(Gui& g, Canvas& c, const Hit& h, Rect r) {
 // Fields: "low", "high" (params, MIDI notes), "shift" (a param in semitones, optional), "first" and "count"
 // (the keys shown, default 0 and 128), colours white, black, range (white keys inside the range), rangeBlack,
 // gap (between keys), arrow (the shift's triangle and label) and rail. Dragging a key moves the nearer end of
-// the range to it. With "shift" a strip over the keys is its slider: a rail under the keys the shift's range
-// reaches from "centre" (default 60, middle C), a tick at no shift, and a triangle over the key the centre
-// moves to, labelled +1, -12 and so on in the widget's text font on the side it moved to, but never left of
-// "labelLeft" (skin px from the widget's left, clear of a caption there). A press on the rail puts the triangle
-// there and a drag slides it; the strip either side of the rail is the skin's.
+// the range to it, and on past the other end: with low above high the range wraps, every key lit but those
+// between the two, as the FS1R plays them. With "shift" a strip over the keys is its slider: a rail under the
+// keys the shift's range reaches from "centre" (default 60, middle C), a tick at no shift, and a triangle over
+// the key the centre moves to, labelled +1, -12 and so on in the widget's text font on the side it moved to,
+// but never left of "labelLeft" (skin px from the widget's left, clear of a caption there). A press on the
+// rail puts the triangle there and a drag slides it; the strip either side of the rail is the skin's.
 struct KeyRangeState : SigState {
     int drag = 0;   // 1 low, 2 high, 3 shift
 };
@@ -2740,14 +2741,13 @@ static void keyRangeDraw(Gui& g, Canvas& c, const Hit& h, Rect r) {
     const Widget& w = g.wid(h);
     KeyGeo k = keyGeo(g, h, r);
     int lo = (int)paramValue(g, h, "low", 0), hi = (int)paramValue(g, h, "high", 127);
-    if (hi < lo) std::swap(lo, hi);
     uint32_t white = colourField(g, h, "white", 0xffe6ecee), black = colourField(g, h, "black", 0xff1d2224), range = colourField(g, h, "range", 0xff82ca9c),
              rangeBlack = colourField(g, h, "rangeBlack", 0xff3f7a55), gap = colourField(g, h, "gap", 0xff0c1112), arrow = colourField(g, h, "arrow", 0xff17301f);
     fillRect(c, k.kb, gap);
     for (int pass = 0; pass < 2; ++pass)
         for (int n = k.first; n < k.first + k.count; ++n)
             if (blackKey(n) == (pass == 1)) {
-                bool in = n >= lo && n <= hi;
+                bool in = lo <= hi ? n >= lo && n <= hi : n >= lo || n <= hi;   // low above high: all but the gap
                 fillRect(c, keyRect(k, n), pass ? (in ? rangeBlack : black) : (in ? range : white));
             }
     if (!k.strip) return;
@@ -2783,7 +2783,8 @@ static bool keyRangeDown(Gui& g, const Hit& h, Rect r, int x, int y, bool) {
         return true;
     }
     int n = keyAt(k, x, y), lo = (int)paramValue(g, h, "low", 0), hi = (int)paramValue(g, h, "high", 127);
-    st.drag = n <= lo ? 1 : n >= hi ? 2 : n - lo < hi - n ? 1 : 2;
+    int dl = std::abs(n - lo), dh = std::abs(n - hi);
+    st.drag = dl < dh || (dl == dh && n <= lo) ? 1 : 2;   // the nearer end, whichever way round they are
     putParam(g, h, st.drag == 1 ? "low" : "high", n);
     g.invalidate(r);
     return true;
@@ -2797,8 +2798,7 @@ static void keyRangeDrag(Gui& g, const Hit& h, Rect r, int x, int y, bool) {
         putParam(g, h, "shift", note - g.wid(h).json["centre"].num(60));
     } else if (st.drag) {
         int n = keyAt(k, x, k.kb.y + k.kb.h - 1);   // along the white keys, wherever the pointer is
-        if (st.drag == 1) putParam(g, h, "low", std::min(n, (int)paramValue(g, h, "high", 127)));
-        else putParam(g, h, "high", std::max(n, (int)paramValue(g, h, "low", 0)));
+        putParam(g, h, st.drag == 1 ? "low" : "high", n);
     }
     g.invalidate(r);
 }
@@ -2820,8 +2820,9 @@ static void keyRangeDbl(Gui& g, const Hit& h, Rect r, int x, int y) {   // on th
 // Fields: "low", "high" (the range a note's velocity must fall in), "depth" and "offset" (params), colours
 // grid, area, curve, handle and off (over the velocities outside the range). Out is the FS1R's velocity sense,
 // depth * in / 64 + (offset - 64) * 2, clamped to 1..127 (FSVR's src/fs1r/firmware/notes.cpp, note_on, with
-// the system's normal curve). The curve's two ends are handles: the left one drags the range's low end and,
-// up and down, the offset; the right one the high end and the depth.
+// the system's normal curve). The curve's two ends are handles: the low end's drags the range's low end and,
+// up and down, the offset; the high end's the high end and the depth. Either may pass the other: with low
+// above high every velocity sounds but those between the two, as on the FS1R.
 struct VelState : SigState {
     int drag = 0, x0 = 0, y0 = 0;   // 1 the low end, 2 the high end
     double v0 = 0;
@@ -2852,18 +2853,25 @@ static void velDraw(Gui& g, Canvas& c, const Hit& h, Rect r) {
     Rect saved = c.clip;
     c.clip = c.clip & r;
     drawPolyline(c, {{e.X(1), e.Y(1)}, {e.X(127), e.Y(127)}}, grid, 1);   // the diagonal: out as in, for reference
-    double lo = std::min(e.lo, e.hi), hi = std::max(e.lo, e.hi);
-    int xl = (int)e.X(lo), xh = (int)e.X(hi);
-    fillRect(c, {r.x, r.y, xl - r.x, r.h}, off);
-    fillRect(c, {xh + 1, r.y, r.x + r.w - xh - 1, r.h}, off);
-    uint32_t area2 = colourField(g, h, "area2", area);
-    std::vector<std::pair<double, double>> pts;
-    for (int x = xl; x <= xh; ++x) {
-        double v = 1 + (x + 0.5 - e.in.x - 0.5) * 126 / std::max(1, e.in.w - 1), y = e.Y(e.out(v));
-        areaColumn(c, x, (int)y, e.in.y + e.in.h, e.in.y, e.in.y + e.in.h - 1, area, area2);
-        pts.push_back({x + 0.5, y});
+    std::vector<std::pair<int, int>> lit;   // low to high, or with low above high 1 to high and low to 127
+    if (e.lo <= e.hi) lit = {{(int)e.X(e.lo), (int)e.X(e.hi)}};
+    else lit = {{(int)e.X(1), (int)e.X(e.hi)}, {(int)e.X(e.lo), (int)e.X(127)}};
+    int from = r.x;
+    for (auto [xl, xh] : lit) {
+        fillRect(c, {from, r.y, xl - from, r.h}, off);
+        from = xh + 1;
     }
-    drawCurve(g, c, pts, curve, colourField(g, h, "glow", 0), w.json["width"].num(1));
+    fillRect(c, {from, r.y, r.x + r.w - from, r.h}, off);
+    uint32_t area2 = colourField(g, h, "area2", area);
+    for (auto [xl, xh] : lit) {
+        std::vector<std::pair<double, double>> pts;
+        for (int x = xl; x <= xh; ++x) {
+            double v = 1 + (x + 0.5 - e.in.x - 0.5) * 126 / std::max(1, e.in.w - 1), y = e.Y(e.out(v));
+            areaColumn(c, x, (int)y, e.in.y + e.in.h, e.in.y, e.in.y + e.in.h - 1, area, area2);
+            pts.push_back({x + 0.5, y});
+        }
+        drawCurve(g, c, pts, curve, colourField(g, h, "glow", 0), w.json["width"].num(1));
+    }
     VelState& st = kindState<VelState>(g, h);
     for (int i = 1; i <= 2; ++i) {
         double v = i == 1 ? e.lo : e.hi;
@@ -2889,10 +2897,10 @@ static void velDrag(Gui& g, const Hit& h, Rect r, int x, int y, bool shift) {
     double v = std::clamp(1 + (x - e.in.x) * 126.0 / std::max(1, e.in.w - 1), 1.0, 127.0);
     double dOut = -(y - st.y0) * 126.0 / std::max(1, e.in.h - 1) * (shift ? 0.1 : 1);   // velocity units, up positive
     if (st.drag == 1) {
-        putParam(g, h, "low", std::min(v, e.hi));
+        putParam(g, h, "low", v);
         putParam(g, h, "offset", st.v0 + dOut / 2);
     } else {
-        putParam(g, h, "high", std::max(v, e.lo));
+        putParam(g, h, "high", v);
         putParam(g, h, "depth", st.v0 + dOut * 64 / std::max(e.hi, 1.0));
     }
     g.invalidate(r);

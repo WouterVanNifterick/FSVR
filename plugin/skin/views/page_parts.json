@@ -402,7 +402,7 @@
    "arrow": "#111416ff",
    "rail": "#11141666",
    "labelLeft": 67,
-   "tip": "Drag a key to move the nearer end of the range. The triangle over the keys is the note shift, where middle C lands: drag it along its line, or double-click there for none"
+   "tip": "Drag a key to move the nearer end of the range, or on past the other end: the part then plays every key but those between them. The triangle over the keys is the note shift, where middle C lands: drag it along its line, or double-click there for none"
   },
   {
    "type": "plate",
@@ -615,7 +615,7 @@
    "high": "part.vel_high.p1",
    "depth": "part.vel_depth.p1",
    "offset": "part.vel_offset.p1",
-   "tip": "Velocity in, across; velocity out, up. The left handle drags the range's low end and the offset, the right one the high end and the depth",
+   "tip": "Velocity in, across; velocity out, up. The low end's handle drags the range's low end and the offset, the high end's the high end and the depth. Drag one past the other and the part plays every velocity but those between them",
    "grid": "#ffffff24",
    "area": "#86eac24d",
    "area2": "#86eac205",
@@ -2322,7 +2322,7 @@
    "arrow": "#111416ff",
    "rail": "#11141666",
    "labelLeft": 67,
-   "tip": "Drag a key to move the nearer end of the range. The triangle over the keys is the note shift, where middle C lands: drag it along its line, or double-click there for none"
+   "tip": "Drag a key to move the nearer end of the range, or on past the other end: the part then plays every key but those between them. The triangle over the keys is the note shift, where middle C lands: drag it along its line, or double-click there for none"
   },
   {
    "type": "plate",
@@ -2535,7 +2535,7 @@
    "high": "part.vel_high.p2",
    "depth": "part.vel_depth.p2",
    "offset": "part.vel_offset.p2",
-   "tip": "Velocity in, across; velocity out, up. The left handle drags the range's low end and the offset, the right one the high end and the depth",
+   "tip": "Velocity in, across; velocity out, up. The low end's handle drags the range's low end and the offset, the high end's the high end and the depth. Drag one past the other and the part plays every velocity but those between them",
    "grid": "#ffffff24",
    "area": "#86eac24d",
    "area2": "#86eac205",
@@ -4115,7 +4115,7 @@
    "arrow": "#111416ff",
    "rail": "#11141666",
    "labelLeft": 67,
-   "tip": "Drag a key to move the nearer end of the range. The triangle over the keys is the note shift, where middle C lands: drag it along its line, or double-click there for none"
+   "tip": "Drag a key to move the nearer end of the range, or on past the other end: the part then plays every key but those between them. The triangle over the keys is the note shift, where middle C lands: drag it along its line, or double-click there for none"
   },
   {
    "type": "plate",
@@ -4328,7 +4328,7 @@
    "high": "part.vel_high.p3",
    "depth": "part.vel_depth.p3",
    "offset": "part.vel_offset.p3",
-   "tip": "Velocity in, across; velocity out, up. The left handle drags the range's low end and the offset, the right one the high end and the depth",
+   "tip": "Velocity in, across; velocity out, up. The low end's handle drags the range's low end and the offset, the high end's the high end and the depth. Drag one past the other and the part plays every velocity but those between them",
    "grid": "#ffffff24",
    "area": "#86eac24d",
    "area2": "#86eac205",
@@ -5908,7 +5908,7 @@
    "arrow": "#111416ff",
    "rail": "#11141666",
    "labelLeft": 67,
-   "tip": "Drag a key to move the nearer end of the range. The triangle over the keys is the note shift, where middle C lands: drag it along its line, or double-click there for none"
+   "tip": "Drag a key to move the nearer end of the range, or on past the other end: the part then plays every key but those between them. The triangle over the keys is the note shift, where middle C lands: drag it along its line, or double-click there for none"
   },
   {
    "type": "plate",
@@ -6121,7 +6121,7 @@
    "high": "part.vel_high.p4",
    "depth": "part.vel_depth.p4",
    "offset": "part.vel_offset.p4",
-   "tip": "Velocity in, across; velocity out, up. The left handle drags the range's low end and the offset, the right one the high end and the depth",
+   "tip": "Velocity in, across; velocity out, up. The low end's handle drags the range's low end and the offset, the high end's the high end and the depth. Drag one past the other and the part plays every velocity but those between them",
    "grid": "#ffffff24",
    "area": "#86eac24d",
    "area2": "#86eac205",
