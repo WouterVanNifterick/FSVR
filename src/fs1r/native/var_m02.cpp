@@ -31,18 +31,26 @@
 //                back as v / 256, which is why the 128 * k form appears). 0x170 and 0x173 are poles, and
 //                0x174 to 0x178 sum the five poles r[119] to r[123], the twelve band words DIST_BAND
 //                ending here.
-//   0x179-0x18e  the tone stack and the ladder. 0x180 is the gain the host derives from the drive and
+//   0x179-0x18f  the tone stack and the ladder. 0x180 is the gain the host derives from the drive and
 //                the output level. 0x181 to 0x185 are the second lowpass (DIST_LPF2), 0x186 to 0x18a the
-//                mid peak (DIST_PEAK) and 0x18b to 0x18e the low shelf (DIST_LOW_SHELF). The four rcopy
-//                steps 0x183, 0x188, 0x18d and 0x18e are the last word of each of those filters, and
-//                each one writes the previous step's x operand, so r[110], r[112] and r[114] are the
-//                one-pass delays that close those two-tap structures. r[116] is a fourth, on its own.
-//   0x18f-0x19f  the dry and wet. 0x190 is the one step here the host parameterises for neither this
+//                mid peak (DIST_PEAK) and 0x18b to 0x18f the low shelf (DIST_LOW_SHELF): three filters of
+//                five words each, every one of them on the last one's output. The four rcopy steps 0x183,
+//                0x188, 0x18d and 0x18e each write the previous step's x operand, and the first three are
+//                what hold r[110], r[112] and r[114], the one-pass delays those two-tap structures close
+//                on. r[116] is a fourth, on its own, holding the low shelf's own output a pass back.
+//   0x190-0x19f  the dry and wet. 0x190 is the one step here the host parameterises for neither this
 //                family nor the others: it takes r[118] into the t file as a 1.15 word, and 0x195 reads
 //                t[9] back as the multiplier that scales r[104] into r[107]. 0x191 to 0x194 are the pan
 //                and dry/wet words (DIST_PAN) and the two outputs r[15] and r[16]. 0x196 to 0x198 are the
 //                output lowpass (DIST_OUTPUT), 0x199 and 0x19a are the two class-3 steps that publish the
 //                inputs into m[54] and m[55], and 0x19c publishes the last read.
+//
+// Inside those runs the program repeats itself, so what is below is tables and loops rather than 72
+// steps. POLES is the eight steps that are a pole's gain of 16 from one pole register to the next.
+// PUBLISHED is the six delay reads the window publishes and the cell each one lands in five steps later.
+// FILTERS is the three five-step filters of the tone stack, the same five words apart in registers. The
+// band sum's five terms are a loop over r[119] to r[123], and the tail from 0x19b is step::idle() over a
+// range test.
 //
 // The registers, as the tables above name them: r[5] and r[6] the two serial inputs the base program
 // writes, r[15] and r[16] the two outputs, which the base program reads as the stereo pair after r[13]
@@ -65,697 +73,323 @@
 // order yss236_core::step() runs its own.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
 //
 // vop3_native_check var-m02: identical, 3 types, 28800 native passes.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
+using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
+
+// ---------------------------------------------------------------------------------------------
+// The tables of the program's repeated units
+// ---------------------------------------------------------------------------------------------
+
+// The one t register the program uses: 0x190 writes the level into it and 0x195 multiplies by it.
+constexpr int T_LEVEL = 9;
+
+// The first of the five pole registers r[119] to r[123] that the band sum adds.
+constexpr int BAND_FIRST = 119;
+
+// A pole: r[out] = saturate(16 * k * r[in]), which is the shape every pole in this program has. The
+// last five rows are the chain the band sum adds, one register to the next and back to the first; the
+// first three are the drive's own, 0x158 seeding the chain out of r[108] and 0x15b and 0x15f folding a
+// published delay read into r[119] on the way past.
+struct Pole { int st; int in, out; };
+
+const Pole POLES[8] = {
+	{ 0x158, 108, 119 },
+	{ 0x15b, 119, 119 },
+	{ 0x15f, 119, 119 },
+	{ 0x162, 119, 120 },
+	{ 0x166, 120, 121 },
+	{ 0x16c, 121, 122 },
+	{ 0x170, 122, 123 },
+	{ 0x173, 123, 119 },
+};
+
+// One delay read the window publishes for the base program and the cell it lands in. The two are five
+// steps apart on every one of them, which is captured()'s lower bound, and a read's slot is its own step
+// over four, so the step below is all the offset the table carries.
+struct Published { int read, cell; };
+
+const Published PUBLISHED[6] = {
+	{ 0x15b, 28 },   // the slot 0x56
+	{ 0x15f, 29 },   // 0x57
+	{ 0x163, 30 },   // 0x58
+	{ 0x18f, 31 },   // 0x63
+	{ 0x193, 32 },   // 0x64
+	{ 0x197, 33 },   // 0x65
+};
+
+// What a filter's step carries besides its term: the delay RAM read it makes, which is its own slot, and
+// the LFO it publishes for the base program.
+struct Decor { int slot, lfo; };
+
+// One filter of the tone stack, in five steps. `in` is the register the stage before it wrote and the one
+// its closing step scales, `x1` holds that input a pass older, and `y1` and `y2` are what the fourth and
+// third steps add: the two taps on the filter's own output. On the first two filters y1 is a pass back
+// and y2 two passes back, and y1 is the filter's own output register; on the low shelf the order is the
+// other way round and y1 is a register of its own, which is what holds_y1 says.
+struct Filter
+{
+	int base;                 // the first of the five steps
+	int in, x1, y1, y2, out;  // the registers the five steps move, in the order they move them
+	route_t route;            // the closing step's route
+	bool holds_y1;            // the y1 tap keeps its own delay register as well as adding it
+	Decor decor[5];
+};
+
+// The three filters of the tone stack, DIST_LPF2, DIST_PEAK and DIST_LOW_SHELF, each one on the last
+// one's output. The low shelf's closing step is the odd one: it carries a delay read and the LFO of page
+// 12 on the way past, it takes the x16 route the other two do not, and its y1 tap is the fourth of the
+// rcopy steps the header above counts, the one on its own.
+const Filter FILTERS[3] = {
+	//  base   in   x1   y1   y2   out  route     holds_y1  decor per step: the slot read, then the LFO
+	{  0x181, 109, 110, 111, 112, 111, ROUTE_2,  false, { { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } } },
+	{  0x186, 111, 112, 113, 114, 113, ROUTE_2,  false, { { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } } },
+	{  0x18b, 113, 114, 116, 115, 115, ROUTE_16, true,  { { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0x63, 12 } } },
+};
+
+// ---------------------------------------------------------------------------------------------
+// The repeated units
+// ---------------------------------------------------------------------------------------------
+
+// The delay reads this window publishes and the captures that take them up five steps later. Both come
+// before the step's arithmetic, because step() moves a cell and reads the delay RAM before the
+// multiplier runs.
+void published(yss236_core& c, int st)
+{
+	for (Published const& p : PUBLISHED)
+	{
+		if (st == p.read) read_delay(c, st);
+		else if (st == p.read + 5) take_capture(c, p.cell, st);
+	}
+}
+
+// One of the program's pole steps, if this is one of them: the caller moves on when this says so.
+bool pole(yss236_core& c, int st)
+{
+	for (Pole const& p : POLES)
+		if (st == p.st) { gain(c, st, p.in, p.out, ROUTE_16); return true; }
+	return false;
+}
+
+// One filter's step. The decor the step's own words carry comes first, and then the filter's term: the
+// five words are the input a pass old, the input itself, the y2 tap, the y1 tap, and the input again
+// closing the sum into the output.
+void filter(yss236_core& c, int st, Filter const& f, int k)
+{
+	if (f.decor[k].slot) read_delay(c, st);
+	if (f.decor[k].lfo) take_lfo(c, f.decor[k].lfo, st);
+	switch (k)
+	{
+	case 0: term(c, st, f.x1); break;                               // x[n-1], held in r[x1]
+	case 1: sum(c, st, f.in); break;                                // x[n]
+	case 2: copy_z(c, st, f.y2, f.x1, ADD_ACC, CLAMP_WRAP); break;  // the y2 tap, keeping x[n-1] for step 0
+	case 3:
+		// The y1 tap. The low shelf's is a register of its own rather than its output, so this step
+		// keeps that delay as well as adding it.
+		if (f.holds_y1) copy_z(c, st, f.y1, f.y1, ADD_ACC, CLAMP_WRAP);
+		else            sum(c, st, f.y1);
+		break;
+	default: close(c, st, f.in, f.out, f.route); break;             // x[n] again, into y[n]
+	}
+}
+
+// r[dr] = saturate(k * m[sm] + p): a sum closed into a register off a cell rather than off a register,
+// which is how a one-pole follower of the rectifier's level is written.
+void close_cell(yss236_core& c, int st, int sm, int dr)
+{
+	run(c, { st, 0, sm, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, dr });
+}
+
+// A class-3 step (s19: the multiplier passes its second input through): a serial input read out of a
+// register and echoed into a cell, which this window's own mix reads a pass later.
+void echo(yss236_core& c, int st, int sr, int cell)
+{
+	run(c, { st, sr, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, false, cell });
+}
+
+// ---------------------------------------------------------------------------------------------
+// The five runs the step loop dispatches to: the header's groups, with the two shaper halves one run
+// ---------------------------------------------------------------------------------------------
+
+// 0x158 to 0x15e, the drive and the input highpass. The poles 0x158 and 0x15b are POLES', and 0x15b's
+// delay read with them; what is left is the input sum and the biquad's own three words, DIST_INPUT.
+void drive_and_input_hpass(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x159: term(c, st, 5); break;                   // acc = k * r[5], the left input on its own
+	case 0x15a: close(c, st, 6, 103, ROUTE_2); break;    // r[103] = 2 (k r[6] + acc): the input sum
+	case 0x15c:                                          // m[2] for the base program, then r[103]
+		take_serial(c, 2, st, 0);
+		term(c, st, 103);
+		break;
+	case 0x15d:                                          // m[6] for it as well, then r[104]
+		take_serial(c, 6, st, 1);
+		sum(c, st, 104);
+		break;
+	case 0x15e: close(c, st, 103, 104, ROUTE_2); break;  // r[104] = 2 (k r[103] + acc), the biquad's word
+	}
+}
+
+// 0x15f to 0x16e, the rectifier and the same pair again for the second half of the shaper. The poles
+// 0x15f, 0x162, 0x166 and 0x16c are POLES', and 0x15f's delay read and 0x160's and 0x163's with them.
+void rectifier(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x160: idle(c); break;                         // the capture of 0x15b lands here and nothing else
+	case 0x161:
+		// The level everything below works against: the input highpass's output with its absolute value,
+		// published into m[56] for the two shapers to take off the signal.
+		run(c, { st, 104, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_ABS, 0, false, 56 });
+		break;
+	case 0x163: idle(c); break;                         // the read of the slot 0x58 and nothing else
+	case 0x164:
+		// The first shaper's difference: r[105] scaled by its own word with the level off it, negatives
+		// clamped away so the shaper only ever folds the signal down.
+		run(c, { st, 105, 56, M2_REG, false, 0, ADD_CELL, true, ROUTE_1, CLAMP_ZERO });
+		break;
+	case 0x165: close_cell(c, st, 56, 105); break;      // r[105]: the level's one-pole follower
+	case 0x167:                                         // m[11] for the base program, then r[106]
+		take_lfo(c, 11, st);
+		term(c, st, 106);
+		break;
+	case 0x168:
+		// The second shaper's input. Its adder takes m[0], which is no cell, so the running value enters
+		// as acc / 32768: the accumulator read back as a cell word would read it.
+		run(c, { st, 106, 0, M2_REG, false, 0, ADD_CELL, false, ROUTE_1, CLAMP_WRAP });
+		break;
+	case 0x169:
+		// The level off the running value this time, and off r[106] at the step below.
+		run(c, { st, 0, 56, M2_CELL, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP });
+		break;
+	case 0x16a:
+		run(c, { st, 105, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_ZERO });
+		break;
+	case 0x16b: close_cell(c, st, 56, 106); break;      // r[106]: the same follower, the other shaper
+	case 0x16d: idle(c); break;                         // class 0, no RAM mark and no ALU
+	case 0x16e: gain(c, st, 106, 124, ROUTE_1); break;  // r[124] = k r[106], the shaper's output
+	}
+}
+
+// 0x16f to 0x178, the two class-1 loads and the band sum. The poles 0x170 and 0x173 are POLES'.
+void band_sum(yss236_core& c, int st)
+{
+	if (st >= 0x174)
+	{
+		// The band sum: the five poles the chain above ran, each with its own word out of DIST_BAND,
+		// added into one running value. The first opens the sum and the rest add to it.
+		int const i = st - 0x174;
+		if (i == 0) term(c, st, BAND_FIRST);
+		else        sum(c, st, BAND_FIRST + i);
+		return;
+	}
+	switch (st)
+	{
+	case 0x16f:
+		// s24: a class-1 load reads back as v / 256, which is why the chip's 128 * k appears as one
+		// constant here. This one adds the running value the pole chain left and keeps the result.
+		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 125);
+		break;
+	case 0x171:
+		// The same load off its own register, so its adder's input is r[124] and not the running value:
+		// the shaper's output with a constant added.
+		load(c, st, 124, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, 124);
+		break;
+	case 0x172: idle(c); break;  // class 0, no RAM mark and no ALU
+	}
+}
+
+// 0x179 to 0x18f, the tone stack and the ladder. The three filters are FILTERS', fifteen steps of this
+// run; what is left is the gain the host derives, the bias the ladder works against and its follower.
+void tone_stack(yss236_core& c, int st)
+{
+	if (st >= 0x181)
+	{
+		Filter const& f = FILTERS[(st - 0x181) / 5];
+		filter(c, st, f, st - f.base);
+		return;
+	}
+	switch (st)
+	{
+	case 0x179: close(c, st, 119, 119, ROUTE_1); break;  // r[119] = k r[119] + acc: the chain's trim
+	case 0x17a: term(c, st, 125); break;                 // the class-1 load's own output, unscaled
+	case 0x17b:
+		// The same sum with the x16 route and no register of its own: the ladder's input, saturated.
+		run(c, { st, 124, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_16, CLAMP_SAT });
+		break;
+	case 0x17c:
+		// The bias the ladder works against, a class-1 constant with its negatives clamped away.
+		load(c, st, 0, 0, ADD_ACC, false, ROUTE_16, CLAMP_ZERO, 117);
+		break;
+	case 0x17d: term(c, st, 117); break;
+	case 0x17e: sum(c, st, 118); break;
+	case 0x17f: close(c, st, 117, 118, ROUTE_1); break;  // r[118]: the bias's one-pole follower
+	case 0x180: gain(c, st, 119, 109, ROUTE_1); break;   // r[109], the gain the host derives: in
+	}
+}
+
+// 0x190 to 0x19f, the dry and wet, the pan, the outputs and the tail.
+void dry_and_wet(yss236_core& c, int st)
+{
+	if (st >= 0x19b)
+	{
+		// The tail: five idle steps, class 0 throughout, and nothing else. The capture that takes up
+		// 0x197's read lands at 0x19c, and PUBLISHED has already put it in m[33] by the time we get here.
+		idle(c);
+		return;
+	}
+	switch (st)
+	{
+	case 0x190:
+		// The level, and the t word the output section scales by: t[9], the one t register this program
+		// uses, which 0x195 reads back.
+		t_put(c, T_LEVEL, run(c, { st, 118, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_2, CLAMP_SAT }));
+		break;
+	case 0x191: term_cell(c, st, 54); break;             // the left input, out of m[54]
+	case 0x192: close(c, st, 115, 15, ROUTE_4); break;   // r[15] = 4 (k r[115] + acc): the left output
+	case 0x193: term_cell(c, st, 55); break;             // the right input, out of m[55]
+	case 0x194: close(c, st, 115, 16, ROUTE_4); break;   // r[16] = 4 (k r[115] + acc): the right one
+	case 0x195:
+		// r[107] = t[9] * r[104]: the level term, the input highpass's output scaled by the word 0x190
+		// left in the t file.
+		run(c, { st, 104, 0, M2_REG, false, T_LEVEL, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 107 });
+		break;
+	case 0x196: term(c, st, 107); break;
+	case 0x197: sum(c, st, 108); break;                  // its read of the slot 0x65 is PUBLISHED's
+	case 0x198: close(c, st, 107, 108, ROUTE_2); break;  // r[108]: the output filter's tail
+	case 0x199: echo(c, st, 5, 54); break;  // the two class-3 steps, echoing the two inputs into cells
+	case 0x19a: echo(c, st, 6, 55); break;  // the pan words at 0x191 and 0x193 read a pass later
+	}
+}
+
 // The run of steps 0x158 to 0x19f, the whole of the window's program. The loop is one iteration per
-// step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half
-// skips these steps as it would the interpreter's.
+// step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half skips
+// these steps as it would the interpreter's.
 void block_0x158(yss236_core& c)
 {
-    double* const r = c.r;                 // the 128 registers
-    double* const m = c.m;                 // the 64 cells, which carry the values between the steps
-    double xv, k, g, m2, prod, a, y, v;
-
-    // The step's x operand: the register r[sr] into the latch every step but a class-2/3 one moves, and
-    // xv alongside it for the multiplier.
-    auto fetch = [&](int sr) { xv = sr ? r[sr] : 0.0; c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = sr != 0; };
-    // The t file write of a step whose result is y, tfrac saying which of the two forms it takes.
-    auto twr = [&](double yy, int tn, bool tfrac) {
-        double const w = yy * 256.0;
-        double const tv = tfrac ? (w - std::floor(w))
-                                 : (w < -32768.0 ? -32768.0 : 32767.0 < w ? 32767.0 : w) / 32768.0;
-        c.queue_t(tn, tv);
-    };
-
-    for (int st = 0x158; st < 0x1a0; st++)
-    {
-        c.begin_step();
-        if (st < c.m_skip) continue;
-        switch (st)
-        {
-        // ---- 0x158 to 0x15e, the drive and the input highpass ---------------------------------------
-        case 0x158:  // r[119] = saturate(16 * k * r[108])
-            k = yss236_core::s16(c.coef[st]);
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            c.queue_r(119, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x159:  // acc = k * r[5]
-            k = yss236_core::s16(c.coef[st]);
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x15a:  // r[103] = saturate(2 * (k * r[6] + acc))
-            k = yss236_core::s16(c.coef[st]);
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(103, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x15b:  // a read of the slot 0x56; r[119] = saturate(16 * k * r[119])
-            c.push_hist(st, c.ram[c.addr(0x56, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            c.queue_r(119, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x15c:  // m[2] takes serial bank 0 page 10; acc = k * r[103]
-            c.queue_d(2, c.in[0][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x15d:  // m[6] takes serial bank 1 page 10; acc = k * r[104] + acc
-            c.queue_d(6, c.in[1][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x15e:  // r[104] = saturate(2 * (k * r[103] + acc))
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(104, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-
-        // ---- 0x15f to 0x166, the rectifier -------------------------------------------------------
-        case 0x15f:  // a read of the slot 0x57; r[119] = saturate(16 * k * r[119])
-            c.push_hist(st, c.ram[c.addr(0x57, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            c.queue_r(119, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x160:  // m[28] takes up the read of 0x15b; nothing but the x latch runs
-            c.queue_d(28, c.captured(m[28], st));
-            fetch(0);
-            break;
-        case 0x161:  // acc = |16 * k * r[104]|; m[56] = the level the rectifier works against
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            y = c.acc = yss236_core::accmode(y, 3);
-            c.queue_d(56, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-        case 0x162:  // r[120] = saturate(16 * k * r[119])
-            k = yss236_core::s16(c.coef[st]);
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            c.queue_r(120, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x163:  // a read of the slot 0x58; nothing but the x latch runs
-            c.push_hist(st, c.ram[c.addr(0x58, 0, false)]);
-            fetch(0);
-            break;
-        case 0x164:  // m[29] takes up the read of 0x15f; the rectifier:
-                     // acc = k * r[105] - m[56], negatives clamped away
-            c.queue_d(29, c.captured(m[29], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[56];
-            m2 = xv; prod = k * m2;
-            a = c.src;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 2);
-            break;
-        case 0x165:  // r[105] = saturate(k * m[56] + acc)
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[56];
-            m2 = c.src; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(105, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x166:  // r[121] = saturate(16 * k * r[120])
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            c.queue_r(121, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-
-        // ---- 0x167 to 0x16e, the same pair for the second half of the shaper ----------------------
-        case 0x167:  // m[11] takes the LFO 10; acc = k * r[106]
-            c.queue_d(11, c.lfo[10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x168:  // m[30] takes up the read of 0x163; acc = k * r[106] + acc / 32768
-            c.queue_d(30, c.captured(m[30], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc / 32768.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x169:  // acc = k * m[56] - acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[56];
-            m2 = c.src; prod = k * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x16a:  // acc = k * r[105] - acc, negatives clamped away
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 2);
-            break;
-        case 0x16b:  // r[106] = saturate(k * m[56] + acc)
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[56];
-            m2 = c.src; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(106, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x16c:  // r[122] = saturate(16 * k * r[121])
-            k = yss236_core::s16(c.coef[st]);
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            c.queue_r(122, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x16d:  // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-            fetch(0);
-            break;
-        case 0x16e:  // r[124] = saturate(k * r[106])
-            k = yss236_core::s16(c.coef[st]);
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(124, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-
-        // ---- 0x16f to 0x178, the two class-1 loads and the band sum -------------------------------
-        case 0x16f:  // the class-1 load: r[125] = saturate(128 * k + acc)
-            fetch(0);
-            c.psrc = c.src; c.src = m[0];
-            a = c.acc;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 1.0;
-            c.queue_r(125, yss236_core::mode(v, 1));
-            c.acc = yss236_core::accmode(v, 1);
-            break;
-        case 0x170:  // r[123] = saturate(16 * k * r[122])
-            k = yss236_core::s16(c.coef[st]);
-            fetch(122);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            c.queue_r(123, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x171:  // the class-1 load off its own register: r[124] = saturate(128 * k + r[124])
-            fetch(124);
-            c.psrc = c.src; c.src = m[0];
-            a = c.x;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 1.0;
-            c.queue_r(124, yss236_core::mode(v, 1));
-            c.acc = yss236_core::accmode(v, 1);
-            break;
-        case 0x172:  // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-            fetch(0);
-            break;
-        case 0x173:  // r[119] = saturate(16 * k * r[123])
-            k = yss236_core::s16(c.coef[st]);
-            fetch(123);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            c.queue_r(119, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x174:  // acc = k * r[119], the band sum's first term
-            k = yss236_core::s16(c.coef[st]);
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x175:  // acc = k * r[120] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x176:  // acc = k * r[121] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x177:  // acc = k * r[122] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(122);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x178:  // acc = k * r[123] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(123);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-
-        // ---- 0x179 to 0x18e, the tone stack and the ladder ----------------------------------------
-        case 0x179:  // r[119] = saturate(k * r[119])
-            k = yss236_core::s16(c.coef[st]);
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(119, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x17a:  // acc = k * r[125]
-            k = yss236_core::s16(c.coef[st]);
-            fetch(125);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x17b:  // acc = saturate(16 * (k * r[124] + acc))
-            k = yss236_core::s16(c.coef[st]);
-            fetch(124);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 16.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x17c:  // the class-1 load: r[117] = 16 * (128 * k + acc), negatives clamped away
-            fetch(0);
-            c.psrc = c.src; c.src = m[0];
-            a = c.acc;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 16.0;
-            c.queue_r(117, yss236_core::mode(v, 2));
-            c.acc = yss236_core::accmode(v, 2);
-            break;
-        case 0x17d:  // acc = k * r[117]
-            k = yss236_core::s16(c.coef[st]);
-            fetch(117);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x17e:  // acc = k * r[118] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(118);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x17f:  // r[118] = saturate(k * r[117] + acc)
-            k = yss236_core::s16(c.coef[st]);
-            fetch(117);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(118, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x180:  // r[109] = saturate(k * r[119])
-            k = yss236_core::s16(c.coef[st]);
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(109, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x181:  // acc = k * r[110]
-            k = yss236_core::s16(c.coef[st]);
-            fetch(110);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x182:  // acc = k * r[109] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(109);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x183:  // r[110] takes the previous step's x operand; acc = k * r[112] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(110, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x184:  // acc = k * r[111] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x185:  // r[111] = saturate(2 * (k * r[109] + acc))
-            k = yss236_core::s16(c.coef[st]);
-            fetch(109);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(111, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x186:  // acc = k * r[112]
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x187:  // acc = k * r[111] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x188:  // r[112] takes the previous step's x operand; acc = k * r[114] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(112, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x189:  // acc = k * r[113] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x18a:  // r[113] = saturate(2 * (k * r[111] + acc))
-            k = yss236_core::s16(c.coef[st]);
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(113, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x18b:  // acc = k * r[114], the clear before the last stage
-            k = yss236_core::s16(c.coef[st]);
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x18c:  // acc = k * r[113] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x18d:  // r[114] takes the previous step's x operand; acc = k * r[115] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(114, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x18e:  // r[116] takes the previous step's x operand; acc = k * r[116] + acc
-            k = yss236_core::s16(c.coef[st]);
-            fetch(116);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(116, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-
-        // ---- 0x18f to 0x19f, the dry and wet, the pan and the outputs ------------------------------
-        case 0x18f:  // a read of the slot 0x63; m[12] takes the LFO 12;
-                     // r[115] = saturate(16 * (k * r[113] + acc))
-            c.push_hist(st, c.ram[c.addr(0x63, 0, false)]);
-            c.queue_d(12, c.lfo[12]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 16.0;
-            c.queue_r(115, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x190:  // acc = saturate(2 * k * r[118]); t[9] = the running value as a 1.15 word
-            k = yss236_core::s16(c.coef[st]);
-            fetch(118);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 9, false);
-            break;
-        case 0x191:  // acc = k * m[54], the input echoed into its cell a pass earlier
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[54];
-            m2 = c.src; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x192:  // r[15] = saturate(4 * (k * r[115] + acc)), the left output
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(15, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x193:  // a read of the slot 0x64; acc = k * m[55]
-            c.push_hist(st, c.ram[c.addr(0x64, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[55];
-            m2 = c.src; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x194:  // m[31] takes up the read of 0x18f; r[16] = saturate(4 * (k * r[115] + acc))
-            c.queue_d(31, c.captured(m[31], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(16, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x195:  // r[107] = saturate(t[9] * r[104])
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[9];
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(107, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x196:  // acc = k * r[107]
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x197:  // a read of the slot 0x65; acc = k * r[108] + acc
-            c.push_hist(st, c.ram[c.addr(0x65, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        case 0x198:  // m[32] takes up the read of 0x193; r[108] = saturate(2 * (k * r[107] + acc))
-            c.queue_d(32, c.captured(m[32], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(108, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x199:  // the class-3 step: m[54] = r[5] as a cell, and the running value takes it
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = m2;                            // class 3 is unity
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            c.queue_d(54, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-        case 0x19a:  // the class-3 step: m[55] = r[6] as a cell, and the running value takes it
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = m2;                            // class 3 is unity
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            c.queue_d(55, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-        case 0x19b:  // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-            fetch(0);
-            break;
-        case 0x19c:  // m[33] takes up the read of 0x197; nothing but the x latch runs
-            c.queue_d(33, c.captured(m[33], st));
-            fetch(0);
-            break;
-        case 0x19d:  // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-            fetch(0);
-            break;
-        case 0x19e:  // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-            fetch(0);
-            break;
-        case 0x19f:  // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-            fetch(0);
-            break;
-        }
-    }
+	for (int st = 0x158; st < 0x1a0; st++)
+	{
+		c.begin_step();
+		if (st < c.m_skip) continue;
+		published(c, st);  // a delay read or the capture of one, before any arithmetic
+		if (pole(c, st)) continue;
+		if (st < 0x15f)      drive_and_input_hpass(c, st);
+		else if (st < 0x16f) rectifier(c, st);
+		else if (st < 0x179) band_sum(c, st);
+		else if (st < 0x190) tone_stack(c, st);
+		else                 dry_and_wet(c, st);
+	}
 }
 
 }  // namespace
@@ -764,8 +398,8 @@ void block_0x158(yss236_core& c)
 // one run; a range no host builds falls back to the interpreter.
 void var_m02(yss236_core& c, int from, int to)
 {
-    if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
-    for (int st = from; st < to; st++) c.step(st);
+	if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
+	for (int st = from; st < to; st++) c.step(st);
 }
 
 }  // namespace fs1r::native

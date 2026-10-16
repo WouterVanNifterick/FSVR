@@ -30,7 +30,7 @@
 // r[121], r[114] or r[117]. PH_PAN's four words are the same list for both, except that phaser1()
 // negates the last when Diffuse is on.
 //
-// The 72 steps, in the groups the comments in the switch open:
+// The 72 steps, in the groups the step loop below splits them into:
 //
 //   0x158-0x165  the two channels' EQ, two order-1 shelves each. 0x158 takes the left input r[5] into
 //                r[103] through the ROM's ~unity word and doubled, and 0x159 to 0x15b are the low shelf:
@@ -38,7 +38,9 @@
 //                doubled into r[104]. 0x15c to 0x15e are the high shelf over r[104] into r[105], the left
 //                EQ output. 0x15f to 0x165 are the same four steps for the right channel, r[6] into
 //                r[106] to r[108]. 0x15b, 0x15f and 0x163 also read the delay RAM, and 0x158 and 0x159
-//                take the two serial inputs into m[2] and m[6].
+//                take the two serial inputs into m[2] and m[6]. EQ below is those two channels, seven
+//                steps each: the input and then a shelf over it, the low one doubled and the high one
+//                quadrupled.
 //   0x166        the left cascade's swept gain: the class-1 load is acc = saturate(128 * k + m[8]), the
 //                phase shift with the first LFO's depth on it, and r[122] and t[10] take it.
 //   0x167-0x16e  the eight section weights. Each word scales one section's output into the running sum,
@@ -47,10 +49,12 @@
 //                first. Both Stage handlers leave exactly two of the eight at HALF and the other six at
 //                zero, and 0x16a and 0x16e double the sums into r[120] and r[121], which cancels the half
 //                and leaves the two open sections of each cascade added up. The ROM's own words, which
-//                are what the two types run with until Stage moves, leave 0x169 and 0x16b at half.
+//                are what the two types run with until Stage moves, leave 0x169 and 0x16b at half. SUMS
+//                below is those two halves, four steps each.
 //   0x16f        t[10] = r[122] = saturate(t[10] * r[122]), the left gain squared.
 //   0x170-0x173  the diffuse tap: four steps over r[120], r[121], r[114] and r[117], of which only one
-//                word is ever half, and r[119] takes the sum doubled.
+//                word is ever half, and r[119] takes the sum doubled. The same four steps as a stage sum,
+//                so it is the third row of SUMS.
 //   0x174-0x175  the left gain finished. The class-1 load of the ROM's 0x7ffe puts about 128 in the
 //                accumulator and 0x175 takes it off t[10] * r[122], so t[10] ends up the phase shift to
 //                the fourth less 128.
@@ -69,6 +73,8 @@
 //   0x181-0x188  the left cascade's third to fifth sections, the same two steps each: r[110] against
 //                m[55], r[111] against r[110] and r[112] against r[111], with the class-3 steps 0x183
 //                and 0x186 putting the earlier register into the accumulator the step subtracts from.
+//                FEEDS below is the left cascade's first three sections, two steps each, and CHAINS the
+//                plain three-step sections: its last two, then the right cascade's five.
 //   0x189        the right gain to the fourth: acc = t[11] * r[122] - m[56], and t[11] takes it.
 //   0x18a-0x18c  what the right cascade starts from: r[113] = saturate(r[120] + PH_WIDTH2[1] * r[121]),
 //                the ROM's ~unity word on the left sum.
@@ -110,966 +116,424 @@
 // order yss236_core::step() runs its own.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
 //
 // vop3_native_check var-m05: identical, 2 types, 19200 native passes.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
-// The run of steps 0x158 to 0x19f, the whole of the window's program. The loop is one iteration per
-// step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half skips
-// these steps as it would the interpreter's.
+using namespace step;   // the step vocabulary: term, sum, close, run and the rest
+
+// The registers, cells and t registers the comments above name, so the tables below read as the DSP
+// they run rather than as a list of numbers.
+constexpr int TL = 10, TR = 11;      // t[10] and t[11]: the two cascades' swept gains
+constexpr int GAIN = 122;            // r[122]: the swept gain's scratch, which every gain step reads
+constexpr int FEEDBACK = 54;         // m[54]: the cross-channel feedback the left cascade starts from
+constexpr int SECTION2 = 55;         // m[55]: the left cascade's second section, a cell and not a register
+constexpr int ZERO = 56;             // m[56]: the ROM's own zero, which the right gain subtracts
+
+// ---------------------------------------------------------------------------------------------
+// What a step does with a cell or the delay RAM before it does any arithmetic
+// ---------------------------------------------------------------------------------------------
+
+// A step that is more than a term: it reads the delay RAM, publishes a capture of an earlier read,
+// takes a serial input or an LFO. `cell` is the slot a DEC_READ reads, which is its own step over
+// four, or the cell the move lands in.
+enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_LFO, DEC_SERIAL_L, DEC_SERIAL_R };
+
+struct Decor { decor_t kind; int cell; };
+
+// The decor a step carries. It comes before the term, because step() moves a cell or reads the delay
+// RAM before it does any arithmetic.
+void decor(yss236_core& c, int st, Decor const& d)
+{
+    switch (d.kind)
+    {
+        case DEC_READ:      read_delay(c, st); break;
+        case DEC_CAPTURE:   take_capture(c, d.cell, st); break;
+        case DEC_LFO:       take_lfo(c, d.cell, st); break;
+        case DEC_SERIAL_L:  take_serial(c, d.cell, st, 0); break;
+        case DEC_SERIAL_R:  take_serial(c, d.cell, st, 1); break;
+        case DEC_NONE: break;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two channels' EQ, two order-1 shelves each
+// ---------------------------------------------------------------------------------------------
+
+// One channel's seven steps. `src` is the input the base program leaves this window in, `in` this
+// channel's own copy of it through the ROM's ~unity word doubled, `lo` the low shelf's output and `hi`
+// the high shelf's, which is the channel's EQ output. Each shelf is b1 * x[n-1] - a1 * y[n-1] with
+// b0 * x[n] closing the sum, the low shelf closing doubled and the high one quadrupled.
+struct Eq
+{
+    int base;
+    int src, in, lo, hi;
+    Decor decor[7];
+};
+
+// The left channel, whose two serial inputs land in m[2] and m[6] for the base program, then the right
+// one, which publishes the two reads the base program asked for. The seven steps are the channel's
+// input on the ROM's ~unity word and then the low shelf's b1, -a1 and b0, then the high shelf's b1,
+// -a1 and b0, and each row's decor list is in that order.
+const Eq EQS[2] = {
+    //  base   src  in   lo   hi   the seven steps' decor, in that order
+    {  0x158,   5, 103, 104, 105, { {DEC_SERIAL_L, 2}, {DEC_SERIAL_R, 6}, {DEC_NONE, 0}, {DEC_READ, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+    {  0x15f,   6, 106, 107, 108, { {DEC_READ, 0}, {DEC_CAPTURE, 28}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_READ, 0}, {DEC_CAPTURE, 29}, {DEC_NONE, 0} } },
+};
+
+// One channel's EQ step. The first step takes the input the base program wrote and starts nothing, and
+// the six after it are the two shelves: each scales the shelf's input a pass back, takes that shelf's
+// own output a pass back off it, and closes the sum on the input again.
+void eq(yss236_core& c, int st, Eq const& q)
+{
+    int const k = st - q.base;
+    decor(c, st, q.decor[k]);
+    switch (k)
+    {
+    case 0:  gain(c, st, q.src, q.in, ROUTE_2); break;    // the channel's input on the ROM's ~unity word
+    case 1:  term(c, st, q.in); break;                    // the low shelf's b1 on x[n-1]
+    case 2:  sum(c, st, q.lo); break;                     // and its -a1 on y[n-1]
+    case 3:  close(c, st, q.in, q.lo, ROUTE_2); break;    // b0 on x[n] closing into the low shelf, doubled
+    case 4:  term(c, st, q.lo); break;                    // the high shelf's b1 on the low shelf's output
+    case 5:  sum(c, st, q.hi); break;                     // and its -a1 on its own output
+    default: close(c, st, q.lo, q.hi, ROUTE_4); break;    // b0 closing into the EQ output, quadrupled
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The weighted runs of four: the section weights and the diffuse tap
+// ---------------------------------------------------------------------------------------------
+
+// Four words each scaled onto the running value, of which the last closes the run: a scaled sum
+// through the run's route into `out`, saturated. The first word is a register in two of the runs and
+// a cell in the third, which is the left cascade's second section and is what `first_cell` says.
+struct Sum
+{
+    int base;
+    int first_reg;
+    int first_cell;
+    int src[3];          // the second, third and fourth words' registers
+    int out;
+    route_t route;
+};
+
+// The two halves of the eight section weights, which are the two cascades, and then the diffuse tap,
+// which is the same four steps on its own four registers.
+const Sum SUMS[3] = {
+    //  base  first  cell      the three registers        out  route
+    {  0x167,     0, SECTION2, { 110, 111, 112 }, 120, ROUTE_2 },
+    {  0x16b,   115,       0, { 116, 117, 118 }, 121, ROUTE_2 },
+    {  0x170,   120,       0, { 121, 114, 117 }, 119, ROUTE_2 },
+};
+
+// One of those four steps, at base to base + 3.
+void sum4(yss236_core& c, int st, Sum const& s)
+{
+    switch (st - s.base)
+    {
+    case 0:
+        if (s.first_cell) term_cell(c, st, s.first_cell);  // the run opens on a cell
+        else              term(c, st, s.first_reg);        // or on a register
+        break;
+    case 3:  close(c, st, s.src[2], s.out, s.route); break;
+    default: sum(c, st, s.src[st - s.base - 1]); break;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two cascades' swept gain, which the six gain steps between 0x166 and 0x189 compute
+// ---------------------------------------------------------------------------------------------
+
+// 0x166 and 0x17a, the phase shift word with a cascade's LFO depth on it: a class-1 load adds the
+// depth out of its own cell, and both r[122] and the cascade's t register take the result, so the two
+// cascades sweep against each other.
+void gain_load(yss236_core& c, int st, int tn, int depth)
+{
+    load(c, st, 0, depth, ADD_CELL, false, ROUTE_1, CLAMP_SAT, GAIN);
+    t_put(c, tn, c.acc);
+}
+
+// 0x16f and 0x17d: t[tn] = r[122] = saturate(t[tn] * r[122]), the gain squared and back into its own
+// t register.
+void gain_square(yss236_core& c, int st, int tn)
+{
+    t_put(c, tn, run(c, { st, GAIN, 0, M2_REG, false, tn, ADD_OFF, false, ROUTE_1, CLAMP_SAT, GAIN }));
+}
+
+// 0x175 and 0x189: the square on r[122] times the gain, less what that cascade subtracts, which is
+// the offset the class-1 load at 0x174 left in the running value on the left and the ROM's own zero
+// cell on the right.
+void gain_to_fourth(yss236_core& c, int st, int tn, add_t add, int cell)
+{
+    t_put(c, tn, run(c, { st, GAIN, cell, M2_REG, false, tn, add, true, ROUTE_1, CLAMP_SAT }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two cascades, ten first order sections, each on the one before it a pass back
+// ---------------------------------------------------------------------------------------------
+
+// Which of the two shapes a section takes where it is not the plain register-against-register pair.
+// SH_TAP is a section fed from a cell, which is the cross-channel feedback or the cell a pass back:
+// its first step subtracts the cell and its second writes the section's register from it. SH_CELL is
+// the one section whose own output is that cell, so the pair is the other way round: the first step
+// scales the cell and subtracts the register, the second scales the register and writes the cell.
+enum feed_t { SH_TAP, SH_CELL };
+
+// One of the left cascade's first three sections, two steps at base and base + 1, working between one
+// register and one cell. `gain` is t[10], the left cascade's gain, which every section step scales by.
+struct Feed
+{
+    int base;
+    int gain;
+    int reg;
+    int cell;
+    feed_t shape;
+};
+
+// The first section, on the cross-channel feedback the left cascade starts from; the second, whose own
+// output is the cell; and the third, on that cell a pass back.
+const Feed FEEDS[3] = {
+    //  base        gain  reg  cell      shape
+    {  0x17b,      TL,  109,  FEEDBACK, SH_TAP   },
+    {  0x17e,      TL,  109,  SECTION2, SH_CELL  },
+    {  0x181,      TL,  110,  SECTION2, SH_TAP   },
+};
+
+// One of those two steps: the first opens the running value on the section's input and the second
+// closes it into the section's output, which the next section reads a pass back.
+void feed(yss236_core& c, int st, Feed const& f)
+{
+    if (f.shape == SH_TAP)
+    {
+        if (st == f.base)
+            run(c, { st, f.reg, f.cell, M2_REG, false, f.gain, ADD_CELL, true, ROUTE_1, CLAMP_WRAP });
+        else
+            run(c, { st, 0, f.cell, M2_CELL, false, f.gain, ADD_ACC, true, ROUTE_1, CLAMP_SAT, f.reg });
+    }
+    else
+    {
+        if (st == f.base)
+            run(c, { st, f.reg, f.cell, M2_CELL, false, f.gain, ADD_REG, true, ROUTE_1, CLAMP_WRAP });
+        else
+            run(c, { st, f.reg, 0, M2_REG, false, f.gain, ADD_ACC, true, ROUTE_1, CLAMP_SAT, 0, false, f.cell });
+    }
+}
+
+// A plain section of either cascade, three steps. `in` is the register the unity step puts into the
+// running value and the closing step scales, `out` the register the middle step scales and the closing
+// step writes, so the section is y = g * x - z with z the previous section's output a pass back.
+struct Chain
+{
+    int base;
+    int gain;
+    int in, out;
+    Decor decor[3];
+};
+
+// The left cascade's last two sections and then the right cascade's five, the same three steps each:
+// the unity step that carries the section before's output, the section, and the step that writes the
+// section's own output register. The rows are three steps apart, so a step's row is its own offset
+// over three from the block's base.
+const Chain CHAINS[7] = {
+    //  base        gain  in  out  the three steps' decor, in that order
+    {  0x183,      TL, 110, 111, { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+    {  0x186,      TL, 111, 112, { {DEC_LFO, 12}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+    {  0x18d,      TR, 113, 114, { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_READ, 0} } },
+    {  0x190,      TR, 114, 115, { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+    {  0x193,      TR, 115, 116, { {DEC_READ, 0}, {DEC_CAPTURE, 31}, {DEC_NONE, 0} } },
+    {  0x196,      TR, 116, 117, { {DEC_NONE, 0}, {DEC_READ, 0}, {DEC_CAPTURE, 32} } },
+    {  0x199,      TR, 117, 118, { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+};
+
+// One of those three steps, at base to base + 2.
+void chain(yss236_core& c, int st, Chain const& s)
+{
+    int const k = st - s.base;
+    decor(c, st, s.decor[k]);
+    switch (k)
+    {
+    case 0:  run(c, { st, s.in, 0, M2_REG, true }); break;                    // the class-3 unity step
+    case 1:  run(c, { st, s.out, 0, M2_REG, false, s.gain, ADD_ACC, true, ROUTE_1, CLAMP_WRAP }); break;
+    default: run(c, { st, s.in, 0, M2_REG, false, s.gain, ADD_ACC, true, ROUTE_1, CLAMP_SAT, s.out }); break;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// What each cascade starts from, and the two outputs
+// ---------------------------------------------------------------------------------------------
+
+// 0x176 to 0x179, the feedback the left cascade starts from: the two ROM's quarters add the channels'
+// EQ outputs to the running value and the two width words add the two cascades' section sums on top,
+// and m[54] takes the sum saturated.
+void left_feedback(yss236_core& c, int st)
+{
+    switch (st)
+    {
+    case 0x176: term(c, st, 105); break;      // a quarter of the left EQ output on the ROM's own word
+    case 0x177: run(c, { st, 108, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_WRAP }); break;
+    case 0x178: sum(c, st, 120); break;       // the left cascade's four sections, on PH_WIDTH1's word
+    case 0x179:  // the right cascade's four sections close the sum and m[54] takes it saturated
+        run(c, { st, 121, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0, false, FEEDBACK });
+        break;
+    }
+}
+
+// 0x18a to 0x18c, what the right cascade starts from: the ROM's own word on the right EQ output opens
+// the running value, PH_WIDTH2's second word adds the right cascade's section sum, and the ROM's
+// ~unity word on the left cascade's sum closes the three into r[113].
+void right_input(yss236_core& c, int st)
+{
+    switch (st)
+    {
+    case 0x18a: run(c, { st, 108, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_2, CLAMP_WRAP }); break;
+    case 0x18b: sum(c, st, 121); break;       // the right cascade's four sections, on PH_WIDTH2's word
+    default:    close(c, st, 120, 113); break;
+    }
+}
+
+// One channel's two output steps, at base and base + 1. PH_PAN's wet word scales the channel's EQ
+// output onto the running value and its dry word adds the wet signal, the diffuse tap on the left and
+// the right cascade's sum on the right, which the closing step quadruples into the register the base
+// program reads back.
+struct Output
+{
+    int base;
+    int out;
+    int wet;
+    int dry;
+};
+
+const Output OUTPUTS[2] = {
+    //  base   out  wet  dry
+    {  0x19c,   15, 105, 119 },
+    {  0x19e,   16, 108, 121 },
+};
+
+void output(yss236_core& c, int st, Output const& o)
+{
+    if (st == o.base) term(c, st, o.wet);     // the wet word, on the channel's EQ output
+    else close(c, st, o.dry, o.out, ROUTE_4); // and the dry word closing the pair into the output
+}
+
+// ---------------------------------------------------------------------------------------------
+// The run of steps 0x158 to 0x19f, the whole of the window's program
+// ---------------------------------------------------------------------------------------------
+
+// The loop is one iteration per step and carries the m_skip guard step() opens with, so a gate in the
+// base program's 0x1xx half skips these steps as it would the interpreter's. Each test below is one of
+// the groups the comments at the head of this file open.
 void block_0x158(yss236_core& c)
 {
-    double* const r = c.r;                 // the 128 registers
-    double* const m = c.m;                 // the 64 cells, which carry the values between the steps
-    double xv, k, g, m2, prod, a, y, v;
-
-    // The step's x operand: the register r[sr] into the latch every step but a class-2/3 one moves, and
-    // xv alongside it for the multiplier.
-    auto fetch = [&](int sr) { xv = sr ? r[sr] : 0.0; c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = sr != 0; };
-    // The t file write of a step whose result is y, tfrac saying which of the two forms it takes.
-    auto twr = [&](double yy, int tn, bool tfrac) {
-        double const w = yy * 256.0;
-        double const tv = tfrac ? (w - std::floor(w))
-                                 : (w < -32768.0 ? -32768.0 : 32767.0 < w ? 32767.0 : w) / 32768.0;
-        c.queue_t(tn, tv);
-    };
-
     for (int st = 0x158; st < 0x1a0; st++)
     {
         c.begin_step();
         if (st < c.m_skip) continue;
-        switch (st)
+
+        if (st < 0x166)
         {
-// ---- 0x158 to 0x165, the two channels' EQ, two order-1 shelves each ------------------------
-// m[2] takes the left serial input; r[103] = saturate(2 * k * r[5]), the left input through the ROM's ~unity word and doubled
-        case 0x158:
-            c.queue_d(2, c.in[0][10]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(103, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// m[6] takes the right serial input; the left low shelf's b1: k * r[103], the input a pass back
-        case 0x159:
-            c.queue_d(6, c.in[1][10]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the left low shelf's -a1: k * r[104] + acc, its output a pass back
-        case 0x15a:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// a read of the slot 0x56; the left low shelf's b0: r[104] = saturate(2 * (k * r[103] + acc))
-        case 0x15b:
-            c.push_hist(st, c.ram[c.addr(0x56, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(104, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the left high shelf's b1: k * r[104]
-        case 0x15c:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the left high shelf's -a1: k * r[105] + acc
-        case 0x15d:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the left high shelf's b0: r[105] = saturate(4 * (k * r[104] + acc)), the left EQ output
-        case 0x15e:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(105, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// a read of the slot 0x57; r[106] = saturate(2 * k * r[6]), the right input doubled
-        case 0x15f:
-            c.push_hist(st, c.ram[c.addr(0x57, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(106, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// m[28] takes up the read of 0x15b; the right low shelf's b1: k * r[106]
-        case 0x160:
-            c.queue_d(28, c.captured(m[28], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the right low shelf's -a1: k * r[107] + acc
-        case 0x161:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the right low shelf's b0: r[107] = saturate(2 * (k * r[106] + acc))
-        case 0x162:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(107, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// a read of the slot 0x58; the right high shelf's b1: k * r[107]
-        case 0x163:
-            c.push_hist(st, c.ram[c.addr(0x58, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[29] takes up the read of 0x15f; the right high shelf's -a1: k * r[108] + acc
-        case 0x164:
-            c.queue_d(29, c.captured(m[29], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the right high shelf's b0: r[108] = saturate(4 * (k * r[107] + acc)), the right EQ output
-        case 0x165:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(108, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x166, the left cascade's swept gain -----------------------------------------------------
-// m[11] takes the LFO of this page; PH_FB[0]'s word: acc = saturate(128 * k + m[8]), the phase shift with the first LFO's depth on it; r[122] and t[10] take it
-        case 0x166:
-            c.queue_d(11, c.lfo[11]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[8];
-            a = c.src;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            c.queue_r(122, yss236_core::mode(v, 1));
-            y = c.acc = yss236_core::accmode(v, 1);
-            twr(y, 10, false);
-            break;
-// ---- 0x167 to 0x16e, the eight section weights ------------------------------------------------
-// PH_STAGES[0]: acc = k * m[55], the left cascade's second section, and the sum starts here
-        case 0x167:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(0);
-            c.psrc = c.src; c.src = m[55];
-            m2 = c.src;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[30] takes up the read of 0x163; PH_STAGES[1]: acc = k * r[110] + acc
-        case 0x168:
-            c.queue_d(30, c.captured(m[30], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(110);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_STAGES[2]: acc = k * r[111] + acc
-        case 0x169:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_STAGES[3]: r[120] = saturate(2 * (k * r[112] + acc)), the left cascade's four sections summed
-        case 0x16a:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(120, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// PH_STAGES[4]: acc = k * r[115], which starts the right cascade's sum
-        case 0x16b:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_STAGES[5]: acc = k * r[116] + acc
-        case 0x16c:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(116);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_STAGES[6]: acc = k * r[117] + acc
-        case 0x16d:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(117);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_STAGES[7]: r[121] = saturate(2 * (k * r[118] + acc)), the right cascade's four sections summed
-        case 0x16e:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(118);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(121, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x16f, the left gain squared -------------------------------------------------------------
-// t[10] = r[122] = saturate(t[10] * r[122]), so the left gain is the phase shift squared
-        case 0x16f:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(122);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(122, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 10, false);
-            break;
-// ---- 0x170 to 0x173, the diffuse tap -----------------------------------------------------------
-// acc = k * r[120], the left sum on the ROM's own word at this step, which is zero
-        case 0x170:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_DIR[0]: acc = k * r[121] + acc, the right sum on the same accumulator
-        case 0x171:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_DIR[1]: acc = k * r[114] + acc, the right cascade's first section
-        case 0x172:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_DIR[2]: r[119] = saturate(2 * (k * r[117] + acc)), the diffuse tap
-        case 0x173:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(117);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(119, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x174 to 0x175, the left gain finished ----------------------------------------------------
-// the class-1 load of the ROM's 0x7ffe: acc = 128 * k, about 128, and nothing else
-        case 0x174:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[0];
-            a = 0.0;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            y = c.acc = yss236_core::accmode(v, 0);
-            break;
-// acc = saturate(t[10] * r[122] - acc); t[10] takes it, so the left gain is the phase shift to the fourth less 128
-        case 0x175:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(122);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 10, false);
-            break;
-// ---- 0x176 to 0x179, the feedback the left cascade starts from --------------------------------
-// acc = k * r[105], a quarter of the left EQ output at the ROM's own word
-        case 0x176:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// acc = 2 * (k * r[108] + acc), a quarter of the right EQ output over the same sum
-        case 0x177:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// acc = k * r[120] + acc; this word is the ROM's zero unless phaser2() writes it with the width
-        case 0x178:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_WIDTH1's word: m[54] = saturate(k * r[121] + acc), the feedback the left cascade starts from
-        case 0x179:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            c.queue_d(54, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-// ---- 0x17a, the right cascade's swept gain ----------------------------------------------------
-// PH_FB[1]'s word: the same class-1 load on m[9], the second LFO's depth; r[122] and t[11] take it
-        case 0x17a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[9];
-            a = c.src;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            c.queue_r(122, yss236_core::mode(v, 1));
-            y = c.acc = yss236_core::accmode(v, 1);
-            twr(y, 11, false);
-            break;
-// ---- 0x17b to 0x17c, the left cascade's first section ----------------------------------------
-// acc = t[10] * r[109] - m[54], the left cascade's first section, on the cross-channel feedback
-        case 0x17b:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(109);
-            c.psrc = c.src; c.src = m[54];
-            m2 = xv;
-            prod = g * m2;
-            a = c.src;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[109] = saturate(t[10] * m[54] - acc), that section's output and the next section's input
-        case 0x17c:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(0);
-            c.psrc = c.src; c.src = m[54];
-            m2 = c.src;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(109, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x17d, the right gain squared ------------------------------------------------------------
-// t[11] = r[122] = saturate(t[11] * r[122]), so the right gain is the phase shift squared
-        case 0x17d:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(122);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(122, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 11, false);
-            break;
-// ---- 0x17e to 0x17f, the left cascade's second section ---------------------------------------
-// acc = t[10] * m[55] - r[109], the second section, still on the first section's output
-        case 0x17e:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(109);
-            c.psrc = c.src; c.src = m[55];
-            m2 = c.src;
-            prod = g * m2;
-            a = xv;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[55] = saturate(t[10] * r[109] + acc), its output, which PH_STAGES[0] scales into the sum
-        case 0x17f:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(109);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            c.queue_d(55, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-// ---- 0x180, the zero the right gain subtracts --------------------------------------------------
-// the class-1 load of the ROM's zero, and m[56] takes the accumulator: what the right gain subtracts
-        case 0x180:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[0];
-            a = 0.0;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            y = c.acc = yss236_core::accmode(v, 1);
-            c.queue_d(56, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-// ---- 0x181 to 0x188, the left cascade's third to fifth sections -------------------------------
-// acc = t[10] * r[110] - m[55], the third section
-        case 0x181:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(110);
-            c.psrc = c.src; c.src = m[55];
-            m2 = xv;
-            prod = g * m2;
-            a = c.src;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[110] = saturate(t[10] * m[55] - acc), its output
-        case 0x182:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(0);
-            c.psrc = c.src; c.src = m[55];
-            m2 = c.src;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(110, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the class-3 step: acc = r[110], what the next section subtracts
-        case 0x183:
-            k = yss236_core::s16(c.coef[st]);
-            g = 1.0;
-            fetch(110);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// acc = t[10] * r[111] - acc, the fourth section
-        case 0x184:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[111] = saturate(t[10] * r[110] - acc), its output
-        case 0x185:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(110);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(111, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// m[12] takes the LFO of this page; the class-3 step: acc = r[111]
-        case 0x186:
-            c.queue_d(12, c.lfo[12]);
-            k = yss236_core::s16(c.coef[st]);
-            g = 1.0;
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// acc = t[10] * r[112] - acc, the fifth section
-        case 0x187:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[112] = saturate(t[10] * r[111] - acc), its output, which PH_STAGES[3] scales into the sum
-        case 0x188:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(112, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x189, the right gain to the fourth ------------------------------------------------------
-// acc = t[11] * r[122] - m[56]; t[11] takes it, so the right gain is the phase shift to the fourth
-        case 0x189:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(122);
-            c.psrc = c.src; c.src = m[56];
-            m2 = xv;
-            prod = g * m2;
-            a = c.src;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 11, false);
-            break;
-// ---- 0x18a to 0x18c, what the right cascade starts from ----------------------------------------
-// acc = 2 * (k * r[108]) on the ROM's own zero word, so nothing
-        case 0x18a:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_WIDTH2[1]'s word: acc = k * r[121] + acc, the right sum through the width
-        case 0x18b:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[113] = saturate(k * r[120] + acc) on the ROM's ~unity word: what the right cascade starts from
-        case 0x18c:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(113, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x18d to 0x19b, the right cascade's five sections ----------------------------------------
-// the class-3 step: acc = r[113], what the first section subtracts
-        case 0x18d:
-            k = yss236_core::s16(c.coef[st]);
-            g = 1.0;
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// acc = t[11] * r[114] - acc, the right cascade's first section
-        case 0x18e:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// a read of the slot 0x63; r[114] = saturate(t[11] * r[113] + acc), its output
-        case 0x18f:
-            c.push_hist(st, c.ram[c.addr(0x63, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(114, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the class-3 step: acc = r[114]
-        case 0x190:
-            k = yss236_core::s16(c.coef[st]);
-            g = 1.0;
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// acc = t[11] * r[115] - acc, the second section
-        case 0x191:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[115] = saturate(t[11] * r[114] - acc), its output
-        case 0x192:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(115, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// a read of the slot 0x64; the class-3 step: acc = r[115]
-        case 0x193:
-            c.push_hist(st, c.ram[c.addr(0x64, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = 1.0;
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[31] takes up the read of 0x18f; acc = t[11] * r[116] - acc, the third section
-        case 0x194:
-            c.queue_d(31, c.captured(m[31], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(116);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[116] = saturate(t[11] * r[115] - acc), its output
-        case 0x195:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(116, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the class-3 step: acc = r[116]
-        case 0x196:
-            k = yss236_core::s16(c.coef[st]);
-            g = 1.0;
-            fetch(116);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// a read of the slot 0x65; acc = t[11] * r[117] - acc, the fourth section
-        case 0x197:
-            c.push_hist(st, c.ram[c.addr(0x65, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(117);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[32] takes up the read of 0x193; r[117] = saturate(t[11] * r[116] - acc), its output
-        case 0x198:
-            c.queue_d(32, c.captured(m[32], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(116);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(117, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the class-3 step: acc = r[117]
-        case 0x199:
-            k = yss236_core::s16(c.coef[st]);
-            g = 1.0;
-            fetch(117);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// acc = t[11] * r[118] - acc, the fifth section
-        case 0x19a:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(118);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[118] = saturate(t[11] * r[117] - acc), its output, which PH_STAGES[7] scales into the sum
-        case 0x19b:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(117);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(118, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x19c to 0x19f, the dry and wet -----------------------------------------------------------
-// m[33] takes up the read of 0x197; PH_PAN's wet word: acc = k * r[105], the left EQ output
-        case 0x19c:
-            c.queue_d(33, c.captured(m[33], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_PAN's dry word: r[15] = saturate(4 * (k * r[119] + acc)), the left output
-        case 0x19d:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(15, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// PH_PAN's wet word: acc = k * r[108], the right EQ output
-        case 0x19e:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// PH_PAN's dry word: r[16] = saturate(4 * (k * r[121] + acc)), the right output
-        case 0x19f:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(16, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
+            // ---- 0x158 to 0x165, the two channels' EQ ----
+            eq(c, st, EQS[(st - 0x158) / 7]);
+            continue;
         }
+        if (st == 0x166)
+        {
+            // ---- the left cascade's swept gain, the phase shift with the first LFO's depth on it ----
+            take_lfo(c, 11, st);      // this page's LFO, published for the base program
+            gain_load(c, st, TL, 8);
+            continue;
+        }
+        if (st < 0x16f)
+        {
+            // ---- 0x167 to 0x16e, the eight section weights, four a cascade ----
+            if (st == 0x168) take_capture(c, 30, st);      // the read of 0x163, five steps earlier
+            sum4(c, st, SUMS[(st - 0x167) / 4]);
+            continue;
+        }
+        if (st == 0x16f)
+        {
+            // ---- the left gain squared ----
+            gain_square(c, st, TL);
+            continue;
+        }
+        if (st < 0x174)
+        {
+            // ---- 0x170 to 0x173, the diffuse tap ----
+            sum4(c, st, SUMS[2]);
+            continue;
+        }
+        if (st == 0x174)
+        {
+            // ---- the constant the left gain's fourth power comes off: the ROM's 0x7ffe, about 128 ----
+            load(c, st, 0, 0);
+            continue;
+        }
+        if (st == 0x175)
+        {
+            // ---- the left gain to the fourth, less that constant ----
+            gain_to_fourth(c, st, TL, ADD_ACC, 0);
+            continue;
+        }
+        if (st < 0x17a)
+        {
+            // ---- 0x176 to 0x179, the feedback the left cascade starts from ----
+            left_feedback(c, st);
+            continue;
+        }
+        if (st == 0x17a)
+        {
+            // ---- the right cascade's swept gain, the same load on the second LFO's depth ----
+            gain_load(c, st, TR, 9);
+            continue;
+        }
+        if (st < 0x189)
+        {
+            // ---- 0x17b to 0x188, the left cascade, with the right gain's own steps between its
+            //      first three sections ----
+            if (st == 0x17d)
+            {
+                gain_square(c, st, TR);
+                continue;
+            }
+            if (st == 0x180)
+            {
+                // the ROM's own zero, which m[56] takes and the right gain subtracts
+                load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0, ZERO);
+                continue;
+            }
+            if (st < 0x183) feed(c, st, FEEDS[(st - 0x17b) / 3]);
+            else            chain(c, st, CHAINS[(st - 0x183) / 3]);
+            continue;
+        }
+        if (st == 0x189)
+        {
+            // ---- the right gain to the fourth, less the zero cell ----
+            gain_to_fourth(c, st, TR, ADD_CELL, ZERO);
+            continue;
+        }
+        if (st < 0x18d)
+        {
+            // ---- 0x18a to 0x18c, what the right cascade starts from ----
+            right_input(c, st);
+            continue;
+        }
+        if (st < 0x19c)
+        {
+            // ---- 0x18d to 0x19b, the right cascade's five sections ----
+            chain(c, st, CHAINS[2 + (st - 0x18d) / 3]);
+            continue;
+        }
+
+        // ---- 0x19c to 0x19f, the dry and wet ----
+        if (st == 0x19c) take_capture(c, 33, st);      // the read of 0x197, five steps earlier
+        output(c, st, OUTPUTS[(st - 0x19c) / 2]);
     }
 }
 

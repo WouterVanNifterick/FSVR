@@ -110,6 +110,17 @@ inline void write_delay(yss236_core& c, int st, double v, bool indexed = false)
 	c.ram[c.addr(st >> 2, indexed ? c.cur_idx() : 0, false)] = v;
 }
 
+// A class-0 step that writes the delay RAM (s34): it writes the data a wdata step latched, and does
+// nothing at all without one, since a class-0 step has no result of its own to write.
+inline void write_delay_latched(yss236_core& c, int st)
+{
+	if (c.haswl)
+	{
+		c.ram[c.addr(st >> 2, 0, false)] = c.wlatch;
+		c.haswl = false;
+	}
+}
+
 // A cell goes to the serial output the step's page carries (w4[6]), so the base program picks it up.
 inline void serial_out(yss236_core& c, int st, int sm) { c.out[st >> 5] = c.m[sm]; }
 
@@ -139,6 +150,8 @@ struct alu
 	int dm = 0;               // the cell the result is written to, 0 for none
 	bool prev = false;        // and it takes the step before's m operand (w2[15:13] = 7)
 	bool cmp = false;         // the sign of the result becomes the compare flag (w2[0])
+	bool wdata = false;       // the result becomes the data of the next delay RAM write (w1[13])
+	bool write = false;       // and this step is that write: it takes the latched data if there is one
 };
 
 // One class-2 or class-3 step. The order is step()'s: the multiplier's word and its two inputs, then
@@ -179,6 +192,26 @@ inline double run(yss236_core& c, alu const& s)
 		else if (!(s.m2 == M2_CELL && s.add == ADD_OFF && s.dm == s.sm))   // s30: a step whose
 			c.queue_d(s.dm, yss236_core::clip(y, yss236_core::DSAT));        // source is its own
 	}                                                                        // cell does not write it
+	if (s.wdata)
+	{
+		if (s.write)
+			c.haswl = false;                       // s34: a writer carrying the flag writes its own data
+		else
+		{
+			c.wlatch = yss236_core::clip(y, yss236_core::SAT);
+			c.haswl = true;
+		}
+	}
+	if (s.write)
+	{
+		double outv = yss236_core::clip(y, yss236_core::SAT);
+		if (c.haswl)                              // s34: a writer takes the data a wdata step left
+		{
+			outv = c.wlatch;
+			c.haswl = false;
+		}
+		c.ram[c.addr(s.st >> 2, 0, false)] = outv;
+	}
 	return y;
 }
 

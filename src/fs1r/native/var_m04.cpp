@@ -28,7 +28,7 @@
 // carries 2^scale as its result route, which is why the low shelf's b0 sits on a step that doubles and the
 // high shelf's on one that quadruples: scale 1 against highScale's 2.
 //
-// The 72 steps, in the groups the comments in the switch open:
+// The 72 steps, in the groups the loop below splits them into:
 //
 //   0x158-0x165  the two channels' EQ, two order-1 shelves each. 0x158 takes the left input r[5] into
 //                r[103] through the ROM's ~unity word and doubled, and 0x159 to 0x15b are the low shelf:
@@ -79,6 +79,19 @@
 //                publishes lfo[12] into m[12], 0x193 and 0x197 read, and 0x194, 0x198 and 0x19c publish
 //                the three reads five steps before them.
 //
+// Every order-1 section in the program is three steps of one shape, and SECTIONS below is all six of them,
+// one row each: the two shelves each channel's EQ runs, the highpass and the lowpass. Each section is
+//
+//   b1   the word on the section's own input, with no adder, which opens the sum
+//   -a1  the word on the section's own output a pass back
+//   b0   the word on the input again, closing the sum into the output with the section's route
+//
+// which is what fx_common.cpp's shelves() and fx_design.cpp's designFilter() write the words for. The
+// route on a closing step is the 2^scale the designer took out of the words: 2 on the low shelves and the
+// highpass, 4 on the high shelves against highScale's 2, and 1 on the lowpass. The rest of the program is
+// per channel, and RES and MIX below are the two rows of each run of it, the left channel's and the right
+// channel's registers and cells side by side.
+//
 // The registers: r[5] and r[6] the two inputs the base program leaves this window (0x096 and 0x1f2 write
 // the first, 0x08d the second) and r[15] and r[16] the two outputs it reads back (0x004 and 0x005).
 // r[103] to r[105] the left channel's EQ: input, low shelf, high shelf; r[106] to r[108] the right
@@ -102,682 +115,387 @@
 // order yss236_core::step() runs its own.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out by
+// name rather than a step at a time.
 //
 // vop3_native_check var-m04: identical, 2 types, 19200 native passes.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
-// The run of steps 0x158 to 0x19f, the whole of the window's program. The loop is one iteration per
-// step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half skips
-// these steps as it would the interpreter's.
+using namespace step;   // the step vocabulary: term, sum, close, gain, load, run, idle and the rest
+
+// ---------------------------------------------------------------------------------------------
+// The order-1 sections: the EQ's four shelves and touchWah()'s two input filters
+// ---------------------------------------------------------------------------------------------
+
+// What a step's own words move before it does any arithmetic: a cell from the hardware side, or a read
+// of the delay RAM pushed into the history a capture further down the program takes up. The two LFO
+// values this window publishes are taken at 0x167 and 0x18f instead, where no section runs.
+enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_SERIAL };
+
+// One step's decor. `cell` is the cell a capture or a serial input publishes into, and on a read the slot
+// it reads, which is its own step over four and never read from here: read_delay() takes the slot off the
+// step, as step() does. `bank` is which of the two serial input banks a DEC_SERIAL step reads, 0 the left
+// and 1 the right.
+struct Decor { decor_t kind; int cell; int bank; };
+
+// Which row of SECTIONS is which, in the order the sections' steps run.
+enum { SEC_LOW_L = 0, SEC_HIGH_L, SEC_LOW_R, SEC_HIGH_R, SEC_HPF, SEC_LPF };
+
+// One order-1 section, in direct form I. `in` is the register its input is in and `out` the register its
+// output goes to, which the -a1 step reads a pass later and the b0 step overwrites. `route` is the
+// closing step's, which is the 2^scale the designer took out of the three words. The decor is one entry
+// per step, in step order.
+struct Section
+{
+	int base;                  // the first of the three steps
+	int in, out;
+	step::route_t route;
+	Decor decor[3];
+};
+
+// The six sections: the two shelves each channel's EQ runs, and the highpass and the lowpass touchWah()
+// runs its cutoff through. Only the EQ's four carry decor, because the base program reads what each of
+// them publishes once and then gets on with it: three delay RAM reads and the captures that follow them
+// five steps later, and the two serial inputs this window takes for the base program.
+const Section SECTIONS[6] = {
+	//  base   in   out  route      b1                   -a1                  b0
+	{ 0x159, 103, 104, ROUTE_2, { {DEC_NONE,    0, 0}, {DEC_NONE,    0, 0}, {DEC_READ,   0x56, 0} } },
+	{ 0x15c, 104, 105, ROUTE_4, { {DEC_SERIAL,  2, 0}, {DEC_SERIAL,  6, 1}, {DEC_NONE,    0, 0} } },
+	{ 0x160, 106, 107, ROUTE_2, { {DEC_CAPTURE, 28, 0}, {DEC_NONE,    0, 0}, {DEC_NONE,    0, 0} } },
+	{ 0x163, 107, 108, ROUTE_4, { {DEC_READ,   0x58, 0}, {DEC_CAPTURE, 29, 0}, {DEC_NONE,    0, 0} } },
+	{ 0x16b, 109, 110, ROUTE_2, { {DEC_NONE,    0, 0}, {DEC_NONE,    0, 0}, {DEC_NONE,    0, 0} } },
+	{ 0x17f, 112, 113, ROUTE_1, { {DEC_NONE,    0, 0}, {DEC_NONE,    0, 0}, {DEC_NONE,    0, 0} } },
+};
+
+// One section's three steps. The decor the step's own words carry comes first, because step() moves a cell
+// or reads the delay RAM before it fetches or adds, and then the section's term for this step.
+void section(yss236_core& c, int st, Section const& s, int k)
+{
+	switch (s.decor[k].kind)
+	{
+		case DEC_READ:    read_delay(c, st); break;
+		case DEC_CAPTURE: take_capture(c, s.decor[k].cell, st); break;
+		case DEC_SERIAL:  take_serial(c, s.decor[k].cell, st, s.decor[k].bank); break;
+		case DEC_NONE: break;
+	}
+	switch (k)
+	{
+	case 0:  term(c, st, s.in); break;                         // b1 on x[n], opening the sum
+	case 1:  sum(c, st, s.out); break;                         // -a1 on y[n-1]
+	default: close(c, st, s.in, s.out, s.route); break;        // b0 on x[n], closing into y[n]
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x158 to 0x165, the two channels' EQ: one input step and two shelves each
+// ---------------------------------------------------------------------------------------------
+
+// The EQ's two input steps, one per channel, and the only steps of the block that are not part of a
+// section: the channel's serial input through the ROM's ~unity word and doubled into the register its low
+// shelf reads a pass later. The right channel's also reads the delay RAM, which m[28] takes up five steps
+// after it.
+struct EqIn { int st, in, out; bool reads_delay; };
+
+const EqIn EQ_IN[2] = {
+	//  st   in   out  reads_delay
+	{ 0x158, 5, 103, false },
+	{ 0x15f, 6, 106, true  },
+};
+
+void eq(yss236_core& c, int st)
+{
+	// Which channel's row this step is in: the left channel's steps run first and the right's start at
+	// 0x15f, so the step says which input step and which pair of shelves it is.
+	EqIn const& e = EQ_IN[st < EQ_IN[1].st ? 0 : 1];
+	if (st == e.st)
+	{
+		if (e.reads_delay) read_delay(c, st);
+		gain(c, st, e.in, e.out, ROUTE_2);
+		return;
+	}
+	// The four shelves, each channel's high one on its low one's output, three steps each. The two
+	// channels are seven steps apart rather than six, because the right channel's input step sits
+	// between them, so each channel's pair is counted from its own first shelf.
+	int const ch = st < SECTIONS[SEC_LOW_R].base ? SEC_LOW_L : SEC_LOW_R;
+	Section const& s = SECTIONS[ch + (st - SECTIONS[ch].base) / 3];
+	section(c, st, s, st - s.base);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The cutoff the LFO sweeps (0x166 to 0x168, 0x16e, 0x172 and 0x173) and touchWah()'s filter over it
+// ---------------------------------------------------------------------------------------------
+
+// 0x166 and 0x167: the cutoff itself, and the LFO's depth on it. fx_common.h's wahCutoff() makes the word
+// 3052 * v / 16 + 7837, so the class-1 load puts the running value in the range about 30 to 128, and the
+// depth word on top of it is the Auto Wah's alone: touchWah() writes no such word.
+void cutoff(yss236_core& c, int st)
+{
+	if (st == 0x166)
+	{
+		// the class-1 load of WAH_CUTOFF's word: p = 128 * k, and nothing else
+		load(c, st, 0, 0);
+		return;
+	}
+	take_lfo(c, 11, st);        // m[11]: the LFO value this window publishes for the base program
+	sum_cell(c, st, 8);         // p = k m[8] + p: WAH_DEPTH's word on the window's first LFO
+}
+
+// 0x168, 0x16e, 0x172 and 0x173: the four steps that make t[9] the swept gain. The program writes t[9]
+// three times and reads it five times, and every step below that scales the resonator scales by it, so
+// the cutoff's own one-pole is what keeps the sweep smooth.
+void swept_gain(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x168:
+		// r[119] = saturate(k r[113] + p), and t[9] takes the result as a 1.15 word. The word on r[113],
+		// the lowpass touchWah() designs below, is zero under Auto Wah and 0x5000 under Touch Wah, so
+		// under the first r[119] is the cutoff on its own and under the second the lowpass's output is
+		// scaled into it.
+		take_capture(c, 30, st);                                  // m[30]: the read of 0x163, five steps back
+		t_put(c, 9, run(c, { st, 113, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 119 }));
+		return;
+	case 0x16e:
+		// r[119] = wrap(t[9] r[119]), and t[9] takes that back, so the gain the resonator runs by follows
+		// the cutoff a sample at a time instead of stepping with it
+		t_put(c, 9, run(c, { st, 119, 0, M2_REG, false, 9, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 119 }));
+		return;
+	case 0x172:
+		// p = t[9] r[119]: the same product, left in the running value for the step below to add to
+		run(c, { st, 119, 0, M2_REG, false, 9, ADD_OFF });
+		return;
+	default:
+		// 0x173: the class-1 load adds its own word to that, 128 * 0x0080 = 0.5 under Auto Wah,
+		// saturates, and t[9] takes it: the one-pole's second half
+		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT);
+		t_put(c, 9, c.acc);
+		return;
+	}
+}
+
+// 0x169 to 0x16d: the highpass touchWah() designs, an order-1 section over the two EQ outputs summed into
+// its own input register.
+void highpass(yss236_core& c, int st)
+{
+	if (st < SECTIONS[SEC_HPF].base)
+	{
+		// The two words that bring the EQ outputs together are the two types' own and the Auto Wah's are
+		// zero, so under it r[109] and r[110] stay zero and the section below is silent. Under Touch Wah
+		// this is the only signal the resonator sees, both channels' shelves summed.
+		if (st == 0x169) term(c, st, 105);   // the left EQ output on its own
+		else              close(c, st, 108, 109);   // and the right one added to it, into r[109]
+		return;
+	}
+	section(c, st, SECTIONS[SEC_HPF], st - SECTIONS[SEC_HPF].base);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The resonator: two channels of a state register, a feedback accumulator and an input cell
+// ---------------------------------------------------------------------------------------------
+
+// One channel of the resonator. `open` and `sense` are the two steps its input takes, and the right
+// channel's come five steps after the left's because the smoother and the sensitivity level sit between
+// them; `state` and `fb` are the accumulator's and the feedback's own steps, adjacent per channel. `eq`
+// is that channel's EQ output, `y` its state register, and `fb_cell` and `res_cell` its two cells: the
+// feedback accumulator the input is taken against, and the input itself.
+struct Resonator
+{
+	int open, sense, state, fb;
+	int eq, y, fb_cell, res_cell;
+};
+
+const Resonator RES[2] = {
+	// open  sense state fb     eq   y  fb_cell res_cell
+	{ 0x16f, 0x170, 0x178, 0x182, 105, 114, 54, 56 },
+	{ 0x174, 0x175, 0x179, 0x183, 108, 115, 55, 57 },
+};
+
+// 0x16f and 0x174: the channel's own feedback accumulator less its EQ output, which is what the resonator
+// runs on. The feedback the accumulator closes into at 0x182 is taken off again here, and that is the
+// loop: the state register times the swept gain goes back round through this cell for ever.
+void resonator_open(yss236_core& c, int st, Resonator const& r)
+{
+	// p = k m[fb_cell] - r[eq]
+	run(c, { st, r.eq, r.fb_cell, M2_CELL, false, 0, ADD_REG, true });
+}
+
+// 0x170 and 0x175: WAH_SENSE's word on the channel's own state, subtracted from what the step above left
+// in the running value and saturated, into the cell the accumulator below reads.
+void resonator_sense(yss236_core& c, int st, Resonator const& r)
+{
+	// p = saturate(k r[y] - p); m[res_cell] takes it
+	run(c, { st, r.y, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_SAT, 0, false, r.res_cell });
+}
+
+// 0x171: the Touch Wah's sensitivity, WAH_ATTACK's word on the highpass's own output r[110] scaled by 16
+// and rectified, into m[58]. autoWah() writes no such word and leaves the one there at zero, so this is
+// the Touch Wah's level alone, and both channels' partners below run against it.
+void sensitivity(yss236_core& c, int st)
+{
+	run(c, { st, 110, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_ABS, 0, false, 58 });
+}
+
+// 0x178 and 0x179: the swept gain on the channel's input cell, added to its own state. That register is
+// both the resonator's output, which the dry and wet below take, and the value the feedback closes from.
+void resonator_state(yss236_core& c, int st, Resonator const& r)
+{
+	// r[y] = saturate(t[9] m[res_cell] + r[y])
+	run(c, { st, r.y, r.res_cell, M2_CELL, false, 9, ADD_REG, false, ROUTE_1, CLAMP_SAT, r.y });
+}
+
+// 0x182 and 0x183: the same swept gain on the state register, added to the cell the input above subtracts.
+void resonator_fb(yss236_core& c, int st, Resonator const& r)
+{
+	// m[fb_cell] = saturate(t[9] r[y] + m[fb_cell]), clipped into the cell
+	run(c, { st, r.y, r.fb_cell, M2_REG, false, 9, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 0, false, r.fb_cell });
+}
+
+// ---------------------------------------------------------------------------------------------
+// The sensitivity level's partners, the lowpass's input, and the dry and wet
+// ---------------------------------------------------------------------------------------------
+
+// The sensitivity level's two partners, a pair of steps each. The first step of a pair puts the
+// complement of the level into the running value with the negatives clamped away, and the second closes
+// that with the level itself on top into a register of its own. Both first steps read r[111]: the first
+// pair writes that register back, the second the lowpass's input register. `from_cell` is which way the
+// first step takes the level off: 0x176 off the cell the sensitivity step wrote, 0x17d off the running
+// value that pair has by then put it in.
+struct Partner
+{
+	int rect, close;            // the pair's two steps
+	int read, out;              // the register the first reads and the one the second writes
+	int cell;                   // m[58], the sensitivity level, which both steps scale
+	bool from_cell;
+};
+
+const Partner PARTNER[2] = {
+	// rect  close  read  out  cell  from_cell
+	{ 0x176, 0x177,  111,  111, 58, true  },
+	{ 0x17d, 0x17e,  111,  112, 58, false },
+};
+
+void level_partner(yss236_core& c, int st, Partner const& p)
+{
+	if (st == p.rect)
+	{
+		// p = max(0, k r[read] - the level): the same value with the negatives clamped away
+		if (p.from_cell)
+			run(c, { st, p.read, p.cell, M2_REG, false, 0, ADD_CELL, true, ROUTE_1, CLAMP_ZERO });
+		else
+			run(c, { st, p.read, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_ZERO });
+		return;
+	}
+	// r[out] = saturate(k m[58] + p), the partner's own register
+	run(c, { st, 0, p.cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, p.out });
+}
+
+// 0x17a to 0x17e: the lowpass's input, which is what the section below at 0x17f to 0x181 runs on.
+void lowpass_in(yss236_core& c, int st)
+{
+	if (st < PARTNER[1].rect)
+	{
+		// Three steps on the ROM's own words: the lowpass's input register into the running value, then
+		// that same term again added to the running value over 32768 (the adder names a zero m cell, and
+		// that is where a divided running value comes from), then the sensitivity level subtracted.
+		if (st == 0x17a) term(c, st, 112);                                    // p = k r[112]
+		else if (st == 0x17b) run(c, { st, 112, 0, M2_REG, false, 0, ADD_CELL });  // p = k r[112] + p / 32768
+		else                run(c, { st, 0, 58, M2_CELL, false, 0, ADD_ACC, true });  // p = k m[58] - p
+		return;
+	}
+	// 0x17d and 0x17e: the level's second partner, which closes into the lowpass's input register r[112].
+	level_partner(c, st, PARTNER[1]);
+}
+
+// The dry and the wet, two steps per channel. WAH_PAN's wet word on the resonator's state opens the
+// running value and the dry word on the channel's EQ output closes it, quadrupled, into that channel's
+// output register. dryWet() runs the variation blocks fully wet, so the dry words are zero and the two
+// outputs are the states at the window's own gain.
+struct Mix
+{
+	int wet, dry;               // the pair's two steps
+	int y, eq, out;             // the resonator's state, the EQ output and the output register
+};
+
+const Mix MIX[2] = {
+	//  wet   dry     y   eq  out
+	{ 0x184, 0x185, 114, 105, 15 },
+	{ 0x186, 0x187, 115, 108, 16 },
+};
+
+void out_mix(yss236_core& c, int st, Mix const& x)
+{
+	if (st == x.wet) term(c, st, x.y);                             // WAH_PAN's wet word on the state
+	else              close(c, st, x.eq, x.out, ROUTE_4);          // and the dry word, into r[15] or r[16]
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x188 to 0x19f, the tail: three published reads, their captures, the second LFO, and the padding
+// ---------------------------------------------------------------------------------------------
+
+// The reads are at 0x18f, 0x193 and 0x197 and each capture follows five steps later, which is
+// captured()'s lower bound, so the tail is idle between them but for the x latch.
+void tail(yss236_core& c, int st)
+{
+	int const k = st - 0x18f;
+	if (k == 0 || k == 4 || k == 8)
+	{
+		read_delay(c, st);               // the slots 0x63, 0x64 and 0x65, at the ring pointer
+		if (k == 0) take_lfo(c, 12, st); // m[12]: the window's second LFO value, on the same step
+	}
+	else if (k == 5 || k == 9 || k == 13)
+		take_capture(c, 31 + (k - 5) / 4, st);      // m[31], m[32] and m[33] take the three reads up
+	idle(c);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The program
+// ---------------------------------------------------------------------------------------------
+
+// The run of steps 0x158 to 0x19f, the whole of the window's program, one iteration per step. The loop
+// carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half skips these
+// steps as it would the interpreter's.
 void block_0x158(yss236_core& c)
 {
-    double* const r = c.r;                 // the 128 registers
-    double* const m = c.m;                 // the 64 cells, which carry the values between the steps
-    double xv, k, g, m2, prod, a, y, v;
+	for (int st = 0x158; st < 0x1a0; st++)
+	{
+		c.begin_step();
+		if (st < c.m_skip) continue;
 
-    // The step's x operand: the register r[sr] into the latch every step but a class-2/3 one moves, and
-    // xv alongside it for the multiplier.
-    auto fetch = [&](int sr) { xv = sr ? r[sr] : 0.0; c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = sr != 0; };
-    // The t file write of a step whose result is y, tfrac saying which of the two forms it takes.
-    auto twr = [&](double yy, int tn, bool tfrac) {
-        double const w = yy * 256.0;
-        double const tv = tfrac ? (w - std::floor(w))
-                                 : (w < -32768.0 ? -32768.0 : 32767.0 < w ? 32767.0 : w) / 32768.0;
-        c.queue_t(tn, tv);
-    };
-
-    for (int st = 0x158; st < 0x1a0; st++)
-    {
-        c.begin_step();
-        if (st < c.m_skip) continue;
-        switch (st)
-        {
-        // ---- 0x158 to 0x165, the two channels' EQ, two order-1 shelves each ------------------------
-        // r[103] = saturate(2 * k * r[5]), the left input through the ROM's ~unity word and doubled
-        case 0x158:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(103, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // the left low shelf's b1: k * r[103], the input a pass back
-        case 0x159:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the left low shelf's -a1: k * r[104] + acc, its output a pass back
-        case 0x15a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // a read of the slot 0x56; the left low shelf's b0: r[104] = saturate(2 * (k * r[103] + acc))
-        case 0x15b:
-            c.push_hist(st, c.ram[c.addr(0x56, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(104, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // m[2] takes the left serial input; the left high shelf's b1: k * r[104]
-        case 0x15c:
-            c.queue_d(2, c.in[0][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // m[6] takes the right serial input; the left high shelf's -a1: k * r[105] + acc
-        case 0x15d:
-            c.queue_d(6, c.in[1][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the left high shelf's b0: r[105] = saturate(4 * (k * r[104] + acc)), the left EQ output
-        case 0x15e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(105, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // a read of the slot 0x57; r[106] = saturate(2 * k * r[6]), the right input doubled
-        case 0x15f:
-            c.push_hist(st, c.ram[c.addr(0x57, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(106, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // m[28] takes up the read of 0x15b; the right low shelf's b1: k * r[106]
-        case 0x160:
-            c.queue_d(28, c.captured(m[28], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the right low shelf's -a1: k * r[107] + acc
-        case 0x161:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the right low shelf's b0: r[107] = saturate(2 * (k * r[106] + acc))
-        case 0x162:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(107, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // a read of the slot 0x58; the right high shelf's b1: k * r[107]
-        case 0x163:
-            c.push_hist(st, c.ram[c.addr(0x58, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // m[29] takes up the read of 0x15f; the right high shelf's -a1: k * r[108] + acc
-        case 0x164:
-            c.queue_d(29, c.captured(m[29], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the right high shelf's b0: r[108] = saturate(4 * (k * r[107] + acc)), the right EQ output
-        case 0x165:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(108, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x166 to 0x167, the cutoff the LFO sweeps ----------------------------------------------
-        // the class-1 load of WAH_CUTOFF's word: acc = 128 * k, and nothing else
-        case 0x166:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[0];
-            a = 0.0;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            y = c.acc = yss236_core::accmode(v, 0);
-            break;
-        // m[11] takes the LFO of this page; WAH_DEPTH's word times m[8] on top of the cutoff
-        case 0x167:
-            c.queue_d(11, c.lfo[11]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[8];
-            m2 = c.src; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // ---- 0x168, the cutoff into r[119] and t[9] ------------------------------------------------
-        // m[30] takes up the read of 0x163; r[119] = saturate(k * r[113] + acc); t[9] takes it
-        case 0x168:
-            c.queue_d(30, c.captured(m[30], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(119, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 9, false);
-            break;
-        // ---- 0x169 to 0x16d, the highpass touchWah() designs ---------------------------------------
-        // the left EQ output into the running value; zero under Auto Wah, whose word here is zero
-        case 0x169:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // r[109] = saturate(k * r[108] + acc), the highpass's input from the right EQ output
-        case 0x16a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(109, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // the highpass's b1: k * r[109]
-        case 0x16b:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(109);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the highpass's -a1: k * r[110] + acc
-        case 0x16c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(110);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the highpass's b0: r[110] = saturate(2 * (k * r[109] + acc))
-        case 0x16d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(109);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(110, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x16e, the cutoff's one-pole ----------------------------------------------------------
-        // r[119] = wrap(t[9] * r[119]); t[9] takes the result, so the swept gain follows the cutoff
-        case 0x16e:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[9];
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(119, yss236_core::mode(y, 0));
-            y = c.acc = yss236_core::accmode(y, 0);
-            twr(y, 9, false);
-            break;
-        // ---- 0x16f to 0x171, the resonator's input, left channel ------------------------------------
-        // acc = k * m[54] - r[105], the feedback accumulator less the left EQ output
-        case 0x16f:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[54];
-            m2 = c.src; prod = k * m2;
-            a = xv;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // WAH_SENSE's word: acc = saturate(k * r[114] - acc); m[56] takes it, the resonator's input
-        case 0x170:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            c.queue_d(56, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-        // WAH_ATTACK's word: acc = |16 * k * r[110]|; m[58] takes it, the sensitivity level
-        case 0x171:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(110);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            y = c.acc = yss236_core::accmode(y, 3);
-            c.queue_d(58, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-        // ---- 0x172 to 0x173, the second half of the smoother ----------------------------------------
-        // acc = t[9] * r[119]
-        case 0x172:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[9];
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the class-1 load: acc = saturate(128 * k + acc); t[9] takes it
-        case 0x173:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[0];
-            a = c.acc;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            y = c.acc = yss236_core::accmode(v, 1);
-            twr(y, 9, false);
-            break;
-        // ---- 0x174 to 0x175, the same two steps for the right channel ------------------------------
-        // acc = k * m[55] - r[108], the feedback accumulator less the right EQ output
-        case 0x174:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(108);
-            c.psrc = c.src; c.src = m[55];
-            m2 = c.src; prod = k * m2;
-            a = xv;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // WAH_SENSE's word again: acc = saturate(k * r[115] - acc); m[57] takes it
-        case 0x175:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            c.queue_d(57, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-        // ---- 0x176 to 0x177, the sensitivity level's partner ----------------------------------------
-        // acc = max(0, k * r[111] - m[58]): the same value with negatives clamped away
-        case 0x176:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(111);
-            c.psrc = c.src; c.src = m[58];
-            m2 = xv; prod = k * m2;
-            a = c.src;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 2);
-            break;
-        // r[111] = saturate(k * m[58] + acc)
-        case 0x177:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[58];
-            m2 = c.src; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(111, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x178 to 0x179, the resonator's accumulators ------------------------------------------
-        // r[114] = saturate(t[9] * m[56] + r[114]), the left channel's state and output
-        case 0x178:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[9];
-            fetch(114);
-            c.psrc = c.src; c.src = m[56];
-            m2 = c.src; prod = g * m2;
-            a = xv;
-            y = (prod + a) * 1.0;
-            c.queue_r(114, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // r[115] = saturate(t[9] * m[57] + r[115]), the right channel's
-        case 0x179:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[9];
-            fetch(115);
-            c.psrc = c.src; c.src = m[57];
-            m2 = c.src; prod = g * m2;
-            a = xv;
-            y = (prod + a) * 1.0;
-            c.queue_r(115, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x17a to 0x17e, the lowpass's input ---------------------------------------------------
-        // acc = k * r[112]
-        case 0x17a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = k * r[112] + acc / 32768, the m cell this step names is zero so the adder takes p / 32768
-        case 0x17b:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc / 32768.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = k * m[58] - acc
-        case 0x17c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[58];
-            m2 = c.src; prod = k * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = max(0, k * r[111] - acc)
-        case 0x17d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 2);
-            break;
-        // r[112] = saturate(k * m[58] + acc), the lowpass's input
-        case 0x17e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[58];
-            m2 = c.src; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(112, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x17f to 0x181, the lowpass touchWah() designs ----------------------------------------
-        // the lowpass's b1: k * r[112]
-        case 0x17f:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the lowpass's -a1: k * r[113] + acc
-        case 0x180:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the lowpass's b0: r[113] = saturate(k * r[112] + acc), which 0x168 reads back
-        case 0x181:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(113, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x182 to 0x183, the resonator's feedback ----------------------------------------------
-        // acc = saturate(t[9] * r[114] + m[54]); m[54] takes it, what 0x16f subtracts
-        case 0x182:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[9];
-            fetch(114);
-            c.psrc = c.src; c.src = m[54];
-            m2 = xv; prod = g * m2;
-            a = c.src;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            c.queue_d(54, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-        // acc = saturate(t[9] * r[115] + m[55]); m[55] takes it, what 0x174 subtracts
-        case 0x183:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[9];
-            fetch(115);
-            c.psrc = c.src; c.src = m[55];
-            m2 = xv; prod = g * m2;
-            a = c.src;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            c.queue_d(55, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-        // ---- 0x184 to 0x187, the dry and wet ------------------------------------------------------
-        // WAH_PAN's wet word: acc = k * r[114]
-        case 0x184:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the dry word, zero for this window: r[15] = saturate(4 * (k * r[105] + acc)), the left output
-        case 0x185:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(15, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // WAH_PAN's wet word: acc = k * r[115]
-        case 0x186:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the dry word: r[16] = saturate(4 * (k * r[108] + acc)), the right output
-        case 0x187:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(16, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x188 to 0x19f, the tail -------------------------------------------------------------
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x188:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x189:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x18a:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x18b:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x18c:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x18d:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x18e:
-            fetch(0);
-            break;
-        // a read of the slot 0x63; m[12] takes the LFO of this page
-        case 0x18f:
-            c.push_hist(st, c.ram[c.addr(0x63, 0, false)]);
-            c.queue_d(12, c.lfo[12]);
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x190:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x191:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x192:
-            fetch(0);
-            break;
-        // a read of the slot 0x64; class 0, no ALU, so only the x latch
-        case 0x193:
-            c.push_hist(st, c.ram[c.addr(0x64, 0, false)]);
-            fetch(0);
-            break;
-        // m[31] takes up the read of 0x18f; class 0, no ALU, so only the x latch
-        case 0x194:
-            c.queue_d(31, c.captured(m[31], st));
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x195:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x196:
-            fetch(0);
-            break;
-        // a read of the slot 0x65; class 0, no ALU, so only the x latch
-        case 0x197:
-            c.push_hist(st, c.ram[c.addr(0x65, 0, false)]);
-            fetch(0);
-            break;
-        // m[32] takes up the read of 0x193; class 0, no ALU, so only the x latch
-        case 0x198:
-            c.queue_d(32, c.captured(m[32], st));
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x199:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x19a:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x19b:
-            fetch(0);
-            break;
-        // m[33] takes up the read of 0x197; class 0, no ALU, so only the x latch
-        case 0x19c:
-            c.queue_d(33, c.captured(m[33], st));
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x19d:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x19e:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x19f:
-            fetch(0);
-            break;
-        }
-    }
+		if (st < 0x166) { eq(c, st); continue; }                            // 0x158-0x165, both channels' EQ
+		if (st < 0x168) { cutoff(c, st); continue; }                        // 0x166-0x167, the swept cutoff
+		if (st == 0x168) { swept_gain(c, st); continue; }                   // t[9] takes it
+		if (st < 0x16e) { highpass(c, st); continue; }                      // 0x169-0x16d, the input highpass
+		if (st == 0x16e) { swept_gain(c, st); continue; }                   // 0x16e, the cutoff's one-pole
+		if (st == RES[0].open || st == RES[1].open)
+		{
+			resonator_open(c, st, RES[st == RES[1].open]);                  // 0x16f and 0x174
+			continue;
+		}
+		if (st == RES[0].sense || st == RES[1].sense)
+		{
+			resonator_sense(c, st, RES[st == RES[1].sense]);                // 0x170 and 0x175
+			continue;
+		}
+		if (st == 0x171) { sensitivity(c, st); continue; }                   // 0x171, the Touch Wah's level
+		if (st < 0x174) { swept_gain(c, st); continue; }                    // 0x172-0x173, the smoother
+		if (st < 0x178) { level_partner(c, st, PARTNER[0]); continue; }      // 0x176-0x177, the first partner
+		if (st < 0x17a) { resonator_state(c, st, RES[st - RES[0].state]); continue; }   // 0x178-0x179
+		if (st < 0x17f) { lowpass_in(c, st); continue; }                    // 0x17a-0x17e, the lowpass's input
+		if (st < 0x182)
+		{
+			section(c, st, SECTIONS[SEC_LPF], st - SECTIONS[SEC_LPF].base); // 0x17f-0x181, the lowpass
+			continue;
+		}
+		if (st < 0x184) { resonator_fb(c, st, RES[st - RES[0].fb]); continue; }          // 0x182-0x183
+		if (st < 0x188) { out_mix(c, st, MIX[(st - MIX[0].wet) / 2]); continue; }          // 0x184-0x187
+		tail(c, st);                                                          // 0x188-0x19f
+	}
 }
 
 }  // namespace
@@ -786,8 +504,8 @@ void block_0x158(yss236_core& c)
 // one run; a range no host builds falls back to the interpreter.
 void var_m04(yss236_core& c, int from, int to)
 {
-    if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
-    for (int st = from; st < to; st++) c.step(st);
+	if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
+	for (int st = from; st < to; st++) c.step(st);
 }
 
 }  // namespace fs1r::native

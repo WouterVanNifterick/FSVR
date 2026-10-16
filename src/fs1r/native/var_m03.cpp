@@ -26,7 +26,7 @@
 // coefficients and two zeros for those two types. The two output filters are HPF1 for the enhancer and
 // GAIN_ONLY for the other two, over the same three words.
 //
-// The 72 steps, in the groups the comments in the switch open:
+// The 72 steps, in the groups the loop below splits them into:
 //
 //   0x158-0x15e  the left input and its filter. 0x158 takes the left serial input into r[119] through
 //                the ROM's ~unity word and 0x159 doubles the running value into r[103], which is the
@@ -89,6 +89,13 @@
 //   0x19a-0x19f  the tail. 0x19a, 0x19b and 0x19d to 0x19f are class 0 with no RAM mark and no ALU, so
 //                only the x latch runs, and 0x19c publishes the last captured read into m[33].
 //
+// Every group above that the program runs more than once is a table below and a loop over it: the two
+// input filters (IN_FILTERS, six steps each), the drive (DRIVE, two), the ladder (LADDER, eight), the
+// ratio curve's taps (RATIO, eight), the gain on each channel (GAIN and OUT_GAIN, two each), the two
+// output filters (OUT_FILTERS, six each) and the dry and wet mix (OUT_MIX, five). Each carries the
+// cell move or the delay RAM read its steps' words put in front of the arithmetic, so the six published
+// reads come off the tables and not out of the cases.
+//
 // The registers: r[5] and r[6] the two serial inputs the base program writes, r[15] and r[16] the two
 // outputs, r[1] and r[2] the two driven inputs, r[103] and r[107] the two filter inputs doubled, r[104]
 // and r[108] their one-pass delays, r[105] and r[109] their states and outputs, r[106] and r[110] their
@@ -113,793 +120,373 @@
 // order yss236_core::step() runs its own.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
 //
 // vop3_native_check var-m03: identical, 3 types, 28800 native passes.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
+
+using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
+
+// ---------------------------------------------------------------------------------------------
+// What a step carries before its arithmetic
+// ---------------------------------------------------------------------------------------------
+
+// The cells a step takes from the hardware side, and the delay RAM reads it makes, both of which
+// step() does before the ALU: a serial input, an LFO value, a captured read or a read of its own.
+enum decor_t { DEC_NONE, DEC_SERIAL, DEC_LFO, DEC_CAPTURE, DEC_READ };
+
+// What that move is. `cell` is the cell a serial input, an LFO or a capture lands in, and on a
+// DEC_READ it is the slot, which read_delay() takes off the step's own number rather than off here.
+// `bank` is which of the two serial banks a DEC_SERIAL step reads, 0 or 1, and is left out (and so
+// zero) on every other kind.
+struct Decor { decor_t kind; int cell; int bank; };
+
+// The move one step's words carry, which step() makes before the arithmetic, so the unit below can
+// put it ahead of that step's own term.
+void carries(yss236_core& c, int st, Decor d)
+{
+    switch (d.kind)
+    {
+        case DEC_SERIAL:  take_serial(c, d.cell, st, d.bank); break;
+        case DEC_LFO:     take_lfo(c, d.cell, st); break;
+        case DEC_CAPTURE: take_capture(c, d.cell, st); break;
+        case DEC_READ:    read_delay(c, st); break;
+        case DEC_NONE: break;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two input filters, 0x159 to 0x164
+// ---------------------------------------------------------------------------------------------
+
+// One input filter and the six steps it runs, an input step and the section's five words. `in` is the
+// register the channel's doubled input is in, which b1 and b0 read a pass later than the input step
+// wrote it; `x1` holds that input a pass older, which b2 reads and which the same step copies;
+// `y1` is the filter's output a pass back, which -a1 reads and b0 overwrites; `y2` is that output two
+// passes back, which -a2 reads and copies the same way. `adds` says the input step joins the running
+// value, which the left channel's does because 0x158 has already put the left input there, and the
+// right channel's does not because nothing has.
+struct InFilter
+{
+    int base, in, x1, y1, y2;
+    bool adds;
+    Decor decor[6];      // the input step, then b1, b2, -a1, -a2 and b0
+};
+
+const InFilter IN_FILTERS[2] = {
+    // base   in  x1   y1   y2  adds  input              b1                 b2                   -a1             -a2                  b0
+    { 0x159, 103, 104, 105, 106, true,  { {DEC_SERIAL, 6, 1}, {DEC_NONE, 0},  {DEC_READ, 0x56},  {DEC_NONE, 0},  {DEC_NONE, 0},     {DEC_NONE, 0}     } },
+    { 0x15f, 107, 108, 109, 110, false, { {DEC_READ, 0x57},   {DEC_CAPTURE, 28},{DEC_NONE, 0},    {DEC_NONE, 0},  {DEC_READ, 0x58},  {DEC_CAPTURE, 29} } },
+};
+
+// One input filter's six steps: the channel's input, then b1, b2, -a1, -a2 and b0 over it. Both
+// input steps read r[6], the right serial input, because the left channel's is the stereo mix 0x158
+// opened and the step at 0x159 only closes it. Each section runs
+//
+//   y[n] = 2 (b0 x[n] + b1 x[n-1] + b2 x[n-2] + (-a1) y[n-1] + (-a2) y[n-2])
+//
+// with the x2 route on the closing step, which is what restores the scale designFilter() took out of
+// the coefficients.
+void input_filter(yss236_core& c, int st, InFilter const& f, int k)
+{
+    carries(c, st, f.decor[k]);
+    switch (k)
+    {
+    case 0:                                   // the channel's input, doubled into the filter's own
+        if (f.adds) close(c, st, 6, f.in, ROUTE_2);   // left: on top of the stereo mix already there
+        else         gain(c, st, 6, f.in, ROUTE_2);    // right: its own word, the adder off
+        break;
+    case 1:  term(c, st, f.in); break;                                 // b1 on x[n-1]
+    case 2:  copy_z(c, st, f.x1, f.x1, ADD_ACC, CLAMP_WRAP); break;    // b2 on x[n-1], and x[n-1] copied
+    case 3:  sum(c, st, f.y1); break;                                  // -a1 on y[n-1]
+    case 4:  copy_z(c, st, f.y2, f.y2, ADD_ACC, CLAMP_WRAP); break;    // -a2 on y[n-2], and y[n-2] copied
+    default: close(c, st, f.in, f.y1, ROUTE_2); break;                // b0 on x[n], closing into y[n]
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The threshold, the drive and the ladder, 0x165 to 0x16f
+// ---------------------------------------------------------------------------------------------
+
+// DYN_THRESHOLD's word on the level the release chain left in m[55], into r[126]. Everything the
+// compressor's curve does is a function of this one register: the ladder below steps it down and the
+// curve reads the steps.
+void threshold(yss236_core& c, int st)
+{
+    run(c, {st, 0, 55, M2_CELL, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 126});
+}
+
+// One channel of the drive: HM_DRIVE's word on that channel's filtered input, doubled, into the pair
+// of driven registers every step below works on.
+struct Drive { int filtered, driven; };
+const Drive DRIVE[2] = { {105, 1}, {109, 2} };
+
+void drive(yss236_core& c, int st, int k)
+{
+    if (k == 0) take_lfo(c, 11, st);      // m[11] takes the LFO of this page, on the left channel only
+    gain(c, st, DRIVE[k].filtered, DRIVE[k].driven, ROUTE_2);
+}
+
+// The threshold ladder's eight registers: r[126] each one moved by its own constant (the ROM's are all
+// negative for this row, so the ladder steps down) and clamped at zero. They are the taps the ratio
+// curve below reads, each at its own step of the level.
+const int LADDER[8] = { 119, 120, 121, 122, 123, 124, 125, 126 };
+
+// One rung: a class-1 step, which is the one shape that loads a word rather than applying it. It adds
+// r[126] to 128 times the ROM's constant for this row and holds the negatives at zero.
+void ladder(yss236_core& c, int st, int k)
+{
+    if (k == 0) take_capture(c, 30, st);   // m[30] takes up the slot 0x58 read of 0x163
+    load(c, st, 126, 0, ADD_REG, false, ROUTE_1, CLAMP_ZERO, LADDER[k]);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The ratio curve and the smoother, 0x170 to 0x17b
+// ---------------------------------------------------------------------------------------------
+
+// One tap of the ratio curve: the word on the ladder register it names, the first opening the sum and
+// the rest joining it. `route` is the scale the ROM has that word at. Nothing is written, so the
+// curve goes on in the running value alone.
+struct Tap { int reg; route_t route; };
+const Tap RATIO[8] = {
+    { 119, ROUTE_2 }, { 121, ROUTE_2 }, { 122, ROUTE_2 }, { 120, ROUTE_2 },
+    { 123, ROUTE_2 }, { 124, ROUTE_4 }, { 125, ROUTE_1 }, { 126, ROUTE_1 },
+};
+
+void ratio_tap(yss236_core& c, int st, int k)
+{
+    Tap const& t = RATIO[k];
+    if (k == 0) run(c, {st, t.reg, 0, M2_REG, false, 0, ADD_OFF, false, t.route});   // the first term
+    else        run(c, {st, t.reg, 0, M2_REG, false, 0, ADD_ACC, false, t.route});   // the rest
+}
+
+// The one-pole smoother the curve goes through: the curve loaded into r[115], then DYN_ATTACK's three
+// words in order, b, t and b again, so r[116] = b r[115] + t r[116] on the chip's own scale. The
+// result is published as t[9], which is the gain the two channels below read.
+void smoother(yss236_core& c, int st, int k)
+{
+    switch (k)
+    {
+    case 0: load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, 115); break;  // the curve into r[115]
+    case 1: term(c, st, 115); break;                                           // b on x[n-1]
+    case 2: sum(c, st, 116); break;                                            // t on y[n-1]
+    default:                                                            // b again, on x[n], into y[n]
+        t_put(c, 9, run(c, {st, 115, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 116}));
+        break;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The detector and the release chain, 0x17c to 0x186
+// ---------------------------------------------------------------------------------------------
+
+// DYN_RELEASE's fall: the level comes off the accumulator's own value, negatives clamp away, and the
+// result goes back into the cell. `store` says the cell takes it: 0x17e writes m[54], and 0x185, in
+// the middle of the slow chain below, leaves the value in the running value for 0x186 to add the
+// level back to.
+void release_fall(yss236_core& c, int st, bool store)
+{
+    alu s{ st, 0, 54, M2_CELL, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_ZERO, 0, false, 54 };
+    if (!store) s.dm = 0;
+    run(c, s);
+}
+
+// The level the whole block works against: the two driven channels summed, rectified, and taken at
+// sixteen times with the ROM's fixed word into r[119], then the release chain's first fall.
+void detector(yss236_core& c, int st, int k)
+{
+    switch (k)
+    {
+    case 0: term(c, st, 1); break;      // k * r[1]: the left driven input, opening the sum
+    case 1:  // the right one closing it, and the absolute value that makes it a magnitude
+        run(c, {st, 2, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_16, CLAMP_ABS, 119});
+        break;
+    default: release_fall(c, st, true); break;
+    }
+}
+
+// The gain t[9] on one channel: r[dr] = saturate(t[treg] * r[src]), and the result written out as a
+// 1.15 word of its own where `tdest` says so. That is how 0x17f and 0x180 hand the smoothed gain to
+// the output filters, and the pair at 0x187 and 0x188 read t[10] and t[11] back and publish nothing.
+struct ChanGain { int src, dr, treg, tdest; };
+const ChanGain GAIN[2] = { {1, 120, 9, 10}, {2, 121, 9, 11} };
+const ChanGain OUT_GAIN[2] = { {1, 122, 10, 0}, {2, 123, 11, 0} };
+
+void channel_gain(yss236_core& c, int st, ChanGain const& g)
+{
+    double const y = run(c, {st, g.src, 0, M2_REG, false, g.treg, ADD_OFF, false, ROUTE_1, CLAMP_SAT, g.dr});
+    if (g.tdest) t_put(c, g.tdest, y);
+}
+
+// The level smoothed into the two accumulators, 0x181 to 0x186. m[54] is the fast one: the level comes
+// back in on top of what m[54] holds and m[54] takes it. m[55] is the slow one, and it is the cell
+// DYN_RELEASE's other two words decay, which is what the threshold reads a pass later.
+void release_chain(yss236_core& c, int st, int k)
+{
+    switch (k)
+    {
+    case 0:     // the fast accumulator's rise: r[119] + m[54], written back into m[54]
+        run(c, {st, 119, 54, M2_REG, true, 0, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 0, false, 54});
+        break;
+    case 1: term_cell(c, st, 55); break;   // k * m[55]
+    case 2:     // the same word again, added to the running value over 32768: DYN_RELEASE's second word
+        run(c, {st, 0, 55, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_WRAP, 0});
+        break;
+    case 3:     // the decayed m[55] off the new level: r[119] - acc, with nothing written
+        run(c, {st, 119, 0, M2_REG, true, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP, 0});
+        break;
+    case 4: release_fall(c, st, false); break;   // DYN_RELEASE's third word
+    default:    // and the level back on top of the fall, into m[55] for the threshold to scale
+        run(c, {st, 119, 0, M2_REG, true, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0, false, 55});
+        break;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two output filters, 0x187 to 0x194
+// ---------------------------------------------------------------------------------------------
+
+// One output filter's six steps over one channel. `src` is the driven input the filter's input sum
+// opens on, `wet` the same channel through the gain, and `pre` the same channel at full scale, which
+// is what the filter itself runs on: r[state] takes the whole of the input sum, the b1 word then reads
+// the state, and b0 closes back into r[out], which is the register the -a1 word has been reading.
+struct OutFilter
+{
+    int base;
+    int src, wet, pre, state, out;
+    Decor decor[6];
+};
+
+const OutFilter OUT_FILTERS[2] = {
+    // base   src  wet  pre  state out  input            wet                  state               -a1             -a2                  b0
+    { 0x189,   1, 120, 122, 111, 112, { {DEC_LFO, 12},     {DEC_NONE, 0},  {DEC_NONE, 0},   {DEC_NONE, 0}, {DEC_NONE, 0},     {DEC_NONE, 0}      } },
+    { 0x18f,   2, 121, 123, 113, 114, { {DEC_READ, 0x63},   {DEC_NONE, 0},  {DEC_NONE, 0},   {DEC_NONE, 0}, {DEC_READ, 0x64},   {DEC_CAPTURE, 31}   } },
+};
+
+void output_filter(yss236_core& c, int st, OutFilter const& f, int k)
+{
+    carries(c, st, f.decor[k]);
+    switch (k)
+    {
+    case 0:  term(c, st, f.src); break;      // the dry driven input, opening the sum
+    case 1:  sum(c, st, f.wet); break;       // the same channel through the gain
+    case 2:  // r[state] = saturate(16 (k r[pre] + acc)): the whole input sum, and the state with it
+        run(c, {st, f.pre, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_16, CLAMP_SAT, f.state});
+        break;
+    case 3:  term(c, st, f.state); break;    // DYN_HPF's b1 word on the state
+    case 4:  sum(c, st, f.out); break;       // and its -a1 word on the output, the one-pass delay
+    default: close(c, st, f.state, f.out, ROUTE_2); break;   // b0 closing into that same register
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The dry and wet, 0x195 to 0x199
+// ---------------------------------------------------------------------------------------------
+
+// One step of the output mix: the register its term reads, the output it closes into (0 where it only
+// moves the sum along) and whether that term opens the sum or joins it.
+struct Mix { int reg, dr; add_t add; };
+
+const Mix OUT_MIX[5] = {
+    {  5,  0, ADD_OFF },   // 0x195 the dry left, opening the left channel's mix
+    {112, 15, ADD_ACC },   // 0x196 the wet left, closing it into r[15]
+    {  6,  0, ADD_OFF },   // 0x197 the dry right, and the read of the slot 0x65
+    {112,  0, ADD_ACC },   // 0x198 the word between them, summing r[112], the left channel's wet
+    {114, 16, ADD_ACC },   // 0x199 the wet right, closing it into r[16]
+};
+
+void out_mix(yss236_core& c, int st, int k)
+{
+    if (k == 2) read_delay(c, st);            // the slot 0x65 read, on the right dry word
+    else if (k == 3) take_capture(c, 32, st);  // m[32] takes the slot 0x64 read of 0x193 up
+    Mix const& mix = OUT_MIX[k];
+    if (mix.dr) close(c, st, mix.reg, mix.dr, ROUTE_4);   // the two wet words, into the outputs
+    else if (mix.add == ADD_OFF) term(c, st, mix.reg);     // the dry words, each opening its channel
+    else sum(c, st, mix.reg);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The 72 steps, 0x158 to 0x19f
+// ---------------------------------------------------------------------------------------------
 
 // The run of steps 0x158 to 0x19f, the whole of the window's program. The loop is one iteration per
 // step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half skips
 // these steps as it would the interpreter's.
 void block_0x158(yss236_core& c)
 {
-    double* const r = c.r;                 // the 128 registers
-    double* const m = c.m;                 // the 64 cells, which carry the values between the steps
-    double xv, k, g, m2, prod, a, y, v;
-
-    // The step's x operand: the register r[sr] into the latch every step but a class-2/3 one moves, and
-    // xv alongside it for the multiplier.
-    auto fetch = [&](int sr) { xv = sr ? r[sr] : 0.0; c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = sr != 0; };
-    // The t file write of a step whose result is y, tfrac saying which of the two forms it takes.
-    auto twr = [&](double yy, int tn, bool tfrac) {
-        double const w = yy * 256.0;
-        double const tv = tfrac ? (w - std::floor(w))
-                                 : (w < -32768.0 ? -32768.0 : 32767.0 < w ? 32767.0 : w) / 32768.0;
-        c.queue_t(tn, tv);
-    };
-
     for (int st = 0x158; st < 0x1a0; st++)
     {
         c.begin_step();
         if (st < c.m_skip) continue;
-        switch (st)
+
+        if (st < 0x159)
         {
-        // ---- 0x158 to 0x15e, the left input and its filter ---------------------------------------
-        // r[119] = wrap(k * r[5]), the left serial input through the ROM's ~unity word
-        case 0x158:
-            c.queue_d(2, c.in[0][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // r[103] = saturate(2 * acc), the left input doubled and the filter's input
-        case 0x159:
-            c.queue_d(6, c.in[1][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(103, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // b1 * r[103]
-        case 0x15a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // a read of the slot 0x56; r[104] takes the previous step's x operand, which is r[103] of
-        // the pass before; then b2 * r[104] + acc
-        case 0x15b:
-            c.push_hist(st, c.ram[c.addr(0x56, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(104, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // -a1 * r[105] + acc, r[105] the output of the pass before
-        case 0x15c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // r[106] takes the previous step's x operand, r[105] as it was when 0x15c read it;
-        // then -a2 * r[106] + acc
-        case 0x15d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(106, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // r[105] = saturate(2 * (b0 * r[103] + acc)), the filter's output
-        case 0x15e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(105, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x15f to 0x164, the right input and the same filter ----------------------------------
-        // a read of the slot 0x57; r[107] = saturate(2 * k * r[6]), the right input doubled
-        case 0x15f:
-            c.push_hist(st, c.ram[c.addr(0x57, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(107, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // m[28] takes up the read of 0x15f, which captured the slot 0x56 word; b1 * r[107]
-        case 0x160:
-            c.queue_d(28, c.captured(m[28], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // r[108] takes the previous step's x operand; b2 * r[108] + acc
-        case 0x161:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(108, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // -a1 * r[109] + acc
-        case 0x162:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(109);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // a read of the slot 0x58; r[110] takes the previous step's x operand; -a2 * r[110] + acc
-        case 0x163:
-            c.push_hist(st, c.ram[c.addr(0x58, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(110);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(110, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // m[29] takes up the read of 0x163, the slot 0x57 word;
-        // r[109] = saturate(2 * (b0 * r[107] + acc)), the right filter's output
-        case 0x164:
-            c.queue_d(29, c.captured(m[29], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(109, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x165 to 0x167, the threshold and the drive -----------------------------------------
-        // the class-2 step: DYN_THRESHOLD's word scales the level m[55] holds into r[126]
-        case 0x165:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[55];
-            m2 = c.src; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(126, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // m[11] takes the LFO of this page; r[1] = saturate(2 * k * r[105]), HM_DRIVE on the left
-        case 0x166:
-            c.queue_d(11, c.lfo[11]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(1, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // r[2] = saturate(2 * k * r[109]), HM_DRIVE on the right
-        case 0x167:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(109);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(2, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x168 to 0x16f, the threshold ladder ------------------------------------------------
-        // m[30] takes up the read of 0x163, the slot 0x58 word; r[119] = max(0, r[126] - 64)
-        case 0x168:
-            c.queue_d(30, c.captured(m[30], st));
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            a = c.x;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 1.0;
-            c.queue_r(119, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-        // r[120] = max(0, r[126] - 0.5)
-        case 0x169:
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            a = c.x;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 1.0;
-            c.queue_r(120, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-        // r[121] = max(0, r[126] - 2)
-        case 0x16a:
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            a = c.x;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 1.0;
-            c.queue_r(121, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-        // r[122] = max(0, r[126] - 8)
-        case 0x16b:
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            a = c.x;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 1.0;
-            c.queue_r(122, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-        // r[123] = max(0, r[126] - 32)
-        case 0x16c:
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            a = c.x;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 1.0;
-            c.queue_r(123, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-        // r[124] = max(0, r[126] - 128), which this row's constant holds at zero
-        case 0x16d:
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            a = c.x;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 1.0;
-            c.queue_r(124, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-        // r[125] = max(0, r[126] - 2048), zero for the same reason
-        case 0x16e:
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            a = c.x;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 1.0;
-            c.queue_r(125, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-        // r[126] = max(0, r[126] - 64)
-        case 0x16f:
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            a = c.x;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 1.0;
-            c.queue_r(126, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-        // ---- 0x170 to 0x177, the ratio curve -----------------------------------------------------
-        // acc = 2 * k * r[119], the first term of DYN_RATIO
-        case 0x170:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = 2 * (k * r[121] + acc)
-        case 0x171:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = 2 * (k * r[122] + acc)
-        case 0x172:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(122);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = 2 * (k * r[120] + acc)
-        case 0x173:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = 2 * (k * r[123] + acc)
-        case 0x174:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(123);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = 4 * (k * r[124] + acc)
-        case 0x175:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(124);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = k * r[125] + acc
-        case 0x176:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(125);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = k * r[126] + acc, the last term: the curve the smoother takes
-        case 0x177:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // ---- 0x178 to 0x17b, the one-pole smoother ------------------------------------------------
-        // the class-1 load: r[115] = max(0, 128 * k + acc), the curve into the smoother
-        case 0x178:
-            fetch(0);
-            c.psrc = c.src; c.src = m[0];
-            a = c.acc;
-            v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-            v *= 1.0;
-            c.queue_r(115, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-        // acc = k * r[115], the first of DYN_ATTACK's three words
-        case 0x179:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = k * r[116] + acc, the smoother's own pole
-        case 0x17a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(116);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // r[116] = wrap(k * r[115] + acc), the smoother's state, and t[9] takes the result
-        // as the 1.15 word the gain below is read from
-        case 0x17b:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(116, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 9, false);
-            break;
-        // ---- 0x17c to 0x17e, the detector ---------------------------------------------------------
-        // acc = k * r[1], the left driven input
-        case 0x17c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(1);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // r[119] = |16 * (k * r[2] + acc)|, both channels summed and rectified: the level
-        case 0x17d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(2);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 16.0;
-            c.queue_r(119, yss236_core::mode(y, 3));
-            y = c.acc = yss236_core::accmode(y, 3);
-            break;
-        // DYN_RELEASE's first word: acc = max(0, k * m[54] - the level), and m[54] takes it
-        case 0x17e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[54];
-            m2 = c.src; prod = k * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 2);
-            c.queue_d(54, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-        // ---- 0x17f to 0x181, the gain applied to the two channels ----------------------------------
-        // r[120] = saturate(t[9] * r[1]); t[10] takes it as a 1.15 word
-        case 0x17f:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[9];
-            fetch(1);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(120, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 10, false);
-            break;
-        // r[121] = saturate(t[9] * r[2]); t[11] takes it as a 1.15 word
-        case 0x180:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[9];
-            fetch(2);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(121, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 11, false);
-            break;
-        // the class-3 step: acc = saturate(r[119] + m[54]), and m[54] takes it
-        case 0x181:
-            fetch(119);
-            c.psrc = c.src; c.src = m[54];
-            m2 = xv; prod = m2;
-            a = c.src;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            c.queue_d(54, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-        // ---- 0x182 to 0x186, the second accumulator, and the level the threshold reads --------------
-        // acc = k * m[55], the second accumulator's first term
-        case 0x182:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[55];
-            m2 = c.src; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // DYN_RELEASE's second word: acc = k * m[55] + acc / 32768
-        case 0x183:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[55];
-            m2 = c.src; prod = k * m2;
-            a = c.acc / 32768.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // the class-3 step: acc = wrap(r[119] - acc)
-        case 0x184:
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // DYN_RELEASE's third word: acc = max(0, k * m[54] - acc)
-        case 0x185:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[54];
-            m2 = c.src; prod = k * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 2);
-            break;
-        // the class-3 step: acc = saturate(r[119] + acc), and m[55] takes it, which is what 0x165
-        // reads a pass later
-        case 0x186:
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            c.queue_d(55, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-        // ---- 0x187 to 0x18e, the left output's filter ----------------------------------------------
-        // m[12] takes the LFO of this page; r[122] = saturate(t[10] * r[1])
-        case 0x187:
-            c.queue_d(12, c.lfo[12]);
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(1);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(122, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // r[123] = saturate(t[11] * r[2])
-        case 0x188:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(2);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(123, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // acc = k * r[1]
-        case 0x189:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(1);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = k * r[120] + acc, which with this row's constants is the filter's input
-        case 0x18a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // r[111] = saturate(16 * (k * r[122] + acc)), the filter's state
-        case 0x18b:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(122);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 16.0;
-            c.queue_r(111, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // DYN_HPF's second word: acc = k * r[111]
-        case 0x18c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // DYN_HPF's third word: r[112] = wrap(acc), the one-pass delay. Its write lands at 0x190
-        // and 0x18e's lands at 0x191, and no step reads r[112] between them
-        case 0x18d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // DYN_HPF's first word: r[112] = saturate(2 * (k * r[111] + acc))
-        case 0x18e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(112, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x18f to 0x194, the right output's filter --------------------------------------------
-        // a read of the slot 0x63; acc = k * r[2]
-        case 0x18f:
-            c.push_hist(st, c.ram[c.addr(0x63, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(2);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // acc = k * r[121] + acc, the right filter's input
-        case 0x190:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // r[113] = saturate(16 * (k * r[123] + acc)), its state
-        case 0x191:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(123);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 16.0;
-            c.queue_r(113, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // DYN_HPF_COPY's second word: acc = k * r[113]
-        case 0x192:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // a read of the slot 0x64; DYN_HPF_COPY's third word: acc = k * r[114] + acc
-        case 0x193:
-            c.push_hist(st, c.ram[c.addr(0x64, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // m[31] takes up the read of 0x18f, the slot 0x63 word;
-        // DYN_HPF_COPY's first word: r[114] = saturate(2 * (k * r[113] + acc))
-        case 0x194:
-            c.queue_d(31, c.captured(m[31], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(114, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x195 to 0x199, the dry and wet ------------------------------------------------------
-        // DYN_OUT's first word: acc = k * r[5], the dry left
-        case 0x195:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // DYN_OUT's second word: r[15] = saturate(4 * (k * r[112] + acc)), the left output
-        case 0x196:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(15, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // a read of the slot 0x65; DYN_OUT's third word: acc = k * r[6], the dry right
-        case 0x197:
-            c.push_hist(st, c.ram[c.addr(0x65, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // m[32] takes up the read of 0x197, the slot 0x64 word; acc = k * r[112] + acc
-        case 0x198:
-            c.queue_d(32, c.captured(m[32], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-        // DYN_OUT's fourth word: r[16] = saturate(4 * (k * r[114] + acc)), the right output
-        case 0x199:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv; prod = k * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(16, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        // ---- 0x19a to 0x19f, the tail -------------------------------------------------------------
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x19a:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x19b:
-            fetch(0);
-            break;
-        // m[33] takes up the read of 0x197, the slot 0x65 word
-        case 0x19c:
-            c.queue_d(33, c.captured(m[33], st));
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x19d:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x19e:
-            fetch(0);
-            break;
-        // the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x19f:
-            fetch(0);
-            break;
+            // ---- 0x158, the stereo mix's first term: the left serial input into m[2] for the base
+            //      program, and into the running value for the filter 0x159 closes it into ----
+            take_serial(c, 2, st, 0);
+            term(c, st, 5);
+            continue;
         }
+
+        if (st < 0x165)
+        {
+            // ---- the left input's filter, then the right input's over its own registers ----
+            InFilter const& f = IN_FILTERS[st < 0x15f ? 0 : 1];
+            input_filter(c, st, f, st - f.base);
+            continue;
+        }
+
+        if (st < 0x168)
+        {
+            // ---- the threshold, and the drive the level is measured against ----
+            if (st == 0x165) { threshold(c, st); continue; }
+            drive(c, st, st - 0x166);
+            continue;
+        }
+
+        if (st < 0x170) { ladder(c, st, st - 0x168); continue; }
+        if (st < 0x178) { ratio_tap(c, st, st - 0x170); continue; }
+        if (st < 0x17c) { smoother(c, st, st - 0x178); continue; }
+        if (st < 0x17f) { detector(c, st, st - 0x17c); continue; }
+
+        if (st < 0x181)
+        {
+            // ---- the smoothed gain on the two channels, each published as a word of its own ----
+            channel_gain(c, st, GAIN[st - 0x17f]);
+            continue;
+        }
+
+        if (st < 0x187) { release_chain(c, st, st - 0x181); continue; }
+
+        if (st < 0x189)
+        {
+            // ---- the two words the output filters read their channels through ----
+            if (st == 0x187) take_lfo(c, 12, st);      // m[12] takes the LFO of this page
+            channel_gain(c, st, OUT_GAIN[st - 0x187]);
+            continue;
+        }
+
+        if (st < 0x195)
+        {
+            // ---- the left output's filter, then the right output's over its own registers ----
+            OutFilter const& f = OUT_FILTERS[st < 0x18f ? 0 : 1];
+            output_filter(c, st, f, st - f.base);
+            continue;
+        }
+
+        if (st < 0x19a) { out_mix(c, st, st - 0x195); continue; }
+
+        // ---- the tail: class 0 with no RAM mark and no ALU, so only the x latch moves, bar m[33]
+        //      taking up the slot 0x65 read of 0x197 on the way past ----
+        if (st == 0x19c) take_capture(c, 33, st);
+        idle(c);
     }
 }
 

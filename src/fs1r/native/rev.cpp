@@ -23,6 +23,12 @@
 //   the surround       rev::MIX_STEPS, rev::LEVEL_STEPS, rev::WIDTH_STEPS and the type's shelf words in
 //                      rev::TABLE_STEPS
 //
+// The program runs the units in a pipeline three deep, which is what the schedule below says: three
+// units' state steps, then the first unit's write into the delay line, then the next three state steps,
+// then the next write, and so on. A comb unit's gain step writes its output into the line, and the unit
+// three places along reads that slot back, so a unit's output is the next unit's input within one pass
+// and the six comb filters are a six-deep loop rather than six separate delays.
+//
 // The cells carry the values between the units. A delay RAM read is made at one step and taken up by a
 // cell 5 to 11 steps later, which is what yss236_core::captured() returns and what an msrc of 4 queues;
 // m[34] to m[40] are a chain of the previous step's own operand (msrc 7), one cell per step, which gives
@@ -36,1195 +42,453 @@
 // chose, and the code runs on all twelve reverb types unchanged.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every block below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
+//
+// vop3_native_check rev: identical, 13 types, 9600 native passes each.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
-// The run of steps 0x01a to 0x039. holds the host words rev::ER_WORDS[0] to [9], rev::MIX_STEPS, rev::WIDTH_STEPS, rev::HPF_COPY, rev::HPF_STEPS, rev::LPF_COPY, rev::LPF_STEPS, rev::TABLE_STEPS; the rest of its steps read the delay RAM and move values between the cells
+using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
+
+// ---------------------------------------------------------------------------------------------
+// What a step of a unit carries besides its term
+// ---------------------------------------------------------------------------------------------
+
+// A step of the reverb's units usually does one other thing: read the delay RAM, publish a capture of
+// an earlier read, take a serial input or an LFO, or hand its result to the delay line as the data of
+// the next write. `cell` is the slot a DEC_READ reads (which is its own step over four), or the cell a
+// DEC_CAPTURE, DEC_LFO or DEC_SERIAL_L/R takes into.
+enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_LFO, DEC_SERIAL_L, DEC_SERIAL_R };
+
+// What a step does with the delay line at the end of it.
+enum delay_t
+{
+	NO_WRITE,        // nothing
+	WRITE_LATCHED,   // writes the data an earlier wdata step latched: the reverb's paired taps
+	WRITE_OWN,       // writes its own result, and clears any latched data: a unit's own output
+	SET_LATCH,       // latches its result as the data of the next write
+};
+
+struct Decor { decor_t kind; int cell; };
+
+// Apply the decor a unit's step carries. It comes before the term, because step() moves a cell or reads
+// the delay RAM before it does any arithmetic.
+void decor(yss236_core& c, int st, Decor const& d)
+{
+	switch (d.kind)
+	{
+		case DEC_READ:      read_delay(c, st); break;
+		case DEC_CAPTURE:   take_capture(c, d.cell, st); break;
+		case DEC_LFO:       take_lfo(c, d.cell, st); break;
+		case DEC_SERIAL_L:  take_serial(c, d.cell, st, 0); break;
+		case DEC_SERIAL_R:  take_serial(c, d.cell, st, 1); break;
+		case DEC_NONE: break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The six allpass units, rev::ROW_STEPS
+// ---------------------------------------------------------------------------------------------
+
+// One allpass unit, four words and four steps in the order s26, s22, s28, s24. The first and third
+// words are the unit's gain on its input, with the adder off, and the second and fourth are the two
+// taps on its delay line added to the running value; the fourth closes the pair into the unit's output
+// with the x2 route. `in` is the register the unit reads (the previous unit's output), `dly` the cell
+// its taps come off, and `out_reg` or `out_cell` where s24 puts the result.
+struct Allpass
+{
+	int base;                  // the first of the four steps
+	int in, dly;
+	int out_reg, out_cell;     // s24's result: a register, or a cell when out_reg is 0
+	Decor decor[4];
+	delay_t s22_write;         // what the s22 tap does with the delay line
+};
+
+// rev::ROW_STEPS[0] to [23] are the four words of the six units in this order, and rev::ROW_SLOTS the
+// offsets. Three of the six units write their own tap into the line (NO_WRITE is never used: s22
+// either latches its result for the next writer or writes the latched one).
+const Allpass ALLPASS[6] = {
+    //  base   in   dly  out_reg out_cell  s26                s22                  s28                s24
+    {  0x03e,  54,   22,    125,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 56}, {DEC_NONE, 0}     }, WRITE_OWN     },
+    {  0x04c, 125,   59,      0,      62, { {DEC_CAPTURE, 58}, {DEC_NONE, 0}, {DEC_NONE, 0},  {DEC_READ, 0}    }, SET_LATCH     },
+    {  0x062, 119,   56,    119,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 61}, {DEC_NONE, 0}     }, WRITE_OWN     },
+    {  0x07f, 119,   61,    119,       0, { {DEC_READ, 0}, {DEC_CAPTURE, 61}, {DEC_NONE, 0},   {DEC_SERIAL_L, 40}}, SET_LATCH     },
+    {  0x08e, 120,   56,    120,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 56}, {DEC_NONE, 0}     }, WRITE_OWN     },
+    {  0x097, 120,   57,    120,       0, { {DEC_READ, 0}, {DEC_CAPTURE, 57}, {DEC_NONE, 0},   {DEC_NONE, 0}     }, SET_LATCH     },
+};
+
+// One allpass unit's four steps, s26, s22, s28 and s24, each at base + k.
+void allpass_step(yss236_core& c, int st, Allpass const& u, int k)
+{
+	decor(c, st, u.decor[k]);
+	step::alu a;
+	a.st = st;
+	a.m2 = M2_CELL;
+	switch (k)
+	{
+	case 0:                                                              // s26: the gain on the input
+	case 2:                                                              // s28: the gain again
+		a.sr = u.in;
+		a.m2 = M2_REG;
+		run(c, a);
+		break;
+	default:                                                             // s22 and s24: the two taps
+		a.sm = u.dly;
+		a.add = ADD_ACC;
+		a.clamp = CLAMP_SAT;
+		if (k == 3)                                                      // s24 closes the pair, x2
+		{
+			a.route = ROUTE_2;
+			a.dr = u.out_reg;
+			a.dm = u.out_cell;
+		}
+		if (k == 1)
+		{
+			// The s22 tap either latches its own result for the writer a few steps along, or is that
+			// writer: a writer carrying the flag clears any latched data and writes its own result.
+			a.wdata = true;
+			a.write = u.s22_write != SET_LATCH;
+		}
+		run(c, a);
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The six comb units, rev::HALL_COMB_STEPS
+// ---------------------------------------------------------------------------------------------
+
+// One comb unit, four words and four steps: the gain, the two input taps and the feedback coefficient,
+// in the order x1, x2, a and gain. The taps are cells rather than registers, m[in] and m[state], and x2
+// hands the step before's own operand on to the next unit's m[state], which is how the six units chain
+// without a register each. The feedback step adds the word on the unit's state register to the taps
+// and closes the sum into that same register with the x2 route, and the gain step then adds the unit's
+// own state again on top of the surround's m[62] and writes the result into the delay line.
+struct Comb
+{
+	int x1, x2, a, gain;     // the unit's four steps
+	int in, state, reg;      // its input cell, its state cell, its state register
+	Decor x1_decor, a_decor;
+};
+
+// EffectHost::combUnit() writes these twenty-four words; the states are r[55] to r[60] and the states'
+// cells m[34] to m[39], one each.
+const Comb COMB[6] = {
+    //   x1     x2     a   gain   in  state  reg  x1 decor           a decor
+    {  0x0a3, 0x0a4, 0x0a5, 0x0a9, 56,  34,  55, {DEC_READ, 0},    {DEC_CAPTURE, 56} },
+    {  0x0a6, 0x0a7, 0x0a8, 0x0ad, 57,  35,  56, {DEC_LFO, 13},    {DEC_CAPTURE, 57} },
+    {  0x0aa, 0x0ab, 0x0ac, 0x0b1, 58,  36,  57, {DEC_NONE, 0},    {DEC_NONE, 0}     },
+    {  0x0ae, 0x0af, 0x0b0, 0x0b5, 56,  37,  58, {DEC_NONE, 0},    {DEC_NONE, 0}     },
+    {  0x0b2, 0x0b3, 0x0b4, 0x0d1, 57,  38,  59, {DEC_NONE, 0},    {DEC_NONE, 0}     },
+    {  0x0d2, 0x0d3, 0x0d4, 0x0d7, 56,  39,  60, {DEC_NONE, 0},    {DEC_NONE, 0}     },
+};
+
+// Which of a comb unit's four steps a step of the block is. The gain steps come several places behind
+// their own unit's state steps, which is the pipeline the six units run in.
+enum comb_role_t { COMB_X1, COMB_X2, COMB_A, COMB_GAIN };
+
+struct CombStep { int unit; comb_role_t role; };
+
+// The schedule of the block at 0x0a3: three units' state steps, then the first unit's gain, then the
+// next three, then the next gain, and so on, so that by the time a unit's gain runs, the unit three
+// along has already read the slot it wrote. Combs 4 and 5 finish in the block at 0x0d1.
+const CombStep COMB_SCHED[19] = {
+    {0, COMB_X1}, {0, COMB_X2}, {0, COMB_A}, {1, COMB_X1}, {1, COMB_X2}, {1, COMB_A}, {0, COMB_GAIN},
+    {2, COMB_X1}, {2, COMB_X2}, {2, COMB_A}, {1, COMB_GAIN},
+    {3, COMB_X1}, {3, COMB_X2}, {3, COMB_A}, {2, COMB_GAIN},
+    {4, COMB_X1}, {4, COMB_X2}, {4, COMB_A}, {3, COMB_GAIN},
+};
+
+// One comb unit's step at the given role: the input tap, the state's tap, the feedback word or the gain
+// word that writes the unit's output into its delay slot.
+void comb_step(yss236_core& c, int st, Comb const& k, comb_role_t role)
+{
+	switch (role)
+	{
+	case COMB_X1:
+		decor(c, st, k.x1_decor);
+		run(c, {st, 0, k.in, M2_CELL});                    // the input tap: the adder is off
+		break;
+	case COMB_X2:
+		// the state's tap, and the cell that hands the step before's operand to the next unit
+		run(c, {st, 0, k.state, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_WRAP, 0, false, k.state, true});
+		break;
+	case COMB_A:
+		decor(c, st, k.a_decor);
+		run(c, {st, k.reg, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, k.reg});
+		break;
+	default:
+		// the gain: the surround's m[62] scaled, added to the unit's own state, written into its slot.
+		// It carries the flag and is the writer, so it clears any latched data and writes its own.
+		run(c, {st, k.reg, 62, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, 0, false, 0, false, false, true, true});
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The early reflections, rev::ER_WORDS
+// ---------------------------------------------------------------------------------------------
+
+// One early reflection word: its own coefficient on one cell, added to the running value, and for the
+// last of a group the register that closes the group. The groups of five and six are the two halves of
+// the surround the reverb sends to the left and the right, r[119] and r[120].
+struct ErWord
+{
+	int st, cell, out_reg;   // out_reg 0 unless this word closes its group
+	add_t add;
+	int add_reg;             // the register the adder reads, when `add` is ADD_REG
+	Decor decor;
+	delay_t write;
+};
+
+// rev::ER_WORDS[0] to [21], in step order. The first word of the last two groups adds to the surround's
+// own register instead of the running value, which is what carries the reverb's input into them.
+const ErWord ER[22] = {
+    //   st   cell  out  add        reg   decor                write
+    {  0x02a, 56,   0, ADD_OFF,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x02b, 57,   0, ADD_ACC,    0,  {DEC_NONE, 0},       WRITE_LATCHED},
+    {  0x02c, 58,   0, ADD_ACC,    0,  {DEC_CAPTURE, 57},  NO_WRITE     },
+    {  0x02d, 59,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x02e, 60, 119, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x035, 61,   0, ADD_OFF,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x036, 56,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x037, 57,   0, ADD_ACC,    0,  {DEC_NONE, 0},       WRITE_LATCHED},
+    {  0x038, 56,   0, ADD_ACC,    0,  {DEC_CAPTURE, 59},  NO_WRITE     },
+    {  0x039, 62, 120, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x059, 56,   0, ADD_REG,  119,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x05a, 57,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x05b, 58,   0, ADD_ACC,    0,  {DEC_READ, 0},       NO_WRITE     },
+    {  0x05c, 59,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x05d, 56,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x05e, 63, 119, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x083, 56,   0, ADD_REG,  120,  {DEC_SERIAL_R, 58},   WRITE_LATCHED},
+    {  0x084, 57,   0, ADD_ACC,    0,  {DEC_CAPTURE, 56},  NO_WRITE     },
+    {  0x085, 58,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    {  0x086, 59,   0, ADD_ACC,    0,  {DEC_LFO, 12},      NO_WRITE     },
+    {  0x087, 60,   0, ADD_ACC,    0,  {DEC_READ, 0},       NO_WRITE     },
+    {  0x088, 61, 120, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
+};
+
+// One early reflection word. The words that close a group write a register and saturate; the ones in
+// between only move the running value and wrap.
+void er_word(yss236_core& c, ErWord const& e)
+{
+	decor(c, e.st, e.decor);
+	step::alu a;
+	a.st = e.st;
+	a.sm = e.cell;
+	a.m2 = M2_CELL;
+	a.sr = e.add_reg;
+	a.add = e.add;
+	a.clamp = e.out_reg ? CLAMP_SAT : CLAMP_WRAP;
+	a.dr = e.out_reg;
+	a.wdata = e.write == SET_LATCH;
+	a.write = e.write != SET_LATCH && e.write != NO_WRITE;
+	run(c, a);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The input filters, rev::HPF_STEPS, rev::LPF_STEPS and their two copies
+// ---------------------------------------------------------------------------------------------
+
+// One of the four three-word sections of the block at 0x01a. Word 1 applies the section's first
+// coefficient to the stage before it, word 2 adds the second to that sum, and word 3 closes it into
+// the section's own register with the route its design gave, which is what the highpass sections' x1
+// and the lowpass sections' x2 are. `w1` is the register word 1 reads, which is also where word 3
+// writes, and `w2` the register word 2 reads, one stage back.
+struct Section3 { int base, w1, w2, out; step::route_t route; Decor decor[3]; };
+
+const Section3 SECTIONS[4] = {
+    //  base  w1  w2  out  route    word 1            word 2              word 3
+    {  0x01b, 51, 50,  51, ROUTE_1, { {DEC_READ, 0},  {DEC_CAPTURE, 62},  {DEC_NONE, 0}    } },   // HPF_COPY
+    {  0x01e, 52, 51,  52, ROUTE_2, { {DEC_NONE, 0},  {DEC_READ, 0},      {DEC_CAPTURE, 22} } },   // LPF_COPY
+    {  0x023, 48, 47,  48, ROUTE_1, { {DEC_READ, 0},  {DEC_CAPTURE, 61},  {DEC_NONE, 0}    } },   // HPF_STEPS
+    {  0x026, 49, 48,  49, ROUTE_2, { {DEC_LFO, 9},   {DEC_READ, 0},      {DEC_CAPTURE, 56} } },   // LPF_STEPS
+};
+
+// ---------------------------------------------------------------------------------------------
+// The runs of steps, which rom::STEPS_REVERB fixes and RUNS below names
+// ---------------------------------------------------------------------------------------------
+
+// A run of the reverb's steps: the window's whole block is these ten, and the `rev` entry point hands
+// each one to its block in turn.
+struct StepRun { int from, to; void (*block)(yss236_core&); };
+
+// ---- 0x01a to 0x039: the mix and width words, the input filters and the first ten reflections ----
 void block_0x01a(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers, named as step() names them
-	double* const m = c.m;                 // the 64 cells, which carry the values between the units
-	double xv, a, m2, prod, y, outv;      // the step's operands and its result
+	for (int st = 0x01a; st < 0x03a; st++)
+	{
+		if (getenv("VOP3_INTERP_BLOCK")) { c.step(st); continue; }
+		c.begin_step();
+		if (st < c.m_skip) continue;
+		// ---- the surround's mix words, the stereo width and the type's shelf ----
+		// rev::MIX_STEPS, rev::WIDTH_STEPS and rev::TABLE_STEPS. The two width words scale a cell and
+		// add the surround's register to them, and latch the result as the data of the delay write an
+		// early reflection pair makes a few steps later.
+		switch (st)
+		{
+		case 0x01a: gain(c, st, 120, 50, ROUTE_2); continue;       // mix word 1: the right surround into the filter chain
+		case 0x021: term(c, st, 120); continue;                    // mix word 2
+		case 0x022: close(c, st, 119, 47, ROUTE_2); continue;       // mix word 0: the left surround into r[47]
+		case 0x02f: read_delay(c, st); run(c, {st, 0, 60, M2_CELL}); continue;      // mix word 3
+		case 0x030: run(c, {st, 0, 62, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, 53}); continue;  // mix word 4
+		case 0x029:                                                                        // the width, word 1
+			run(c, {st, 52, 62, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, 0, false, 0, false, false, true});
+			continue;
+		case 0x034:                                                                        // the width, word 0
+			take_capture(c, 56, st);
+			run(c, {st, 49, 60, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, 0, false, 0, false, false, true});
+			continue;
+		case 0x031: term(c, st, 54); continue;                     // the type's shelf, word 1
+		case 0x032: sum(c, st, 53); continue;                      // word 2
+		case 0x033: read_delay(c, st); close(c, st, 53, 54, ROUTE_4); continue;          // word 3, out of the shelf line
+		default: break;
+		}
 
-// ---- 0x01a to 0x039, 32 steps ----
-		xv = a = m2 = prod = y = outv = 0.0;
-		// 0x01a  mix word 1 (rev::MIX_STEPS)
-		c.begin_step();
-		xv = r[120];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x01a]) * m2;
-		a = 0.0;
-		y = (prod + a) * 2.0;
-		c.queue_r(50, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x01b  HPF word 1, the copy (rev::HPF_COPY)
-		c.begin_step();
-		c.push_hist(0x01b, c.ram[c.addr(6, 0, false)]);
-		xv = r[51];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x01b]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x01c  HPF word 2, the copy (rev::HPF_COPY)
-		c.begin_step();
-		c.queue_d(62, c.captured(c.m[62], 0x01c));
-		xv = r[50];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x01c]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x01d  HPF word 3, the copy (rev::HPF_COPY)
-		c.begin_step();
-		xv = r[50];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x01d]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		c.queue_r(51, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x01e  LPF word 1, the copy (rev::LPF_COPY)
-		c.begin_step();
-		xv = r[52];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x01e]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x01f  LPF word 2, the copy (rev::LPF_COPY)
-		c.begin_step();
-		c.push_hist(0x01f, c.ram[c.addr(7, 0, false)]);
-		xv = r[51];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x01f]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x020  LPF word 3, the copy (rev::LPF_COPY)
-		c.begin_step();
-		c.queue_d(22, c.captured(c.m[22], 0x020));
-		xv = r[51];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x020]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(52, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x021  mix word 2 (rev::MIX_STEPS)
-		c.begin_step();
-		xv = r[120];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x021]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x022  mix word 0 (rev::MIX_STEPS)
-		c.begin_step();
-		xv = r[119];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x022]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(47, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x023  HPF word 1 (rev::HPF_STEPS)
-		c.begin_step();
-		c.push_hist(0x023, c.ram[c.addr(8, 0, false)]);
-		xv = r[48];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x023]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x024  HPF word 2 (rev::HPF_STEPS)
-		c.begin_step();
-		c.queue_d(61, c.captured(c.m[61], 0x024));
-		xv = r[47];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x024]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x025  HPF word 3 (rev::HPF_STEPS)
-		c.begin_step();
-		xv = r[47];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x025]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		c.queue_r(48, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x026  LPF word 1 (rev::LPF_STEPS)
-		c.begin_step();
-		c.queue_d(9, c.lfo[1]);
-		xv = r[49];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x026]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x027  LPF word 2 (rev::LPF_STEPS)
-		c.begin_step();
-		c.push_hist(0x027, c.ram[c.addr(9, 0, false)]);
-		xv = r[48];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x027]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x028  LPF word 3 (rev::LPF_STEPS)
-		c.begin_step();
-		c.queue_d(56, c.captured(c.m[56], 0x028));
-		xv = r[48];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x028]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(49, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x029  the width, word 1 (rev::WIDTH_STEPS)
-		c.begin_step();
-		xv = r[52];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[62];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x029]) * m2;
-		a = c.x;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.wlatch = outv; c.haswl = true;   // the data of the next delay RAM write
-		// 0x02a  early reflection word 0 (rev::ER_WORDS[0])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x02a]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x02b  early reflection word 1 (rev::ER_WORDS[1])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[57];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x02b]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-		c.ram[c.addr(10, 0, false)] = outv;
-		// 0x02c  early reflection word 2 (rev::ER_WORDS[2])
-		c.begin_step();
-		c.queue_d(57, c.captured(c.m[57], 0x02c));
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[58];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x02c]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x02d  early reflection word 3 (rev::ER_WORDS[3])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[59];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x02d]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x02e  early reflection word 4 (rev::ER_WORDS[4])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[60];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x02e]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		c.queue_r(119, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x02f  mix word 3 (rev::MIX_STEPS)
-		c.begin_step();
-		c.push_hist(0x02f, c.ram[c.addr(11, 0, false)]);
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[60];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x02f]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x030  mix word 4 (rev::MIX_STEPS)
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[62];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x030]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(53, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x031  the type shelf, word 1 (rev::TABLE_STEPS)
-		c.begin_step();
-		xv = r[54];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x031]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x032  the type shelf, word 2 (rev::TABLE_STEPS)
-		c.begin_step();
-		xv = r[53];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x032]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x033  the type shelf, word 3 (rev::TABLE_STEPS)
-		c.begin_step();
-		c.push_hist(0x033, c.ram[c.addr(12, 0, false)]);
-		xv = r[53];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x033]) * m2;
-		a = c.acc;
-		y = (prod + a) * 4.0;
-		c.queue_r(54, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x034  the width, word 0 (rev::WIDTH_STEPS)
-		c.begin_step();
-		c.queue_d(56, c.captured(c.m[56], 0x034));
-		xv = r[49];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[60];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x034]) * m2;
-		a = c.x;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.wlatch = outv; c.haswl = true;   // the data of the next delay RAM write
-		// 0x035  early reflection word 5 (rev::ER_WORDS[5])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[61];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x035]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x036  early reflection word 6 (rev::ER_WORDS[6])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x036]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x037  early reflection word 7 (rev::ER_WORDS[7])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[57];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x037]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-		c.ram[c.addr(13, 0, false)] = outv;
-		// 0x038  early reflection word 8 (rev::ER_WORDS[8])
-		c.begin_step();
-		c.queue_d(59, c.captured(c.m[59], 0x038));
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x038]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x039  early reflection word 9 (rev::ER_WORDS[9])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[62];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x039]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		c.queue_r(120, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
+		// ---- the two input filters and the two copies the type's shelf works from ----
+		for (Section3 const& f : SECTIONS)
+		{
+			int const k = st - f.base;
+			if (k < 0 || k > 2) continue;
+			decor(c, st, f.decor[k]);
+			switch (k)
+			{
+			case 0:  term(c, st, f.w1); break;                       // word 1: the coefficient on the stage before
+			case 1:  sum(c, st, f.w2); break;                        // word 2: plus this section's own delay
+			default: close(c, st, f.w2, f.out, f.route); break;      // word 3: closed and scaled into this section
+			}
+			break;
+		}
 
-
-		
+		// ---- the first ten early reflections, rev::ER_WORDS[0] to [9] ----
+		for (ErWord const& e : ER)
+			if (e.st == st) { er_word(c, e); break; }
+	}
 }
-// The run of steps 0x03e to 0x041. holds the host words rev::ROW_STEPS[0] to [3]; the rest of its steps read the delay RAM and move values between the cells
+
+// ---- 0x03e to 0x041: allpass unit 0 ----
 void block_0x03e(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers, named as step() names them
-	double* const m = c.m;                 // the 64 cells, which carry the values between the units
-	double xv, a, m2, prod, y, outv;      // the step's operands and its result
-
-// ---- 0x03e to 0x041, 4 steps ----
-		xv = a = m2 = prod = y = outv = 0.0;
-		// 0x03e  allpass 0 s26 (rev::ROW_STEPS[2])
+	for (int st = 0x03e; st < 0x042; st++)
+	{
 		c.begin_step();
-		xv = r[54];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x03e]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x03f  allpass 0 s22 (rev::ROW_STEPS[3])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[22];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x03f]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.haswl = false;              // a writer carrying the flag writes its own data
-		c.ram[c.addr(15, 0, false)] = outv;
-		// 0x040  allpass 0 s28 (rev::ROW_STEPS[0])
-		c.begin_step();
-		c.queue_d(56, c.captured(c.m[56], 0x040));
-		xv = r[54];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x040]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x041  allpass 0 s24 (rev::ROW_STEPS[1])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[22];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x041]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(125, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-
-
-		
+		if (st < c.m_skip) continue;
+		allpass_step(c, st, ALLPASS[0], st - ALLPASS[0].base);
+	}
 }
-// The run of steps 0x04c to 0x04f. holds the host words rev::ROW_STEPS[4] to [7]; the rest of its steps read the delay RAM and move values between the cells
+
+// ---- 0x04c to 0x04f: allpass unit 1 ----
 void block_0x04c(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers, named as step() names them
-	double* const m = c.m;                 // the 64 cells, which carry the values between the units
-	double xv, a, m2, prod, y, outv;      // the step's operands and its result
-
-// ---- 0x04c to 0x04f, 4 steps ----
-		xv = a = m2 = prod = y = outv = 0.0;
-		// 0x04c  allpass 1 s26 (rev::ROW_STEPS[6])
+	for (int st = 0x04c; st < 0x050; st++)
+	{
 		c.begin_step();
-		c.queue_d(58, c.captured(c.m[58], 0x04c));
-		xv = r[125];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x04c]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x04d  allpass 1 s22 (rev::ROW_STEPS[7])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[59];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x04d]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.wlatch = outv; c.haswl = true;   // the data of the next delay RAM write
-		// 0x04e  allpass 1 s28 (rev::ROW_STEPS[4])
-		c.begin_step();
-		xv = r[125];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x04e]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x04f  allpass 1 s24 (rev::ROW_STEPS[5])
-		c.begin_step();
-		c.push_hist(0x04f, c.ram[c.addr(19, 0, false)]);
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[59];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x04f]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		c.queue_d(62, yss236_core::clip(y, yss236_core::DSAT));
-
-
-		
+		if (st < c.m_skip) continue;
+		allpass_step(c, st, ALLPASS[1], st - ALLPASS[1].base);
+	}
 }
-// The run of steps 0x059 to 0x05e. holds the host words rev::ER_WORDS[10] to [15]; the rest of its steps read the delay RAM and move values between the cells
+
+// ---- 0x059 to 0x05e: early reflections 10 to 15 ----
 void block_0x059(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers, named as step() names them
-	double* const m = c.m;                 // the 64 cells, which carry the values between the units
-	double xv, a, m2, prod, y, outv;      // the step's operands and its result
-
-// ---- 0x059 to 0x05e, 6 steps ----
-		xv = a = m2 = prod = y = outv = 0.0;
-		// 0x059  early reflection word 10 (rev::ER_WORDS[10])
+	for (int st = 0x059; st < 0x05f; st++)
+	{
 		c.begin_step();
-		xv = r[119];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x059]) * m2;
-		a = c.x;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x05a  early reflection word 11 (rev::ER_WORDS[11])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[57];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x05a]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x05b  early reflection word 12 (rev::ER_WORDS[12])
-		c.begin_step();
-		c.push_hist(0x05b, c.ram[c.addr(22, 0, false)]);
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[58];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x05b]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x05c  early reflection word 13 (rev::ER_WORDS[13])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[59];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x05c]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x05d  early reflection word 14 (rev::ER_WORDS[14])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x05d]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x05e  early reflection word 15 (rev::ER_WORDS[15])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[63];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x05e]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		c.queue_r(119, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-
-
-		
+		if (st < c.m_skip) continue;
+		for (ErWord const& e : ER)
+			if (e.st == st) { er_word(c, e); break; }
+	}
 }
-// The run of steps 0x062 to 0x065. holds the host words rev::ROW_STEPS[8] to [11]; the rest of its steps read the delay RAM and move values between the cells
+
+// ---- 0x062 to 0x065: allpass unit 2 ----
 void block_0x062(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers, named as step() names them
-	double* const m = c.m;                 // the 64 cells, which carry the values between the units
-	double xv, a, m2, prod, y, outv;      // the step's operands and its result
-
-// ---- 0x062 to 0x065, 4 steps ----
-		xv = a = m2 = prod = y = outv = 0.0;
-		// 0x062  allpass 2 s26 (rev::ROW_STEPS[10])
+	for (int st = 0x062; st < 0x066; st++)
+	{
 		c.begin_step();
-		xv = r[119];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x062]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x063  allpass 2 s22 (rev::ROW_STEPS[11])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x063]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.haswl = false;              // a writer carrying the flag writes its own data
-		c.ram[c.addr(24, 0, false)] = outv;
-		// 0x064  allpass 2 s28 (rev::ROW_STEPS[8])
-		c.begin_step();
-		c.queue_d(61, c.captured(c.m[61], 0x064));
-		xv = r[119];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x064]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x065  allpass 2 s24 (rev::ROW_STEPS[9])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x065]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(119, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-
-
-		
+		if (st < c.m_skip) continue;
+		allpass_step(c, st, ALLPASS[2], st - ALLPASS[2].base);
+	}
 }
-// The run of steps 0x07f to 0x088. holds the host words rev::ER_WORDS[16] to [21], rev::ROW_STEPS[12] to [15]; the rest of its steps read the delay RAM and move values between the cells
+
+// ---- 0x07f to 0x088: allpass unit 3, then early reflections 16 to 21 ----
 void block_0x07f(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers, named as step() names them
-	double* const m = c.m;                 // the 64 cells, which carry the values between the units
-	double xv, a, m2, prod, y, outv;      // the step's operands and its result
-
-// ---- 0x07f to 0x088, 10 steps ----
-		xv = a = m2 = prod = y = outv = 0.0;
-		// 0x07f  allpass 3 s26 (rev::ROW_STEPS[14])
+	for (int st = 0x07f; st < 0x089; st++)
+	{
 		c.begin_step();
-		c.push_hist(0x07f, c.ram[c.addr(31, 0, false)]);
-		xv = r[119];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x07f]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x080  allpass 3 s22 (rev::ROW_STEPS[15])
-		c.begin_step();
-		c.queue_d(61, c.captured(c.m[61], 0x080));
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[61];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x080]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.wlatch = outv; c.haswl = true;   // the data of the next delay RAM write
-		// 0x081  allpass 3 s28 (rev::ROW_STEPS[12])
-		c.begin_step();
-		xv = r[119];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x081]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x082  allpass 3 s24 (rev::ROW_STEPS[13])
-		c.begin_step();
-		c.queue_d(40, c.in[0][4]);
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[61];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x082]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(119, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x083  early reflection word 16 (rev::ER_WORDS[16])
-		c.begin_step();
-		c.queue_d(58, c.in[1][4]);
-		xv = r[120];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x083]) * m2;
-		a = c.x;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-		c.ram[c.addr(32, 0, false)] = outv;
-		// 0x084  early reflection word 17 (rev::ER_WORDS[17])
-		c.begin_step();
-		c.queue_d(56, c.captured(c.m[56], 0x084));
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[57];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x084]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x085  early reflection word 18 (rev::ER_WORDS[18])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[58];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x085]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x086  early reflection word 19 (rev::ER_WORDS[19])
-		c.begin_step();
-		c.queue_d(12, c.lfo[4]);
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[59];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x086]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x087  early reflection word 20 (rev::ER_WORDS[20])
-		c.begin_step();
-		c.push_hist(0x087, c.ram[c.addr(33, 0, false)]);
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[60];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x087]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x088  early reflection word 21 (rev::ER_WORDS[21])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[61];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x088]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		c.queue_r(120, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-
-
-		
+		if (st < c.m_skip) continue;
+		if (st < 0x083)
+		{
+			allpass_step(c, st, ALLPASS[3], st - ALLPASS[3].base);
+			continue;
+		}
+		for (ErWord const& e : ER)
+			if (e.st == st) { er_word(c, e); break; }
+	}
 }
-// The run of steps 0x08e to 0x091. holds the host words rev::ROW_STEPS[16] to [19]; the rest of its steps read the delay RAM and move values between the cells
+
+// ---- 0x08e to 0x091: allpass unit 4 ----
 void block_0x08e(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers, named as step() names them
-	double* const m = c.m;                 // the 64 cells, which carry the values between the units
-	double xv, a, m2, prod, y, outv;      // the step's operands and its result
-
-// ---- 0x08e to 0x091, 4 steps ----
-		xv = a = m2 = prod = y = outv = 0.0;
-		// 0x08e  allpass 4 s26 (rev::ROW_STEPS[18])
+	for (int st = 0x08e; st < 0x092; st++)
+	{
 		c.begin_step();
-		xv = r[120];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x08e]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x08f  allpass 4 s22 (rev::ROW_STEPS[19])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x08f]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.haswl = false;              // a writer carrying the flag writes its own data
-		c.ram[c.addr(35, 0, false)] = outv;
-		// 0x090  allpass 4 s28 (rev::ROW_STEPS[16])
-		c.begin_step();
-		c.queue_d(56, c.captured(c.m[56], 0x090));
-		xv = r[120];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x090]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x091  allpass 4 s24 (rev::ROW_STEPS[17])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x091]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(120, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-
-
-		
+		if (st < c.m_skip) continue;
+		allpass_step(c, st, ALLPASS[4], st - ALLPASS[4].base);
+	}
 }
-// The run of steps 0x097 to 0x09a. holds the host words rev::ROW_STEPS[20] to [23]; the rest of its steps read the delay RAM and move values between the cells
+
+// ---- 0x097 to 0x09a: allpass unit 5 ----
 void block_0x097(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers, named as step() names them
-	double* const m = c.m;                 // the 64 cells, which carry the values between the units
-	double xv, a, m2, prod, y, outv;      // the step's operands and its result
-
-// ---- 0x097 to 0x09a, 4 steps ----
-		xv = a = m2 = prod = y = outv = 0.0;
-		// 0x097  allpass 5 s26 (rev::ROW_STEPS[22])
+	for (int st = 0x097; st < 0x09b; st++)
+	{
 		c.begin_step();
-		c.push_hist(0x097, c.ram[c.addr(37, 0, false)]);
-		xv = r[120];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x097]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x098  allpass 5 s22 (rev::ROW_STEPS[23])
-		c.begin_step();
-		c.queue_d(57, c.captured(c.m[57], 0x098));
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[57];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x098]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.wlatch = outv; c.haswl = true;   // the data of the next delay RAM write
-		// 0x099  allpass 5 s28 (rev::ROW_STEPS[20])
-		c.begin_step();
-		xv = r[120];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x099]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x09a  allpass 5 s24 (rev::ROW_STEPS[21])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[57];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x09a]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(120, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-
-
-		
+		if (st < c.m_skip) continue;
+		allpass_step(c, st, ALLPASS[5], st - ALLPASS[5].base);
+	}
 }
-// The run of steps 0x0a3 to 0x0b5. holds the host words rev::HALL_COMB_STEPS[0] to [15] [17] to [19]; the rest of its steps read the delay RAM and move values between the cells
+
+// ---- 0x0a3 to 0x0b5: the six comb units' state steps and the first four gains ----
 void block_0x0a3(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers, named as step() names them
-	double* const m = c.m;                 // the 64 cells, which carry the values between the units
-	double xv, a, m2, prod, y, outv;      // the step's operands and its result
-
-// ---- 0x0a3 to 0x0b5, 19 steps ----
-		xv = a = m2 = prod = y = outv = 0.0;
-		// 0x0a3  comb 0 x1 (rev::HALL_COMB_STEPS[1])
+	for (int st = 0x0a3; st < 0x0b6; st++)
+	{
 		c.begin_step();
-		c.push_hist(0x0a3, c.ram[c.addr(40, 0, false)]);
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0a3]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x0a4  comb 0 x2 (rev::HALL_COMB_STEPS[2])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[34];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0a4]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		c.queue_d(34, c.psrc);
-		// 0x0a5  comb 0 a (rev::HALL_COMB_STEPS[3])
-		c.begin_step();
-		c.queue_d(56, c.captured(c.m[56], 0x0a5));
-		xv = r[55];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x0a5]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(55, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x0a6  comb 1 x1 (rev::HALL_COMB_STEPS[5])
-		c.begin_step();
-		c.queue_d(13, c.lfo[5]);
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[57];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0a6]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x0a7  comb 1 x2 (rev::HALL_COMB_STEPS[6])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[35];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0a7]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		c.queue_d(35, c.psrc);
-		// 0x0a8  comb 1 a (rev::HALL_COMB_STEPS[7])
-		c.begin_step();
-		c.queue_d(57, c.captured(c.m[57], 0x0a8));
-		xv = r[56];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x0a8]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(56, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x0a9  comb 0 gain (rev::HALL_COMB_STEPS[0])
-		c.begin_step();
-		xv = r[55];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[62];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0a9]) * m2;
-		a = c.x;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.haswl = false;              // a writer carrying the flag writes its own data
-		c.ram[c.addr(42, 0, false)] = outv;
-		// 0x0aa  comb 2 x1 (rev::HALL_COMB_STEPS[9])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[58];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0aa]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x0ab  comb 2 x2 (rev::HALL_COMB_STEPS[10])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[36];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0ab]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		c.queue_d(36, c.psrc);
-		// 0x0ac  comb 2 a (rev::HALL_COMB_STEPS[11])
-		c.begin_step();
-		xv = r[57];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x0ac]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(57, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x0ad  comb 1 gain (rev::HALL_COMB_STEPS[4])
-		c.begin_step();
-		xv = r[56];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[62];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0ad]) * m2;
-		a = c.x;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.haswl = false;              // a writer carrying the flag writes its own data
-		c.ram[c.addr(43, 0, false)] = outv;
-		// 0x0ae  comb 3 x1 (rev::HALL_COMB_STEPS[13])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0ae]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x0af  comb 3 x2 (rev::HALL_COMB_STEPS[14])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[37];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0af]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		c.queue_d(37, c.psrc);
-		// 0x0b0  comb 3 a (rev::HALL_COMB_STEPS[15])
-		c.begin_step();
-		xv = r[58];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x0b0]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(58, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x0b1  comb 2 gain (rev::HALL_COMB_STEPS[8])
-		c.begin_step();
-		xv = r[57];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[62];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0b1]) * m2;
-		a = c.x;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.haswl = false;              // a writer carrying the flag writes its own data
-		c.ram[c.addr(44, 0, false)] = outv;
-		// 0x0b2  comb 4 x1 (rev::HALL_COMB_STEPS[17])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[57];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0b2]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x0b3  comb 4 x2 (rev::HALL_COMB_STEPS[18])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[38];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0b3]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		c.queue_d(38, c.psrc);
-		// 0x0b4  comb 4 a (rev::HALL_COMB_STEPS[19])
-		c.begin_step();
-		xv = r[59];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x0b4]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(59, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x0b5  comb 3 gain (rev::HALL_COMB_STEPS[12])
-		c.begin_step();
-		xv = r[58];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[62];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0b5]) * m2;
-		a = c.x;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.haswl = false;              // a writer carrying the flag writes its own data
-		c.ram[c.addr(45, 0, false)] = outv;
-
-
-		
+		if (st < c.m_skip) continue;
+		CombStep const& s = COMB_SCHED[st - 0x0a3];
+		comb_step(c, st, COMB[s.unit], s.role);
+	}
 }
-// The run of steps 0x0d1 to 0x0d7. holds the host words rev::HALL_COMB_STEPS[16] [20] to [23], rev::LEVEL_STEPS; the rest of its steps read the delay RAM and move values between the cells
+
+// ---- 0x0d1 to 0x0d7: comb 4's gain, comb 5's state steps, the level, comb 5's gain ----
 void block_0x0d1(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers, named as step() names them
-	double* const m = c.m;                 // the 64 cells, which carry the values between the units
-	double xv, a, m2, prod, y, outv;      // the step's operands and its result
-
-// ---- 0x0d1 to 0x0d7, 7 steps ----
-		xv = a = m2 = prod = y = outv = 0.0;
-		// 0x0d1  comb 4 gain (rev::HALL_COMB_STEPS[16])
+	for (int st = 0x0d1; st < 0x0d8; st++)
+	{
 		c.begin_step();
-		xv = r[59];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[62];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0d1]) * m2;
-		a = c.x;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.haswl = false;              // a writer carrying the flag writes its own data
-		c.ram[c.addr(52, 0, false)] = outv;
-		// 0x0d2  comb 5 x1 (rev::HALL_COMB_STEPS[21])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[56];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0d2]) * m2;
-		a = 0.0;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		// 0x0d3  comb 5 x2 (rev::HALL_COMB_STEPS[22])
-		c.begin_step();
-		xv = 0.0;
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[39];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0d3]) * m2;
-		a = c.acc;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 0);
-		c.queue_d(39, c.psrc);
-		// 0x0d4  comb 5 a (rev::HALL_COMB_STEPS[23])
-		c.begin_step();
-		xv = r[60];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x0d4]) * m2;
-		a = c.acc;
-		y = (prod + a) * 2.0;
-		c.queue_r(60, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x0d5  the level gain, word 1 (rev::LEVEL_STEPS)
-		c.begin_step();
-		xv = r[120];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x0d5]) * m2;
-		a = 0.0;
-		y = (prod + a) * 4.0;
-		c.queue_r(10, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x0d6  the level gain, word 0 (rev::LEVEL_STEPS)
-		c.begin_step();
-		xv = r[119];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[0x0d6]) * m2;
-		a = 0.0;
-		y = (prod + a) * 4.0;
-		c.queue_r(9, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		// 0x0d7  comb 5 gain (rev::HALL_COMB_STEPS[20])
-		c.begin_step();
-		xv = r[60];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[62];
-		m2 = c.src;
-		prod = yss236_core::s16(c.coef[0x0d7]) * m2;
-		a = c.x;
-		y = (prod + a) * 1.0;
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		c.haswl = false;              // a writer carrying the flag writes its own data
-		c.ram[c.addr(53, 0, false)] = outv;
+		if (st < c.m_skip) continue;
+		switch (st)
+		{
+		case 0x0d1: comb_step(c, st, COMB[4], COMB_GAIN); break;
+		case 0x0d2: comb_step(c, st, COMB[5], COMB_X1); break;
+		case 0x0d3: comb_step(c, st, COMB[5], COMB_X2); break;
+		case 0x0d4: comb_step(c, st, COMB[5], COMB_A); break;
+		case 0x0d5: gain(c, st, 120, 10, ROUTE_4); break;     // the level, word 1: the right return
+		case 0x0d6: gain(c, st, 119, 9, ROUTE_4); break;      // the level, word 0: the left return
+		default:   comb_step(c, st, COMB[5], COMB_GAIN); break;
+		}
+	}
 }
 
-// The reverb window's ten runs of steps, and the block that is each one.
-struct StepRun { int from, to; void (*block)(yss236_core&); };
 const StepRun RUNS[] = {
     {0x01a, 0x03a, block_0x01a},
     {0x03e, 0x042, block_0x03e},
@@ -1237,6 +501,7 @@ const StepRun RUNS[] = {
     {0x0a3, 0x0b6, block_0x0a3},
     {0x0d1, 0x0d8, block_0x0d1},
 };
+
 }  // namespace
 
 // One run of the reverb window's steps, exactly as yss236_core::step() would run them. The check hands
@@ -1244,8 +509,9 @@ const StepRun RUNS[] = {
 // builds, falls back to the interpreter.
 void rev(yss236_core& c, int from, int to)
 {
-    for (StepRun const& run : RUNS)
-        if (run.from == from && run.to == to) { run.block(c); return; }
+    if (!getenv("VOP3_INTERP_REV"))
+        for (StepRun const& run : RUNS)
+            if (run.from == from && run.to == to) { run.block(c); return; }
     for (int st = from; st < to; st++) c.step(st);
 }
 
