@@ -38,13 +38,17 @@
 // step's fields are folded into the arithmetic below in step()'s order.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every step below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
+
+using namespace step;   // the step vocabulary: term, sum, close, run and idle
 
 // One unit: the register its state is in, the register its difference is in and the cell it smooths.
 // In step order, four steps each, the second step of each being one of rom::STEPS_OUTPUT_GAIN.
@@ -56,75 +60,48 @@ const Unit UNITS[8] = {
 
 // The unit's first step: the running value takes the state, and nothing else. The adder is off, so the
 // step only loads the accumulator, and dr is 0, so no register takes the result.
-void take_state(yss236_core& c, Unit const& u)
+void take_state(yss236_core& c, Unit const& u, int st)
 {
-	double xv = c.r[u.state];
-	c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-	c.psrc = c.src; c.src = c.m[0];
-	double const m2 = xv;                 // class 3 is unity: the product is the multiplier input
-	double const a = 0.0;                 // the adder input is off
-	double const y = (m2 + a) * 1.0;
-	c.acc = yss236_core::accmode(y, 0);
+	// class 3 is unity: the word is ignored and the product is the register itself
+	run(c, {st, u.state, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP});
 }
 
 // The unit's second step: the state moves toward the cell by the gain word times the difference, and
 // the running value takes the result, which is what the next step's accumulator holds.
 void smooth_state(yss236_core& c, Unit const& u, int st)
 {
-	double xv = c.r[u.diff];              // the difference the unit's third step left last pass
-	c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-	c.psrc = c.src; c.src = c.m[0];
-	double const prod = yss236_core::s16(c.coef[st]) * xv;   // the host's gain word, class 2, no t input
-	double const y = (prod + c.acc) * 1.0;                   // the adder is on the running value
-	c.queue_r(u.state, yss236_core::mode(y, 1));
-	c.acc = yss236_core::accmode(y, 1);
+	close(c, st, u.diff, u.state);
 }
 
 // The unit's third step: the cell minus the state, doubled, into the difference register. The step
 // before wrote the state, but a register write lands three steps later, so the state it reads here is
 // the one this pass's second step will replace, and the difference is this pass's move.
-void cell_difference(yss236_core& c, Unit const& u)
+void cell_difference(yss236_core& c, Unit const& u, int st)
 {
-	double xv = c.r[u.state];
-	c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-	c.psrc = c.src; c.src = c.m[u.cell];   // the multiplier input is the cell, not the register
-	double const prod = c.src;             // class 3 is unity
-	double const y = (prod - c.x) * 2.0;   // the adder is on the register just fetched, and negates
-	c.queue_r(u.diff, yss236_core::mode(y, 1));
-	c.acc = yss236_core::accmode(y, 1);
+	// class 3 is unity again, and this time the multiplier's second input is the cell while the adder
+	// reads the register the step just fetched, negated
+	run(c, {st, u.state, u.cell, M2_CELL, true, 0, ADD_REG, true, ROUTE_2, CLAMP_SAT, u.diff});
 }
 
 // The unit's fourth step, and the two empty steps and the last step of the tail: a class-0 step with no
 // register read still takes the latch, so the running x goes to zero and hasx drops.
 void empty_step(yss236_core& c)
 {
-	c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
+	idle(c);
 }
 
 // The tail's clear step: the running value takes the gain word times a register, with the adder off, so
 // what the following write step puts in its cell is the running value this step leaves.
 void clear_acc(yss236_core& c, int reg, int st)
 {
-	double xv = c.r[reg];
-	c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-	c.psrc = c.src; c.src = c.m[0];
-	double const prod = yss236_core::s16(c.coef[st]) * xv;
-	double const a = 0.0;                 // the adder input is off
-	double const y = (prod + a) * 1.0;
-	c.acc = yss236_core::accmode(y, 0);
+	term(c, st, reg);
 }
 
 // The tail's write step: the running value, scaled by RSCALE[3], into the cell (msrc 6, the step's own
 // result). dr is 0, so the register it reads only feeds the multiplier.
 void write_cell(yss236_core& c, int reg, int cell, int st)
 {
-	double xv = c.r[reg];
-	c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-	c.psrc = c.src; c.src = c.m[0];
-	double const prod = yss236_core::s16(c.coef[st]) * xv;
-	double const y = (prod + c.acc) * 16.0;        // the adder is on the running value
-	c.acc = yss236_core::accmode(y, 1);
-	c.queue_d(cell, yss236_core::clip(y, yss236_core::DSAT));
+	run(c, {st, reg, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_16, CLAMP_SAT, 0, false, cell});
 }
 
 // The run of steps 0x0e8 to 0x110, the whole of the window's program. The loop is one iteration per
@@ -144,9 +121,9 @@ void block_0x0e8(yss236_core& c)
 			Unit const& u = UNITS[i / 4];
 			switch (i % 4)
 			{
-			case 0:  take_state(c, u); break;
+			case 0:  take_state(c, u, st); break;
 			case 1:  smooth_state(c, u, st); break;
-			case 2:  cell_difference(c, u); break;
+			case 2:  cell_difference(c, u, st); break;
 			default: empty_step(c); break;
 			}
 			continue;
@@ -159,7 +136,7 @@ void block_0x0e8(yss236_core& c)
 		case 0x10b: write_cell(c, 17, 40, st); break;  // and writes it into m[40], unit 5's cell
 		case 0x10c: clear_acc(c, 8, st); break;
 		case 0x10d: write_cell(c, 18, 41, st); break;  // and into m[41], unit 7's cell
-		case 0x10e: c.out[8] = c.m[17]; empty_step(c); break;   // the window's serial output
+		case 0x10e: serial_out(c, st, 17); empty_step(c); break;   // the window's serial output
 		}
 	}
 }
