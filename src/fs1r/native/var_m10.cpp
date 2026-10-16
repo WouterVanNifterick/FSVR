@@ -7,13 +7,16 @@
 // fx_reverb.cpp writes whenever a parameter does, so the code reads them where they live on the pass,
 // as step() reads them, because that is the contract and not because the numbers are known here.
 //
-// What the 72 steps compute, in the groups the comments below open each of. The host names every group
-// it programs, in EffectHost::variationReverb() and the tables it calls:
+// What the 72 steps compute, in the groups the step loop below runs one function each, and the repeated
+// units of those groups are the tables below: TONES the two tone poles, COPIES the eight z^-1 copies,
+// UNITS the two diffusion units' four words each, LOWPASSES the two damping poles and PANS the two
+// channels' pan words. The host names every group it programs, in EffectHost::variationReverb() and the
+// tables it calls:
 //   var::REVERB_HPF {0x15C,0x15B,0x15A}, var::REVERB_LPF {0x15F,0x15E,0x15D}
 //   var::REVERB_ROW_STEPS {0x178,0x179,0x17A,0x17B,0x170,0x171,0x172,0x173}, var::REVERB_ROW_SLOTS {0x60,0x5B,0x5C,0x59}
 //   var::REVERB_PRE {0x5D,0x5A}, var::REVERB_WIDTH {0x177}
 //   var::REVERB_COMBS {0x19B,0x186,0x185,0x184,0x19F,0x189,0x188,0x187}
-//   var::REVERB_ER_IDS {0x66,0x5E,0x61,0x67,0x5F,0x62}
+//   var::REVERB_ER_IDS {0x66,0x5E,0x61,0x5F,0x62}
 //   var::REVERB_W {0x191,0x160,0x161,0x162,0x163,0x164,0x192,0x193,0x18F,0x18E}
 //   var::REVERB_PAN {0x195,0x197,0x196,0x198}
 // and the two 72-step halves run as:
@@ -22,8 +25,8 @@
 //                var::REVERB_HPF and the low-pass var::REVERB_LPF, one pole each and three words apiece.
 //                0x159 is the mono sum r[103] = 2 * (k * r[6] + k * r[5]), so the whole reverb runs on
 //                the mono. The high-pass's state is r[104], the low-pass's r[105], the low-pass fed from
-//                the high-pass. The reads of the slots 0x56 and 0x57 ride on the two middle words of the
-//                filters and are published in m[28] and m[29].
+//                the high-pass. The reads of the slots 0x56 and 0x57 ride on the high-pass's second word
+//                and the low-pass's third, and are published in m[28] and m[29].
 //   0x160-0x164  m[28] takes up the read of 0x15b, the read of the slot 0x58 rides on 0x163, and m[29]
 //                takes up the read of 0x15f. 0x164 is var::REVERB_W[5]: r[119] = k * r[118], the level
 //                the diffusion parameter picks, on the base program's own return r[118].
@@ -65,8 +68,9 @@
 //
 // The two diffusion units are what EffectHost::diffusers() programs, and each is the same four words in
 // the same roles: the row's two feedforward words and its tap gain and its feedback, which the host
-// calls s28, s26, s24 and s22 and writes to unit[0..3]. With k the word the step carries, a unit whose
-// line is read from slot L and whose input is x computes:
+// calls s28, s26, s24 and s22 and writes to unit[0..3]. UNITS below is those two rows of four words,
+// one row per unit, and unit() runs them. With k the word the step carries, a unit whose line is read
+// from slot L and whose input is x computes:
 //
 //   tap        0x179 / 0x171   = 2 * (s24 * line(L) + s28 * x), saturating at +-128, into m[63] / r[120]
 //   write      0x17b / 0x173   = clip(2 * (s22 * line(L) + s26 * x), +-32), into the unit's write slot
@@ -110,767 +114,455 @@
 // in the order yss236_core::step() runs its own.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
 //
 // vop3_native_check var-m10: identical, 45 types, 432000 native passes. The 45 are the four variation
 // types 25 to 28 and the 41 insertion types the sweep visits while the window still holds this program.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
-// The run of steps 0x158 to 0x19f, the whole of the window's program. The loop is one iteration per
-// step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half skips
-// these steps as it would the interpreter's.
+using namespace step;   // the step vocabulary: term, sum, close, run and the rest
+
+// The registers and cells more than one of the blocks below touches, named as the head of this file
+// names them, so the tables read as the DSP they run rather than as a list of numbers.
+constexpr int MONO = 103;        // r[103]: the mono the whole reverb runs on
+constexpr int DAMP1 = 106;       // r[106]: the first damping lowpass's own state
+constexpr int DAMP_IN = 107;     // r[107]: its input, which 0x183 computes
+constexpr int DAMP2 = 108;       // r[108]: the second damping lowpass's own state
+constexpr int PRE = 109;         // r[109]: the pre-delay return the base program reads back
+constexpr int LEVEL = 119;       // r[119]: the level the diffusion picks, on r[118] a pass back
+constexpr int TAP2 = 120;        // r[120]: the second unit's tap, and the right output sum from 0x18f
+constexpr int SUM_L = 121;       // r[121]: the left output sum
+
+constexpr int DEAD = 54;         // m[54]: the cell whose only write is on a class-0 step
+constexpr int PRE_BACK = 55;     // m[55]: the pre-delay tap as 0x191 left it a pass back
+constexpr int LINE2 = 56;        // m[56]: the second unit's line, the read of the slot 0x59
+constexpr int PREDELAY = 57;     // m[57]: the pre-delay tap, the read of the slot 0x5A
+constexpr int LINE1 = 58;        // m[58]: the first unit's line, the read of the slot 0x5B
+constexpr int EMPTY = 59;        // m[59]: the cell the capture at 0x180 never fills, so it stays zero
+constexpr int ER1 = 60;          // m[60]: the first early reflection, off the 0x67 write
+constexpr int ER2 = 61;          // m[61]: the second early reflection, off the 0x66 write
+constexpr int ER3 = 62;          // m[62]: the third early reflection, off the 0x67 write
+constexpr int TAP1 = 63;         // m[63]: the first unit's tap, which the two comb gains weigh
+
+// ---------------------------------------------------------------------------------------------
+// What a step does with a cell or the delay RAM before it does any arithmetic
+// ---------------------------------------------------------------------------------------------
+
+// A step that is more than a term: it reads the delay RAM, publishes a capture of an earlier read or
+// takes a serial input or an LFO. `cell` is the slot a DEC_READ reads, which is its own step over
+// four, or the cell the move lands in. DEC_READ_LFO is the one step shape that moves twice: 0x167 and
+// 0x187 read the delay RAM and take the page's LFO on the same word.
+enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_LFO, DEC_READ_LFO };
+
+struct Decor { decor_t kind; int cell; };
+
+void decor(yss236_core& c, int st, Decor const& d)
+{
+	switch (d.kind)
+	{
+		case DEC_READ:     read_delay(c, st); break;
+		case DEC_CAPTURE:  take_capture(c, d.cell, st); break;
+		case DEC_LFO:      take_lfo(c, d.cell, st); break;
+		case DEC_READ_LFO: read_delay(c, st); take_lfo(c, d.cell, st); break;
+		case DEC_NONE: break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x158 to 0x15f: the two serial inputs and the host's two tone filters
+// ---------------------------------------------------------------------------------------------
+
+// 0x158 and 0x159: the two serial inputs this window publishes for the base program, and the mono
+// every block below runs on. The left input alone opens the running value and the right one closes
+// the sum, doubled and saturated, into r[103].
+void inputs(yss236_core& c, int st)
+{
+	if (st == 0x158)
+	{
+		take_serial(c, 2, st, 0);       // m[2] takes the left input
+		term(c, st, 5);                 // acc = k * r[5], on the left input alone
+	}
+	else
+	{
+		take_serial(c, 6, st, 1);       // m[6] takes the right input
+		close(c, st, 6, MONO, ROUTE_2); // r[103] = 2 * (k * r[6] + acc), the mono
+	}
+}
+
+// One of the host's two one-pole tone filters over three words, `state` the pole's own register and
+// `in` the register it is fed from. The first word is the pole's own coefficient on its state a pass
+// back, the second that filter's feedforward coefficient on its input, and the third the same input
+// again, closing the sum into the state through `route`: the high-pass runs the plain sum and the
+// low-pass doubles it, and it is fed from the high-pass's output.
+struct Tone
+{
+	int base;
+	int state;
+	int in;
+	route_t route;
+	Decor decor[3];
+};
+
+const Tone TONES[2] = {
+	//  base  state  in  route     -a1 on the state      b1 on the input         b0 closing
+	{ 0x15a,   104, 103, ROUTE_1, { {DEC_NONE, 0},      {DEC_READ, 0x56},      {DEC_NONE, 0}     } },
+	{ 0x15d,   105, 104, ROUTE_2, { {DEC_NONE, 0},      {DEC_NONE, 0},         {DEC_READ, 0x57} } },
+};
+
+void tone(yss236_core& c, int st, Tone const& f)
+{
+	int const k = st - f.base;
+	decor(c, st, f.decor[k]);
+	switch (k)
+	{
+	case 0:  term(c, st, f.state); break;                 // -a1 on the pole's own state
+	case 1:  sum(c, st, f.in); break;                     // b1 on the filter's input
+	default: close(c, st, f.in, f.state, f.route); break; // b0 closing the sum into the pole
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x160 to 0x166: the two published reads, the level, and the pre-delay return
+// ---------------------------------------------------------------------------------------------
+
+// The three words 0x161 to 0x163 scale, which are the copy registers of the run below, r[110] two steps
+// on and r[115] five, and those hold the x operand the step before each latched, a pass behind by the
+// time these words read them.
+const int COPY_TERMS[3] = { 110, 112, 115 };
+
+// 0x160 to 0x164: the two reads the base program and the other windows share, each taken up into a
+// cell five steps after the read, and the level the diffusion parameter picks. m[28] takes up the read
+// of 0x15b and m[29] the read of 0x15f, the read of the slot 0x58 rides on the third of the three words
+// between them, and 0x164 closes the whole run into r[119] as var::REVERB_W[5], the level on the base
+// program's own return r[118].
+void level(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x160:
+		take_capture(c, 28, st);      // m[28] takes up the read of the slot 0x56
+		term_cell(c, st, PRE_BACK);   // and the pre-delay tap a pass back opens the sum
+		break;
+	case 0x163:
+		read_delay(c, st);            // the slot 0x58, which m[30] takes up at 0x168
+		sum(c, st, COPY_TERMS[2]);
+		break;
+	case 0x164:
+		take_capture(c, 29, st);      // m[29] takes up the read of the slot 0x57
+		close(c, st, 118, LEVEL);     // and the level closes the run into r[119]
+		break;
+	default:
+		sum(c, st, COPY_TERMS[st - 0x161]);
+		break;
+	}
+}
+
+// 0x165 and 0x166: the pre-delay the base program reads back at r[109], which is twice the word on
+// m[55], the tap 0x191 left a pass back, and the class-3 step that carries that register on onto the
+// running value for whoever reads it next.
+void pre_delay_return(yss236_core& c, int st)
+{
+	if (st == 0x165) run(c, { st, 0, PRE_BACK, M2_CELL, false, 0, ADD_OFF, false, ROUTE_2, CLAMP_SAT, PRE });
+	else run(c, { st, PRE, 0, M2_REG, true });   // the class-3 pass-through of r[109]
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x167 to 0x16e: the z^-1 copies
+// ---------------------------------------------------------------------------------------------
+
+// The eight steps hold the x operand the step before latched in a register of their own, r[110] to
+// r[117]: the class-3 word is 1.0, so what each writes is the delay and the running value is nothing
+// anyone reads. The read of the slot 0x59 and the page's LFO ride on the first, m[30] takes up the
+// read of 0x163 on the second, the pre-delay's read of the slot 0x5A on the fifth and m[56] takes it
+// up on the sixth.
+const Decor COPIES[8] = {
+	//  the slot 0x59 and m[11]   m[30]         -           -           the slot 0x5A   m[56]         -       -
+	{DEC_READ_LFO, 11}, {DEC_CAPTURE, 30}, {DEC_NONE, 0}, {DEC_NONE, 0},
+	{DEC_READ, 0x5A},   {DEC_CAPTURE, 56}, {DEC_NONE, 0}, {DEC_NONE, 0},
+};
+
+void copies(yss236_core& c, int st)
+{
+	int const k = st - 0x167;
+	decor(c, st, COPIES[k]);
+	// r[110 + k] takes the step before's x operand, and the word is 1.0 so the accumulator is idle.
+	run(c, { st, 110 + k, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 110 + k, true });
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x16f to 0x183: the two diffusion units and the pre-delay
+// ---------------------------------------------------------------------------------------------
+
+// One diffusion unit's four words, the same four in the same roles in both units, which is what
+// EffectHost::diffusers() programs: the feedforward gain s28 on the unit's input opens the sum, the
+// line's tap gain s24 closes it doubled into the tap, s26 on the input opens it again and the line's
+// feedback s22 closes it into the unit's write. The unit's input is the cell `in_cell` where it is
+// the pre-delay and the register `in_reg` where it is the filtered mono, and `line` is the unit's own
+// line, published five steps earlier from the read of its slot. The tap closes into `tap_out`, a cell
+// for the first unit and a register for the second, and `own_write` says the closing word is itself
+// the delay RAM write, which the first unit's is not: 0x17b latches that write and 0x183 spends it.
+struct Unit
+{
+	int base;
+	int in_reg;
+	int in_cell;
+	int line;
+	int tap_out;       // the register or the cell the tap closes into
+	bool tap_cell;     // which of the two it is
+	bool own_write;    // the feedback word is itself the unit's write
+	Decor decor[4];
+};
+
+const Unit UNITS[2] = {
+	//  base  in   cell  line  tap  tap_cell  own_write  the four words' decor
+	{ 0x170, 105,    0, LINE2, 120, false,     true, { {DEC_CAPTURE, PREDELAY}, {DEC_NONE, 0},
+													   {DEC_NONE, 0},           {DEC_NONE, 0}    } },
+	{ 0x178,   0, PREDELAY, LINE1, TAP1, true, false,   { {DEC_NONE, 0},          {DEC_NONE, 0},
+													   {DEC_NONE, 0},           {DEC_READ, 0x5E} } },
+};
+
+void unit(yss236_core& c, int st, Unit const& u)
+{
+	int const k = st - u.base;
+	decor(c, st, u.decor[k]);
+	if (k == 1)
+	{
+		// s24, the line's tap gain, closing what s28 opened: doubled and saturated into the tap.
+		run(c, { st, 0, u.line, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT,
+				 u.tap_cell ? 0 : u.tap_out, false, u.tap_cell ? u.tap_out : 0 });
+		return;
+	}
+	if (k == 3)
+	{
+		// s22, the line's feedback, closing what s26 opened: the unit's write, which this word either
+		// makes itself or latches for the step eight later that does. w1[13] is carried either way.
+		run(c, { st, 0, u.line, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
+				 0, false, 0, false, false, true, u.own_write });
+		return;
+	}
+	// k 0 and k 2: the two feedforward words, s28 and s26, on the unit's input, neither of which the
+	// adder reads, so each opens the running value rather than adding to it.
+	if (u.in_cell) term_cell(c, st, u.in_cell);
+	else            term(c, st, u.in_reg);
+}
+
+// 0x16f to 0x177: the second diffusion unit and the pre-delay its tap starts. 0x16f reads the unit's
+// line at the slot 0x5B and m[58] takes it up five steps later, the unit's four words follow, and
+// 0x177 is var::REVERB_WIDTH[0]: the slot 0x5D, which var::REVERB_PRE[0] is, takes the unit's tap
+// r[120] with the pre-delay tap m[57] added behind it, saturated. The two steps between are idle.
+void predelay(yss236_core& c, int st)
+{
+	if (st == 0x16f) { read_delay(c, st); idle(c); return; }                  // the read of the slot 0x5B
+	if (st == 0x174) { take_capture(c, LINE1, st); idle(c); return; }         // m[58] takes it up
+	if (st == 0x177)                                                          // var::REVERB_WIDTH[0]
+	{
+		run(c, { st, TAP2, PREDELAY, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT,
+				 0, false, 0, false, false, true, true });
+		return;
+	}
+	if (st < 0x174) { unit(c, st, UNITS[0]); return; }     // the unit's four words
+	idle(c);                                               // 0x175 and 0x176
+}
+
+// 0x178 to 0x183: the first diffusion unit, which runs on the pre-delay rather than on the input.
+// Its four words are the same, then the two steps before its write are idle, the read of the slot
+// 0x5F rides past and m[60] takes it up five steps later at 0x184, and m[59]'s capture at 0x180 finds
+// no read inside its window, so the cell stays at zero.
+void first_unit(yss236_core& c, int st)
+{
+	if (st < 0x17c) { unit(c, st, UNITS[1]); return; }
+	if (st == 0x17f) { read_delay(c, st); idle(c); return; }             // the read of the slot 0x5F
+	if (st == 0x180) { take_capture(c, EMPTY, st); idle(c); return; }   // m[59], which stays zero
+	if (st == 0x183)
+	{
+		// The unit's write into the slot 0x60, which is whatever 0x17b latched: this word does not
+		// carry w1[13], so it spends the latch rather than writing its own result. What it does
+		// compute is the first damping lowpass's input, twice the word on the cell nothing fills.
+		run(c, { st, 0, EMPTY, M2_CELL, false, 0, ADD_OFF, false, ROUTE_2, CLAMP_SAT, DAMP_IN,
+				 false, 0, false, false, false, true });
+		return;
+	}
+	idle(c);                                                  // 0x17c to 0x17e and 0x181, 0x182
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x184 to 0x18d: the two damping lowpasses, and the second early reflection's cell
+// ---------------------------------------------------------------------------------------------
+
+// One of the two damping lowpasses, the (x, x, a) triple var::REVERB_COMBS[1..3] and [5..7], which
+// together are one pole: `state` is its own register, which the a word reads a pass back and the
+// second x word overwrites, and the two x words scale `first_reg` or `first_cell` and `second_reg` or
+// `second_cell`, one of each pair being zero. The first pole is fed a register and the second a cell,
+// and the second pole's first x word is on m[54], which nothing writes.
+struct Lowpass
+{
+	int base;
+	int state;
+	int first_reg, first_cell;
+	int second_reg, second_cell;
+	Decor decor[3];
+};
+
+const Lowpass LOWPASSES[2] = {
+	//  base  state  the first x word     the second x word    the a word and b0's decor
+	{ 0x184, DAMP1, DAMP_IN,      0, DAMP_IN,      0, { {DEC_CAPTURE, ER1}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+	{ 0x187, DAMP2,       0, DEAD,          0, ER1,     { {DEC_READ_LFO, 12}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+};
+
+void lowpass(yss236_core& c, int st, Lowpass const& f)
+{
+	int const k = st - f.base;
+	decor(c, st, f.decor[k]);
+	switch (k)
+	{
+	case 0:  term(c, st, f.state); break;                       // the a word on the pole's own state
+	case 1:  if (f.first_cell) sum_cell(c, st, f.first_cell);   // the first x word
+	        else                sum(c, st, f.first_reg);
+	        break;
+	default:
+	        if (f.second_cell)                                   // and the second closing the pole
+	            run(c, { st, 0, f.second_cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2,
+	                     CLAMP_SAT, f.state });
+	        else
+	            close(c, st, f.second_reg, f.state, ROUTE_2);
+	        break;
+	}
+}
+
+// 0x18a to 0x18d: nothing but the second early reflection's cell. The read of the slot 0x62 leaves
+// 0x18b for m[62] to take up at 0x190, the read of the slot 0x61 at 0x187 for m[61] to take up here,
+// and the other two steps are idle, 0x18a among them: its M_PREVIOUS write of m[54] is on a class-0
+// step, which step() returns before, so nothing ever writes m[54].
+const Decor ER_CELL[4] = {
+	//  0x18a, the dead step   the slot 0x62   m[61]     0x18d
+	{DEC_NONE, 0}, {DEC_READ, 0x62}, {DEC_CAPTURE, 61}, {DEC_NONE, 0},
+};
+
+// ---------------------------------------------------------------------------------------------
+// 0x18e to 0x19f: the two output sums, the pan and the two comb gains
+// ---------------------------------------------------------------------------------------------
+
+// 0x18e to 0x193: the two output sums, one for each channel. The right one is two early reflections with
+// the base program's level r[119] behind the first, closing into r[120]; the left one is the early
+// reflection m[62] closing the tap a pass back and the cell m[59] into r[121]. Two words sit between
+// them: 0x190 is the class-3 step that carries the pre-delay tap m[57] onto the running value, which
+// 0x191 then replaces with its own word on m[55] as var::REVERB_W[0] and publishes m[57] into m[55]
+// again, and m[55] is the tap 0x165 hands the base program.
+void output_sums(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	// var::REVERB_W[9]: the first early reflection m[60], with the level r[119] added behind it
+	case 0x18e:
+		run(c, { st, LEVEL, ER1, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_WRAP });
+		break;
+	// var::REVERB_W[8]: the second early reflection m[61] closing that into r[120], with the read of
+	// the slot 0x63 riding on it for m[31] to take up at 0x194
+	case 0x18f:
+		read_delay(c, st);
+		run(c, { st, 0, ER2, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, TAP2 });
+		break;
+	// the pre-delay tap on the running value, and the read of the slot 0x62 published in m[62]
+	case 0x190:
+		take_capture(c, ER3, st);
+		run(c, { st, 0, PREDELAY, M2_CELL, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP });
+		break;
+	// var::REVERB_W[0]: the tap a pass back scaled, and republished as this pass's own
+	case 0x191:
+		run(c, { st, 0, PRE_BACK, M2_CELL, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP,
+				 0, false, PRE_BACK, true });
+		break;
+	// var::REVERB_W[6]: the cell m[59], which stays at zero, onto that
+	case 0x192:
+		sum_cell(c, st, EMPTY);
+		break;
+	default:  // var::REVERB_W[7]: the early reflection m[62] closing the left sum into r[121]
+		read_delay(c, st);            // the slot 0x64, which m[32] takes up at 0x198
+		run(c, { st, 0, ER3, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, SUM_L });
+		break;
+	}
+}
+
+// One channel's two pan words, var::REVERB_PAN. The first scales the input the base program left this
+// window and the second adds that channel's output sum on top, quadrupled and saturated into the
+// register the base program reads back.
+struct Pan
+{
+	int base;
+	int in;         // the input the base program leaves this window in
+	int sum;        // the output sum the wet word adds
+	int out;        // the register the pair closes into, r[15] or r[16]
+	Decor decor[2];
+};
+
+const Pan PANS[2] = {
+	//  base  in  sum   out   the input word      the sum word
+	{ 0x195,   5, SUM_L,  15, { {DEC_NONE, 0},    {DEC_NONE, 0}     } },
+	{ 0x197,   6, TAP2,  16, { {DEC_READ, 0x65}, {DEC_CAPTURE, 32} } },
+};
+
+void pan(yss236_core& c, int st, Pan const& p)
+{
+	decor(c, st, p.decor[st - p.base]);
+	if (st == p.base) term(c, st, p.in);            // the input word, on the channel's own input
+	else close(c, st, p.sum, p.out, ROUTE_4);      // and the sum word closing the pair, quadrupled
+}
+
+// The two comb gains, var::REVERB_COMBS[0] and [4], which are the RT60 gains the damping loss scales.
+// Each applies its word to the first unit's tap m[63] with that comb's own damper state r[106] or
+// r[108] added to it behind, saturates the sum, and writes it into the slot the early reflections
+// hang off, which is the word's own step over four: the slots 0x66 and 0x67, which combDelays2() gives
+// the four taps 0x5E, 0x61, 0x5F and 0x62 as offsets from. Each carries w1[13] and is itself a
+// writer, so it writes its own result.
+const int COMB_DAMPER[2] = { DAMP1, DAMP2 };
+
+void comb_gain(yss236_core& c, int st)
+{
+	if (st == 0x19c) { take_capture(c, 33, st); idle(c); return; }   // m[33], the read of the slot 0x65
+	if (st != 0x19b && st != 0x19f) { idle(c); return; }            // the four steps between
+	run(c, { st, COMB_DAMPER[(st - 0x19b) / 4], TAP1, M2_CELL, false, 0, ADD_REG, false, ROUTE_1,
+			 CLAMP_SAT, 0, false, 0, false, false, true, true });
+}
+
+// ---------------------------------------------------------------------------------------------
+// The run of steps 0x158 to 0x19f, the whole of the window's program
+// ---------------------------------------------------------------------------------------------
+
+// The loop is one iteration per step and carries the m_skip guard step() opens with, so a gate in the
+// base program's 0x1xx half skips these steps as it would the interpreter's. Each test below is one of
+// the groups the head of this file opens.
 void block_0x158(yss236_core& c)
 {
-    double* const r = c.r;                 // the 128 registers
-    double* const m = c.m;                 // the 64 cells
-    double xv, k, prod, a, y, outv;
+	for (int st = 0x158; st < 0x1a0; st++)
+	{
+		c.begin_step();
+		if (st < c.m_skip) continue;
 
-    // The step's x operand: the register r[sr] into the latch every step but a class-2/3 one moves, and
-    // xv alongside it for the multiplier.
-    auto fetch = [&](int sr) { xv = sr ? r[sr] : 0.0; c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = sr != 0; };
-
-    for (int st = 0x158; st < 0x1a0; st++)
-    {
-        c.begin_step();
-        if (st < c.m_skip) continue;
-        switch (st)
-        {
-// ---- 0x158 to 0x15f, the two inputs and the host's two tone filters -----------------------------
-// m[2] takes the left serial input; the left input alone, at the running value
-        case 0x158:
-            c.queue_d(2, c.in[0][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// m[6] takes the right serial input; r[103] = saturate(2 * (k * r[6] + k * r[5])), the mono sum the
-// whole reverb runs on
-        case 0x159:
-            c.queue_d(6, c.in[1][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(103, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_HPF[2]: the high-pass pole's -a1 on its own state, r[104]
-        case 0x15a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_HPF[1]: b1 on the mono, onto that pole term, and the read of the slot 0x56 the base
-// program published (published in m[28] at 0x160)
-        case 0x15b:
-            c.push_hist(st, c.ram[c.addr(0x56, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_HPF[0]: b0 on the mono into r[104], saturating
-        case 0x15c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(104, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_LPF[2]: the low-pass pole's -a1 on r[105]
-        case 0x15d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_LPF[1]: b1 on the high-pass's output, r[104]
-        case 0x15e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_LPF[0]: b0 on r[104], doubled and saturating, into r[105], and the read of the slot 0x57
-// the base program published (published in m[29] at 0x164)
-        case 0x15f:
-            c.push_hist(st, c.ram[c.addr(0x57, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(105, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// ---- 0x160 to 0x164, the two published reads and the base program's return under a level ----------
-// m[28] takes up the read of 0x15b, the slot 0x56
-        case 0x160:
-            c.queue_d(28, c.captured(m[28], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[55];
-            prod = k * c.src;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-        case 0x161:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(110);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-        case 0x162:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// the read of the slot 0x58, which m[30] takes up at 0x168
-        case 0x163:
-            c.push_hist(st, c.ram[c.addr(0x58, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// m[29] takes up the read of 0x15f, the slot 0x57; var::REVERB_W[5]: the level the diffusion picks, on
-// the base program's own return r[118], into r[119]
-        case 0x164:
-            c.queue_d(29, c.captured(m[29], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(118);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(119, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// ---- 0x165 to 0x16e, the pre-delay return and the rcopy run that publishes three reads -------------
-// the pre-delay tap m[55] and the filtered mono into r[109], the base program's own return of the
-// initial delay
-        case 0x165:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[55];
-            prod = k * c.src;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(109, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// class 3: r[109] passes through onto the running value
-        case 0x166:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(109);
-            c.psrc = c.src; c.src = m[0];
-            prod = xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// the read of the slot 0x59, which m[56] takes up at 0x16c, and the page's LFO into m[11]
-        case 0x167:
-            c.push_hist(st, c.ram[c.addr(0x59, 0, false)]);
-            c.queue_d(11, c.lfo[11]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(110);
-            c.psrc = c.src; c.src = m[0];
-            prod = xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(110, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// m[30] takes up the read of 0x163, the slot 0x58
-        case 0x168:
-            c.queue_d(30, c.captured(m[30], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            prod = xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(111, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-        case 0x169:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            prod = xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(112, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-        case 0x16a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            prod = xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(113, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// the read of the slot 0x5A, which m[57] takes up at 0x170: the pre-delay
-        case 0x16b:
-            c.push_hist(st, c.ram[c.addr(0x5A, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            prod = xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(114, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// m[56] takes up the read of 0x167, the slot 0x59: the second unit's line
-        case 0x16c:
-            c.queue_d(56, c.captured(m[56], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            prod = xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(115, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-        case 0x16d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(116);
-            c.psrc = c.src; c.src = m[0];
-            prod = xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(116, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-        case 0x16e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(117);
-            c.psrc = c.src; c.src = m[0];
-            prod = xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(117, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// ---- 0x16f to 0x177, the second diffusion unit and the pre-delay ----------------------------------
-// the read of the slot 0x5B, which m[58] takes up at 0x174: the first unit's line
-        case 0x16f:
-            c.push_hist(st, c.ram[c.addr(0x5B, 0, false)]);
-            fetch(0);
-            break;
-// m[57] takes up the read of 0x16b, the slot 0x5A: the pre-delay tap; var::REVERB_ROW_STEPS[4]: the
-// unit's s28, the filtered mono behind a minus
-        case 0x170:
-            c.queue_d(57, c.captured(m[57], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_ROW_STEPS[5]: the unit's s24, the line's tap gain onto that term, doubling and
-// saturating, into r[120]
-        case 0x171:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[56];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(120, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_ROW_STEPS[6]: the unit's s26, the filtered mono again, this time in front
-        case 0x172:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_ROW_STEPS[7]: the unit's s22, the line's feedback, into the slot 0x5C the unit writes.
-// This step carries w1[13] and is itself a writer, so it writes its own result and takes no latch.
-        case 0x173:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[56];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.haswl = false;
-            c.ram[c.addr(0x5C, 0, false)] = outv;
-            break;
-// m[58] takes up the read of 0x16f, the slot 0x5B
-        case 0x174:
-            c.queue_d(58, c.captured(m[58], st));
-            fetch(0);
-            break;
-        case 0x175:
-            fetch(0);
-            break;
-        case 0x176:
-            fetch(0);
-            break;
-// var::REVERB_WIDTH[0]: the FB_LEVEL width. The slot 0x5D, which var::REVERB_PRE[0] is, takes the
-// unit's tap r[120] mixed with the pre-delay tap m[57] behind it, saturating. Carries w1[13] and is a
-// writer, so it writes its own result.
-        case 0x177:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[57];
-            prod = k * c.src;
-            a = c.x;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.haswl = false;
-            c.ram[c.addr(0x5D, 0, false)] = outv;
-            break;
-// ---- 0x178 to 0x183, the first diffusion unit, driven by the pre-delay -----------------------------
-// var::REVERB_ROW_STEPS[0]: the unit's s28, the pre-delay tap behind a minus
-        case 0x178:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[57];
-            prod = k * c.src;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_ROW_STEPS[1]: the unit's s24, the line's tap gain onto that term, doubling and
-// saturating. The result is the unit's tap, which the two comb gains below weigh, so it goes out as a
-// cell: m[63].
-        case 0x179:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[58];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.queue_d(63, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-// var::REVERB_ROW_STEPS[2]: the unit's s26, the pre-delay tap in front
-        case 0x17a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[57];
-            prod = k * c.src;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_ROW_STEPS[3]: the unit's s22, the line's feedback. This step latches its result and
-// 0x183 spends it, and the read of the slot 0x5E rides on it.
-        case 0x17b:
-            c.push_hist(st, c.ram[c.addr(0x5E, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[58];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.wlatch = outv;
-            c.haswl = true;
-            break;
-        case 0x17c:
-            fetch(0);
-            break;
-        case 0x17d:
-            fetch(0);
-            break;
-        case 0x17e:
-            fetch(0);
-            break;
-// the read of the slot 0x5F, which m[60] takes up at 0x184: the first early reflection off the 0x67 write
-        case 0x17f:
-            c.push_hist(st, c.ram[c.addr(0x5F, 0, false)]);
-            fetch(0);
-            break;
-// m[59] takes up a read of this pass, and there is none in its window, so the cell keeps its own value.
-// 0x183 reads it, so what the first damping lowpass is fed is zero.
-        case 0x180:
-            c.queue_d(59, c.captured(m[59], st));
-            fetch(0);
-            break;
-        case 0x181:
-            fetch(0);
-            break;
-        case 0x182:
-            fetch(0);
-            break;
-// the first unit's write into the slot 0x60, var::REVERB_ROW_SLOTS[0]: whatever 0x17b latched. This
-// step does not carry w1[13], so it writes the latch rather than its own result; what it does compute
-// is the first damping lowpass's input r[107].
-        case 0x183:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[59];
-            prod = k * c.src;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(107, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-            c.ram[c.addr(0x60, 0, false)] = outv;
-            break;
-// ---- 0x184 to 0x189, the two damping lowpasses ------------------------------------------------
-// m[60] takes up the read of 0x17f, the slot 0x5F; var::REVERB_COMBS[3]: the first lowpass's a on its
-// own state r[106]
-        case 0x184:
-            c.queue_d(60, c.captured(m[60], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_COMBS[2]: the same lowpass's first x word, on r[107]
-        case 0x185:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_COMBS[1]: its second x word, doubled and saturating, into r[106]
-        case 0x186:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(106, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// the read of the slot 0x61, which m[61] takes up at 0x18c, and the page's LFO into m[12];
-// var::REVERB_COMBS[7]: the second lowpass's a on its own state r[108]
-        case 0x187:
-            c.push_hist(st, c.ram[c.addr(0x61, 0, false)]);
-            c.queue_d(12, c.lfo[12]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_COMBS[6]: the same lowpass's first x word, on the cell m[54], which nothing writes
-        case 0x188:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[54];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_COMBS[5]: its second x word, on the early reflection m[60], doubled and saturating, into
-// r[108]. The two words differ by the damping loss, so together they are one pole.
-        case 0x189:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[60];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(108, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// ---- 0x18a to 0x18d, the second early reflection's cell, and a step that does nothing --------------
-// dead: the M_PREVIOUS write of m[54] is on a class-0 step, and step() returns before it
-        case 0x18a:
-            fetch(0);
-            break;
-// the read of the slot 0x62, which m[62] takes up at 0x190
-        case 0x18b:
-            c.push_hist(st, c.ram[c.addr(0x62, 0, false)]);
-            fetch(0);
-            break;
-// m[61] takes up the read of 0x187, the slot 0x61: the first early reflection off the 0x66 write
-        case 0x18c:
-            c.queue_d(61, c.captured(m[61], st));
-            fetch(0);
-            break;
-        case 0x18d:
-            fetch(0);
-            break;
-// ---- 0x18e to 0x193, the two output sums ---------------------------------------------------------
-// var::REVERB_W[9]: the first early reflection m[60] and the base program's level r[119]
-        case 0x18e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(119);
-            c.psrc = c.src; c.src = m[60];
-            prod = k * c.src;
-            a = c.x;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_W[8]: the second early reflection m[61] onto that, doubled and saturating, into r[120];
-// the read of the slot 0x63 rides on this step and m[31] takes it up at 0x194
-        case 0x18f:
-            c.push_hist(st, c.ram[c.addr(0x63, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[61];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(120, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// m[62] takes up the read of 0x18b, the slot 0x62: the second early reflection off the 0x67 write.
-// class 3, so the cell passes through onto the running value
-        case 0x190:
-            c.queue_d(62, c.captured(m[62], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[57];
-            prod = c.src;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_W[0]: the pre-delay tap m[55], and the same tap copied into m[55] a pass back for 0x165
-        case 0x191:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[55];
-            prod = k * c.src;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.queue_d(55, c.psrc);
-            break;
-// var::REVERB_W[6]: the cell m[59], which stays at zero, onto that
-        case 0x192:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[59];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_W[7]: the early reflection m[62] onto that, doubled and saturating, into r[121]; the read
-// of the slot 0x64 rides on this step and m[32] takes it up at 0x198
-        case 0x193:
-            c.push_hist(st, c.ram[c.addr(0x64, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[62];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(121, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// ---- 0x194 to 0x198, three published reads and the pan --------------------------------------------
-// m[31] takes up the read of 0x18f, the slot 0x63
-        case 0x194:
-            c.queue_d(31, c.captured(m[31], st));
-            fetch(0);
-            break;
-// var::REVERB_PAN[0]: the left input on the running value
-        case 0x195:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_PAN[1]: r[121], the left output sum, onto that, four times and saturating, into r[15]
-        case 0x196:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(15, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_PAN[2]: the right input on the running value, and the read of the slot 0x65
-        case 0x197:
-            c.push_hist(st, c.ram[c.addr(0x65, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// var::REVERB_PAN[3]: r[120], the right output sum, onto that, four times and saturating, into r[16];
-// m[32] takes up the read of 0x193, the slot 0x64
-        case 0x198:
-            c.queue_d(32, c.captured(m[32], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(16, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            break;
-// ---- 0x199 to 0x19f, the two comb gains ---------------------------------------------------------
-        case 0x199:
-            fetch(0);
-            break;
-        case 0x19a:
-            fetch(0);
-            break;
-// var::REVERB_COMBS[0]: the first comb's gain on the unit's tap m[63], plus the first lowpass's state
-// r[106], into the slot 0x66 the first pair of early reflections hangs off. Carries w1[13] and is a
-// writer, so it writes its own result.
-        case 0x19b:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(106);
-            c.psrc = c.src; c.src = m[63];
-            prod = k * c.src;
-            a = c.x;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.haswl = false;
-            c.ram[c.addr(0x66, 0, false)] = outv;
-            break;
-// m[33] takes up the read of 0x197, the slot 0x65
-        case 0x19c:
-            c.queue_d(33, c.captured(m[33], st));
-            fetch(0);
-            break;
-        case 0x19d:
-            fetch(0);
-            break;
-        case 0x19e:
-            fetch(0);
-            break;
-// var::REVERB_COMBS[4]: the second comb's gain on the same tap, plus the second lowpass's state r[108],
-// into the slot 0x67 the second pair of early reflections hangs off. Carries w1[13] and is a writer, so
-// it writes its own result.
-        case 0x19f:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(108);
-            c.psrc = c.src; c.src = m[63];
-            prod = k * c.src;
-            a = c.x;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.haswl = false;
-            c.ram[c.addr(0x67, 0, false)] = outv;
-            break;
-        }
-    }
+		if (st < 0x15a) { inputs(c, st); continue; }                          // 0x158, 0x159
+		if (st < 0x160) { tone(c, st, TONES[(st - 0x15a) / 3]); continue; }  // 0x15a to 0x15f
+		if (st < 0x165) { level(c, st); continue; }                            // 0x160 to 0x164
+		if (st < 0x167) { pre_delay_return(c, st); continue; }                // 0x165, 0x166
+		if (st < 0x16f) { copies(c, st); continue; }                           // 0x167 to 0x16e
+		if (st < 0x178) { predelay(c, st); continue; }                        // 0x16f to 0x177
+		if (st < 0x184) { first_unit(c, st); continue; }                     // 0x178 to 0x183
+		if (st < 0x18a) { lowpass(c, st, LOWPASSES[(st - 0x184) / 3]); continue; }  // 0x184 to 0x189
+		if (st < 0x18e) {                                                  // 0x18a to 0x18d
+			decor(c, st, ER_CELL[st - 0x18a]);
+			idle(c);
+			continue;
+		}
+		if (st < 0x194) { output_sums(c, st); continue; }                        // 0x18e to 0x193
+		if (st == 0x194) { take_capture(c, 31, st); idle(c); continue; }        // m[31]
+		if (st < 0x199) { pan(c, st, PANS[(st - 0x195) / 2]); continue; }        // 0x195 to 0x198
+		comb_gain(c, st);                                                      // 0x199 to 0x19f
+	}
 }
 
 }  // namespace
@@ -879,8 +571,8 @@ void block_0x158(yss236_core& c)
 // one run; a range no host builds falls back to the interpreter.
 void var_m10(yss236_core& c, int from, int to)
 {
-    if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
-    for (int st = from; st < to; st++) c.step(st);
+	if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
+	for (int st = from; st < to; st++) c.step(st);
 }
 
 }  // namespace fs1r::native

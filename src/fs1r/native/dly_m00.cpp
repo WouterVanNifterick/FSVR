@@ -12,10 +12,11 @@
 //
 // What the 72 steps compute, in three groups the comments below open each of:
 //
-//   0x110-0x126  the send into the block and the host's two tone filters, rev::DELAY_LPF and
-//                rev::DELAY_HPF and their copies, each group three steps, each reading one of the
-//                block's own three lines (the slots 0x44, 0x45 and 0x46, in the reverb's area) and
-//                leaving a coefficient in t[12] or t[13]. The reads go out in m[22], m[23] and m[24].
+//   0x110-0x126  the send into the block and the host's four tone sections, rev::DELAY_LPF,
+//                rev::DELAY_HPF and their two copies, three steps each and each leaving a
+//                coefficient in t[12] or t[13]. Three of the twenty steps, 0x113, 0x117 and 0x11b,
+//                read the block's own three lines (the slots 0x44, 0x45 and 0x46, in the reverb's
+//                area), and those reads go out in m[22], m[23] and m[24] five steps later.
 //   0x127-0x14d  the window's own line, read as four pairs with the index added, each read taken up
 //                by a cell five steps later and each pair differenced and scaled by t[9], t[11], t[11]
 //                or t[10] onto the running value. Those three coefficients and the three index loads
@@ -38,941 +39,328 @@
 // only job is to clear the running value does the same with the adder off; both appear below and both
 // are what step() computes.
 //
-// Every step is one case of the switch, in the order yss236_core::step() runs its own arithmetic, with
-// the step's fixed fields folded in. Constants come from c.coef[st] on the pass and delay offsets
-// through c.addr() off the c.slot[] entry the host last wrote, so no number the firmware chose is
-// folded in here.
+// Only the fields the program fixes are written out below, and the two runs of steps it repeats, the
+// four tone sections and the four delay taps, are a table and a small function each rather than a case
+// a step. Everything the host rewrites is read where it lives, as step() reads it: every constant from
+// c.coef[st] on the pass and every delay offset through c.addr(), off the c.slot[] entry the host last
+// wrote, so no number the firmware chose is folded in here.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled
+// out by name rather than a step at a time.
+//
+// vop3_native_check dly-m00: identical, 13 types, 124800 native passes.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
+using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
+
+// ---------------------------------------------------------------------------------------------
+// What a step does before it does any arithmetic
+// ---------------------------------------------------------------------------------------------
+
+// The read of the delay line, which is this window's own line under the index the curve steps loaded
+// rather than at the ring pointer. The offset is the step's own slot over four, which is where step()
+// takes it from, and the index is floored into an int, as cur_idx() leaves it.
+void read_delay_indexed(yss236_core& c, int st, bool older)
+{
+	c.push_hist(st, c.ram[c.addr(st >> 2, c.cur_idx() + (older ? 1 : 0), false)]);
+}
+
+// What a step of this program does with the delay line and the cells on its way past the arithmetic.
+// `line` is the read it makes of the delay RAM and `cell` the cell it moves into, `m` being that cell: a
+// capture of a read made five to eleven steps earlier, one of the page's LFO values, one of the two
+// serial inputs, or the cell it hands to the serial output.
+enum line_t { LINE_NONE, LINE_READ, LINE_READ_IDX, LINE_READ_IDX_OLDER };
+enum cell_t { CELL_NONE, CELL_CAPTURE, CELL_LFO, CELL_SERIAL_L, CELL_SERIAL_R, CELL_OUT };
+
+struct Decor { line_t line = LINE_NONE; cell_t cell = CELL_NONE; int m = 0; };
+
+// Apply the decor, which comes before the term, because step() reads the delay RAM and moves a cell
+// before it does any arithmetic.
+void decor(yss236_core& c, int st, Decor const& d)
+{
+	switch (d.line)
+	{
+		case LINE_READ:           read_delay(c, st); break;
+		case LINE_READ_IDX:       read_delay_indexed(c, st, false); break;
+		case LINE_READ_IDX_OLDER: read_delay_indexed(c, st, true); break;
+		case LINE_NONE: break;
+	}
+	switch (d.cell)
+	{
+		case CELL_CAPTURE:  take_capture(c, d.m, st); break;
+		case CELL_LFO:      take_lfo(c, d.m, st); break;
+		case CELL_SERIAL_L: take_serial(c, d.m, st, 0); break;
+		case CELL_SERIAL_R: take_serial(c, d.m, st, 1); break;
+		case CELL_OUT:      serial_out(c, st, d.m); break;
+		case CELL_NONE: break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// What a step computes
+// ---------------------------------------------------------------------------------------------
+
+// What a step does with the delay line at the end of it. WRITE_LATCHED is 0x153, a class-0 step, which
+// line_write() below runs rather than a table row.
+enum delay_t { NO_WRITE, WRITE_LATCHED, WRITE_OWN, SET_LATCH };
+
+// What a step does that its arithmetic does not say. `tput` is the t register the step writes, 0 for
+// the sixty-six that write none, and `write` what it does with the delay line. `load` is class 1, where
+// the step's word is the value rather than a coefficient applied to one, and `unity` is class 3, where
+// the multiplier passes its operand through. Every field defaults to what a step does not use, so a row
+// says only what is different about its step.
+struct Side
+{
+	int tput = 0;
+	delay_t write = NO_WRITE;
+	bool load = false;
+	bool unity = false;
+};
+
+// One step. `sr` is the register it reads and `sm` the cell it latches, which is also the multiplier's
+// second input wherever it is not zero, `dr` the register it writes and `treg` the t register the
+// multiplier reads as its word in place of the step's own constant. `add` is what the adder adds to the
+// product, `route` the scale its result takes and `clamp` the clamp, and `st` is the step itself, which
+// is what the search in block_0x110() looks each row up by.
+struct Word
+{
+	int st;
+	int sr, sm, dr;
+	add_t add;
+	route_t route;
+	clamp_t clamp;
+	int treg;
+	Decor decor;
+	Side side;
+};
+
+// One step, at the step the loop is on.
+void word_step(yss236_core& c, int st, Word const& w)
+{
+	decor(c, st, w.decor);
+	if (w.side.load)
+	{
+		// A class-1 step, where the word is the value itself. The t register it leaves is a 1.15 word
+		// of it, which is where the tone sections' filter coefficients come from.
+		load(c, st, w.sr, w.sm, w.add, false, w.route, w.clamp, w.dr);
+		if (w.side.tput) t_put(c, w.side.tput, c.acc);
+		return;
+	}
+	// A class-2 or class-3 term. The three steps of this program that write a t register write the
+	// fraction of their result below one delay sample rather than a 1.15 word, and those are the three
+	// that load the delay address index as well, which is what the indexed reads take.
+	double const y = run(c, {st, w.sr, w.sm, w.sm ? M2_CELL : M2_REG, w.side.unity, w.treg, w.add,
+	                         false, w.route, w.clamp, w.dr, false, 0, false, false,
+	                         w.side.write != NO_WRITE, w.side.write == WRITE_OWN});
+	if (w.side.tput) { t_put_fraction(c, w.side.tput, y); load_index(c, y); }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The host's four tone sections, 0x111 to 0x11d, three steps each
+// ---------------------------------------------------------------------------------------------
+
+// One of the four three-word sections the host's designFilter() writes on the send: rev::DELAY_LPF and
+// rev::DELAY_HPF and their two copies, rev::DELAY_LPF_COPY and rev::DELAY_HPF_COPY. The three steps are
+// the section's two coefficients and its state, in the order the program runs them. The idiom at 0x114,
+// 0x119 and 0x121 is the chip's: 2 * |x| - 128, which is a register's value centred on zero, read back
+// as a t multiplier a third of the way up (t_write divides by 128).
+struct Section { int base; Word word[3]; };
+
+// The columns below are Word's, in the order it declares them. The steps around the sections are 0x110,
+// which takes the send in, 0x117, which reads the block's second line, and 0x11e to 0x126, the two tone
+// groups' states and the tap sums the sections close into. WORDS below holds those and the rest.
+const Section SECTIONS[4] = {
+    { 0x111, {                { 0x111, 0, 12, 123, ADD_OFF, ROUTE_16, CLAMP_WRAP, 0, {LINE_NONE, CELL_SERIAL_R, 5}, {0, NO_WRITE, false, false} },
+               { 0x112, 0, 0, 125, ADD_ACC, ROUTE_2, CLAMP_WRAP, 0, {}, {0, NO_WRITE, true,  false} },
+               { 0x113, 124, 0, 0, ADD_OFF, ROUTE_1, CLAMP_ABS, 0, {LINE_READ, CELL_NONE, 0}, {0, NO_WRITE, false, true } } } },   // rev::DELAY_LPF,
+    { 0x114, {                { 0x114, 0, 0, 124, ADD_ACC, ROUTE_2, CLAMP_SAT, 0, {}, {12, NO_WRITE, true,  false} },
+               { 0x115, 0, 12, 1, ADD_CELL, ROUTE_2, CLAMP_WRAP, 0, {}, {0, NO_WRITE, true,  false} },
+               { 0x116, 123, 0, 2, ADD_REG, ROUTE_2, CLAMP_WRAP, 0, {}, {0, NO_WRITE, true,  false} } } },   // rev::DELAY_HPF,
+    { 0x118, {                { 0x118, 1, 0, 0, ADD_OFF, ROUTE_1, CLAMP_ABS, 0, {LINE_NONE, CELL_CAPTURE, 22}, {0, NO_WRITE, false, true } },
+               { 0x119, 0, 0, 1, ADD_ACC, ROUTE_2, CLAMP_SAT, 0, {}, {13, NO_WRITE, true,  false} },
+               { 0x11a, 127, 0, 127, ADD_OFF, ROUTE_1, CLAMP_SAT, 12, {}, {0, NO_WRITE, false, false} } } },   // rev::DELAY_LPF_COPY,
+    { 0x11b, {                { 0x11b, 0, 12, 126, ADD_CELL, ROUTE_2, CLAMP_WRAP, 0, {LINE_READ, CELL_NONE, 0}, {0, NO_WRITE, true,  false} },
+               { 0x11c, 124, 0, 0, ADD_OFF, ROUTE_16, CLAMP_SAT, 0, {LINE_NONE, CELL_CAPTURE, 23}, {0, NO_WRITE, false, false} },
+               { 0x11d, 127, 0, 0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0, {}, {0, NO_WRITE, false, false} } } },   // rev::DELAY_HPF_COPY
+};
+
+// One word of one of the four tone sections.
+void tone_word(yss236_core& c, int st, Section const& s, int k)
+{
+	word_step(c, st, s.word[k]);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The four delay taps, 0x137 to 0x14d and the two steps of each
+// ---------------------------------------------------------------------------------------------
+
+// One tap of the window's line: two steps that difference two reads of the line a word apart through
+// the tap's coefficient. `coef` is the t register that coefficient, `lo` and `hi` the cells the two
+// captures of the reads land in, `out` the register the pair closes into, `read` what the first step
+// reads of the line and `capture` what the second takes up.
+struct Tap { int base; int coef, lo, hi, out; Decor read, capture; };
+
+// The four taps in the order the program runs them. The coefficients are t[9] at 0x124, t[11] at 0x12b
+// (rev::DELAY_CURVE[0]) and t[10] at 0x13a, and the index the reads take is loaded by those same three
+// steps. Under the thirteen reverb types that load this program all three running values there are zero,
+// so all three coefficients and all three indices are zero and every product below is zero: the reads
+// still happen, the cells still move, and the four sums are the running value on its own.
+const Tap TAPS[4] = {
+    { 0x137,  9, 56, 57, 119, {LINE_READ_IDX,       CELL_NONE,  0}, {LINE_NONE, CELL_CAPTURE, 61} },
+    { 0x13b, 11, 60, 61, 121, {LINE_READ_IDX_OLDER, CELL_NONE,  0}, {LINE_NONE, CELL_CAPTURE, 62} },
+    { 0x147, 11, 62, 63, 122, {LINE_READ,           CELL_LFO,   10}, {LINE_NONE, CELL_CAPTURE, 59} },
+    { 0x14c, 10, 58, 59, 120, {LINE_NONE,           CELL_CAPTURE, 25}, {LINE_NONE, CELL_NONE,  0} },
+};
+
+// One half of a tap pair, k = 0 for the first. The first half differences the first read from itself,
+// y = t * lo - lo, which leaves the running value and only wraps. The second differences the other read
+// from that, y = t * hi - acc, and closes the pair into the tap's register, saturated. The sub bit is
+// the chip's way of differencing the two reads rather than adding them, and both halves scale the cell
+// and add it, which is why the first adder is the cell and the second the running value.
+void tap_half(yss236_core& c, int st, Tap const& t, int k)
+{
+	decor(c, st, k ? t.capture : t.read);
+	if (!k)
+		run(c, {st, 0, t.lo, M2_CELL, false, t.coef, ADD_CELL, true, ROUTE_1, CLAMP_WRAP});
+	else
+		run(c, {st, 0, t.hi, M2_CELL, false, t.coef, ADD_ACC, true, ROUTE_1, CLAMP_SAT, t.out});
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two steps that stand alone
+// ---------------------------------------------------------------------------------------------
+
+// The window's line at 0x153, the program's only class-0 step: it computes nothing and writes the delay
+// RAM whatever 0x146 latched, which is why 0x157 carries the flag itself and writes its own result.
+// step() moves the x latch before it writes, so this does too.
+void line_write(yss236_core& c, int st)
+{
+	idle(c);
+	write_delay_latched(c, st);
+}
+
+// The block's output at 0x156: the cell m[41] to this page's serial out, and the running value takes the
+// step's word on r[92] with the adder off. The step latches m[41] as its cell operand even though the
+// multiplier scales the register, and that latch is what the next few steps shift along.
+void block_output(yss236_core& c, int st)
+{
+	serial_out(c, st, 41);
+	run(c, {st, 92, 41, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP});
+}
+
+// ---------------------------------------------------------------------------------------------
+// Every other step of the program, in step order
+// ---------------------------------------------------------------------------------------------
+
+// The columns below are Word's, in the order it declares them, and the rest of the program's
+// arithmetic. 0x110 takes the send in and 0x117 reads the block's second line; 0x11e to 0x126 are the
+// two tone groups' states, the filter coefficients they leave in the t file and the four tap sums;
+// 0x127 to 0x136 open the window's line, set the first and second tap coefficients and close the second
+// tap; 0x139 to 0x146 open the third and close the fourth and hold what the line write takes; 0x14e to
+// 0x157 scale the running value out and write the line's second word. The reads at 0x147, 0x14b and
+// 0x14f go out in m[25], m[26] and m[27], taken up at 0x14c, 0x150 and 0x154.
+const Word WORDS[] = {
+    //  st     sr  sm  dr    add      route     clamp       treg  decor                              side
+    {  0x110,  0, 12, 124, ADD_CELL, ROUTE_2, CLAMP_WRAP, 0,    {LINE_NONE, CELL_SERIAL_L,     1}, { 0, NO_WRITE,   true,  false} },
+    {  0x117, 124, 0, 127, ADD_OFF, ROUTE_1, CLAMP_SAT, 12,     {LINE_READ, CELL_LFO,         8}, { 0, NO_WRITE,   false, false} },
+    {  0x11e,  0, 0, 124, ADD_ACC, ROUTE_1, CLAMP_ZERO, 0,                                   {}, { 0, NO_WRITE,   true,  false} },
+    {  0x11f,  1, 0, 119, ADD_OFF, ROUTE_1, CLAMP_SAT, 13,                                   {}, { 0, NO_WRITE,   false, false} },
+    {  0x120, 126, 0,  0, ADD_OFF, ROUTE_1, CLAMP_ABS, 0,     {LINE_NONE, CELL_CAPTURE,    24}, { 0, NO_WRITE,   false, true } },
+    {  0x121,  0, 0, 126, ADD_ACC, ROUTE_2, CLAMP_SAT, 0,                                   {}, {12, NO_WRITE,   true,  false} },
+    {  0x122, 119, 0, 119, ADD_OFF, ROUTE_1, CLAMP_SAT, 13,                                   {}, { 0, NO_WRITE,   false, false} },
+    {  0x123, 125, 0,  0, ADD_OFF, ROUTE_1, CLAMP_ABS, 0,                                   {},                             {} },
+    {  0x124, 124, 0,  0, ADD_ACC, ROUTE_1, CLAMP_ZERO, 0,                                   {}, { 9, NO_WRITE,   false, false} },
+    {  0x125,  1, 0,  0, ADD_OFF, ROUTE_16, CLAMP_SAT, 0,                                   {},                             {} },
+    {  0x126, 119, 0,  0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x127,  0, 0,  1, ADD_ACC, ROUTE_1, CLAMP_ZERO, 0,     {LINE_READ_IDX, CELL_LFO,     9}, { 0, NO_WRITE,   true,  false} },
+    {  0x128, 126, 0, 124, ADD_OFF, ROUTE_1, CLAMP_SAT, 12,                                   {}, { 0, NO_WRITE,   false, false} },
+    {  0x129, 123, 0, 127, ADD_REG, ROUTE_2, CLAMP_WRAP, 0,                                   {}, { 0, NO_WRITE,   true,  false} },
+    {  0x12a,  2, 0,  0, ADD_OFF, ROUTE_1, CLAMP_ABS, 0,                                   {},                             {} },
+    {  0x12b,  1, 0,  0, ADD_ACC, ROUTE_1, CLAMP_ZERO, 0,  {LINE_READ_IDX_OLDER, CELL_NONE, 0}, {11, NO_WRITE,   false, false} },
+    {  0x12c, 124, 0, 124, ADD_OFF, ROUTE_1, CLAMP_SAT, 12,     {LINE_NONE, CELL_CAPTURE,    56}, { 0, NO_WRITE,   false, false} },
+    {  0x12d,  3, 0, 87, ADD_OFF, ROUTE_2, CLAMP_SAT, 0,                                   {},                             {} },
+    {  0x12e, 88, 0,  0, ADD_OFF, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x12f, 87, 0,  0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0,     {LINE_READ_IDX, CELL_NONE,    0},                             {} },
+    {  0x130, 87, 0, 88, ADD_ACC, ROUTE_2, CLAMP_SAT, 0,     {LINE_NONE, CELL_CAPTURE,    57},                             {} },
+    {  0x131, 89, 0,  0, ADD_OFF, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x132, 88, 0,  0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x133, 88, 0, 89, ADD_ACC, ROUTE_4, CLAMP_SAT, 0,  {LINE_READ_IDX_OLDER, CELL_NONE, 0},                             {} },
+    {  0x134, 126, 0,  0, ADD_OFF, ROUTE_16, CLAMP_SAT, 0,     {LINE_NONE, CELL_CAPTURE,    60},                             {} },
+    {  0x135, 124, 0,  0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x136,  0, 0, 126, ADD_ACC, ROUTE_1, CLAMP_ZERO, 0,                                   {}, { 0, NO_WRITE,   true,  false} },
+    {  0x139, 127, 0,  0, ADD_OFF, ROUTE_1, CLAMP_ABS, 0,                                   {},                             {} },
+    {  0x13a, 126, 0,  0, ADD_ACC, ROUTE_1, CLAMP_ZERO, 0,                                   {}, {10, NO_WRITE,   false, false} },
+    {  0x13d,  4, 0, 90, ADD_OFF, ROUTE_2, CLAMP_SAT, 0,                                   {},                             {} },
+    {  0x13e, 91, 0,  0, ADD_OFF, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x13f, 90, 0,  0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0,     {LINE_READ_IDX, CELL_NONE,    0},                             {} },
+    {  0x140, 90, 0, 91, ADD_ACC, ROUTE_2, CLAMP_SAT, 0,     {LINE_NONE, CELL_CAPTURE,    63},                             {} },
+    {  0x141, 92, 0,  0, ADD_OFF, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x142, 91, 0,  0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x143, 91, 0, 92, ADD_ACC, ROUTE_4, CLAMP_SAT, 0,  {LINE_READ_IDX_OLDER, CELL_NONE, 0},                             {} },
+    {  0x144, 119, 0,  0, ADD_OFF, ROUTE_1, CLAMP_WRAP, 0,     {LINE_NONE, CELL_CAPTURE,    58},                             {} },
+    {  0x145, 89, 0,  0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x146, 92, 0,  0, ADD_ACC, ROUTE_1, CLAMP_SAT, 0,                                   {}, { 0, SET_LATCH,  false, false} },
+    {  0x149, 119, 0,  0, ADD_OFF, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x14a, 121, 0,  0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x14b, 122, 0, 124, ADD_ACC, ROUTE_1, CLAMP_SAT, 0,    {LINE_READ, CELL_NONE,         0},                             {} },
+    {  0x14e, 89, 0,  0, ADD_OFF, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x14f, 124, 0, 13, ADD_ACC, ROUTE_4, CLAMP_SAT, 0,    {LINE_READ, CELL_NONE,         0},                             {} },
+    {  0x150, 121, 0,  0, ADD_OFF, ROUTE_1, CLAMP_WRAP, 0,     {LINE_NONE, CELL_CAPTURE,    26},                             {} },
+    {  0x151, 122, 0,  0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0,                                   {},                             {} },
+    {  0x152, 120, 0, 125, ADD_ACC, ROUTE_1, CLAMP_SAT, 0,                                   {},                             {} },
+    {  0x154, 92, 0,  0, ADD_OFF, ROUTE_1, CLAMP_WRAP, 0,     {LINE_NONE, CELL_CAPTURE,    27},                             {} },
+    {  0x155, 125, 0, 14, ADD_ACC, ROUTE_4, CLAMP_SAT, 0,                                   {},                             {} },
+    {  0x157, 120, 0,  0, ADD_ACC, ROUTE_1, CLAMP_SAT, 0,                                   {}, { 0, WRITE_OWN,  false, false} },
+};
+
 // The run of steps 0x110 to 0x157, the whole of the window's program. The loop is one iteration per
 // step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half
-// skips these steps as it would the interpreter's.
+// skips these steps as it would the interpreter's. A step looks itself up in the three tables and the
+// two single steps the program is made of, so the 72 read as the twenty of the two repeated runs, the
+// two that stand alone and the fifty of the table, rather than as a switch of cases.
 void block_0x110(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers
-	double* const m = c.m;                 // the 64 cells, which carry the values between the steps
-	double xv, a, m2, prod, y, outv, v, k; // the step's operands and its result
-
 	for (int st = 0x110; st < 0x158; st++)
 	{
 		c.begin_step();
 		if (st < c.m_skip) continue;
-		switch (st)
+
+		// ---- the send and the host's four tone sections ----
+		bool done = false;
+		for (Section const& s : SECTIONS)
+			if (st >= s.base && st < s.base + 3)
+			{
+				tone_word(c, st, s, st - s.base);
+				done = true;
+				break;
+			}
+
+		// ---- the four delay taps ----
+		for (Tap const& t : TAPS)
+			if (!done && st >= t.base && st < t.base + 2)
+			{
+				tap_half(c, st, t, st - t.base);
+				done = true;
+				break;
+			}
+
+		// ---- the two steps that stand alone: the line write and the block's output ----
+		if (!done && st == 0x153) { line_write(c, st); done = true; }
+		if (!done && st == 0x156) { block_output(c, st); done = true; }
+		if (done) continue;
+
+		// ---- every other step, which WORDS holds in step order ----
+		for (Word const& w : WORDS)
 		{
-		// ---- 0x110 to 0x126, the send and the host's tone filters -------------------------------------------
-		//
-		// rev::DELAY_LPF, the three words the host's designFilter writes for the low pass, and rev::DELAY_HPF
-		// for the high pass, then their copies (rev::DELAY_LPF_COPY, rev::DELAY_HPF_COPY). A group's three
-		// steps read one of the block's own delay lines (the slots 0x44, 0x45 and 0x46, which sit in the
-		// reverb's area) and leave a coefficient in t[12] or t[13] and a value in a register. The idiom at
-		// 0x114, 0x119 and 0x121 is the chip's: 2 * |x| - 128, which is a register's value centred on zero,
-		// read back as a t multiplier a third of the way up (t_write divides by 128).
-		//
-		// The three cells m[22], m[23] and m[24] hold the three reads, for windows outside this one to take
-		// up: the delay window's output goes to the reverb block, which is where the sound is.
-		case 0x110:  // the send in: m[1] from serial bank 0 page 8, r[124] from the cell m[12] another window writes
-				c.queue_d(1, c.in[0][8]);
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-				c.psrc = c.src; c.src = m[12];
-				a = c.src;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 2.0;
-				c.queue_r(124, yss236_core::mode(v, 0));
-				c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x111:  // rev::DELAY_LPF[2], the group's feed gain
-				c.queue_d(5, c.in[1][8]);
-				k = yss236_core::s16(c.coef[st]);
-				xv = 0.0;
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-				c.psrc = c.src; c.src = m[12];
-				m2 = c.src;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 16.0;
-				c.queue_r(123, yss236_core::mode(y, 0));
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x112:  // rev::DELAY_LPF[1]
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-				c.psrc = c.src; c.src = m[0];
-				a = c.acc;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 2.0;
-				c.queue_r(125, yss236_core::mode(v, 0));
-				c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x113:  // rev::DELAY_LPF[0]: the first read, of the slot 0x44
-				c.push_hist(st, c.ram[c.addr(0x44, 0, false)]);
-				xv = r[124];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 3);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x114:  // rev::DELAY_HPF[0], its coefficient into t[12]
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-				c.psrc = c.src; c.src = m[0];
-				a = c.acc;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 2.0;
-				c.queue_r(124, yss236_core::mode(v, 1));
-				c.acc = yss236_core::accmode(v, 1);
-				c.t_write(c.ops[st], st, c.acc);
-			break;
-		case 0x115:  // rev::DELAY_HPF[1]
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-				c.psrc = c.src; c.src = m[12];
-				a = c.src;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 2.0;
-				c.queue_r(1, yss236_core::mode(v, 0));
-				c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x116:  // rev::DELAY_HPF[2]
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = r[123];
-				c.psrc = c.src; c.src = m[0];
-				a = c.x;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 2.0;
-				c.queue_r(2, yss236_core::mode(v, 0));
-				c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x117:  // the second read, of the slot 0x45; m[8] is the LFO 8 for another window, r[127] = t[12] * r[124]
-				c.push_hist(st, c.ram[c.addr(0x45, 0, false)]);
-				c.queue_d(8, c.lfo[8]);
-				xv = r[124];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = c.t[12] * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				c.queue_r(127, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x118:  // rev::DELAY_LPF_COPY[2]: m[22] takes up the read of 0x113
-				c.queue_d(22, c.captured(c.m[22], st));
-				xv = r[1];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 3);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x119:  // rev::DELAY_LPF_COPY[1], its coefficient into t[13]
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-				c.psrc = c.src; c.src = m[0];
-				a = c.acc;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 2.0;
-				c.queue_r(1, yss236_core::mode(v, 1));
-				c.acc = yss236_core::accmode(v, 1);
-				c.t_write(c.ops[st], st, c.acc);
-			break;
-		case 0x11a:  // rev::DELAY_LPF_COPY[0]
-				xv = r[127];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = c.t[12] * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				c.queue_r(127, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x11b:  // rev::DELAY_HPF_COPY[2]: the third read, of the slot 0x46
-				c.push_hist(st, c.ram[c.addr(0x46, 0, false)]);
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-				c.psrc = c.src; c.src = m[12];
-				a = c.src;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 2.0;
-				c.queue_r(126, yss236_core::mode(v, 0));
-				c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x11c:  // rev::DELAY_HPF_COPY[1]: m[23] takes up the read of 0x117
-				c.queue_d(23, c.captured(c.m[23], st));
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[124];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 16.0;
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x11d:  // rev::DELAY_HPF_COPY[0]
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[127];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x11e:  // r[124] = 128 + 2 * acc, the first group's state
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-				c.psrc = c.src; c.src = m[0];
-				a = c.acc;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 1.0;
-				c.queue_r(124, yss236_core::mode(v, 2));
-				c.acc = yss236_core::accmode(v, 2);
-			break;
-		case 0x11f:  // r[119] = t[13] * r[1]
-				xv = r[1];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = c.t[13] * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				c.queue_r(119, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x120:  // m[24] takes up the read of 0x11b
-				c.queue_d(24, c.captured(c.m[24], st));
-				xv = r[126];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 3);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x121:  // the second group's state into r[126] and t[12]
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-				c.psrc = c.src; c.src = m[0];
-				a = c.acc;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 2.0;
-				c.queue_r(126, yss236_core::mode(v, 1));
-				c.acc = yss236_core::accmode(v, 1);
-				c.t_write(c.ops[st], st, c.acc);
-			break;
-		case 0x122:  // the running value takes t[13] * r[119]
-				xv = r[119];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = c.t[13] * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				c.queue_r(119, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x123:  // the running value to zero
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[125];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 3);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x124:  // t[9], the first tap's coefficient, and the first index load
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[124];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 2);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-				c.t_write(c.ops[st], st, y);
-				c.queue_i(std::floor(y * 256.0));
-			break;
-		case 0x125:  // 0.5 * r[1] onto the running value
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[1];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 16.0;
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x126:  // the running value on, the send the taps work from
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[119];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-
-		// ---- 0x127 to 0x14d, the four delay taps ----------------------------------------------------------
-		//
-		// The window's own line, read as four pairs. Each pair is a read of one slot and a read of the slot
-		// after it (memop 4, one word older), both with the index the IDXW steps loaded added, and each read
-		// is taken up by a cell five steps later: m[56] and m[57] from the pair at 0x127 and 0x12b, m[60] and
-		// m[61] from 0x12f and 0x133, m[62] and m[63] from 0x137 and 0x13b, m[58] and m[59] from 0x13f and
-		// 0x143. The two steps that follow each pair difference the two and scale the difference, t[9] for
-		// the first, t[11] for the second and third and t[10] for the fourth, adding it to the running value
-		// with the sign step() gives the adder: y = t * cell - acc.
-		//
-		// The coefficients are t[9] at 0x124, t[11] at 0x12b (rev::DELAY_CURVE[0]) and t[10] at 0x13a, and
-		// the index is loaded by those same three steps, from the running value there. Under the thirteen
-		// reverb types that load this program those three running values are zero, so all three coefficients
-		// and all three indices are zero and the four products are zero. The reads still happen, the cells
-		// still move, and the sums r[119], r[121], r[122] and r[120] are the running value on its own.
-		case 0x127:  // the first tap's read of the slot 0x49, with the index; m[9] is the LFO 9 for another window
-				c.push_hist(st, c.ram[c.addr(0x49, c.cur_idx(), false)]);
-				c.queue_d(9, c.lfo[9]);
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-				c.psrc = c.src; c.src = m[0];
-				a = c.acc;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 1.0;
-				c.queue_r(1, yss236_core::mode(v, 2));
-				c.acc = yss236_core::accmode(v, 2);
-			break;
-		case 0x128:  // m[24] takes up the read of 0x11b again, the second group
-				xv = r[126];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = c.t[12] * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				c.queue_r(124, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x129:  // the second group's first sum
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = r[123];
-				c.psrc = c.src; c.src = m[0];
-				a = c.x;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 2.0;
-				c.queue_r(127, yss236_core::mode(v, 0));
-				c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x12a:  // rev::DELAY_CURVE[1]
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[2];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 3);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x12b:  // rev::DELAY_CURVE[0]: the first tap's second read, the slot 0x4a one word older, into t[11] and the index
-				c.push_hist(st, c.ram[c.addr(0x4a, (c.cur_idx() + 1), false)]);
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[1];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 2);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-				c.t_write(c.ops[st], st, y);
-				c.queue_i(std::floor(y * 256.0));
-			break;
-		case 0x12c:  // m[56] takes up the read of 0x127
-				c.queue_d(56, c.captured(c.m[56], st));
-				xv = r[124];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = c.t[12] * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				c.queue_r(124, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x12d:  // the second tap's scale
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[3];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 2.0;
-				c.queue_r(87, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x12e:  // rev::DELAY_CURVE_COPY[1]
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[88];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x12f:  // rev::DELAY_CURVE_COPY[0]: the second tap's first read, the slot 0x4b, into the running value
-				c.push_hist(st, c.ram[c.addr(0x4b, c.cur_idx(), false)]);
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[87];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x130:  // m[57] takes up the read of 0x12b
-				c.queue_d(57, c.captured(c.m[57], st));
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[87];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 2.0;
-				c.queue_r(88, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x131:  // the second tap's running value
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[89];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x132:  // the running value on
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[88];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x133:  // the second tap's second read, the slot 0x4c one word older
-				c.push_hist(st, c.ram[c.addr(0x4c, (c.cur_idx() + 1), false)]);
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[88];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 4.0;
-				c.queue_r(89, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x134:  // m[60] takes up the read of 0x12f, with the second group's half gain
-				c.queue_d(60, c.captured(c.m[60], st));
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[126];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 16.0;
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x135:  // the running value on
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[124];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x136:  // the second tap's state into r[126]
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-				c.psrc = c.src; c.src = m[0];
-				a = c.acc;
-				v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-				v *= 1.0;
-				c.queue_r(126, yss236_core::mode(v, 2));
-				c.acc = yss236_core::accmode(v, 2);
-			break;
-		case 0x137:  // the first tap: t[9] * m[56] - acc, and its own read of the slot 0x4d
-				c.push_hist(st, c.ram[c.addr(0x4d, c.cur_idx(), false)]);
-				xv = 0.0;
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-				c.psrc = c.src; c.src = m[56];
-				m2 = c.src;
-				prod = c.t[9] * m2;
-				a = c.src;
-				y = (prod - a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x138:  // the first tap's second half, t[9] * m[57] - acc, into r[119]
-				c.queue_d(61, c.captured(c.m[61], st));
-				xv = 0.0;
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-				c.psrc = c.src; c.src = m[57];
-				m2 = c.src;
-				prod = c.t[9] * m2;
-				a = c.acc;
-				y = (prod - a) * 1.0;
-				c.queue_r(119, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x139:  // the running value to zero
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[127];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 3);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x13a:  // t[10] and the third index load
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[126];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 2);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-				c.t_write(c.ops[st], st, y);
-				c.queue_i(std::floor(y * 256.0));
-			break;
-		case 0x13b:  // the second tap's difference, t[11] * m[60] - acc, and its read of the slot 0x4e
-				c.push_hist(st, c.ram[c.addr(0x4e, (c.cur_idx() + 1), false)]);
-				xv = 0.0;
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-				c.psrc = c.src; c.src = m[60];
-				m2 = c.src;
-				prod = c.t[11] * m2;
-				a = c.src;
-				y = (prod - a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x13c:  // the second tap's second half, t[11] * m[61] - acc, into r[121]
-				c.queue_d(62, c.captured(c.m[62], st));
-				xv = 0.0;
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-				c.psrc = c.src; c.src = m[61];
-				m2 = c.src;
-				prod = c.t[11] * m2;
-				a = c.acc;
-				y = (prod - a) * 1.0;
-				c.queue_r(121, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x13d:  // the third tap's scale
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[4];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 2.0;
-				c.queue_r(90, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x13e:  // the third tap's running value
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[91];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x13f:  // the third tap's first read, the slot 0x4f
-				c.push_hist(st, c.ram[c.addr(0x4f, c.cur_idx(), false)]);
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[90];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x140:  // m[63] takes up the read of 0x13b, the third tap's sum into r[91]
-				c.queue_d(63, c.captured(c.m[63], st));
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[90];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 2.0;
-				c.queue_r(91, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x141:  // the running value to zero
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[92];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x142:  // the running value on
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[91];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x143:  // the third tap's second read, the slot 0x50 one word older, into r[92]
-				c.push_hist(st, c.ram[c.addr(0x50, (c.cur_idx() + 1), false)]);
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[91];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 4.0;
-				c.queue_r(92, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x144:  // m[58] takes up the read of 0x13f
-				c.queue_d(58, c.captured(c.m[58], st));
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[119];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x145:  // the running value to zero
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[89];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x146:  // the running value into the write latch (w1[13]), the value 0x153 writes
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[92];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-				c.wlatch = outv; c.haswl = true;
-			break;
-		case 0x147:  // the third tap: t[11] * m[62] - acc, and a read of the slot 0x51; m[10] is the LFO 10
-				c.push_hist(st, c.ram[c.addr(0x51, 0, false)]);
-				c.queue_d(10, c.lfo[10]);
-				xv = 0.0;
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-				c.psrc = c.src; c.src = m[62];
-				m2 = c.src;
-				prod = c.t[11] * m2;
-				a = c.src;
-				y = (prod - a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x148:  // the third tap's second half, t[11] * m[63] - acc, into r[122]
-				c.queue_d(59, c.captured(c.m[59], st));
-				xv = 0.0;
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-				c.psrc = c.src; c.src = m[63];
-				m2 = c.src;
-				prod = c.t[11] * m2;
-				a = c.acc;
-				y = (prod - a) * 1.0;
-				c.queue_r(122, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x149:  // the running value to zero
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[119];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x14a:  // the running value on
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[121];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x14b:  // a read of the slot 0x52 and the running value into r[124]
-				c.push_hist(st, c.ram[c.addr(0x52, 0, false)]);
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[122];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				c.queue_r(124, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x14c:  // the fourth tap, t[10] * m[58] - acc; m[25] takes up the read of 0x147
-				c.queue_d(25, c.captured(c.m[25], st));
-				xv = 0.0;
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-				c.psrc = c.src; c.src = m[58];
-				m2 = c.src;
-				prod = c.t[10] * m2;
-				a = c.src;
-				y = (prod - a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x14d:  // the fourth tap's second half, t[10] * m[59] - acc, into r[120]
-				xv = 0.0;
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-				c.psrc = c.src; c.src = m[59];
-				m2 = c.src;
-				prod = c.t[10] * m2;
-				a = c.acc;
-				y = (prod - a) * 1.0;
-				c.queue_r(120, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-
-		// ---- 0x14e to 0x157, the three more reads, the two writes and the output -----------------------------
-		//
-		// Three further reads, of the slots 0x51, 0x52 and 0x53, which are the block's own area again; their
-		// values go to m[25], m[26] and m[27] for other windows, and the running value scales into r[13] and
-		// r[14] on the way. The two writes are the window's line: 0x153 a class-0 step writes the value
-		// 0x146 latched, and 0x157 carries w1[13] itself, which is why it writes its own result and not the
-		// latch. The block's output is the cell m[41] to the serial out at 0x156.
-		case 0x14e:  // the running value with a quarter of r[89]
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[89];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x14f:  // a read of the slot 0x53, the running value into r[13]
-				c.push_hist(st, c.ram[c.addr(0x53, 0, false)]);
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[124];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 4.0;
-				c.queue_r(13, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x150:  // m[26] takes up the read of 0x14b
-				c.queue_d(26, c.captured(c.m[26], st));
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[121];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x151:  // the running value on
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[122];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x152:  // the running value into r[125]
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[120];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				c.queue_r(125, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x153:  // the write of the latched value, into the slot 0x54
-				c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-				if (c.haswl) { c.ram[c.addr(0x54, 0, false)] = c.wlatch; c.haswl = false; }
-			break;
-		case 0x154:  // m[27] takes up the read of 0x14f
-				c.queue_d(27, c.captured(c.m[27], st));
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[92];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x155:  // the running value into r[14]
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[125];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 4.0;
-				c.queue_r(14, yss236_core::mode(y, 1));
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x156:  // the block's output: m[41] to the serial out
-				c.out[10] = m[41];
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[92];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[41];
-				m2 = xv;
-				prod = k * m2;
-				a = 0.0;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 0);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-			break;
-		case 0x157:  // the write of this step's own result, into the slot 0x55
-				k = yss236_core::s16(c.coef[st]);
-				xv = r[120];
-				c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-				c.psrc = c.src; c.src = m[0];
-				m2 = xv;
-				prod = k * m2;
-				a = c.acc;
-				y = (prod + a) * 1.0;
-				y = c.acc = yss236_core::accmode(y, 1);
-				outv = yss236_core::clip(y, yss236_core::SAT);
-				c.haswl = false;
-				if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-				c.ram[c.addr(0x55, 0, false)] = outv;
-			break;
+			if (w.st > st) break;
+			if (w.st == st) { word_step(c, st, w); break; }
 		}
 	}
 }

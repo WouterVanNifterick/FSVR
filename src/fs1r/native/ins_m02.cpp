@@ -2,21 +2,23 @@
 //
 // rom::INSERTION_PROGRAMS[2], the program the insertion window holds under the two types
 // fx_dispatch.cpp's INSERTION_ROUTES files at msb 2: ins-05 Phaser1 and ins-06 Phaser2, programmed by
-// EffectHost::phaser1() and phaser2() in fx_modulation.cpp. Like ins-m01 it is one of the fifteen
+// EffectHost::phaser1() and phaser2() in fx_modulation.cpp. Like ins_m01 it is one of the fifteen
 // programs the window shares, and the same words run under both types: what the two differ by is
 // which coefficients they write, phaser1() its ten stage words and one feedback word, phaser2() the
 // same ten, two feedback words and the LFO phase. Nothing here knows which one is running.
 //
 // Every constant the program reads is read from c.coef[st] on the pass, and the two swept allpass
 // coefficients out of t[10] and t[11] on the pass too, so no number the firmware chose is folded in
-// here: the program words are fixed per row and each step's fields are folded into the arithmetic
-// below in the order yss236_core::step() runs its own.
+// here: the program words are fixed per row, and fs1r/native/steps.h is the vocabulary the arithmetic
+// below is written with, each step named for what it computes rather than for its own program words.
 //
 // This program touches no delay RAM. Every w0 of its 96 steps is zero, so there is no line, no tap
 // and no index anywhere in it: the whole of the phaser is two cascades of allpass sections, which is
 // what separates it from ins-m00's and ins-m01's. It fills five cells, m[3] and m[7] from the serial
 // banks at page 13, m[4] from page 15, m[13] from page 13's LFO and m[42] from the running value, and
-// reads only m[13] and m[42] back.
+// reads only m[13] and m[42] back. Five of the 96 steps move a cell on the way past and nothing else
+// does, and none of the 96 is a control step, so the m_skip guard below is the only one a gate in the
+// base program can open.
 //
 // What the 96 steps compute, in the groups the comments open each of. The names are the host's:
 // phaser1() and phaser2() name every step they program, through the tables in rom_tables.cpp.
@@ -54,7 +56,8 @@
 //   0x1cf-0x1e0  the first cascade, six allpass sections r[74] to r[79] on t[10], three steps
 //                each: y = t[10] * x - y a step back, r[74] taking r[73] and r[79] taking r[78]. The
 //                class-3 step of each group hands the section's output on as the running value.
-//   0x1e1-0x1f3  the second cascade, the same six sections r[81] to r[86] on t[11].
+//   0x1e1-0x1f5  the second cascade, the same six sections r[81] to r[86] on t[11], behind its own
+//                input at 0x1e1 to 0x1e3.
 //   0x1f6-0x1f9  the dry and wet mix, ins::PH_WET: r[69] and r[72], the shelves' outputs, at
 //                ins::PH_WET[0] and [2] against the wet at [1] and [3], into r[17] and r[18], the two
 //                outputs, which the base program reads back.
@@ -73,1021 +76,390 @@
 // is no reference for any number here, and where the two differ, the program above is what runs.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled
+// out by name rather than a step at a time.
 //
 // vop3_native_check ins-m02: identical, 2 types, 19200 native passes.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
-// The run of steps 0x1a0 to 0x1ff, the whole of the window's program. The loop is one iteration per
-// step and carries the m_skip guard step() opens with, so a gate in the base program skips these steps
-// as it would the interpreter's.
+using namespace step;   // the step vocabulary: term, sum, close, gain, load and the rest
+
+// ---------------------------------------------------------------------------------------------
+// What a step carries besides its arithmetic
+// ---------------------------------------------------------------------------------------------
+
+// Only five of the 96 steps move a cell on their way past, and none of them touches the delay RAM:
+// three take the serial inputs the other insertion windows read, one takes this window's own LFO for
+// the two sweep registers, and the last takes page 15's left input, which nothing here reads back.
+// `cell` is the cell the value lands in, which for the LFO step is the one the sweeps read off.
+enum decor_t { DEC_NONE, DEC_SERIAL_L, DEC_SERIAL_R, DEC_LFO };
+
+struct Decor { decor_t kind; int cell; };
+
+// Apply the decor, which comes before the arithmetic, because step() moves a cell before it multiplies,
+// adds or loads anything.
+void decor(yss236_core& c, int st, Decor const& d)
+{
+	switch (d.kind)
+	{
+		case DEC_SERIAL_L: take_serial(c, d.cell, st, 0); break;
+		case DEC_SERIAL_R: take_serial(c, d.cell, st, 1); break;
+		case DEC_LFO:      take_lfo(c, d.cell, st); break;
+		case DEC_NONE: break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two channels' four shelves, 0x1a3 to 0x1b2
+// ---------------------------------------------------------------------------------------------
+
+// One of the four shelves. A shelf is three steps: its b1 word on its own input, its a1 word on its own
+// output, and the two closed a half at a time into `out`. The low shelf of a channel has a step in front
+// of it that scales the signal the base program leaves the window into `in` with that same x2 route and
+// saturates it; the high shelf has no such step, because the low shelf's output is already its input.
+struct Shelf
+{
+	int base;              // the first of the shelf's steps
+	int in, out;           // the registers its b1, a1 and closing steps read and write
+	int feed;              // the register the step in front scales into `in`, zero where there is none
+	route_t route;         // the closing step's route: x2 for the low shelves, x4 for the high
+	Decor decor;           // what the b1 step carries past: only the left high shelf takes the LFO
+};
+
+// ins::LPF_PH and ins::LPF_PH_C are the low shelves' three words and ins::HPF_PH and ins::HPF_PH_C the
+// high ones. The left high shelf's b1 step is the one that publishes the window's own LFO cell, and the
+// two sweep registers at 0x1aa and 0x1ab read that cell.
+const Shelf SHELVES[4] = {
+    //  base    in  out  feed  route      the b1 step's decor
+    { 0x1a3,   67,  68,    7, ROUTE_2, { DEC_NONE,  0 } },
+    { 0x1a7,   68,  69,    0, ROUTE_4, { DEC_LFO,  13 } },
+    { 0x1ac,   70,  71,    8, ROUTE_2, { DEC_NONE,  0 } },
+    { 0x1b0,   71,  72,    0, ROUTE_4, { DEC_NONE,  0 } },
+};
+
+// One shelf's steps at 0x1a3 + k. The low shelves' k runs to 3 and the high ones' to 2, because only a
+// low shelf has the step in front.
+void shelf(yss236_core& c, int st, Shelf const& s, int k)
+{
+	if (s.feed)
+	{
+		if (k == 0)
+		{
+			gain(c, st, s.feed, s.in, ROUTE_2);    // the channel's signal into the chain, half at a time
+			return;
+		}
+		k--;
+	}
+	if (k == 0)
+	{
+		decor(c, st, s.decor);
+		term(c, st, s.in);                       // the b1 word on the shelf's own input
+	}
+	else if (k == 1)
+		sum(c, st, s.out);                       // and the a1 word on its own output
+	else
+		close(c, st, s.in, s.out, s.route);      // the pair closed into the shelf's output
+}
+
+// The shelf a step belongs to, or null for the two sweep registers that sit between the channels' pairs.
+// The two shelves of a channel are not one run: the low one has the step in front and the high one has
+// not, so each covers its own three or four steps from its own base.
+Shelf const* find_shelf(int st)
+{
+	for (Shelf const& s : SHELVES)
+		if (st >= s.base && st < s.base + (s.feed ? 4 : 3))
+			return &s;
+	return nullptr;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two swept coefficients, 0x1b3 to 0x1b6, 0x1c1, 0x1c2 and 0x1c7 to 0x1ca
+// ---------------------------------------------------------------------------------------------
+
+// One cascade's swept allpass coefficient, two steps. The depth step rectifies and scales the LFO the
+// sweep register holds, and the feedback step the one after it adds the phase shift and saturates the
+// sum back into the register, leaving its running value over 128 in the cascade's t register three
+// steps ahead of the sections that read it.
+struct Sweep { int base, reg, treg; };
+
+const Sweep SWEEPS[2] = {
+    //   base  reg  treg
+    {  0x1b3, 122,  10 },      // ins::PH_DEPTH[0] then ins::PH_FB[0], for the cascade on t[10]
+    {  0x1b5, 123,  11 },      // ins::PH_DEPTH[1] then ins::PH_FB[1], for the cascade on t[11]
+};
+
+void sweep(yss236_core& c, int st, Sweep const& s, int k)
+{
+	if (k == 0)
+	{
+		// ins::PH_DEPTH: acc = |k * r[reg]|, the LFO rectified and scaled by the depth
+		run(c, { st, s.reg, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_ABS });
+	}
+	else
+	{
+		// ins::PH_FB: r[reg] = saturate(128 * k + acc), the phase shift added to the rectified depth
+		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, s.reg);
+		t_put(c, s.treg, c.acc);     // and the t register the sections of this cascade read
+	}
+}
+
+// The two places past 0x1b6 where a sweep's coefficient is squared again. At `square` the register
+// multiplies the t register the feedback step left and its own result goes back into the t register,
+// which is the square of the phase shift plus depth term. At `offset` the sweep's own offset word is
+// loaded as a value of its own, and at the step after it the offset is taken off that square and the
+// difference over 128 goes back into the t register, which is the fourth power less the offset.
+struct SweepTail { int square, offset, reg, treg; };
+
+const SweepTail SWEEP_TAIL[2] = {
+    //  square  offset  reg  treg
+    {   0x1c1,   0x1c7, 122,  10 },      // the square at 0x1c1, and the offset at 0x1c7 and 0x1c8
+    {   0x1c2,   0x1c9, 123,  11 },      // the square at 0x1c2, and the offset at 0x1c9 and 0x1ca
+};
+
+void sweep_square(yss236_core& c, int st, SweepTail const& s)
+{
+	// r[reg] = saturate(t[treg] * r[reg]), and the same value over 128 back into the t register
+	t_put(c, s.treg, run(c, { st, s.reg, 0, M2_REG, false, s.treg, ADD_OFF, false, ROUTE_1, CLAMP_SAT, s.reg }));
+}
+
+void sweep_offset(yss236_core& c, int st, SweepTail const& s, int k)
+{
+	if (k == 0) load(c, st, 0, 0);    // acc = 128 * k, the offset the square is taken down to
+	else
+	{
+		// acc = t[treg] * r[reg] - acc, the offset off the square of the square, over 128 into the t register
+		t_put(c, s.treg, run(c, { st, s.reg, 0, M2_REG, false, s.treg, ADD_ACC, true, ROUTE_1, CLAMP_SAT }));
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The stage taps and the diffuse tap, 0x1b7 to 0x1c6
+// ---------------------------------------------------------------------------------------------
+
+// One cascade's five stage words, ins::PH_STAGES: the word on each of five section outputs, the first
+// into the running value alone and the rest added to it, the last closing the sum a half at a time into
+// `out`. The five registers are consecutive from `first`, which is what the ROM's own words assume.
+struct StageTap { int base, first, out; };
+
+const StageTap STAGES[2] = {
+    //  base  first  out
+    { 0x1b7,    75, 120 },      // the first cascade, r[75] to r[79] into its selected stage r[120]
+    { 0x1bc,    82, 121 },      // the second, r[82] to r[86] into r[121]
+};
+
+void stage_tap(yss236_core& c, int st, StageTap const& s, int k)
+{
+	if (k == 0)      term(c, st, s.first);                        // ins::PH_STAGES[0], on its own
+	else if (k == 4) close(c, st, s.first + k, s.out, ROUTE_2);    // ins::PH_STAGES[4], closing the sum
+	else             sum(c, st, s.first + k);                      // ins::PH_STAGES[1] to [3], on top
+}
+
+// The diffuse taps, ins::PH_DIR: the two cascades' selected stages and two of the second cascade's
+// sections, summed a word at a time and the last closed a half at a time into r[119], the wet signal
+// the left output carries.
+struct Diffuse { int base; int reg[4]; int out; };
+
+const Diffuse DIFFUSE[1] = {
+    //  base                the four registers        out
+    { 0x1c3, { 120, 121, 81, 85 }, 119 },
+};
+
+void diffuse(yss236_core& c, int st, Diffuse const& d, int k)
+{
+	if (k == 0)      term(c, st, d.reg[k]);                       // ins::PH_DIR[0], on its own
+	else if (k == 3) close(c, st, d.reg[k], d.out, ROUTE_2);       // ins::PH_DIR[2], closing the sum
+	else             sum(c, st, d.reg[k]);                         // ins::PH_DIR[0] and [1], on top
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two cascades: their inputs at 0x1cb and 0x1e1, and their six sections each
+// ---------------------------------------------------------------------------------------------
+
+// One cascade's input: the dry shares off the two channels' shelves and the other cascade's selected
+// stage, the last term closing into the register the sections read. The first cascade takes a quarter
+// of the left channel's shelves and a half of the right's; the second opens on the right's alone, and
+// the two then take each other's selected stage on the way in, which is the FB Level. So the group
+// only differs in which shelves it opens on and in what order the two cascades' selected stages come.
+struct CascadeIn
+{
+	int base, n;                 // the group's first step, and how many steps it runs
+	int sr[4];                   // the register each of its steps reads
+	add_t add[4];                // and what that step's adder takes
+	route_t route[4];            // and the route its result takes
+	int dr;                      // the register the last step writes, the cascade's input
+};
+
+const CascadeIn CASCADE_IN[2] = {
+    //  base   n                  the registers           the adders                       the routes            dr
+    { 0x1cb, 4, { 69, 72, 120, 121 }, { ADD_OFF, ADD_ACC, ADD_ACC, ADD_ACC }, { ROUTE_1, ROUTE_2, ROUTE_1, ROUTE_1 }, 73 },
+    { 0x1e1, 3, { 72, 121, 120 },      { ADD_OFF, ADD_ACC, ADD_ACC },           { ROUTE_2, ROUTE_1, ROUTE_1 },                  80 },
+};
+
+void cascade_in(yss236_core& c, int st, CascadeIn const& p, int k)
+{
+	bool const last = k == p.n - 1;
+	run(c, { st, p.sr[k], 0, M2_REG, false, 0, p.add[k], false, p.route[k],
+	         last ? CLAMP_SAT : CLAMP_WRAP, last ? p.dr : 0 });
+}
+
+// One cascade of six allpass sections on a swept coefficient, y = t * x - y a step back. The class-3
+// step at the front takes the cascade's input into the running value without a word on it (s19), and
+// each section is then three steps: the section's own output a step back on the swept coefficient, less
+// the running value; the same word on the section's input, which is what the section writes; and the
+// section's output handed on as the running value the section behind it works from. The last section
+// has no third step, because nothing runs behind it.
+struct Cascade
+{
+	int base;       // the class-3 step that takes the cascade's input
+	int input;      // the cascade's input register
+	int first;      // the first of its six section registers
+	int treg;       // the swept coefficient all six of them multiply by
+};
+
+const Cascade CASCADES[2] = {
+    //  base  input  first  treg
+    { 0x1cf,     73,    74,   10 },      // r[74] takes r[73], and r[79] takes r[78]
+    { 0x1e4,     80,    81,   11 },      // r[81] takes r[80], and r[86] takes r[85]
+};
+
+void cascade(yss236_core& c, int st, Cascade const& p, int k)
+{
+	if (k == 0)
+	{
+		run(c, { st, p.input, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP });
+		return;
+	}
+	int const j = (k - 1) / 3;      // which of the six sections
+	int const m = (k - 1) % 3;      // and which of its three steps
+	if (m == 2)
+	{
+		// the section's output, handed on as the running value the next section works from
+		run(c, { st, p.first + j, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP });
+		return;
+	}
+	// The first of the pair reads the section's own output a step back and leaves the running value
+	// wrapping; the second reads the register before it, which is the section's input, and saturates
+	// its result into the section's own register.
+	int const src = m ? (j ? p.first + j - 1 : p.input) : p.first + j;
+	run(c, { st, src, 0, M2_REG, false, p.treg, ADD_ACC, true, ROUTE_1,
+	         m ? CLAMP_SAT : CLAMP_WRAP, m ? p.first + j : 0 });
+}
+
+// ---------------------------------------------------------------------------------------------
+// The dry and wet mix, 0x1f6 to 0x1f9
+// ---------------------------------------------------------------------------------------------
+
+// One channel's output, two steps. ins::PH_WET: the shelves' output as the dry share on its own, and
+// the wet share the step after it added on top and quadrupled into the window's output register, which
+// the base program reads back.
+struct MixPair { int base, dry_reg, wet_reg, out; };
+
+const MixPair MIX[2] = {
+    //   base  dry_reg  wet_reg  out
+    { 0x1f6,      69,     119,  17 },      // the left output, the wet off the diffuse tap r[119]
+    { 0x1f8,      72,     121,  18 },      // the right output, the wet off r[121]
+};
+
+void mix(yss236_core& c, int st, MixPair const& p, int k)
+{
+	if (k == 0) term(c, st, p.dry_reg);                   // ins::PH_WET[0] and [2], the dry share alone
+	else        close(c, st, p.wet_reg, p.out, ROUTE_4);  // ins::PH_WET[1] and [3], the wet share on top
+}
+
+// ---------------------------------------------------------------------------------------------
+// The run of steps 0x1a0 to 0x1ff, the whole of the window's program
+// ---------------------------------------------------------------------------------------------
+
+// The loop is one iteration per step and carries the m_skip guard step() opens with, so a gate in the
+// base program skips these steps as it would the interpreter's. Each branch below names the group its
+// step belongs to and hands it the step's own index into that group, which is all the arithmetic needs:
+// every group's table holds the registers and the shape of its steps, and nothing here is a step at a
+// time.
 void block_0x1a0(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers
-	double* const m = c.m;                 // the 64 cells, which carry the values between the steps
-	double* const t = c.t;                 // the 16 t registers, the two swept coefficients
-	double xv, k, m2, prod, a, y, v;       // the step's operands and its result
-
 	for (int st = 0x1a0; st < 0x200; st++)
 	{
 		c.begin_step();
 		if (st < c.m_skip) continue;
-		switch (st)
+
+		// ---- 0x1a0 to 0x1a2, the two serial inputs and the window's own running value ----
+		// None of the three writes a register: 0x1a0 loads its own word as a value, 0x1a1 scales m[42]
+		// by its word and takes the running value off that, and 0x1a2 loads its word less the running
+		// value, negated, and publishes the result in m[42]. 0x1a1's adder names r[0], which fetches
+		// nothing, so what the hardware offers it there is the running value over 32768.
+		if (st < 0x1a3)
 		{
-		// ---- 0x1a0 to 0x1b2, the two signals in, the two channels' shelves and the LFO into the sweeps -----
-		case 0x1a0:  // m[3] takes the left serial input of page 13, for the windows outside this one; acc = 128 * k + 0
-			c.queue_d(3, c.in[0][13]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[0];
-			a = 0.0;
-			v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-			v *= 1.0;
-			c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x1a1:  // m[7] takes the right serial input of page 13; acc = k * m[42] - acc / 32768, the running value into a cell
-			c.queue_d(7, c.in[1][13]);
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.x = 0.0; c.hasx = false;
-			c.psrc = c.src; c.src = m[42];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc / 32768.0;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a2:  // m[42] takes the value 0x1a1 left in the running value, negated; acc = 128 * k - acc, the same value wrapped
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[0];
-			a = c.acc;
-			v = 128.0 * yss236_core::s16(c.coef[st]) - a;
-			v *= 1.0;
-			c.acc = yss236_core::accmode(v, 0);
-			c.queue_d(42, yss236_core::clip(c.acc, yss236_core::DSAT));
-			break;
-		case 0x1a3:  // r[67] = saturate(2 * (0.5 * r[7] + 0)): the left channel's shelf input
-			xv = r[7];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 2.0;
-			c.queue_r(67, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1a4:  // ins::LPF_PH[1], the left low shelf's b1 on its own input
-			xv = r[67];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a5:  // ins::LPF_PH[2], the same shelf's a1 on its own output
-			xv = r[68];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a6:  // ins::LPF_PH[0]: r[68] = saturate(2 * (0.5 * r[67] + acc)), the left low shelf's output
-			xv = r[67];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(68, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1a7:  // m[13] takes page 13's LFO, this window's own; ins::HPF_PH[1], the left high shelf's b1
-			c.queue_d(13, c.lfo[13]);
-			xv = r[68];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a8:  // ins::HPF_PH[2], the same shelf's a1 on its own output
-			xv = r[69];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a9:  // ins::HPF_PH[0]: r[69] = saturate(4 * (0.25 * r[68] + acc)), the left high shelf's output
-			xv = r[68];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(69, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1aa:  // r[122] = wrap(128 * k + m[13]): the first sweep register, off the window's own LFO cell
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[13];
-			a = c.src;
-			v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-			v *= 1.0;
-			c.queue_r(122, yss236_core::mode(v, 0));
-			c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x1ab:  // ins::PH_OFFSET, the word phaser2()'s LFO Phase writes: r[123] = wrap(128 * k + m[13]), the second sweep register
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[13];
-			a = c.src;
-			v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-			v *= 1.0;
-			c.queue_r(123, yss236_core::mode(v, 0));
-			c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x1ac:  // r[70] = saturate(2 * (0.5 * r[8] + 0)): the right channel's shelf input
-			xv = r[8];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 2.0;
-			c.queue_r(70, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1ad:  // ins::LPF_PH_C[1], the right low shelf's b1 on its own input
-			xv = r[70];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ae:  // ins::LPF_PH_C[2], the right low shelf's a1 on its own output
-			xv = r[71];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1af:  // ins::LPF_PH_C[0]: r[71] = saturate(2 * (0.5 * r[70] + acc)), the right low shelf's output
-			xv = r[70];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(71, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1b0:  // ins::HPF_PH_C[1], the right high shelf's b1
-			xv = r[71];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1b1:  // ins::HPF_PH_C[2], the same shelf's a1 on its own output
-			xv = r[72];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1b2:  // ins::HPF_PH_C[0]: r[72] = saturate(4 * (0.25 * r[71] + acc)), the right high shelf's output
-			xv = r[71];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(72, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-
-		// ---- 0x1b3 to 0x1c6, the two swept coefficients, the ten stage taps and the diffuse taps ----------
-		case 0x1b3:  // ins::PH_DEPTH[0]: acc = |k * r[122]|, the first sweep rectified and scaled by the depth
-			xv = r[122];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 3);
-			break;
-		case 0x1b4:  // ins::PH_FB[0]: r[122] = saturate(128 * k + acc), the phase shift added, and t[10] the same value over 128
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[0];
-			a = c.acc;
-			v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-			v *= 1.0;
-			c.queue_r(122, yss236_core::mode(v, 1));
-			c.acc = yss236_core::accmode(v, 1);
-			c.t_write(c.ops[st], st, c.acc);
-			break;
-		case 0x1b5:  // ins::PH_DEPTH[1]: acc = |k * r[123]|, the second sweep rectified and scaled
-			xv = r[123];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 3);
-			break;
-		case 0x1b6:  // ins::PH_FB[1]: r[123] = saturate(128 * k + acc), and t[11] the same value over 128
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[0];
-			a = c.acc;
-			v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-			v *= 1.0;
-			c.queue_r(123, yss236_core::mode(v, 1));
-			c.acc = yss236_core::accmode(v, 1);
-			c.t_write(c.ops[st], st, c.acc);
-			break;
-		case 0x1b7:  // ins::PH_STAGES[0]: acc = k * r[75] + 0, the first cascade's second section
-			xv = r[75];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1b8:  // ins::PH_STAGES[1]: acc = k * r[76] + acc, its third
-			xv = r[76];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1b9:  // ins::PH_STAGES[2]: acc = k * r[77] + acc, its fourth
-			xv = r[77];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ba:  // ins::PH_STAGES[3]: acc = k * r[78] + acc, its fifth
-			xv = r[78];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1bb:  // ins::PH_STAGES[4]: r[120] = saturate(2 * (k * r[79] + acc)), its sixth, the first cascade's selected stage
-			xv = r[79];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(120, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1bc:  // ins::PH_STAGES[5]: acc = k * r[82] + 0, the second cascade's second section
-			xv = r[82];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1bd:  // ins::PH_STAGES[6]: acc = k * r[83] + acc, its third
-			xv = r[83];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1be:  // ins::PH_STAGES[7]: acc = k * r[84] + acc, its fourth
-			xv = r[84];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1bf:  // ins::PH_STAGES[8]: acc = k * r[85] + acc, its fifth
-			xv = r[85];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c0:  // ins::PH_STAGES[9]: r[121] = saturate(2 * (k * r[86] + acc)), its sixth, the second cascade's selected stage
-			xv = r[86];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(121, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1c1:  // r[122] = saturate(t[10] * r[122]), the first sweep squared, and t[10] that value over 128
-			xv = r[122];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(122, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.t_write(c.ops[st], st, y);
-			break;
-		case 0x1c2:  // r[123] = saturate(t[11] * r[123]), the second sweep squared, and t[11] that value over 128
-			xv = r[123];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(123, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.t_write(c.ops[st], st, y);
-			break;
-		case 0x1c3:  // ins::PH_DIR[0]... acc = k * r[120] + 0, off the first cascade's selected stage
-			xv = r[120];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c4:  // ins::PH_DIR[0]: acc = k * r[121] + acc, off the second cascade's selected stage
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c5:  // ins::PH_DIR[1]: acc = k * r[81] + acc, off the second cascade's first section
-			xv = r[81];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c6:  // ins::PH_DIR[2]: r[119] = saturate(2 * (k * r[85] + acc)), off the second cascade's fifth section: the wet signal the left output carries
-			xv = r[85];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(119, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-
-		// ---- 0x1c7 to 0x1ca, the sweep's tail: the cube of the squared sweep less the offset ---------------
-		case 0x1c7:  // acc = 128 * k + 0, the offset the sweep is taken off
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[0];
-			a = 0.0;
-			v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-			v *= 1.0;
-			c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x1c8:  // acc = t[10] * r[122] - acc: the offset off the square of the square, and t[10] that value over 128
-			xv = r[122];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.t_write(c.ops[st], st, y);
-			break;
-		case 0x1c9:  // acc = 128 * k + 0, the second sweep's offset
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[0];
-			a = 0.0;
-			v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-			v *= 1.0;
-			c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x1ca:  // acc = t[11] * r[123] - acc, and t[11] that value over 128
-			xv = r[123];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.t_write(c.ops[st], st, y);
-			break;
-
-		// ---- 0x1cb to 0x1ce, the two cascades' inputs: the dry in, and each cascade's own output back ------
-		case 0x1cb:  // acc = k * r[69] + 0, a quarter of the left channel's shelves
-			xv = r[69];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1cc:  // acc = 2 * (k * r[72] + acc), a half of the right channel's shelves
-			xv = r[72];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1cd:  // ins::PH_WIDTH2[0]: acc = k * r[120] + acc, the cascade on r[74] to r[79]'s selected stage on toward r[73], the other cascade's input
-			xv = r[120];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ce:  // ins::PH_WIDTH1[0]: r[73] = saturate(k * r[121] + acc): the cascade on r[74] to r[79]'s input, off the other cascade's selected stage and the two dry shares
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(73, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-
-		// ---- 0x1cf to 0x1e0, the first cascade: six allpass sections on t[10], three steps each ----------
-		case 0x1cf:  // acc = r[73]: r[73], this cascade's input, into the running value
-			xv = r[73];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d0:  // acc = t[10] * r[74] - acc, the first section's output a step back
-			xv = r[74];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d1:  // r[74] = saturate(t[10] * r[73] - acc): the first section, y = t[10] * x - y a step back
-			xv = r[73];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(74, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1d2:  // acc = r[74]: the section's output on into the next one
-			xv = r[74];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d3:  // acc = t[10] * r[75] - acc
-			xv = r[75];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d4:  // r[75] = saturate(t[10] * r[74] - acc): the second section
-			xv = r[74];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(75, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1d5:  // acc = r[75]
-			xv = r[75];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d6:  // acc = t[10] * r[76] - acc
-			xv = r[76];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d7:  // r[76] = saturate(t[10] * r[75] - acc): the third section
-			xv = r[75];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(76, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1d8:  // acc = r[76]
-			xv = r[76];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d9:  // acc = t[10] * r[77] - acc
-			xv = r[77];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1da:  // r[77] = saturate(t[10] * r[76] - acc): the fourth section
-			xv = r[76];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(77, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1db:  // acc = r[77]
-			xv = r[77];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1dc:  // acc = t[10] * r[78] - acc
-			xv = r[78];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1dd:  // r[78] = saturate(t[10] * r[77] - acc): the fifth section
-			xv = r[77];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(78, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1de:  // acc = r[78]
-			xv = r[78];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1df:  // acc = t[10] * r[79] - acc
-			xv = r[79];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1e0:  // r[79] = saturate(t[10] * r[78] - acc): the sixth section, the end of the cascade
-			xv = r[78];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(79, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-
-		// ---- 0x1e1 to 0x1f5, the second cascade: the same six sections on t[11] ---------------------------
-		case 0x1e1:  // acc = 2 * (k * r[72] + 0): the running value cleared off the right channel's shelves
-			xv = r[72];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 2.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1e2:  // ins::PH_WIDTH2[1]: acc = k * r[121] + acc, the cascade on r[81] to r[86]'s own selected stage on toward r[80], its own input
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1e3:  // r[80] = saturate(k * r[120] + acc): this cascade's input, the first cascade's selected stage and the second one's own
-			xv = r[120];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(80, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1e4:  // acc = r[80]: the input into the running value
-			xv = r[80];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1e5:  // acc = t[11] * r[81] - acc
-			xv = r[81];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1e6:  // r[81] = saturate(t[11] * r[80] - acc): the first section
-			xv = r[80];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(81, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1e7:  // acc = r[81]
-			xv = r[81];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1e8:  // acc = t[11] * r[82] - acc
-			xv = r[82];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1e9:  // r[82] = saturate(t[11] * r[81] - acc): the second section
-			xv = r[81];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(82, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1ea:  // acc = r[82]
-			xv = r[82];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1eb:  // acc = t[11] * r[83] - acc
-			xv = r[83];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ec:  // r[83] = saturate(t[11] * r[82] - acc): the third section
-			xv = r[82];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(83, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1ed:  // acc = r[83]
-			xv = r[83];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ee:  // acc = t[11] * r[84] - acc
-			xv = r[84];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ef:  // r[84] = saturate(t[11] * r[83] - acc): the fourth section
-			xv = r[83];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(84, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1f0:  // acc = r[84]
-			xv = r[84];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1f1:  // acc = t[11] * r[85] - acc
-			xv = r[85];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1f2:  // r[85] = saturate(t[11] * r[84] - acc): the fifth section
-			xv = r[84];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(85, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1f3:  // acc = r[85]: the sixth section's output on into the last one
-			xv = r[85];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1f4:  // acc = t[11] * r[86] - acc
-			xv = r[86];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1f5:  // r[86] = saturate(t[11] * r[85] - acc): the sixth section, the end of the second cascade
-			xv = r[85];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = t[11] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(86, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-
-		// ---- 0x1f6 to 0x1f9, the dry and wet mix, the window's two outputs --------------------------------
-		case 0x1f6:  // ins::PH_WET[0]: acc = k * r[69] + 0, the dry share of the left output
-			xv = r[69];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1f7:  // ins::PH_WET[1]: r[17] = saturate(4 * (k * r[119] + acc)), the wet share added: the window's left output
-			xv = r[119];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(17, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1f8:  // ins::PH_WET[2]: acc = k * r[72] + 0, the dry share of the right output
-			xv = r[72];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1f9:  // ins::PH_WET[3]: r[18] = saturate(4 * (k * r[121] + acc)), the right output
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = true;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(18, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-
-		// ---- 0x1fa to 0x1ff, the last cell, and six steps that only count ---------------------------------
-		case 0x1fa:  // m[4] takes the left serial input of page 15, which no step of this program reads
-			c.queue_d(4, c.in[0][15]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1fb: case 0x1fc: case 0x1fd: case 0x1fe: case 0x1ff:  // class 0, no memory op and no ALU: the steps count and nothing else
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
+			switch (st)
+			{
+			case 0x1a0: take_serial(c, 3, st, 0); load(c, st, 0, 0); break;
+			case 0x1a1: take_serial(c, 7, st, 1);
+			            run(c, { st, 0, 42, M2_CELL, false, 0, ADD_REG, true, ROUTE_1, CLAMP_WRAP });
+			            break;
+			default:    load(c, st, 0, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP, 0, 42); break;
+			}
+			continue;
 		}
+
+		// ---- 0x1a3 to 0x1b2, the two channels' shelves, with the two sweep registers between the pairs ----
+		if (st < 0x1b3)
+		{
+			if (Shelf const* s = find_shelf(st))
+			{
+				shelf(c, st, *s, st - s->base);
+				continue;
+			}
+			// 0x1aa and 0x1ab: ins::PH_OFFSET is the word phaser2()'s LFO Phase writes, at the second of
+			// the two. A class-1 load wraps its result into the register, and its adder takes the LFO
+			// cell m[13] that 0x1a7 queued.
+			load(c, st, 0, 13, ADD_CELL, false, ROUTE_1, CLAMP_WRAP, st == 0x1aa ? 122 : 123);
+			continue;
+		}
+
+		// ---- 0x1b3 to 0x1ca, the swept coefficients, the ten stage words, the diffuse taps and the offsets ----
+		if (st < 0x1b7)
+		{
+			Sweep const& s = SWEEPS[(st - SWEEPS[0].base) / 2];
+			sweep(c, st, s, st - s.base);
+			continue;
+		}
+		if (st < 0x1c1)
+		{
+			StageTap const& s = STAGES[(st - STAGES[0].base) / 5];
+			stage_tap(c, st, s, st - s.base);
+			continue;
+		}
+		if (st < 0x1c3) { sweep_square(c, st, SWEEP_TAIL[st - SWEEP_TAIL[0].square]); continue; }
+		if (st < 0x1c7) { diffuse(c, st, DIFFUSE[0], st - DIFFUSE[0].base);            continue; }
+		if (st < 0x1cb)
+		{
+			SweepTail const& s = SWEEP_TAIL[(st - SWEEP_TAIL[0].offset) / 2];
+			sweep_offset(c, st, s, st - s.offset);
+			continue;
+		}
+
+		// ---- 0x1cb to 0x1f5, the two cascades: each one's input, then its six allpass sections ----
+		if (st < 0x1cf) { CascadeIn const& p = CASCADE_IN[0];         cascade_in(c, st, p, st - p.base); continue; }
+		if (st < 0x1e1) { cascade(c, st, CASCADES[0], st - CASCADES[0].base); continue; }
+		if (st < 0x1e4) { CascadeIn const& p = CASCADE_IN[1];         cascade_in(c, st, p, st - p.base); continue; }
+		if (st < 0x1f6) { cascade(c, st, CASCADES[1], st - CASCADES[1].base); continue; }
+
+		// ---- 0x1f6 to 0x1f9, the dry and wet mix into the window's two outputs ----
+		if (st < 0x1fa)
+		{
+			MixPair const& p = MIX[(st - MIX[0].base) / 2];
+			mix(c, st, p, st - p.base);
+			continue;
+		}
+
+		// ---- 0x1fa to 0x1ff, the last cell, and five steps that only count ----
+		if (st == 0x1fa) take_serial(c, 4, st, 0);
+		idle(c);
 	}
 }
 

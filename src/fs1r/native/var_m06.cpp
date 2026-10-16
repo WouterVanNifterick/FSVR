@@ -25,7 +25,7 @@
 // those four offsets to the base plus one plus the parameter, which puts the whole line that many
 // samples behind the write.
 //
-// The 72 steps, in the groups the comments in the switch open:
+// The 72 steps, in the groups the step loop below splits them into:
 //
 //   0x158-0x163  the two LFO cells into six registers, and the three oldest delay words published.
 //                m[2] and m[6] take the serial inputs for the base program; the class-3 steps 0x158 and
@@ -78,6 +78,15 @@
 //                writes it into the slot 0x66, the left line; 0x19d and 0x19e build the right one, the
 //                ROM's zero words on r[119] and r[120] adding nothing to it, and 0x19f writes it into
 //                the slot 0x67 itself, latching nothing.
+//
+// The units the loop below runs, one table each. HEADS is the twelve steps at the head, which take the
+// two serial inputs and build the two base delays and the four crossfade weights off the LFO cells.
+// EQS is the two channels' seven-step EQ. INDICES is the four tap positions, WEIGHTS the four weights
+// those positions' crossfades scale by. UNITS is the four interpolated taps and the two crossfades, two
+// steps each, with the class-0 steps between them idle. COPIES, OUTPUTS and LINES are the tail: each
+// crossfade copied so the line step can overwrite it, the dry and wet into r[15] and r[16], and the
+// two lines written.
+//
 // The registers: r[5] and r[6] the two inputs the base program leaves this window (0x096 and 0x08d write
 // them) and r[15] and r[16] the two outputs it reads back (0x004 and 0x005). r[103] the left input,
 // r[104] and r[105] its two shelves; r[106] the right input, r[107] and r[108] its two. r[123], r[124]
@@ -110,902 +119,504 @@
 // order yss236_core::step() runs its own.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
 //
 // vop3_native_check var-m06: identical, 1 type, 9600 native passes.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
-// The run of steps 0x158 to 0x19f, the whole of the window's program. The loop is one iteration per
-// step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half skips
-// these steps as it would the interpreter's.
+using namespace step;   // the step vocabulary: term, sum, close, load, run and the rest
+
+// ---------------------------------------------------------------------------------------------
+// What a step does with a cell or the delay RAM before it does any arithmetic
+// ---------------------------------------------------------------------------------------------
+
+// A step that is more than a term: it reads the delay RAM, publishes a capture of an earlier read, or
+// takes a serial input or an LFO. `cell` is the cell a DEC_CAPTURE, DEC_LFO or DEC_SERIAL_* step moves
+// into, and `lfo` the cell the step also publishes its page's LFO into, which is 0x18f alone: it reads
+// the slot 0x63 and then publishes the LFO, and the read comes first as step() runs it.
+enum decor_t { DEC_NONE, DEC_READ, DEC_READ_INDEX, DEC_READ_INDEX_OLD,
+               DEC_CAPTURE, DEC_LFO, DEC_SERIAL_L, DEC_SERIAL_R };
+
+struct Decor { decor_t kind; int cell; int lfo; };
+
+// A delay RAM read at the index a tap position loaded rather than at the ring pointer, which is what
+// makes a tap pair two words a sample apart: the earlier word at the index itself, the later one word
+// older, and the t register the pair interpolates on the fraction between them. steps.h has the ring
+// pointer read in read_delay(); this is that read with the index added to the offset.
+void read_delay_at(yss236_core& c, int st, bool older)
+{
+	c.push_hist(st, c.ram[c.addr(st >> 2, (older ? 1 : 0) + c.cur_idx(), false)]);
+}
+
+// The decor a step carries. It comes before the step's own arithmetic, because step() moves a cell or
+// reads the delay RAM before it multiplies anything.
+void decor(yss236_core& c, int st, Decor const& d)
+{
+	switch (d.kind)
+	{
+		case DEC_READ:           read_delay(c, st); break;
+		case DEC_READ_INDEX:     read_delay_at(c, st, false); break;
+		case DEC_READ_INDEX_OLD: read_delay_at(c, st, true); break;
+		case DEC_CAPTURE:        take_capture(c, d.cell, st); break;
+		case DEC_LFO:            take_lfo(c, d.cell, st); break;
+		case DEC_SERIAL_L:       take_serial(c, d.cell, st, 0); break;
+		case DEC_SERIAL_R:       take_serial(c, d.cell, st, 1); break;
+		case DEC_NONE: break;
+	}
+	if (d.lfo)
+		take_lfo(c, d.lfo, st);
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x158 to 0x163, the two LFO cells and what the base delays and the weights come off them
+// ---------------------------------------------------------------------------------------------
+
+// What a step of the head computes. H_SERIAL is the class-3 step that puts 2 * an LFO cell into a
+// register of its own, H_HALF the running value a base delay is built on, H_ABS the absolute value both
+// weights come from, H_BASE the base delay itself, and H_FIRST and H_SECOND the -24 and -40 weights.
+enum head_t { H_SERIAL, H_IDLE, H_HALF, H_BASE, H_ABS, H_FIRST, H_SECOND };
+
+// One step of the head. `cell` is the window's LFO cell H_SERIAL reads, and `reg` and `reg2` the
+// registers the other shapes work on: the doubled LFO for H_SERIAL, H_HALF and H_ABS, and for H_ABS
+// the absolute value lands in `reg2`; the base delay for H_BASE; the first weight for H_FIRST; and
+// for H_SECOND one register, the left channel's |2 * m[8]|, which is what 0x161 takes the -40 off. The
+// two channels' steps interleave one apart and 0x15a is idle between the left channel's first two.
+struct Head { head_t shape; int cell; int reg; int reg2; Decor decor; };
+
+const Head HEADS[12] = {
+	//  shape       cell  reg  reg2  the decor
+	{  H_SERIAL,       8, 123,   0, { DEC_SERIAL_L, 2, 0 } },   // 0x158: the left cell, doubled, with the left serial input
+	{  H_SERIAL,       9, 126,   0, { DEC_SERIAL_R, 6, 0 } },   // 0x159: the right one, and the right serial input
+	{  H_IDLE,         0,   0,   0, { DEC_NONE,     0, 0 } },   // 0x15a
+	{  H_HALF,         0, 123,   0, { DEC_READ,     0, 0 } },   // 0x15b: the slot 0x56, and half of r[123]
+	{  H_BASE,         0, 125,   0, { DEC_NONE,     0, 0 } },   // 0x15c: the left base delay
+	{  H_ABS,          0, 123, 124, { DEC_NONE,     0, 0 } },   // 0x15d: |r[123]| into r[124]
+	{  H_FIRST,        0, 123,   0, { DEC_NONE,     0, 0 } },   // 0x15e: the -24 weight
+	{  H_HALF,         0, 126,   0, { DEC_READ,     0, 0 } },   // 0x15f: the slot 0x57, and half of r[126]
+	{  H_BASE,         0,   2,   0, { DEC_CAPTURE, 22, 0 } },   // 0x160: the right base delay, and the slot 0x56 read published
+	{  H_SECOND,       0, 124,   0, { DEC_NONE,     0, 0 } },   // 0x161: the -40 weight, still the left channel's
+	{  H_ABS,          0, 126,   1, { DEC_NONE,     0, 0 } },   // 0x162: |r[126]| into r[1]
+	{  H_FIRST,        0, 126,   0, { DEC_READ,     0, 0 } },   // 0x163: the slot 0x58, and the -24 weight on it
+};
+
+// One step of the head. The base delay and the two weights are all class-1 loads off the running
+// value, and all hold the negatives at the zero, so a weight below its offset reads as no weight.
+void head(yss236_core& c, int st)
+{
+	Head const& h = HEADS[st - 0x158];
+	decor(c, st, h.decor);
+	switch (h.shape)
+	{
+	case H_SERIAL:  // r[123] and r[126]: the class-3 step, 2 * the LFO cell, wrapped at +-128
+		run(c, { st, 0, h.cell, M2_CELL, true, 0, ADD_OFF, false, ROUTE_2, CLAMP_WRAP, h.reg });
+		break;
+	case H_HALF:    // the ROM's half on that register, into the running value
+		term(c, st, h.reg);
+		break;
+	case H_BASE:    // r[125] and r[2]: max(0, 64 + that half), the line's base delay
+		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, h.reg);
+		break;
+	case H_ABS:     // r[124] and r[1]: |2 * the LFO cell|, which both weights come off
+		run(c, { st, h.reg, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_ABS, h.reg2 });
+		break;
+	case H_FIRST:   // max(0, that - 24), the first weight of the channel, before its factor
+		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, h.reg);
+		break;
+	case H_SECOND:  // max(0, the left |2 * m[8]| - 40), the second weight of the left channel
+		load(c, st, h.reg, 0, ADD_REG, false, ROUTE_1, CLAMP_ZERO, h.reg);
+		break;
+	default:        // 0x15a: class 0, no RAM mark and no ALU, so only the x latch
+		idle(c);
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two channels' EQ, two order-1 shelves each
+// ---------------------------------------------------------------------------------------------
+
+// One channel's seven steps. `src` is the input the base program leaves this window in, `in` this
+// channel's own copy of it on the ROM's near-unity word doubled, `lo` the low shelf's output and `hi`
+// the high shelf's, which is the channel's EQ output: what its line takes and what its dry word scales
+// on the way to the output register.
+//
+// The three registers hold the same quantities a pass apart at different points of the run, because a
+// step's write lands three steps later and each shelf borrows the other's register. `in` is the low
+// shelf's output a pass back until the low shelf's closing step lands the channel's input in it, and
+// `lo` is that low shelf output from then until the high shelf's closing step lands it again.
+struct Eq
+{
+	int base;
+	int src, in, lo, hi;
+	Decor decor[7];
+};
+
+// The left channel, whose steps publish three of the base program's delay reads, then the right one,
+// which publishes the LFO of its page. The seven steps are the channel's input on the ROM's own word,
+// then the low shelf's -a1, b1 and b0, then the high shelf's -a1, b1 and b0, and each row's decor list
+// is in that order.
+const Eq EQS[2] = {
+	//  base   src  in   lo   hi   the seven steps' decor, in that order
+	{  0x165,   5, 103, 104, 105, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_READ_INDEX, 0, 0}, {DEC_CAPTURE, 24, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_READ_INDEX_OLD, 0, 0} } },
+	{  0x174,   6, 106, 107, 108, { {DEC_CAPTURE, 60, 0}, {DEC_LFO, 9, 0}, {DEC_NONE, 0, 0}, {DEC_READ_INDEX, 0, 0}, {DEC_CAPTURE, 61, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
+};
+
+// One channel's EQ step. The first step takes the input the base program wrote into `in`, and the six
+// after it are the two shelves. Each opens on the shelf's own output a pass back, adds the shelf's
+// other word on the register that still holds it, and closes the sum on the value the channel's input
+// or the low shelf's output has just landed in.
+void eq(yss236_core& c, int st, Eq const& q)
+{
+	int const k = st - q.base;
+	decor(c, st, q.decor[k]);
+	switch (k)
+	{
+	case 0:  gain(c, st, q.src, q.in, ROUTE_2); break;   // the channel's input, doubled
+	case 1:  term(c, st, q.lo); break;                   // the low shelf's -a1 on its output a pass back
+	case 2:  sum(c, st, q.in); break;                    // and its b1, r[in] holds that output until 0x168
+	case 3:  close(c, st, q.in, q.lo, ROUTE_2); break;   // its b0 on the input just landed, into the low shelf
+	case 4:  term(c, st, q.hi); break;                   // the high shelf's -a1 on its output a pass back
+	case 5:  sum(c, st, q.lo); break;                    // and its b1 on the low shelf's output a pass back
+	default: close(c, st, q.lo, q.hi, ROUTE_4); break;   // its b0 on that output just landed, into the EQ output
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The four tap positions, and the four crossfade weights
+// ---------------------------------------------------------------------------------------------
+
+// One tap position: DETUNE_DET's word scaled onto the channel's LFO cell, or onto the base delay that
+// cell produced. The result is in delay samples, so its fraction below one goes into the t register the
+// pair interpolates on and its floor is the delay index the pair's two reads take. `cell` is nonzero
+// when the word scales a cell and `reg` when it scales a register.
+struct Index
+{
+	int base;
+	int cell;
+	int reg;
+	int treg;
+	Decor decor;
+};
+
+const Index INDICES[4] = {
+	//  base   cell  reg  treg  the decor
+	{  0x164,     8,   0,   10, { DEC_CAPTURE,      23, 0 } },   // the first left tap, on m[8]
+	{  0x16c,     0, 125,   12, { DEC_CAPTURE,      56, 0 } },   // the second left tap, on r[125]
+	{  0x173,     9,   0,   14, { DEC_READ_INDEX_OLD, 0, 0 } },   // the first right tap, on m[9]
+	{  0x17b,     0,   2,    7, { DEC_READ_INDEX_OLD, 0, 0 } },   // the second right tap, on r[2]
+};
+
+// One tap position's own step: the word on the cell or the register, its fraction into the t register
+// and its whole samples into the delay index. The two taps of a channel share the word and differ only
+// in what it scales, which is what puts them 256 * w * 64 samples apart on the left.
+void tap_index(yss236_core& c, int st, Index const& x)
+{
+	decor(c, st, x.decor);
+	double const y = x.cell ? run(c, { st, 0, x.cell, M2_CELL, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_ZERO })
+	                        : run(c, { st, x.reg, 0, M2_REG,   false, 0, ADD_OFF, false, ROUTE_1, CLAMP_ZERO });
+	t_put_fraction(c, x.treg, y);   // the position between the two words the pair reads
+	load_index(c, y);                // and the same value in whole samples, for the reads themselves
+}
+
+// One crossfade weight: its register on the ROM's eighth word and the x16 route, which a t register
+// takes as the accumulator's 256th. So a register of 232 is 232 / 16384 by the time the crossfade
+// scales with it.
+struct Weight { int reg; int treg; Decor decor; };
+
+// The four weights in step order: the left channel's -24 and -40 forms then the right channel's, and
+// the last step publishes this page's LFO for the base program as it goes.
+const Weight WEIGHTS[4] = {
+	//  reg  treg  the decor
+	{   123,     9, { DEC_READ_INDEX, 0, 0 } },    // 0x16f: the slot 0x5b, at the index 0x16c loaded
+	{   124,    11, { DEC_CAPTURE, 57, 0 } },      // 0x170: the read of 0x16b
+	{   126,    13, { DEC_NONE,     0, 0 } },      // 0x171: the right channel's first weight
+	{     1,    15, { DEC_LFO,     11, 0 } },      // 0x172: its second, and this page's LFO
+};
+
+void weight(yss236_core& c, int st, Weight const& w)
+{
+	decor(c, st, w.decor);
+	t_put(c, w.treg, run(c, { st, w.reg, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// The four interpolated taps and the two crossfades, two steps each
+// ---------------------------------------------------------------------------------------------
+
+// U_TAP is one tap pair: the two words a sample apart, with the position's fraction taken off the
+// earlier word and applied to the later one, so the register its second step writes holds the line
+// interpolated at the LFO's position. U_XFADE is one channel's crossfade: the second tap on its own
+// weight, then the first tap added on top of that, so the register left is the pair summed.
+enum unit_t { U_TAP, U_XFADE };
+
+// One of the six. `in` is the tap's earlier word's cell or the crossfade's second tap register, `in2`
+// the tap's later word's cell, `pos` the tap's position t register or the crossfade's weight on the
+// second tap, `pos2` the crossfade's weight on the first tap, and `out` the register the second step
+// closes into.
+struct Unit
+{
+	int base;
+	unit_t shape;
+	int in, in2, pos, pos2, out;
+	Decor decor[2];
+};
+
+// The six in step order: the four taps, the left crossfade between the second and third of them, and
+// the right crossfade last. The steps between are class 0 and idle, so the gaps are the program's own
+// rather than anything these rows work around.
+const Unit UNITS[6] = {
+	//  base      shape    in  in2  pos  pos2  out  the two steps' decor
+	{  0x17c, U_TAP,    56,  57,   10,    0, 119, { {DEC_CAPTURE, 58, 0}, {DEC_NONE, 0, 0}          } },
+	{  0x17f, U_TAP,    60,  61,   12,    0, 121, { {DEC_READ_INDEX, 0, 0}, {DEC_CAPTURE, 59, 0}   } },
+	{  0x183, U_XFADE, 121,   0,   11,    9, 119, { {DEC_READ_INDEX_OLD, 0, 0}, {DEC_CAPTURE, 62, 0} } },
+	{  0x186, U_TAP,    58,  59,   14,    0, 120, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}              } },
+	{  0x18a, U_TAP,    62,  63,    7,    0, 122, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}              } },
+	{  0x18e, U_XFADE, 122,   0,   15,   13, 120, { {DEC_NONE, 0, 0}, {DEC_READ, 0, 12}              } },
+};
+
+// One unit's two steps. A tap takes its position's fraction off the earlier word before it applies it
+// to the later one, and a crossfade takes the second tap off the running value before it adds the
+// first tap's weighted value on top. Both close into the register the next unit reads.
+void unit(yss236_core& c, int st, Unit const& u)
+{
+	int const k = st - u.base;
+	decor(c, st, u.decor[k]);
+	if (u.shape == U_TAP)
+	{
+		if (k == 0)
+			run(c, { st, 0, u.in,  M2_CELL, false, u.pos, ADD_CELL, true, ROUTE_1, CLAMP_WRAP });
+		else
+			run(c, { st, 0, u.in2, M2_CELL, false, u.pos, ADD_ACC,  true, ROUTE_1, CLAMP_SAT, u.out });
+		return;
+	}
+	if (k == 0)
+		run(c, { st, u.in,  0, M2_REG, false, u.pos,  ADD_REG, true, ROUTE_1, CLAMP_WRAP });
+	else
+		run(c, { st, u.out, 0, M2_REG, false, u.pos2, ADD_ACC, true, ROUTE_1, CLAMP_SAT, u.out });
+}
+
+// Which of the six a step belongs to, or -1 for the class-0 steps between them.
+int unit_of(int st)
+{
+	for (int i = 0; i < 6; i++)
+		if (st >= UNITS[i].base && st < UNITS[i].base + 2)
+			return i;
+	return -1;
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x191 to 0x19f, the two copies, the two outputs and the two delay writes
+// ---------------------------------------------------------------------------------------------
+
+// The two copies, two steps each: the crossfaded tap on the ROM's near-unity word opening the running
+// value and the other tap on the ROM's own zero closing it, so a copy is the crossfade less one part
+// in 32768. They are copies because r[119] and r[120] are read again on the way into the two delay
+// lines, so each channel's blend has to be somewhere else for its output step to read.
+struct Copy { int base; int dst; Decor decor[2]; };
+
+const Copy COPIES[2] = {
+	//  base    dst  the two steps' decor
+	{  0x191,   121, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
+	{  0x193,   122, { {DEC_READ, 0, 0}, {DEC_CAPTURE, 25, 0} } },
+};
+
+// One of the two: the crossfaded tap on the ROM's near-unity word opens the running value and the other
+// tap on the ROM's own zero closes it into `dst`.
+void tap_copy(yss236_core& c, int st, Copy const& p)
+{
+	int const k = st - p.base;
+	decor(c, st, p.decor[k]);
+	if (k == 0) term(c, st, 119);
+	else        close(c, st, 120, p.dst);
+}
+
+// One channel's two output steps: DETUNE_PAN's dry word opens the sum on the channel's EQ output and its
+// wet word closes it into the register the base program reads, quadrupled. Returns the running value,
+// which is what the left line's write at 0x19b takes where there is no latched data to write instead.
+struct Output { int base; int out, dry, wet; Decor decor[2]; };
+
+const Output OUTPUTS[2] = {
+	//  base    out  dry  wet  the two steps' decor
+	{  0x195,    15, 105, 121, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
+	{  0x19b,    16, 108, 122, { {DEC_NONE, 0, 0}, {DEC_CAPTURE, 27, 0} } },
+};
+
+double output(yss236_core& c, int st, Output const& o)
+{
+	decor(c, st, o.decor[st - o.base]);
+	if (st == o.base) return run(c, { st, o.dry });       // the dry word, on the channel's EQ output
+	return run(c, { st, o.wet, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_4, CLAMP_SAT, o.out });
+}
+
+// One delay line's input: the run of steps that opens on the channel's EQ output, adds the ROM's own
+// zeroes on the other two registers, and closes the sum. The left line's closing step writes no register
+// at all and only latches its result as the data of the write one step later; the right one's is the
+// line's write itself.
+struct Line
+{
+	int base;
+	int n;              // the steps in the run
+	int src[4];         // the register each step scales, in order
+	bool ram;           // the closing step is the line's write rather than a latch
+	Decor decor[4];
+};
+
+const Line LINES[2] = {
+	//  base    n  the registers                    ram  the decor, in step order
+	{  0x197, 4, { 105, 108, 120, 119 },  false, { {DEC_READ, 0, 0}, {DEC_CAPTURE, 26, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
+	{  0x19d, 3, { 108, 119, 120,   0 },  true,  { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
+};
+
+// One step of the run: the first opens the running value on the channel's EQ output, the ones after it
+// add the ROM's own zeroes, and the closing one hands the sum to w1[13] as the line's write data. `src`
+// is the register each step scales and `ram` whether the closing step is the write itself.
+void line(yss236_core& c, int st, Line const& l)
+{
+	int const k = st - l.base;
+	decor(c, st, l.decor[k]);
+	if (k == 0) term(c, st, l.src[0]);
+	else if (k < l.n - 1) sum(c, st, l.src[k]);
+	else
+		run(c, { st, l.src[k], 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
+		         0 /* dr */, false, 0, false, false, true, l.ram });
+}
+
+// ---------------------------------------------------------------------------------------------
+// The run of steps 0x158 to 0x19f, the whole of the window's program
+// ---------------------------------------------------------------------------------------------
+
+// The loop is one iteration per step and carries the m_skip guard step() opens with, so a gate in the
+// base program's 0x1xx half skips these steps as it would the interpreter's. Each test below is one
+// of the groups the comments at the head of this file open.
 void block_0x158(yss236_core& c)
 {
-    double* const r = c.r;                 // the 128 registers
-    double* const m = c.m;                 // the 64 cells, which carry the values between the steps
-    double xv, k, g, m2, prod, a, y, v;
+	for (int st = 0x158; st < 0x1a0; st++)
+	{
+		c.begin_step();
+		if (st < c.m_skip) continue;
 
-    // The step's x operand: the register r[sr] into the latch every step but a class-2/3 one moves, and
-    // xv alongside it for the multiplier.
-    auto fetch = [&](int sr) { xv = sr ? r[sr] : 0.0; c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = sr != 0; };
-    // The t file write of a step whose result is y, tfrac saying which of the two forms it takes.
-    auto twr = [&](double yy, int tn, bool tfrac) {
-        double const w = yy * 256.0;
-        double const tv = tfrac ? (w - std::floor(w))
-                                 : (w < -32768.0 ? -32768.0 : 32767.0 < w ? 32767.0 : w) / 32768.0;
-        c.queue_t(tn, tv);
-    };
+		if (st < 0x164)
+		{
+			// ---- 0x158 to 0x163, the two LFO cells, the two base delays and the four weights ----
+			head(c, st);
+			continue;
+		}
+		if (st == 0x164)
+		{
+			// ---- DETUNE_DET[0]: the first left tap pair's position ----
+			tap_index(c, st, INDICES[0]);
+			continue;
+		}
+		if (st < 0x16c)
+		{
+			// ---- 0x165 to 0x16b, the left channel's input and its two shelves ----
+			eq(c, st, EQS[0]);
+			continue;
+		}
+		if (st == 0x16c)
+		{
+			// ---- DETUNE_DET[1]: the second left tap pair's position ----
+			tap_index(c, st, INDICES[1]);
+			continue;
+		}
+		if (st == 0x16d)
+		{
+			// ---- the right channel's second weight, max(0, |2 * m[9]| - 40), over the first ----
+			load(c, st, 1, 0, ADD_REG, false, ROUTE_1, CLAMP_ZERO, 1);
+			continue;
+		}
+		if (st == 0x16e)
+		{
+			// the idle step between the right weight and the four the weights go into
+			idle(c);
+			continue;
+		}
+		if (st < 0x173)
+		{
+			// ---- 0x16f to 0x172, the four crossfade weights ----
+			weight(c, st, WEIGHTS[st - 0x16f]);
+			continue;
+		}
+		if (st == 0x173)
+		{
+			// ---- DETUNE_DET[2]: the first right tap pair's position ----
+			tap_index(c, st, INDICES[2]);
+			continue;
+		}
+		if (st < 0x17b)
+		{
+			// ---- 0x174 to 0x17a, the right channel's input and its two shelves ----
+			eq(c, st, EQS[1]);
+			continue;
+		}
+		if (st == 0x17b)
+		{
+			// ---- DETUNE_DET[3]: the second right tap pair's position ----
+			tap_index(c, st, INDICES[3]);
+			continue;
+		}
+		if (st < 0x191)
+		{
+			// ---- 0x17c to 0x190, the four interpolated taps and the two crossfades ----
+			int const u = unit_of(st);
+			if (u < 0)
+			{
+				// 0x188 is the one idle step that moves a cell: m[63] takes up the read of 0x183
+				if (st == 0x188)
+					take_capture(c, 63, st);
+				idle(c);
+			}
+			else
+				unit(c, st, UNITS[u]);
+			continue;
+		}
+		if (st < 0x195)
+		{
+			// ---- 0x191 to 0x194, the two copies of the crossfades ----
+			tap_copy(c, st, COPIES[(st - 0x191) / 2]);
+			continue;
+		}
+		if (st < 0x197)
+		{
+			// ---- 0x195 and 0x196, the left output ----
+			output(c, st, OUTPUTS[0]);
+			continue;
+		}
+		if (st < 0x19b)
+		{
+			// ---- 0x197 to 0x19a, what goes into the left line ----
+			line(c, st, LINES[0]);
+			continue;
+		}
+		if (st < 0x19d)
+		{
+			// ---- 0x19b and 0x19c, the right output, on the step that writes the left line ----
+			double const y = output(c, st, OUTPUTS[1]);
+			if (st == 0x19b)
+			{
+				// The left line's write rides on the right channel's dry word: the slot 0x66 takes the
+				// data 0x19a latched, or this step's own result where there is none, as step() has it.
+				double v = yss236_core::clip(y, yss236_core::SAT);
+				if (c.haswl)
+				{
+					v = c.wlatch;
+					c.haswl = false;
+				}
+				write_delay(c, st, v);
+			}
+			continue;
+		}
 
-    for (int st = 0x158; st < 0x1a0; st++)
-    {
-        c.begin_step();
-        if (st < c.m_skip) continue;
-        switch (st)
-        {
-// ---- 0x158 to 0x163, the two LFO cells and the three published reads --------------------------
-// m[2] takes the left serial input; r[123] = wrap(2 * m[8]), the first LFO cell doubled
-        case 0x158:
-            c.queue_d(2, c.in[0][10]);
-            k = yss236_core::s16(c.coef[st]);
-            g = 1.0;
-            fetch(0);
-            c.psrc = c.src; c.src = m[8];
-            m2 = c.src;
-            prod = m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(123, yss236_core::mode(y, 0));
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[6] takes the right serial input; r[126] = wrap(2 * m[9]), the second LFO cell doubled
-        case 0x159:
-            c.queue_d(6, c.in[1][10]);
-            k = yss236_core::s16(c.coef[st]);
-            g = 1.0;
-            fetch(0);
-            c.psrc = c.src; c.src = m[9];
-            m2 = c.src;
-            prod = m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(126, yss236_core::mode(y, 0));
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x15a:
-            fetch(0);
-            break;
-// a read of the slot 0x56; the left base delay's half: acc = 0.5 * r[123], which is m[8]
-        case 0x15b:
-            c.push_hist(st, c.ram[c.addr(0x56, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(123);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[125] = the class-1 load of the half, 64 + acc with negatives clamped away: the left base delay
-        case 0x15c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[0];
-            a = c.acc;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            c.queue_r(125, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-// r[124] = |r[123]|, the first LFO cell's absolute value, and the accumulator the next step reads
-        case 0x15d:
-            k = yss236_core::s16(c.coef[st]);
-            g = 1.0;
-            fetch(123);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(124, yss236_core::mode(y, 3));
-            y = c.acc = yss236_core::accmode(y, 3);
-            break;
-// r[123] = the class-1 load of -24 + |2 * m[8]|, the first left crossfade weight before the factor
-        case 0x15e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[0];
-            a = c.acc;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            c.queue_r(123, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-// a read of the slot 0x57; the right base delay's half: acc = 0.5 * r[126], which is m[9]
-        case 0x15f:
-            c.push_hist(st, c.ram[c.addr(0x57, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[22] takes up the read of 0x15b; r[2] = the class-1 load of 64 + m[9], the right base delay
-        case 0x160:
-            c.queue_d(22, c.captured(m[22], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[0];
-            a = c.acc;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            c.queue_r(2, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-// r[124] = the class-1 load of -40 + r[124], the second left crossfade weight before the factor
-        case 0x161:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(124);
-            c.psrc = c.src; c.src = m[0];
-            a = c.x;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            c.queue_r(124, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-// r[1] = |r[126]|, the second LFO cell's absolute value, and the accumulator the next step reads
-        case 0x162:
-            k = yss236_core::s16(c.coef[st]);
-            g = 1.0;
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            c.queue_r(1, yss236_core::mode(y, 3));
-            y = c.acc = yss236_core::accmode(y, 3);
-            break;
-// a read of the slot 0x58; r[126] = the class-1 load of -24 + |2 * m[9]|, the first right weight
-        case 0x163:
-            c.push_hist(st, c.ram[c.addr(0x58, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[0];
-            a = c.acc;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            c.queue_r(126, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-// ---- 0x164, the first left tap pair's delay index ---------------------------------------------
-// m[23] takes up the read of 0x15f; DETUNE_DET[0]: acc = k * m[8], its fraction into t[10] and its
-// floor into the delay index
-        case 0x164:
-            c.queue_d(23, c.captured(m[23], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(0);
-            c.psrc = c.src; c.src = m[8];
-            m2 = c.src;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 2);
-            twr(y, 10, true);
-            c.queue_i(std::floor(y * 256.0));
-            break;
-// ---- 0x165 to 0x16b, the left channel's input and its two shelves -----------------------------
-// r[103] = saturate(2 * (0.5 * r[5])), the left input through the low shelf's b0 word
-        case 0x165:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(103, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// DETUNE_LOW_SHELF's -a1: acc = k * r[104], the left shelf's output a pass back
-        case 0x166:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// a read of the slot 0x59 at the delay index 0x164 loaded; DETUNE_LOW_SHELF's b1, plus -a1
-        case 0x167:
-            c.push_hist(st, c.ram[c.addr(0x59, c.cur_idx(), false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[24] takes up the read of 0x163; DETUNE_LOW_SHELF's b0: r[104] = saturate(2 * (k * r[103] + acc))
-        case 0x168:
-            c.queue_d(24, c.captured(m[24], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(104, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// DETUNE_HIGH_SHELF's -a1: acc = k * r[105]
-        case 0x169:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// DETUNE_HIGH_SHELF's b1: acc = k * r[104] + acc
-        case 0x16a:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// a read of the slot 0x5a one word older than 0x167; DETUNE_HIGH_SHELF's b0: r[105] = saturate(4 * (k * r[104] + acc))
-        case 0x16b:
-            c.push_hist(st, c.ram[c.addr(0x5a, 1 + c.cur_idx(), false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(105, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x16c, the second left tap pair's delay index --------------------------------------------
-// m[56] takes up the read of 0x167; DETUNE_DET[1]: acc = k * r[125], its fraction into t[12] and its
-// floor into the delay index
-        case 0x16c:
-            c.queue_d(56, c.captured(m[56], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(125);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 2);
-            twr(y, 12, true);
-            c.queue_i(std::floor(y * 256.0));
-            break;
-// r[1] = the class-1 load of -40 + r[1], the second right crossfade weight over the first
-        case 0x16d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(1);
-            c.psrc = c.src; c.src = m[0];
-            a = c.x;
-            v = 128.0 * k + a;
-            v *= 1.0;
-            c.queue_r(1, yss236_core::mode(v, 2));
-            y = c.acc = yss236_core::accmode(v, 2);
-            break;
-// the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x16e:
-            fetch(0);
-            break;
-// ---- 0x16f to 0x172, the four crossfade weights -----------------------------------------------
-// a read of the slot 0x5b at the delay index 0x16c loaded; t[9] = saturate(16 * (0.125 * r[123]))
-        case 0x16f:
-            c.push_hist(st, c.ram[c.addr(0x5b, c.cur_idx(), false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(123);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 9, false);
-            break;
-// m[57] takes up the read of 0x16b; t[11] = saturate(16 * (0.125 * r[124]))
-        case 0x170:
-            c.queue_d(57, c.captured(m[57], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(124);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 11, false);
-            break;
-// t[13] = saturate(16 * (0.125 * r[126])), the right channel's first weight, the -24 form
-        case 0x171:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(126);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 13, false);
-            break;
-// m[11] takes the LFO of this page; t[15] = saturate(16 * (0.125 * r[1])), the second right weight
-        case 0x172:
-            c.queue_d(11, c.lfo[11]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(1);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 16.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            twr(y, 15, false);
-            break;
-// ---- 0x173, the first right tap pair's delay index --------------------------------------------
-// a read of the slot 0x5c one word older than 0x16f; DETUNE_DET[2]: acc = k * m[9], its fraction into
-// t[14] and its floor into the delay index
-        case 0x173:
-            c.push_hist(st, c.ram[c.addr(0x5c, 1 + c.cur_idx(), false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(0);
-            c.psrc = c.src; c.src = m[9];
-            m2 = c.src;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 2);
-            twr(y, 14, true);
-            c.queue_i(std::floor(y * 256.0));
-            break;
-// ---- 0x174 to 0x17a, the right channel's input and its two shelves ----------------------------
-// m[60] takes up the read of 0x16f; r[106] = saturate(2 * (0.5 * r[6])), the right input
-        case 0x174:
-            c.queue_d(60, c.captured(m[60], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(106, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// m[9] takes the LFO of this page; DETUNE_LOW_SHELF_COPY's -a1: acc = k * r[107]
-        case 0x175:
-            c.queue_d(9, c.lfo[12]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// DETUNE_LOW_SHELF_COPY's b1: acc = k * r[106] + acc
-        case 0x176:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// a read of the slot 0x5d at the delay index 0x173 loaded; DETUNE_LOW_SHELF_COPY's b0: r[107] = saturate(2 * (k * r[106] + acc))
-        case 0x177:
-            c.push_hist(st, c.ram[c.addr(0x5d, c.cur_idx(), false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(107, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// m[61] takes up the read of 0x173; DETUNE_HIGH_SHELF_COPY's -a1: acc = k * r[108]
-        case 0x178:
-            c.queue_d(61, c.captured(m[61], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// DETUNE_HIGH_SHELF_COPY's b1: acc = k * r[107] + acc
-        case 0x179:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// DETUNE_HIGH_SHELF_COPY's b0: r[108] = saturate(4 * (k * r[107] + acc)), the right EQ output
-        case 0x17a:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(108, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x17b, the second right tap pair's delay index -------------------------------------------
-// a read of the slot 0x5e one word older than 0x177; DETUNE_DET[3]: acc = k * r[2], its fraction into
-// t[7] and its floor into the delay index
-        case 0x17b:
-            c.push_hist(st, c.ram[c.addr(0x5e, 1 + c.cur_idx(), false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(2);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 2);
-            twr(y, 7, true);
-            c.queue_i(std::floor(y * 256.0));
-            break;
-// ---- 0x17c to 0x17d, the first left tap interpolated -----------------------------------------
-// m[58] takes up the read of 0x177; acc = t[10] * m[56] - m[56], the first tap word less the fraction
-        case 0x17c:
-            c.queue_d(58, c.captured(m[58], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(0);
-            c.psrc = c.src; c.src = m[56];
-            m2 = c.src;
-            prod = g * m2;
-            a = c.src;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[119] = saturate(t[10] * m[57] - acc), the pair interpolated at t[10]
-        case 0x17d:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[10];
-            fetch(0);
-            c.psrc = c.src; c.src = m[57];
-            m2 = c.src;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(119, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x17e:
-            fetch(0);
-            break;
-// ---- 0x17f to 0x180, the second left tap interpolated ----------------------------------------
-// a read of the slot 0x5f at the delay index 0x17b loaded; acc = t[12] * m[60] - m[60]
-        case 0x17f:
-            c.push_hist(st, c.ram[c.addr(0x5f, c.cur_idx(), false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[12];
-            fetch(0);
-            c.psrc = c.src; c.src = m[60];
-            m2 = c.src;
-            prod = g * m2;
-            a = c.src;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[59] takes up the read of 0x17b; r[121] = saturate(t[12] * m[61] - acc), that pair interpolated
-        case 0x180:
-            c.queue_d(59, c.captured(m[59], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[12];
-            fetch(0);
-            c.psrc = c.src; c.src = m[61];
-            m2 = c.src;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(121, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x181:
-            fetch(0);
-            break;
-        case 0x182:
-            fetch(0);
-            break;
-// ---- 0x183 to 0x184, the left crossfade ------------------------------------------------------
-// a read of the slot 0x60 one word older than 0x17f; acc = t[11] * r[121] - r[121], the second tap
-        case 0x183:
-            c.push_hist(st, c.ram[c.addr(0x60, 1 + c.cur_idx(), false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[11];
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.x;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[62] takes up the read of 0x17f; r[119] = saturate(t[9] * r[119] - acc), the two taps crossfaded
-        case 0x184:
-            c.queue_d(62, c.captured(m[62], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[9];
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(119, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the idle step: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x185:
-            fetch(0);
-            break;
-// ---- 0x186 to 0x187, the first right tap interpolated ----------------------------------------
-// acc = t[14] * m[58] - m[58], the first right tap word less the fraction
-        case 0x186:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[14];
-            fetch(0);
-            c.psrc = c.src; c.src = m[58];
-            m2 = c.src;
-            prod = g * m2;
-            a = c.src;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[120] = saturate(t[14] * m[59] - acc), that pair interpolated at t[14]
-        case 0x187:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[14];
-            fetch(0);
-            c.psrc = c.src; c.src = m[59];
-            m2 = c.src;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(120, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// m[63] takes up the read of 0x183; the idle step otherwise: class 0, no RAM mark and no ALU
-        case 0x188:
-            c.queue_d(63, c.captured(m[63], st));
-            fetch(0);
-            break;
-        case 0x189:
-            fetch(0);
-            break;
-// ---- 0x18a to 0x18b, the second right tap interpolated ---------------------------------------
-// acc = t[7] * m[62] - m[62], the second right tap word less the fraction
-        case 0x18a:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[7];
-            fetch(0);
-            c.psrc = c.src; c.src = m[62];
-            m2 = c.src;
-            prod = g * m2;
-            a = c.src;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[122] = saturate(t[7] * m[63] - acc), that pair interpolated at t[7]
-        case 0x18b:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[7];
-            fetch(0);
-            c.psrc = c.src; c.src = m[63];
-            m2 = c.src;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(122, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x18c:
-            fetch(0);
-            break;
-        case 0x18d:
-            fetch(0);
-            break;
-// ---- 0x18e to 0x18f, the right crossfade -----------------------------------------------------
-// acc = t[15] * r[122] - r[122], the second right tap
-        case 0x18e:
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[15];
-            fetch(122);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.x;
-            y = (prod - a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// a read of the slot 0x63 at the ring pointer, and m[12] takes the LFO of this page;
-// r[120] = saturate(t[13] * r[120] - acc), the two right taps crossfaded
-        case 0x18f:
-            c.push_hist(st, c.ram[c.addr(0x63, 0, false)]);
-            c.queue_d(12, c.lfo[12]);
-            k = yss236_core::s16(c.coef[st]);
-            g = c.t[13];
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod - a) * 1.0;
-            c.queue_r(120, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-        case 0x190:
-            fetch(0);
-            break;
-// ---- 0x191 to 0x194, the two copies -----------------------------------------------------------
-// acc = the near-unity word on r[119], the first tap, a pass back
-        case 0x191:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[121] = saturate(acc): the ROM's zero kills the r[120] this step would add, so the copy of r[119]
-        case 0x192:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(121, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// a read of the slot 0x64 at the ring pointer; acc = the ROM's zero on r[119]
-        case 0x193:
-            c.push_hist(st, c.ram[c.addr(0x64, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[25] takes up the read of 0x193; r[122] = saturate(the near-unity word on r[120] + acc), the copy
-        case 0x194:
-            c.queue_d(25, c.captured(m[25], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(122, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x195 to 0x19f, the outputs and the two delay writes ------------------------------------
-// DETUNE_PAN's dry word on the left: acc = k * r[105], the left EQ output
-        case 0x195:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// DETUNE_PAN's wet word: r[15] = saturate(4 * (k * r[121] + acc)), the left output
-        case 0x196:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(15, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// a read of the slot 0x65 at the ring pointer; DETUNE_PAN's second dry word: acc = k * r[105]
-        case 0x197:
-            c.push_hist(st, c.ram[c.addr(0x65, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[26] takes up the read of 0x197; the ROM's zero on r[108] over that accumulator
-        case 0x198:
-            c.queue_d(26, c.captured(m[26], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the ROM's zero on r[120] over the same accumulator, the right line's input
-        case 0x199:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[119] = saturate(acc) and the result is latched as the data of the next delay write
-        case 0x19a:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(119, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            c.wlatch = yss236_core::clip(y, yss236_core::SAT);
-            c.haswl = true;
-            break;
-// DETUNE_PAN's second dry word on the right, and the slot 0x66 write takes the latched left output
-        case 0x19b:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            c.ram[c.addr(0x66, 0, false)] = c.wlatch;
-            c.haswl = false;
-            break;
-// m[27] takes up the read of 0x197; DETUNE_PAN's fourth word: r[16] = saturate(4 * (k * r[122] + acc))
-        case 0x19c:
-            c.queue_d(27, c.captured(m[27], st));
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(122);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(16, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the near-unity word on r[108], the right EQ output
-        case 0x19d:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the ROM's zero on r[119] over that accumulator, the right line's input
-        case 0x19e:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(119);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the slot 0x67 write takes this step's own result, and its wdata bit latches nothing
-        case 0x19f:
-            k = yss236_core::s16(c.coef[st]);
-            g = k;
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            m2 = xv;
-            prod = g * m2;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            c.haswl = false;
-            c.ram[c.addr(0x67, 0, false)] = yss236_core::clip(y, yss236_core::SAT);
-            break;
-        }
-    }
+		// ---- 0x19d to 0x19f, what goes into the right line, whose write is its own last step ----
+		line(c, st, LINES[1]);
+	}
 }
 
 }  // namespace
@@ -1014,8 +625,8 @@ void block_0x158(yss236_core& c)
 // one run; a range no host builds falls back to the interpreter.
 void var_m06(yss236_core& c, int from, int to)
 {
-    if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
-    for (int st = from; st < to; st++) c.step(st);
+	if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
+	for (int st = from; st < to; st++) c.step(st);
 }
 
 }  // namespace fs1r::native

@@ -29,7 +29,8 @@
 //          one, and each section's closing step carries the route that restores the scale the designer's
 //          (16 >> scale) took out. The two z^-1 words are the steps that carry rcopy: 0x1ab latches r[70]
 //          into r[71] for the -a2 term and 0x1ac latches r[68] into r[69] for the b2 term, and each is read
-//          a pass later than it is written, so the section is in direct form I.
+//          a pass later than it is written, so the section is in direct form I. SECTIONS below is those
+//          two and the four of the tone chain.
 //
 //   0x1b0-0x1b3  the latch: m[42] = r[70] and r[81] = 0, run only when the compare at 0x1a3 fired.
 //
@@ -37,7 +38,7 @@
 //          less the second error accumulator. 0x1b5 and 0x1b6 are ins::LOFI_WET[0] and ins::LOFI_WET2[0],
 //          the dry and wet gains, into r[17], and 0x1b8 and 0x1b9 the same two words for r[18]. The dry
 //          signal is the input and the wet is r[119], so the two channels share one crushed signal and
-//          differ only in their dry side.
+//          differ only in their dry side. MIXES below is those two pairs of steps.
 //
 //   0x1b7-0x1c3  the quantizer, which is one subtraction and two conditional skips. 0x1b7 subtracts m[56]
 //          from r[121] and its sign is the flag; if it is positive the value was above the step, so 0x1ba
@@ -77,14 +78,348 @@
 // words, so it is no reference for any number here.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
 //
 // vop3_native_check ins-m10: identical, 1 type, 9600 native passes.
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
+
+using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
+
+// ---------------------------------------------------------------------------------------------
+// The registers and cells the header names, so the arithmetic below can say what it reads
+// ---------------------------------------------------------------------------------------------
+
+// The two signals the base program leaves this window and the two outputs it reads back, the input
+// chain's sum, the bit assign's output level, the sample and hold's rate counter, the two error
+// accumulators, the wet signal the tone chain hands over, and the scratch register every stage passes
+// through. The tone chain's own registers, r[72] to r[78], are named by the sections below, which are
+// what read and write them, and so are the input chain's r[67] to r[71].
+enum
+{
+	SIG_L = 7,       // the two signals in, r[7] and r[8]: the panned sends the base program leaves here
+	SIG_R = 8,
+	OUT_L = 17,      // the two outputs the base program reads back
+	OUT_R = 18,
+	IN_SUM = 67,     // the input chain's sum, ins::LOFI_GAIN over both signals
+	LEVEL = 72,      // the bit assign's output level, which the tone chain's first section reads
+	RATE = 81,       // the sample and hold's rate counter
+	ERR_A = 80,      // the two error accumulators around the quantizer
+	ERR_B = 79,      // and the one the quantizer's input subtracts from the held signal
+	WET = 119,       // the tone chain's output from the pass before: the wet side of both mixes
+	SCRATCH = 121,   // the register every stage hands to the next
+	HELD = 42,       // m[42], the held signal
+	QSTEP = 56,      // and m[56], the quantizer's step, the two cells this program writes and reads
+};
+
+// ---------------------------------------------------------------------------------------------
+// The six filter sections: two over the input, four over the quantized signal
+// ---------------------------------------------------------------------------------------------
+
+// What one step of a section computes, named after the coefficient designFilter() wrote for it: b0, b1
+// and b2 are the numerator's and -a1 and -a2 the denominator's, in the order that function emits them.
+// The step that opens a section's sum is not in this list, because it is a word of its own and no two
+// sections open theirs on the same register; the three that end in X1 or Y2 are the steps that carry the
+// section's z^-1, which is how it holds x[-1] or y[-2] in a register of its own, and the three that end
+// in CLOSE are the three shapes a section's last step has, one per coefficient that can close it.
+enum part_t
+{
+	B0_CLOSE,   // b0 on the input, closing the section into its output with the section's route
+	B0_X1,      // b0 on the input, and the z^-1 that keeps the input a pass back
+	B1,         // b1 on the input, added to the sum
+	B1_Y2,      // b1 on the input, and the z^-1 that keeps the output two passes back
+	B2_CLOSE,   // b2 on the input a pass back, closing the section
+	A1_SUM,     // -a1 on the output a pass back, added to the sum
+	A1_Y2,      // -a1 on the output a pass back, and the z^-1 that keeps the output two passes back
+	A2,         // -a2 on the output two passes back
+	A2_CLOSE,   // -a2 on the output two passes back, closing the section
+};
+
+// One filter section, in direct form I. `base` is its first step and `n` how many steps it runs, three
+// for the four order-1 sections and five for the two order-2 ones. `open_on` is the register the section
+// opens its sum on, which is its own output for the sections that open on -a1, the input for the one that
+// opens on b1, and x[-1] for the one that opens on b2. `in` is the register the section's input arrives
+// in, `out` the one the closing step writes, which is the next section's input, `x1` the one that holds
+// the input a pass back and `y2` the one that holds the output two passes back.
+struct Section
+{
+	int base, n;
+	int open_on, in, out, x1, y2;
+	step::route_t route;
+	part_t part[4];
+};
+
+// The two sections over the input chain, then the four over the quantized signal. The four steps that
+// carry a z^-1 are the only ones that are not one of a section's own words: two hold the input a pass
+// back for the b2 term and two hold the output two passes back for the -a2 term.
+const Section SECTIONS[6] = {
+    //  base  n  open   in  out  x1  y2  route      the rest of the section's steps
+    {  0x1a7, 3,   68,  67,  68,   0,   0, ROUTE_4, { B1,               B0_CLOSE    } },
+    {  0x1aa, 5,   70,  68,  70,  69,  71, ROUTE_2, { B1_Y2, B0_X1, A2, B2_CLOSE  } },
+    {  0x1cf, 3,   73,  72,  73,   0,   0, ROUTE_2, { B1,               B0_CLOSE    } },
+    {  0x1d2, 5,   74,  73,  75,  74,  76, ROUTE_4, { B1, B0_X1, A1_SUM, A2_CLOSE  } },
+    {  0x1d7, 3,   75,  75,  77,   0,  76, ROUTE_4, { A1_Y2,            B0_CLOSE    } },
+    {  0x1da, 3,   78,  77,  78,   0,   0, ROUTE_4, { B1,               B0_CLOSE    } },
+};
+
+// The section a step belongs to, or null when it belongs to none: 0x1a7 to 0x1ae for the input chain and
+// 0x1cf to 0x1dc for the tone chain.
+Section const* section_for(int st)
+{
+	for (Section const& s : SECTIONS)
+		if (st >= s.base && st < s.base + s.n) return &s;
+	return nullptr;
+}
+
+// One section's step k. The first opens the sum with its own word and the adder off, and the rest are the
+// section's other words in its own order, which is why they come out of the part list rather than from a
+// fixed shape: the schedule interleaves a section's z^-1 copies among the five words designFilter wrote.
+void section_step(yss236_core& c, int st, Section const& s, int k)
+{
+	if (k == 0)                                       // the section's opening word, the adder off
+	{
+		term(c, st, s.open_on);
+		return;
+	}
+	switch (s.part[k - 1])
+	{
+	case B0_CLOSE: close(c, st, s.in, s.out, s.route); break;
+	case B0_X1:    copy_z(c, st, s.in, s.x1, ADD_ACC, CLAMP_WRAP); break;
+	case B1:       sum(c, st, s.in); break;
+	case B1_Y2:    copy_z(c, st, s.in, s.y2, ADD_ACC, CLAMP_WRAP); break;
+	case B2_CLOSE: close(c, st, s.x1, s.out, s.route); break;
+	case A1_SUM:   sum(c, st, s.out); break;
+	case A1_Y2:    copy_z(c, st, s.out, s.y2, ADD_ACC, CLAMP_WRAP); break;
+	case A2:       sum(c, st, s.y2); break;
+	case A2_CLOSE: close(c, st, s.y2, s.out, s.route); break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two output mixes, one pair of steps each
+// ---------------------------------------------------------------------------------------------
+
+// One channel's mix of the dry signal and the wet one. The first step applies the dry word to the signal
+// the base program leaves this window with the adder off, and the second closes the sum with the wet word
+// on r[119], the tone chain's output from the pass before, into that channel's output register.
+struct Mix { int base, dry, out; };
+
+const Mix MIXES[2] = {
+    { 0x1b5, SIG_L, OUT_L },     // ins::LOFI_WET[0] and ins::LOFI_WET2[0], into r[17]
+    { 0x1b8, SIG_R, OUT_R },     // the same two words again, into r[18]
+};
+
+// One mix's two steps. The closing step's route is the x4 both channels' outputs carry.
+void output_mix(yss236_core& c, int st, Mix const& m)
+{
+	if (st == m.base) term(c, st, m.dry);
+	else               close(c, st, WET, m.out, ROUTE_4);
+}
+
+// The mix a step belongs to, or null when it belongs to none.
+Mix const* mix_for(int st)
+{
+	for (Mix const& m : MIXES)
+		if (st == m.base || st == m.base + 1) return &m;
+	return nullptr;
+}
+
+// ---------------------------------------------------------------------------------------------
+// What a step moves into a cell before it does any arithmetic
+// ---------------------------------------------------------------------------------------------
+
+// A step of this program usually also takes a serial input, and these three are the only cells the window
+// writes that nothing in it reads: m[3] and m[7] from the two banks of page 13, and m[4] from page 14.
+// SERIAL_L takes its page's left serial input and SERIAL_R its right, and the take comes before the
+// arithmetic of the same step, because step() moves a cell before it does anything else, so the step loop
+// reads this table at the top of every step.
+enum decor_t { SERIAL_L, SERIAL_R };
+
+// One decor, and the step it rides on.
+struct Decor { int st; decor_t kind; int cell; };
+
+const Decor DECORS[3] = {
+    //  the step  the decor                 the cell
+    {  0x1a6, SERIAL_L,  3 },     // on the step that closes the input chain's sum into r[67]
+    {  0x1a7, SERIAL_R,  7 },     // on the first step of the input chain's first section
+    {  0x1c3, SERIAL_L,  4 },     // in the quantizer's padding, after the negative arm
+};
+
+// Apply the decor, which comes before the step's term.
+void decor(yss236_core& c, int st, Decor const& d)
+{
+	switch (d.kind)
+	{
+		case SERIAL_L: take_serial(c, d.cell, st, 0); break;
+		case SERIAL_R: take_serial(c, d.cell, st, 1); break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The blocks of steps that are not a table of anything
+// ---------------------------------------------------------------------------------------------
+
+// The sample and hold's rate counter, 0x1a0 to 0x1a3: the counter, the quantizer's step, the rate the
+// counter is compared against, and the compare. r[RATE] climbs by one word of 1/256 of full scale a pass
+// and saturates rather than wraps, ins::LOFI_BITS lands in m[56] as the word the quantizer clamps to, and
+// ins::LOFI_RATE lands in the running value so the last step has a threshold to test the counter against.
+// That compare's sign is the flag the sample and hold at 0x1b0 is gated on.
+void rate_counter(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x1a0:
+		// r[81] = k / 256 + r[81], the ROM's own word of one, and the register saturates as it goes
+		load(c, st, RATE, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, RATE);
+		break;
+	case 0x1a1:
+		// m[56] = ins::LOFI_BITS[0] / 256, the quantizer's step
+		load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, QSTEP);
+		break;
+	case 0x1a2:
+		load(c, st, 0, 0);                 // acc = ins::LOFI_RATE[0] / 256, the threshold
+		break;
+	default:
+		// the compare: acc = r[81] - acc, and its sign is the flag the latch at 0x1b0 waits on
+		run(c, {st, RATE, 0, M2_REG, true, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP, 0, false, 0, false, true});
+		break;
+	}
+}
+
+// The input chain's sum, 0x1a5 and 0x1a6: the two signals the base program leaves the window, each scaled
+// by its own word of ins::LOFI_GAIN and added into r[67], which is what the first of the two sections
+// reads. The gain is the bit assign's, (32767 >> assign) >> 1.
+void input_sum(yss236_core& c, int st)
+{
+	if (st == 0x1a5)
+	{
+		term(c, st, SIG_L);              // acc = ins::LOFI_GAIN[0] * r[7]
+		return;
+	}
+	close(c, st, SIG_R, IN_SUM);         // r[67] = ins::LOFI_GAIN2[0] * r[8] + acc
+}
+
+// The sample and hold, 0x1b0 to 0x1b3: the gate on the counter compare at 0x1a3, the hold itself into
+// m[42], and the counter cleared so it climbs again to the rate. None of the block runs when the gate
+// skips it, which is what makes the quantizer's input a sample and hold at ins::LOFI_RATE.
+void sample_and_hold(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x1b0:
+		// cskip 6: the three steps to 0x1b3 run only while the flag from the compare at 0x1a3 is positive
+		skip_positive(c, st, 0x1b4);
+		break;
+	case 0x1b1:
+		// m[42] = r[70], the sectioned signal held for the quantizer. A class-3 step's word is 1.0 and
+		// it passes the value through (s19), so nothing is applied to the register here.
+		run(c, {st, 70, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, false, HELD});
+		break;
+	case 0x1b2:
+		load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, RATE);      // r[81] = 0, the counter again
+		break;
+	default:
+		idle(c);                           // 0x1b3
+		break;
+	}
+}
+
+// One of the quantizer's two compares: r[121] less the step, or r[121] plus it, which puts the value
+// back, and the sign of either is the flag the two skips read. Both of these steps saturate, which is
+// what their clamp bits say, so this is the general form and not steps.h's compare(), which wraps.
+void quantizer_compare(yss236_core& c, int st, bool sub)
+{
+	run(c, {st, SCRATCH, QSTEP, M2_REG, true, 0, ADD_CELL, sub, ROUTE_1, CLAMP_SAT, 0, false, 0, false, true});
+}
+
+// One arm of the quantizer's dead zone: r[121] takes the quantizer's own step m[56], scaled by the word at
+// this step. The positive arm is a class-3 step, whose word is 1.0 and which passes the cell through
+// (s19), and the negative arm scales that same cell by the ROM's own -1 word at 0x1c1.
+void quantizer_arm(yss236_core& c, int st, bool unity)
+{
+	run(c, {st, 0, QSTEP, M2_CELL, unity, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, SCRATCH});
+}
+
+// The quantizer, 0x1b7 to 0x1c3: two compares, two conditional skips and a jump around one subtraction.
+// r[121] - m[56] lands in r[121] and its sign is the flag, so a value above the step goes to +step and
+// jumps out of the block, a value below zero goes to -step, and anything between the two is left as it
+// was. The right channel's mix sits in the middle of this block and is not here: mix_for() takes its two
+// steps before this does, and the decor for m[4] is read at the top of the step loop.
+void quantizer(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x1b7:
+		quantizer_compare(c, st, true);              // acc = r[121] - m[56]: was the value above the step?
+		break;
+	case 0x1ba:
+		skip_positive(c, st, 0x1bd);                 // 0x1bb runs only while that flag is positive
+		break;
+	case 0x1bb:
+		quantizer_arm(c, st, true);                  // r[121] = +step
+		break;
+	case 0x1bc:
+		jump(c, st, 0x1c4);                          // cskip 1: out to the error accumulators
+		break;
+	case 0x1bd:
+		quantizer_compare(c, st, false);             // acc = r[121] + m[56], which puts the value back,
+		break;                                      // and its sign is the test against zero
+	case 0x1c0:
+		skip_negative(c, st, 0x1c4);                 // 0x1c1 to 0x1c3 run only while that flag is negative
+		break;
+	case 0x1c1:
+		quantizer_arm(c, st, false);                 // r[121] = -step
+		break;
+	case 0x1c3:
+		idle(c);                                     // 0x1c3: the x latch, and m[4] from the decor above
+		break;
+	default:
+		idle(c);                                     // 0x1be, 0x1bf and 0x1c2
+		break;
+	}
+}
+
+// The two error accumulators, 0x1c4 to 0x1cb: the quantized value into r[80] and back out of it through
+// the level law, then into r[79], which 0x1b4 takes back out of the quantizer's input. Two integrators
+// around the quantizer are what make the crush noise-shaped rather than flat.
+void accumulators(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x1c4:
+		run(c, {st, SCRATCH, 0, M2_REG, true, 0, ADD_OFF});             // acc = r[121], the quantized value
+		break;
+	case 0x1c5:
+		// r[80] = r[80] + acc, the first accumulator, which ins::LOFI_LEVEL scales at 0x1c8
+		run(c, {st, ERR_A, 0, M2_REG, true, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, ERR_A});
+		break;
+	case 0x1c8:
+		gain(c, st, ERR_A, SCRATCH, ROUTE_16);                          // r[121] = ins::LOFI_LEVEL * r[80] * 16
+		break;
+	case 0x1c9:
+		run(c, {st, SCRATCH, 0, M2_REG, true, 0, ADD_OFF});             // acc = r[121]
+		break;
+	case 0x1ca:
+		// r[79] = r[79] + acc, the second accumulator, which 0x1b4 subtracts from the held signal
+		run(c, {st, ERR_B, 0, M2_REG, true, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, ERR_B});
+		break;
+	case 0x1cb:
+		gain(c, st, SCRATCH, SCRATCH, ROUTE_16);                        // r[121] = r[121] * 16
+		break;
+	default:
+		idle(c);                                                         // 0x1c6 and 0x1c7
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The 96 steps
+// ---------------------------------------------------------------------------------------------
 
 // The run of steps 0x1a0 to 0x1ff, the whole of the window's program. The loop is one iteration per
 // step and carries the m_skip guard step() opens with, so a gate in the base program skips these steps
@@ -92,722 +427,58 @@ namespace {
 // use the same guard, and the m_skip they set is what selects the quantizer's branch.
 void block_0x1a0(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers
-	double* const m = c.m;                 // the 64 cells, which carry the values between the steps
-	double xv, k, m2, prod, a, y, v;       // the step's operands and its result
-
 	for (int st = 0x1a0; st < 0x200; st++)
 	{
 		c.begin_step();
 		if (st < c.m_skip) continue;
-		switch (st)
-		{		case 0x1a0:  // k = 0x0001, the rate counter: r[81] += 1/256, the ROM's own word, saturating
-			xv = r[81];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			a = c.x;
-			v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-			v *= 1.0;
-			c.queue_r(81, yss236_core::mode(v, 1));
-			c.acc = yss236_core::accmode(v, 1);
-			break;
-		case 0x1a1:  // k = 0x0010, ins::LOFI_BITS[0] into m[56]: the quantizer's step
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[0];
-			a = 0.0;
-			v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-			v *= 1.0;
-			c.acc = yss236_core::accmode(v, 0);
-			c.queue_d(56, yss236_core::clip(c.acc, yss236_core::DSAT));
-			break;
-		case 0x1a2:  // k = 0x0002, ins::LOFI_RATE[0] into the running value: the threshold the next step compares against
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[0];
-			a = 0.0;
-			v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-			v *= 1.0;
-			c.acc = yss236_core::accmode(v, 0);
-			break;
-		// the compare: acc = r[81] - acc, so the flag is positive once the counter passes the rate
-		case 0x1a3:  // k = 0x0000
-			xv = r[81];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = xv;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			c.m_flag = (y > 0) - (y < 0);
-			break;
-		case 0x1a4:  // k = 0x2000, r[119] = 2 * r[78], the tone chain's output from the pass before: the wet signal
-			xv = r[78];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 4.0;
-			c.queue_r(119, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1a5:  // k = 0x1fff, acc = ins::LOFI_GAIN[0] * r[7], the left signal at the bit assign's gain
-			xv = r[7];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a6:  // k = 0x1fff, r[67] = ins::LOFI_GAIN2[0] * r[8] + acc: the two signals summed into the input chain
-			c.queue_d(3, c.in[0][13]);
-			xv = r[8];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(67, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ---- 0x1a7 to 0x1a9, ins::LOFI_HIGH_SHELF: the order-1 section over r[67] into r[68] ----
-		// m[7] takes the right serial input of page 13 on the way, which this program reads nowhere
-		case 0x1a7:  // k = 0x0000, acc = -a1 * r[68], the section's own delay
-			c.queue_d(7, c.in[1][13]);
-			xv = r[68];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the b1 term on r[67], which the three-step register latency leaves one pass old here
-		case 0x1a8:  // k = 0x0000, acc = b1 * r[67] + acc
-			xv = r[67];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// r[68] = (b0 * r[67] + acc) * 4, the shelf's output; the route restores the designer's scale
-		case 0x1a9:  // k = 0x2000
-			xv = r[67];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(68, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ---- 0x1aa to 0x1ae, ins::LOFI_LPF2: the order-2 section over r[68] into r[70] ----
-		case 0x1aa:  // k = 0x8b38, acc = -a1 * r[70], the section's own delay
-			xv = r[70];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the two z^-1 words are the steps that carry rcopy: 0x1ab latches r[70] into r[71] for the -a2
-		// term and 0x1ac latches r[68] into r[69] for the b2 term, each one pass behind where it is read
-		case 0x1ab:  // k = 0x775d, r[71] = the previous step's x; acc = b1 * r[68] + acc
-			xv = r[68];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(71, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ac:  // k = 0x3baf, r[69] = the previous step's x; acc = b0 * r[68] + acc
-			xv = r[68];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(69, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ad:  // k = 0xc60e, acc = -a2 * r[71], a pass older than the r[71] this step writes
-			xv = r[71];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ae:  // k = 0x3bae, r[70] = (b2 * r[69] + acc) * 2, the biquad's output
-			xv = r[69];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(70, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1af:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		// ---- 0x1b0 to 0x1b3, the sample and hold, run only when the compare at 0x1a3 fired ----
-		case 0x1b0:  // k = 0x0000, cskip 6: 0x1b1 to 0x1b3 run only while the flag is positive
-			if (c.m_flag <= 0) c.m_skip = 0x1b4;
-			break;
-		case 0x1b1:  // k = 0x0000, m[42] = r[70]: the filtered signal held for the quantizer
-			xv = r[70];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			c.queue_d(42, yss236_core::clip(y, yss236_core::DSAT));
-			break;
-		case 0x1b2:  // k = 0x0000, r[81] = 0, the counter starts again
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[0];
-			a = 0.0;
-			v = 128.0 * yss236_core::s16(c.coef[st]) + a;
-			v *= 1.0;
-			c.queue_r(81, yss236_core::mode(v, 0));
-			c.acc = yss236_core::accmode(v, 0);
-			break;
-		case 0x1b3:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		// ---- 0x1b4 to 0x1b9, the quantizer's input and the output mix ----
-		case 0x1b4:  // k = 0x8000, r[121] = -r[79] + m[42]: the held signal less the second error accumulator
-			xv = r[79];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[42];
-			m2 = xv;
-			prod = k * xv;
-			a = c.src;
-			y = (prod + a) * 1.0;
-			c.queue_r(121, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// the left mix: the ROM's own words ins::LOFI_WET[0] (dry) and ins::LOFI_WET2[0] (wet)
-		case 0x1b5:  // k = 0x0000, acc = dry * r[7]
-			xv = r[7];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1b6:  // k = 0x3fff, r[17] = (wet * r[119] + acc) * 4, the left output
-			xv = r[119];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(17, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ---- 0x1b7 to 0x1c3, the dead-zone quantizer ----
-		// It is three compares and four conditional skips around one subtraction. r[121] - m[56] lands in
-		// r[121] and its sign is the flag; above the step 0x1bb replaces the value with +step and 0x1bc
-		// jumps out, below zero 0x1bd puts the value back and 0x1c0 lets 0x1c1 write -step, and between
-		// the two the value is left as it was. So the step is the dead zone and the bit crush is the
-		// clamping to +-step around it.
-		case 0x1b7:  // k = 0x0000, acc = r[121] - m[56], the compare on the way down
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[56];
-			m2 = xv;
-			prod = xv;
-			a = c.src;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.m_flag = (y > 0) - (y < 0);
-			break;
-		// the right mix, the same two words for the other channel
-		case 0x1b8:  // k = 0x0000, acc = dry2 * r[8]
-			xv = r[8];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1b9:  // k = 0x3fff, r[18] = (wet2 * r[119] + acc) * 4, the right output
-			xv = r[119];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(18, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1ba:  // k = 0x0000, cskip 6: 0x1bb runs only while the flag is positive
-			if (c.m_flag <= 0) c.m_skip = 0x1bd;
-			break;
-		case 0x1bb:  // k = 0x0000, r[121] = m[56]: the value above the step
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[56];
-			m2 = c.src;
-			prod = c.src;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(121, yss236_core::mode(y, 0));
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// cskip 1: an unconditional jump, so the negative branch below only runs when 0x1ba skipped
-		case 0x1bc:  // k = 0x0000
-			c.m_skip = 0x1c4;
-			break;
-		// ---- the negative branch, reached only when 0x1ba skipped 0x1bb and 0x1bc ----
-		case 0x1bd:  // k = 0x0000, acc = r[121] + m[56], which puts the value back; the compare tests it against zero
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[56];
-			m2 = xv;
-			prod = xv;
-			a = c.src;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.m_flag = (y > 0) - (y < 0);
-			break;
-		case 0x1be:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1bf:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1c0:  // k = 0x0000, cskip 4: 0x1c1 to 0x1c3 run only while the flag is negative
-			if (c.m_flag >= 0) c.m_skip = 0x1c4;
-			break;
-		case 0x1c1:  // k = 0x8000, r[121] = -m[56]: the value below zero
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[56];
-			m2 = c.src;
-			prod = k * c.src;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(121, yss236_core::mode(y, 0));
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c2:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		// m[4] takes the left serial input of page 14 on the way, which this program reads nowhere
-		case 0x1c3:  // k = 0x0000, nothing but the count
-			c.queue_d(4, c.in[0][14]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		// ---- 0x1c4 to 0x1cb, the two error accumulators that shape the quantizer's error ----
-		case 0x1c4:  // k = 0x0000, acc = r[121], the quantized value
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c5:  // k = 0x0000, r[80] = r[80] + acc, the first accumulator
-			xv = r[80];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(80, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1c6:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1c7:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1c8:  // k = 0x005a, r[121] = ins::LOFI_LEVEL[0] * r[80] * 16, the level law over the first accumulator
-			xv = r[80];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			c.queue_r(121, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1c9:  // k = 0x0000, acc = r[121]
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ca:  // k = 0x0000, r[79] = r[79] + acc, the second accumulator, which 0x1b4 subtracts again
-			xv = r[79];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(79, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1cb:  // k = 0x7fff, r[121] = r[121] * 16: the ROM's own word, the second of the two x16 steps
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			c.queue_r(121, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1cc:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1cd:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		// ---- 0x1ce to 0x1dc, the tone chain over the quantized signal ----
-		case 0x1ce:  // k = 0x1000, r[72] = ins::LOFI_OUT[0] * r[121] * 16, the bit assign's output level
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			c.queue_r(72, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ---- ins::LOFI_FILTER, an order-1 section over r[72] into r[73] ----
-		case 0x1cf:  // k = 0x3f8c, acc = -a1 * r[73]
-			xv = r[73];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d0:  // k = 0xcd58, acc = b1 * r[72] + acc, a pass older than the r[72] 0x1d1 writes
-			xv = r[72];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d1:  // k = 0x32a8, r[73] = (b0 * r[72] + acc) * 2
-			xv = r[72];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(73, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ---- ins::LOFI_FILTER_2, the order-2 section over r[73] into r[75] ----
-		case 0x1d2:  // k = 0x0451, acc = b2 * r[74]
-			xv = r[74];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d3:  // k = 0xdb7f, acc = b1 * r[73] + acc
-			xv = r[73];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the z^-1 word: r[74] holds r[73] one pass older, which is the b2 term's delay
-		case 0x1d4:  // k = 0x2beb, r[74] = the previous step's x; acc = b0 * r[73] + acc
-			xv = r[73];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(74, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d5:  // k = 0x2481, acc = -a1 * r[75]
-			xv = r[75];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d6:  // k = 0xefc4, r[75] = (-a2 * r[76] + acc) * 4: r[76] is the section's second output delay
-			xv = r[76];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(75, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ---- ins::LOFI_FILTER_3, an order-1 section over r[75] into r[77] ----
-		case 0x1d7:  // k = 0xe201, acc = b1 * r[75]
-			xv = r[75];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the z^-1 word, which r[76] then carries as this section's second output delay
-		case 0x1d8:  // k = 0x1e3a, r[76] = the previous step's x; acc = b2 * r[77] + acc
-			xv = r[77];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(76, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d9:  // k = 0x203b, r[77] = (b0 * r[75] + acc) * 4
-			xv = r[75];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(77, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ---- ins::LOFI_HIGH_SHELF_2, an order-1 section over r[77] into r[78] ----
-		// The emphasis parameter chooses this section's words: a high shelf with it on, and a plain gain
-		// with it off, which is what the two zero words here are in that case.
-		case 0x1da:  // k = 0x0000, acc = -a1 * r[78]
-			xv = r[78];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1db:  // k = 0x0000, acc = b1 * r[77] + acc
-			xv = r[77];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1dc:  // k = 0x2000, r[78] = (b0 * r[77] + acc) * 4, and 0x1a4 reads it as the wet signal next pass
-			xv = r[77];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			k = yss236_core::s16(c.coef[st]);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * xv;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(78, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ---- 0x1dd to 0x1ff, 35 zero class-0 steps: nothing but the count and the x latch ----
-		case 0x1dd:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1de:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1df:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e0:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e1:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e2:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e3:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e4:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e5:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e6:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e7:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e8:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e9:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1ea:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1eb:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1ec:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1ed:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1ee:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1ef:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f0:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f1:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f2:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f3:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f4:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f5:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f6:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f7:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f8:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f9:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1fa:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1fb:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1fc:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1fd:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1fe:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1ff:  // k = 0x0000, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
+
+		// the three serial inputs this window publishes, before the step's own arithmetic
+		for (Decor const& d : DECORS)
+			if (d.st == st) decor(c, st, d);
+
+		// ---- 0x1a0 to 0x1a3: the rate counter, the quantizer's step and the compare on the two ----
+		if (st < 0x1a4) { rate_counter(c, st); continue; }
+
+		// ---- 0x1a4: the wet signal, r[119] = 2 * r[78] ----
+		if (st == 0x1a4) { gain(c, st, 78, WET, ROUTE_4); continue; }
+
+		// ---- 0x1a5 and 0x1a6: the two signals in, summed at ins::LOFI_GAIN ----
+		if (st < 0x1a7) { input_sum(c, st); continue; }
+
+		// ---- the six sections: two over the input sum, then the four of the tone chain ----
+		if (Section const* s = section_for(st)) { section_step(c, st, *s, st - s->base); continue; }
+
+		// ---- 0x1af: the one step of padding between the input chain and the sample and hold ----
+		if (st < 0x1b0) { idle(c); continue; }
+
+		// ---- 0x1b0 to 0x1b3: the sample and hold, gated on the counter compare ----
+		if (st < 0x1b4) { sample_and_hold(c, st); continue; }
+
+		// ---- 0x1b4: the held signal less the second error accumulator, into the scratch register ----
+		// The word at this step is the ROM's own -1, so this is m[42] - r[79], the quantizer's input.
+		if (st == 0x1b4)
+		{
+			run(c, {st, ERR_B, HELD, M2_REG, false, 0, ADD_CELL, false, ROUTE_1, CLAMP_SAT, SCRATCH});
+			continue;
 		}
+
+		// ---- the two output mixes, the left's at 0x1b5 and the right's at 0x1b8, two steps each ----
+		if (Mix const* m = mix_for(st)) { output_mix(c, st, *m); continue; }
+
+		// ---- 0x1b7 to 0x1c3: the quantizer's dead zone ----
+		if (st < 0x1c4) { quantizer(c, st); continue; }
+
+		// ---- 0x1c4 to 0x1cb: the two error accumulators ----
+		if (st < 0x1cc) { accumulators(c, st); continue; }
+
+		// ---- 0x1cc and 0x1cd: the padding before the output level ----
+		if (st < 0x1ce) { idle(c); continue; }
+
+		// ---- 0x1ce: the bit assign's output level, which is the tone chain's input in r[72] ----
+		if (st == 0x1ce) { gain(c, st, SCRATCH, LEVEL, ROUTE_16); continue; }
+
+		// ---- 0x1dd to 0x1ff: 35 zero class-0 steps, nothing but the count and the x latch ----
+		idle(c);
 	}
 }
 

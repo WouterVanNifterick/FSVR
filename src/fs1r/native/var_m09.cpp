@@ -90,552 +90,322 @@
 // in the order yss236_core::step() runs its own.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
 //
 // vop3_native_check var-m09: identical, 1 type, 9600 native passes.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
-// The run of steps 0x158 to 0x19f, the whole of the window's program. The loop is one iteration per
-// step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half skips
-// these steps as it would the interpreter's.
+using namespace step;   // the step vocabulary: term, sum, close, term_cell and the rest
+
+// The registers and cells the comments above name, so the tables below read as the DSP they run.
+constexpr int MONO = 103;      // r[103]: the mono sum of the two inputs, which the tone filters run on
+constexpr int HPF = 104;       // r[104]: the high-pass's own state, and the low-pass's input
+constexpr int LPF = 105;       // r[105]: the low-pass's own state, which the first row unit's words scale
+constexpr int ROW_L = 120;     // r[120]: the first row chain's sum, and the main line's own input
+constexpr int ROW_R = 121;     // r[121]: the second row chain's sum, which the pan's right word reads
+constexpr int LINE = 54;       // m[54]: the main line's tap, the read of the slot 0x5B
+constexpr int FB = 55;         // m[55]: the feedback off that tap, which the line's own write adds back
+// m[60] and m[61] each carry two of the row units' read slots a pass, the first and third units' and
+// then the second and fourth's, a capture five steps after each read, which is what captured() returns.
+constexpr int TAP_ODD = 60;    // m[60]: the first and third units' tap, and what three of the four
+constexpr int TAP_EVEN = 61;   //        units write their own line off
+
+// ---------------------------------------------------------------------------------------------
+// What a step does with a cell or the delay RAM before it does any arithmetic
+// ---------------------------------------------------------------------------------------------
+
+// A step of this program is more than its term about as often as not: it reads the delay RAM, publishes
+// a capture of an earlier read, or takes the page's LFO. `cell` is the slot a DEC_READ reads, which is
+// its own step over four, or the cell the move lands in.
+enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_LFO };
+
+struct Decor { decor_t kind; int cell; };
+
+// What a row unit's own line does with the delay line. It carries w1[13], so it either latches its
+// result for the class-0 writer two steps along, which is the first unit, or it is that writer itself,
+// which writes its own result and clears anything latched. No other step of the program writes the RAM.
+enum delay_t { SET_LATCH, WRITE_OWN };
+
+// Apply the decor a unit's step carries. It comes before the term, because step() moves a cell or reads
+// the delay RAM before it does any arithmetic.
+void decor(yss236_core& c, int st, Decor const& d)
+{
+	switch (d.kind)
+	{
+		case DEC_READ:      read_delay(c, st); break;
+		case DEC_CAPTURE:   take_capture(c, d.cell, st); break;
+		case DEC_LFO:       take_lfo(c, d.cell, st); break;
+		case DEC_NONE: break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x158 and 0x159: the two serial inputs and the mono the whole chain runs on
+// ---------------------------------------------------------------------------------------------
+
+// The base program reads this window's input off m[2] and m[6], which are the two serial inputs the
+// first two steps take, and the second of them closes the two into the mono. The first step has the
+// adder off, so it is the left input alone in the running value, and the right one doubles the sum
+// into r[103], which at the shipped words is half the two together.
+void mono(yss236_core& c, int st)
+{
+	if (st == 0x158)
+	{
+		take_serial(c, 2, st, 0);
+		term(c, st, 5);                       // acc = k * r[5], the left input alone
+	}
+	else
+	{
+		take_serial(c, 6, st, 1);
+		close(c, st, 6, MONO, ROUTE_2);       // r[103] = 2 (k r[6] + acc), the mono
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x15a to 0x15f: the host's two tone filters, var::KARAOKE_HPF and var::KARAOKE_LPF
+// ---------------------------------------------------------------------------------------------
+
+// One pole, three words and three steps: -a1 on the pole's own state a pass back, b1 on the section's
+// input added on top of it, and b0 closing the sum into that same register, doubled. `x` is the
+// register the section's input is in, which the second and third words scale, and `y1` the pole's own
+// state, which the first word scales and the third overwrites.
+struct Tone { int base; int x, y1; Decor decor[3]; };
+
+// The high-pass runs on the mono and the low-pass on the high-pass's output, one after the other. The
+// read of the base program's own slot rides on each section's b1 step: the slot 0x56 on the high-pass
+// and the slot 0x57 on the low-pass, and each is published five steps later.
+const Tone TONES[2] = {
+	//  base   x     y1   -a1              b1                 b0
+	{  0x15a, MONO, HPF, { {DEC_NONE, 0}, {DEC_READ, 0},    {DEC_NONE, 0} } },   // var::KARAOKE_HPF
+	{  0x15d, HPF,  LPF, { {DEC_NONE, 0}, {DEC_NONE, 0},     {DEC_READ, 0} } },   // var::KARAOKE_LPF
+};
+
+// One pole's step at base + k.
+void tone(yss236_core& c, int st, Tone const& f)
+{
+	decor(c, st, f.decor[st - f.base]);
+	switch (st - f.base)
+	{
+	case 0:  term(c, st, f.y1); break;                     // -a1 on the pole's own state, a pass back
+	case 1:  sum(c, st, f.x); break;                       // b1 on the section's input
+	default: close(c, st, f.x, f.y1, ROUTE_2); break;      // b0 closing into that state, doubled
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x160 to 0x16d: the published reads, one cell every four steps
+// ---------------------------------------------------------------------------------------------
+
+// The cells the base program and the other windows read this block's delay RAM into, a capture every
+// four steps: the two tone filters' reads first, then the first row line's own. Each takes up the read
+// of the fifth step before it, which is captured()'s lower bound.
+const int PUBLISHED[4] = { 28, 29, 30, TAP_ODD };
+
+// One capture and one read in every four steps, the capture on the first and the read on the last,
+// five steps before the next capture takes that read up. The first two captures take the two tone
+// filters' reads instead, and the read of the first row line also publishes the page's LFO for the base
+// program. Every other step of the block is idle but for the x latch.
+void published(yss236_core& c, int st)
+{
+	switch ((st - 0x160) % 4)
+	{
+	case 0:  take_capture(c, PUBLISHED[(st - 0x160) / 4], st); break;
+	case 3:  read_delay(c, st);                              // the slot this step is over four
+			if (st == 0x167) take_lfo(c, 11, st);            // and the page's LFO, on the first row read
+			break;
+	default: break;
+	}
+	idle(c);
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x16e to 0x18b, the four row units, var::KARAOKE_ROW_STEPS[0..15]
+// ---------------------------------------------------------------------------------------------
+
+// One row unit, the four words EffectHost::diffusers() writes for it in the order s28, s24, s26, s22,
+// and the delay slots it runs between: the write slot the s22 word lands in and the read slot the
+// s24 word comes off, which var::KARAOKE_ROW_SLOTS gives as a pair apiece. `in` is the register both
+// of the unit's own words scale, `out` the chain's sum that s24 closes into, `tap` the cell its read
+// slot is published in and `wr` the cell its own line is written off.
+struct Row
+{
+	int base;
+	int in, out;
+	int tap, wr;
+	delay_t write;                  // SET_LATCH, or WRITE_OWN where the s22 word is its own writer
+	Decor decor[4];
+};
+
+// The four units, in the order var::KARAOKE_ROW_STEPS lists them, over the slot pairs {0x5C, 0x59},
+// {0x5D, 0x5A}, {0x61, 0x5E} and {0x62, 0x5F} of var::KARAOKE_ROW_SLOTS, a write slot and a read slot
+// apiece. The first unit runs on the low-pass's output and the fourth closes the second chain, and it
+// is the first and the second of the four that publish the next unit's read slot on their way past.
+const Row ROWS[4] = {
+	//  base   in      out     tap      wr       write       s28            s24            s26              s22
+	{  0x16e, LPF,    ROW_L,  TAP_ODD, TAP_ODD,  SET_LATCH, { {DEC_NONE, 0}, {DEC_READ, 0},  {DEC_CAPTURE, TAP_EVEN}, {DEC_NONE, 0} } },
+	{  0x174, ROW_L,  ROW_L,  TAP_EVEN,TAP_EVEN, WRITE_OWN, { {DEC_NONE, 0}, {DEC_NONE, 0},  {DEC_CAPTURE, LINE},    {DEC_NONE, 0} } },
+	{  0x184, ROW_L,  ROW_L,  TAP_ODD, TAP_ODD,  WRITE_OWN, { {DEC_CAPTURE, TAP_EVEN}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 12} } },
+	{  0x188, ROW_R,  ROW_R,  TAP_EVEN,TAP_ODD,  WRITE_OWN, { {DEC_NONE, 0}, {DEC_NONE, 0},  {DEC_NONE, 0},         {DEC_NONE, 0} } },
+};
+
+// r[out] = 2 * (k * m[cell] + acc): the unit's read of its own line, closing the s28 word into the
+// chain's sum. The route is the x2 the row's own words are half of.
+void row_read(yss236_core& c, int st, int cell, int out)
+{
+	run(c, { st, 0, cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, out });
+}
+
+// k * m[cell] + acc, saturated, and the delay line's next write: the unit's s22 word, its own line out
+// of its read slot. It carries w1[13], so it either latches the result for the writer two steps along
+// or is that writer itself, and a writer clears any latched data and writes its own result.
+void row_write(yss236_core& c, int st, int cell, delay_t w)
+{
+	run(c, { st, 0, cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0, false, 0, false, false, w == SET_LATCH, w == WRITE_OWN });
+}
+
+// One row unit's step at base + k. The first unit's write is two steps behind its own latched result,
+// one step of padding and then the class-0 writer, whose step over four is the write slot the firmware
+// chose; the other three units write where they stand.
+void row_unit(yss236_core& c, int st, Row const& w)
+{
+	int const k = st - w.base;
+	if (k > 3)
+	{
+		if (k == 5) write_delay_latched(c, st);
+		idle(c);
+		return;
+	}
+	decor(c, st, w.decor[k]);
+	switch (k)
+	{
+	case 0:  term(c, st, w.in); break;                    // s28: the unit's own word on its input
+	case 1:  row_read(c, st, w.tap, w.out); break;        // s24: its read slot, closing into the chain
+	case 2:  term(c, st, w.in); break;                    // s26: the feedback word on the same input
+	default: row_write(c, st, w.wr, w.write); break;      // s22: the unit's own line into its write slot
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x178 to 0x183: the main line's feedback, its two taps and its own write
+// ---------------------------------------------------------------------------------------------
+
+// The main line's own output, at half level, into each of the two row chains' sums.
+const int TAPS[2] = { ROW_L, ROW_R };
+
+// 0x17b and 0x17c: 2 * k * m[54] into the register the chain sums into, with the adder off, so the
+// line's output is the only term.
+void line_tap(yss236_core& c, int st, int out)
+{
+	run(c, { st, 0, LINE, M2_CELL, false, 0, ADD_OFF, false, ROUTE_2, CLAMP_SAT, out });
+}
+
+// The block, in two halves. The first six steps are the feedback off the line's own tap and the write
+// that spends it: var::KARAOKE_LEVEL's two words on the tap, then this block's own third word on the
+// feedback cell, which that step reads and writes at once, then the same tap at half level into each of
+// the two row chains, then the chain's sum and the feedback added together and latched for the writer at
+// 0x183. The rest is idle but for the reads the last two row units are fed by and the write itself.
+void main_line(yss236_core& c, int st)
+{
+	if (st < 0x17e)
+	{
+		switch (st)
+		{
+		case 0x178: term_cell(c, st, LINE); break;     // var::KARAOKE_LEVEL[1] on the line's tap
+		case 0x179: sum_cell(c, st, LINE); break;      // var::KARAOKE_LEVEL[0] onto that
+		case 0x17a:
+			// The feedback onto itself a pass back. The cell still holds the previous pass's sum, which
+			// is what the adder adds, and the result goes back into it.
+			run(c, { st, 0, FB, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0, false, FB });
+			break;
+		case 0x17d:
+			// The line's own write: the row chain's sum on this step's word, the feedback cell as the
+			// adder's input, and the result latched for 0x183.
+			run(c, { st, ROW_L, FB, M2_REG, false, 0, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 0, false, 0, false, false, true });
+			break;
+		case 0x17b:
+		case 0x17c:
+			if (st == 0x17b) read_delay(c, st);        // the slot 0x5E, the third unit's read slot
+			line_tap(c, st, TAPS[st - 0x17b]);
+			break;
+		}
+		return;
+	}
+
+	switch (st)
+	{
+	case 0x17f: read_delay(c, st); break;                 // the slot 0x5F, the fourth unit's read slot
+	case 0x180: take_capture(c, TAP_ODD, st); break;      // the read of 0x17b, five steps earlier
+	case 0x183: write_delay_latched(c, st); break;        // the line's own write, the slot 0x60
+	default: break;
+	}
+	idle(c);
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x18c to 0x18f: the dry/wet pan, var::KARAOKE_PAN's four words
+// ---------------------------------------------------------------------------------------------
+
+// One channel's two words: the dry word on the input the base program left in r[5] or r[6] opens the
+// running value and the wet word closes the pair into the output register, quadrupled and saturated.
+// The read of the base program's slot 0x63 rides on the right channel's closing step, and m[31] takes
+// it up five steps later in the tail.
+struct Pan { int base; int src, wet, out; Decor decor[2]; };
+
+const Pan PANS[2] = {
+	//  base  src  wet     out
+	{  0x18c,   5, ROW_L,  15, { {DEC_NONE, 0}, {DEC_NONE, 0} } },
+	{  0x18e,   6, ROW_R,  16, { {DEC_NONE, 0}, {DEC_READ, 0 } } },
+};
+
+// One channel's step at base + k.
+void pan(yss236_core& c, int st, Pan const& p)
+{
+	decor(c, st, p.decor[st - p.base]);
+	switch (st - p.base)
+	{
+	case 0:  term(c, st, p.src); break;                   // var::KARAOKE_PAN[0] or [2], the dry word
+	default: close(c, st, p.wet, p.out, ROUTE_4); break;  // and [1] or [3], the wet word
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The run of steps 0x158 to 0x19f, the whole of the window's program
+// ---------------------------------------------------------------------------------------------
+
+// The loop is one iteration per step and carries the m_skip guard step() opens with, so a gate in the
+// base program's 0x1xx half skips these steps as it would the interpreter's. Each test below is one of
+// the groups the comments at the head of this file open.
 void block_0x158(yss236_core& c)
 {
-    double* const r = c.r;                 // the 128 registers
-    double* const m = c.m;                 // the 64 cells
-    double xv, k, prod, a, y, outv;
+	for (int st = 0x158; st < 0x1a0; st++)
+	{
+		c.begin_step();
+		if (st < c.m_skip) continue;
 
-    // The step's x operand: the register r[sr] into the latch every step but a class-2/3 one moves, and
-    // xv alongside it for the multiplier.
-    auto fetch = [&](int sr) { xv = sr ? r[sr] : 0.0; c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = sr != 0; };
+		if (st < 0x15a) { mono(c, st); continue; }                                  // the mono sum
+		if (st < 0x160) { tone(c, st, TONES[(st - 0x15a) / 3]); continue; }        // the two poles
+		if (st < 0x16e) { published(c, st); continue; }                             // the published reads
+		if (st < 0x178) { row_unit(c, st, ROWS[(st - 0x16e) / 6]); continue; }     // row units 1 and 2
+		if (st < 0x184) { main_line(c, st); continue; }                            // the main line
+		if (st < 0x18c) { row_unit(c, st, ROWS[2 + (st - 0x184) / 4]); continue; } // row units 3 and 4
+		if (st < 0x190) { pan(c, st, PANS[(st - 0x18c) / 2]); continue; }          // the two outputs
 
-    for (int st = 0x158; st < 0x1a0; st++)
-    {
-        c.begin_step();
-        if (st < c.m_skip) continue;
-        switch (st)
-        {
-// ---- 0x158 to 0x15f, the two inputs and the host's two tone filters -----------------------------
-// m[2] takes the left serial input; the left input alone, at the running value
-        case 0x158:
-            c.queue_d(2, c.in[0][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[6] takes the right serial input; r[103] = saturate(2 * (k * r[6] + k * r[5])), the mono sum the
-// whole chain runs on
-        case 0x159:
-            c.queue_d(6, c.in[1][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(103, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// var::KARAOKE_HPF[2]: the high-pass pole's -a1 on its own state, r[104]
-        case 0x15a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// var::KARAOKE_HPF[1]: b1 on the mono, onto that pole term, and the read of the slot 0x56 the base
-// program published (published in m[28] at 0x160)
-        case 0x15b:
-            c.push_hist(st, c.ram[c.addr(0x56, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// var::KARAOKE_HPF[0]: b0 on the mono, doubled and saturating, into r[104]
-        case 0x15c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(104, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// var::KARAOKE_LPF[2]: the low-pass pole's -a1 on r[105]
-        case 0x15d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// var::KARAOKE_LPF[1]: b1 on the high-pass's output, r[104]
-        case 0x15e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// var::KARAOKE_LPF[0]: b0 on r[104], doubled and saturating, into r[105], and the read of the slot
-// 0x57 the base program published (published in m[29] at 0x164)
-        case 0x15f:
-            c.push_hist(st, c.ram[c.addr(0x57, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(105, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x160 to 0x16d, the published reads and the first two row taps -----------------------------
-// m[28] takes up the read of 0x15b
-        case 0x160:
-            c.queue_d(28, c.captured(m[28], st));
-            fetch(0);
-            break;
-        case 0x161: case 0x162:
-            fetch(0);
-            break;
-// the read of the slot 0x58, which m[30] takes up at 0x168
-        case 0x163:
-            c.push_hist(st, c.ram[c.addr(0x58, 0, false)]);
-            fetch(0);
-            break;
-// m[29] takes up the read of 0x15f
-        case 0x164:
-            c.queue_d(29, c.captured(m[29], st));
-            fetch(0);
-            break;
-        case 0x165: case 0x166:
-            fetch(0);
-            break;
-// the first row line's tap, the slot 0x59, and the page's LFO into m[11]
-        case 0x167:
-            c.push_hist(st, c.ram[c.addr(0x59, 0, false)]);
-            c.queue_d(11, c.lfo[11]);
-            fetch(0);
-            break;
-// m[30] takes up the read of 0x163
-        case 0x168:
-            c.queue_d(30, c.captured(m[30], st));
-            fetch(0);
-            break;
-        case 0x169: case 0x16a:
-            fetch(0);
-            break;
-// the second row line's tap, the slot 0x5A
-        case 0x16b:
-            c.push_hist(st, c.ram[c.addr(0x5A, 0, false)]);
-            fetch(0);
-            break;
-// m[60] takes up the read of 0x167: the first row line's tap, five steps later
-        case 0x16c:
-            c.queue_d(60, c.captured(m[60], st));
-            fetch(0);
-            break;
-        case 0x16d:
-            fetch(0);
-            break;
-// ---- 0x16e to 0x173, the first row unit, var::KARAOKE_ROW_STEPS[0..3] ----------------------------
-// the row's input word on the filtered mono
-        case 0x16e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the read of the slot 0x5B, the main line's tap, on the row's sum, doubled and saturating, into
-// r[120]
-        case 0x16f:
-            c.push_hist(st, c.ram[c.addr(0x5B, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[60];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(120, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// m[61] takes up the read of 0x16b: the second row line's tap; the row's feedback word on the
-// filtered mono
-        case 0x170:
-            c.queue_d(61, c.captured(m[61], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// var::KARAOKE_ROW_STEPS[3]: the row's own line, the slot 0x5C, which this step latches and 0x173
-// writes. It carries w1[13] and is not a writer, so it latches its result and leaves the write to
-// 0x173.
-        case 0x171:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[60];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.wlatch = outv;
-            c.haswl = true;
-            break;
-        case 0x172:
-            fetch(0);
-            break;
-// the write of the first row line into the slot 0x5C: whatever 0x171 latched
-        case 0x173:
-            fetch(0);
-            if (c.haswl) { c.ram[c.addr(0x5C, 0, false)] = c.wlatch; c.haswl = false; }
-            break;
-// ---- 0x174 to 0x177, the second row unit, var::KARAOKE_ROW_STEPS[4..7] ---------------------------
-// the row's input word on r[120], the first unit's sum
-        case 0x174:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the second line's tap, m[61], onto that, doubled and saturating, into r[120] again
-        case 0x175:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[61];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(120, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// m[54] takes up the read of 0x16f: the main line's tap, the slot 0x5B
-        case 0x176:
-            c.queue_d(54, c.captured(m[54], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// var::KARAOKE_ROW_STEPS[7]: the second row line's own write into the slot 0x5D. This step carries
-// w1[13] and is itself a writer, so it writes its own result and takes no latch.
-        case 0x177:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[61];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.haswl = false;
-            c.ram[c.addr(0x5D, 0, false)] = outv;
-            break;
-// ---- 0x178 to 0x183, the main line's feedback and its write ---------------------------------------
-// var::KARAOKE_LEVEL[1]: the feedback level on the main line's tap, m[54]
-        case 0x178:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[54];
-            prod = k * c.src;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// var::KARAOKE_LEVEL[0]: the same word again, onto the running value
-        case 0x179:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[54];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the feedback onto itself a pass back, into m[55]. The step reads its own cell and writes it, and
-// writes it because the adder is not off: the cell still holds the previous pass's sum.
-        case 0x17a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[55];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.queue_d(55, yss236_core::clip(y, yss236_core::DSAT));
-            break;
-// the main line's output, the slot 0x5E's read is on the way past, at half level into r[120]
-        case 0x17b:
-            c.push_hist(st, c.ram[c.addr(0x5E, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[54];
-            prod = k * c.src;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(120, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the same tap at half level into r[121]
-        case 0x17c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[54];
-            prod = k * c.src;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(121, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the main line's write: r[120] and the feedback m[55] together, saturating, latched for 0x183
-        case 0x17d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[55];
-            prod = k * xv;
-            a = c.src;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.wlatch = outv;
-            c.haswl = true;
-            break;
-        case 0x17e:
-            fetch(0);
-            break;
-// the third row line's tap, the slot 0x5F, on the way to m[61]
-        case 0x17f:
-            c.push_hist(st, c.ram[c.addr(0x5F, 0, false)]);
-            fetch(0);
-            break;
-// m[60] takes up the read of 0x17b: the third row line's tap, five steps later
-        case 0x180:
-            c.queue_d(60, c.captured(m[60], st));
-            fetch(0);
-            break;
-        case 0x181: case 0x182:
-            fetch(0);
-            break;
-// the main line's write into the slot 0x60, var::KARAOKE_SLOTS[0]: whatever 0x17d latched. This
-// step does not carry w1[13], so it writes the latch rather than its own result.
-        case 0x183:
-            fetch(0);
-            if (c.haswl) { c.ram[c.addr(0x60, 0, false)] = c.wlatch; c.haswl = false; }
-            break;
-// ---- 0x184 to 0x18b, the third and fourth row units, var::KARAOKE_ROW_STEPS[8..15] ----------------
-// m[61] takes up the read of 0x17f: the fourth row line's tap; the row's input word on r[120], which
-// is half the main line's tap from 0x17b
-        case 0x184:
-            c.queue_d(61, c.captured(m[61], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the third line's tap, m[60], onto that, doubled and saturating, into r[120] again
-        case 0x185:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[60];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(120, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the row's feedback word on r[120]
-        case 0x186:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// var::KARAOKE_ROW_STEPS[11]: the third row line's own write into the slot 0x61, and the page's LFO
-// into m[12]. Carries w1[13] and is a writer, so it writes its own result.
-        case 0x187:
-            c.queue_d(12, c.lfo[12]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[60];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.haswl = false;
-            c.ram[c.addr(0x61, 0, false)] = outv;
-            break;
-// the row's input word on r[121], half the main line's tap from 0x17c
-        case 0x188:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// the fourth line's tap, m[61], onto that, doubled and saturating, into r[121] again
-        case 0x189:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[61];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(121, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// the row's feedback word on r[121], which 0x18b writes into the slot 0x62
-        case 0x18a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// var::KARAOKE_ROW_STEPS[15]: the fourth row line's own write into the slot 0x62. Carries w1[13] and
-// is a writer, so it writes its own result.
-        case 0x18b:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(0);
-            c.psrc = c.src; c.src = m[60];
-            prod = k * c.src;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 1);
-            outv = yss236_core::clip(y, yss236_core::SAT);
-            c.haswl = false;
-            c.ram[c.addr(0x62, 0, false)] = outv;
-            break;
-// ---- 0x18c to 0x18f, the pan and the two outputs ------------------------------------------------
-// var::KARAOKE_PAN[0]: the left input on the running value
-        case 0x18c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// var::KARAOKE_PAN[1]: r[120], the wet sum, onto that, four times and saturating, into r[15]
-        case 0x18d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(120);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(15, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// var::KARAOKE_PAN[2]: the right input on the running value
-        case 0x18e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// var::KARAOKE_PAN[3]: r[121], the wet sum, onto that, four times and saturating, into r[16]; the
-// read of the slot 0x63 rides on this step and m[31] takes it up at 0x194
-        case 0x18f:
-            c.push_hist(st, c.ram[c.addr(0x63, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(121);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(16, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x190 to 0x19f, the tail: three published reads, the rest idle -----------------------------
-        case 0x190: case 0x191: case 0x192:
-            fetch(0);
-            break;
-// the read of the slot 0x64, five steps before the capture at 0x198 that takes it
-        case 0x193:
-            c.push_hist(st, c.ram[c.addr(0x64, 0, false)]);
-            fetch(0);
-            break;
-// m[31] takes up the read of 0x18f
-        case 0x194:
-            c.queue_d(31, c.captured(m[31], st));
-            fetch(0);
-            break;
-        case 0x195: case 0x196:
-            fetch(0);
-            break;
-// the read of the slot 0x65, five steps before 0x19c
-        case 0x197:
-            c.push_hist(st, c.ram[c.addr(0x65, 0, false)]);
-            fetch(0);
-            break;
-// m[32] takes up the read of 0x193
-        case 0x198:
-            c.queue_d(32, c.captured(m[32], st));
-            fetch(0);
-            break;
-        case 0x199: case 0x19a: case 0x19b:
-            fetch(0);
-            break;
-// m[33] takes up the read of 0x197
-        case 0x19c:
-            c.queue_d(33, c.captured(m[33], st));
-            fetch(0);
-            break;
-        case 0x19d: case 0x19e: case 0x19f:
-            fetch(0);
-            break;
-        }
-    }
+		// ---- 0x190 to 0x19f, the tail ----
+		// Two more of the base program's own reads, the slots 0x64 and 0x65, and the three captures
+		// that take up the read of 0x18f and of those two, five steps after each read. Every other
+		// step of the tail is idle but for the x latch.
+		int const k = st - 0x18f;
+		if (k == 4 || k == 8) read_delay(c, st);
+		else if (k == 5 || k == 9 || k == 13) take_capture(c, 31 + (k - 5) / 4, st);
+		idle(c);
+	}
 }
 
 }  // namespace
@@ -644,8 +414,8 @@ void block_0x158(yss236_core& c)
 // one run; a range no host builds falls back to the interpreter.
 void var_m09(yss236_core& c, int from, int to)
 {
-    if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
-    for (int st = from; st < to; st++) c.step(st);
+	if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
+	for (int st = from; st < to; st++) c.step(st);
 }
 
 }  // namespace fs1r::native
