@@ -44,6 +44,7 @@ void Device::setSpeed(int s) {
     const auto& k = kS[s < 0 ? 0 : s > 3 ? 3 : s];
     p->s.gateDb = k.gateDb, p->s.ctlDecimation = k.ctl, p->linear = k.linear;
 }
+void Device::setFilterPoly32(bool on) { p->s.filter32 = on; }   // render latches it
 void Device::forceChannel(int channel) { p->s.forceChannel = channel; }
 
 void Device::process(float* outL, float* outR, int n) {

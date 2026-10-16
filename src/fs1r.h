@@ -32,6 +32,9 @@ public:
     // trades accuracy for CPU on purpose: quiet operators are gated sooner, the control maths runs less often and,
     // from Fast on, the resampler to the host rate is linear. Call it from the audio thread, between process calls.
     void setSpeed(int s);
+    // Ours: a part with its filter on plays 32 voices, on two filter chips (the default), or the unit's 16 (off).
+    // A change stops every note, as a filter switch does. Call it from the audio thread, between process calls.
+    void setFilterPoly32(bool on);
 
     // ---- MIDI. One channel message or one complete sysex message per call.
     void sendMidi(const uint8_t* bytes, size_t len);

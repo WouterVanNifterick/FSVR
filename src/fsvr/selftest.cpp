@@ -462,10 +462,11 @@ int selftest(Synth& S) {
       auto A = std::make_unique<Synth>(), B = std::make_unique<Synth>(), C = std::make_unique<Synth>();
       open(*A); open(*B); open(*C);
       B->perf.part[0].p[7] = 1; C->perf.part[0].p[7] = 1;
+      C->filter32 = false;                                 // the unit's split, which the next checks are about
       note(*A, 0, 96, l0, r0);                             // no filter anywhere
       note(*B, 0, 96, l1, r1);                             // the same note with part 1's filter on, cutoff 40
       int at = -1; for (int i = 0; i < NCHAN; i++) if (B->ch[i].active) at = i;
-      ck("engine: a part with its filter on plays on the filter's channels", at >= 0 && at < 16 && B->flt.host.slotPart[at] == 0);
+      ck("engine: a part with its filter on plays on the filter's channels", at >= 0 && at < 16 && B->flt[0].host.slotPart[at] == 0);
       ck("engine: a filtered note loses its top", energy(l1) < 0.1 * energy(l0) && energy(l1) > 0);
       auto D = std::make_unique<Synth>();
       note(*D, 1, 60, l0, r0);                             // part 2 alone, no filter anywhere
@@ -475,7 +476,17 @@ int selftest(Synth& S) {
       ck("engine: and sounds exactly as it does with no filter anywhere", l2 == l0 && r2 == r0 && energy(l0) > 0);
       // a switch that changes stops every channel, as on the unit
       C->perf.part[1].p[7] = 1; C->render(l2.data(), r2.data(), 16);
-      ck("engine: changing a filter switch stops every note", C->active_chans() == 0); }
+      ck("engine: changing a filter switch stops every note", C->active_chans() == 0);
+      // Ours: two filter chips, so a filtered part plays 32 voices, filtered on both; the unit's 16 with filter32 off.
+      for (int wide = 0; wide < 2; wide++) {
+          auto E = std::make_unique<Synth>(); open(*E); E->perf.part[0].p[7] = 1; E->perf.part[0].p[0] = 32; E->filter32 = wide;
+          for (int n = 0; n < 32; n++) E->note_on(0, 40 + n, 100);
+          std::vector<float> l(4800), r(4800); E->render(l.data(), r.data(), (int)l.size());
+          int busy = 0, onChip1 = 0; for (int s = 0; s < 16; s++) onChip1 += E->flt[1].host.slotPart[s] == 0;
+          for (auto& c : E->ch) busy += c.active && c.filtered;
+          if (wide) ck("engine: 32 filtered voices on two filter chips", busy == 32 && onChip1 == 16 && energy(l) > 0);
+          else ck("engine: 16 filtered voices on the unit's one chip", busy == 16 && onChip1 == 0);
+      } }
 
     // A part whose voice bank is off receives nothing even with a receive channel (A011 Sho, parts 3 and 4).
     { S.perf.part[1].p[1] = 0; S.perf.part[1].p[4] = 0x10; ck("bank off silences the part", !S.part_listens(1, 0)); S.perf.part[1].p[1] = 2; ck("bank on hears it again", S.part_listens(1, 0)); }
@@ -709,16 +720,16 @@ int selftest(Synth& S) {
               in.egKind = egview::FILTER; in.velSens = 3; in.timeScale = 2; in.part[0] = 70; in.part[1] = 58; in.part[2] = 64;
               for (int i = 0; i < 4; i++) in.L[i] = fL[i], in.T[i] = fT[i] - 22;
               const egview::EgCurve g = egview::curve(in);
-              const Vop3::Eg& eg = S.flt.chip.eg[(slot + 2) & 15];
+              const Vop3::Eg& eg = S.flt[0].chip.eg[(slot + 2) & 15];
               float l[1], r[1]; std::vector<double> at;
               for (int k = 1, st = 1; k < SR * 2 && at.size() < 2; k++) {
                   S.render(l, r, 1);
-                  if (S.flt.host.stage[slot] != st) st = S.flt.host.stage[slot], at.push_back(k / (double)SR);
+                  if (S.flt[0].host.stage[slot] != st) st = S.flt[0].host.stage[slot], at.push_back(k / (double)SR);
               }
               bool ok = at.size() == 2;
               for (size_t i = 0; ok && i < 2; i++) ok = fabs(g.t[(size_t)g.corner[i]] / at[i] - 1) < 0.05;
               ck("egview: the filter EG ends its first two segments where the chip does", ok);
-              ck("filter EG: the host's stage follows the chip's reports", S.flt.host.stage[slot] == 3);
+              ck("filter EG: the host's stage follows the chip's reports", S.flt[0].host.stage[slot] == 3);
               // the view draws the release from level 3 to within a unit of level 4, which gives its segment's time
               const double from = eg.level, to = (fL[3] - 50) * 256 / 50, T4 = g.t.back() * log(3.0) / log(fabs((fL[2] - fL[3]) * 256 / 50.0));
               S.midi_in(0x80, 72, 0);

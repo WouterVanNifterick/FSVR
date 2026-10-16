@@ -379,6 +379,11 @@ int main() {
             CHECK(peak > 1e-4f, "at Fastest the engine made no sound (peak %g)", peak);
             CHECK(u.until([&] { return has("\"speed\": 3"); }), "Settings.json did not follow Quality / Speed");
             u.set("opt.speed", 0);
+            // 32 Filtered Voices is on by default and its toggle reaches Settings.json
+            CHECK(u.get("opt.filter32") == 1, "32 Filtered Voices was not on by default");
+            u.click("pages/list/special/filter32");
+            CHECK(u.until([&] { return u.get("opt.filter32") == 0 && has("\"filter32\": 0"); }), "Settings.json did not follow 32 Filtered Voices");
+            u.click("pages/list/special/filter32");
             u.shot("options");
         }
 

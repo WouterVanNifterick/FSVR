@@ -36734,5 +36734,18 @@
   ],
   "default": 0,
   "host": false
+ },
+ {
+  "id": "opt.filter32",
+  "name": "32 Filtered Voices",
+  "min": 0,
+  "max": 1,
+  "steps": 1,
+  "labels": [
+   "Off",
+   "On"
+  ],
+  "default": 1,
+  "host": false
  }
 ]

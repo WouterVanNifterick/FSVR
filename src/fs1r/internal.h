@@ -337,6 +337,7 @@ struct Chan {
     OpState op[8]; double fbBus = 0, fbPrev = 0;
     double f0 = 0, fbGain = 0; int ctlLeft = 0;                    // control-rate cache, see refresh_ctl
     bool fseqOp[8] = {}, fseqUOp[8] = {};
+    bool filtered = false;     // its note went through a filter slot: flt[n >> 4], slot n & 15
 };
 
 struct Synth {
@@ -349,7 +350,10 @@ struct Synth {
     int nextChan[3] = {0, 0, FILTER_CHANNELS}, partChan[4] = {0, 0, 0, 0};
     Effects fx;
     // The voice filters, on their own chip. fltSw is the parts' filter switches as last latched, a bit a part.
-    Filter flt; int fltSw = 0;
+    // Ours (docs/Differences.md): filter32 runs a second VOP3-1 on channels 16 to 31, so a part with its
+    // filter on plays all 32 voices instead of the unit's 16. fltWide is it as last latched.
+    Filter flt[2]; int fltSw = 0; bool filter32 = true, fltWide = false;
+    int flt_chips() const { return fltSw ? (fltWide ? 2 : 1) : 0; }
     void filter_latch();                       // FUN_0002087e: a switch that changed stops every channel
     void filter_sync(int part);                // the part's voice, record and controllers, into the filter host
     // FUN_0002c36c: LFO1 into a slot's cutoff. The fade takes twice the controller's offset, destination 42.
@@ -452,7 +456,7 @@ struct Synth {
         for (auto& c : ch) c.active = false;
         for (auto& p : perf.part) { p.nheld = 0; }
         fseqRun = false; fseqHeld = false;
-        if (fltSw) for (int s = 0; s < FILTER_CHANNELS; s++) flt.host.kill(s);   // FUN_00010384
+        for (int k = 0; k < flt_chips(); k++) for (int s = 0; s < FILTER_CHANNELS; s++) flt[k].host.kill(s);   // FUN_00010384
     }
     void all_release() { for (auto& c : ch) if (c.active && (c.held || c.sustained)) { c.held = c.sustained = false; release(c); } for (auto& p : perf.part) p.nheld = 0; }
 
