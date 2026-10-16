@@ -19,8 +19,8 @@
 #include "fs1r/tables.h"
 #include "fs1r/hardware.h"
 #include "fs1r/cal.h"
-#include "fsvr/tuning.h"
-#include "fsvr/fastmath.h"
+#include "engine/tuning.h"
+#include "math/fastmath.h"
 #include "engine/scales.h"
 #include "presets/voice.h"
 #include "presets/performance.h"
@@ -228,4 +228,4 @@ struct Synth {
     void render(float* outL, float* outR, int frames);
 };
 
-int selftest(Synth& S);   // fsvr/selftest.cpp
+int selftest(Synth& S);   // selftest/selftest.cpp

@@ -2,7 +2,7 @@
 #pragma once
 #include <algorithm>
 #include "fs1r/tables.h"
-#include "fsvr/fastmath.h"
+#include "math/fastmath.h"
 
 static inline int eb86(int v) { return std::min(255, (((v & 0xFF) << 1) * 0xA5) >> 7); }   // 0..99 -> 0..127
 static inline int eb70(int v) { return (((v & 0xFF) << 1) * 0xA5) >> 8; }                   // 0..99 -> 0..127 (bandwidth)

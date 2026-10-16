@@ -5,7 +5,7 @@
 // answer is that we read it wrong, not that it needs tuning. See STATUS.md, the KNOWN list.
 //
 // Quantities we have measured but not read are in fs1r/cal.h. Quantities that are ours rather
-// than the hardware's are in fsvr/tuning.h.
+// than the hardware's are in engine/tuning.h.
 #pragma once
 
 static const int SR = 48000;   // the hardware rate; fs1r::Device resamples to the host

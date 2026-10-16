@@ -17,7 +17,7 @@
 // entry in docs/findings.md.
 //
 // Facts read off the board are in fs1r/hardware.h. Knobs that are ours rather than the hardware's,
-// and which must never change the output, are in fsvr/tuning.h.
+// and which must never change the output, are in engine/tuning.h.
 #pragma once
 #include <cmath>
 #include "fs1r/hardware.h"

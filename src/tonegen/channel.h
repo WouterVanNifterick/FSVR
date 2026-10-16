@@ -54,7 +54,7 @@ struct Chan {
 // every sample. Its inputs only move on the 192 Hz register tick and the voice parameters, and doing
 // it per sample (a dozen pow() calls per operator) was the whole CPU bill. The one input that moves
 // every sample, an operator's own pitch EG, stays in the sample loop while it runs: its integral is
-// the phase. The rate itself is ours, not the hardware's, so it lives in fsvr/tuning.h.
+// the phase. The rate itself is ours, not the hardware's, so it lives in engine/tuning.h.
 // fseq: the part's Fseq is driving the operators this tick (Synth::fseq_on).
 void refresh_ctl(Chan& C, const Voice& V, bool fseq);
 // The channel's own word, before the filter and the pan. gateDb and ctlDecimation are Synth's cost knobs.

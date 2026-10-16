@@ -12,5 +12,5 @@ What the FS1R itself holds or does, as numbers: read off the board, out of the E
 | `cal.h` | every modelled constant, each naming the document that measured it | INFERRED: **the** file to edit when calibrating |
 
 ## Rules
-- A value goes here only if the hardware has it. FSVR's own knobs go in `src/fsvr/tuning.h`.
+- A value goes here only if the hardware has it. FSVR's own knobs go in `src/engine/tuning.h`.
 - A disagreement with the unit means the value was read wrong, or for `cal.h`, is not yet calibrated.

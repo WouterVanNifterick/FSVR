@@ -15,4 +15,4 @@ Reads down: envelope, operator and noise are per operator; a channel runs eight 
 
 ## Rules
 - Changing anything here changes the sound: run the capture bench and the demo renders before shipping (`AGENTS.md`, Before you say it works).
-- The per-sample path goes through `fsvr/fastmath.h`; the control-rate maths may use libm.
+- The per-sample path goes through `math/fastmath.h`; the control-rate maths may use libm.

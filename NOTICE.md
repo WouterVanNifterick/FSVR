@@ -19,7 +19,7 @@ These are Yamaha's data. They are included because the emulation is worthless wi
 
 **Not in this repository:** the FS1R firmware, the EPROM image and the SH7044 flash. You need your own dump to use `-r` or `tools/extract_*.py`.
 
-**Documentation quoted from:** the FS1R owner's manual and Data List (Yamaha, 1998) and US patent 5,610,354. The text files under `docs/` are conversions kept for reference while working; the parameter tables in `plugin/generated/parameterDescriptions_fs1r.json` are derived from them. `src/fsvr/display.h` is transcribed from K_Take's freeware FS1R Editor, with credit in the file.
+**Documentation quoted from:** the FS1R owner's manual and Data List (Yamaha, 1998) and US patent 5,610,354. The text files under `docs/` are conversions kept for reference while working; the parameter tables in `plugin/generated/parameterDescriptions_fs1r.json` are derived from them. `src/display/display.h` is transcribed from K_Take's freeware FS1R Editor, with credit in the file.
 
 **The editor** features aspects under their own licences: glyphs of the [Saira](https://fonts.google.com/specimen/Saira) typeface (SIL Open Font License 1.1), icons from Google's [Material Symbols](https://fonts.google.com/icons) (Apache License 2.0), and the expert pages' icons, rendered from [Fontaudio](https://github.com/fefanto/fontaudio)'s `fad-cpu`, `fad-ADSR`, `fad-modsine`, `fad-keyboard`, `fad-filter-lowpass` and `fad-arpup` by fefanto (CC BY 4.0, the SVGs unchanged in `blender/icons/`). The layouts in `plugin/skin/views` and the tables in `plugin/skin/data` are this project's.
 

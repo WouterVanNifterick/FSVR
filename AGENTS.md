@@ -25,8 +25,8 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 | `src/engine/`, `src/presets/`, `src/effects/host/`, `src/filters/filter_host.*` | **KNOWN**, rewritten from the disassembly | you have a bug. Go read the firmware |
 | `src/tonegen/`, `src/modulators/` | **INFERRED**, modelled; constants in `cal.h` | it needs calibrating against a recording |
 | `src/filters/`, `src/effects/`, `src/dsp/` (the DSP) | **KNOWN**, bit for bit what the firmware's DSP programs compute | you changed the sound; `dsp_check` says so |
-| `src/fsvr/` | **ours**, no hardware counterpart | nothing. The hardware has no opinion |
-| `src/fsvr/tuning.h` | our cost knobs | nothing, and changing one must not alter the output |
+| `src/device/`, `src/math/`, `src/display/`, `src/io/`, `src/selftest/`, `src/console/` | **ours**, no hardware counterpart | nothing. The hardware has no opinion |
+| `src/engine/tuning.h` | our cost knobs | nothing, and changing one must not alter the output |
 | `plugin/` | the plug-in: processor, bank manager, Import Audio | it never models synthesis, see below |
 | `plugin/skin/` | the editor, edited in place with Hollow's web editor | nothing; the hardware has no opinion (`docs/editor.md`) |
 | `hollow/` | the plug-in framework, Hollow's `framework/` | nothing. Keep it in step with Hollow's copy |
@@ -45,7 +45,7 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 
 **Generated files are generated.** Do not hand-edit anything in `plugin/generated/`, nor `src/fs1r/tables.h` or `algorithms.h`. Change the generator or its source and re-run it. `plugin/generated/README.md` names each generator. `plugin/skin/` is not generated: it is the source, edited in place with the web editor of the Hollow project beside this repository (`python hollow.py editor` there opens it by default). Its params and `data/fs1r_sysex.json` were made from `plugin/generated/` once, so a change to the parameter descriptions reaches the skin only by editing it there too.
 
-**Scale is not fidelity.** `src/fsvr/tuning.h` holds knobs that trade CPU for nothing else. If changing one moves a measurement, the value is wrong, not the hardware's.
+**Scale is not fidelity.** `src/engine/tuning.h` holds knobs that trade CPU for nothing else. If changing one moves a measurement, the value is wrong, not the hardware's.
 
 ## Releases
 

@@ -4,7 +4,7 @@
 #include <cmath>
 #include "fs1r/hardware.h"
 #include "fs1r/cal.h"
-#include "fsvr/fastmath.h"
+#include "math/fastmath.h"
 #include "presets/voice.h"
 #include "tonegen/envelope.h"
 
@@ -24,7 +24,7 @@ static inline double word_hz(double w) { return 440.0 * fm::exp2((std::clamp(w, 
 extern float g_win[2][8][1025];
 extern float g_winDC[2][8];
 void init_tables();
-// The sine and the level path go through fsvr/fastmath.h, which is where the backend is chosen.
+// The sine and the level path go through math/fastmath.h, which is where the backend is chosen.
 static inline double fsin(double ph) { return fm::sin_turns(ph); }
 static inline float fwin(int fam, int s, double x) { double y = x * 1024.0; int i = (int)y; if (i >= 1024) return 0.f; float f = (float)(y - i); const float* w = g_win[fam][s]; return w[i] + (w[i + 1] - w[i]) * f; }
 // The per-sample level path: anything at or under -128 dB is silence, the rest is the backend's.

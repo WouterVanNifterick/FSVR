@@ -208,13 +208,13 @@ The engine, one folder a part. **KNOWN** parts are rewritten from the disassembl
 - `src/effects/` the effects: `programs.h` their shared state and one file a program, `effects.h` the section, `host/` the firmware's effect host
 - `src/dsp/` what the filters and effects share: `word.h` the DSPs' number format, `sink.h` how a host talks to its section. `tools/dsp_check.cpp` pins the filters' and effects' output and `tools/dsp_bench.cpp` times it
 
-`src/fsvr/` is **ours**. Nothing in the hardware corresponds to any of it.
+Ours, with no hardware counterpart:
 
-- `tuning.h` cost knobs, the control-rate decimation and the queue cap. Changing one must not change the output
-- `fastmath.h`, `fastmath.cpp` the sample loop's sine, 2^x and dB: a table (the default), CORDIC, a hybrid of the two, or raw libm, chosen by `FSVR_MATH`
-- `device.cpp` `fs1r::Device`, host-rate resampling and state as bulk dumps
-- `smf.h` Standard MIDI File reading; `selftest.cpp` the engine self check
-- `display.h` how the unit shows values, for editors and displays: fixed operator frequencies, ratios and every effect parameter value, with each effect type's parameter slots. Transcribed from K_Take's [FS1R Editor](https://synth-voice.sakura.ne.jp/fs1r_editor_english.html) (freeware) and checked against the Data List and the ROM
+- `src/device/` `fs1r::Device`, host-rate resampling and state as bulk dumps
+- `src/math/` the sample loop's sine, 2^x and dB: a table (the default), CORDIC, a hybrid of the two, or raw libm, chosen by `FSVR_MATH`
+- `src/engine/tuning.h` cost knobs, the control-rate decimation and the queue cap. Changing one must not change the output
+- `src/display/` how the unit shows values (transcribed from K_Take's [FS1R Editor](https://synth-voice.sakura.ne.jp/fs1r_editor_english.html), checked against the Data List and the ROM) and the editor's EG plots
+- `src/io/smf.h` Standard MIDI File reading and offline rendering; `src/selftest/` the engine self check
 - `src/console/main.cpp` the test console: WinMM MIDI in and out, waveOut, offline render
 
 **Plugin.** The plug-in layer, which never models synthesis; it moves parameter values in and out of the engine as sysex, exactly as a hardware editor would.

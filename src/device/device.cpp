@@ -1,4 +1,4 @@
-// fsvr/device.cpp - fs1r::Device: host sample rate, state, the public surface. Ours.
+// device/device.cpp - fs1r::Device: host sample rate, state, the public surface. Ours.
 #include "engine/synth.h"
 
 // ------------------------------------------------------------------------------------------ fs1r::Device
@@ -36,7 +36,7 @@ double Device::sampleRate() const { return p->hostRate; }
 void Device::setGain(double g) { p->s.gain = g; }
 void Device::setEchoParameters(bool on) { p->echo = on; }
 
-// Ours, a user's choice, so unlike fsvr/tuning.h's knobs every step but Full changes the output. Full gates at
+// Ours, a user's choice, so unlike engine/tuning.h's knobs every step but Full changes the output. Full gates at
 // -100 dB, under the 16-bit floor after OUT_GAIN; -90 dB was measured at 53 % to 46 % of a core on Vox Morph's
 // 8 notes (docs/performance.md), and the gates below it start to cut the tails of quiet modulators.
 void Device::setSpeed(int s) {

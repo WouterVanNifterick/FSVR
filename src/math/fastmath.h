@@ -1,7 +1,7 @@
-// fsvr/fastmath.h - the sample loop's transcendentals. Ours: the hardware has no opinion.
+// math/fastmath.h - the sample loop's transcendentals. Ours: the hardware has no opinion.
 //
 // Everything the per-sample path asks of libm goes through here: a sine by phase in turns, 2^x
-// and 10^(dB/20). FSVR_MATH picks how they are computed, and the rule is fsvr/tuning.h's: the
+// and 10^(dB/20). FSVR_MATH picks how they are computed, and the rule is engine/tuning.h's: the
 // choice trades CPU for nothing else, so a backend that moves a measurement is wrong, not the unit.
 //
 //   FSVR_MATH=0  RAW     libm. Kept as the reference the others are checked against (fm::selfcheck)

@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 #include "fs1r.h"
-#include "fsvr/smf.h"
+#include "io/smf.h"
 
 using fs1r_smf::write_wav;
 using fs1r_smf::render_smf;
@@ -71,7 +71,7 @@ static void pump_midi(fs1r::Device& dev) {
 }
 
 // ------------------------------------------------------------------------------------------ offline render
-// The render itself is fsvr/smf.h's, shared with tools/render_capture.cpp.
+// The render itself is io/smf.h's, shared with tools/render_capture.cpp.
 static int g_note2 = -1;   // -n2: second note played at 1/3 while the first is held (mono legato / portamento)
 static std::vector<std::pair<int, int>> g_cc;   // -cc num=val: control changes sent before the note
 

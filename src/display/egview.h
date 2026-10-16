@@ -1,4 +1,4 @@
-// fsvr/egview.h
+// display/egview.h
 //
 // Calculates the shape of an EG curve for the editor's envelope plots.
 // It uses the engine's constants and tables, but solves each stage directly instead of stepping.

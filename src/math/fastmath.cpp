@@ -1,6 +1,6 @@
-// fsvr/fastmath.cpp - the tables, the CORDIC rotations and the check that says a backend is libm to
+// math/fastmath.cpp - the tables, the CORDIC rotations and the check that says a backend is libm to
 // within its stated error. See fastmath.h for which backend the sample loop is using.
-#include "fastmath.h"
+#include "math/fastmath.h"
 #include <cstdio>
 
 namespace fm {

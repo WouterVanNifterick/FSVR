@@ -10,8 +10,9 @@
 | `controllers.cpp` | the eight controller sets, the three scalers and the 48 destinations |
 | `fseq.cpp` | formant sequence playback and MIDI clock |
 | `midi.cpp` | MIDI in, controllers, RPN/NRPN, sysex replies and dumps |
+| `tuning.h` | our cost knobs: control-rate decimation, queue caps. Ours, and changing one must not change the output |
 | `render.cpp` | the sample loop: tick, channels (`tonegen/`), filter voices (`filters/`), part buses, effects (`effects/`) |
 
 ## Structure
 `Synth` owns state and sequencing; the parts it drives are in their own folders and do not know about `Synth`:
-`presets/` the data it decodes, `tonegen/` the tone generator (a channel renders from a `Voice`, not from `Synth`), `filters/`, `effects/`. The public API is `src/fs1r.h` (`fs1r::Device`, in `src/fsvr/device.cpp`).
+`presets/` the data it decodes, `tonegen/` the tone generator (a channel renders from a `Voice`, not from `Synth`), `filters/`, `effects/`. The public API is `src/fs1r.h` (`fs1r::Device`, in `src/device/device.cpp`).

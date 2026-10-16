@@ -1,4 +1,4 @@
-// fsvr/tuning.h - our own cost knobs. Nothing here is a fact about the FS1R.
+// engine/tuning.h - our own cost knobs. Nothing here is a fact about the FS1R.
 //
 // These are choices FSVR makes about how to spend CPU and memory. The hardware has no counterpart to
 // any of them, so none can be calibrated against a recording and none has a right answer to discover.

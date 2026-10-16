@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 #include "fs1r.h"
-#include "fsvr/smf.h"
+#include "io/smf.h"
 
 int main(int argc, char** argv) {
     const char* rom = nullptr;

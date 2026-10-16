@@ -1,4 +1,4 @@
-// fsvr/smf.h - Standard MIDI File reading, offline rendering and WAV writing, with no host in them.
+// io/smf.h - Standard MIDI File reading, offline rendering and WAV writing, with no host in them.
 //
 // These were inside fs1r_console.cpp, which cannot build anywhere but Windows because the rest of it is
 // WinMM. The calibration loop needs the renders and nothing about a render is Windows-shaped, so they

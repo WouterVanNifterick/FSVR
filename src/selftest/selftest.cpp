@@ -1,7 +1,7 @@
-// fsvr/selftest.cpp - the engine self check. Ours, not the hardware's.
+// selftest/selftest.cpp - the engine self check. Ours, not the hardware's.
 #include "engine/synth.h"
-#include "display.h"
-#include "egview.h"
+#include "display/display.h"
+#include "display/egview.h"
 #include <cstring>
 #include <memory>
 
@@ -770,7 +770,7 @@ int selftest(Synth& S) {
       ck("and stops counting once the release is over", S.active_chans() == 0);
       S.all_off(); init_perf(S.perf); }
 
-    // fsvr/egview.h calculates the editor's EG curves without stepping the engine, so check it against the engine.
+    // display/egview.h calculates the editor's EG curves without stepping the engine, so check it against the engine.
     // Step copies of a note's EGs and compare when each stage ends:
     // within half a tick per stage for pitch and filter, within 1 ms or 1% for amplitude.
     { init_perf(S.perf); S.init_system(); Voice& V = S.perf.part[0].voice; Part& pt = S.perf.part[0];
@@ -844,7 +844,7 @@ int selftest(Synth& S) {
       }
       S.all_off(); init_perf(S.perf); }
 
-    // fsvr/display.h, the transcribed display tables, against values the Data List and the manual give.
+    // display/display.h, the transcribed display tables, against values the Data List and the manual give.
     { using namespace display;
       ck("fixed frequency: 440.2 at coarse 16, fine 0", !strcmp(FIXED_FREQUENCY[0][15], "440.2"));
       ck("fixed frequency tops out at 28024 Hz", !strcmp(FIXED_FREQUENCY[127][20], "28024"));

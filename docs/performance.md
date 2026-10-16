@@ -38,7 +38,7 @@ Do not touch `tuning::CTL_DECIMATION` to chase this: its rule is that changing i
 
 ## The sample loop's maths: table, CORDIC, or both (2026-09-28)
 
-Everything the per-sample path asks of libm (the sine by phase, 2^x for the pitch EGs and the effect sweeps, 10^(dB/20) for the level path, tanh in the enhancer) now goes through `src/fsvr/fastmath.h`, and `FSVR_MATH` picks how it is computed: `0` raw libm, `1` a table with linear interpolation, `2` CORDIC in Q40 fixed point, `3` a hybrid where the table seeds a short CORDIC rotation over the residual. `set FSVR_MATH=n` before `build.bat`, or `-DFSVR_MATH=RAW|LUT|CORDIC|HYBRID` to CMake. The self check prints which one is built and its worst error against libm over a sweep of each function; all four pass the nineteen render cases against a fingerprint of the tree before the change.
+Everything the per-sample path asks of libm (the sine by phase, 2^x for the pitch EGs and the effect sweeps, 10^(dB/20) for the level path, tanh in the enhancer) now goes through `src/math/fastmath.h`, and `FSVR_MATH` picks how it is computed: `0` raw libm, `1` a table with linear interpolation, `2` CORDIC in Q40 fixed point, `3` a hybrid where the table seeds a short CORDIC rotation over the residual. `set FSVR_MATH=n` before `build.bat`, or `-DFSVR_MATH=RAW|LUT|CORDIC|HYBRID` to CMake. The self check prints which one is built and its worst error against libm over a sweep of each function; all four pass the nineteen render cases against a fingerprint of the tree before the change.
 
 Thirty seconds of one note, `bin/fsvr_console.exe -r ROM -P n -n 60 -d 30`, best of three on the desktop, MSVC `/O2`, no FTZ:
 
@@ -71,7 +71,7 @@ jameshansen: the Fat Line demo sits at about 50 % of a core. Measured with a cou
 
 1. **A channel whose carriers and noise are over stops rendering.** Once every carrier's EG is done with no grain in flight, every unvoiced EG is done, and the channel has put out 64 samples under 1e-9 with no damp left, it is silent. Its remaining envelopes are all in their release and falling linearly, so the sample at which the last one passes -120 dB is arithmetic, and the channel costs nothing until the allocator may treat it as free on that sample. The render differs from before in one 16-bit sample by one step on the song (the filter's ring-down below 1e-9). Freeing the channel outright instead was tried and rejected: it changes which channel the firmware's allocator steals, and 132,000 samples moved by up to 193 steps.
 2. **The control refresh skips finished operators.** A voiced operator whose EG is done, with no grain in flight and no attenuation under -20 dB (the carrier correction can reach -22.5), never reads its frequency maths again; an unvoiced operator whose EG is done is gated for good. Bit-identical.
-3. **The control-rate maths reads the tables.** `word_hz` and `db2lin` go through `fsvr/fastmath.h` like the sample loop does. That moves 0.4 % of the song's 16-bit samples by one step, from the 1/16 dB table's 6.6e-6 relative error.
+3. **The control-rate maths reads the tables.** `word_hz` and `db2lin` go through `math/fastmath.h` like the sample loop does. That moves 0.4 % of the song's 16-bit samples by one step, from the 1/16 dB table's 6.6e-6 relative error.
 
 The nineteen regression cases match a fingerprint of the tree before the change, and the demo ledger reads the same to the digit before and after (`tools/demo_scores.txt`, the two rows of 2026-09-28). Vox Morph's one-note render goes from 1.86 s to 1.54 s on the same rules.
 

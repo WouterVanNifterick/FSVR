@@ -1,4 +1,4 @@
-// fsvr/display.h - how the FS1R shows what it holds: a fixed operator frequency in hertz, a voiced
+// display/display.h - how the FS1R shows what it holds: a fixed operator frequency in hertz, a voiced
 // operator's ratio and every effect parameter's value (hertz, milliseconds, the named choices). Ours:
 // a transcription for editors and displays, with no firmware counterpart. Nothing in the engine reads it.
 //

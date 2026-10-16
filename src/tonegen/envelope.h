@@ -5,7 +5,7 @@
 #include "fs1r/hardware.h"
 #include "fs1r/cal.h"
 #include "fs1r/tables.h"
-#include "fsvr/fastmath.h"
+#include "math/fastmath.h"
 
 static inline int egrate(int t) { return ((99 - clampi(t, 0, 99)) * 0xA4) >> 8; }          // EG time -> chip rate 0..63
 // The chip's own rate scaling: register 0x50 is the operator's time scaling 0..7 and register 0xC0 the key code.

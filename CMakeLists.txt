@@ -48,12 +48,12 @@ add_library(fs1rLib STATIC
     src/engine/notes.cpp
     src/presets/patch.cpp
     src/presets/rom.cpp
-    src/fsvr/device.cpp
-    src/fsvr/fastmath.cpp
-    src/fsvr/selftest.cpp)
+    src/device/device.cpp
+    src/math/fastmath.cpp
+    src/selftest/selftest.cpp)
 target_include_directories(fs1rLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(fs1rLib PUBLIC vop3host)
-# The sample loop's maths backend, src/fsvr/fastmath.h: LUT (the default, and the fastest measured), RAW
+# The sample loop's maths backend, src/math/fastmath.h: LUT (the default, and the fastest measured), RAW
 # (libm, kept for A/B renders), CORDIC, or HYBRID, where the table seeds a short CORDIC rotation.
 set(FSVR_MATH "LUT" CACHE STRING "fastmath backend: RAW, LUT, CORDIC or HYBRID")
 set_property(CACHE FSVR_MATH PROPERTY STRINGS RAW LUT CORDIC HYBRID)

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include "fs1r/cal.h"
-#include "fsvr/fastmath.h"
+#include "math/fastmath.h"
 
 // The unvoiced resonance carrier and the noise it takes with it, cal::URES_*, interpolated over the register.
 static inline void ures(int reg, int res, double& dc, double& noiseGain) {
