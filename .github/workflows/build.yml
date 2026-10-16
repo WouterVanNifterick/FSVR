@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
     tags: ['v*']
-    paths-ignore: [docs/Differences.md]   # a push of only that page builds nothing; tag pushes ignore paths
+    paths-ignore: ['**.md']   # a push of only Markdown builds nothing; tag pushes ignore paths
   pull_request:
-    paths-ignore: [docs/Differences.md]
+    paths-ignore: ['**.md']
   workflow_dispatch:
     inputs:
       standalone:
