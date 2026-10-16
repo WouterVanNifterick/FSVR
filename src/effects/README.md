@@ -7,7 +7,7 @@ The FS1R's effect section: reverb, variation, insertion and the mixer, as plain 
 | `effects.h`, `.cpp` | `Effects`: the section. Runs the host, its LFOs and the five loaded programs once per sample |
 | `programs.h` | `State` (registers, cells, delay memory) and the program list. Start here |
 | `base.cpp` | the base program: mixer, sends and returns, master EQ, the reverb |
-| `aux.cpp` | the send-level smoothers. Hand-written, the style the rest should move towards |
+| `aux_window.cpp` | the send-level smoothers. Hand-written, the style the rest should move towards |
 | `dly_mNN.cpp` | the reverb delay window's programs |
 | `var_mNN.cpp` | the variation window's programs (`var_m07.cpp` the 3-band EQ, hand-written) |
 | `ins_mNN.cpp` | the insertion window's programs |

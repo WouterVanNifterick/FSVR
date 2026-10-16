@@ -1,4 +1,4 @@
-// effects/aux.cpp - the aux window: eight one-pole smoothers on the send levels, which every performance
+// effects/aux_window.cpp - the aux window: eight one-pole smoothers on the send levels, which every performance
 // runs. The base program reads their differences back.
 //
 // The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names

@@ -10,7 +10,7 @@
 // r[9]..r[18], a few cells and the delay memory. Their arithmetic is the unit's, in its number format
 // (dsp/word.h) and its order, so the section is bit for bit the unit's DSP; tools/dsp_check pins it.
 //
-// Most programs are still straight-line arithmetic over numbered registers. aux.cpp and var_m07.cpp show the
+// Most programs are still straight-line arithmetic over numbered registers. aux_window.cpp and var_m07.cpp show the
 // form they are headed for: name the DSP blocks, keep every operation and its order, run dsp_check.
 #pragma once
 

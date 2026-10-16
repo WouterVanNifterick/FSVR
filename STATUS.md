@@ -52,7 +52,7 @@ Grouped by what blocks each item rather than by subsystem. This file is the list
 **Ready, needs no hardware**
 
 - The delay, modulation and insertion effects against the effect recordings. The reverbs checked so far are within 2 to 12 LSB; the Data List models they replace read 17 to 29 dB over three files and eighty-four segments
-- The effect programs in `src/effects/` named as the DSP blocks they are, as `aux.cpp` and `var_m07.cpp` are; `dsp_check` must stay ok
+- The effect programs in `src/effects/` named as the DSP blocks they are, as `aux_window.cpp` and `var_m07.cpp` are; `dsp_check` must stay ok
 - The render regression's reference is stale. With the EPROM image present, fifteen of `tools/regress.py`'s nineteen cases fail on this machine at `8618c17` and after the Hollow plug-in change alike, with the same numbers, and the two builds render those cases bit for bit the same, so the drift came in with an earlier engine change and was never folded into `regress_ref.json`. Find which commit moved each case, say why in its message, then `--update`
 - The plug-in's macOS and Linux builds have not been compiled yet: the framework and its X11 editor have only met MSVC, and CI's plugin job is their first build. Windows is checked in the standalone, by `check_plugin` on x64 and x86, and by Steinberg's VST3 validator (47 of 47). `clap-validator` has not been run on any of them. On Linux the editor does not hand the keyboard back to the host after text entry, and a host that destroys the parent window before closing the editor would meet Xlib's default error handler
 - The editor's own open items (names aren't editable, the LCD's performance menu lists the factory banks only) are in [docs/editor.md](docs/editor.md)
