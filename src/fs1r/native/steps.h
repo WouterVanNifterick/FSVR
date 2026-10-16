@@ -94,13 +94,15 @@ inline void tap_delay(yss236_core& c, int dm, int st, bool older = false)
 	c.push_hist(st, c.ram[c.addr(st >> 2, older ? 1 : 0, false)]);
 }
 
-// A delay RAM read on its own, at the ring pointer or one word older (memop 4 and 6), pushed into the
-// capture history so a capture further down can take it up. The slot is the step's own over four, which
-// is where step() takes it from, and its offset is the c.slot[] entry the host last wrote, never a
+// A delay RAM read, pushed into the capture history so a capture further down can take it up. The
+// slot is the step's own over four, which is where step() takes it from, and the offset is the sum of
+// two of its fields: one word older (memop 4 and 6), and the delay index (w2[3]), which is what a tap
+// at a moving position reads. Otherwise the offset is the c.slot[] entry the host last wrote, never a
 // number here.
-inline void read_delay(yss236_core& c, int st, bool older = false)
+inline void read_delay(yss236_core& c, int st, bool older = false, bool indexed = false)
 {
-	c.push_hist(st, c.ram[c.addr(st >> 2, older ? 1 : 0, false)]);
+	int const off = (older ? 1 : 0) + (indexed ? c.cur_idx() : 0);
+	c.push_hist(st, c.ram[c.addr(st >> 2, off, false)]);
 }
 
 // A delay RAM write: the value takes the slot at the ring pointer, or one word indexed from the
@@ -262,10 +264,12 @@ inline void copy_z(yss236_core& c, int st, int sr, int dr, add_t add = ADD_ACC, 
 	run(c, {st, sr, 0, M2_REG, false, 0, add, false, ROUTE_1, clamp, dr, true});
 }
 
-// A term whose result is also the compare flag: the conditional skips of a program test it.
-inline double compare(yss236_core& c, int st, int sr, int sm, bool sub = false)
+// A term whose result is also the compare flag: the conditional skips of a program test it. The step
+// is class 3, so its word is ignored and the term is the register it read; the adder reads the cell,
+// negated when `sub`. The clamp is per step like every other: a compare whose result saturates says so.
+inline double compare(yss236_core& c, int st, int sr, int sm, bool sub = false, clamp_t clamp = CLAMP_WRAP)
 {
-	return run(c, {st, sr, sm, M2_REG, true, 0, ADD_CELL, sub, ROUTE_1, CLAMP_WRAP, 0, false, 0, false, true});
+	return run(c, {st, sr, sm, M2_REG, true, 0, ADD_CELL, sub, ROUTE_1, clamp, 0, false, 0, false, true});
 }
 
 // A class-1 step: the step's word loaded as a value rather than applied to one, in LOADK units, so
