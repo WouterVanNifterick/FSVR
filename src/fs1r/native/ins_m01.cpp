@@ -138,6 +138,18 @@ const Decor DECORS[22] = {
     {  0x1e7, DEC_LFO,      15 },    // and the fourth
 };
 
+// The first decor of each step, -1 where a step carries none. 0x1c7 carries two, in the order DECORS
+// writes them, so an index of one row per step cannot name both: this lands on the first of a step's run
+// and publish walks the run from there, which is the walk over all twenty-two rows this replaces.
+constexpr auto DECOR_AT = []() {
+	std::array<int16_t, yss236_core::STEPS> ix{};
+	for (int16_t& i : ix) i = -1;
+	// backwards, so the first row of a step's run wins over the rows after it
+	for (int k = int(sizeof DECORS / sizeof DECORS[0]) - 1; k >= 0; k--)
+		ix[DECORS[k].st] = int16_t(k);
+	return ix;
+}();
+
 // A delay RAM read at the index a delay length queued rather than at the ring pointer, which is what
 // makes a tap pair two words a sample apart: the earlier word at the index itself, the later one word
 // older, and the t register the pair interpolates on the fraction between them. steps.h has the ring
@@ -163,12 +175,14 @@ void decor(yss236_core& c, int st, Decor const& d)
 }
 
 // The cell moves and the delay RAM reads of one step, if it carries any. The loop runs this for every
-// step before the group's own step, because step() does all of them first.
+// step before the group's own step, because step() does all of them first. DECORS is in step order, so a
+// step's rows are the run that starts at DECOR_AT[st] and the walk stops on the first row of the next
+// step; the bound is what keeps it off the end of the table.
 void publish(yss236_core& c, int st)
 {
-	for (Decor const& d : DECORS)
-		if (d.st == st)
-			decor(c, st, d);
+	int const n = int(sizeof DECORS / sizeof DECORS[0]);
+	for (int i = DECOR_AT[st]; i >= 0 && i < n && DECORS[i].st == st; i++)
+		decor(c, st, DECORS[i]);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -188,6 +202,10 @@ const Lfo LFOS[3] = {
     {  0x1a5, false, ROUTE_16, CLAMP_WRAP },   // and again, the third accumulator's
 };
 
+// The LFO word of step st, if it is one. The index is the same on every pass, so the step reaches its row
+// rather than looking through the three for it.
+constexpr auto LFOS_AT = index_by_step(LFOS);
+
 void lfo_step(yss236_core& c, int st, Lfo const& x)
 {
 	run(c, { st, 0, 12, M2_CELL, x.unity, 0, ADD_OFF, false, x.route, x.clamp });
@@ -203,6 +221,9 @@ const Rect RECTS[3] = {
     {  0x1b1, 123 },     // ins::PC_FB[5], on the fourth
     {  0x1ba, 122 },     // ins::PC_MIX[0], on the third
 };
+
+// The rectifier of step st, if it is one.
+constexpr auto RECTS_AT = index_by_step(RECTS);
 
 void rectifier(yss236_core& c, int st, Rect const& r)
 {
@@ -230,6 +251,9 @@ const Sweep SWEEPS[7] = {
     {  0x1bb, 122,   0,  ADD_ACC,  ROUTE_2,  CLAMP_SAT },     // the third again, with the read of 0x6e
 };
 
+// The sweep word of step st, if it is one.
+constexpr auto SWEEPS_AT = index_by_step(SWEEPS);
+
 void sweep(yss236_core& c, int st, Sweep const& s)
 {
 	load(c, st, 0, s.cell, s.add, false, s.route, s.clamp, s.reg);
@@ -252,6 +276,9 @@ const Envelope ENVELOPES[8] = {
     {  0x1c5,     2,           2,          11 },
 };
 
+// The envelope word of step st, if it is one.
+constexpr auto ENVELOPES_AT = index_by_step(ENVELOPES);
+
 void envelope(yss236_core& c, int st, Envelope const& e)
 {
 	run(c, { st, e.src, 0, M2_REG, false, e.treg, ADD_OFF, false, ROUTE_1, CLAMP_SAT, e.reg });
@@ -263,18 +290,23 @@ void envelope(yss236_core& c, int st, Envelope const& e)
 // accumulators take these three steps in step order, each on its own envelope: r[1] on r[121], r[4] on
 // r[124], r[3] on r[123] and r[2] on r[122], and ins::PC_FB[4], ins::MODE_STEPS_B[0] and
 // ins::MODE_STEPS_A[0] are three of the nine words these steps carry.
-struct AmpEnv { int base, acc, env; };
+struct AmpEnv { int st, nsteps, acc, env; };
 
 const AmpEnv AMP_ENV[4] = {
-    {  0x1ad, 121, 1 },
-    {  0x1b6, 124, 4 },
-    {  0x1bf, 123, 3 },
-    {  0x1c7, 122, 2 },
+    //    st  n  acc  env
+    {  0x1ad, 3, 121,  1 },
+    {  0x1b6, 3, 124,  4 },
+    {  0x1bf, 3, 123,  3 },
+    {  0x1c7, 3, 122,  2 },
 };
+
+// The amplitude envelope of step st, if it is one: an envelope's three steps are consecutive, so each of
+// them indexes to the same row with a different k.
+constexpr auto AMP_ENV_AT = index_by_span(AMP_ENV);
 
 void amp_env(yss236_core& c, int st, AmpEnv const& a)
 {
-	switch (st - a.base)
+	switch (st - a.st)
 	{
 	case 0:
 		// the accumulator's own value on the x16 route, saturating: what the envelope is built on
@@ -319,6 +351,9 @@ const Depth DEPTHS[12] = {
     {  0x1ce, 124,  15, D_AMPLITUDE },    // ins::ROT_LEVEL[6]
 };
 
+// The depth word of step st, if it is one.
+constexpr auto DEPTHS_AT = index_by_step(DEPTHS);
+
 void depth(yss236_core& c, int st, Depth const& d)
 {
 	double const y = d.kind == D_FEEDBACK
@@ -334,17 +369,17 @@ void depth(yss236_core& c, int st, Depth const& d)
 }
 
 // One step of the head, 0x1a0 to 0x1ce. The LFO cell, the four accumulators, their depth words and their
-// envelopes interleave, so each step is looked up in the six tables above and the first that names it
-// runs it, which is every step of the head and nothing else.
+// envelopes interleave, so each step is looked up in the six indexes above and the first that names it
+// runs it, which is every step of the head and nothing else. No two of the six own the same step, which
+// is what lets the six tests stand in that order without a step reaching a table further down.
 void accumulator(yss236_core& c, int st)
 {
-	for (Lfo const& x : LFOS)            if (x.st == st) { lfo_step(c, st, x); return; }
-	for (Rect const& r : RECTS)          if (r.st == st) { rectifier(c, st, r); return; }
-	for (Sweep const& s : SWEEPS)        if (s.st == st) { sweep(c, st, s); return; }
-	for (Envelope const& e : ENVELOPES)  if (e.st == st) { envelope(c, st, e); return; }
-	for (AmpEnv const& a : AMP_ENV)
-		if (st >= a.base && st < a.base + 3) { amp_env(c, st, a); return; }
-	for (Depth const& d : DEPTHS)        if (d.st == st) { depth(c, st, d); return; }
+	if (int i = LFOS_AT[st];      i >= 0) { lfo_step(c, st, LFOS[i]); return; }
+	if (int i = RECTS_AT[st];     i >= 0) { rectifier(c, st, RECTS[i]); return; }
+	if (int i = SWEEPS_AT[st];    i >= 0) { sweep(c, st, SWEEPS[i]); return; }
+	if (int i = ENVELOPES_AT[st]; i >= 0) { envelope(c, st, ENVELOPES[i]); return; }
+	if (int i = AMP_ENV_AT[st];   i >= 0) { amp_env(c, st, AMP_ENV[i]); return; }
+	if (int i = DEPTHS_AT[st];    i >= 0) { depth(c, st, DEPTHS[i]); return; }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -395,11 +430,11 @@ enum copy_t { NO_COPY, COPY_ON_B2, COPY_ON_A1 };
 // read, `out` the register b0 writes and the -a1 step reads a pass back, `x1` the copy of the input a
 // pass back and `y2` the peak's second output delay. The b0 step's route is what restores the scale the
 // designer's own (16 >> scale) took out of the host's words.
-struct Band { int base, n; copy_t copy; int in, x1, y2, out; step::route_t route; };
+struct Band { int st, nsteps; copy_t copy; int in, x1, y2, out; step::route_t route; };
 
 void band(yss236_core& c, int st, Band const& b)
 {
-	int const k = st - b.base;
+	int const k = st - b.st;
 	if (k == 0)
 	{
 		term(c, st, b.in);                       // the band's b1 word on its own input, opening the sum
@@ -436,7 +471,8 @@ void band(yss236_core& c, int st, Band const& b)
 struct Channel { int base; int in, other, mixed; Band band[3]; };
 
 // The left channel first, whose steps also publish three of the eight delay reads the taps take up, then
-// the right one, which publishes the fourth LFO.
+// the right one, which publishes the fourth LFO. The bands sit in the channel's own row, so each channel
+// has its own index of them and channel() is told which one to read.
 const Channel CHANNELS[2] = {
     //  base   in  other  mixed   the three bands
     {  0x1cf,   7,     8,     67,
@@ -449,7 +485,12 @@ const Channel CHANNELS[2] = {
           { 0x1e6, 3, COPY_ON_A1, 76, 77,  0, 78, ROUTE_4 } } }, // and ins::HPF_ROT_C
 };
 
-void channel(yss236_core& c, int st, Channel const& h)
+// A band's steps are consecutive, so each of a band's steps indexes to the same row with a different k,
+// and the three bands of a channel cover 0x1d1 to 0x1df and 0x1de to 0x1ec without meeting.
+constexpr auto LEFT_BANDS_AT = index_by_span(CHANNELS[0].band);
+constexpr auto RIGHT_BANDS_AT = index_by_span(CHANNELS[1].band);
+
+void channel(yss236_core& c, int st, Channel const& h, std::array<int16_t, yss236_core::STEPS> const& band_at)
 {
 	int const k = st - h.base;
 	if (k == 0)
@@ -463,9 +504,8 @@ void channel(yss236_core& c, int st, Channel const& h)
 		close(c, st, h.other, h.mixed, ROUTE_2);
 		return;
 	}
-	for (Band const& b : h.band)
-		if (st >= b.base && st < b.base + b.n)
-			band(c, st, b);
+	if (int i = band_at[st]; i >= 0)
+		band(c, st, h.band[i]);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -630,13 +670,13 @@ void block_0x1a0(yss236_core& c)
 		if (st < 0x1dc)
 		{
 			// ---- 0x1cf to 0x1db, the left channel: the two signals summed, then the three bands
-			channel(c, st, CHANNELS[0]);
+			channel(c, st, CHANNELS[0], LEFT_BANDS_AT);
 			continue;
 		}
 		if (st < 0x1e9)
 		{
 			// ---- 0x1dc to 0x1e8, the right channel, the same thirteen steps on the other registers
-			channel(c, st, CHANNELS[1]);
+			channel(c, st, CHANNELS[1], RIGHT_BANDS_AT);
 			continue;
 		}
 		if (st < 0x1ef)

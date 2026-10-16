@@ -138,6 +138,10 @@ const Input INPUTS[2] = {
     { 0x117,  4,  90, { {DEC_READ, 0},     {DEC_LFO, 8}    } },   // the right input, and m[8] the LFO 8
 };
 
+// The input step of st, if it is one. The index is the same on every pass, so the step reaches its row
+// rather than looking through the two for it.
+constexpr auto INPUTS_AT = index_by_step(INPUTS);
+
 void input_step(yss236_core& c, int st, Input const& i)
 {
 	decors(c, st, i.decor);
@@ -150,20 +154,24 @@ void input_step(yss236_core& c, int st, Input const& i)
 // 2048 * (16 >> scale), which is why a first pole scales by two and a second by four: the route puts
 // half the register's span back. `in` is the register the pole's input arrives in, read by words 2 and
 // 3, and `out` the pole's state, which word 1 reads as y[-1] and word 3 writes.
-struct Pole { int base, in, out; route_t route; Decors decor[3]; };
+struct Pole { int st, nsteps, in, out; route_t route; Decors decor[3]; };
 
 // The host's four word lists, one per pole, three words each, and the program takes them the other way
 // round: word 0 of rev::DELAY_LPF is at 0x113 and its word 2 at 0x111. The second pole of a side is fed
 // from the first, which is why its `in` is the pole before's `out`.
 const Pole POLES[4] = {
-    //  base   in  out  route   word 1, -a1 * y'    word 2, b1 * x     word 3, b0 * x
-    { 0x111, 87,  88, ROUTE_2, { {DEC_SERIAL_R, 5}, {DEC_NONE, 0},    {DEC_READ, 0}    } },  // DELAY_LPF
-    { 0x114, 88,  89, ROUTE_4, { {DEC_NONE, 0},     {DEC_NONE, 0},    {DEC_NONE, 0}    } },  // DELAY_HPF
-    { 0x118, 90,  91, ROUTE_2, { {DEC_CAPTURE, 22}, {DEC_NONE, 0},    {DEC_NONE, 0}    } },  // DELAY_LPF_COPY
-    { 0x11b, 91,  92, ROUTE_4, { {DEC_READ, 0},     {DEC_CAPTURE, 23}, {DEC_NONE, 0}    } },  // DELAY_HPF_COPY
+    //   st  n  in  out  route   word 1, -a1 * y'    word 2, b1 * x     word 3, b0 * x
+    { 0x111, 3, 87,  88, ROUTE_2, { {DEC_SERIAL_R, 5}, {DEC_NONE, 0},    {DEC_READ, 0}    } },  // DELAY_LPF
+    { 0x114, 3, 88,  89, ROUTE_4, { {DEC_NONE, 0},     {DEC_NONE, 0},    {DEC_NONE, 0}    } },  // DELAY_HPF
+    { 0x118, 3, 90,  91, ROUTE_2, { {DEC_CAPTURE, 22}, {DEC_NONE, 0},    {DEC_NONE, 0}    } },  // DELAY_LPF_COPY
+    { 0x11b, 3, 91,  92, ROUTE_4, { {DEC_READ, 0},     {DEC_CAPTURE, 23}, {DEC_NONE, 0}    } },  // DELAY_HPF_COPY
 };
 
-// One pole's step k of three, at p.base + k.
+// The pole of step st, if it is one: a pole's three steps are consecutive, so each of them indexes to the
+// same row with a different k. The index is the same on every pass.
+constexpr auto POLES_AT = index_by_span(POLES);
+
+// One pole's step k of three, at p.st + k.
 void pole_step(yss236_core& c, int st, Pole const& p, int k)
 {
 	decors(c, st, p.decor[k]);
@@ -183,10 +191,8 @@ void block_0x110(yss236_core& c)
 	{
 		c.begin_step();
 		if (st < c.m_skip) continue;
-		for (Input const& i : INPUTS)
-			if (st == i.st) { input_step(c, st, i); break; }
-		for (Pole const& p : POLES)
-			if (st >= p.base && st < p.base + 3) { pole_step(c, st, p, st - p.base); break; }
+		if (int i = INPUTS_AT[st]; i >= 0) input_step(c, st, INPUTS[i]);
+		if (int p = POLES_AT[st]; p >= 0) pole_step(c, st, POLES[p], st - POLES[p].st);
 	}
 }
 
@@ -242,18 +248,21 @@ const TapCopy COPIES[2] = {
 	{ 0x12c, 57, 58, 94 },
 };
 
+// The copy step of st, if it is one. Both runs that own a stretch of steps below look this up, so the
+// index is what keeps a step off the walk over the two.
+constexpr auto COPIES_AT = index_by_step(COPIES);
+
 // Run the copy step if this step is one of the two. 0x128 sits in the tap stretch and 0x12c between the
 // two damp pairs, so both runs below look this table up and neither owns a copy of its own. True when
 // the step was one.
 bool tap_copy(yss236_core& c, int st)
 {
-	for (TapCopy const& t : COPIES)
-		if (st == t.st)
-		{
-			take_capture(c, t.capture, st);
-			run(c, {st, 0, t.tap, M2_CELL, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, t.tap_reg});
-			return true;
-		}
+	if (int i = COPIES_AT[st]; i >= 0)
+	{
+		take_capture(c, COPIES[i].capture, st);
+		run(c, {st, 0, COPIES[i].tap, M2_CELL, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, COPIES[i].tap_reg});
+		return true;
+	}
 	return false;
 }
 
@@ -279,18 +288,22 @@ void block_0x11e(yss236_core& c)
 // and the low half closes it into the tap's damped register. `tap_reg` is the register the pair reads,
 // which is the one the copy step above copied the tap cell into, and `damped_reg` the one it writes.
 // The first pair's closing step also reads the fourth tap's slot.
-struct Damp { int base, tap_reg, damped_reg; Decors close; };
+struct Damp { int st, nsteps, tap_reg, damped_reg; Decors close; };
 
 // EffectHost::storeHighDamp writes c0 = k * DB[12] and c1 = (1 - k) * DB[12] to the pair's two steps, so
 // r[119] = (c0 + c1) * r[93] and r[120] likewise of r[94]. Under Delay L,C,R rev::DELAY_CURVE_COPY is
 // not written and stays at the ROM's zero.
 const Damp DAMPS[2] = {
-	//   base  tap_reg  damped  the closing step
-	{ 0x12a,      93,     119, { {DEC_READ, 0}, {DEC_NONE, 0} } },
-	{ 0x12e,      94,     120, { {DEC_NONE, 0}, {DEC_NONE, 0} } },
+	//   st  n  tap_reg   damped  the closing step
+	{ 0x12a, 2,      93,     119, { {DEC_READ, 0}, {DEC_NONE, 0} } },
+	{ 0x12e, 2,      94,     120, { {DEC_NONE, 0}, {DEC_NONE, 0} } },
 };
 
-// One damp pair's step k, at d.base + k.
+// The damp pair of step st, if it is one: a pair's two steps are consecutive, so each of them indexes to
+// the same row with a different k.
+constexpr auto DAMPS_AT = index_by_span(DAMPS);
+
+// One damp pair's step k, at d.st + k.
 void damp_step(yss236_core& c, int st, Damp const& d, int k)
 {
 	if (!k) { term(c, st, d.tap_reg); return; }     // the high half of the damp curve, opening the sum
@@ -307,8 +320,7 @@ void block_0x12a(yss236_core& c)
 		c.begin_step();
 		if (st < c.m_skip) continue;
 		if (tap_copy(c, st)) continue;
-		for (Damp const& d : DAMPS)
-			if (st >= d.base && st < d.base + 2) { damp_step(c, st, d, st - d.base); break; }
+		if (int d = DAMPS_AT[st]; d >= 0) damp_step(c, st, DAMPS[d], st - DAMPS[d].st);
 		if (st == 0x12d) idle(c);     // the step between the two pairs, which computes nothing
 	}
 }
@@ -320,11 +332,11 @@ void block_0x12a(yss236_core& c)
 // One term of a line write, on the register the host's level word multiplies.
 struct LineTerm { int reg; add_t add; delay_t delay; };
 
-// One line's value, built by `n` terms of which the last is the one the delay RAM takes. Every term
+// One line's value, built by `nsteps` terms of which the last is the one the delay RAM takes. Every term
 // but that one only moves the running value and wraps; the last saturates, which is what both writers
 // carry in w3[15:14]. `decor` is the first term's: the cell that takes up the fourth tap's read, which
 // the wet sum below then works from.
-struct LineBuild { int base, n; LineTerm term[4]; Decors decor; };
+struct LineBuild { int st, nsteps; LineTerm term[4]; Decors decor; };
 
 // The left line is the slot 0x4c (rom::rev::DELAY_SLOTS[0]) and is written by the step that closes the
 // sum; the right line is the slot 0x4e (rom::rev::DELAY_SLOTS[3]) and its closing step only latches,
@@ -341,6 +353,10 @@ const LineBuild LINES[2] = {
       { {DEC_NONE, 0}, {DEC_NONE, 0} } },
 };
 
+// The line of step st, if it is one: a line's terms are consecutive, so each of them indexes to the same
+// row with a different k.
+constexpr auto LINES_AT = index_by_span(LINES);
+
 void line_build_step(yss236_core& c, int st, LineBuild const& l, int k)
 {
 	if (!k) decors(c, st, l.decor);
@@ -349,7 +365,7 @@ void line_build_step(yss236_core& c, int st, LineBuild const& l, int k)
 	a.st = st;
 	a.sr = t.reg;
 	a.add = t.add;
-	a.clamp = k + 1 == l.n ? CLAMP_SAT : CLAMP_WRAP;
+	a.clamp = k + 1 == l.nsteps ? CLAMP_SAT : CLAMP_WRAP;
 	delay_flags(a, t.delay);
 	run(c, a);
 }
@@ -358,16 +374,20 @@ void line_build_step(yss236_core& c, int st, LineBuild const& l, int k)
 // level the host wrote, and a third closes it into the channel's wet register. The right channel's
 // middle step is also the writer of the right line, so the value that line takes is the latch left
 // behind and not that step's own sum.
-struct WetSum { int base, first_tap, mid_tap, out_tap, out_reg; delay_t mid_write; };
+struct WetSum { int st, nsteps, first_tap, mid_tap, out_tap, out_reg; delay_t mid_write; };
 
 // The left channel works off m[56], m[58] and m[59] and the right off m[57], m[59] and m[58], so which
 // numbered tap lands in which of the three positions is the host's own: rev::DELAY_WORDS[4] and [6] for
 // Delay L,C,R's centre level and Echo's second level, and [5] for the same level on the other side.
 const WetSum WET[2] = {
-    //  base  first  mid   out  out_reg  what the middle step does with the line
-    { 0x134,    56,   58,   59,     124, NO_WRITE      },   // m[56], m[58] and m[59]
-    { 0x13a,    57,   59,   58,     125, WRITE_LATCHED },   // m[57], m[59] and m[58], and the write
+    //   st  n  first   mid   out  out_reg  what the middle step does with the line
+    { 0x134, 3,    56,   58,   59,     124, NO_WRITE      },   // m[56], m[58] and m[59]
+    { 0x13a, 3,    57,   59,   58,     125, WRITE_LATCHED },   // m[57], m[59] and m[58], and the write
 };
+
+// The wet sum of step st, if it is one: a sum's three steps are consecutive, so each of them indexes to
+// the same row with a different k.
+constexpr auto WET_AT = index_by_span(WET);
 
 void wet_step(yss236_core& c, int st, WetSum const& w, int k)
 {
@@ -411,10 +431,8 @@ void block_0x130(yss236_core& c)
 		if (st < c.m_skip) continue;
 		if (st < 0x13d)
 		{
-			for (LineBuild const& l : LINES)
-				if (st >= l.base && st < l.base + l.n) { line_build_step(c, st, l, st - l.base); break; }
-			for (WetSum const& w : WET)
-				if (st >= w.base && st < w.base + 3) { wet_step(c, st, w, st - w.base); break; }
+			if (int l = LINES_AT[st]; l >= 0) line_build_step(c, st, LINES[l], st - LINES[l].st);
+			if (int w = WET_AT[st]; w >= 0) wet_step(c, st, WET[w], st - WET[w].st);
 		}
 		else mix_step(c, st, MIX[st < 0x13f ? 0 : 1]);
 	}
