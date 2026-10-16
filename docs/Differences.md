@@ -5,12 +5,8 @@ bug (`AGENTS.md`, "Where a claim comes from"). This file is the short list of pl
 does something the hardware does not. Each entry says what the unit does, what FSVR does, where the firmware
 says so, and how to get the unit's behaviour back.
 
-The engine has three entries, all additions made for the musician: 32 filtered voices, a 14-bit pitch bend,
-and an oscillator initial phase in a byte the unit ignores. The first two are on by default and each has a
-switch back to the unit; `tools/render_capture`, which renders what a capture is compared against, plays the
-unit unless given `-fsvr`. The last forced difference, a filter switch that reached notes already sounding,
-went on 2026-10-14 when the filter moved onto its chip: on the unit a change of part byte 0x07 runs
-`FUN_0002087E`, which stops every channel before it latches the four switches, and FSVR now does the same.
+## Toggle Filter Effects Playing Notes
+On a real FS1R if the filter or effects is turned off while notes are being played, they remain enabled on those held notes. In FSVR, this toggle is immediately applied to held notes.
 
 ## 32 filtered voices
 
@@ -63,10 +59,6 @@ degrees and 127 is 357.2 (0 and 360 are the same phase). It is added to the oper
 form, so the sine and all1/all2 rotate and the grain forms shift their carrier inside each grain. `refresh_regs`
 reads it each tick, so an edit moves a sounding note too. With key sync off it does nothing. A voice that leaves
 it at 0 sounds as on the unit; one that sets it plays at 0 on the unit.
-
-# What the plug-in adds
-
-The plug-in adds features the unit never had; none of them changes how the engine renders a voice, and each is something you choose to use. [editor.md](editor.md) has the detail.
 
 ## User libraries without the unit's memory limits
 
