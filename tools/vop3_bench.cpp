@@ -19,8 +19,8 @@
 #endif
 #include <memory>
 #include <vector>
-#include "fs1r/effects.h"
-#include "fs1r/filter.h"
+#include "effects/effects.h"
+#include "filters/filter.h"
 
 namespace H = fs1r::vop3host;
 

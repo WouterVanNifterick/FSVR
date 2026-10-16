@@ -9,7 +9,7 @@
 #include "yss236_core.h"
 
 // The chip's sixteen EG generators and sixteen LFOs, as their registers program them. Separate from the
-// microcode, so the native filter (fs1r/native/filter_bank.h) runs the same modulators with no chip around them.
+// microcode, so the native filter (filters/voice_filter.h) runs the same modulators with no chip around them.
 struct Modulators {
     uint16_t lfoReg[16][4] = {};            // LFO_SPEED, LFO_WAVE, LFO_DEPTH and LFO_DIRECTION
     uint32_t phase[16] = {}, rnd = 1;
@@ -32,7 +32,7 @@ struct Vop3 : Modulators {
 
     yss236_core core;
     uint16_t select = 0;                    // the register latch
-    bool programDirty = true;               // a program word was written since fs1r::native::install last ran
+    bool programDirty = true;               // a program word was written since fs1r::effects::install last ran
 
     void write(uint32_t reg, uint16_t v);
     void run();                             // one sample: the EGs, the LFOs, then the program over core.in into core.out

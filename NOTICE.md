@@ -16,7 +16,7 @@ FSVR is licensed under the **GNU General Public License version 3** (see `LICENS
 
 These are Yamaha's data. They are included because the emulation is worthless without the exact tables, and because the tools that regenerate them from an EPROM image are in the repository. If you object to their presence, the generators reproduce every one of them from a dump you make yourself.
 
-**BSD-3-Clause, copyright Wouter van Nifterick:** the YSS236 chip model and the FS1R's effect and filter hosts: `src/fs1r/chips/yss236_core.h` and `vop3.h`, `src/fs1r/effects.h` and `effects.cpp`, `src/fs1r/filter.h` and `filter.cpp`, the code in `src/fs1r/firmware/vop3host/`, and `tools/extract_vop3_rom.py`. Each file says so at its top. The bytes in `rom_tables.h` and `rom_tables.cpp` are Yamaha's, listed above.
+**BSD-3-Clause, copyright Wouter van Nifterick:** the YSS236 chip model and the FS1R's effect and filter hosts: `src/fs1r/chips/yss236_core.h` and `vop3.h`, `src/effects/effects.h` and `effects.cpp`, `src/filters/filter.h` and `filter.cpp`, the code in `src/fs1r/firmware/vop3host/`, and `tools/extract_vop3_rom.py`. Each file says so at its top. The bytes in `rom_tables.h` and `rom_tables.cpp` are Yamaha's, listed above.
 
 **In `third_party/`, under its own licence:** `asmjit/`, [AsmJit](https://github.com/asmjit/asmjit) by Petr Kobalicek (zlib), the library's sources at commit c8d13c48 of 2026-10-12 (the project tags no releases) without its tests, tools and UniCompiler. `yss236_jit.cpp` emits its code with it.
 

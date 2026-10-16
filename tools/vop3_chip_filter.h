@@ -1,5 +1,5 @@
 // vop3_chip_filter.h - the voice filters as the FS1R runs them: the filter host driving an emulated VOP3-1,
-// the firmware's program on the interpreter. The reference fs1r/filter.h (VoiceFilter, no chip) is checked
+// the firmware's program on the interpreter. The reference filters/filter.h (VoiceFilter, no chip) is checked
 // against bit for bit by vop3_native_check. Not built into the engine.
 #pragma once
 #include <cstdint>

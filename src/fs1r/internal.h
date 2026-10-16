@@ -134,8 +134,8 @@ static inline double db2lin_fast(double db) { return db <= -128 ? 0.0 : fm::db2l
 // exact inverse of the DX7's (R*41)>>6, and its DX7 converter uses T = 99 - R, so the chip is assumed to time its EG like the
 // DX7 EGS: increment (4 + (q & 3)) << (q >> 2) per 64 samples on a 2^28 = 96 dB scale (Dexed). 6.6 ms at 63, 380 s at 0.
 static inline double rate_secs(int q) { q = clampi(q, 0, 63); return pow(2.0, 26 - (q >> 2)) / (4 + (q & 3)) / SR; }
-#include "fs1r/effects.h"
-#include "fs1r/filter.h"
+#include "effects/effects.h"
+#include "filters/filter.h"
 // ------------------------------------------------------------------------------------------ voice data
 struct OpV {
     int keysync, transpose, coarse, fine, notescale, bwbias, form, fixed, skirt, fseqtrk, bw, detune;

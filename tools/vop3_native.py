@@ -98,7 +98,7 @@ def body(r):
     if r["check"]:
         lines.append(f"Last check: {r['check']} ({r['passes']} passes).")
     lines += [
-        f"Listing: build/vop3_native_check --dump {k} /tmp   File: src/fs1r/native/{k.replace('-', '_')}.cpp",
+        f"Listing: build/vop3_native_check --dump {k} /tmp   File: src/effects/{k.replace('-', '_')}.cpp",
         f"Check: build/vop3_native_check {k}, then `python3 tools/vop3_native.py check {k}` once it says identical.",
         "Before you stop, record where you are: `python3 tools/vop3_native.py set "
         f"{k} <stage> --note \"...\"`, commit and push. The rules are in docs/vop3_native/README.md.",

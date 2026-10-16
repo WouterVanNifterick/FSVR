@@ -2,7 +2,7 @@
 preset's block for its type (Full B3's two rotaries, Vokodrone's flanger from the demo), nothing patched.
 Writes docs/vop3_ship/41a.probes.json (41b is its eight-config subset, the take that was scored).
 --score <capture dir> [probe] prints the three strongest lines of the tone's envelope and FM, unit then engine.
-The probe is a small binary on src/fs1r/effects.h that plays a 0.25 1 kHz sine into one bus of a performance
+The probe is a small binary on src/effects/effects.h that plays a 0.25 1 kHz sine into one bus of a performance
 for N seconds and writes the stereo out as f32 (built ad hoc; see findings 2026-10-15 session 41)."""
 import json, sys, subprocess
 from pathlib import Path

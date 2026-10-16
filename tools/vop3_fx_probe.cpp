@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
-#include "fs1r/effects.h"
+#include "effects/effects.h"
 int main(int argc, char** argv) {
     std::vector<uint8_t> p(400); FILE* f = fopen(argv[1], "rb"); fread(p.data(), 1, 400, f); fclose(f);
     int bus = atoi(argv[2]); double secs = atof(argv[3]);

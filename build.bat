@@ -17,7 +17,7 @@ if not exist bin mkdir bin
 set MATHDEF=
 rem The chip, its two hosts and the sections over them are bit-exact only without FMA contraction, so they are compiled apart.
 rem VS 2022 does not contract under /fp:precise (tools\vop3_bench.cpp writes the same bytes as under /fp:strict).
-rem The chip's programs are the C++ in src\fs1r\native\, so nothing is compiled at run time and nothing links a code generator.
+rem The chip's programs are the C++ in src\effects\, so nothing is compiled at run time and nothing links a code generator.
 set VOP3FLAGS=/nologo /O2 /EHsc /W3 /std:c++20 /fp:precise /I src
 set VOP3OBJ=build\vop3host\*.obj
 if defined FSVR_MATH set MATHDEF=/DFSVR_MATH=%FSVR_MATH%
@@ -52,7 +52,7 @@ exit /b %ERRORLEVEL%
 :vop3host
 if exist build\vop3host rmdir /s /q build\vop3host
 mkdir build\vop3host
-cl /c /MP %VOP3FLAGS% src\fs1r\firmware\vop3host\*.cpp src\fs1r\native\*.cpp src\fs1r\effects.cpp src\fs1r\filter.cpp src\fs1r\chips\vop3.cpp /Fobuild\vop3host\ || exit /b 1
+cl /c /MP %VOP3FLAGS% src\fs1r\firmware\vop3host\*.cpp src\effects\*.cpp src\filters\*.cpp src\fs1r\chips\vop3.cpp /Fobuild\vop3host\ || exit /b 1
 exit /b %ERRORLEVEL%
 
 :done

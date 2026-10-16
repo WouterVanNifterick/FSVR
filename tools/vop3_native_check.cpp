@@ -1,4 +1,4 @@
-// vop3_native_check - the VOP3 programs written in C++ (src/fs1r/native/) against the interpreter, bit for bit.
+// vop3_native_check - the VOP3 programs written in C++ (src/effects/) against the interpreter, bit for bit.
 //
 //   vop3_native_check                  every ported program, then the self check
 //   vop3_native_check <key> [passes]   one program, default 9600 passes for each type that runs it
@@ -7,7 +7,7 @@
 //   vop3_native_check --dump <key> [dir]   the program's steps as the core holds them, decoded; with dir also
 //                                      <dir>/<key>.prog and .coef for tools/vop3_disasm.py
 //
-// flt is the voice filter (fs1r/native/voice_filter.h) against the chip running the firmware's filter program,
+// flt is the voice filter (filters/voice_filter.h) against the chip running the firmware's filter program,
 // compared slot by slot every sample. For the effect programs: two effect sections take the same performance,
 // the same parameter changes
 // and the same input. Both run on the interpreter, and one hands the program's steps to the native function
@@ -26,14 +26,14 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "fs1r/effects.h"
-#include "fs1r/filter.h"
-#include "fs1r/native/native.h"
+#include "effects/effects.h"
+#include "filters/filter.h"
+#include "effects/programs.h"
 #include "vop3_chip_filter.h"
 #include "vop3_state_diff.h"
 
 namespace H = fs1r::vop3host;
-namespace N = fs1r::native;
+namespace N = fs1r::effects;
 using Ranges = std::vector<yss236_core::native_run>;
 
 // The program under test runs through this, so the check can tell that it ran at all.
@@ -187,7 +187,7 @@ static void checkEffects(const Target& t, int n, Tally& tl, bool quiet) {
 static void passThrough(yss236_core& c, int from, int to) { for (int st = from; st < to; st++) c.step(st); }
 static void hairOff(yss236_core& c, int from, int to) { passThrough(c, from, to); for (double& v : c.r) v += 1.0 / 65536; }
 
-// The filter has no chip program any more: fs1r::native::VoiceFilter, sixteen of them in a Filter::Bank,
+// The filter has no chip program any more: fs1r::filters::VoiceFilter, sixteen of them in a Filter::Bank,
 // against the chip running the firmware's filter program (vop3_chip_filter.h), every slot's output compared
 // every sample. The six filter types, notes starting and releasing, cutoff and resonance moving halfway, the
 // host's clear, and a slot killed and taken again; `tamper` puts a hair on one voice's state each sample,
@@ -247,7 +247,7 @@ static const char* check(const Target& t, N::Run run, int n, Tally& tl, bool qui
     return "identical";
 }
 
-// What actually ships: the ranges fs1r::native::install() picks from the words the chip holds, rather
+// What actually ships: the ranges fs1r::effects::install() picks from the words the chip holds, rather
 // than the ones this file would pick for a single key. Every program at once, on both chips, against the
 // interpreter, so a program installed on the wrong steps or missing from a window's own shows up here.
 static int installedCheck(int n) {
@@ -381,7 +381,7 @@ static int dump(const std::string& key, const char* dir) {
 static int one(const std::string& key, N::Run run, int n) {
     Target t;
     if (!parse(key, t)) { std::printf("no program is called %s (flt, base, rev, aux, ins-mNN, dly-mNN, var-mNN)\nRESULT %s unported 0 0\n", key.c_str(), key.c_str()); return 2; }
-    if (!run && t.area != FLT) { std::printf("%s has no native in src/fs1r/native/native.cpp yet\nRESULT %s unported 0 0\n", key.c_str(), key.c_str()); return 2; }
+    if (!run && t.area != FLT) { std::printf("%s has no native in src/effects/programs.cpp yet\nRESULT %s unported 0 0\n", key.c_str(), key.c_str()); return 2; }
     Tally tl;
     const char* r = check(t, run, n, tl);
     std::printf("%-6s %d types, %lld native passes: %s\nRESULT %s %s %d %lld\n", key.c_str(), tl.types, tl.passes, r, key.c_str(), r, tl.types, tl.passes);

@@ -25,14 +25,14 @@ set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
 # The chip, its two hosts and the sections over them. They are bit-exact only without FMA contraction, so they
 # are a library of their own with its own flags; excess precision effect_host.h refuses at compile time.
-# The chip's programs written in C++ (src/fs1r/native/) are bit-exact for the same reason, so they live here too.
-file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp src/fs1r/native/*.cpp)
-add_library(vop3host STATIC ${VOP3HOST} src/fs1r/effects.cpp src/fs1r/filter.cpp src/fs1r/chips/vop3.cpp)
+# The effects and the voice filters (src/effects/, src/filters/) are bit-exact for the same reason, so they live here too.
+file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp src/effects/*.cpp src/filters/*.cpp)
+add_library(vop3host STATIC ${VOP3HOST} src/fs1r/chips/vop3.cpp)
 target_include_directories(vop3host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 # C++20 for the natives' designated initializers ({.st = st, .sr = 5, .add = ADD_ACC}), which name a
 # step's fields instead of counting commas.
 set_target_properties(vop3host PROPERTIES CXX_STANDARD 20)
-# Every program runs as C++, from src/fs1r/native/, so nothing else is compiled or linked here.
+# Every program runs as C++, from src/effects/, so nothing else is compiled or linked here.
 foreach(t vop3host)
   if(MSVC)
     target_compile_options(${t} PRIVATE /W3 /fp:precise /permissive-)
