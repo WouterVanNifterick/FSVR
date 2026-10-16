@@ -49,7 +49,9 @@ void Modulators::egWrite(int n, uint32_t reg, uint16_t v)
     if (reg == EG_AIM) { g.aim = (int16_t)v; return; }
     if (reg == EG_RATE) {
         g.rate = (uint8_t)v;
-        g.k = 1.0 - std::exp(-std::log(3.0) / (cal::FEG_SEG_S * SR * std::exp2(g.rate / cal::FEG_RATE_OCT)));
+        // Rounded to float, which drops the last bit the C libraries disagree on (MSVC's exp2 at rate 35, one of
+        // EG_RATE's), so every platform runs the same k. The four libraries tested agree on all 256 rates.
+        g.k = (float)(1.0 - std::exp(-std::log(3.0) / (cal::FEG_SEG_S * SR * std::exp2(g.rate / cal::FEG_RATE_OCT))));
         done &= ~(1u << n);             // a rate write acknowledges the segment
     } else g.target = (int16_t)v;
     if (!g.rate) g.level = g.target;
@@ -77,7 +79,7 @@ float Modulators::lfo(int n) const
         case SAW_DOWN:    v = bipolar ? 1.0f - 2.0f * x : 1.0f - x; break;
         case SAW_UP:      v = bipolar ? 2.0f * x - 1.0f : x; break;
         case SQUARE:      v = x < 0.5f ? 1.0f : -1.0f; break;
-        case SINE:        v = std::sin(2.0f * 3.14159265f * x); break;
+        case SINE:        v = (float)std::sin((double)(2.0f * 3.14159265f * x)); break;   // in double, as k above
         case SAMPLE_HOLD: v = hold[n]; break;
         default:          v = bipolar ? (x < 0.25f ? 4.0f * x : x < 0.75f ? 2.0f - 4.0f * x : 4.0f * x - 4.0f)
                                       : (x < 0.5f ? 2.0f * x : 2.0f - 2.0f * x); break;   // the triangle

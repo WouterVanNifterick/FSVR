@@ -1,7 +1,9 @@
 // dsp_check - the filters' and effects' output, pinned. The six filter types with notes, controller offsets, a
-// kill and a retake; every effect type of each block with every parameter randomised halfway. The hashes are what
+// kill and a retake; every effect type of each block with every parameter randomised halfway. The hashes were what
 // the firmware's own DSP programs computed on the chip interpreter for the same drive, bit for bit, before those
-// programs moved to the VOP3 project: a change here is a change in sound.
+// programs moved to the VOP3 project. The filter's moved once since, when the sine LFO and the EG's k were rounded
+// through float, which makes them the C library's no longer. Both hashes are the same on Linux, macOS and Windows,
+// 64- and 32-bit: a change here is a change in sound.
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -55,7 +57,7 @@ int main() {
         double lr[2]; e->run(bus, lr[0], lr[1]); eat(lr, sizeof lr);
       } } }
   const uint64_t effects = h;
-  const bool ok = filter == 0xab25677c2758e25eull && effects == 0xca279a2559385f56ull;
+  const bool ok = filter == 0x0d3a65cd60d920adull && effects == 0xca279a2559385f56ull;
   std::printf("filter %016llx, effects %016llx: %s\n", (unsigned long long)filter, (unsigned long long)effects, ok ? "ok" : "CHANGED");
   return ok ? 0 : 1;
 }
