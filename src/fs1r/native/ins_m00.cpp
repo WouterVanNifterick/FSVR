@@ -217,8 +217,9 @@ const Length LENGTHS[31] = {
 };
 
 // The third accumulator's last six steps, which the left channel's bands, the first fractional tap and
-// the first fixed tap sit in between, so they are three short runs rather than one.
-struct LengthRun { int base; int n; Length len[3]; };
+// the first fixed tap sit in between, so they are three short runs rather than one. `st` is the run's
+// first step and `nsteps` how many steps it runs.
+struct LengthRun { int st, nsteps; Length len[3]; };
 
 const LengthRun LENGTH_TAIL[3] = {
 	{ 0x1cb, 1, {
@@ -231,6 +232,10 @@ const LengthRun LENGTH_TAIL[3] = {
 		L(LEN_MRECT, 124, 0,  0,   0, CLAMP_ABS,  false, DEC_NONE, 0, DEC_NONE, 0),
 		L(LEN_DEPTH, 123, 0,  0,   0, CLAMP_ZERO, true,  DEC_NONE, 0, DEC_NONE, 0) } },
 };
+
+// The tail step of a step, -1 where there is none. The three runs never move, so a step reaches its run
+// rather than looking through the three for it.
+constexpr auto LENGTH_TAIL_AT = index_by_span(LENGTH_TAIL);
 
 #undef L
 
@@ -321,13 +326,14 @@ enum band_role_t
 	B_B0,         // b0 on x[n], closing the sum into the band's own output
 };
 
-// One band, in direct form I. `src` is the register the channel's signal arrives in and `in` the one the
-// B_PRE step scales it into, which is also where b1 and b0 read it. `x1` is the register b2 reads, which
-// the same step copies into `keep`, so that x[-1] exists without a delay RAM; `y1` is the band's own
-// output, which -a1 reads and b0 overwrites; and `y2` is the one -a2 reads, which the band above keeps.
+// One band, in direct form I. `st` is the band's first step and `nsteps` how many steps it runs. `src` is
+// the register the channel's signal arrives in and `in` the one the B_PRE step scales it into, which is
+// also where b1 and b0 read it. `x1` is the register b2 reads, which the same step copies into `keep`,
+// so that x[-1] exists without a delay RAM; `y1` is the band's own output, which -a1 reads and b0
+// overwrites; and `y2` is the one -a2 reads, which the band above keeps.
 struct Band
 {
-	int base, n;                 // its first step and how many steps it runs
+	int st, nsteps;                 // its first step and how many steps it runs
 	int src, in;
 	int x1, keep;
 	int y1, y2;
@@ -344,7 +350,7 @@ struct Band
 // shelves differ in one more thing, which is the order of their two terms: the left opens the sum with
 // -a1 on its own output and the right opens it with b1 on its input.
 const Band BANDS[6] = {
-	//  base  n  src  in  x1 keep  y1  y2  route    the band's roles                 its two decors per step
+	//  base  steps  src  in  x1 keep  y1  y2  route    the band's roles                 its two decors per step
 	{  0x1bf, 4,   7, 67,  0,  0, 68,  0, ROUTE_2, { B_PRE, B_TERM_Y1, B_SUM_IN, B_B0 }, {
 		{ {DEC_SWEEP_OLDER, 0}, {DEC_NONE, 0} },
 		{ {DEC_CAPTURE,  56},  {DEC_NONE, 0} },
@@ -398,6 +404,10 @@ void band(yss236_core& c, int st, Band const& b, int k)
 	}
 }
 
+// The band of a step, -1 where it belongs to none: six rows of three to five steps that never move, and
+// the index says which of a band's steps this one is as st - BANDS[i].st.
+constexpr auto BANDS_AT = index_by_span(BANDS);
+
 // ---------------------------------------------------------------------------------------------
 // The four fractional taps, the two damped feedbacks and the two fixed taps
 // ---------------------------------------------------------------------------------------------
@@ -407,11 +417,12 @@ void band(yss236_core& c, int st, Band const& b, int k)
 // which is the difference; the second adds that difference to the younger one, which puts the scale
 // back and closes the interpolation into `out`. So the whole of a tap is m[lo] + t * (m[hi] - m[lo]),
 // written as two steps because the chip has one adder and no register to put the difference in.
-// `lead_write` says the first step is also a delay RAM writer, which is the second fixed tap's slot:
-// the latch 0x1ea leaves is spent there, before the interpolation it belongs to has closed.
+// `st` is the pair's first step and `nsteps` the two it runs. `lead_write` says the first step is also a
+// delay RAM writer, which is the second fixed tap's slot: the latch 0x1ea leaves is spent there, before
+// the interpolation it belongs to has closed.
 struct Tap
 {
-	int base;                     // the first of the two steps
+	int st, nsteps;                // the first of the two steps, and the two it runs
 	int lo, hi;                   // the pair of cells, the older first
 	int treg;                     // the t register holding the fraction between them
 	int out;                      // the register the interpolation closes into
@@ -420,11 +431,11 @@ struct Tap
 };
 
 const Tap TAPS[4] = {
-	//  base  lo  hi  treg  out  the first step     the second step            writer
-	{  0x1d0, 60, 61,  11, 119, {DEC_CAPTURE, 62}, {DEC_SERIAL_L, 4},         false },
-	{  0x1d4, 56, 57,   9,  79, {DEC_CAPTURE, 63}, {DEC_NONE, 0},              false },
-	{  0x1e5, 58, 59,  10,  81, {DEC_NONE, 0},     {DEC_NONE, 0},              false },
-	{  0x1eb, 62, 63,  11, 120, {DEC_NONE, 0},     {DEC_NONE, 0},              true  },
+	//  base  steps  lo  hi  treg  out  the first step     the second step            writer
+	{  0x1d0,  2,    60, 61,  11, 119, {DEC_CAPTURE, 62}, {DEC_SERIAL_L, 4},         false },
+	{  0x1d4,  2,    56, 57,   9,  79, {DEC_CAPTURE, 63}, {DEC_NONE, 0},              false },
+	{  0x1e5,  2,    58, 59,  10,  81, {DEC_NONE, 0},     {DEC_NONE, 0},              false },
+	{  0x1eb,  2,    62, 63,  11, 120, {DEC_NONE, 0},     {DEC_NONE, 0},              true  },
 };
 
 void tap(yss236_core& c, int st, Tap const& p, int k)
@@ -442,15 +453,18 @@ void tap(yss236_core& c, int st, Tap const& p, int k)
 	        false, 0, false, false, false, p.lead_write});
 }
 
+// The tap of a step, -1 where there is none: four rows of two steps that never move.
+constexpr auto TAPS_AT = index_by_span(TAPS);
+
 // One damped feedback: ins::DELAY_CURVE's first word on the tap, its second word on the state the tap a
 // pass back was written into, and the two summed and doubled into that same state, which is what makes
-// the tap darker each time round the line.
-struct Damp { int base; int tap, state; Decor decor[3]; };
+// the tap darker each time round the line. `st` is the run's first step and `nsteps` the three it runs.
+struct Damp { int st, nsteps; int tap, state; Decor decor[3]; };
 
 const Damp DAMPS[2] = {
-	//  base  tap  state  the first step      the second            the third
-	{  0x1d6,  79,    80, { {DEC_NONE, 0}, {DEC_SWEEP, 0}, {DEC_NONE, 0} } },
-	{  0x1e7,  81,    82, { {DEC_LFO, 15}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+	//  base  steps  tap  state  the first step      the second            the third
+	{  0x1d6,  3,     79,    80, { {DEC_NONE, 0}, {DEC_SWEEP, 0}, {DEC_NONE, 0} } },
+	{  0x1e7,  3,     81,    82, { {DEC_LFO, 15}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
 };
 
 void damp(yss236_core& c, int st, Damp const& d, int k)
@@ -463,6 +477,9 @@ void damp(yss236_core& c, int st, Damp const& d, int k)
 	default: close(c, st, d.tap, d.state, ROUTE_2); break;
 	}
 }
+
+// The damped feedback of a step, -1 where there is none: two rows of three steps that never move.
+constexpr auto DAMPS_AT = index_by_span(DAMPS);
 
 // The two fixed taps: the reads of the slots 0x68 and 0x69, taken up into m[42] and m[43] five steps
 // later and latched here as the data of a delay RAM write. Neither slot is read by any step of this
@@ -481,17 +498,21 @@ void fixed_tap(yss236_core& c, FixedTap const& f)
 	        false, 0, false, false, true, false});
 }
 
+// The fixed tap of a step, -1 where there is none: one step per row, indexed once at compile time.
+constexpr auto FIXED_AT = index_by_step(FIXED);
+
 // ---------------------------------------------------------------------------------------------
 // The two wet sums, the two outputs and the two delay lines' writes
 // ---------------------------------------------------------------------------------------------
 
 // One wet sum: the channel's own damped tap, the first fractional tap and the second one, added in that
-// order, into the register the base program reads as that channel's return.
-struct WetSum { int base; int own, first, second; int out; };
+// order, into the register the base program reads as that channel's return. `st` is the run's first step
+// and `nsteps` the three it runs.
+struct WetSum { int st, nsteps; int own, first, second; int out; };
 
 const WetSum WET[2] = {
-	{ 0x1ed, 79, 119, 120,  4 },       // the left output's
-	{ 0x1f0, 81, 120, 119,  5 },       // the right output's
+	{ 0x1ed, 3, 79, 119, 120,  4 },       // the left output's
+	{ 0x1f0, 3, 81, 120, 119,  5 },       // the right output's
 };
 
 void wet_sum(yss236_core& c, int st, WetSum const& w, int k)
@@ -504,14 +525,18 @@ void wet_sum(yss236_core& c, int st, WetSum const& w, int k)
 	}
 }
 
+// The wet sum of a step, -1 where there is none: two rows of three steps that never move.
+constexpr auto WET_AT = index_by_span(WET);
+
 // One output: ins::MOD_WORDS' dry word on the channel's tone-shaped signal, the other channel's on top
 // of it, and ins::MOD_WORDS' wet word on that channel's wet sum, the three scaled by the route that puts
-// ins::MOD_WORDS' own scale back into the register the base program reads back.
-struct Output { int base; int dry, cross, wet; int reg; };
+// ins::MOD_WORDS' own scale back into the register the base program reads back. `st` is the run's first
+// step and `nsteps` the three it runs.
+struct Output { int st, nsteps; int dry, cross, wet; int reg; };
 
 const Output OUTPUTS[2] = {
-	{ 0x1f3, 72, 78,  4, 17 },        // the left output, r[17]
-	{ 0x1f6, 78, 72,  5, 18 },        // the right output, r[18]
+	{ 0x1f3, 3, 72, 78,  4, 17 },        // the left output, r[17]
+	{ 0x1f6, 3, 78, 72,  5, 18 },        // the right output, r[18]
 };
 
 void output(yss236_core& c, int st, Output const& o, int k)
@@ -524,11 +549,14 @@ void output(yss236_core& c, int st, Output const& o, int k)
 	}
 }
 
+// The output of a step, -1 where there is none: two rows of three steps that never move.
+constexpr auto OUTPUTS_AT = index_by_span(OUTPUTS);
+
 // One delay line's own write: the program's own registers taken into the running value, the last of
 // them saturated, and that sum is what lands in the line for the next pass's taps to read back. The
 // last step of each run is that writer, and it carries the wdata flag, so it drops any latched data and
-// writes its own result.
-struct DelayWrite { int base; int n; int a, b, c, state; };
+// writes its own result. `st` is the run's first step and `nsteps` how long the run is.
+struct DelayWrite { int st, nsteps; int a, b, c, state; };
 
 const DelayWrite DELAYS[2] = {
 	{ 0x1f9, 3, 78, 82, 80, 80 },     // into the slot 0x7e, the second delay line's own write
@@ -540,7 +568,7 @@ void delay_write(yss236_core& c, int st, DelayWrite const& w, int k)
 	// The last step of the run is the writer, whichever index that is: the first delay line's run is
 	// three steps long and the second one's four. It carries the wdata flag, so it drops any latched
 	// data and writes its own result rather than taking an earlier step's.
-	if (k == w.n - 1)
+	if (k == w.nsteps - 1)
 	{
 		run(c, {st, w.state, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0,
 		        false, 0, false, false, true, true});
@@ -554,6 +582,10 @@ void delay_write(yss236_core& c, int st, DelayWrite const& w, int k)
 	}
 }
 
+// The delay line write of a step, -1 where there is none: two rows of three and four steps that never
+// move, and `nsteps` says which step of the run is the writer.
+constexpr auto DELAYS_AT = index_by_span(DELAYS);
+
 // ---------------------------------------------------------------------------------------------
 // The 96 steps
 // ---------------------------------------------------------------------------------------------
@@ -562,6 +594,9 @@ void delay_write(yss236_core& c, int st, DelayWrite const& w, int k)
 // step and carries the m_skip guard step() opens with, so a gate in the base program skips these steps
 // as it would the interpreter's. Each group below is a table of its own repeated unit, looked up by
 // the step, and every one of the 96 steps is in a group or the other: nothing here is a class-0 step.
+// Each table's index is the row that group's steps run, or -1 where the step is not one of that group's,
+// and the groups are asked in the same order the rows are listed in, so a step two groups name runs the
+// first group's row exactly as the scans did.
 void block_0x1a0(yss236_core& c)
 {
 	for (int st = 0x1a0; st < 0x200; st++)
@@ -569,49 +604,35 @@ void block_0x1a0(yss236_core& c)
 		c.begin_step();
 		if (st < c.m_skip) continue;
 
-		// ---- 0x1a0 to 0x1be: the LFO, the three accumulators and the three delay lengths ----
+		// ---- 0x1a0 to 0x1be: the LFO, the three accumulators and the three delay lengths. This table is
+		//      not indexed by a scan but by hand, one row per step from 0x1a0, so the row is st - 0x1a0 ----
 		if (st < 0x1bf) { length(c, st, LENGTHS[st - 0x1a0]); continue; }
 
-		bool done = false;
+		int i;
 
 		// ---- 0x1bf to 0x1ca and 0x1d9 to 0x1e4: the two channels' three bands each ----
-		for (Band const& b : BANDS)
-			if (st >= b.base && st < b.base + b.n) { band(c, st, b, st - b.base); done = true; break; }
-		if (done) continue;
+		if ((i = BANDS_AT[st]) >= 0) { band(c, st, BANDS[i], st - BANDS[i].st); continue; }
 
 		// ---- 0x1d0, 0x1d4, 0x1e5 and 0x1eb: the four fractional taps, two steps each ----
-		for (Tap const& p : TAPS)
-			if (st >= p.base && st < p.base + 2) { tap(c, st, p, st - p.base); done = true; break; }
-		if (done) continue;
+		if ((i = TAPS_AT[st]) >= 0) { tap(c, st, TAPS[i], st - TAPS[i].st); continue; }
 
 		// ---- 0x1d6 and 0x1e7: the two damped feedbacks ----
-		for (Damp const& d : DAMPS)
-			if (st >= d.base && st < d.base + 3) { damp(c, st, d, st - d.base); done = true; break; }
-		if (done) continue;
+		if ((i = DAMPS_AT[st]) >= 0) { damp(c, st, DAMPS[i], st - DAMPS[i].st); continue; }
 
 		// ---- 0x1cc and 0x1ea: the two fixed taps ----
-		for (FixedTap const& f : FIXED)
-			if (st == f.st) { fixed_tap(c, f); done = true; break; }
-		if (done) continue;
+		if ((i = FIXED_AT[st]) >= 0) { fixed_tap(c, FIXED[i]); continue; }
 
 		// ---- the third accumulator's tail, interleaved with three of the groups above ----
-		for (LengthRun const& r : LENGTH_TAIL)
-			if (st >= r.base && st < r.base + r.n) { length(c, st, r.len[st - r.base]); done = true; break; }
-		if (done) continue;
+		if ((i = LENGTH_TAIL_AT[st]) >= 0) { length(c, st, LENGTH_TAIL[i].len[st - LENGTH_TAIL[i].st]); continue; }
 
 		// ---- 0x1ed and 0x1f0: the two wet sums ----
-		for (WetSum const& w : WET)
-			if (st >= w.base && st < w.base + 3) { wet_sum(c, st, w, st - w.base); done = true; break; }
-		if (done) continue;
+		if ((i = WET_AT[st]) >= 0) { wet_sum(c, st, WET[i], st - WET[i].st); continue; }
 
 		// ---- 0x1f3 and 0x1f6: the two outputs ----
-		for (Output const& o : OUTPUTS)
-			if (st >= o.base && st < o.base + 3) { output(c, st, o, st - o.base); done = true; break; }
-		if (done) continue;
+		if ((i = OUTPUTS_AT[st]) >= 0) { output(c, st, OUTPUTS[i], st - OUTPUTS[i].st); continue; }
 
 		// ---- 0x1f9 to 0x1ff: the two delay lines' own writes ----
-		for (DelayWrite const& w : DELAYS)
-			if (st >= w.base && st < w.base + w.n) { delay_write(c, st, w, st - w.base); done = true; break; }
+		if ((i = DELAYS_AT[st]) >= 0) { delay_write(c, st, DELAYS[i], st - DELAYS[i].st); continue; }
 	}
 }
 

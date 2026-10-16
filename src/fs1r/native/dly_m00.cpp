@@ -128,7 +128,7 @@ struct Side
 // second input wherever it is not zero, `dr` the register it writes and `treg` the t register the
 // multiplier reads as its word in place of the step's own constant. `add` is what the adder adds to the
 // product, `route` the scale its result takes and `clamp` the clamp, and `st` is the step itself, which
-// is what the search in block_0x110() looks each row up by.
+// is what the index below keys each row on.
 struct Word
 {
 	int st;
@@ -167,29 +167,35 @@ void word_step(yss236_core& c, int st, Word const& w)
 // ---------------------------------------------------------------------------------------------
 
 // One of the four three-word sections the host's designFilter() writes on the send: rev::DELAY_LPF and
-// rev::DELAY_HPF and their two copies, rev::DELAY_LPF_COPY and rev::DELAY_HPF_COPY. The three steps are
-// the section's two coefficients and its state, in the order the program runs them. The idiom at 0x114,
-// 0x119 and 0x121 is the chip's: 2 * |x| - 128, which is a register's value centred on zero, read back
-// as a t multiplier a third of the way up (t_write divides by 128).
-struct Section { int base; Word word[3]; };
+// rev::DELAY_HPF and their two copies, rev::DELAY_LPF_COPY and rev::DELAY_HPF_COPY. `st` is the
+// section's first step and `nsteps` how many it runs, always the three of its two coefficients and its
+// state, which are the steps in the order the program runs them. The idiom at 0x114, 0x119 and 0x121 is
+// the chip's: 2 * |x| - 128, which is a register's value centred on zero, read back as a t multiplier a
+// third of the way up (t_write divides by 128).
+struct Section { int st, nsteps; Word word[3]; };
 
 // The columns below are Word's, in the order it declares them. The steps around the sections are 0x110,
 // which takes the send in, 0x117, which reads the block's second line, and 0x11e to 0x126, the two tone
 // groups' states and the tap sums the sections close into. WORDS below holds those and the rest.
 const Section SECTIONS[4] = {
-    { 0x111, {                { 0x111, 0, 12, 123, ADD_OFF, ROUTE_16, CLAMP_WRAP, 0, {LINE_NONE, CELL_SERIAL_R, 5}, {0, NO_WRITE, false, false} },
-               { 0x112, 0, 0, 125, ADD_ACC, ROUTE_2, CLAMP_WRAP, 0, {}, {0, NO_WRITE, true,  false} },
-               { 0x113, 124, 0, 0, ADD_OFF, ROUTE_1, CLAMP_ABS, 0, {LINE_READ, CELL_NONE, 0}, {0, NO_WRITE, false, true } } } },   // rev::DELAY_LPF,
-    { 0x114, {                { 0x114, 0, 0, 124, ADD_ACC, ROUTE_2, CLAMP_SAT, 0, {}, {12, NO_WRITE, true,  false} },
-               { 0x115, 0, 12, 1, ADD_CELL, ROUTE_2, CLAMP_WRAP, 0, {}, {0, NO_WRITE, true,  false} },
-               { 0x116, 123, 0, 2, ADD_REG, ROUTE_2, CLAMP_WRAP, 0, {}, {0, NO_WRITE, true,  false} } } },   // rev::DELAY_HPF,
-    { 0x118, {                { 0x118, 1, 0, 0, ADD_OFF, ROUTE_1, CLAMP_ABS, 0, {LINE_NONE, CELL_CAPTURE, 22}, {0, NO_WRITE, false, true } },
-               { 0x119, 0, 0, 1, ADD_ACC, ROUTE_2, CLAMP_SAT, 0, {}, {13, NO_WRITE, true,  false} },
-               { 0x11a, 127, 0, 127, ADD_OFF, ROUTE_1, CLAMP_SAT, 12, {}, {0, NO_WRITE, false, false} } } },   // rev::DELAY_LPF_COPY,
-    { 0x11b, {                { 0x11b, 0, 12, 126, ADD_CELL, ROUTE_2, CLAMP_WRAP, 0, {LINE_READ, CELL_NONE, 0}, {0, NO_WRITE, true,  false} },
-               { 0x11c, 124, 0, 0, ADD_OFF, ROUTE_16, CLAMP_SAT, 0, {LINE_NONE, CELL_CAPTURE, 23}, {0, NO_WRITE, false, false} },
-               { 0x11d, 127, 0, 0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0, {}, {0, NO_WRITE, false, false} } } },   // rev::DELAY_HPF_COPY
+    { 0x111, 3, {         { 0x111, 0, 12, 123, ADD_OFF, ROUTE_16, CLAMP_WRAP, 0, {LINE_NONE, CELL_SERIAL_R, 5}, {0, NO_WRITE, false, false} },
+                        { 0x112, 0, 0, 125, ADD_ACC, ROUTE_2, CLAMP_WRAP, 0, {}, {0, NO_WRITE, true,  false} },
+                        { 0x113, 124, 0, 0, ADD_OFF, ROUTE_1, CLAMP_ABS, 0, {LINE_READ, CELL_NONE, 0}, {0, NO_WRITE, false, true } } } },   // rev::DELAY_LPF,
+    { 0x114, 3, {         { 0x114, 0, 0, 124, ADD_ACC, ROUTE_2, CLAMP_SAT, 0, {}, {12, NO_WRITE, true,  false} },
+                        { 0x115, 0, 12, 1, ADD_CELL, ROUTE_2, CLAMP_WRAP, 0, {}, {0, NO_WRITE, true,  false} },
+                        { 0x116, 123, 0, 2, ADD_REG, ROUTE_2, CLAMP_WRAP, 0, {}, {0, NO_WRITE, true,  false} } } },   // rev::DELAY_HPF,
+    { 0x118, 3, {         { 0x118, 1, 0, 0, ADD_OFF, ROUTE_1, CLAMP_ABS, 0, {LINE_NONE, CELL_CAPTURE, 22}, {0, NO_WRITE, false, true } },
+                        { 0x119, 0, 0, 1, ADD_ACC, ROUTE_2, CLAMP_SAT, 0, {}, {13, NO_WRITE, true,  false} },
+                        { 0x11a, 127, 0, 127, ADD_OFF, ROUTE_1, CLAMP_SAT, 12, {}, {0, NO_WRITE, false, false} } } },   // rev::DELAY_LPF_COPY,
+    { 0x11b, 3, {         { 0x11b, 0, 12, 126, ADD_CELL, ROUTE_2, CLAMP_WRAP, 0, {LINE_READ, CELL_NONE, 0}, {0, NO_WRITE, true,  false} },
+                        { 0x11c, 124, 0, 0, ADD_OFF, ROUTE_16, CLAMP_SAT, 0, {LINE_NONE, CELL_CAPTURE, 23}, {0, NO_WRITE, false, false} },
+                        { 0x11d, 127, 0, 0, ADD_ACC, ROUTE_1, CLAMP_WRAP, 0, {}, {0, NO_WRITE, false, false} } } },   // rev::DELAY_HPF_COPY
 };
+
+// The section a step is one of the three words of, -1 where it is none. None of the four runs into
+// another, so the index is built rather than searched, and a step's place in its section is what its own
+// first step tells it.
+constexpr auto SECTIONS_AT = index_by_span(SECTIONS);
 
 // One word of one of the four tone sections.
 void tone_word(yss236_core& c, int st, Section const& s, int k)
@@ -202,10 +208,11 @@ void tone_word(yss236_core& c, int st, Section const& s, int k)
 // ---------------------------------------------------------------------------------------------
 
 // One tap of the window's line: two steps that difference two reads of the line a word apart through
-// the tap's coefficient. `coef` is the t register that coefficient, `lo` and `hi` the cells the two
-// captures of the reads land in, `out` the register the pair closes into, `read` what the first step
-// reads of the line and `capture` what the second takes up.
-struct Tap { int base; int coef, lo, hi, out; Decor read, capture; };
+// the tap's coefficient. `st` is the pair's first step and `nsteps` how long it is, always two, one for
+// each of the reads. `coef` is the t register that coefficient, `lo` and `hi` the cells the two captures
+// of the reads land in, `out` the register the pair closes into, `read` what the first step reads of the
+// line and `capture` what the second takes up.
+struct Tap { int st, nsteps; int coef, lo, hi, out; Decor read, capture; };
 
 // The four taps in the order the program runs them. The coefficients are t[9] at 0x124, t[11] at 0x12b
 // (rev::DELAY_CURVE[0]) and t[10] at 0x13a, and the index the reads take is loaded by those same three
@@ -213,11 +220,16 @@ struct Tap { int base; int coef, lo, hi, out; Decor read, capture; };
 // so all three coefficients and all three indices are zero and every product below is zero: the reads
 // still happen, the cells still move, and the four sums are the running value on its own.
 const Tap TAPS[4] = {
-    { 0x137,  9, 56, 57, 119, {LINE_READ_IDX,       CELL_NONE,  0}, {LINE_NONE, CELL_CAPTURE, 61} },
-    { 0x13b, 11, 60, 61, 121, {LINE_READ_IDX_OLDER, CELL_NONE,  0}, {LINE_NONE, CELL_CAPTURE, 62} },
-    { 0x147, 11, 62, 63, 122, {LINE_READ,           CELL_LFO,   10}, {LINE_NONE, CELL_CAPTURE, 59} },
-    { 0x14c, 10, 58, 59, 120, {LINE_NONE,           CELL_CAPTURE, 25}, {LINE_NONE, CELL_NONE,  0} },
+    { 0x137, 2,  9, 56, 57, 119, {LINE_READ_IDX,       CELL_NONE,  0}, {LINE_NONE, CELL_CAPTURE, 61} },
+    { 0x13b, 2, 11, 60, 61, 121, {LINE_READ_IDX_OLDER, CELL_NONE,  0}, {LINE_NONE, CELL_CAPTURE, 62} },
+    { 0x147, 2, 11, 62, 63, 122, {LINE_READ,           CELL_LFO,   10}, {LINE_NONE, CELL_CAPTURE, 59} },
+    { 0x14c, 2, 10, 58, 59, 120, {LINE_NONE,           CELL_CAPTURE, 25}, {LINE_NONE, CELL_NONE,  0} },
 };
+
+// The tap a step is one of the two halves of, -1 where it is none. The four pairs are apart and none
+// runs into another, so the index is built rather than searched, and a step's place in its pair is what
+// the pair's own first step tells it.
+constexpr auto TAPS_AT = index_by_span(TAPS);
 
 // One half of a tap pair, k = 0 for the first. The first half differences the first read from itself,
 // y = t * lo - lo, which leaves the running value and only wraps. The second differences the other read
@@ -320,6 +332,11 @@ const Word WORDS[] = {
     {  0x157, 120, 0,  0, ADD_ACC, ROUTE_1, CLAMP_SAT, 0,                                   {}, { 0, WRITE_OWN,  false, false} },
 };
 
+// The word of a step, -1 where the table holds none. The fifty rows are in step order and no two of
+// them are the same step, so the index is built once and a step reaches its word rather than walking the
+// table and stopping where the walk goes past it.
+constexpr auto WORDS_AT = index_by_step(WORDS);
+
 // The run of steps 0x110 to 0x157, the whole of the window's program. The loop is one iteration per
 // step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half
 // skips these steps as it would the interpreter's. A step looks itself up in the three tables and the
@@ -334,22 +351,11 @@ void block_0x110(yss236_core& c)
 
 		// ---- the send and the host's four tone sections ----
 		bool done = false;
-		for (Section const& s : SECTIONS)
-			if (st >= s.base && st < s.base + 3)
-			{
-				tone_word(c, st, s, st - s.base);
-				done = true;
-				break;
-			}
+		if (int i = SECTIONS_AT[st]; i >= 0) { tone_word(c, st, SECTIONS[i], st - SECTIONS[i].st); done = true; }
 
 		// ---- the four delay taps ----
-		for (Tap const& t : TAPS)
-			if (!done && st >= t.base && st < t.base + 2)
-			{
-				tap_half(c, st, t, st - t.base);
-				done = true;
-				break;
-			}
+		if (!done)
+			if (int i = TAPS_AT[st]; i >= 0) { tap_half(c, st, TAPS[i], st - TAPS[i].st); done = true; }
 
 		// ---- the two steps that stand alone: the line write and the block's output ----
 		if (!done && st == 0x153) { line_write(c, st); done = true; }
@@ -357,11 +363,7 @@ void block_0x110(yss236_core& c)
 		if (done) continue;
 
 		// ---- every other step, which WORDS holds in step order ----
-		for (Word const& w : WORDS)
-		{
-			if (w.st > st) break;
-			if (w.st == st) { word_step(c, st, w); break; }
-		}
+		if (int i = WORDS_AT[st]; i >= 0) word_step(c, st, WORDS[i]);
 	}
 }
 

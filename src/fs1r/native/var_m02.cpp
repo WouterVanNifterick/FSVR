@@ -97,6 +97,10 @@ constexpr int T_LEVEL = 9;
 // The first of the five pole registers r[119] to r[123] that the band sum adds.
 constexpr int BAND_FIRST = 119;
 
+// How far after a published read its capture lands: captured()'s lower bound, which is the only distance
+// this program publishes anything at, so the capture index below is the read index walked this far on.
+constexpr int PUBLISH_LAG = 5;
+
 // A pole: r[out] = saturate(16 * k * r[in]), which is the shape every pole in this program has. The
 // last five rows are the chain the band sum adds, one register to the next and back to the first; the
 // first three are the drive's own, 0x158 seeding the chain out of r[108] and 0x15b and 0x15f folding a
@@ -114,10 +118,14 @@ const Pole POLES[8] = {
 	{ 0x173, 123, 119 },
 };
 
+// Which pole a step is, so the step reaches its pole rather than looking through the eight for it. The
+// index is the same on every pass and under all three types.
+constexpr auto POLES_AT = index_by_step(POLES);
+
 // One delay read the window publishes for the base program and the cell it lands in. The two are five
 // steps apart on every one of them, which is captured()'s lower bound, and a read's slot is its own step
 // over four, so the step below is all the offset the table carries.
-struct Published { int read, cell; };
+struct Published { int st, cell; };
 
 const Published PUBLISHED[6] = {
 	{ 0x15b, 28 },   // the slot 0x56
@@ -127,6 +135,24 @@ const Published PUBLISHED[6] = {
 	{ 0x193, 32 },   // 0x64
 	{ 0x197, 33 },   // 0x65
 };
+
+// The capture index: PUBLISHED's own indices at the step each read's capture lands at, and -1 everywhere
+// else, which is what the old scan answered at a step that is a read and nothing but a read. It is built
+// from the read table itself rather than from a second table of captures, so the two cannot fall out of
+// step, and it hands back PUBLISHED's indices: a step that carries a capture reaches its row for both.
+template <int N>
+constexpr std::array<int16_t, yss236_core::STEPS> index_by_lag(Published const (&rows)[N], int lag)
+{
+	std::array<int16_t, yss236_core::STEPS> ix{};
+	for (int16_t& i : ix) i = -1;
+	for (int i = 0; i < N; i++) ix[rows[i].st + lag] = int16_t(i);
+	return ix;
+}
+
+// Which read a step is, and which of their captures lands at it, so a step reaches both rather than
+// looking through the six for them. The index is the same on every pass and under all three types.
+constexpr auto PUBLISHED_AT = index_by_step(PUBLISHED);
+constexpr auto CAPTURES_AT = index_by_lag(PUBLISHED, PUBLISH_LAG);
 
 // What a filter's step carries besides its term: the delay RAM read it makes, which is its own slot, and
 // the LFO it publishes for the base program.
@@ -163,22 +189,20 @@ const Filter FILTERS[3] = {
 
 // The delay reads this window publishes and the captures that take them up five steps later. Both come
 // before the step's arithmetic, because step() moves a cell and reads the delay RAM before the
-// multiplier runs.
+// multiplier runs. No step is both a read and a capture, so one lookup each settles it.
 void published(yss236_core& c, int st)
 {
-	for (Published const& p : PUBLISHED)
-	{
-		if (st == p.read) read_delay(c, st);
-		else if (st == p.read + 5) take_capture(c, p.cell, st);
-	}
+	if (int i = PUBLISHED_AT[st]; i >= 0) read_delay(c, st);
+	if (int i = CAPTURES_AT[st]; i >= 0) take_capture(c, PUBLISHED[i].cell, st);
 }
 
 // One of the program's pole steps, if this is one of them: the caller moves on when this says so.
 bool pole(yss236_core& c, int st)
 {
-	for (Pole const& p : POLES)
-		if (st == p.st) { gain(c, st, p.in, p.out, ROUTE_16); return true; }
-	return false;
+	int const i = POLES_AT[st];
+	if (i < 0) return false;
+	gain(c, st, POLES[i].in, POLES[i].out, ROUTE_16);
+	return true;
 }
 
 // One filter's step. The decor the step's own words carry comes first, and then the filter's term: the

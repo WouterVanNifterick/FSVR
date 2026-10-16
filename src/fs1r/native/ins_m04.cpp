@@ -173,6 +173,10 @@ const Decor DECORS[4] = {
     {  0x1c4, DEC_SERIAL_L, SERIAL_2 },   // on the rectifier's step into r[73]
 };
 
+// The decor a step carries, -1 for the 92 that carry none. Every step of every pass asks this table
+// first, and the four rows never move, so the step indexes to its row rather than reading the four.
+constexpr auto DECORS_AT = index_by_step(DECORS);
+
 void decor(yss236_core& c, int st, Decor const& d)
 {
 	switch (d.kind)
@@ -274,23 +278,22 @@ void mode_pair(yss236_core& c, int st)
 // term, which is the one field the schedule does not make the same in all three: the band lowpass's
 // saturates where the two highpasses wrap. `publish` is the cell the section's first step also hands
 // the step before's operand into, and only the first of the three has one.
-struct Band { int base, in, out; route_t route; clamp_t open; int publish; };
+struct Band { int st, nsteps, in, out; route_t route; clamp_t open; int publish; };
 
 const Band BANDS[3] = {
-    //  base  in        out         route      open         publish
-    { 0x1b0, MODE,     BAND_HPF,   ROUTE_2,   CLAMP_WRAP,  WAH_R_OLD },  // ins::WAH_HPF_2
-    { 0x1b3, BAND_HPF, BAND_LPF,   ROUTE_2,   CLAMP_SAT,   0 },           // ins::WAH_LPF_2
-    { 0x1b9, IN_LPF,   IN_HPF,     ROUTE_2,   CLAMP_WRAP,  0 },           // ins::WAH_HPF
+    //   st  n  in        out         route      open         publish
+    { 0x1b0, 3, MODE,     BAND_HPF,   ROUTE_2,   CLAMP_WRAP,  WAH_R_OLD },  // ins::WAH_HPF_2
+    { 0x1b3, 3, BAND_HPF, BAND_LPF,   ROUTE_2,   CLAMP_SAT,   0 },           // ins::WAH_LPF_2
+    { 0x1b9, 3, IN_LPF,   IN_HPF,     ROUTE_2,   CLAMP_WRAP,  0 },           // ins::WAH_HPF
 };
 
 // The band section a step belongs to, or null when it belongs to none: the two the distortion carries
-// from r[76] to r[78], and the one the Touch Wah's input passes through on its own way in.
-Band const* band_for(int st)
-{
-	for (Band const& b : BANDS)
-		if (st >= b.base && st < b.base + 3) return &b;
-	return nullptr;
-}
+// from r[76] to r[78], and the one the Touch Wah's input passes through on its own way in. The three
+// steps of a section are consecutive, so a step indexes to its section and reads its place in it as
+// st - row.st.
+constexpr auto BANDS_AT = index_by_span(BANDS);
+
+Band const* band_for(int st) { return BANDS_AT[st] < 0 ? nullptr : &BANDS[BANDS_AT[st]]; }
 
 // One band's step k of three.
 void band(yss236_core& c, int st, Band const& b, int k)
@@ -432,22 +435,21 @@ void mirror(yss236_core& c, int st)
 // The four steps of ins::WAH_BAND that cascade the edge's shape word. Each applies its own word to the
 // last one's output a sixteenth at a time, and the fourth lands in a cell because ins::WAH_BAND's
 // series below runs on the cell rather than on a register.
-struct Edge { int base, src, dst, cell; };
+struct Edge { int st, src, dst, cell; };
 
 const Edge EDGES[4] = {
-    //  base  src     dst     cell
+    //   st  src     dst     cell
     { 0x1cd, DRIVE,  EDGE_1, 0       },   // ins::WAH_BAND[1], the edge's gain word fx_design.cpp derives
     { 0x1d1, EDGE_1, EDGE_2, 0       },   // ins::WAH_BAND[2]
     { 0x1d4, EDGE_2, EDGE_3, 0       },   // ins::WAH_BAND[3]
     { 0x1d8, EDGE_3, 0,       EDGE_4 },   // ins::WAH_BAND[4], the last of the cascade, into m[57]
 };
 
-Edge const* edge_for(int st)
-{
-	for (Edge const& e : EDGES)
-		if (st == e.base) return &e;
-	return nullptr;
-}
+// The edge word a step is, or null for the steps between them. Each row is one step of its own, so
+// the step indexes straight to it.
+constexpr auto EDGES_AT = index_by_step(EDGES);
+
+Edge const* edge_for(int st) { return EDGES_AT[st] < 0 ? nullptr : &EDGES[EDGES_AT[st]]; }
 
 // One of the four steps: the word on the last one's output, into a register or into a cell.
 void edge_step(yss236_core& c, int st, Edge const& e)
@@ -510,11 +512,28 @@ const Resonator RESONATOR[2] = {
     {   0x1db, 0x1e4,  RES_R, RES_FB_R, SENSE_R },
 };
 
+// A row of the resonator is at two steps nine apart, so it is neither the one step to a row that
+// index_by_step builds nor the run of consecutive steps that index_by_span builds. This is the same
+// map keyed on both of a row's steps, and it is spelled out here because neither helper fits.
+template <typename T, int N>
+constexpr std::array<int16_t, yss236_core::STEPS> index_by_steps(T const (&rows)[N])
+{
+	std::array<int16_t, yss236_core::STEPS> ix{};
+	for (int16_t& i : ix) i = -1;
+	for (int k = 0; k < N; k++)
+	{
+		ix[rows[k].state_step] = int16_t(k);
+		ix[rows[k].acc_step] = int16_t(k);
+	}
+	return ix;
+}
+
+// The row of the resonator a step belongs to, -1 for the steps that are not one of the four.
+constexpr auto RESONATOR_AT = index_by_steps(RESONATOR);
+
 Resonator const* resonator_for(int st)
 {
-	for (Resonator const& p : RESONATOR)
-		if (st == p.state_step || st == p.acc_step) return &p;
-	return nullptr;
+	return RESONATOR_AT[st] < 0 ? nullptr : &RESONATOR[RESONATOR_AT[st]];
 }
 
 // One of the resonator's two steps, the state or the accumulator.
@@ -568,21 +587,20 @@ enum part_t
 // a pass back and `y2` the output two passes back. The four delay registers are r[80], r[82], r[84]
 // and r[86], one per section boundary: each section's x1 is the section before's y2, so a z^-1 shifts
 // one register that both of them read, and only the last section carries two shifts of its own.
-struct Tone { int base, in, x1, y2, out; route_t route; part_t part[5]; };
+struct Tone { int st, nsteps, in, x1, y2, out; route_t route; part_t part[5]; };
 
 const Tone TONES[3] = {
-    //  base  in         x1  y2  out        route      the five steps, in the order the schedule runs them
-    { 0x1e6, DRIVE_GAIN, 80, 82, TONE_LPF,  ROUTE_2,  { B2_OPEN, B1,     A2_IN, A1,    B0 } },   // ins::WAH_LPF2
-    { 0x1eb, TONE_LPF,   82, 84, TONE_PEAK, ROUTE_2,  { B1_OPEN, B2,     A2,    A1,    B0 } },   // ins::WAH_PEAK
-    { 0x1f0, TONE_PEAK,  84, 86, TONE_SHELF,ROUTE_16, { B1_OPEN, B2,     A1,    A2_Y2, B0 } },   // ins::WAH_LOW_SHELF2
+    //   st  n  in         x1  y2  out        route      the five steps, in the order the schedule runs them
+    { 0x1e6, 5, DRIVE_GAIN, 80, 82, TONE_LPF,  ROUTE_2,  { B2_OPEN, B1,     A2_IN, A1,    B0 } },   // ins::WAH_LPF2
+    { 0x1eb, 5, TONE_LPF,   82, 84, TONE_PEAK, ROUTE_2,  { B1_OPEN, B2,     A2,    A1,    B0 } },   // ins::WAH_PEAK
+    { 0x1f0, 5, TONE_PEAK,  84, 86, TONE_SHELF,ROUTE_16, { B1_OPEN, B2,     A1,    A2_Y2, B0 } },   // ins::WAH_LOW_SHELF2
 };
 
-Tone const* tone_for(int st)
-{
-	for (Tone const& t : TONES)
-		if (st >= t.base && st < t.base + 5) return &t;
-	return nullptr;
-}
+// The tone section a step belongs to, or null for the steps between the sections. The five steps of a
+// section are consecutive, so a step indexes to its section and reads its place in it as st - row.st.
+constexpr auto TONES_AT = index_by_span(TONES);
+
+Tone const* tone_for(int st) { return TONES_AT[st] < 0 ? nullptr : &TONES[TONES_AT[st]]; }
 
 // One tone section's step k of five.
 void tone_step(yss236_core& c, int st, Tone const& t, int k)
@@ -651,8 +669,7 @@ void block_0x1a0(yss236_core& c)
 		if (st < c.m_skip) continue;
 
 		// ---- the four cells this window publishes, before the step's own arithmetic ----
-		for (Decor const& d : DECORS)
-			if (d.st == st) decor(c, st, d);
+		if (int i = DECORS_AT[st]; i >= 0) decor(c, st, DECORS[i]);
 
 		// ---- 0x1a0 to 0x1ad, the two channels' EQ: a signal in and two order-1 shelves a side ----
 		if (st < 0x1ae)
@@ -666,7 +683,7 @@ void block_0x1a0(yss236_core& c)
 		if (st < 0x1b0) { mode_pair(c, st); continue; }
 
 		// ---- the three band sections: the distortion's at 0x1b0 and 0x1b3, the Touch Wah's at 0x1b9 ----
-		if (Band const* b = band_for(st)) { band(c, st, *b, st - b->base); continue; }
+		if (Band const* b = band_for(st)) { band(c, st, *b, st - b->st); continue; }
 
 		// ---- 0x1b6 to 0x1b8, ins::WAH_MODE2's pair and ins::WAH_DRIVE's first word ----
 		if (st < 0x1bc) { touch_input(c, st); continue; }
@@ -703,7 +720,7 @@ void block_0x1a0(yss236_core& c)
 		if (st == 0x1e5) { gain(c, st, DRIVE, DRIVE_GAIN, ROUTE_1); continue; }
 
 		// ---- 0x1e6 to 0x1f4, the tone chain's three sections ----
-		if (Tone const* t = tone_for(st)) { tone_step(c, st, *t, st - t->base); continue; }
+		if (Tone const* t = tone_for(st)) { tone_step(c, st, *t, st - t->st); continue; }
 
 		// ---- 0x1f5 to 0x1fc, the dry and wet mix into the window's two outputs ----
 		if (st < 0x1fd)

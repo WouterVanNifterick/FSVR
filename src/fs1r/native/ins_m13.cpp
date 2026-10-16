@@ -181,6 +181,11 @@ const Serial SERIALS[3] = {
     { 0x1c3, 0, SERIAL_14_L },      // on ins::DD_BAND's fifth word
 };
 
+// The serial take of a step, -1 where there is none. The three steps are fixed and none of them is
+// another's, so the index is built once and a step reaches its own take rather than looking through the
+// three for it.
+constexpr auto SERIALS_AT = index_by_step(SERIALS);
+
 // ---------------------------------------------------------------------------------------------
 // The six filter sections
 // ---------------------------------------------------------------------------------------------
@@ -206,8 +211,8 @@ enum part_t
 	A2_CLOSE,       // -a2 on the output a pass back, closing the section into its output
 };
 
-// One filter section, in direct form I with both feedback terms on the same state. `base` is its first
-// step and `n` how many it runs, five for the four order-2 sections and three for the two order-1
+// One filter section, in direct form I with both feedback terms on the same state. `st` is its first
+// step and `nsteps` how many it runs, five for the four order-2 sections and three for the two order-1
 // ones. `in` is the register the section's input arrives in, `x1` the one that holds the input a pass
 // back and so is what the b2 word scales, `y1` the one the -a2 word scales and the z^-1 at the head
 // of the next section fills with this one's output, and `out` the one the -a1 word scales and the
@@ -215,7 +220,7 @@ enum part_t
 // that restores the scale designFilter()'s own (16 >> scale) took out of the coefficients.
 struct Section
 {
-	int base, n;
+	int st, nsteps;
 	int in, x1, y1, out;
 	step::route_t route;
 	part_t part[5];
@@ -225,7 +230,7 @@ struct Section
 // ins::DD_HPF carries a decor of its own, the read of the line's first tap, which the TAPS table above
 // holds; nothing else here does.
 const Section SECTIONS[6] = {
-    //  base  n  in  x1  y1  out  route     the section's steps in the order they run
+    //   st  nsteps  in  x1  y1  out  route     the section's steps in the order they run
     {  0x1a3, 5, STEREO, HPF_X1, HPF_Y1, HPF_STATE, ROUTE_2,
        { B2_OPEN, B1_SUM, B0_X1, A2_SUM, A1_CLOSE } },                 // ins::DD_HPF
     {  0x1bb, 3, TONE_IN,       0,     0,         0, ROUTE_2,
@@ -240,13 +245,17 @@ const Section SECTIONS[6] = {
        { B0_CELL_OPEN, B1_CELL_PREV, A1_CLOSE } },                     // ins::DD_LPF_2
 };
 
-// The section a step belongs to, or null when it belongs to none. The sections are not contiguous:
-// the DD_HPF's is in three steps and ins::DD_LPF's is in the middle of ins::DD_BAND's series.
+// The section a step belongs to, -1 where it belongs to none. The sections are not contiguous: the
+// DD_HPF's is in three steps and ins::DD_LPF's is in the middle of ins::DD_BAND's series. None of the
+// six runs into another, so the index is built rather than searched, and a step's place in its section
+// is what its own first step tells it.
+constexpr auto SECTION_AT = index_by_span(SECTIONS);
+
+// That index as the section a step runs one of the six's words of, or null where it runs none.
 Section const* section_for(int st)
 {
-	for (Section const& s : SECTIONS)
-		if (st >= s.base && st < s.base + s.n) return &s;
-	return nullptr;
+	int const i = SECTION_AT[st];
+	return i < 0 ? nullptr : &SECTIONS[i];
 }
 
 // One section's step k of n. Only ins::DD_LPF_2 runs on cells rather than registers, and only it
@@ -311,6 +320,11 @@ const BandWord BAND[5] = {
     { 0x1ba, MIX_R,     TAP_L },          // ins::DD_BAND[4], the third
     { 0x1c3, TAP_L,     WORK },           // ins::DD_BAND[5], the fourth, with m[4] taking page 14's input
 };
+
+// ins::DD_BAND's series word of a step, -1 where there is none. The five steps are fixed, no two of them
+// are the same and every one of them lands outside the block the step loop dispatches on, so the index
+// is built once and a step reaches its word rather than looking through the five for it.
+constexpr auto BAND_AT = index_by_step(BAND);
 
 // The four taps at the outputs, one step each, one cell each. The fourth reaches r[123], because the
 // third tap's own word is the preset's own zero and the adder is the running value, which is what the
@@ -648,10 +662,11 @@ void block_0x1a0(yss236_core& c)
 		if (st < c.m_skip) continue;
 
 		// ---- the three serial inputs this window publishes, before any step's arithmetic ----
-		for (Serial const& s : SERIALS)
-			if (st == s.st) take_serial(c, s.cell, st, s.bank);
+		if (int i = SERIALS_AT[st]; i >= 0) take_serial(c, SERIALS[i].cell, st, SERIALS[i].bank);
 
 		// ---- the delay line's four taps: the read, then the capture five steps later ----
+		// Left a scan: a step of this table is looked for in two of its four columns at once, the read
+		// and the capture, and index_by_step keys on one column.
 		for (Tap const& tp : TAPS)
 		{
 			if (st == tp.read) read_delay(c, st);
@@ -662,7 +677,7 @@ void block_0x1a0(yss236_core& c)
 		if (st < 0x1a3) { stereo_pair(c, st); continue; }
 
 		// ---- the six filter sections, where they fall ----
-		if (Section const* s = section_for(st)) { section_step(c, st, *s, st - s->base); continue; }
+		if (Section const* s = section_for(st)) { section_step(c, st, *s, st - s->st); continue; }
 
 		// ---- 0x1a8 to 0x1ab: the drive again, the first tap, the DD_HPF's output, the drive again ----
 		if (st < 0x1ac) { drive_and_highpass(c, st); continue; }
@@ -671,10 +686,7 @@ void block_0x1a0(yss236_core& c)
 		if (st < 0x1af) { attack(c, st); continue; }
 
 		// ---- ins::DD_BAND's five series words, where they fall ----
-		bool banded = false;
-		for (BandWord const& b : BAND)
-			if (st == b.st) { gain(c, st, b.src, b.dst, ROUTE_16); banded = true; break; }
-		if (banded) continue;
+		if (int i = BAND_AT[st]; i >= 0) { gain(c, st, BAND[i].src, BAND[i].dst, ROUTE_16); continue; }
 
 		// ---- 0x1b0 to 0x1ba: ins::DD_MODE, the release pair, and ins::DD_MODE's own chain ----
 		if (st < 0x1bb) { mode_and_release(c, st); continue; }

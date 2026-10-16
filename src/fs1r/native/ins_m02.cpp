@@ -125,7 +125,8 @@ void decor(yss236_core& c, int st, Decor const& d)
 // saturates it; the high shelf has no such step, because the low shelf's output is already its input.
 struct Shelf
 {
-	int base;              // the first of the shelf's steps
+	int st;                // the first of the shelf's steps, which is what index_by_span keys on
+	int nsteps;            // how many that is: four for a low shelf, which has the step in front, else three
 	int in, out;           // the registers its b1, a1 and closing steps read and write
 	int feed;              // the register the step in front scales into `in`, zero where there is none
 	route_t route;         // the closing step's route: x2 for the low shelves, x4 for the high
@@ -136,12 +137,17 @@ struct Shelf
 // high ones. The left high shelf's b1 step is the one that publishes the window's own LFO cell, and the
 // two sweep registers at 0x1aa and 0x1ab read that cell.
 const Shelf SHELVES[4] = {
-    //  base    in  out  feed  route      the b1 step's decor
-    { 0x1a3,   67,  68,    7, ROUTE_2, { DEC_NONE,  0 } },
-    { 0x1a7,   68,  69,    0, ROUTE_4, { DEC_LFO,  13 } },
-    { 0x1ac,   70,  71,    8, ROUTE_2, { DEC_NONE,  0 } },
-    { 0x1b0,   71,  72,    0, ROUTE_4, { DEC_NONE,  0 } },
+    //   st     n  in  out  feed  route      the b1 step's decor
+    { 0x1a3,  4,  67,  68,    7, ROUTE_2, { DEC_NONE,  0 } },
+    { 0x1a7,  3,  68,  69,    0, ROUTE_4, { DEC_LFO,  13 } },
+    { 0x1ac,  4,  70,  71,    8, ROUTE_2, { DEC_NONE,  0 } },
+    { 0x1b0,  3,  71,  72,    0, ROUTE_4, { DEC_NONE,  0 } },
 };
+
+// Which shelf a step belongs to, so the step reaches its shelf rather than looking through the four for it.
+// The two shelves of a channel are not one run, so the index is by span and each row carries its own length.
+// It is the same on every pass and under both types.
+constexpr auto SHELVES_AT = index_by_span(SHELVES);
 
 // One shelf's steps at 0x1a3 + k. The low shelves' k runs to 3 and the high ones' to 2, because only a
 // low shelf has the step in front.
@@ -169,13 +175,11 @@ void shelf(yss236_core& c, int st, Shelf const& s, int k)
 
 // The shelf a step belongs to, or null for the two sweep registers that sit between the channels' pairs.
 // The two shelves of a channel are not one run: the low one has the step in front and the high one has
-// not, so each covers its own three or four steps from its own base.
+// not, so each covers its own nsteps from its own st.
 Shelf const* find_shelf(int st)
 {
-	for (Shelf const& s : SHELVES)
-		if (st >= s.base && st < s.base + (s.feed ? 4 : 3))
-			return &s;
-	return nullptr;
+	int const i = SHELVES_AT[st];
+	return i < 0 ? nullptr : &SHELVES[i];
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -411,7 +415,7 @@ void block_0x1a0(yss236_core& c)
 		{
 			if (Shelf const* s = find_shelf(st))
 			{
-				shelf(c, st, *s, st - s->base);
+				shelf(c, st, *s, st - s->st);
 				continue;
 			}
 			// 0x1aa and 0x1ab: ins::PH_OFFSET is the word phaser2()'s LFO Phase writes, at the second of

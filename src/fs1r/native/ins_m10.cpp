@@ -140,15 +140,15 @@ enum part_t
 	A2_CLOSE,   // -a2 on the output two passes back, closing the section
 };
 
-// One filter section, in direct form I. `base` is its first step and `n` how many steps it runs, three
-// for the four order-1 sections and five for the two order-2 ones. `open_on` is the register the section
-// opens its sum on, which is its own output for the sections that open on -a1, the input for the one that
-// opens on b1, and x[-1] for the one that opens on b2. `in` is the register the section's input arrives
-// in, `out` the one the closing step writes, which is the next section's input, `x1` the one that holds
-// the input a pass back and `y2` the one that holds the output two passes back.
+// One filter section, in direct form I. `st` is its first step and `nsteps` how many steps it runs,
+// three for the four order-1 sections and five for the two order-2 ones. `open_on` is the register the
+// section opens its sum on, which is its own output for the sections that open on -a1, the input for the
+// one that opens on b1, and x[-1] for the one that opens on b2. `in` is the register the section's input
+// arrives in, `out` the one the closing step writes, which is the next section's input, `x1` the one that
+// holds the input a pass back and `y2` the one that holds the output two passes back.
 struct Section
 {
-	int base, n;
+	int st, nsteps;
 	int open_on, in, out, x1, y2;
 	step::route_t route;
 	part_t part[4];
@@ -158,7 +158,7 @@ struct Section
 // carry a z^-1 are the only ones that are not one of a section's own words: two hold the input a pass
 // back for the b2 term and two hold the output two passes back for the -a2 term.
 const Section SECTIONS[6] = {
-    //  base  n  open   in  out  x1  y2  route      the rest of the section's steps
+    //   st   n  open   in  out  x1  y2  route      the rest of the section's steps
     {  0x1a7, 3,   68,  67,  68,   0,   0, ROUTE_4, { B1,               B0_CLOSE    } },
     {  0x1aa, 5,   70,  68,  70,  69,  71, ROUTE_2, { B1_Y2, B0_X1, A2, B2_CLOSE  } },
     {  0x1cf, 3,   73,  72,  73,   0,   0, ROUTE_2, { B1,               B0_CLOSE    } },
@@ -167,14 +167,10 @@ const Section SECTIONS[6] = {
     {  0x1da, 3,   78,  77,  78,   0,   0, ROUTE_4, { B1,               B0_CLOSE    } },
 };
 
-// The section a step belongs to, or null when it belongs to none: 0x1a7 to 0x1ae for the input chain and
-// 0x1cf to 0x1dc for the tone chain.
-Section const* section_for(int st)
-{
-	for (Section const& s : SECTIONS)
-		if (st >= s.base && st < s.base + s.n) return &s;
-	return nullptr;
-}
+// The section a step belongs to, or -1 when it belongs to none: 0x1a7 to 0x1ae for the input chain and
+// 0x1cf to 0x1dc for the tone chain. The sections never overlap and the index is the same on every
+// pass, so the step reaches its section rather than looking through the six for it.
+constexpr auto SECTIONS_AT = index_by_span(SECTIONS);
 
 // One section's step k. The first opens the sum with its own word and the adder off, and the rest are the
 // section's other words in its own order, which is why they come out of the part list rather than from a
@@ -207,27 +203,23 @@ void section_step(yss236_core& c, int st, Section const& s, int k)
 // One channel's mix of the dry signal and the wet one. The first step applies the dry word to the signal
 // the base program leaves this window with the adder off, and the second closes the sum with the wet word
 // on r[119], the tone chain's output from the pass before, into that channel's output register.
-struct Mix { int base, dry, out; };
+struct Mix { int st, nsteps, dry, out; };
 
 const Mix MIXES[2] = {
-    { 0x1b5, SIG_L, OUT_L },     // ins::LOFI_WET[0] and ins::LOFI_WET2[0], into r[17]
-    { 0x1b8, SIG_R, OUT_R },     // the same two words again, into r[18]
+    { 0x1b5, 2, SIG_L, OUT_L },   // ins::LOFI_WET[0] and ins::LOFI_WET2[0], into r[17]
+    { 0x1b8, 2, SIG_R, OUT_R },   // the same two words again, into r[18]
 };
 
 // One mix's two steps. The closing step's route is the x4 both channels' outputs carry.
 void output_mix(yss236_core& c, int st, Mix const& m)
 {
-	if (st == m.base) term(c, st, m.dry);
-	else               close(c, st, WET, m.out, ROUTE_4);
+	if (st == m.st) term(c, st, m.dry);
+	else             close(c, st, WET, m.out, ROUTE_4);
 }
 
-// The mix a step belongs to, or null when it belongs to none.
-Mix const* mix_for(int st)
-{
-	for (Mix const& m : MIXES)
-		if (st == m.base || st == m.base + 1) return &m;
-	return nullptr;
-}
+// The mix a step belongs to, or -1 when it belongs to none. Each mix owns two steps and the two do not
+// meet, so the index is the same on every pass and the step reaches its mix rather than looking for it.
+constexpr auto MIXES_AT = index_by_span(MIXES);
 
 // ---------------------------------------------------------------------------------------------
 // What a step moves into a cell before it does any arithmetic
@@ -249,6 +241,11 @@ const Decor DECORS[3] = {
     {  0x1a7, SERIAL_R,  7 },     // on the first step of the input chain's first section
     {  0x1c3, SERIAL_L,  4 },     // in the quantizer's padding, after the negative arm
 };
+
+// The decor of a step, or -1 when it carries none. Each of the three is on a step of its own, so the
+// index is the same on every pass and the step loop reaches its decor rather than looking through the
+// three for it.
+constexpr auto DECORS_AT = index_by_step(DECORS);
 
 // Apply the decor, which comes before the step's term.
 void decor(yss236_core& c, int st, Decor const& d)
@@ -348,7 +345,7 @@ void quantizer_arm(yss236_core& c, int st, bool unity)
 // The quantizer, 0x1b7 to 0x1c3: two compares, two conditional skips and a jump around one subtraction.
 // r[121] - m[56] lands in r[121] and its sign is the flag, so a value above the step goes to +step and
 // jumps out of the block, a value below zero goes to -step, and anything between the two is left as it
-// was. The right channel's mix sits in the middle of this block and is not here: mix_for() takes its two
+// was. The right channel's mix sits in the middle of this block and is not here: MIXES_AT takes its two
 // steps before this does, and the decor for m[4] is read at the top of the step loop.
 void quantizer(yss236_core& c, int st)
 {
@@ -433,8 +430,7 @@ void block_0x1a0(yss236_core& c)
 		if (st < c.m_skip) continue;
 
 		// the three serial inputs this window publishes, before the step's own arithmetic
-		for (Decor const& d : DECORS)
-			if (d.st == st) decor(c, st, d);
+		if (int const i = DECORS_AT[st]; i >= 0) decor(c, st, DECORS[i]);
 
 		// ---- 0x1a0 to 0x1a3: the rate counter, the quantizer's step and the compare on the two ----
 		if (st < 0x1a4) { rate_counter(c, st); continue; }
@@ -446,7 +442,12 @@ void block_0x1a0(yss236_core& c)
 		if (st < 0x1a7) { input_sum(c, st); continue; }
 
 		// ---- the six sections: two over the input sum, then the four of the tone chain ----
-		if (Section const* s = section_for(st)) { section_step(c, st, *s, st - s->base); continue; }
+		if (int const i = SECTIONS_AT[st]; i >= 0)
+		{
+			Section const& s = SECTIONS[i];
+			section_step(c, st, s, st - s.st);
+			continue;
+		}
 
 		// ---- 0x1af: the one step of padding between the input chain and the sample and hold ----
 		if (st < 0x1b0) { idle(c); continue; }
@@ -463,7 +464,7 @@ void block_0x1a0(yss236_core& c)
 		}
 
 		// ---- the two output mixes, the left's at 0x1b5 and the right's at 0x1b8, two steps each ----
-		if (Mix const* m = mix_for(st)) { output_mix(c, st, *m); continue; }
+		if (int const i = MIXES_AT[st]; i >= 0) { output_mix(c, st, MIXES[i]); continue; }
 
 		// ---- 0x1b7 to 0x1c3: the quantizer's dead zone ----
 		if (st < 0x1c4) { quantizer(c, st); continue; }

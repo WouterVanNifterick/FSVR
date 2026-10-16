@@ -167,13 +167,11 @@ const Decor DECORS[4] = {
     {   0x1c3,   DEC_SERIAL_L, SERIAL_A   },   // on ins::DIST_BAND[6], the polynomial's first word
 };
 
-// The decor a step carries, or null for the 92 that carry none.
-Decor const* decor_for(int st)
-{
-	for (Decor const& d : DECORS)
-		if (d.st == st) return &d;
-	return nullptr;
-}
+// The decor a step carries, or null for the 92 that carry none. Every step of every pass asks this
+// table first, and the four rows never move, so the step indexes to its row rather than reading the four.
+constexpr auto DECORS_AT = index_by_step(DECORS);
+
+Decor const* decor_for(int st) { return DECORS_AT[st] < 0 ? nullptr : &DECORS[DECORS_AT[st]]; }
 
 void decor(yss236_core& c, int st, Decor const& d)
 {
@@ -220,28 +218,26 @@ void shape_word_published(yss236_core& c, int st, int in, int out)
 // put back, which is why it is the only one of the five that has a route or saturates.
 struct Biquad
 {
-	int base;          // the first of the section's five steps
+	int st, nsteps;    // the section's five steps, and how many that is
 	int in, x1, out, y2;
 	route_t route;
 	bool y2_copy;
 };
 
 const Biquad BIQUADS[5] = {
-    //  base  in  x1  out  y2  route   the -a2 copy
-    { 0x1a2, IN_R, IN_R + 1, FILT_R, FILT_R + 1, ROUTE_2,  true  },   // ins::DIST_INPUT_C, right channel
-    { 0x1ab, IN_L, IN_L + 1, FILT_L, FILT_L + 1, ROUTE_2,  true  },   // ins::DIST_INPUT, left channel
-    { 0x1cd, SHAPED, SHAPED + 1, PRE, PRE + 1, ROUTE_2,  false },   // ins::DIST_PRE, the first tone filter
-    { 0x1d2, PRE, PRE + 1, PRE_C, PRE_C + 1, ROUTE_2,  false },   // ins::DIST_PRE_C, over the first's
-    { 0x1d7, PRE_C, PRE_C + 1, EQ, EQ + 1, ROUTE_16,     true  },   // ins::DIST_EQ, over the second's
+    //   st  n  in  x1  out  y2  route   the -a2 copy
+    { 0x1a2, 5, IN_R, IN_R + 1, FILT_R, FILT_R + 1, ROUTE_2,  true  },   // ins::DIST_INPUT_C, right channel
+    { 0x1ab, 5, IN_L, IN_L + 1, FILT_L, FILT_L + 1, ROUTE_2,  true  },   // ins::DIST_INPUT, left channel
+    { 0x1cd, 5, SHAPED, SHAPED + 1, PRE, PRE + 1, ROUTE_2,  false },   // ins::DIST_PRE, the first tone filter
+    { 0x1d2, 5, PRE, PRE + 1, PRE_C, PRE_C + 1, ROUTE_2,  false },   // ins::DIST_PRE_C, over the first's
+    { 0x1d7, 5, PRE_C, PRE_C + 1, EQ, EQ + 1, ROUTE_16,     true  },   // ins::DIST_EQ, over the second's
 };
 
-// The section a step belongs to, or null for the steps between the sections.
-Biquad const* biquad_for(int st)
-{
-	for (Biquad const& b : BIQUADS)
-		if (st >= b.base && st < b.base + 5) return &b;
-	return nullptr;
-}
+// The section a step belongs to, or null for the steps between the sections. The five steps of a
+// section are consecutive, so a step indexes to its section and reads its place in it as st - row.st.
+constexpr auto BIQUADS_AT = index_by_span(BIQUADS);
+
+Biquad const* biquad_for(int st) { return BIQUADS_AT[st] < 0 ? nullptr : &BIQUADS[BIQUADS_AT[st]]; }
 
 // One section's step k of five. Only the closing step saturates and routes: the other four are terms
 // of a sum, which is what a direct form I section is.
@@ -429,22 +425,21 @@ void polynomial(yss236_core& c, int st, int k)
 // each on squared in t[10] and t[11]; the second pair, on the output side of the block, applies those
 // two to the same two channels. `tn` is the t register the result also lands in, zero for the two
 // steps that write none.
-struct TGain { int base; int src, dst; int treg, tn; };
+struct TGain { int st; int src, dst; int treg, tn; };
 
 const TGain T_GAIN[4] = {
-    //  base  src  dst  treg  tn
+    //   st  src  dst  treg  tn
     { 0x1c9, DET_L, LEV_L,   9, 10 },     // the smoothed level of each channel, squared into its t register
     { 0x1ca, DET_R, LEV_R,   9, 11 },
     { 0x1dc, DET_L, SCALE_L, 10,  0 },     // and the output scale, which reads what those two left
     { 0x1e6, DET_R, SCALE_R, 11,  0 },
 };
 
-TGain const* t_gain_for(int st)
-{
-	for (TGain const& g : T_GAIN)
-		if (st == g.base) return &g;
-	return nullptr;
-}
+// The t step a step is, or null for the steps that are not one. Each row is a single step, so the step
+// indexes straight to it.
+constexpr auto T_GAIN_AT = index_by_step(T_GAIN);
+
+TGain const* t_gain_for(int st) { return T_GAIN_AT[st] < 0 ? nullptr : &T_GAIN[T_GAIN_AT[st]]; }
 
 void t_gain(yss236_core& c, int st, TGain const& g)
 {
@@ -461,20 +456,19 @@ void t_gain(yss236_core& c, int st, TGain const& g)
 // sixteen, and the three steps after are the output filter ins::DIST_OUTPUT or ins::DIST_OUTPUT_C:
 // b1 on its input, -a1 on the state, and b0 closing into that state. The state is a cell rather than
 // a register because 0x1a0 reads it back into the shaper's chain, one pass behind.
-struct ChannelOut { int base; int mode_reg, scale_src, scale_reg, in, state; };
+struct ChannelOut { int st, nsteps; int mode_reg, scale_src, scale_reg, in, state; };
 
 const ChannelOut CHANNELS[2] = {
-    //  base  mode  src  scale  in  state
-    { 0x1dd, LEV_L, DET_L, SCALE_L, OUT_L_IN, STATE_L },   // the left, off DIST_MODE and DIST_OUTPUT
-    { 0x1e7, LEV_R, DET_R, SCALE_R, OUT_R_IN, STATE_R },   // and the right, off DIST_OUTPUT_C
+    //   st  n  mode  src  scale  in  state
+    { 0x1dd, 6, LEV_L, DET_L, SCALE_L, OUT_L_IN, STATE_L },   // the left, off DIST_MODE and DIST_OUTPUT
+    { 0x1e7, 6, LEV_R, DET_R, SCALE_R, OUT_R_IN, STATE_R },   // and the right, off DIST_OUTPUT_C
 };
 
-ChannelOut const* channel_for(int st)
-{
-	for (ChannelOut const& p : CHANNELS)
-		if (st >= p.base && st < p.base + 6) return &p;
-	return nullptr;
-}
+// The channel a step belongs to, or null for the steps between the two. The six steps of a channel are
+// consecutive, so a step indexes to its channel and reads its place in it as st - row.st.
+constexpr auto CHANNELS_AT = index_by_span(CHANNELS);
+
+ChannelOut const* channel_for(int st) { return CHANNELS_AT[st] < 0 ? nullptr : &CHANNELS[CHANNELS_AT[st]]; }
 
 void channel_step(yss236_core& c, int st, ChannelOut const& p, int k)
 {
@@ -597,7 +591,7 @@ void block_0x1a0(yss236_core& c)
 		// ---- 0x1a0 to 0x1af: the drive chain, the two channels' inputs and their filters ----
 		if (st < 0x1b0)
 		{
-			if (Biquad const* b = biquad_for(st)) { biquad_step(c, st, *b, st - b->base); continue; }
+			if (Biquad const* b = biquad_for(st)) { biquad_step(c, st, *b, st - b->st); continue; }
 			inputs(c, st);
 			continue;
 		}
@@ -622,7 +616,7 @@ void block_0x1a0(yss236_core& c)
 		// ---- 0x1cc to 0x1db: the threshold and the three tone filters ----
 		if (st < 0x1dc)
 		{
-			if (Biquad const* b = biquad_for(st)) { biquad_step(c, st, *b, st - b->base); continue; }
+			if (Biquad const* b = biquad_for(st)) { biquad_step(c, st, *b, st - b->st); continue; }
 			// ins::DYN_THRESHOLD: the second state past the threshold, which the curve measures against
 			gain(c, st, PEAK2, THRESH, ROUTE_1);
 			continue;
@@ -632,7 +626,7 @@ void block_0x1a0(yss236_core& c)
 		if (st < 0x1ed)
 		{
 			if (TGain const* g = t_gain_for(st)) { t_gain(c, st, *g); continue; }
-			if (ChannelOut const* p = channel_for(st)) { channel_step(c, st, *p, st - p->base); continue; }
+			if (ChannelOut const* p = channel_for(st)) { channel_step(c, st, *p, st - p->st); continue; }
 			mix_step(c, MIXES[st - 0x1e3]);
 			continue;
 		}

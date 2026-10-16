@@ -361,14 +361,16 @@ inline void jump(yss236_core& c, int st, int target) { c.m_skip = (st & 0x100) |
 // step itself did. index_by_step builds the map the interpreter gets for free from its switch: a step
 // indexes straight to its row.
 //
-// It needs a table whose first field is the step the row is at (`int st`, or `int base` for a row that
-// covers a run of them, with the run's length named by `nsteps`, `len` or `n`). A row of n steps from
-// base takes base to base + n - 1.
+// Both need a table whose first field is the step the row is at, named `st`.
 //
 // The result is a constexpr array of row indices, -1 for a step no row owns, so it costs nothing at run
 // time and the compiler can see every row it needs.
+//
+// Where two rows claim the same step the later one wins, so a table whose rows overlap must not use
+// these: ins_m03's taps are five steps apart where the reads are four, and a span over them would hand a
+// capture the next read's cell. That one builds its capture index by hand instead.
 
-// The row of `rows` at each step, -1 where no row is. One row per step, keyed on the row's first field.
+// The row of `rows` at each step, -1 where no row is. One row per step.
 template <typename T, int N>
 constexpr std::array<int16_t, yss236_core::STEPS> index_by_step(T const (&rows)[N])
 {

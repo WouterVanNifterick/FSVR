@@ -128,7 +128,7 @@ constexpr int TAP3 = 58, TAP4 = 59;           // m[58] and m[59], the other two,
 
 // One published read: the step that reads the delay RAM and the cell the capture CAPMIN steps later
 // takes it up into, which is captured()'s lower bound and therefore the only distance the program uses.
-struct Pub { int read; int cell; };
+struct Pub { int st, cell; };
 
 // The ten reads, in step order. The slot a read takes is its own step over four, so the table names the
 // read and never the slot. The first three are the base program's, off the four tone filters, and the
@@ -149,17 +149,31 @@ const Pub PUBLISHED[10] = {
     {  0x197,     33 },
 };
 
+// The capture index: PUBLISHED's own indices at the step each read's capture lands at, and -1 everywhere
+// else, which is what the old scan answered at a step that is a read and nothing but a read. It is built
+// from the read table itself rather than from a second table of captures, so the two cannot fall out of
+// step, and it hands back PUBLISHED's indices: a step that carries a capture reaches its row for both.
+template <int N>
+constexpr std::array<int16_t, yss236_core::STEPS> index_by_lag(Pub const (&rows)[N], int lag)
+{
+	std::array<int16_t, yss236_core::STEPS> ix{};
+	for (int16_t& i : ix) i = -1;
+	for (int i = 0; i < N; i++) ix[rows[i].st + lag] = int16_t(i);
+	return ix;
+}
+
+// Which read a step is, and which of their captures lands at it, so a step reaches both rather than
+// looking through the ten for them. The index is the same on every pass and under all four types.
+constexpr auto PUBLISHED_AT = index_by_step(PUBLISHED);
+constexpr auto CAPTURES_AT = index_by_lag(PUBLISHED, yss236_core::CAPMIN);
+
 // The read or the capture this step carries, if it carries either. step() reads the delay RAM and moves
-// the cells before it does any arithmetic, so the step loop runs this before the group's own step.
+// the cells before it does any arithmetic, so the step loop runs this before the group's own step. No step
+// is both a read and a capture, so one lookup each settles it.
 void publish(yss236_core& c, int st)
 {
-	for (Pub const& p : PUBLISHED)
-	{
-		if (st == p.read)
-			read_delay(c, st);
-		else if (st == p.read + yss236_core::CAPMIN)
-			take_capture(c, p.cell, st);
-	}
+	if (int i = PUBLISHED_AT[st]; i >= 0) read_delay(c, st);
+	if (int i = CAPTURES_AT[st]; i >= 0) take_capture(c, PUBLISHED[i].cell, st);
 }
 
 // ---------------------------------------------------------------------------------------------

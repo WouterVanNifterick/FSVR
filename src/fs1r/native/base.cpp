@@ -143,8 +143,9 @@ struct Term
 	Decor move;
 };
 
-// One run of terms, one step each. The closing term is the one with a register to write.
-struct TermRun { int base; int n; Term term[16]; };
+// One run of terms, one step each: `st` is the run's first step and `nsteps` how many it covers, which
+// is what index_by_span keys on. The closing term is the one with a register to write.
+struct TermRun { int st, nsteps; Term term[16]; };
 
 // One accumulator's term: the register or cell it reads, the word, the adder, the route, the register
 // it closes into, whether it writes the delay RAM, whether it reads the delay RAM, and the cell move.
@@ -246,6 +247,10 @@ const TermRun ACC[12] = {
                   T(19,  0, M2_REG,  ADD_ACC, ROUTE_1,  20, false, false, DEC_NONE, 0) } },
 };
 
+// The accumulator a step belongs to. The twelve runs do not overlap and the table is not in step order,
+// so the index is what keeps a step from walking the twelve to find the one run it is in.
+constexpr auto ACC_AT = index_by_span(ACC);
+
 // One term of an accumulator, at step st.
 void term_step(yss236_core& c, int st, Term const& t)
 {
@@ -283,14 +288,15 @@ const Pan PANS[8] = {
 // puts them, and which is which is all that separates the program's three shapes of section.
 enum shape_t { COPY_ON_B2, COPY_ON_A1, COPY_ON_A2 };
 
-// One order-2 section in direct form I. The five steps run -a1, b1, b2, -a2 and b0. `a1` is the
+// One order-2 section in direct form I. The five steps run -a1, b1, b2, -a2 and b0. `st` is the
+// section's first step and `nsteps` how many it covers, which is what index_by_span keys on. `a1` is the
 // section's output delay and `a2` its second, `b1` its input's second delay and `b2` its first, and
 // `in` is the register the section's input arrives in. `out` is where b0 puts the result, which is the
 // next section's input. `prev_b1` is the delay register COPY_ON_A1 shifts, which is the one the section
 // before this one reads.
 struct Section
 {
-	int base, in, b1, b2, a1, a2, out, prev_b1;
+	int st, nsteps, in, b1, b2, a1, a2, out, prev_b1;
 	step::route_t route;
 	shape_t shape;
 	bool read[5];
@@ -298,26 +304,30 @@ struct Section
 };
 
 const Section EQ[6] = {
-    //  base  in   b1  b2   a1  a2  out  prev  route      shape        reads               -a1              b1                b2                -a2                b0
-    {  0x066,  9,  23, 25,  24, 26,  25,   0, ROUTE_4,  COPY_ON_B2,
+    //  st    n   in   b1  b2   a1  a2  out  prev  route      shape        reads               -a1              b1                b2                -a2                b0
+    {  0x066, 5,  9,  23, 25,  24, 26,  25,   0, ROUTE_4,  COPY_ON_B2,
       { false, true, false, false, false },
       { {DEC_NONE, 0}, {DEC_LFO, 11}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
-    {  0x06b, 25,  25, 27,  26, 28,  27,  23, ROUTE_4,  COPY_ON_A1,
+    {  0x06b, 5, 25,  25, 27,  26, 28,  27,  23, ROUTE_4,  COPY_ON_A1,
       { true, false, false, false, true },
       { {DEC_NONE, 0}, {DEC_CAPTURE, 56}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
-    {  0x070, 27,  27, 29,  28, 30,  29,   0, ROUTE_16, COPY_ON_A2,
+    {  0x070, 5, 27,  27, 29,  28, 30,  29,   0, ROUTE_16, COPY_ON_A2,
       { false, false, false, true, false },
       { {DEC_CAPTURE, 57}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_CAPTURE, 58} } },
-    {  0x0b6, 10,  35, 37,  36, 38,  37,   0, ROUTE_4,  COPY_ON_B2,
+    {  0x0b6, 5, 10,  35, 37,  36, 38,  37,   0, ROUTE_4,  COPY_ON_B2,
       { false, false, false, true, false },
       { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
-    {  0x0bb, 37,  37, 39,  38, 40,  39,  35, ROUTE_4,  COPY_ON_A1,
+    {  0x0bb, 5, 37,  37, 39,  38, 40,  39,  35, ROUTE_4,  COPY_ON_A1,
       { false, false, true, false, false },
       { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_CAPTURE, 18}, {DEC_NONE, 0} } },
-    {  0x0c0, 39,  39, 41,  40, 42,  41,   0, ROUTE_16, COPY_ON_A2,
+    {  0x0c0, 5, 39,  39, 41,  40, 42,  41,   0, ROUTE_16, COPY_ON_A2,
       { false, true, false, false, false },
       { {DEC_SERIAL_L, 41}, {DEC_NONE, 0}, {DEC_CAPTURE, 19}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
 };
+
+// The section a step belongs to. The six do not overlap, so the index gives a step its own section
+// rather than leaving it to walk the six looking for one.
+constexpr auto EQ_AT = index_by_span(EQ);
 
 // One master EQ section's step k of five: -a1 opens the sum, b1 and b2 add the input's delays, -a2 adds
 // the output's second delay and b0 closes the section into its output register.
@@ -352,16 +362,21 @@ void eq_step(yss236_core& c, int st, Section const& s, int k)
 // ---------------------------------------------------------------------------------------------
 
 // The two runs of class-0 steps that carry the master EQ's spare words: EQ_LOW_MID and EQ_HIGH_MID and
-// their copies. They compute nothing at all, so each step is its decor and the x latch.
-struct WordRun { int base; bool read[10]; Decor move[10]; };
+// their copies. They compute nothing at all, so each step is its decor and the x latch. `st` is the
+// run's first step and `nsteps` how many it covers, which is what index_by_span keys on.
+struct WordRun { int st, nsteps; bool read[10]; Decor move[10]; };
 const WordRun WORDS[2] = {
-    { 0x075, { false, false, true,  false, false, false, true,  false, false, false },
-              { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_CAPTURE, 59}, {DEC_NONE, 0},
-                {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_CAPTURE, 60}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
-    { 0x0c5, { true,  false, false, false, true,  false, false, false, false, false },
-              { {DEC_NONE, 0}, {DEC_CAPTURE, 20}, {DEC_LFO, 14}, {DEC_NONE, 0}, {DEC_NONE, 0},
-                {DEC_CAPTURE, 21}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_CAPTURE, 56} } },
+    { 0x075, 10, { false, false, true,  false, false, false, true,  false, false, false },
+               { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_CAPTURE, 59}, {DEC_NONE, 0},
+                 {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_CAPTURE, 60}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+    { 0x0c5, 10, { true,  false, false, false, true,  false, false, false, false, false },
+               { {DEC_NONE, 0}, {DEC_CAPTURE, 20}, {DEC_LFO, 14}, {DEC_NONE, 0}, {DEC_NONE, 0},
+                 {DEC_CAPTURE, 21}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_CAPTURE, 56} } },
 };
+
+// The word run a step belongs to. Two runs of ten, which do not overlap, so the index gives a step its
+// own run rather than leaving it to walk the two looking for one.
+constexpr auto WORDS_AT = index_by_span(WORDS);
 
 // The master volume: r[29] and r[41] scaled by its two words by the route's 16 into the two output
 // cells, which are the only two steps here that write a cell from their own result.
@@ -403,38 +418,28 @@ void base_steps(yss236_core& c, int from, int to)
 			continue;
 		}
 
-		bool covered = false;
-
 		// ---- the twelve accumulators: the aux differences and the DC blocker ----
-		for (TermRun const& r : ACC)
-			if (st >= r.base && st < r.base + r.n)
-			{
-				term_step(c, st, r.term[st - r.base]);
-				covered = true;
-				break;
-			}
-		if (covered) continue;
+		if (int k = ACC_AT[st]; k >= 0)
+		{
+			term_step(c, st, ACC[k].term[st - ACC[k].st]);
+			continue;
+		}
 
 		// ---- the master EQ's six sections ----
-		for (Section const& s : EQ)
-			if (st >= s.base && st < s.base + 5)
-			{
-				eq_step(c, st, s, st - s.base);
-				covered = true;
-				break;
-			}
-		if (covered) continue;
+		if (int k = EQ_AT[st]; k >= 0)
+		{
+			eq_step(c, st, EQ[k], st - EQ[k].st);
+			continue;
+		}
 
 		// ---- the two runs of class-0 word steps ----
-		for (WordRun const& w : WORDS)
-			if (st >= w.base && st < w.base + 10)
-			{
-				decor(c, st, w.read[st - w.base], w.move[st - w.base]);
-				idle(c);
-				covered = true;
-				break;
-			}
-		if (covered) continue;
+		if (int k = WORDS_AT[st]; k >= 0)
+		{
+			int const w = st - WORDS[k].st;
+			decor(c, st, WORDS[k].read[w], WORDS[k].move[w]);
+			idle(c);
+			continue;
+		}
 
 		// ---- the master volume ----
 		if (st == 0x0cf || st == 0x0d0) master_volume(c, st);

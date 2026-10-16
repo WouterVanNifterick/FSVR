@@ -179,20 +179,24 @@ const Decor DECORS[11] = {
     {  0x1d8, DEC_CAPTURE,  63 },
 };
 
+// The decor of a step, or -1 when it carries none. The eleven rows name eleven steps between them, so
+// the index is the same on every pass and the step reaches its decor rather than looking through the
+// eleven for it.
+constexpr auto DECORS_AT = index_by_step(DECORS);
+
 // The cell move and the delay RAM read of one step, if it carries any. It comes before the step's own
 // arithmetic, because step() moves a cell or reads the delay RAM before it does anything else.
 void publish(yss236_core& c, int st)
 {
-	for (Decor const& d : DECORS)
+	int const i = DECORS_AT[st];
+	if (i < 0) return;
+	Decor const& d = DECORS[i];
+	switch (d.kind)
 	{
-		if (d.st != st) continue;
-		switch (d.kind)
-		{
-			case DEC_SERIAL_L: take_serial(c, d.cell, st, 0); break;
-			case DEC_SERIAL_R: take_serial(c, d.cell, st, 1); break;
-			case DEC_CAPTURE:  take_capture(c, d.cell, st); break;
-			case DEC_READ:     read_delay(c, st); break;
-		}
+		case DEC_SERIAL_L: take_serial(c, d.cell, st, 0); break;
+		case DEC_SERIAL_R: take_serial(c, d.cell, st, 1); break;
+		case DEC_CAPTURE:  take_capture(c, d.cell, st); break;
+		case DEC_READ:     read_delay(c, st); break;
 	}
 }
 
@@ -305,12 +309,9 @@ const Drive DRIVE[3] = {
     { 0x1c0, DRY },
 };
 
-Drive const* drive_for(int st)
-{
-	for (Drive const& d : DRIVE)
-		if (d.st == st) return &d;
-	return nullptr;
-}
+// The drive a step is, or -1 when it is none. The three steps are four apart and share no step, so the
+// index is the same on every pass and the step reaches its drive rather than looking through the three.
+constexpr auto DRIVE_AT = index_by_step(DRIVE);
 
 // The four taps of the delay line, ins::WD_SL[1] to [4]. The read each one rides on is in DECORS above,
 // which is what puts the slot's word into the capture history five steps before its cell takes it up;
@@ -326,12 +327,9 @@ const Tap TAPS[4] = {
     { 0x1d3,  0,      LFO_CELL, M2_CELL, false, CLAMP_WRAP, 0 },      // the fourth, under a word of zero
 };
 
-Tap const* tap_for(int st)
-{
-	for (Tap const& t : TAPS)
-		if (t.st == st) return &t;
-	return nullptr;
-}
+// The tap of a step, or -1 when it is none. The four are four steps apart and share no step, so the index
+// is the same on every pass and the step reaches its tap rather than looking through the four.
+constexpr auto TAPS_AT = index_by_step(TAPS);
 
 void tap(yss236_core& c, int st, Tap const& t)
 {
@@ -352,12 +350,9 @@ const Band BAND[5] = {
     { 0x1df, BAND_3,  DRY },         // ins::WAH_BAND[4]
 };
 
-Band const* band_for(int st)
-{
-	for (Band const& b : BAND)
-		if (b.st == st) return &b;
-	return nullptr;
-}
+// The band step a step is, or -1 when it is none. The five steps share no step, so the index is the same
+// on every pass and the step reaches its row rather than looking through the five.
+constexpr auto BAND_AT = index_by_step(BAND);
 
 // ---------------------------------------------------------------------------------------------
 // The blocks of steps that are a table of their own
@@ -691,13 +686,13 @@ void block_0x1a0(yss236_core& c)
 		publish(c, st);
 
 		// ---- ins::WAH_DRIVE[0], [1] and [2]: the same x16 gain on r[119], three steps apart ----
-		if (Drive const* d = drive_for(st)) { gain(c, st, d->src, DRY, ROUTE_16); continue; }
+		if (int const i = DRIVE_AT[st]; i >= 0) { gain(c, st, DRIVE[i].src, DRY, ROUTE_16); continue; }
 
 		// ---- ins::WAH_BAND's series, r[120] to r[123] and back to r[119] ----
-		if (Band const* b = band_for(st)) { gain(c, st, b->in, b->out, ROUTE_16); continue; }
+		if (int const i = BAND_AT[st]; i >= 0) { gain(c, st, BAND[i].in, BAND[i].out, ROUTE_16); continue; }
 
 		// ---- the four taps of the delay line, whose reads are in the decor table above ----
-		if (Tap const* t = tap_for(st)) { tap(c, st, *t); continue; }
+		if (int const i = TAPS_AT[st]; i >= 0) { tap(c, st, TAPS[i]); continue; }
 
 		// ---- 0x1a0 to 0x1ad: the input EQ, a copy and two shelves per channel ----
 		if (st < 0x1ae) { input_eq(c, st); continue; }
