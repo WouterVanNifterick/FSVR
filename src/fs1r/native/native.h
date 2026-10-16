@@ -35,6 +35,7 @@ void ins_m04(yss236_core& c, int from, int to);     // ins-m04: the insertion wi
 void ins_m05(yss236_core& c, int from, int to);     // ins-m05: the insertion window's program for type msb 05
 void ins_m07(yss236_core& c, int from, int to);     // ins-m07: the insertion window's program for type msb 07
 void ins_m10(yss236_core& c, int from, int to);     // ins-m10: the insertion window's program for type msb 10
+void ins_m12(yss236_core& c, int from, int to);     // ins-m12: the insertion window's program for type msb 12
 void rev(yss236_core& c, int from, int to);         // rev: the reverb's steps of the base program
 void var_m00(yss236_core& c, int from, int to);     // var-m00: the variation window's program for type msb 00
 void var_m01(yss236_core& c, int from, int to);     // var-m01: the variation window's program for type msb 01
