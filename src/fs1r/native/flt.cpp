@@ -5,7 +5,8 @@
 // it are interleaved with the other three channels it shares a page with.  What is fixed about the
 // schedule is the page: 124 steps at 16 + 124 * g, the formula FilterHost::page() gives, hold the
 // four channels 4g to 4g + 3, which are slots (4g + 12) to (4g + 15) modulo 16.  Each channel, or
-// lane, of a page owns six registers, r[6*((s + 4) & 15) .. +5] and the ramp one past them:
+// lane, of a page owns six registers, r[6*((s + 4) & 15) .. +5] and the ramp one past them, which
+// for lane i of page g is r[24 * g + 6 * i .. +6]:
 //
 //   r[base + 1]  the coefficient the lane read a step ago, kept by the z^-1 copy steps
 //   r[base + 2]  the lane's two pole states and the BPF tap
@@ -19,3774 +20,770 @@
 // the EG level's full scale, and the t file holds the pole gains.  The pages come round again in the
 // next pass, so every one of these is a state the chip carries from sample to sample.
 //
+// The four pages are the same schedule.  Each is 124 steps in the same seventeen blocks, four lanes
+// apiece wherever a block is a lane's own work, and a block's arithmetic is the same in all four
+// pages: what differs is the registers and the cells the ROM's tables give each page, and where the
+// hardware side's serial inputs, its LFO and its serial output land.  So the code below is one page,
+// run four times, and each page's numbers are four rows of a table: the cells its lane's values
+// travel through, and the decor of every step that takes a value from the hardware side on its way
+// in.  The blocks are, in step order within a page:
+//
+//   rel 0x00-0x0b  the lane's EG level and its depth off r[127], the LFO2 depth on top of it by the
+//                  route's two, and the cutoff word off the sum, four lanes in turn, three steps each
+//   rel 0x0c-0x13  the pole coefficients: the cutoff words onto m[62] by the route's two, then the
+//                  first pole gains onto m[61].  The same eight steps in all four pages.
+//   rel 0x14-0x1b  the pole gains of the page's own four lanes, which is where the registers the
+//                  lanes' pole states live in are updated and t[1] to t[4] follow.
+//   rel 0x1c-0x23  the resonance stage: four pole states less m[63], and four more m[63] added.
+//   rel 0x24-0x27  the pole states into the cells the LPF12 taps and the sweep read them off.
+//   rel 0x28-0x2f  the LPF12 coefficients onto r[104] and r[105], and their gains into t[1] and t[2].
+//   rel 0x30-0x33  the LPF12 taps: a pole state scaled by t[1] or t[2] onto its cutoff word.
+//   rel 0x34-0x43  the EG to cutoff sweep, four lanes of four steps: the lane's second EG reading,
+//                  its LFO2 depth by the route's four into the lane's cutoff register, and the two
+//                  unity steps that load the ramp's coefficient into t[8] to t[11].
+//   rel 0x44-0x53  the LPF12 stage, four lanes of four steps: the pole state the sweep left, the
+//                  coefficient the lane read a step ago kept as its z^-1, the pole state itself, and
+//                  the LPF18 section's input off the lane's LPF18 tap.
+//   rel 0x54-0x5f  the LPF18 stage: the lane's LPF12 tap out and the LFO2 depth by four, four lanes
+//                  of two steps, then the LPF18 taps, one a lane.
+//   rel 0x60-0x63  the cutoff words onto the tap gains t[1] to t[4].
+//   rel 0x64-0x73  the output ramp, eight pairs: the lane's LPF18 tap and its LPF24 tap each walked
+//                  back up its own register by the lane's own gain, t[1] to t[4], of which the two
+//                  slope words below leave t[1] and t[2] and the pole gains above t[3] and t[4].
+//   rel 0x74-0x77  the ramp's slope words, one a lane, onto the lane's own ramp register.
+//   rel 0x78-0x7b  the filter's own output, four steps at the end of a page, sixteen over the pass.
+//
+// The prologue at 0x000 to 0x00f is outside the round robin: it takes the serial inputs and the EG
+// level into cells, sends m[25] to the serial output, opens the gate at 0x004 at 0x00b (the block at
+// 0x005 to 0x00a is the host's to write, because core::trigger() writes those registers for it),
+// loads r[127] with the EG level's full scale, and loads m[61], m[62] and m[63] as the constants the
+// pole coefficients and the resonance stage are built on.
+//
 // The program words are the firmware's own and are folded into the arithmetic step by step.  Three
 // things are not program words and are read where they live: every coefficient comes from
 // c.coef[st] each pass, the sixteen tap steps at B + 120 + k read the register and take the route
 // FilterHost::setType() writes into them, and the gated block at 0x005 to 0x00a never runs, because
 // the gate above it only opens for the host's trigger, which writes those registers itself.
 //
-// docs/vop3_native/README.md is the brief and what a native owes the core; docs/filter.md is what
-// the chip computes, and docs/findings.md the ladder and the state variable filter under it.
+// docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled
+// out by name rather than a step at a time.  docs/filter.md is what the chip computes, and
+// docs/findings.md the ladder and the state variable filter under it.
+//
+// vop3_native_check flt: identical, 6 types, 57600 native passes.
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
-// Every step counts itself and lands the writes three steps old, which is what begin_step does.  Then
-// the two latches: x takes this step's r[sr] and src this step's m[sm], each keeping the step before in
-// px and psrc, and an rcopy step stores px as its z^-1.
-inline void latch_r(yss236_core& c, int sr)
-{
-	c.px = c.x; c.haspx = c.hasx; c.hasx = sr != 0; c.x = sr ? c.r[sr] : 0.0;
-}
-inline void latch_m(yss236_core& c, int sm) { c.psrc = c.src; c.src = c.m[sm]; }
+using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
 
-// The t file: a result goes in as a 1.15 word, since a t register is the multiplier's other input and
-// the word is the value / 128.  A tw = 1 step writes its own constant instead.
-inline void tput(yss236_core& c, int tn, double y)
+// ---------------------------------------------------------------------------------------------
+// What a step carries besides its arithmetic
+// ---------------------------------------------------------------------------------------------
+
+// A step of a page usually also moves a cell in from the hardware side or sends one out to the serial
+// output.  `cell` is the cell it moves into or out of and the step's own page decides the serial
+// bank, the LFO and the output slot, exactly as step() takes them: in[0] is the voice's own serial
+// input, in[1] the second bank, and in[3] the EG level.
+enum decor_t { DEC_NONE, DEC_SERIAL_L, DEC_SERIAL_R, DEC_EG, DEC_LFO, DEC_OUT };
+
+struct Decor { decor_t kind; int cell; };
+
+// Apply the decor, which comes before the term, because step() moves a cell before it adds.
+void decor(yss236_core& c, int st, Decor const& d)
 {
-	double const w = y * 256.0;
-	c.queue_t(tn, (w < -32768.0 ? -32768.0 : 32767.0 < w ? 32767.0 : w) / 32768.0);
+	switch (d.kind)
+	{
+		case DEC_SERIAL_L:  take_serial(c, d.cell, st, 0); break;
+		case DEC_SERIAL_R:  take_serial(c, d.cell, st, 1); break;
+		case DEC_EG:        take_eg(c, d.cell, st); break;
+		case DEC_LFO:       take_lfo(c, d.cell, st); break;
+		case DEC_OUT:       serial_out(c, st, d.cell); break;
+		case DEC_NONE: break;
+	}
 }
-inline void tput_k(yss236_core& c, int st, int tn) { c.queue_t(tn, yss236_core::s16(c.coef[st])); }
+
+// One step's program words, folded into the arithmetic, in step::alu's own field order, save for the
+// step itself, so that a row reads as the expression it computes: the two operands, the multiplier's
+// word, the adder, the route and the clamp, and where the result goes.  The step is not in the row,
+// because a page runs in step order and the loop owns the number.  `tw` is yss236_core::t_write()'s
+// own field, 0 for no t write, 1 for the step's own word and 2 for its result, and `loadk` the class-1
+// step, which loads its word as a value instead of scaling one.
+struct Row
+{
+	int sr = 0;                 // the register the step reads (w4[13:7])
+	int sm = 0;                 // the cell the step latches (w4[5:0])
+	int treg = 0;               // the multiplier's word is t[treg], 0 for the step's own c.coef[st]
+	m2_t m2 = M2_REG;           // what the multiplier scales
+	bool unity = false;         // class 3: the word is one and the multiplier passes m2 through
+	add_t add = ADD_OFF;        // what the adder adds to the product
+	bool sub = false;           // and whether it is negated
+	route_t route = ROUTE_1;    // the result's route
+	clamp_t clamp = CLAMP_WRAP; // and its clamp
+	int dr = 0;                 // the register the result is written to
+	bool z1 = false;            // and whether it takes the step before's x operand, the z^-1 copy
+	int dm = 0;                 // the cell the result is written to
+	int tn = 0;                 // the t register the result or the step's own word goes to
+	int tw = 0;                 // which of the two, and 0 for no t write at all
+	bool loadk = false;         // class 1: the step's word is loaded as a value rather than scaling one
+};
+
+// One row of a table, at step st, with the decor it carries on the way past.
+void row_step(yss236_core& c, int st, Row const& r, Decor const& d)
+{
+	decor(c, st, d);
+	if (r.loadk)
+	{
+		load(c, st, r.sr, r.sm, r.add, r.sub, r.route, r.clamp, r.dr, r.dm);
+		// t_write() reads the loaded value, which is the running value after the clamp and not the
+		// one load() hands back
+		if (r.tw & 2) t_put(c, r.tn, c.acc);
+		else if (r.tw & 1) t_put_word(c, st, r.tn);
+		return;
+	}
+	double const y = run(c, {st, r.sr, r.sm, r.m2, r.unity, r.treg, r.add, r.sub, r.route, r.clamp,
+	                         r.dr, r.z1, r.dm});
+	if (r.tw & 2) t_put(c, r.tn, y);
+	else if (r.tw & 1) t_put_word(c, st, r.tn);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The schedule, the same in all four pages
+// ---------------------------------------------------------------------------------------------
+
+// A page's first step, 16 + 124 * g, and where its four lanes sit: lane i owns r[24 * g + 6 * i .. +6].
+const int PAGE_BASE[4] = { 0x010, 0x08c, 0x108, 0x184 };
+inline int lane_base(int g, int i) { return 24 * g + 6 * i; }
+
+// The registers the schedule reads and writes the same way in every page, and the t registers it
+// scales by.  CUTOFF is where the four lanes' cutoff words land in the opening twelve steps;
+// SWEEP_OUT what the EG to cutoff sweep leaves a lane in and what the LPF12 stage reads it back out
+// of; SWEEP_IN what the sweep's third step reads instead, one register back for the last lane;
+// LPF12_OUT and LPF12_OUT2 the pole states the LPF12 stage leaves; and the t arrays the gains each
+// block scales by, LPF12_TREG the t[2 * i + 2] the sweep's last step leaves.
+const int CUTOFF[4] = {  97,  98,  99,  97 };
+const int SWEEP_OUT[4] = {  98,  99, 101, 104 };
+const int SWEEP_IN[4] = {  98,  99, 101, 102 };
+const int LPF12_OUT[4] = {  98, 101, 104, 107 };
+const int LPF12_OUT2[4] = {  99, 102, 105, 108 };
+const int LPF12_TREG[4] = {   2,   4,   6,   8 };
+const int LPF18_TREG[4] = {   1,   3,   5,   7 };
+const int RAMP_TREG[4] = {   1,   2,   3,   4 };
+const int SLOPE_TREG[4] = {   1,   2,   1,   2 };
+const int OUT_TREG[4] = {  1,  2,  1,  2 };
+
+// ---- rel 0x0c to 0x13: the pole coefficients, the cutoff words onto m[62] by the route's two and
+//      then the first pole gains onto m[61].  The same eight steps in all four pages. ----
+const Row POLE_COEFS[8] = {
+	{  97, 62,  0, M2_REG  , false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO,  98, false,  0,  1, 2, false },
+	{  98, 62,  0, M2_REG  , false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO,  97, false,  0,  2, 2, false },
+	{  99, 62,  0, M2_REG  , false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO,  98, false,  0,  1, 2, false },
+	{  97, 62,  0, M2_REG  , false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO,  97, false,  0,  2, 2, false },
+	{  98, 61,  1, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO,  98, false,  0,  1, 2, false },
+	{  97, 61,  2, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO,  97, false,  0,  2, 2, false },
+	{  98, 61,  1, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO,  98, false,  0,  1, 2, false },
+	{  97, 61,  2, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO,  97, false,  0,  2, 2, false }
+};
+
+// ---- rel 0x1c to 0x23: the resonance stage, four pole states less m[63] and four more it added ----
+const Row RESONANCE[8] = {
+	{  97, 63,  0, M2_REG  , false, ADD_CELL, true , ROUTE_1, CLAMP_SAT ,  98, false,  0,  0, 0, false },
+	{ 100, 63,  0, M2_REG  , false, ADD_CELL, true , ROUTE_1, CLAMP_SAT ,  99, false,  0,  0, 0, false },
+	{ 103, 63,  0, M2_REG  , false, ADD_CELL, true , ROUTE_1, CLAMP_SAT ,  98, false,  0,  0, 0, false },
+	{ 106, 63,  0, M2_REG  , false, ADD_CELL, true , ROUTE_1, CLAMP_SAT ,  99, false,  0,  0, 0, false },
+	{  98, 63,  0, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_SAT ,  98, false,  0,  0, 0, false },
+	{  99, 63,  0, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_SAT ,  99, false,  0,  0, 0, false },
+	{  98, 63,  0, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_SAT , 101, false,  0,  0, 0, false },
+	{  99, 63,  0, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_SAT , 102, false,  0,  0, 0, false }
+};
+
+// ---- rel 0x28 to 0x2f: the LPF12 coefficients onto r[104] and r[105], then their gains into t[1]
+//      and t[2].  The same eight steps in all four pages. ----
+const Row LPF12_COEFS[8] = {
+	{  98,  0,  0, M2_REG  , false, ADD_REG , true , ROUTE_2, CLAMP_SAT , 104, false,  0,  0, 0, true  },
+	{  99,  0,  0, M2_REG  , false, ADD_REG , true , ROUTE_2, CLAMP_SAT , 105, false,  0,  0, 0, true  },
+	{ 101,  0,  0, M2_REG  , false, ADD_REG , true , ROUTE_2, CLAMP_SAT , 104, false,  0,  0, 0, true  },
+	{ 102,  0,  0, M2_REG  , false, ADD_REG , true , ROUTE_2, CLAMP_SAT , 105, false,  0,  0, 0, true  },
+	{ 104,  0,  0, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  1, 2, false },
+	{ 105,  0,  0, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  2, 2, false },
+	{ 104,  0,  0, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  1, 2, false },
+	{ 105,  0,  0, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  2, 2, false }
+};
+
+// ---- rel 0x14 to 0x1b: the pole gains of the page's own four lanes.  The arithmetic is the same in
+//      all four pages and so is every register but one: only the cell a step latches is page's own,
+//      which GAIN_CELL below holds. ----
+const Row PAGE_GAINS[8] = {
+	{  98,  0,  1, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO,  98, false,  0,  1, 2, false },
+	{  97,  0,  2, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO,  97, false,  0,  2, 2, false },
+	{  98,  0,  1, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO,  98, false,  0,  1, 2, false },
+	{  97,  0,  2, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO,  99, false,  0,  2, 2, false },
+	{  98,  0,  1, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO,  97, false,  0,  1, 2, false },
+	{  97,  0,  2, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO, 100, false,  0,  2, 2, false },
+	{  98,  0,  1, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO, 103, false,  0,  3, 2, false },
+	{  99,  0,  2, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO, 106, false,  0,  4, 2, false }
+};
+
+// ---- rel 0x24 to 0x27: the pole states into the cells the LPF12 taps and the sweep read them off ----
+const Row POLE_STATES[4] = {
+	{  97,  0,  1, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  0, 0, false },
+	{ 100,  0,  2, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  0, 0, false },
+	{ 103,  0,  3, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  0, 0, false },
+	{ 106,  0,  4, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  0, 0, false }
+};
+
+// ---- rel 0x30 to 0x33: the LPF12 taps, a pole state scaled by t[1] or t[2] onto its cutoff word ----
+const Row LPF12_TAPS[4] = {
+	{  97,  0,  1, M2_CELL , false, ADD_REG , false, ROUTE_1, CLAMP_ZERO,   0, false,  0,  1, 2, false },
+	{ 100,  0,  2, M2_CELL , false, ADD_REG , false, ROUTE_1, CLAMP_ZERO,   0, false,  0,  3, 2, false },
+	{ 103,  0,  1, M2_CELL , false, ADD_REG , false, ROUTE_1, CLAMP_ZERO,   0, false,  0,  5, 2, false },
+	{ 106,  0,  2, M2_CELL , false, ADD_REG , false, ROUTE_1, CLAMP_ZERO,   0, false,  0,  7, 2, false }
+};
+
+// ---- rel 0x60 to 0x63: the cutoff words onto the tap gains t[1] to t[4], by the route's four ----
+const Row CUTOFF_GAINS[4] = {
+	{  97,  0,  0, M2_CELL , false, ADD_REG , false, ROUTE_4, CLAMP_ZERO,   0, false,  0,  1, 2, false },
+	{ 100,  0,  0, M2_CELL , false, ADD_REG , false, ROUTE_4, CLAMP_ZERO,   0, false,  0,  2, 2, false },
+	{ 103,  0,  0, M2_CELL , false, ADD_REG , false, ROUTE_4, CLAMP_ZERO,   0, false,  0,  3, 2, false },
+	{ 106,  0,  0, M2_CELL , false, ADD_REG , false, ROUTE_4, CLAMP_ZERO,   0, false,  0,  4, 2, false }
+};
+
+// ---------------------------------------------------------------------------------------------
+// What each page brings with it: the cells its lane's values travel through, and its decor
+// ---------------------------------------------------------------------------------------------
+
+// The cells the four lanes' EG levels and LFO2 depths come in on in the opening twelve steps.  These
+// come from the ROM's tables and follow no formula: page 0's four lanes take the EG level from
+// m[17], m[20], m[23] and m[26] and the LFO2 from m[1] to m[4], page 1's from m[19], m[21], m[25]
+// and m[30] and m[5] to m[8], and page 3's from m[28], m[18], m[17] and m[36] and m[13] to m[16].
+const int EG[4][4] = {
+	{ 17, 20, 23, 26 },
+	{ 19, 21, 25, 30 },
+	{ 22, 24, 29, 34 },
+	{ 28, 18, 17, 36 } };
+const int LFO2[4][4] = {
+	{  1,  2,  3,  4 },
+	{  5,  6,  7,  8 },
+	{  9, 10, 11, 12 },
+	{ 13, 14, 15, 16 } };
+
+// SWEEP_EG and SWEEP_EG2 are the two cells the EG to cutoff sweep reads per lane and SWEEP_TAP the
+// cell its last two steps share.  LPF12_TAP is what the LPF12 stage's first step latches and
+// LPF12_OUT_CELL what its last step writes.  LPF18_CELL is the LPF18 stage's input cell and
+// LPF18_TAP_CELL the one its tap step reads and writes.  OUT_CELL is where the filter's own output
+// goes, one cell a lane.
+const int SWEEP_EG[4][4] = {
+	{ 18, 21, 24, 17 },
+	{ 23, 22, 28, 21 },
+	{ 27, 25, 32, 24 },
+	{ 31, 19, 20, 17 } };
+const int SWEEP_EG2[4][4] = {
+	{ 19, 22, 25, 20 },
+	{ 27, 24, 29, 25 },
+	{ 31, 28, 33, 18 },
+	{ 35, 24, 18, 32 } };
+const int SWEEP_TAP[4][4] = {
+	{ 27, 41, 18, 42 },
+	{ 31, 40, 23, 41 },
+	{ 35, 40, 27, 41 },
+	{ 21, 40, 31, 35 } };
+const int LPF12_TAP[4][4] = {
+	{ 28,  0,  0,  0 },
+	{ 33,  0,  0,  0 },
+	{ 19,  0,  0,  0 },
+	{ 22,  0,  0,  0 } };
+const int LPF12_OUT_CELL[4][4] = {
+	{ 17, 18, 20, 17 },
+	{ 21, 23, 24, 21 },
+	{ 18, 19, 24, 18 },
+	{ 20, 21, 22, 20 } };
+const int LPF18_CELL[4][4] = {
+	{ 17, 18, 20, 17 },
+	{ 21, 23, 24, 21 },
+	{ 18, 19, 24, 18 },
+	{ 20, 21, 22, 20 } };
+const int LPF18_TAP_CELL[4][4] = {
+	{ 18, 20, 17, 18 },
+	{ 23, 29, 21, 23 },
+	{ 25, 27, 18, 25 },
+	{ 21, 22, 20, 22 } };
+const int OUT_CELL[4][4] = {
+	{ 17, 18, 19, 20 },
+	{ 17, 21, 22, 23 },
+	{ 25, 27, 28, 29 },
+	{ 31, 32, 33, 35 } };
+
+// The cells the shared blocks above hold per page.  STATE_CELL is where a pole state lands, and both
+// the LPF12 taps and the cutoff gains read it; TAP_CELL is where the LPF12 tap lands.  STATE_SRC is
+// the cell the pole state's own step latches, GAIN_CELL the one the page's pole gains latch, LPF18_SRC
+// the one the LPF18 stage's first step latches, SLOPE_SRC the one the ramp's slope word latches and
+// OUT_SRC the one the output tap latches.  RAMP_EVEN_SRC and RAMP_ODD_SRC are the cells the ramp's
+// sixteen steps latch, eight each.  Every one of them is m[0] but for the entries below, which are
+// the cells the page's voice registers arrive in.
+const int STATE_CELL[4][4] = {
+	{ 37, 38, 39, 40 },
+	{ 32, 37, 38, 39 },
+	{ 29, 37, 38, 39 },
+	{ 33, 37, 38, 39 } };
+const int STATE_SRC[4][4] = {
+	{  0,  0,  0,  0 },
+	{  0,  0,  0,  0 },
+	{  0,  0,  0,  0 },
+	{ 21,  0,  0,  0 } };
+const int TAP_CELL[4][4] = {
+	{ 27, 41, 18, 42 },
+	{ 31, 40, 23, 41 },
+	{ 35, 40, 27, 41 },
+	{ 21, 40, 31, 35 } };
+const int OUT_SRC[4][4] = {
+	{  0,  0,  0,  0 },
+	{  0,  0,  0,  0 },
+	{ 17,  0,  0,  0 },
+	{  0,  0,  0,  0 } };
+const int LPF18_SRC[4][4] = {
+	{ 29,  0,  0,  0 },
+	{  0,  0,  0,  0 },
+	{  0,  0,  0,  0 },
+	{  0,  0,  0,  0 } };
+const int SLOPE_SRC[4][4] = {
+	{  0,  0,  0,  0 },
+	{  0,  0,  0, 17 },
+	{  0,  0,  0,  0 },
+	{  0,  0,  0,  0 } };
+const int RAMP_EVEN_SRC[4][8] = {
+	{  0,  0,  0,  0,  0,  0,  0,  0 },
+	{ 35,  0,  0,  0,  0,  0,  0,  0 },
+	{ 20,  0,  0,  0,  0,  0,  0,  0 },
+	{ 23,  0,  0,  0,  0,  0,  0,  0 } };
+const int RAMP_ODD_SRC[4][8] = {
+	{  0,  0,  0,  0,  0,  0,  0, 31 },
+	{  0,  0,  0,  0,  0,  0,  0,  0 },
+	{  0,  0,  0,  0,  0,  0,  0,  0 },
+	{  0,  0,  0,  0,  0,  0,  0,  0 } };
+const int GAIN_CELL[4][8] = {
+	{  0,  0,  0,  0, 27,  0,  0,  0 },
+	{  0,  0,  0, 32,  0,  0,  0,  0 },
+	{  0,  0,  0,  0,  0,  0,  0, 18 },
+	{  0,  0,  0,  0,  0,  0,  0,  0 } };
+
+// The decor of every step that takes a value from the hardware side on its way in or sends one out,
+// one row per block and one page each.  Where the serial inputs land is the hardware side's schedule
+// and no formula either: page 0 takes all four voices' serial inputs in the block that opens the
+// page's own pole gains, page 3 in the block that opens the EG to cutoff sweep, and the others split
+// them between the two.
+const Decor OPEN_DEC[4][12] = {
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 11}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_SERIAL_L, 20}, {DEC_SERIAL_R, 18}, {DEC_EG, 17}, {DEC_LFO, 15},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+};
+
+const Decor STATE_DEC[4][4] = {
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_OUT, 21}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+};
+
+const Decor GAIN_DEC[4][8] = {
+	{ {DEC_SERIAL_L, 17}, {DEC_SERIAL_R, 20}, {DEC_EG, 26}, {DEC_LFO, 4},
+		{DEC_OUT, 27}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_SERIAL_L, 21}, {DEC_SERIAL_R, 25}, {DEC_EG, 30}, {DEC_OUT, 32},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 8}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_SERIAL_L, 24}, {DEC_SERIAL_R, 18}, {DEC_EG, 34}, {DEC_OUT, 18} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+};
+
+const Decor RES_DEC[4][8] = {
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 12},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_SERIAL_L, 17}, {DEC_SERIAL_R, 32}, {DEC_EG, 36}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 16}, {DEC_NONE, 0} }
+};
+
+const Decor SWEEP_DEC[4][16] = {
+	{ {DEC_SERIAL_L, 23}, {DEC_SERIAL_R, 27}, {DEC_EG, 19}, {DEC_LFO, 5},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_SERIAL_L, 27}, {DEC_SERIAL_R, 31}, {DEC_EG, 22}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 9}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_SERIAL_L, 31}, {DEC_SERIAL_R, 35}, {DEC_EG, 28}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 13},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_SERIAL_L, 18}, {DEC_SERIAL_R, 19}, {DEC_EG, 17}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 1}, {DEC_NONE, 0} }
+};
+
+const Decor LPF12_DEC[4][16] = {
+	{ {DEC_OUT, 28}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_SERIAL_L, 22}, {DEC_SERIAL_R, 24}, {DEC_EG, 21}, {DEC_NONE, 0} },
+	{ {DEC_OUT, 33}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_OUT, 19}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_OUT, 22}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+};
+
+const Decor LPF18_DEC[4][8] = {
+	{ {DEC_OUT, 29}, {DEC_NONE, 0}, {DEC_LFO, 6}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_SERIAL_L, 25}, {DEC_NONE, 0}, {DEC_SERIAL_R, 28}, {DEC_NONE, 0},
+		{DEC_EG, 24}, {DEC_NONE, 0}, {DEC_LFO, 10}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_SERIAL_L, 19}, {DEC_NONE, 0}, {DEC_SERIAL_R, 24}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+};
+
+const Decor LPF18_TAP_DEC[4][4] = {
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_EG, 18}, {DEC_NONE, 0}, {DEC_LFO, 14}, {DEC_NONE, 0} },
+	{ {DEC_SERIAL_L, 21}, {DEC_SERIAL_R, 22}, {DEC_EG, 20}, {DEC_NONE, 0} }
+};
+
+const Decor CGAIN_DEC[4][4] = {
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 2}, {DEC_NONE, 0} }
+};
+
+const Decor RAMP_DEC[4][16] = {
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_SERIAL_L, 28}, {DEC_SERIAL_R, 29}, {DEC_EG, 25}, {DEC_OUT, 31} },
+	{ {DEC_OUT, 35}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_OUT, 20}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_OUT, 23}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+};
+
+const Decor SLOPE_DEC[4][4] = {
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 7} },
+	{ {DEC_SERIAL_L, 32}, {DEC_SERIAL_R, 33}, {DEC_EG, 29}, {DEC_OUT, 17} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+};
+
+// ---------------------------------------------------------------------------------------------
+// The seventeen blocks of a page
+// ---------------------------------------------------------------------------------------------
+
+// ---- rel 0x00 to 0x0b: the lane's EG level and depth, its LFO2 depth on top of it, and its cutoff
+//      word.  Three steps a lane and four lanes in turn, so the running value is a lane's own
+//      throughout and each lane's cutoff word is complete before the next lane's is started. ----
+void lane_open(yss236_core& c, int g, int st, int rel)
+{
+	int const i = rel / 3;
+	Row r{};
+	switch (rel % 3)
+	{
+	case 0:    // the EG level scaled by its depth onto r[127], the level's own full scale
+		r = { 127, EG[g][i], 0, M2_CELL, false, ADD_REG };
+		break;
+	case 1:    // and the LFO2 depth on top of that, by the route's two
+		r = { 0, LFO2[g][i], 0, M2_CELL, false, ADD_ACC, false, ROUTE_2 };
+		break;
+	default:   // and the cutoff word off the sum, into r[97], r[98], r[99] and r[97] again
+		r = { 0, 0, 0, M2_REG, false, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, CUTOFF[i], false, 0, 0, 0, true };
+		break;
+	}
+	row_step(c, st, r, OPEN_DEC[g][rel]);
+}
+
+// ---- rel 0x0c to 0x13: the pole coefficients ----
+void pole_coeffs(yss236_core& c, int g, int st, int rel)
+{
+	row_step(c, st, POLE_COEFS[rel - 0x0c], {DEC_NONE, 0});
+}
+
+// ---- rel 0x14 to 0x1b: the pole gains of the page's own four lanes ----
+void page_pole_gains(yss236_core& c, int g, int st, int rel)
+{
+	int const k = rel - 0x14;
+	Row r = PAGE_GAINS[k];
+	r.sm = GAIN_CELL[g][k];     // the cell this step latches, m[0] in every page but one step
+	row_step(c, st, r, GAIN_DEC[g][k]);
+}
+
+// ---- rel 0x1c to 0x23: the resonance stage ----
+void resonance(yss236_core& c, int g, int st, int rel)
+{
+	int const k = rel - 0x1c;
+	row_step(c, st, RESONANCE[k], RES_DEC[g][k]);
+}
+
+// ---- rel 0x24 to 0x27: the pole states into the cells the LPF12 taps and the sweep read ----
+void pole_states(yss236_core& c, int g, int st, int rel)
+{
+	int const i = rel - 0x24;
+	Row r = POLE_STATES[i];
+	r.sm = STATE_SRC[g][i];
+	r.dm = STATE_CELL[g][i];
+	row_step(c, st, r, STATE_DEC[g][i]);
+}
+
+// ---- rel 0x28 to 0x2f: the LPF12 coefficients and their gains ----
+void lpf12_coeffs(yss236_core& c, int g, int st, int rel)
+{
+	row_step(c, st, LPF12_COEFS[rel - 0x28], {DEC_NONE, 0});
+}
+
+// ---- rel 0x30 to 0x33: the LPF12 taps, a pole state scaled onto its cutoff word ----
+void lpf12_taps(yss236_core& c, int g, int st, int rel)
+{
+	int const i = rel - 0x30;
+	Row r = LPF12_TAPS[i];
+	r.sm = STATE_CELL[g][i];
+	r.dm = TAP_CELL[g][i];
+	row_step(c, st, r, {DEC_NONE, 0});
+}
+
+// ---- rel 0x34 to 0x43: the EG to cutoff sweep, four steps a lane.  The first two read the lane's EG
+//      again and leave the cutoff in SWEEP_OUT[i]; the last two are the unity steps, the multiplier
+//      being one and the adder the cell, which is also how a step's own word rather than its result
+//      gets into the t file. ----
+void eg_sweep(yss236_core& c, int g, int st, int rel)
+{
+	int const k = rel - 0x34, i = k / 4;
+	Row r{};
+	switch (k % 4)
+	{
+	case 0:
+		r = { 0, SWEEP_EG[g][i], 0, M2_CELL, false, ADD_OFF };
+		break;
+	case 1:
+		r = { 0, SWEEP_EG2[g][i], 0, M2_CELL, false, ADD_ACC, false, ROUTE_4, CLAMP_SAT, SWEEP_OUT[i] };
+		break;
+	case 2:    // the pole state less the tap, which is what loads the ramp's coefficient into t[8 + i]
+		r = { SWEEP_IN[i], SWEEP_TAP[g][i], 0, M2_REG, true, ADD_CELL, true, ROUTE_1, CLAMP_SAT,
+		      0, false, 0, 8 + i, 1, false };
+		break;
+	default:   // and the same cell added to the running value, into t[2 * i + 2]
+		r = { 0, SWEEP_TAP[g][i], 0, M2_CELL, true, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
+		      0, false, 0, 2 * i + 2, 2, false };
+		break;
+	}
+	row_step(c, st, r, SWEEP_DEC[g][k]);
+}
+
+// ---- rel 0x44 to 0x53: the LPF12 stage, four steps a lane.  The second step is the z^-1 copy that
+//      keeps r[base + 1], the coefficient the lane read a step ago, and the fourth closes the lane's
+//      LPF18 input into its second pole state and the cell the tap step below reads. ----
+void lpf12_stage(yss236_core& c, int g, int st, int rel)
+{
+	int const k = rel - 0x44, i = k / 4, b = lane_base(g, i);
+	Row r{};
+	switch (k % 4)
+	{
+	case 0:    // the pole state the sweep left, scaled by the gain the sweep put in t[8 + i]
+		r = { SWEEP_OUT[i], LPF12_TAP[g][i], 8 + i, M2_REG, false, ADD_REG, true };
+		break;
+	case 1:    // and the same gain on the coefficient the lane read a step ago, kept as its z^-1
+		r = { b + 1, 0, 8 + i, M2_REG, false, ADD_ACC, true, ROUTE_1, CLAMP_WRAP, b + 1, true };
+		break;
+	case 2:    // and the lane's own pole state, by the gain t[LPF12_TREG[i]]
+		r = { b + 2, 0, LPF12_TREG[i], M2_REG, false, ADD_ACC, false, ROUTE_1, CLAMP_SAT, LPF12_OUT[i] };
+		break;
+	default:   // and the lane's LPF18 input
+		r = { b + 3, 0, 0, M2_REG, false, ADD_ACC, false, ROUTE_1, CLAMP_SAT, LPF12_OUT2[i], false,
+		      LPF12_OUT_CELL[g][i] };
+		break;
+	}
+	row_step(c, st, r, LPF12_DEC[g][k]);
+}
+
+// ---- rel 0x54 to 0x5b: the LPF18 stage's input, two steps a lane.  The first is the lane's LPF12 tap
+//      on its own and the second the LFO2 depth by the route's four on top of it, which is what
+//      leaves the LPF18 section's input in r[base + 2]. ----
+void lpf18_input(yss236_core& c, int g, int st, int rel)
+{
+	int const k = rel - 0x54, i = k / 2, b = lane_base(g, i);
+	Row r{};
+	if (k % 2)
+		r = { 0, LPF18_CELL[g][i], LPF18_TREG[i], M2_CELL, false, ADD_ACC, false, ROUTE_4, CLAMP_SAT,
+		      b + 2, false, LPF18_TAP_CELL[g][i] };
+	else
+		r = { b + 2, LPF18_SRC[g][i], 0, M2_REG, false, ADD_OFF };
+	row_step(c, st, r, LPF18_DEC[g][k]);
+}
+
+// ---- rel 0x5c to 0x5f: the LPF18 taps, one a lane, the tap cell scaled by t[1], t[3], t[5] or t[7]
+//      back onto the lane's own LPF18 register ----
+void lpf18_taps(yss236_core& c, int g, int st, int rel)
+{
+	int const i = rel - 0x5c, b = lane_base(g, i);
+	row_step(c, st,
+	         { b + 3, LPF18_TAP_CELL[g][i], LPF18_TREG[i], M2_CELL, false, ADD_REG, false, ROUTE_1,
+	           CLAMP_SAT, b + 3 },
+	         LPF18_TAP_DEC[g][i]);
+}
+
+// ---- rel 0x60 to 0x63: the cutoff words onto the tap gains t[1] to t[4] ----
+void cutoff_gains(yss236_core& c, int g, int st, int rel)
+{
+	int const i = rel - 0x60;
+	Row r = CUTOFF_GAINS[i];
+	r.sm = STATE_CELL[g][i];
+	row_step(c, st, r, CGAIN_DEC[g][i]);
+}
+
+// ---- rel 0x64 to 0x73: the output ramp, eight pairs of two steps.  Pair q is lane q % 4 and walks
+//      r[base + 4 + q / 4]: the first step of a pair scales that register by the lane's own gain less
+//      itself, and the second scales r[base + 3 + q / 4] by the same gain and takes the running value
+//      off it, which is the pair the header's ramp walks with. ----
+void output_ramp(yss236_core& c, int g, int st, int rel)
+{
+	int const k = rel - 0x64, q = k / 2, i = q % 4, reg = lane_base(g, i) + 4 + q / 4;
+	Row r{};
+	if (k % 2)
+		r = { reg - 1, RAMP_ODD_SRC[g][q], RAMP_TREG[i], M2_REG, false, ADD_ACC, true, ROUTE_1,
+		      CLAMP_SAT, reg };
+	else
+		r = { reg, RAMP_EVEN_SRC[g][q], RAMP_TREG[i], M2_REG, false, ADD_REG, true };
+	row_step(c, st, r, RAMP_DEC[g][k]);
+}
+
+// ---- rel 0x74 to 0x77: the ramp's slope words, one a lane, onto the lane's own ramp register ----
+void ramp_slope(yss236_core& c, int g, int st, int rel)
+{
+	int const i = rel - 0x74, reg = lane_base(g, i) + 6;
+	decor(c, st, SLOPE_DEC[g][i]);
+	load(c, st, reg, SLOPE_SRC[g][i], ADD_REG, false, ROUTE_1, CLAMP_ZERO, reg, 0);
+	t_put(c, SLOPE_TREG[i], c.acc);
+}
+
+// ---- rel 0x78 to 0x7b: the filter's own output, four steps a page.  The register the step reads
+//      and the route its result takes are the type's own, FilterHost::setType() writes them into the
+//      step's words, so both come out of c.ops[st] on the pass and this one block is spelled out
+//      rather than run through step::run, whose operands a table row would have to fix.  OUT_SRC is
+//      the cell the step also latches, and sends to the serial output when it is not m[0]. ----
+void output_taps(yss236_core& c, int g, int st, int rel)
+{
+	int const i = rel - 0x78, sm = OUT_SRC[g][i];
+	if (sm) serial_out(c, st, sm);
+	int const sr = c.ops[st].sr;
+	latch_reg(c, sr);
+	latch_cell(c, sm);
+	double const y = (c.t[OUT_TREG[i]] * c.r[sr]) * yss236_core::RSCALE[c.ops[st].shift];
+	c.acc = yss236_core::accmode(y, CLAMP_SAT);
+	c.queue_d(OUT_CELL[g][i], yss236_core::clip(y, yss236_core::DSAT));
+}
+
+// ---------------------------------------------------------------------------------------------
+// The prologue and the four pages
+// ---------------------------------------------------------------------------------------------
+
+// The sixteen steps before the round robin: the serial inputs and the EG level into cells, m[25] out
+// to the serial output, the gate, and the three constants the pole coefficients and the resonance
+// stage are built on, m[61], m[62] and m[63], with r[127] the EG level's own full scale.  The six
+// steps the gate holds, 0x005 to 0x00a, are the host's: core::trigger() writes their registers
+// itself, so there is nothing there but begin_step() to do.
+void prologue(yss236_core& c)
+{
+	for (int st = 0x000; st <= 0x00f; st++)
+	{
+		c.begin_step();
+		if (st < c.m_skip) continue;
+		switch (st)
+		{
+		case 0x000: take_serial(c, 24, st, 0); idle(c); break;   // channel 0 into m[24]
+		case 0x001: take_serial(c, 25, st, 1); idle(c); break;   // and the second bank into m[25]
+		case 0x002: take_eg(c, 23, st); idle(c); break;          // and the EG level into m[23]
+		case 0x003: serial_out(c, st, 25); idle(c); break;       // channel 0 out of m[25]
+		case 0x004: gate(c, st, 0x00b); break;                   // and the gate onto the block below
+		case 0x00b: load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, 63); break;
+		case 0x00c: load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 127, 0); break;
+		case 0x00d: load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, 62); break;
+		case 0x00e: load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, 61); break;
+		case 0x00f: take_lfo(c, 3, st); idle(c); break;          // and the LFO into m[3]
+		default: break;
+		}
+	}
+}
+
+// The 124 steps of page g, the seventeen blocks in order.  One iteration per step, carrying the
+// m_skip guard step() opens with.  The only gate in this program is the prologue's and it is shut
+// again by the time the first page runs, so nothing past 0x00f is ever skipped.
+void page(yss236_core& c, int g)
+{
+	for (int rel = 0; rel < 124; rel++)
+	{
+		int const st = PAGE_BASE[g] + rel;
+		c.begin_step();
+		if (st < c.m_skip) continue;
+		if      (rel < 0x0c) lane_open(c, g, st, rel);
+		else if (rel < 0x14) pole_coeffs(c, g, st, rel);
+		else if (rel < 0x1c) page_pole_gains(c, g, st, rel);
+		else if (rel < 0x24) resonance(c, g, st, rel);
+		else if (rel < 0x28) pole_states(c, g, st, rel);
+		else if (rel < 0x30) lpf12_coeffs(c, g, st, rel);
+		else if (rel < 0x34) lpf12_taps(c, g, st, rel);
+		else if (rel < 0x44) eg_sweep(c, g, st, rel);
+		else if (rel < 0x54) lpf12_stage(c, g, st, rel);
+		else if (rel < 0x5c) lpf18_input(c, g, st, rel);
+		else if (rel < 0x60) lpf18_taps(c, g, st, rel);
+		else if (rel < 0x64) cutoff_gains(c, g, st, rel);
+		else if (rel < 0x74) output_ramp(c, g, st, rel);
+		else if (rel < 0x78) ramp_slope(c, g, st, rel);
+		else                 output_taps(c, g, st, rel);
+	}
+}
 
 }  // namespace
 
 // The whole program.  The check hands this every step, and a part of one is the interpreter's.
 void flt(yss236_core& c, int from, int to)
 {
-	if (from != 0 || to != yss236_core::STEPS) {
+	if (from != 0 || to != yss236_core::STEPS)
+	{
 		for (int st = from; st < to; st++) c.step(st);
 		return;
 	}
-
-	double* const r = c.r;                    // the 128 registers, named as step() names them
-	double* const m = c.m;                    // the 64 cells
-	double* const t = c.t;                    // the 16 t registers, the pole gains
-	double& acc = c.acc;                      // the running value p
-	double v, y;                              // this step's value, as its arithmetic leaves it
-
-	// 0x000  channel 0: the audio into m[24]
-	c.begin_step();
-	c.queue_d(24, c.in[0][0]);
-	latch_r(c, 0);
-	// 0x001  channel 0: the second bank into m[25]
-	c.begin_step();
-	c.queue_d(25, c.in[1][0]);
-	latch_r(c, 0);
-	// 0x002  channel 0: the EG level into m[23]
-	c.begin_step();
-	c.queue_d(23, c.in[3][0]);
-	latch_r(c, 0);
-	// 0x003  channel 0 to the serial output
-	c.begin_step();
-	c.out[0] = m[25];
-	latch_r(c, 0);
-	// 0x004  the gate: channel 0's state registers wait for the host trigger
-	c.begin_step();
-	c.m_skip = 0x00b;                 // the gate: the steps to its target wait for the host trigger
-	// 0x005  in the gated block, which core::trigger() writes for the host
-	c.begin_step();
-	// the gated block: the host's trigger writes these registers itself (yss236_core::trigger)
-	// 0x006  in the gated block, which core::trigger() writes for the host
-	c.begin_step();
-	// the gated block: the host's trigger writes these registers itself (yss236_core::trigger)
-	// 0x007  in the gated block, which core::trigger() writes for the host
-	c.begin_step();
-	// the gated block: the host's trigger writes these registers itself (yss236_core::trigger)
-	// 0x008  in the gated block, which core::trigger() writes for the host
-	c.begin_step();
-	// the gated block: the host's trigger writes these registers itself (yss236_core::trigger)
-	// 0x009  in the gated block, which core::trigger() writes for the host
-	c.begin_step();
-	// the gated block: the host's trigger writes these registers itself (yss236_core::trigger)
-	// 0x00a  in the gated block, which core::trigger() writes for the host
-	c.begin_step();
-	// the gated block: the host's trigger writes these registers itself (yss236_core::trigger)
-	// 0x00b  the constant m[63] out of the running value
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x00b]);
-	c.acc = yss236_core::accmode(v, 0);
-	c.queue_d(63, yss236_core::clip(c.acc, yss236_core::DSAT));
-	// 0x00c  r[127]: the EG level's full scale, 16 of the 128 a register holds
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x00c]);
-	c.queue_r(127, yss236_core::mode(v, 0));
-	c.acc = yss236_core::accmode(v, 0);
-	// 0x00d  the constant m[62] out of the running value
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x00d]);
-	c.acc = yss236_core::accmode(v, 0);
-	c.queue_d(62, yss236_core::clip(c.acc, yss236_core::DSAT));
-	// 0x00e  the constant m[61] out of the running value
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x00e]);
-	c.acc = yss236_core::accmode(v, 0);
-	c.queue_d(61, yss236_core::clip(c.acc, yss236_core::DSAT));
-	// 0x00f  channel 0: the LFO into m[3]
-	c.begin_step();
-	c.queue_d(3, c.lfo[0]);
-	latch_r(c, 0);
-
-	// ---- page 16: channels 0 to 3, lanes 0 at r[0], 1 at r[6], 2 at r[12], 3 at r[18], register blocks r[0..24] ----
-	// 0x010  lane 0: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 17);
-	y = yss236_core::s16(c.coef[0x010]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x011  lane 0: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 1);
-	y = (yss236_core::s16(c.coef[0x011]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x012  lane 0: the cutoff word into r[97]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x012]) + acc;
-	c.queue_r(97, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x013  lane 1: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 20);
-	y = yss236_core::s16(c.coef[0x013]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x014  lane 1: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 2);
-	y = (yss236_core::s16(c.coef[0x014]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x015  lane 1: the cutoff word into r[98]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x015]) + acc;
-	c.queue_r(98, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x016  lane 2: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 23);
-	y = yss236_core::s16(c.coef[0x016]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x017  lane 2: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 3);
-	y = (yss236_core::s16(c.coef[0x017]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x018  lane 2: the cutoff word into r[99]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x018]) + acc;
-	c.queue_r(99, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x019  lane 3: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 26);
-	y = yss236_core::s16(c.coef[0x019]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x01a  lane 3: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 4);
-	y = (yss236_core::s16(c.coef[0x01a]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x01b  lane 3: the cutoff word into r[97]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x01b]) + acc;
-	c.queue_r(97, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x01c
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x01c]) * r[97] + m[62]) * 2.0;
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x01d
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x01d]) * r[98] + m[62]) * 2.0;
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x01e
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x01e]) * r[99] + m[62]) * 2.0;
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x01f
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x01f]) * r[97] + m[62]) * 2.0;
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x020
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 61);
-	y = t[1] * r[98] + m[61];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x021
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 61);
-	y = t[2] * r[97] + m[61];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x022
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 61);
-	y = t[1] * r[98] + m[61];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x023
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 61);
-	y = t[2] * r[97] + m[61];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x024  channel 1: the audio into m[17]
-	c.begin_step();
-	c.queue_d(17, c.in[0][1]);
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x025  channel 1: the second bank into m[20]
-	c.begin_step();
-	c.queue_d(20, c.in[1][1]);
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[2] * r[97];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x026  channel 1: the EG level into m[26]
-	c.begin_step();
-	c.queue_d(26, c.in[3][1]);
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x027  channel 1: the LFO into m[4]
-	c.begin_step();
-	c.queue_d(4, c.lfo[1]);
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[2] * r[97];
-	c.queue_r(99, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x028  channel 1 to the serial output
-	c.begin_step();
-	c.out[1] = m[27];
-	latch_r(c, 98);
-	latch_m(c, 27);
-	y = t[1] * r[98];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x029
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[2] * r[97];
-	c.queue_r(100, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x02a
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(103, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 3, y);
-	// 0x02b
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 0);
-	y = t[2] * r[99];
-	c.queue_r(106, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 4, y);
-	// 0x02c
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x02c]) * r[97] - m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x02d
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x02d]) * r[100] - m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x02e
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x02e]) * r[103] - m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x02f
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x02f]) * r[106] - m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x030  lane 0: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x030]) * r[98] + m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x031  lane 1: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x031]) * r[99] + m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x032  lane 2: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x032]) * r[98] + m[63];
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x033  lane 3: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x033]) * r[99] + m[63];
-	c.queue_r(102, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x034
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[1] * r[97];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(37, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x035
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 0);
-	y = t[2] * r[100];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(38, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x036
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 0);
-	y = t[3] * r[103];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(39, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x037
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 0);
-	y = t[4] * r[106];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(40, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x038
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x038]) - r[98]) * 2.0;
-	c.queue_r(104, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x039
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x039]) - r[99]) * 2.0;
-	c.queue_r(105, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x03a
-	c.begin_step();
-	latch_r(c, 101);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x03a]) - r[101]) * 2.0;
-	c.queue_r(104, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x03b
-	c.begin_step();
-	latch_r(c, 102);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x03b]) - r[102]) * 2.0;
-	c.queue_r(105, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x03c
-	c.begin_step();
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x03c]) * r[104];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 1, y);
-	// 0x03d
-	c.begin_step();
-	latch_r(c, 105);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x03d]) * r[105];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x03e
-	c.begin_step();
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x03e]) * r[104];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 1, y);
-	// 0x03f
-	c.begin_step();
-	latch_r(c, 105);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x03f]) * r[105];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x040
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 37);
-	y = t[1] * c.src + r[97];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(27, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 1, y);
-	// 0x041
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 38);
-	y = t[2] * c.src + r[100];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(41, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 3, y);
-	// 0x042
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 39);
-	y = t[1] * c.src + r[103];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(18, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 5, y);
-	// 0x043
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 40);
-	y = t[2] * c.src + r[106];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(42, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 7, y);
-	// 0x044  lane 0: the input gain
-	c.begin_step();
-	c.queue_d(23, c.in[0][2]);
-	latch_r(c, 0);
-	latch_m(c, 18);
-	y = yss236_core::s16(c.coef[0x044]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x045  lane 0: the second bank's gain
-	c.begin_step();
-	c.queue_d(27, c.in[1][2]);
-	latch_r(c, 0);
-	latch_m(c, 19);
-	y = (yss236_core::s16(c.coef[0x045]) * c.src + acc) * 4.0;
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x046  lane 0: a unity difference, and t[8] takes this step's constant, the second resonance
-	c.begin_step();
-	c.queue_d(19, c.in[3][2]);
-	latch_r(c, 98);
-	latch_m(c, 27);
-	y = r[98] - m[27];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x046, 8);
-	// 0x047  channel 2: the LFO into m[5]
-	c.begin_step();
-	c.queue_d(5, c.lfo[2]);
-	latch_r(c, 0);
-	latch_m(c, 27);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x048  lane 1: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 21);
-	y = yss236_core::s16(c.coef[0x048]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x049  lane 1: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 22);
-	y = (yss236_core::s16(c.coef[0x049]) * c.src + acc) * 4.0;
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x04a  lane 1: a unity difference, and t[9] takes this step's constant, the second resonance
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 41);
-	y = r[99] - m[41];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x04a, 9);
-	// 0x04b
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 41);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 4, y);
-	// 0x04c  lane 2: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 24);
-	y = yss236_core::s16(c.coef[0x04c]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x04d  lane 2: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 25);
-	y = (yss236_core::s16(c.coef[0x04d]) * c.src + acc) * 4.0;
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x04e  lane 2: a unity difference, and t[10] takes this step's constant, the second resonance
-	c.begin_step();
-	latch_r(c, 101);
-	latch_m(c, 18);
-	y = r[101] - m[18];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x04e, 10);
-	// 0x04f
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 18);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 6, y);
-	// 0x050  lane 3: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 17);
-	y = yss236_core::s16(c.coef[0x050]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x051  lane 3: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 20);
-	y = (yss236_core::s16(c.coef[0x051]) * c.src + acc) * 4.0;
-	c.queue_r(104, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x052  lane 3: a unity difference, and t[11] takes this step's constant, the second resonance
-	c.begin_step();
-	latch_r(c, 102);
-	latch_m(c, 42);
-	y = r[102] - m[42];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x052, 11);
-	// 0x053
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 42);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 8, y);
-
-	// channel 0 (slot 12): the ladder's read. These four steps write r[98] and r[99], this channel's
-	// two pole states, out of r[2] and r[3], its own pair of registers, and leave the coefficient they
-	// read in r[1]. The block further down the page updates r[2] and r[3] and takes its output at the
-	// type's tap.
-	// 0x054  channel 2 to the serial output
-	c.begin_step();
-	c.out[2] = m[28];
-	latch_r(c, 98);
-	latch_m(c, 28);
-	y = t[8] * r[98] - r[98];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x055
-	c.begin_step();
-	latch_r(c, 1);
-	latch_m(c, 0);
-	y = t[8] * r[1] - acc;
-	c.queue_r(1, c.haspx ? c.px : r[1]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x056
-	c.begin_step();
-	latch_r(c, 2);
-	latch_m(c, 0);
-	y = t[2] * r[2] + acc;
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x057
-	c.begin_step();
-	latch_r(c, 3);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x057]) * r[3] + acc;
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(17, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 1 (slot 13): the ladder's read. These four steps write r[101] and r[102], this channel's
-	// two pole states, out of r[8] and r[9], its own pair of registers, and leave the coefficient they
-	// read in r[7]. The block further down the page updates r[8] and r[9] and takes its output at the
-	// type's tap.
-	// 0x058
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 0);
-	y = t[9] * r[99] - r[99];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x059
-	c.begin_step();
-	latch_r(c, 7);
-	latch_m(c, 0);
-	y = t[9] * r[7] - acc;
-	c.queue_r(7, c.haspx ? c.px : r[7]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x05a
-	c.begin_step();
-	latch_r(c, 8);
-	latch_m(c, 0);
-	y = t[4] * r[8] + acc;
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x05b
-	c.begin_step();
-	latch_r(c, 9);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x05b]) * r[9] + acc;
-	c.queue_r(102, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(18, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 2 (slot 14): the ladder's read. These four steps write r[104] and r[105], this channel's
-	// two pole states, out of r[14] and r[15], its own pair of registers, and leave the coefficient
-	// they read in r[13]. The block further down the page updates r[14] and r[15] and takes its output
-	// at the type's tap.
-	// 0x05c
-	c.begin_step();
-	latch_r(c, 101);
-	latch_m(c, 0);
-	y = t[10] * r[101] - r[101];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x05d
-	c.begin_step();
-	latch_r(c, 13);
-	latch_m(c, 0);
-	y = t[10] * r[13] - acc;
-	c.queue_r(13, c.haspx ? c.px : r[13]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x05e
-	c.begin_step();
-	latch_r(c, 14);
-	latch_m(c, 0);
-	y = t[6] * r[14] + acc;
-	c.queue_r(104, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x05f
-	c.begin_step();
-	latch_r(c, 15);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x05f]) * r[15] + acc;
-	c.queue_r(105, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(20, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 3 (slot 15): the ladder's read. These four steps write r[107] and r[108], this channel's
-	// two pole states, out of r[20] and r[21], its own pair of registers, and leave the coefficient
-	// they read in r[19]. The block further down the page updates r[20] and r[21] and takes its output
-	// at the type's tap.
-	// 0x060  channel 3: the audio into m[22]
-	c.begin_step();
-	c.queue_d(22, c.in[0][3]);
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = t[11] * r[104] - r[104];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x061  channel 3: the second bank into m[24]
-	c.begin_step();
-	c.queue_d(24, c.in[1][3]);
-	latch_r(c, 19);
-	latch_m(c, 0);
-	y = t[11] * r[19] - acc;
-	c.queue_r(19, c.haspx ? c.px : r[19]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x062  channel 3: the EG level into m[21]
-	c.begin_step();
-	c.queue_d(21, c.in[3][3]);
-	latch_r(c, 20);
-	latch_m(c, 0);
-	y = t[8] * r[20] + acc;
-	c.queue_r(107, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x063
-	c.begin_step();
-	latch_r(c, 21);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x063]) * r[21] + acc;
-	c.queue_r(108, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(17, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x064  channel 3 to the serial output
-	c.begin_step();
-	c.out[3] = m[29];
-	latch_r(c, 2);
-	latch_m(c, 29);
-	y = yss236_core::s16(c.coef[0x064]) * r[2];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x065
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 17);
-	y = (t[1] * c.src + acc) * 4.0;
-	c.queue_r(2, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(18, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x066  channel 3: the LFO into m[6]
-	c.begin_step();
-	c.queue_d(6, c.lfo[3]);
-	latch_r(c, 8);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x066]) * r[8];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x067
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 18);
-	y = (t[3] * c.src + acc) * 4.0;
-	c.queue_r(8, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(20, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x068
-	c.begin_step();
-	latch_r(c, 14);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x068]) * r[14];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x069
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 20);
-	y = (t[5] * c.src + acc) * 4.0;
-	c.queue_r(14, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(17, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x06a
-	c.begin_step();
-	latch_r(c, 20);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x06a]) * r[20];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x06b
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 17);
-	y = (t[7] * c.src + acc) * 4.0;
-	c.queue_r(20, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(18, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x06c
-	c.begin_step();
-	latch_r(c, 3);
-	latch_m(c, 18);
-	y = t[1] * c.src + r[3];
-	c.queue_r(3, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x06d
-	c.begin_step();
-	latch_r(c, 9);
-	latch_m(c, 20);
-	y = t[3] * c.src + r[9];
-	c.queue_r(9, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x06e
-	c.begin_step();
-	latch_r(c, 15);
-	latch_m(c, 17);
-	y = t[5] * c.src + r[15];
-	c.queue_r(15, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x06f
-	c.begin_step();
-	latch_r(c, 21);
-	latch_m(c, 18);
-	y = t[7] * c.src + r[21];
-	c.queue_r(21, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x070
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 37);
-	y = (yss236_core::s16(c.coef[0x070]) * c.src + r[97]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x071
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 38);
-	y = (yss236_core::s16(c.coef[0x071]) * c.src + r[100]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x072
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 39);
-	y = (yss236_core::s16(c.coef[0x072]) * c.src + r[103]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 3, y);
-	// 0x073
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 40);
-	y = (yss236_core::s16(c.coef[0x073]) * c.src + r[106]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 4, y);
-	// 0x074
-	c.begin_step();
-	latch_r(c, 4);
-	latch_m(c, 0);
-	y = t[1] * r[4] - r[4];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x075
-	c.begin_step();
-	latch_r(c, 3);
-	latch_m(c, 0);
-	y = t[1] * r[3] - acc;
-	c.queue_r(4, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x076
-	c.begin_step();
-	latch_r(c, 10);
-	latch_m(c, 0);
-	y = t[2] * r[10] - r[10];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x077
-	c.begin_step();
-	latch_r(c, 9);
-	latch_m(c, 0);
-	y = t[2] * r[9] - acc;
-	c.queue_r(10, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x078
-	c.begin_step();
-	latch_r(c, 16);
-	latch_m(c, 0);
-	y = t[3] * r[16] - r[16];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x079
-	c.begin_step();
-	latch_r(c, 15);
-	latch_m(c, 0);
-	y = t[3] * r[15] - acc;
-	c.queue_r(16, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x07a
-	c.begin_step();
-	latch_r(c, 22);
-	latch_m(c, 0);
-	y = t[4] * r[22] - r[22];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x07b
-	c.begin_step();
-	latch_r(c, 21);
-	latch_m(c, 0);
-	y = t[4] * r[21] - acc;
-	c.queue_r(22, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x07c
-	c.begin_step();
-	latch_r(c, 5);
-	latch_m(c, 0);
-	y = t[1] * r[5] - r[5];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x07d
-	c.begin_step();
-	latch_r(c, 4);
-	latch_m(c, 0);
-	y = t[1] * r[4] - acc;
-	c.queue_r(5, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x07e
-	c.begin_step();
-	latch_r(c, 11);
-	latch_m(c, 0);
-	y = t[2] * r[11] - r[11];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x07f
-	c.begin_step();
-	latch_r(c, 10);
-	latch_m(c, 0);
-	y = t[2] * r[10] - acc;
-	c.queue_r(11, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x080  channel 4: the audio into m[28]
-	c.begin_step();
-	c.queue_d(28, c.in[0][4]);
-	latch_r(c, 17);
-	latch_m(c, 0);
-	y = t[3] * r[17] - r[17];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x081  channel 4: the second bank into m[29]
-	c.begin_step();
-	c.queue_d(29, c.in[1][4]);
-	latch_r(c, 16);
-	latch_m(c, 0);
-	y = t[3] * r[16] - acc;
-	c.queue_r(17, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x082  channel 4: the EG level into m[25]
-	c.begin_step();
-	c.queue_d(25, c.in[3][4]);
-	latch_r(c, 23);
-	latch_m(c, 0);
-	y = t[4] * r[23] - r[23];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x083  channel 4 to the serial output
-	c.begin_step();
-	c.out[4] = m[31];
-	latch_r(c, 22);
-	latch_m(c, 31);
-	y = t[4] * r[22] - acc;
-	c.queue_r(23, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x084  lane 0: the output ramp into r[6], -1.48 a sample
-	c.begin_step();
-	latch_r(c, 6);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x084]) + r[6];
-	c.queue_r(6, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 1, c.acc);
-	// 0x085  lane 1: the output ramp into r[12], -1.48 a sample
-	c.begin_step();
-	latch_r(c, 12);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x085]) + r[12];
-	c.queue_r(12, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 2, c.acc);
-	// 0x086  lane 2: the output ramp into r[18], -1.48 a sample
-	c.begin_step();
-	latch_r(c, 18);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x086]) + r[18];
-	c.queue_r(18, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 1, c.acc);
-	// 0x087  lane 3: the output ramp into r[24], -1.48 a sample
-	c.begin_step();
-	c.queue_d(7, c.lfo[4]);
-	latch_r(c, 24);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x087]) + r[24];
-	c.queue_r(24, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 2, c.acc);
-	// 0x088  lane 0: the filter's output tap into m[17]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x088].sr);
-	latch_m(c, 0);
-	y = (t[1] * r[c.ops[0x088].sr]) * yss236_core::RSCALE[c.ops[0x088].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(17, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x089  lane 1: the filter's output tap into m[18]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x089].sr);
-	latch_m(c, 0);
-	y = (t[2] * r[c.ops[0x089].sr]) * yss236_core::RSCALE[c.ops[0x089].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(18, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x08a  lane 2: the filter's output tap into m[19]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x08a].sr);
-	latch_m(c, 0);
-	y = (t[1] * r[c.ops[0x08a].sr]) * yss236_core::RSCALE[c.ops[0x08a].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(19, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x08b  lane 3: the filter's output tap into m[20]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x08b].sr);
-	latch_m(c, 0);
-	y = (t[2] * r[c.ops[0x08b].sr]) * yss236_core::RSCALE[c.ops[0x08b].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(20, yss236_core::clip(y, yss236_core::DSAT));
-
-	// ---- page 140: channels 4 to 7, lanes 0 at r[24], 1 at r[30], 2 at r[36], 3 at r[42], register blocks r[24..48] ----
-	// 0x08c  lane 0: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 19);
-	y = yss236_core::s16(c.coef[0x08c]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x08d  lane 0: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 5);
-	y = (yss236_core::s16(c.coef[0x08d]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x08e  lane 0: the cutoff word into r[97]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x08e]) + acc;
-	c.queue_r(97, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x08f  lane 1: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 21);
-	y = yss236_core::s16(c.coef[0x08f]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x090  lane 1: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 6);
-	y = (yss236_core::s16(c.coef[0x090]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x091  lane 1: the cutoff word into r[98]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x091]) + acc;
-	c.queue_r(98, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x092  lane 2: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 25);
-	y = yss236_core::s16(c.coef[0x092]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x093  lane 2: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 7);
-	y = (yss236_core::s16(c.coef[0x093]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x094  lane 2: the cutoff word into r[99]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x094]) + acc;
-	c.queue_r(99, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x095  lane 3: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 30);
-	y = yss236_core::s16(c.coef[0x095]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x096  lane 3: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 8);
-	y = (yss236_core::s16(c.coef[0x096]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x097  lane 3: the cutoff word into r[97]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x097]) + acc;
-	c.queue_r(97, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x098
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x098]) * r[97] + m[62]) * 2.0;
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x099
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x099]) * r[98] + m[62]) * 2.0;
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x09a
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x09a]) * r[99] + m[62]) * 2.0;
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x09b
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x09b]) * r[97] + m[62]) * 2.0;
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x09c
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 61);
-	y = t[1] * r[98] + m[61];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x09d
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 61);
-	y = t[2] * r[97] + m[61];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x09e
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 61);
-	y = t[1] * r[98] + m[61];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x09f
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 61);
-	y = t[2] * r[97] + m[61];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x0a0  channel 5: the audio into m[21]
-	c.begin_step();
-	c.queue_d(21, c.in[0][5]);
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x0a1  channel 5: the second bank into m[25]
-	c.begin_step();
-	c.queue_d(25, c.in[1][5]);
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[2] * r[97];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x0a2  channel 5: the EG level into m[30]
-	c.begin_step();
-	c.queue_d(30, c.in[3][5]);
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x0a3  channel 5 to the serial output
-	c.begin_step();
-	c.out[5] = m[32];
-	latch_r(c, 97);
-	latch_m(c, 32);
-	y = t[2] * r[97];
-	c.queue_r(99, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x0a4
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x0a5
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[2] * r[97];
-	c.queue_r(100, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x0a6  channel 5: the LFO into m[8]
-	c.begin_step();
-	c.queue_d(8, c.lfo[5]);
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(103, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 3, y);
-	// 0x0a7
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 0);
-	y = t[2] * r[99];
-	c.queue_r(106, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 4, y);
-	// 0x0a8
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x0a8]) * r[97] - m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0a9
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x0a9]) * r[100] - m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0aa
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x0aa]) * r[103] - m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0ab
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x0ab]) * r[106] - m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0ac  lane 0: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x0ac]) * r[98] + m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0ad  lane 1: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x0ad]) * r[99] + m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0ae  lane 2: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x0ae]) * r[98] + m[63];
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0af  lane 3: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x0af]) * r[99] + m[63];
-	c.queue_r(102, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0b0
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[1] * r[97];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(32, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x0b1
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 0);
-	y = t[2] * r[100];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(37, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x0b2
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 0);
-	y = t[3] * r[103];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(38, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x0b3
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 0);
-	y = t[4] * r[106];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(39, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x0b4
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x0b4]) - r[98]) * 2.0;
-	c.queue_r(104, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x0b5
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x0b5]) - r[99]) * 2.0;
-	c.queue_r(105, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x0b6
-	c.begin_step();
-	latch_r(c, 101);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x0b6]) - r[101]) * 2.0;
-	c.queue_r(104, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x0b7
-	c.begin_step();
-	latch_r(c, 102);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x0b7]) - r[102]) * 2.0;
-	c.queue_r(105, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x0b8
-	c.begin_step();
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0b8]) * r[104];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 1, y);
-	// 0x0b9
-	c.begin_step();
-	latch_r(c, 105);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0b9]) * r[105];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x0ba
-	c.begin_step();
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0ba]) * r[104];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 1, y);
-	// 0x0bb
-	c.begin_step();
-	latch_r(c, 105);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0bb]) * r[105];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x0bc
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 32);
-	y = t[1] * c.src + r[97];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(31, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 1, y);
-	// 0x0bd
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 37);
-	y = t[2] * c.src + r[100];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(40, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 3, y);
-	// 0x0be
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 38);
-	y = t[1] * c.src + r[103];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(23, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 5, y);
-	// 0x0bf
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 39);
-	y = t[2] * c.src + r[106];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(41, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 7, y);
-	// 0x0c0  lane 0: the input gain
-	c.begin_step();
-	c.queue_d(27, c.in[0][6]);
-	latch_r(c, 0);
-	latch_m(c, 23);
-	y = yss236_core::s16(c.coef[0x0c0]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0c1  lane 0: the second bank's gain
-	c.begin_step();
-	c.queue_d(31, c.in[1][6]);
-	latch_r(c, 0);
-	latch_m(c, 27);
-	y = (yss236_core::s16(c.coef[0x0c1]) * c.src + acc) * 4.0;
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0c2  lane 0: a unity difference, and t[8] takes this step's constant, the second resonance
-	c.begin_step();
-	c.queue_d(22, c.in[3][6]);
-	latch_r(c, 98);
-	latch_m(c, 31);
-	y = r[98] - m[31];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x0c2, 8);
-	// 0x0c3
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 31);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x0c4  lane 1: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 22);
-	y = yss236_core::s16(c.coef[0x0c4]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0c5  lane 1: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 24);
-	y = (yss236_core::s16(c.coef[0x0c5]) * c.src + acc) * 4.0;
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0c6  lane 1: a unity difference, and t[9] takes this step's constant, the second resonance
-	c.begin_step();
-	c.queue_d(9, c.lfo[6]);
-	latch_r(c, 99);
-	latch_m(c, 40);
-	y = r[99] - m[40];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x0c6, 9);
-	// 0x0c7
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 40);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 4, y);
-	// 0x0c8  lane 2: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 28);
-	y = yss236_core::s16(c.coef[0x0c8]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0c9  lane 2: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 29);
-	y = (yss236_core::s16(c.coef[0x0c9]) * c.src + acc) * 4.0;
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0ca  lane 2: a unity difference, and t[10] takes this step's constant, the second resonance
-	c.begin_step();
-	latch_r(c, 101);
-	latch_m(c, 23);
-	y = r[101] - m[23];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x0ca, 10);
-	// 0x0cb
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 23);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 6, y);
-	// 0x0cc  lane 3: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 21);
-	y = yss236_core::s16(c.coef[0x0cc]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0cd  lane 3: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 25);
-	y = (yss236_core::s16(c.coef[0x0cd]) * c.src + acc) * 4.0;
-	c.queue_r(104, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0ce  lane 3: a unity difference, and t[11] takes this step's constant, the second resonance
-	c.begin_step();
-	latch_r(c, 102);
-	latch_m(c, 41);
-	y = r[102] - m[41];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x0ce, 11);
-	// 0x0cf
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 41);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 8, y);
-
-	// channel 4 (slot 0): the ladder's read. These four steps write r[98] and r[99], this channel's
-	// two pole states, out of r[26] and r[27], its own pair of registers, and leave the coefficient
-	// they read in r[25]. The block further down the page updates r[26] and r[27] and takes its output
-	// at the type's tap.
-	// 0x0d0  channel 6 to the serial output
-	c.begin_step();
-	c.out[6] = m[33];
-	latch_r(c, 98);
-	latch_m(c, 33);
-	y = t[8] * r[98] - r[98];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0d1
-	c.begin_step();
-	latch_r(c, 25);
-	latch_m(c, 0);
-	y = t[8] * r[25] - acc;
-	c.queue_r(25, c.haspx ? c.px : r[25]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0d2
-	c.begin_step();
-	latch_r(c, 26);
-	latch_m(c, 0);
-	y = t[2] * r[26] + acc;
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0d3
-	c.begin_step();
-	latch_r(c, 27);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0d3]) * r[27] + acc;
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(21, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 5 (slot 1): the ladder's read. These four steps write r[101] and r[102], this channel's
-	// two pole states, out of r[32] and r[33], its own pair of registers, and leave the coefficient
-	// they read in r[31]. The block further down the page updates r[32] and r[33] and takes its output
-	// at the type's tap.
-	// 0x0d4
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 0);
-	y = t[9] * r[99] - r[99];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0d5
-	c.begin_step();
-	latch_r(c, 31);
-	latch_m(c, 0);
-	y = t[9] * r[31] - acc;
-	c.queue_r(31, c.haspx ? c.px : r[31]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0d6
-	c.begin_step();
-	latch_r(c, 32);
-	latch_m(c, 0);
-	y = t[4] * r[32] + acc;
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0d7
-	c.begin_step();
-	latch_r(c, 33);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0d7]) * r[33] + acc;
-	c.queue_r(102, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(23, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 6 (slot 2): the ladder's read. These four steps write r[104] and r[105], this channel's
-	// two pole states, out of r[38] and r[39], its own pair of registers, and leave the coefficient
-	// they read in r[37]. The block further down the page updates r[38] and r[39] and takes its output
-	// at the type's tap.
-	// 0x0d8
-	c.begin_step();
-	latch_r(c, 101);
-	latch_m(c, 0);
-	y = t[10] * r[101] - r[101];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0d9
-	c.begin_step();
-	latch_r(c, 37);
-	latch_m(c, 0);
-	y = t[10] * r[37] - acc;
-	c.queue_r(37, c.haspx ? c.px : r[37]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0da
-	c.begin_step();
-	latch_r(c, 38);
-	latch_m(c, 0);
-	y = t[6] * r[38] + acc;
-	c.queue_r(104, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0db
-	c.begin_step();
-	latch_r(c, 39);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0db]) * r[39] + acc;
-	c.queue_r(105, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(24, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 7 (slot 3): the ladder's read. These four steps write r[107] and r[108], this channel's
-	// two pole states, out of r[44] and r[45], its own pair of registers, and leave the coefficient
-	// they read in r[43]. The block further down the page updates r[44] and r[45] and takes its output
-	// at the type's tap.
-	// 0x0dc
-	c.begin_step();
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = t[11] * r[104] - r[104];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0dd
-	c.begin_step();
-	latch_r(c, 43);
-	latch_m(c, 0);
-	y = t[11] * r[43] - acc;
-	c.queue_r(43, c.haspx ? c.px : r[43]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0de
-	c.begin_step();
-	latch_r(c, 44);
-	latch_m(c, 0);
-	y = t[8] * r[44] + acc;
-	c.queue_r(107, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0df
-	c.begin_step();
-	latch_r(c, 45);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0df]) * r[45] + acc;
-	c.queue_r(108, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(21, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x0e0  channel 7: the audio into m[25]
-	c.begin_step();
-	c.queue_d(25, c.in[0][7]);
-	latch_r(c, 26);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0e0]) * r[26];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0e1
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 21);
-	y = (t[1] * c.src + acc) * 4.0;
-	c.queue_r(26, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(23, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x0e2  channel 7: the second bank into m[28]
-	c.begin_step();
-	c.queue_d(28, c.in[1][7]);
-	latch_r(c, 32);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0e2]) * r[32];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0e3
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 23);
-	y = (t[3] * c.src + acc) * 4.0;
-	c.queue_r(32, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(29, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x0e4  channel 7: the EG level into m[24]
-	c.begin_step();
-	c.queue_d(24, c.in[3][7]);
-	latch_r(c, 38);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0e4]) * r[38];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0e5
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 24);
-	y = (t[5] * c.src + acc) * 4.0;
-	c.queue_r(38, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(21, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x0e6  channel 7: the LFO into m[10]
-	c.begin_step();
-	c.queue_d(10, c.lfo[7]);
-	latch_r(c, 44);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x0e6]) * r[44];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0e7
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 21);
-	y = (t[7] * c.src + acc) * 4.0;
-	c.queue_r(44, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(23, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x0e8
-	c.begin_step();
-	latch_r(c, 27);
-	latch_m(c, 23);
-	y = t[1] * c.src + r[27];
-	c.queue_r(27, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0e9
-	c.begin_step();
-	latch_r(c, 33);
-	latch_m(c, 29);
-	y = t[3] * c.src + r[33];
-	c.queue_r(33, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0ea
-	c.begin_step();
-	latch_r(c, 39);
-	latch_m(c, 21);
-	y = t[5] * c.src + r[39];
-	c.queue_r(39, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0eb
-	c.begin_step();
-	latch_r(c, 45);
-	latch_m(c, 23);
-	y = t[7] * c.src + r[45];
-	c.queue_r(45, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0ec
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 32);
-	y = (yss236_core::s16(c.coef[0x0ec]) * c.src + r[97]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x0ed
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 37);
-	y = (yss236_core::s16(c.coef[0x0ed]) * c.src + r[100]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x0ee
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 38);
-	y = (yss236_core::s16(c.coef[0x0ee]) * c.src + r[103]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 3, y);
-	// 0x0ef
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 39);
-	y = (yss236_core::s16(c.coef[0x0ef]) * c.src + r[106]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 4, y);
-	// 0x0f0  channel 7 to the serial output
-	c.begin_step();
-	c.out[7] = m[35];
-	latch_r(c, 28);
-	latch_m(c, 35);
-	y = t[1] * r[28] - r[28];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0f1
-	c.begin_step();
-	latch_r(c, 27);
-	latch_m(c, 0);
-	y = t[1] * r[27] - acc;
-	c.queue_r(28, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0f2
-	c.begin_step();
-	latch_r(c, 34);
-	latch_m(c, 0);
-	y = t[2] * r[34] - r[34];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0f3
-	c.begin_step();
-	latch_r(c, 33);
-	latch_m(c, 0);
-	y = t[2] * r[33] - acc;
-	c.queue_r(34, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0f4
-	c.begin_step();
-	latch_r(c, 40);
-	latch_m(c, 0);
-	y = t[3] * r[40] - r[40];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0f5
-	c.begin_step();
-	latch_r(c, 39);
-	latch_m(c, 0);
-	y = t[3] * r[39] - acc;
-	c.queue_r(40, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0f6
-	c.begin_step();
-	latch_r(c, 46);
-	latch_m(c, 0);
-	y = t[4] * r[46] - r[46];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0f7
-	c.begin_step();
-	latch_r(c, 45);
-	latch_m(c, 0);
-	y = t[4] * r[45] - acc;
-	c.queue_r(46, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0f8
-	c.begin_step();
-	latch_r(c, 29);
-	latch_m(c, 0);
-	y = t[1] * r[29] - r[29];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0f9
-	c.begin_step();
-	latch_r(c, 28);
-	latch_m(c, 0);
-	y = t[1] * r[28] - acc;
-	c.queue_r(29, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0fa
-	c.begin_step();
-	latch_r(c, 35);
-	latch_m(c, 0);
-	y = t[2] * r[35] - r[35];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0fb
-	c.begin_step();
-	latch_r(c, 34);
-	latch_m(c, 0);
-	y = t[2] * r[34] - acc;
-	c.queue_r(35, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0fc
-	c.begin_step();
-	latch_r(c, 41);
-	latch_m(c, 0);
-	y = t[3] * r[41] - r[41];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0fd
-	c.begin_step();
-	latch_r(c, 40);
-	latch_m(c, 0);
-	y = t[3] * r[40] - acc;
-	c.queue_r(41, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x0fe
-	c.begin_step();
-	latch_r(c, 47);
-	latch_m(c, 0);
-	y = t[4] * r[47] - r[47];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x0ff
-	c.begin_step();
-	latch_r(c, 46);
-	latch_m(c, 0);
-	y = t[4] * r[46] - acc;
-	c.queue_r(47, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x100  lane 0: the output ramp into r[30], -1.48 a sample
-	c.begin_step();
-	c.queue_d(32, c.in[0][8]);
-	latch_r(c, 30);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x100]) + r[30];
-	c.queue_r(30, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 1, c.acc);
-	// 0x101  lane 1: the output ramp into r[36], -1.48 a sample
-	c.begin_step();
-	c.queue_d(33, c.in[1][8]);
-	latch_r(c, 36);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x101]) + r[36];
-	c.queue_r(36, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 2, c.acc);
-	// 0x102  lane 2: the output ramp into r[42], -1.48 a sample
-	c.begin_step();
-	c.queue_d(29, c.in[3][8]);
-	latch_r(c, 42);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x102]) + r[42];
-	c.queue_r(42, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 1, c.acc);
-	// 0x103  lane 3: the output ramp into r[48], -1.48 a sample
-	c.begin_step();
-	c.out[8] = m[17];
-	latch_r(c, 48);
-	latch_m(c, 17);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x103]) + r[48];
-	c.queue_r(48, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 2, c.acc);
-	// 0x104  lane 0: the filter's output tap into m[17]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x104].sr);
-	latch_m(c, 0);
-	y = (t[1] * r[c.ops[0x104].sr]) * yss236_core::RSCALE[c.ops[0x104].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(17, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x105  lane 1: the filter's output tap into m[21]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x105].sr);
-	latch_m(c, 0);
-	y = (t[2] * r[c.ops[0x105].sr]) * yss236_core::RSCALE[c.ops[0x105].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(21, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x106  lane 2: the filter's output tap into m[22]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x106].sr);
-	latch_m(c, 0);
-	y = (t[1] * r[c.ops[0x106].sr]) * yss236_core::RSCALE[c.ops[0x106].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(22, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x107  lane 3: the filter's output tap into m[23]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x107].sr);
-	latch_m(c, 0);
-	y = (t[2] * r[c.ops[0x107].sr]) * yss236_core::RSCALE[c.ops[0x107].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(23, yss236_core::clip(y, yss236_core::DSAT));
-
-	// ---- page 264: channels 8 to 11, lanes 0 at r[48], 1 at r[54], 2 at r[60], 3 at r[66], register blocks r[48..72] ----
-	// 0x108  lane 0: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 22);
-	y = yss236_core::s16(c.coef[0x108]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x109  lane 0: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 9);
-	y = (yss236_core::s16(c.coef[0x109]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x10a  lane 0: the cutoff word into r[97]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x10a]) + acc;
-	c.queue_r(97, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x10b  lane 1: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 24);
-	y = yss236_core::s16(c.coef[0x10b]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x10c  lane 1: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 10);
-	y = (yss236_core::s16(c.coef[0x10c]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x10d  lane 1: the cutoff word into r[98]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x10d]) + acc;
-	c.queue_r(98, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x10e  lane 2: the EG level and the EG depth into the running value
-	c.begin_step();
-	c.queue_d(11, c.lfo[8]);
-	latch_r(c, 127);
-	latch_m(c, 29);
-	y = yss236_core::s16(c.coef[0x10e]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x10f  lane 2: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 11);
-	y = (yss236_core::s16(c.coef[0x10f]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x110  lane 2: the cutoff word into r[99]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x110]) + acc;
-	c.queue_r(99, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x111  lane 3: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 34);
-	y = yss236_core::s16(c.coef[0x111]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x112  lane 3: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 12);
-	y = (yss236_core::s16(c.coef[0x112]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x113  lane 3: the cutoff word into r[97]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x113]) + acc;
-	c.queue_r(97, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x114
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x114]) * r[97] + m[62]) * 2.0;
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x115
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x115]) * r[98] + m[62]) * 2.0;
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x116
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x116]) * r[99] + m[62]) * 2.0;
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x117
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x117]) * r[97] + m[62]) * 2.0;
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x118
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 61);
-	y = t[1] * r[98] + m[61];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x119
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 61);
-	y = t[2] * r[97] + m[61];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x11a
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 61);
-	y = t[1] * r[98] + m[61];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x11b
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 61);
-	y = t[2] * r[97] + m[61];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x11c
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x11d
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[2] * r[97];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x11e
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x11f
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[2] * r[97];
-	c.queue_r(99, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x120  channel 9: the audio into m[24]
-	c.begin_step();
-	c.queue_d(24, c.in[0][9]);
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x121  channel 9: the second bank into m[18]
-	c.begin_step();
-	c.queue_d(18, c.in[1][9]);
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[2] * r[97];
-	c.queue_r(100, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x122  channel 9: the EG level into m[34]
-	c.begin_step();
-	c.queue_d(34, c.in[3][9]);
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(103, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 3, y);
-	// 0x123  channel 9 to the serial output
-	c.begin_step();
-	c.out[9] = m[18];
-	latch_r(c, 99);
-	latch_m(c, 18);
-	y = t[2] * r[99];
-	c.queue_r(106, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 4, y);
-	// 0x124
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x124]) * r[97] - m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x125
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x125]) * r[100] - m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x126
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x126]) * r[103] - m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x127  channel 9: the LFO into m[12]
-	c.begin_step();
-	c.queue_d(12, c.lfo[9]);
-	latch_r(c, 106);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x127]) * r[106] - m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x128  lane 0: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x128]) * r[98] + m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x129  lane 1: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x129]) * r[99] + m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x12a  lane 2: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x12a]) * r[98] + m[63];
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x12b  lane 3: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x12b]) * r[99] + m[63];
-	c.queue_r(102, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x12c
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[1] * r[97];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(29, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x12d
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 0);
-	y = t[2] * r[100];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(37, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x12e
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 0);
-	y = t[3] * r[103];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(38, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x12f
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 0);
-	y = t[4] * r[106];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(39, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x130
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x130]) - r[98]) * 2.0;
-	c.queue_r(104, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x131
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x131]) - r[99]) * 2.0;
-	c.queue_r(105, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x132
-	c.begin_step();
-	latch_r(c, 101);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x132]) - r[101]) * 2.0;
-	c.queue_r(104, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x133
-	c.begin_step();
-	latch_r(c, 102);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x133]) - r[102]) * 2.0;
-	c.queue_r(105, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x134
-	c.begin_step();
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x134]) * r[104];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 1, y);
-	// 0x135
-	c.begin_step();
-	latch_r(c, 105);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x135]) * r[105];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x136
-	c.begin_step();
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x136]) * r[104];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 1, y);
-	// 0x137
-	c.begin_step();
-	latch_r(c, 105);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x137]) * r[105];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x138
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 29);
-	y = t[1] * c.src + r[97];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(35, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 1, y);
-	// 0x139
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 37);
-	y = t[2] * c.src + r[100];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(40, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 3, y);
-	// 0x13a
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 38);
-	y = t[1] * c.src + r[103];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(27, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 5, y);
-	// 0x13b
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 39);
-	y = t[2] * c.src + r[106];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(41, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 7, y);
-	// 0x13c  lane 0: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 27);
-	y = yss236_core::s16(c.coef[0x13c]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x13d  lane 0: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 31);
-	y = (yss236_core::s16(c.coef[0x13d]) * c.src + acc) * 4.0;
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x13e  lane 0: a unity difference, and t[8] takes this step's constant, the second resonance
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 35);
-	y = r[98] - m[35];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x13e, 8);
-	// 0x13f
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 35);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x140  lane 1: the input gain
-	c.begin_step();
-	c.queue_d(31, c.in[0][10]);
-	latch_r(c, 0);
-	latch_m(c, 25);
-	y = yss236_core::s16(c.coef[0x140]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x141  lane 1: the second bank's gain
-	c.begin_step();
-	c.queue_d(35, c.in[1][10]);
-	latch_r(c, 0);
-	latch_m(c, 28);
-	y = (yss236_core::s16(c.coef[0x141]) * c.src + acc) * 4.0;
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x142  lane 1: a unity difference, and t[9] takes this step's constant, the second resonance
-	c.begin_step();
-	c.queue_d(28, c.in[3][10]);
-	latch_r(c, 99);
-	latch_m(c, 40);
-	y = r[99] - m[40];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x142, 9);
-	// 0x143
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 40);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 4, y);
-	// 0x144  lane 2: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 32);
-	y = yss236_core::s16(c.coef[0x144]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x145  lane 2: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 33);
-	y = (yss236_core::s16(c.coef[0x145]) * c.src + acc) * 4.0;
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x146  lane 2: a unity difference, and t[10] takes this step's constant, the second resonance
-	c.begin_step();
-	latch_r(c, 101);
-	latch_m(c, 27);
-	y = r[101] - m[27];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x146, 10);
-	// 0x147  channel 10: the LFO into m[13]
-	c.begin_step();
-	c.queue_d(13, c.lfo[10]);
-	latch_r(c, 0);
-	latch_m(c, 27);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 6, y);
-	// 0x148  lane 3: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 24);
-	y = yss236_core::s16(c.coef[0x148]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x149  lane 3: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 18);
-	y = (yss236_core::s16(c.coef[0x149]) * c.src + acc) * 4.0;
-	c.queue_r(104, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x14a  lane 3: a unity difference, and t[11] takes this step's constant, the second resonance
-	c.begin_step();
-	latch_r(c, 102);
-	latch_m(c, 41);
-	y = r[102] - m[41];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x14a, 11);
-	// 0x14b
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 41);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 8, y);
-
-	// channel 8 (slot 4): the ladder's read. These four steps write r[98] and r[99], this channel's
-	// two pole states, out of r[50] and r[51], its own pair of registers, and leave the coefficient
-	// they read in r[49]. The block further down the page updates r[50] and r[51] and takes its output
-	// at the type's tap.
-	// 0x14c  channel 10 to the serial output
-	c.begin_step();
-	c.out[10] = m[19];
-	latch_r(c, 98);
-	latch_m(c, 19);
-	y = t[8] * r[98] - r[98];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x14d
-	c.begin_step();
-	latch_r(c, 49);
-	latch_m(c, 0);
-	y = t[8] * r[49] - acc;
-	c.queue_r(49, c.haspx ? c.px : r[49]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x14e
-	c.begin_step();
-	latch_r(c, 50);
-	latch_m(c, 0);
-	y = t[2] * r[50] + acc;
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x14f
-	c.begin_step();
-	latch_r(c, 51);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x14f]) * r[51] + acc;
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(18, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 9 (slot 5): the ladder's read. These four steps write r[101] and r[102], this channel's
-	// two pole states, out of r[56] and r[57], its own pair of registers, and leave the coefficient
-	// they read in r[55]. The block further down the page updates r[56] and r[57] and takes its output
-	// at the type's tap.
-	// 0x150
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 0);
-	y = t[9] * r[99] - r[99];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x151
-	c.begin_step();
-	latch_r(c, 55);
-	latch_m(c, 0);
-	y = t[9] * r[55] - acc;
-	c.queue_r(55, c.haspx ? c.px : r[55]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x152
-	c.begin_step();
-	latch_r(c, 56);
-	latch_m(c, 0);
-	y = t[4] * r[56] + acc;
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x153
-	c.begin_step();
-	latch_r(c, 57);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x153]) * r[57] + acc;
-	c.queue_r(102, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(19, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 10 (slot 6): the ladder's read. These four steps write r[104] and r[105], this channel's
-	// two pole states, out of r[62] and r[63], its own pair of registers, and leave the coefficient
-	// they read in r[61]. The block further down the page updates r[62] and r[63] and takes its output
-	// at the type's tap.
-	// 0x154
-	c.begin_step();
-	latch_r(c, 101);
-	latch_m(c, 0);
-	y = t[10] * r[101] - r[101];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x155
-	c.begin_step();
-	latch_r(c, 61);
-	latch_m(c, 0);
-	y = t[10] * r[61] - acc;
-	c.queue_r(61, c.haspx ? c.px : r[61]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x156
-	c.begin_step();
-	latch_r(c, 62);
-	latch_m(c, 0);
-	y = t[6] * r[62] + acc;
-	c.queue_r(104, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x157
-	c.begin_step();
-	latch_r(c, 63);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x157]) * r[63] + acc;
-	c.queue_r(105, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(24, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 11 (slot 7): the ladder's read. These four steps write r[107] and r[108], this channel's
-	// two pole states, out of r[68] and r[69], its own pair of registers, and leave the coefficient
-	// they read in r[67]. The block further down the page updates r[68] and r[69] and takes its output
-	// at the type's tap.
-	// 0x158
-	c.begin_step();
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = t[11] * r[104] - r[104];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x159
-	c.begin_step();
-	latch_r(c, 67);
-	latch_m(c, 0);
-	y = t[11] * r[67] - acc;
-	c.queue_r(67, c.haspx ? c.px : r[67]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x15a
-	c.begin_step();
-	latch_r(c, 68);
-	latch_m(c, 0);
-	y = t[8] * r[68] + acc;
-	c.queue_r(107, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x15b
-	c.begin_step();
-	latch_r(c, 69);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x15b]) * r[69] + acc;
-	c.queue_r(108, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(18, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x15c
-	c.begin_step();
-	latch_r(c, 50);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x15c]) * r[50];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x15d
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 18);
-	y = (t[1] * c.src + acc) * 4.0;
-	c.queue_r(50, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(25, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x15e
-	c.begin_step();
-	latch_r(c, 56);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x15e]) * r[56];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x15f
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 19);
-	y = (t[3] * c.src + acc) * 4.0;
-	c.queue_r(56, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(27, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x160  channel 11: the audio into m[19]
-	c.begin_step();
-	c.queue_d(19, c.in[0][11]);
-	latch_r(c, 62);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x160]) * r[62];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x161
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 24);
-	y = (t[5] * c.src + acc) * 4.0;
-	c.queue_r(62, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(18, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x162  channel 11: the second bank into m[24]
-	c.begin_step();
-	c.queue_d(24, c.in[1][11]);
-	latch_r(c, 68);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x162]) * r[68];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x163
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 18);
-	y = (t[7] * c.src + acc) * 4.0;
-	c.queue_r(68, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(25, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x164  channel 11: the EG level into m[18]
-	c.begin_step();
-	c.queue_d(18, c.in[3][11]);
-	latch_r(c, 51);
-	latch_m(c, 25);
-	y = t[1] * c.src + r[51];
-	c.queue_r(51, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x165
-	c.begin_step();
-	latch_r(c, 57);
-	latch_m(c, 27);
-	y = t[3] * c.src + r[57];
-	c.queue_r(57, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x166  channel 11: the LFO into m[14]
-	c.begin_step();
-	c.queue_d(14, c.lfo[11]);
-	latch_r(c, 63);
-	latch_m(c, 18);
-	y = t[5] * c.src + r[63];
-	c.queue_r(63, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x167
-	c.begin_step();
-	latch_r(c, 69);
-	latch_m(c, 25);
-	y = t[7] * c.src + r[69];
-	c.queue_r(69, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x168
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 29);
-	y = (yss236_core::s16(c.coef[0x168]) * c.src + r[97]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x169
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 37);
-	y = (yss236_core::s16(c.coef[0x169]) * c.src + r[100]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x16a
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 38);
-	y = (yss236_core::s16(c.coef[0x16a]) * c.src + r[103]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 3, y);
-	// 0x16b
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 39);
-	y = (yss236_core::s16(c.coef[0x16b]) * c.src + r[106]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 4, y);
-	// 0x16c  channel 11 to the serial output
-	c.begin_step();
-	c.out[11] = m[20];
-	latch_r(c, 52);
-	latch_m(c, 20);
-	y = t[1] * r[52] - r[52];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x16d
-	c.begin_step();
-	latch_r(c, 51);
-	latch_m(c, 0);
-	y = t[1] * r[51] - acc;
-	c.queue_r(52, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x16e
-	c.begin_step();
-	latch_r(c, 58);
-	latch_m(c, 0);
-	y = t[2] * r[58] - r[58];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x16f
-	c.begin_step();
-	latch_r(c, 57);
-	latch_m(c, 0);
-	y = t[2] * r[57] - acc;
-	c.queue_r(58, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x170
-	c.begin_step();
-	latch_r(c, 64);
-	latch_m(c, 0);
-	y = t[3] * r[64] - r[64];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x171
-	c.begin_step();
-	latch_r(c, 63);
-	latch_m(c, 0);
-	y = t[3] * r[63] - acc;
-	c.queue_r(64, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x172
-	c.begin_step();
-	latch_r(c, 70);
-	latch_m(c, 0);
-	y = t[4] * r[70] - r[70];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x173
-	c.begin_step();
-	latch_r(c, 69);
-	latch_m(c, 0);
-	y = t[4] * r[69] - acc;
-	c.queue_r(70, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x174
-	c.begin_step();
-	latch_r(c, 53);
-	latch_m(c, 0);
-	y = t[1] * r[53] - r[53];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x175
-	c.begin_step();
-	latch_r(c, 52);
-	latch_m(c, 0);
-	y = t[1] * r[52] - acc;
-	c.queue_r(53, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x176
-	c.begin_step();
-	latch_r(c, 59);
-	latch_m(c, 0);
-	y = t[2] * r[59] - r[59];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x177
-	c.begin_step();
-	latch_r(c, 58);
-	latch_m(c, 0);
-	y = t[2] * r[58] - acc;
-	c.queue_r(59, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x178
-	c.begin_step();
-	latch_r(c, 65);
-	latch_m(c, 0);
-	y = t[3] * r[65] - r[65];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x179
-	c.begin_step();
-	latch_r(c, 64);
-	latch_m(c, 0);
-	y = t[3] * r[64] - acc;
-	c.queue_r(65, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x17a
-	c.begin_step();
-	latch_r(c, 71);
-	latch_m(c, 0);
-	y = t[4] * r[71] - r[71];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x17b
-	c.begin_step();
-	latch_r(c, 70);
-	latch_m(c, 0);
-	y = t[4] * r[70] - acc;
-	c.queue_r(71, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x17c  lane 0: the output ramp into r[54], -1.48 a sample
-	c.begin_step();
-	latch_r(c, 54);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x17c]) + r[54];
-	c.queue_r(54, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 1, c.acc);
-	// 0x17d  lane 1: the output ramp into r[60], -1.48 a sample
-	c.begin_step();
-	latch_r(c, 60);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x17d]) + r[60];
-	c.queue_r(60, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 2, c.acc);
-	// 0x17e  lane 2: the output ramp into r[66], -1.48 a sample
-	c.begin_step();
-	latch_r(c, 66);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x17e]) + r[66];
-	c.queue_r(66, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 1, c.acc);
-	// 0x17f  lane 3: the output ramp into r[72], -1.48 a sample
-	c.begin_step();
-	latch_r(c, 72);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x17f]) + r[72];
-	c.queue_r(72, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 2, c.acc);
-	// 0x180  lane 0: the filter's output tap into m[25]: the register and the route the type asks for
-	c.begin_step();
-	c.out[12] = m[17];
-	latch_r(c, c.ops[0x180].sr);
-	latch_m(c, 17);
-	y = (t[1] * r[c.ops[0x180].sr]) * yss236_core::RSCALE[c.ops[0x180].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(25, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x181  lane 1: the filter's output tap into m[27]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x181].sr);
-	latch_m(c, 0);
-	y = (t[2] * r[c.ops[0x181].sr]) * yss236_core::RSCALE[c.ops[0x181].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(27, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x182  lane 2: the filter's output tap into m[28]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x182].sr);
-	latch_m(c, 0);
-	y = (t[1] * r[c.ops[0x182].sr]) * yss236_core::RSCALE[c.ops[0x182].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(28, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x183  lane 3: the filter's output tap into m[29]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x183].sr);
-	latch_m(c, 0);
-	y = (t[2] * r[c.ops[0x183].sr]) * yss236_core::RSCALE[c.ops[0x183].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(29, yss236_core::clip(y, yss236_core::DSAT));
-
-	// ---- page 388: channels 12 to 15, lanes 0 at r[72], 1 at r[78], 2 at r[84], 3 at r[90], register blocks r[72..96] ----
-	// 0x184  lane 0: the EG level and the EG depth into the running value
-	c.begin_step();
-	c.queue_d(20, c.in[0][12]);
-	latch_r(c, 127);
-	latch_m(c, 28);
-	y = yss236_core::s16(c.coef[0x184]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x185  lane 0: the LFO2 depth into it
-	c.begin_step();
-	c.queue_d(18, c.in[1][12]);
-	latch_r(c, 0);
-	latch_m(c, 13);
-	y = (yss236_core::s16(c.coef[0x185]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x186  lane 0: the cutoff word into r[97]
-	c.begin_step();
-	c.queue_d(17, c.in[3][12]);
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x186]) + acc;
-	c.queue_r(97, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x187  lane 1: the EG level and the EG depth into the running value
-	c.begin_step();
-	c.queue_d(15, c.lfo[12]);
-	latch_r(c, 127);
-	latch_m(c, 18);
-	y = yss236_core::s16(c.coef[0x187]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x188  lane 1: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 14);
-	y = (yss236_core::s16(c.coef[0x188]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x189  lane 1: the cutoff word into r[98]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x189]) + acc;
-	c.queue_r(98, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x18a  lane 2: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 17);
-	y = yss236_core::s16(c.coef[0x18a]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x18b  lane 2: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 15);
-	y = (yss236_core::s16(c.coef[0x18b]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x18c  lane 2: the cutoff word into r[99]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x18c]) + acc;
-	c.queue_r(99, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x18d  lane 3: the EG level and the EG depth into the running value
-	c.begin_step();
-	latch_r(c, 127);
-	latch_m(c, 36);
-	y = yss236_core::s16(c.coef[0x18d]) * c.src + r[127];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x18e  lane 3: the LFO2 depth into it
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 16);
-	y = (yss236_core::s16(c.coef[0x18e]) * c.src + acc) * 2.0;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x18f  lane 3: the cutoff word into r[97]
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x18f]) + acc;
-	c.queue_r(97, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	// 0x190
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x190]) * r[97] + m[62]) * 2.0;
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x191
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x191]) * r[98] + m[62]) * 2.0;
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x192
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x192]) * r[99] + m[62]) * 2.0;
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x193
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 62);
-	y = (yss236_core::s16(c.coef[0x193]) * r[97] + m[62]) * 2.0;
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x194
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 61);
-	y = t[1] * r[98] + m[61];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x195
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 61);
-	y = t[2] * r[97] + m[61];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x196
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 61);
-	y = t[1] * r[98] + m[61];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x197
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 61);
-	y = t[2] * r[97] + m[61];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x198
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x199
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[2] * r[97];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x19a
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(98, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x19b
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[2] * r[97];
-	c.queue_r(99, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x19c
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(97, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x19d
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 0);
-	y = t[2] * r[97];
-	c.queue_r(100, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x19e
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	y = t[1] * r[98];
-	c.queue_r(103, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 3, y);
-	// 0x19f
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 0);
-	y = t[2] * r[99];
-	c.queue_r(106, yss236_core::mode(y, 2));
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 4, y);
-	// 0x1a0  channel 13: the audio into m[17]
-	c.begin_step();
-	c.queue_d(17, c.in[0][13]);
-	latch_r(c, 97);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x1a0]) * r[97] - m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1a1  channel 13: the second bank into m[32]
-	c.begin_step();
-	c.queue_d(32, c.in[1][13]);
-	latch_r(c, 100);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x1a1]) * r[100] - m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1a2  channel 13: the EG level into m[36]
-	c.begin_step();
-	c.queue_d(36, c.in[3][13]);
-	latch_r(c, 103);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x1a2]) * r[103] - m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1a3
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x1a3]) * r[106] - m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1a4  lane 0: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x1a4]) * r[98] + m[63];
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1a5  lane 1: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x1a5]) * r[99] + m[63];
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1a6  lane 2: the resonance, against the -128 in m[63]
-	c.begin_step();
-	c.queue_d(16, c.lfo[13]);
-	latch_r(c, 98);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x1a6]) * r[98] + m[63];
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1a7  lane 3: the resonance, against the -128 in m[63]
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 63);
-	y = yss236_core::s16(c.coef[0x1a7]) * r[99] + m[63];
-	c.queue_r(102, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1a8  channel 13 to the serial output
-	c.begin_step();
-	c.out[13] = m[21];
-	latch_r(c, 97);
-	latch_m(c, 21);
-	y = t[1] * r[97];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(33, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1a9
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 0);
-	y = t[2] * r[100];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(37, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1aa
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 0);
-	y = t[3] * r[103];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(38, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1ab
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 0);
-	y = t[4] * r[106];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(39, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1ac
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x1ac]) - r[98]) * 2.0;
-	c.queue_r(104, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x1ad
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x1ad]) - r[99]) * 2.0;
-	c.queue_r(105, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x1ae
-	c.begin_step();
-	latch_r(c, 101);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x1ae]) - r[101]) * 2.0;
-	c.queue_r(104, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x1af
-	c.begin_step();
-	latch_r(c, 102);
-	latch_m(c, 0);
-	v = (yss236_core::LOADK * yss236_core::s16(c.coef[0x1af]) - r[102]) * 2.0;
-	c.queue_r(105, yss236_core::mode(v, 1));
-	c.acc = yss236_core::accmode(v, 1);
-	// 0x1b0
-	c.begin_step();
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1b0]) * r[104];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 1, y);
-	// 0x1b1
-	c.begin_step();
-	latch_r(c, 105);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1b1]) * r[105];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x1b2
-	c.begin_step();
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1b2]) * r[104];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 1, y);
-	// 0x1b3
-	c.begin_step();
-	latch_r(c, 105);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1b3]) * r[105];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x1b4
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 33);
-	y = t[1] * c.src + r[97];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(21, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 1, y);
-	// 0x1b5
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 37);
-	y = t[2] * c.src + r[100];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(40, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 3, y);
-	// 0x1b6
-	c.begin_step();
-	latch_r(c, 103);
-	latch_m(c, 38);
-	y = t[1] * c.src + r[103];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(31, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 5, y);
-	// 0x1b7
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 39);
-	y = t[2] * c.src + r[106];
-	c.acc = y = yss236_core::accmode(y, 2);
-	c.queue_d(35, yss236_core::clip(y, yss236_core::DSAT));
-	tput(c, 7, y);
-	// 0x1b8  lane 0: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 31);
-	y = yss236_core::s16(c.coef[0x1b8]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1b9  lane 0: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 35);
-	y = (yss236_core::s16(c.coef[0x1b9]) * c.src + acc) * 4.0;
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1ba  lane 0: a unity difference, and t[8] takes this step's constant, the second resonance
-	c.begin_step();
-	latch_r(c, 98);
-	latch_m(c, 21);
-	y = r[98] - m[21];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x1ba, 8);
-	// 0x1bb
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 21);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 2, y);
-	// 0x1bc  lane 1: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 19);
-	y = yss236_core::s16(c.coef[0x1bc]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1bd  lane 1: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 24);
-	y = (yss236_core::s16(c.coef[0x1bd]) * c.src + acc) * 4.0;
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1be  lane 1: a unity difference, and t[9] takes this step's constant, the second resonance
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 40);
-	y = r[99] - m[40];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x1be, 9);
-	// 0x1bf
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 40);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 4, y);
-	// 0x1c0  lane 2: the input gain
-	c.begin_step();
-	c.queue_d(18, c.in[0][14]);
-	latch_r(c, 0);
-	latch_m(c, 20);
-	y = yss236_core::s16(c.coef[0x1c0]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1c1  lane 2: the second bank's gain
-	c.begin_step();
-	c.queue_d(19, c.in[1][14]);
-	latch_r(c, 0);
-	latch_m(c, 18);
-	y = (yss236_core::s16(c.coef[0x1c1]) * c.src + acc) * 4.0;
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1c2  lane 2: a unity difference, and t[10] takes this step's constant, the second resonance
-	c.begin_step();
-	c.queue_d(17, c.in[3][14]);
-	latch_r(c, 101);
-	latch_m(c, 31);
-	y = r[101] - m[31];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x1c2, 10);
-	// 0x1c3
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 31);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 6, y);
-	// 0x1c4  lane 3: the input gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 17);
-	y = yss236_core::s16(c.coef[0x1c4]) * c.src;
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1c5  lane 3: the second bank's gain
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 32);
-	y = (yss236_core::s16(c.coef[0x1c5]) * c.src + acc) * 4.0;
-	c.queue_r(104, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1c6  lane 3: a unity difference, and t[11] takes this step's constant, the second resonance
-	c.begin_step();
-	c.queue_d(1, c.lfo[14]);
-	latch_r(c, 102);
-	latch_m(c, 35);
-	y = r[102] - m[35];
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput_k(c, 0x1c6, 11);
-	// 0x1c7
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 35);
-	y = c.src + acc;
-	c.acc = y = yss236_core::accmode(y, 1);
-	tput(c, 8, y);
-
-	// channel 12 (slot 8): the ladder's read. These four steps write r[98] and r[99], this channel's
-	// two pole states, out of r[74] and r[75], its own pair of registers, and leave the coefficient
-	// they read in r[73]. The block further down the page updates r[74] and r[75] and takes its output
-	// at the type's tap.
-	// 0x1c8  channel 14 to the serial output
-	c.begin_step();
-	c.out[14] = m[22];
-	latch_r(c, 98);
-	latch_m(c, 22);
-	y = t[8] * r[98] - r[98];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1c9
-	c.begin_step();
-	latch_r(c, 73);
-	latch_m(c, 0);
-	y = t[8] * r[73] - acc;
-	c.queue_r(73, c.haspx ? c.px : r[73]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1ca
-	c.begin_step();
-	latch_r(c, 74);
-	latch_m(c, 0);
-	y = t[2] * r[74] + acc;
-	c.queue_r(98, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1cb
-	c.begin_step();
-	latch_r(c, 75);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1cb]) * r[75] + acc;
-	c.queue_r(99, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(20, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 13 (slot 9): the ladder's read. These four steps write r[101] and r[102], this channel's
-	// two pole states, out of r[80] and r[81], its own pair of registers, and leave the coefficient
-	// they read in r[79]. The block further down the page updates r[80] and r[81] and takes its output
-	// at the type's tap.
-	// 0x1cc
-	c.begin_step();
-	latch_r(c, 99);
-	latch_m(c, 0);
-	y = t[9] * r[99] - r[99];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1cd
-	c.begin_step();
-	latch_r(c, 79);
-	latch_m(c, 0);
-	y = t[9] * r[79] - acc;
-	c.queue_r(79, c.haspx ? c.px : r[79]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1ce
-	c.begin_step();
-	latch_r(c, 80);
-	latch_m(c, 0);
-	y = t[4] * r[80] + acc;
-	c.queue_r(101, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1cf
-	c.begin_step();
-	latch_r(c, 81);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1cf]) * r[81] + acc;
-	c.queue_r(102, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(21, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 14 (slot 10): the ladder's read. These four steps write r[104] and r[105], this
-	// channel's two pole states, out of r[86] and r[87], its own pair of registers, and leave the
-	// coefficient they read in r[85]. The block further down the page updates r[86] and r[87] and
-	// takes its output at the type's tap.
-	// 0x1d0
-	c.begin_step();
-	latch_r(c, 101);
-	latch_m(c, 0);
-	y = t[10] * r[101] - r[101];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1d1
-	c.begin_step();
-	latch_r(c, 85);
-	latch_m(c, 0);
-	y = t[10] * r[85] - acc;
-	c.queue_r(85, c.haspx ? c.px : r[85]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1d2
-	c.begin_step();
-	latch_r(c, 86);
-	latch_m(c, 0);
-	y = t[6] * r[86] + acc;
-	c.queue_r(104, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1d3
-	c.begin_step();
-	latch_r(c, 87);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1d3]) * r[87] + acc;
-	c.queue_r(105, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(22, yss236_core::clip(y, yss236_core::DSAT));
-
-	// channel 15 (slot 11): the ladder's read. These four steps write r[107] and r[108], this
-	// channel's two pole states, out of r[92] and r[93], its own pair of registers, and leave the
-	// coefficient they read in r[91]. The block further down the page updates r[92] and r[93] and
-	// takes its output at the type's tap.
-	// 0x1d4
-	c.begin_step();
-	latch_r(c, 104);
-	latch_m(c, 0);
-	y = t[11] * r[104] - r[104];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1d5
-	c.begin_step();
-	latch_r(c, 91);
-	latch_m(c, 0);
-	y = t[11] * r[91] - acc;
-	c.queue_r(91, c.haspx ? c.px : r[91]);
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1d6
-	c.begin_step();
-	latch_r(c, 92);
-	latch_m(c, 0);
-	y = t[8] * r[92] + acc;
-	c.queue_r(107, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1d7
-	c.begin_step();
-	latch_r(c, 93);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1d7]) * r[93] + acc;
-	c.queue_r(108, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(20, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1d8
-	c.begin_step();
-	latch_r(c, 74);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1d8]) * r[74];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1d9
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 20);
-	y = (t[1] * c.src + acc) * 4.0;
-	c.queue_r(74, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(21, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1da
-	c.begin_step();
-	latch_r(c, 80);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1da]) * r[80];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1db
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 21);
-	y = (t[3] * c.src + acc) * 4.0;
-	c.queue_r(80, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(22, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1dc
-	c.begin_step();
-	latch_r(c, 86);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1dc]) * r[86];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1dd
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 22);
-	y = (t[5] * c.src + acc) * 4.0;
-	c.queue_r(86, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(20, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1de
-	c.begin_step();
-	latch_r(c, 92);
-	latch_m(c, 0);
-	y = yss236_core::s16(c.coef[0x1de]) * r[92];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1df
-	c.begin_step();
-	latch_r(c, 0);
-	latch_m(c, 20);
-	y = (t[7] * c.src + acc) * 4.0;
-	c.queue_r(92, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(22, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1e0  channel 15: the audio into m[21]
-	c.begin_step();
-	c.queue_d(21, c.in[0][15]);
-	latch_r(c, 75);
-	latch_m(c, 21);
-	y = t[1] * c.src + r[75];
-	c.queue_r(75, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1e1  channel 15: the second bank into m[22]
-	c.begin_step();
-	c.queue_d(22, c.in[1][15]);
-	latch_r(c, 81);
-	latch_m(c, 22);
-	y = t[3] * c.src + r[81];
-	c.queue_r(81, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1e2  channel 15: the EG level into m[20]
-	c.begin_step();
-	c.queue_d(20, c.in[3][15]);
-	latch_r(c, 87);
-	latch_m(c, 20);
-	y = t[5] * c.src + r[87];
-	c.queue_r(87, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1e3
-	c.begin_step();
-	latch_r(c, 93);
-	latch_m(c, 22);
-	y = t[7] * c.src + r[93];
-	c.queue_r(93, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1e4
-	c.begin_step();
-	latch_r(c, 97);
-	latch_m(c, 33);
-	y = (yss236_core::s16(c.coef[0x1e4]) * c.src + r[97]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 1, y);
-	// 0x1e5
-	c.begin_step();
-	latch_r(c, 100);
-	latch_m(c, 37);
-	y = (yss236_core::s16(c.coef[0x1e5]) * c.src + r[100]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 2, y);
-	// 0x1e6  channel 15: the LFO into m[2]
-	c.begin_step();
-	c.queue_d(2, c.lfo[15]);
-	latch_r(c, 103);
-	latch_m(c, 38);
-	y = (yss236_core::s16(c.coef[0x1e6]) * c.src + r[103]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 3, y);
-	// 0x1e7
-	c.begin_step();
-	latch_r(c, 106);
-	latch_m(c, 39);
-	y = (yss236_core::s16(c.coef[0x1e7]) * c.src + r[106]) * 4.0;
-	c.acc = y = yss236_core::accmode(y, 2);
-	tput(c, 4, y);
-	// 0x1e8  channel 15 to the serial output
-	c.begin_step();
-	c.out[15] = m[23];
-	latch_r(c, 76);
-	latch_m(c, 23);
-	y = t[1] * r[76] - r[76];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1e9
-	c.begin_step();
-	latch_r(c, 75);
-	latch_m(c, 0);
-	y = t[1] * r[75] - acc;
-	c.queue_r(76, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1ea
-	c.begin_step();
-	latch_r(c, 82);
-	latch_m(c, 0);
-	y = t[2] * r[82] - r[82];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1eb
-	c.begin_step();
-	latch_r(c, 81);
-	latch_m(c, 0);
-	y = t[2] * r[81] - acc;
-	c.queue_r(82, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1ec
-	c.begin_step();
-	latch_r(c, 88);
-	latch_m(c, 0);
-	y = t[3] * r[88] - r[88];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1ed
-	c.begin_step();
-	latch_r(c, 87);
-	latch_m(c, 0);
-	y = t[3] * r[87] - acc;
-	c.queue_r(88, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1ee
-	c.begin_step();
-	latch_r(c, 94);
-	latch_m(c, 0);
-	y = t[4] * r[94] - r[94];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1ef
-	c.begin_step();
-	latch_r(c, 93);
-	latch_m(c, 0);
-	y = t[4] * r[93] - acc;
-	c.queue_r(94, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1f0
-	c.begin_step();
-	latch_r(c, 77);
-	latch_m(c, 0);
-	y = t[1] * r[77] - r[77];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1f1
-	c.begin_step();
-	latch_r(c, 76);
-	latch_m(c, 0);
-	y = t[1] * r[76] - acc;
-	c.queue_r(77, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1f2
-	c.begin_step();
-	latch_r(c, 83);
-	latch_m(c, 0);
-	y = t[2] * r[83] - r[83];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1f3
-	c.begin_step();
-	latch_r(c, 82);
-	latch_m(c, 0);
-	y = t[2] * r[82] - acc;
-	c.queue_r(83, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1f4
-	c.begin_step();
-	latch_r(c, 89);
-	latch_m(c, 0);
-	y = t[3] * r[89] - r[89];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1f5
-	c.begin_step();
-	latch_r(c, 88);
-	latch_m(c, 0);
-	y = t[3] * r[88] - acc;
-	c.queue_r(89, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1f6
-	c.begin_step();
-	latch_r(c, 95);
-	latch_m(c, 0);
-	y = t[4] * r[95] - r[95];
-	c.acc = y = yss236_core::accmode(y, 0);
-	// 0x1f7
-	c.begin_step();
-	latch_r(c, 94);
-	latch_m(c, 0);
-	y = t[4] * r[94] - acc;
-	c.queue_r(95, yss236_core::mode(y, 1));
-	c.acc = y = yss236_core::accmode(y, 1);
-	// 0x1f8  lane 0: the output ramp into r[78], -1.48 a sample
-	c.begin_step();
-	latch_r(c, 78);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x1f8]) + r[78];
-	c.queue_r(78, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 1, c.acc);
-	// 0x1f9  lane 1: the output ramp into r[84], -1.48 a sample
-	c.begin_step();
-	latch_r(c, 84);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x1f9]) + r[84];
-	c.queue_r(84, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 2, c.acc);
-	// 0x1fa  lane 2: the output ramp into r[90], -1.48 a sample
-	c.begin_step();
-	latch_r(c, 90);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x1fa]) + r[90];
-	c.queue_r(90, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 1, c.acc);
-	// 0x1fb  lane 3: the output ramp into r[96], -1.48 a sample
-	c.begin_step();
-	latch_r(c, 96);
-	latch_m(c, 0);
-	v = yss236_core::LOADK * yss236_core::s16(c.coef[0x1fb]) + r[96];
-	c.queue_r(96, yss236_core::mode(v, 2));
-	c.acc = yss236_core::accmode(v, 2);
-	tput(c, 2, c.acc);
-	// 0x1fc  lane 0: the filter's output tap into m[31]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x1fc].sr);
-	latch_m(c, 0);
-	y = (t[1] * r[c.ops[0x1fc].sr]) * yss236_core::RSCALE[c.ops[0x1fc].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(31, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1fd  lane 1: the filter's output tap into m[32]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x1fd].sr);
-	latch_m(c, 0);
-	y = (t[2] * r[c.ops[0x1fd].sr]) * yss236_core::RSCALE[c.ops[0x1fd].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(32, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1fe  lane 2: the filter's output tap into m[33]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x1fe].sr);
-	latch_m(c, 0);
-	y = (t[1] * r[c.ops[0x1fe].sr]) * yss236_core::RSCALE[c.ops[0x1fe].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(33, yss236_core::clip(y, yss236_core::DSAT));
-	// 0x1ff  lane 3: the filter's output tap into m[35]: the register and the route the type asks for
-	c.begin_step();
-	latch_r(c, c.ops[0x1ff].sr);
-	latch_m(c, 0);
-	y = (t[2] * r[c.ops[0x1ff].sr]) * yss236_core::RSCALE[c.ops[0x1ff].shift];
-	c.acc = y = yss236_core::accmode(y, 1);
-	c.queue_d(35, yss236_core::clip(y, yss236_core::DSAT));
+	prologue(c);
+	for (int g = 0; g < 4; g++) page(c, g);
 }
 
 }  // namespace fs1r::native
