@@ -60,12 +60,6 @@ using namespace step;   // the step vocabulary: term, sum, close, copy_z and the
 // What a step of a unit carries besides its term
 // ---------------------------------------------------------------------------------------------
 
-// A step of the reverb's units usually does one other thing: read the delay RAM, publish a capture of
-// an earlier read, take a serial input or an LFO, or hand its result to the delay line as the data of
-// the next write. `cell` is the slot a DEC_READ reads (which is its own step over four), or the cell a
-// DEC_CAPTURE, DEC_LFO or DEC_SERIAL_L/R takes into.
-enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_LFO, DEC_SERIAL_L, DEC_SERIAL_R };
-
 // What a step does with the delay line at the end of it.
 enum delay_t
 {
@@ -74,23 +68,6 @@ enum delay_t
 	WRITE_OWN,       // writes its own result, and clears any latched data: a unit's own output
 	SET_LATCH,       // latches its result as the data of the next write
 };
-
-struct Decor { decor_t kind; int cell; };
-
-// Apply the decor a unit's step carries. It comes before the term, because step() moves a cell or reads
-// the delay RAM before it does any arithmetic.
-void decor(yss236_core& c, int st, Decor const& d)
-{
-	switch (d.kind)
-	{
-		case DEC_READ:      read_delay(c, st); break;
-		case DEC_CAPTURE:   take_capture(c, d.cell, st); break;
-		case DEC_LFO:       take_lfo(c, d.cell, st); break;
-		case DEC_SERIAL_L:  take_serial(c, d.cell, st, 0); break;
-		case DEC_SERIAL_R:  take_serial(c, d.cell, st, 1); break;
-		case DEC_NONE: break;
-	}
-}
 
 // ---------------------------------------------------------------------------------------------
 // The six allpass units, rev::ROW_STEPS
@@ -113,14 +90,14 @@ struct Allpass
 // rev::ROW_STEPS[0] to [23] are the four words of the six units in this order, and rev::ROW_SLOTS the
 // offsets. Three of the six units write their own tap into the line (NO_WRITE is never used: s22
 // either latches its result for the next writer or writes the latched one).
-const Allpass ALLPASS[6] = {
+constexpr Allpass ALLPASS[6] = {
     //  base   n  in   dly  out_reg out_cell  s26                s22                  s28                s24
-    {  0x03e,  4,  54,   22,    125,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 56}, {DEC_NONE, 0}     }, WRITE_OWN     },
-    {  0x04c,  4, 125,   59,      0,      62, { {DEC_CAPTURE, 58}, {DEC_NONE, 0}, {DEC_NONE, 0},  {DEC_READ, 0}    }, SET_LATCH     },
-    {  0x062,  4, 119,   56,    119,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 61}, {DEC_NONE, 0}     }, WRITE_OWN     },
-    {  0x07f,  4, 119,   61,    119,       0, { {DEC_READ, 0}, {DEC_CAPTURE, 61}, {DEC_NONE, 0},   {DEC_SERIAL_L, 40}}, SET_LATCH     },
-    {  0x08e,  4, 120,   56,    120,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 56}, {DEC_NONE, 0}     }, WRITE_OWN     },
-    {  0x097,  4, 120,   57,    120,       0, { {DEC_READ, 0}, {DEC_CAPTURE, 57}, {DEC_NONE, 0},   {DEC_NONE, 0}     }, SET_LATCH     },
+    { 0x03e, 4, 54,  22, 125, 0,  { {},                {},                {DEC_CAPTURE, 56}, {}                 }, WRITE_OWN },
+    { 0x04c, 4, 125, 59, 0,   62, { {DEC_CAPTURE, 58}, {},                {},                {DEC_READ, 0}      }, SET_LATCH },
+    { 0x062, 4, 119, 56, 119, 0,  { {},                {},                {DEC_CAPTURE, 61}, {}                 }, WRITE_OWN },
+    { 0x07f, 4, 119, 61, 119, 0,  { {DEC_READ, 0},     {DEC_CAPTURE, 61}, {},                {DEC_SERIAL_L, 40} }, SET_LATCH },
+    { 0x08e, 4, 120, 56, 120, 0,  { {},                {},                {DEC_CAPTURE, 56}, {}                 }, WRITE_OWN },
+    { 0x097, 4, 120, 57, 120, 0,  { {DEC_READ, 0},     {DEC_CAPTURE, 57}, {},                {}                 }, SET_LATCH },
 };
 
 // One allpass unit's four steps, s26, s22, s28 and s24, each at st + k.
@@ -179,14 +156,14 @@ struct Comb
 
 // EffectHost::combUnit() writes these twenty-four words; the states are r[55] to r[60] and the states'
 // cells m[34] to m[39], one each.
-const Comb COMB[6] = {
+constexpr Comb COMB[6] = {
     //   x1     x2     a   gain   in  state  reg  x1 decor           a decor
-    {  0x0a3, 0x0a4, 0x0a5, 0x0a9, 56,  34,  55, {DEC_READ, 0},    {DEC_CAPTURE, 56} },
-    {  0x0a6, 0x0a7, 0x0a8, 0x0ad, 57,  35,  56, {DEC_LFO, 13},    {DEC_CAPTURE, 57} },
-    {  0x0aa, 0x0ab, 0x0ac, 0x0b1, 58,  36,  57, {DEC_NONE, 0},    {DEC_NONE, 0}     },
-    {  0x0ae, 0x0af, 0x0b0, 0x0b5, 56,  37,  58, {DEC_NONE, 0},    {DEC_NONE, 0}     },
-    {  0x0b2, 0x0b3, 0x0b4, 0x0d1, 57,  38,  59, {DEC_NONE, 0},    {DEC_NONE, 0}     },
-    {  0x0d2, 0x0d3, 0x0d4, 0x0d7, 56,  39,  60, {DEC_NONE, 0},    {DEC_NONE, 0}     },
+    { 0x0a3, 0x0a4, 0x0a5, 0x0a9, 56, 34, 55, {DEC_READ, 0}, {DEC_CAPTURE, 56} },
+    { 0x0a6, 0x0a7, 0x0a8, 0x0ad, 57, 35, 56, {DEC_LFO, 13}, {DEC_CAPTURE, 57} },
+    { 0x0aa, 0x0ab, 0x0ac, 0x0b1, 58, 36, 57, {},            {}                },
+    { 0x0ae, 0x0af, 0x0b0, 0x0b5, 56, 37, 58, {},            {}                },
+    { 0x0b2, 0x0b3, 0x0b4, 0x0d1, 57, 38, 59, {},            {}                },
+    { 0x0d2, 0x0d3, 0x0d4, 0x0d7, 56, 39, 60, {},            {}                },
 };
 
 // Which of a comb unit's four steps a step of the block is. The gain steps come several places behind
@@ -198,11 +175,11 @@ struct CombStep { int unit; comb_role_t role; };
 // The schedule of the block at 0x0a3: three units' state steps, then the first unit's gain, then the
 // next three, then the next gain, and so on, so that by the time a unit's gain runs, the unit three
 // along has already read the slot it wrote. Combs 4 and 5 finish in the block at 0x0d1.
-const CombStep COMB_SCHED[19] = {
+constexpr CombStep COMB_SCHED[19] = {
     {0, COMB_X1}, {0, COMB_X2}, {0, COMB_A}, {1, COMB_X1}, {1, COMB_X2}, {1, COMB_A}, {0, COMB_GAIN},
-    {2, COMB_X1}, {2, COMB_X2}, {2, COMB_A}, {1, COMB_GAIN},
-    {3, COMB_X1}, {3, COMB_X2}, {3, COMB_A}, {2, COMB_GAIN},
-    {4, COMB_X1}, {4, COMB_X2}, {4, COMB_A}, {3, COMB_GAIN},
+    { 2, COMB_X1}, {2, COMB_X2}, {2, COMB_A}, {1, COMB_GAIN },
+    { 3, COMB_X1}, {3, COMB_X2}, {3, COMB_A}, {2, COMB_GAIN },
+    { 4, COMB_X1}, {4, COMB_X2}, {4, COMB_A}, {3, COMB_GAIN },
 };
 
 // One comb unit's step at the given role: the input tap, the state's tap, the feedback word or the gain
@@ -213,20 +190,20 @@ void comb_step(yss236_core& c, int st, Comb const& k, comb_role_t role)
 	{
 	case COMB_X1:
 		decor(c, st, k.x1_decor);
-		run(c, {st, 0, k.in, M2_CELL});                    // the input tap: the adder is off
+		run(c, {.st = st, .sm = k.in, .m2 = M2_CELL});                    // the input tap: the adder is off
 		break;
 	case COMB_X2:
 		// the state's tap, and the cell that hands the step before's operand to the next unit
-		run(c, {st, 0, k.state, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_WRAP, 0, false, k.state, true});
+		run(c, {.st = st, .sm = k.state, .m2 = M2_CELL, .add = ADD_ACC, .dm = k.state, .prev = true});
 		break;
 	case COMB_A:
 		decor(c, st, k.a_decor);
-		run(c, {st, k.reg, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, k.reg});
+		run(c, {.st = st, .sr = k.reg, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = k.reg});
 		break;
 	default:
 		// the gain: the surround's m[62] scaled, added to the unit's own state, written into its slot.
 		// It carries the flag and is the writer, so it clears any latched data and writes its own.
-		run(c, {st, k.reg, 62, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, 0, false, 0, false, false, true, true});
+		run(c, {.st = st, .sr = k.reg, .sm = 62, .m2 = M2_CELL, .add = ADD_REG, .clamp = CLAMP_SAT, .wdata = true, .write = true});
 		break;
 	}
 }
@@ -250,30 +227,30 @@ struct ErWord
 
 // rev::ER_WORDS[0] to [21], in step order. The first word of the last two groups adds to the surround's
 // own register instead of the running value, which is what carries the reverb's input into them.
-const ErWord ER[22] = {
+constexpr ErWord ER[22] = {
     //   st   cell  out  add        reg   decor                write
-    {  0x02a, 56,   0, ADD_OFF,    0,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x02b, 57,   0, ADD_ACC,    0,  {DEC_NONE, 0},       WRITE_LATCHED},
-    {  0x02c, 58,   0, ADD_ACC,    0,  {DEC_CAPTURE, 57},  NO_WRITE     },
-    {  0x02d, 59,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x02e, 60, 119, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x035, 61,   0, ADD_OFF,    0,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x036, 56,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x037, 57,   0, ADD_ACC,    0,  {DEC_NONE, 0},       WRITE_LATCHED},
-    {  0x038, 56,   0, ADD_ACC,    0,  {DEC_CAPTURE, 59},  NO_WRITE     },
-    {  0x039, 62, 120, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x059, 56,   0, ADD_REG,  119,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x05a, 57,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x05b, 58,   0, ADD_ACC,    0,  {DEC_READ, 0},       NO_WRITE     },
-    {  0x05c, 59,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x05d, 56,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x05e, 63, 119, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x083, 56,   0, ADD_REG,  120,  {DEC_SERIAL_R, 58},   WRITE_LATCHED},
-    {  0x084, 57,   0, ADD_ACC,    0,  {DEC_CAPTURE, 56},  NO_WRITE     },
-    {  0x085, 58,   0, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
-    {  0x086, 59,   0, ADD_ACC,    0,  {DEC_LFO, 12},      NO_WRITE     },
-    {  0x087, 60,   0, ADD_ACC,    0,  {DEC_READ, 0},       NO_WRITE     },
-    {  0x088, 61, 120, ADD_ACC,    0,  {DEC_NONE, 0},       NO_WRITE     },
+    { 0x02a, 56, 0,   ADD_OFF, 0,   {},                 NO_WRITE      },
+    { 0x02b, 57, 0,   ADD_ACC, 0,   {},                 WRITE_LATCHED },
+    { 0x02c, 58, 0,   ADD_ACC, 0,   {DEC_CAPTURE, 57},  NO_WRITE      },
+    { 0x02d, 59, 0,   ADD_ACC, 0,   {},                 NO_WRITE      },
+    { 0x02e, 60, 119, ADD_ACC, 0,   {},                 NO_WRITE      },
+    { 0x035, 61, 0,   ADD_OFF, 0,   {},                 NO_WRITE      },
+    { 0x036, 56, 0,   ADD_ACC, 0,   {},                 NO_WRITE      },
+    { 0x037, 57, 0,   ADD_ACC, 0,   {},                 WRITE_LATCHED },
+    { 0x038, 56, 0,   ADD_ACC, 0,   {DEC_CAPTURE, 59},  NO_WRITE      },
+    { 0x039, 62, 120, ADD_ACC, 0,   {},                 NO_WRITE      },
+    { 0x059, 56, 0,   ADD_REG, 119, {},                 NO_WRITE      },
+    { 0x05a, 57, 0,   ADD_ACC, 0,   {},                 NO_WRITE      },
+    { 0x05b, 58, 0,   ADD_ACC, 0,   {DEC_READ, 0},      NO_WRITE      },
+    { 0x05c, 59, 0,   ADD_ACC, 0,   {},                 NO_WRITE      },
+    { 0x05d, 56, 0,   ADD_ACC, 0,   {},                 NO_WRITE      },
+    { 0x05e, 63, 119, ADD_ACC, 0,   {},                 NO_WRITE      },
+    { 0x083, 56, 0,   ADD_REG, 120, {DEC_SERIAL_R, 58}, WRITE_LATCHED },
+    { 0x084, 57, 0,   ADD_ACC, 0,   {DEC_CAPTURE, 56},  NO_WRITE      },
+    { 0x085, 58, 0,   ADD_ACC, 0,   {},                 NO_WRITE      },
+    { 0x086, 59, 0,   ADD_ACC, 0,   {DEC_LFO, 12},      NO_WRITE      },
+    { 0x087, 60, 0,   ADD_ACC, 0,   {DEC_READ, 0},      NO_WRITE      },
+    { 0x088, 61, 120, ADD_ACC, 0,   {},                 NO_WRITE      },
 };
 
 // One early reflection word. The words that close a group write a register and saturate; the ones in
@@ -317,12 +294,12 @@ ErWord const* er_at(int st) { return ER_AT[st] < 0 ? nullptr : &ER[ER_AT[st]]; }
 // writes, and `w2` the register word 2 reads, one stage back.
 struct Section3 { int st, nsteps, w1, w2, out; step::route_t route; Decor decor[3]; };
 
-const Section3 SECTIONS[4] = {
+constexpr Section3 SECTIONS[4] = {
     //  base   n  w1  w2  out  route    word 1            word 2              word 3
-    {  0x01b,  3, 51, 50,  51, ROUTE_1, { {DEC_READ, 0},  {DEC_CAPTURE, 62},  {DEC_NONE, 0}    } },   // HPF_COPY
-    {  0x01e,  3, 52, 51,  52, ROUTE_2, { {DEC_NONE, 0},  {DEC_READ, 0},      {DEC_CAPTURE, 22} } },   // LPF_COPY
-    {  0x023,  3, 48, 47,  48, ROUTE_1, { {DEC_READ, 0},  {DEC_CAPTURE, 61},  {DEC_NONE, 0}    } },   // HPF_STEPS
-    {  0x026,  3, 49, 48,  49, ROUTE_2, { {DEC_LFO, 9},   {DEC_READ, 0},      {DEC_CAPTURE, 56} } },   // LPF_STEPS
+    { 0x01b, 3, 51, 50, 51, ROUTE_1, { {DEC_READ, 0}, {DEC_CAPTURE, 62}, {}                } },  // HPF_COPY
+    { 0x01e, 3, 52, 51, 52, ROUTE_2, { {},            {DEC_READ, 0},     {DEC_CAPTURE, 22} } },  // LPF_COPY
+    { 0x023, 3, 48, 47, 48, ROUTE_1, { {DEC_READ, 0}, {DEC_CAPTURE, 61}, {}                } },  // HPF_STEPS
+    { 0x026, 3, 49, 48, 49, ROUTE_2, { {DEC_LFO, 9},  {DEC_READ, 0},     {DEC_CAPTURE, 56} } },  // LPF_STEPS
 };
 
 // A section's three steps, and so which section and which word of it a step is. The index is the same on
@@ -338,37 +315,36 @@ constexpr auto SECTION3_AT = index_by_span(SECTIONS);
 struct StepRun
 {
 	int from, to;
-	void (*block)(yss236_core&, int from, int to);
+	void (*block)(yss236_core&);
 };
 
 // ---- 0x01a to 0x039: the mix and width words, the input filters and the first ten reflections ----
-void block_0x01a(yss236_core& c, int from, int to)
+template <int from, int to>
+void block_0x01a(yss236_core& c)
 {
-	for (int st = from; st < to; st++)
+	for_steps<from, to>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 		// ---- the surround's mix words, the stereo width and the type's shelf ----
 		// rev::MIX_STEPS, rev::WIDTH_STEPS and rev::TABLE_STEPS. The two width words scale a cell and
 		// add the surround's register to them, and latch the result as the data of the delay write an
 		// early reflection pair makes a few steps later.
 		switch (st)
 		{
-		case 0x01a: gain(c, st, 120, 50, ROUTE_2); continue;       // mix word 1: the right surround into the filter chain
-		case 0x021: term(c, st, 120); continue;                    // mix word 2
-		case 0x022: close(c, st, 119, 47, ROUTE_2); continue;       // mix word 0: the left surround into r[47]
-		case 0x02f: read_delay(c, st); run(c, {st, 0, 60, M2_CELL}); continue;      // mix word 3
-		case 0x030: run(c, {st, 0, 62, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, 53}); continue;  // mix word 4
+		case 0x01a: gain(c, st, 120, 50, ROUTE_2); return;       // mix word 1: the right surround into the filter chain
+		case 0x021: term(c, st, 120); return;                    // mix word 2
+		case 0x022: close(c, st, 119, 47, ROUTE_2); return;       // mix word 0: the left surround into r[47]
+		case 0x02f: read_delay(c, st); run(c, {.st = st, .sm = 60, .m2 = M2_CELL}); return;      // mix word 3
+		case 0x030: run(c, {.st = st, .sm = 62, .m2 = M2_CELL, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = 53}); return;  // mix word 4
 		case 0x029:                                                                        // the width, word 1
-			run(c, {st, 52, 62, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, 0, false, 0, false, false, true});
-			continue;
+			run(c, {.st = st, .sr = 52, .sm = 62, .m2 = M2_CELL, .add = ADD_REG, .clamp = CLAMP_SAT, .wdata = true});
+			return;
 		case 0x034:                                                                        // the width, word 0
 			take_capture(c, 56, st);
-			run(c, {st, 49, 60, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, 0, false, 0, false, false, true});
-			continue;
-		case 0x031: term(c, st, 54); continue;                     // the type's shelf, word 1
-		case 0x032: sum(c, st, 53); continue;                      // word 2
-		case 0x033: read_delay(c, st); close(c, st, 53, 54, ROUTE_4); continue;          // word 3, out of the shelf line
+			run(c, {.st = st, .sr = 49, .sm = 60, .m2 = M2_CELL, .add = ADD_REG, .clamp = CLAMP_SAT, .wdata = true});
+			return;
+		case 0x031: term(c, st, 54); return;                     // the type's shelf, word 1
+		case 0x032: sum(c, st, 53); return;                      // word 2
+		case 0x033: read_delay(c, st); close(c, st, 53, 54, ROUTE_4); return;          // word 3, out of the shelf line
 		default: break;
 		}
 
@@ -388,44 +364,41 @@ void block_0x01a(yss236_core& c, int from, int to)
 
 		// ---- the first ten early reflections, rev::ER_WORDS[0] to [9] ----
 		if (ErWord const* e = er_at(st)) er_word(c, *e);
-	}
+		});
 }
 
 // ---- one run of the reverb's steps that is allpass units and early reflections, nothing else ----
-void unit_block(yss236_core& c, int from, int to)
+template <int from, int to>
+void unit_block(yss236_core& c)
 {
-	for (int st = from; st < to; st++)
+	for_steps<from, to>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 		if (int u = ALLPASS_AT[st]; u >= 0)
 			allpass_step(c, st, ALLPASS[u], st - ALLPASS[u].st);
 		else if (ErWord const* e = er_at(st))
 			er_word(c, *e);
-	}
+		});
 }
 
 // ---- 0x0a3 to 0x0b5: the six comb units' state steps and the first four gains ----
-void comb_block(yss236_core& c, int from, int to)
+template <int from, int to>
+void comb_block(yss236_core& c)
 {
-	for (int st = from; st < to; st++)
+	for_steps<from, to>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 		CombStep const& s = COMB_SCHED[st - 0x0a3];
 		comb_step(c, st, COMB[s.unit], s.role);
-	}
+		});
 }
 
 // ---- 0x0d1 to 0x0d7: comb 4's gain, comb 5's state steps, the level, comb 5's gain ----
 // The level's two words are the surround's own registers scaled by the type's level words, the one step
 // that is not a comb unit's, so the run has its own switch rather than the schedule's.
-void level_block(yss236_core& c, int from, int to)
+template <int from, int to>
+void level_block(yss236_core& c)
 {
-	for (int st = from; st < to; st++)
+	for_steps<from, to>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 		switch (st)
 		{
 		case 0x0d1: comb_step(c, st, COMB[4], COMB_GAIN); break;
@@ -436,23 +409,23 @@ void level_block(yss236_core& c, int from, int to)
 		case 0x0d6: gain(c, st, 119, 9, ROUTE_4); break;      // the level, word 0: the left return
 		default:   comb_step(c, st, COMB[5], COMB_GAIN); break;
 		}
-	}
+		});
 }
 
 // The ten runs of the window's block, in step order. Five of them are one allpass unit each and all six
 // run the same function, so the reverb is six units and twenty-two reflections laid out in step order
 // rather than ten separate blocks.
-const StepRun RUNS[] = {
-    {0x01a, 0x03a, block_0x01a},      // the mix and width words, the input filters, reflections 0 to 9
-    {0x03e, 0x042, unit_block},       // allpass unit 0
-    {0x04c, 0x050, unit_block},       // allpass unit 1
-    {0x059, 0x05f, unit_block},       // reflections 10 to 15
-    {0x062, 0x066, unit_block},       // allpass unit 2
-    {0x07f, 0x089, unit_block},       // allpass unit 3, then reflections 16 to 21
-    {0x08e, 0x092, unit_block},       // allpass unit 4
-    {0x097, 0x09b, unit_block},       // allpass unit 5
-    {0x0a3, 0x0b6, comb_block},       // the comb units' state steps and the first four gains
-    {0x0d1, 0x0d8, level_block},      // comb 4's gain, comb 5's steps, the level, comb 5's gain
+constexpr StepRun RUNS[] = {
+    { 0x01a, 0x03a, block_0x01a<0x01a, 0x03a> },  // the mix and width words, the input filters, reflections 0 to 9
+    { 0x03e, 0x042, unit_block<0x03e,  0x042> },  // allpass unit 0
+    { 0x04c, 0x050, unit_block<0x04c,  0x050> },  // allpass unit 1
+    { 0x059, 0x05f, unit_block<0x059,  0x05f> },  // reflections 10 to 15
+    { 0x062, 0x066, unit_block<0x062,  0x066> },  // allpass unit 2
+    { 0x07f, 0x089, unit_block<0x07f,  0x089> },  // allpass unit 3, then reflections 16 to 21
+    { 0x08e, 0x092, unit_block<0x08e,  0x092> },  // allpass unit 4
+    { 0x097, 0x09b, unit_block<0x097,  0x09b> },  // allpass unit 5
+    { 0x0a3, 0x0b6, comb_block<0x0a3,  0x0b6> },  // the comb units' state steps and the first four gains
+    { 0x0d1, 0x0d8, level_block<0x0d1, 0x0d8> },  // comb 4's gain, comb 5's steps, the level, comb 5's gain
 };
 
 }  // namespace
@@ -463,7 +436,7 @@ const StepRun RUNS[] = {
 void rev(yss236_core& c, int from, int to)
 {
     for (StepRun const& run : RUNS)
-        if (run.from == from && run.to == to) { run.block(c, from, to); return; }
+        if (run.from == from && run.to == to) { run.block(c); return; }
     for (int st = from; st < to; st++) c.step(st);
 }
 

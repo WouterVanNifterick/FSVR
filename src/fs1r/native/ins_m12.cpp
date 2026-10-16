@@ -164,7 +164,7 @@ struct Decor { int st; decor_t kind; int cell; };
 
 // The three serial inputs, the four reads and the four captures that go with them. Each read's slot is
 // its own step over four, which is where step() takes it from, so no decor here names a slot.
-const Decor DECORS[11] = {
+constexpr Decor DECORS[11] = {
     //  the step  the decor                the cell
     {  0x1a3, DEC_SERIAL_L,  3 },     // the left serial input of page 13, m[3]
     {  0x1a4, DEC_SERIAL_R,  7 },     // and the right one, m[7]
@@ -211,7 +211,7 @@ void publish(yss236_core& c, int st)
 void cell_sum(yss236_core& c, int st, int sm, route_t route, clamp_t clamp, int dr, int dm,
               bool prev = false)
 {
-	run(c, {st, 0, sm, M2_CELL, false, 0, ADD_ACC, false, route, clamp, dr, false, dm, prev});
+	run(c, {.st = st, .sm = sm, .m2 = M2_CELL, .add = ADD_ACC, .route = route, .clamp = clamp, .dr = dr, .dm = dm, .prev = prev});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -224,7 +224,7 @@ void cell_sum(yss236_core& c, int st, int sm, route_t route, clamp_t clamp, int 
 // sum into the level the level follower and the resonator work from.
 struct EqChannel { int base; int sig, copy, low, high; };
 
-const EqChannel EQ[2] = {
+constexpr EqChannel EQ[2] = {
     { 0x1a0, SIG_L, EQ_L_COPY, EQ_L_LOW, EQ_L_HIGH },     // ins::LPF_WAH and ins::HPF_WAH
     { 0x1a7, SIG_R, EQ_R_COPY, EQ_R_LOW, EQ_R_HIGH },     // and ins::LPF_WAH_C and ins::HPF_WAH_C
 };
@@ -277,7 +277,7 @@ void wah_mode(yss236_core& c, int st)
 // doubles the difference.
 struct Smoother { int base; int in, state; };
 
-const Smoother SMOOTHERS[2] = {
+constexpr Smoother SMOOTHERS[2] = {
     { 0x1b0, LEVEL, LVL_1 },     // the difference of the signal, into r[80]
     { 0x1b3, LVL_1, LVL_2 },     // and the same again one state on, into r[81]
 };
@@ -303,7 +303,7 @@ void smoother(yss236_core& c, int st, Smoother const& s)
 // looks in rather than a block.
 struct Drive { int st; int src; };
 
-const Drive DRIVE[3] = {
+constexpr Drive DRIVE[3] = {
     { 0x1b8, LVL_2 },      // the level into the drive
     { 0x1bc, DRY },
     { 0x1c0, DRY },
@@ -320,7 +320,7 @@ constexpr auto DRIVE_AT = index_by_step(DRIVE);
 // into the line's head while the other three only move the running value.
 struct Tap { int st; int in, cell; m2_t m2; bool sub; clamp_t clamp; int dr; };
 
-const Tap TAPS[4] = {
+constexpr Tap TAPS[4] = {
     { 0x1c7,  0,      ATTACK, M2_CELL, false, CLAMP_SAT,  LINE_A },   // the first tap into the head
     { 0x1cb,  LINE_A, 0,      M2_REG,  true,  CLAMP_ZERO, 0 },        // the second, less the head
     { 0x1cf,  LINE_B, 0,      M2_REG,  false, CLAMP_WRAP, 0 },        // and the third, plus the head
@@ -333,7 +333,7 @@ constexpr auto TAPS_AT = index_by_step(TAPS);
 
 void tap(yss236_core& c, int st, Tap const& t)
 {
-	run(c, {st, t.in, t.cell, t.m2, false, 0, ADD_ACC, t.sub, ROUTE_1, t.clamp, t.dr});
+	run(c, {.st = st, .sr = t.in, .sm = t.cell, .m2 = t.m2, .add = ADD_ACC, .sub = t.sub, .clamp = t.clamp, .dr = t.dr});
 }
 
 // ins::WAH_BAND's series, the five steps storeEdge() writes and no other step of the table. r[120] to
@@ -342,7 +342,7 @@ void tap(yss236_core& c, int st, Tap const& t)
 // gain word is the first of them, and the three after it are ins::WAH_BAND[1], [2] and [3].
 struct Band { int st; int in, out; };
 
-const Band BAND[5] = {
+constexpr Band BAND[5] = {
     { 0x1c5, DRY,     LINE_IN },     // the edge's gain word, into the delay line's input
     { 0x1cd, LINE_IN, DRY_L },       // ins::WAH_BAND[1]
     { 0x1d1, DRY_L,   BAND_2 },      // ins::WAH_BAND[2]
@@ -387,15 +387,15 @@ void resonator_feedback(yss236_core& c, int st)
 	case 0x1bd:
 		// the multiplier reads the integrator cell and the adder the register the step has just latched,
 		// negated, which is why the two latches come before the arithmetic and not after it
-		run(c, {st, RES_IN, INTEG, M2_CELL, false, 0, ADD_REG, true, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sr = RES_IN, .sm = INTEG, .m2 = M2_CELL, .add = ADD_REG, .sub = true});
 		break;
 	case 0x1be:
 		// ins::WAH_SENSE[0] on r[78] less the difference, and m[56] takes the result
-		run(c, {st, RES, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_SAT, 0, false, FB});
+		run(c, {.st = st, .sr = RES, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dm = FB});
 		break;
 	default:
 		// ins::WAH_ATTACK[0] on r[74] by the x16 route, and the clamp takes the absolute value of it
-		run(c, {st, RES_STATE, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_ABS, 0, false, ATTACK});
+		run(c, {.st = st, .sr = RES_STATE, .route = ROUTE_16, .clamp = CLAMP_ABS, .dm = ATTACK});
 		break;
 	}
 }
@@ -406,7 +406,7 @@ void resonator_feedback(yss236_core& c, int st)
 // with the word at 0x1c4 in place of the resonance word into m[59]. Nothing writes that second word.
 struct WetSum { int base; int out; int cell; };
 
-const WetSum WET_SUMS[2] = {
+constexpr WetSum WET_SUMS[2] = {
     { 0x1c1, WAH_L, WET_L },
     { 0x1c3, WAH_R, WET_R },
 };
@@ -429,18 +429,18 @@ void line_head(yss236_core& c, int st)
 	{
 	case 0x1c6:
 		// ins::WAH_MIRROR[1]: the word on r[75] less m[57], and the clamp holds the negatives at zero
-		run(c, {st, LINE_A, ATTACK, M2_REG, false, 0, ADD_CELL, true, ROUTE_1, CLAMP_ZERO});
+		run(c, {.st = st, .sr = LINE_A, .sm = ATTACK, .add = ADD_CELL, .sub = true, .clamp = CLAMP_ZERO});
 		break;
 	case 0x1c8:
 		term(c, st, LINE_B); break;
 	case 0x1c9:
 		// r[76] on its own word added to the running value over 32768: the step latches no cell, so the
 		// adder's m input is the running value scaled down
-		run(c, {st, LINE_B, 0, M2_REG, false, 0, ADD_CELL, false, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sr = LINE_B, .add = ADD_CELL});
 		break;
 	case 0x1ca:
 		// m[57] on its own word less the running value, which leaves the line's input for 0x1dc
-		run(c, {st, 0, ATTACK, M2_CELL, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sm = ATTACK, .m2 = M2_CELL, .add = ADD_ACC, .sub = true});
 		break;
 	case 0x1cc:
 		// m[60] takes the read 0x1c7 made, and r[76] is m[57] on its word added to the running value
@@ -463,12 +463,12 @@ void resonator_drive(yss236_core& c, int st)
 {
 	if (st == 0x1d2)
 	{
-		load(c, st, 0, 0);
+		load(c, {.st = st});
 		return;
 	}
 	// m[62] takes the read 0x1d3 made, and the drive is the accumulator's word on r[77] added to the
 	// running value; t[9] takes the result
-	t_put(c, RES_GAIN, run(c, {st, LINE_ACC, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, RES_DRIVE}));
+	t_put(c, st, RES_GAIN, run(c, {.st = st, .sr = LINE_ACC, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = RES_DRIVE}));
 }
 
 // 0x1d6 to 0x1dc: the delay line's input. 0x1d6 and 0x1d7 average the first tap over two samples,
@@ -493,8 +493,8 @@ void line_input(yss236_core& c, int st)
 		break;
 	case 0x1d9:
 		// r[124] = t[9] * r[124]: the drive under the gain 0x1d4 took, and t[9] takes the result
-		t_put(c, RES_GAIN,
-		      run(c, {st, RES_DRIVE, 0, M2_REG, false, RES_GAIN, ADD_OFF, false, ROUTE_1, CLAMP_SAT, RES_DRIVE}));
+		t_put(c, st, RES_GAIN,
+		      run(c, {.st = st, .sr = RES_DRIVE, .treg = RES_GAIN, .clamp = CLAMP_SAT, .dr = RES_DRIVE}));
 		break;
 	case 0x1da:
 		term_cell(c, st, WET_L); break;
@@ -504,8 +504,7 @@ void line_input(yss236_core& c, int st)
 	default:
 		// ins::WD_FB on r[85] added to the running value, and the slot 0x77 takes the clipped result.
 		// The wdata bit is set, so the step drops any latch an earlier step left and writes its own.
-		run(c, {st, TAP_AVG, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
-		        0, false, 0, false, false, true, true});
+		run(c, {.st = st, .sr = TAP_AVG, .add = ADD_ACC, .clamp = CLAMP_SAT, .wdata = true, .write = true});
 		break;
 	}
 }
@@ -518,11 +517,11 @@ void loop_gain(yss236_core& c, int st)
 {
 	if (st == 0x1dd)
 	{
-		run(c, {st, RES_DRIVE, 0, M2_REG, false, RES_GAIN, ADD_OFF, false, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sr = RES_DRIVE, .treg = RES_GAIN});
 		return;
 	}
-	load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT);
-	t_put(c, RES_GAIN, c.acc);
+	load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_SAT});
+	t_put(c, st, RES_GAIN, c.acc);
 }
 
 // 0x1e0 to 0x1e5: the edge's sum. The four states ins::WAH_BAND's series left are added to r[119]
@@ -530,7 +529,7 @@ void loop_gain(yss236_core& c, int st)
 // closes the sum back into r[119], which is the signal that leaves the window dry.
 struct EdgeSum { int base; int in; int state[4]; int out; };
 
-const EdgeSum EDGE_SUM = { 0x1e0, DRY, { LINE_IN, DRY_L, BAND_2, BAND_3 }, DRY };
+constexpr EdgeSum EDGE_SUM = { 0x1e0, DRY, { LINE_IN, DRY_L, BAND_2, BAND_3 }, DRY };
 
 void edge_sum(yss236_core& c, int st, EdgeSum const& e)
 {
@@ -550,7 +549,7 @@ void edge_sum(yss236_core& c, int st, EdgeSum const& e)
 // and the left dry signal.
 struct Lpf2 { int base; int cell; int out; };
 
-const Lpf2 LPF2_TAPS[2] = {
+constexpr Lpf2 LPF2_TAPS[2] = {
     { 0x1e7, TAP_4, LINE_IN },     // ins::WAH_LPF2[1] and [4]
     { 0x1e9, TAP_3, DRY_L },       // and ins::WAH_LPF2[3] and [0]
 };
@@ -561,7 +560,7 @@ void resonator(yss236_core& c, int st)
 	{
 		// the multiplier reads t[9] and m[56] and the adder the register the step has just latched, so
 		// the state is r[78] * (1 + t[9] * WAH_SENSE[0])
-		run(c, {st, RES, FB, M2_CELL, false, RES_GAIN, ADD_REG, false, ROUTE_1, CLAMP_SAT, RES});
+		run(c, {.st = st, .sr = RES, .sm = FB, .m2 = M2_CELL, .treg = RES_GAIN, .add = ADD_REG, .clamp = CLAMP_SAT, .dr = RES});
 		return;
 	}
 	Lpf2 const& l = LPF2_TAPS[(st - 0x1e7) / 2];
@@ -578,7 +577,7 @@ void integrator(yss236_core& c, int st)
 	{
 		// the multiplier reads t[9] and r[78], the adder the cell the step has just latched, and m[42]
 		// takes the result
-		run(c, {st, RES, INTEG, M2_REG, false, RES_GAIN, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 0, false, INTEG});
+		run(c, {.st = st, .sr = RES, .sm = INTEG, .treg = RES_GAIN, .add = ADD_CELL, .clamp = CLAMP_SAT, .dm = INTEG});
 		return;
 	}
 	gain(c, st, DRY, PEAK_IN, ROUTE_1);         // r[82] = k * r[119], the peak's input
@@ -616,7 +615,7 @@ void follower(yss236_core& c, int st)
 		cell_sum(c, st, FOL_A, ROUTE_2, CLAMP_SAT, 0, FOL_A); break;    // m[45], the integrator
 	case 0x1f5:
 		// m[46] takes the step before's m operand, and the running value is m[47] on its own word
-		run(c, {st, 0, FOL_C, M2_CELL, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, false, FOL_B, true});
+		run(c, {.st = st, .sm = FOL_C, .m2 = M2_CELL, .dm = FOL_B, .prev = true});
 		break;
 	case 0x1f6:
 		sum_cell(c, st, FOL_A); break;
@@ -631,7 +630,7 @@ void follower(yss236_core& c, int st)
 // are the signals the program's first steps summed into r[79].
 struct WahOut { int base; int clear; int cell; };
 
-const WahOut WAH_OUT[2] = {
+constexpr WahOut WAH_OUT[2] = {
     { 0x1f8, EQ_L_HIGH, WAH_L },
     { 0x1fa, EQ_R_HIGH, WAH_R },
 };
@@ -642,7 +641,7 @@ void wah_output(yss236_core& c, int st)
 	if (st == w.base) term(c, st, w.clear);
 	// r[78] a pass on, four times, into the cell: the multiplier reads the register here, not a cell,
 	// so this is the register's own word rather than cell_sum()'s
-	else run(c, {st, RES, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_4, CLAMP_SAT, 0, false, w.cell});
+	else run(c, {.st = st, .sr = RES, .add = ADD_ACC, .route = ROUTE_4, .clamp = CLAMP_SAT, .dm = w.cell});
 }
 
 // 0x1fc to 0x1ff: ins::WD_LEVEL, the two outputs. The dry signal reaches r[120] and r[121] through
@@ -651,7 +650,7 @@ void wah_output(yss236_core& c, int st)
 // the register the base program reads back.
 struct Output { int base; int wet; int dry; int reg; };
 
-const Output OUTPUTS[2] = {
+constexpr Output OUTPUTS[2] = {
     { 0x1fc, WET_L, LINE_IN, OUT_L },     // ins::WD_LEVEL[0], the mix word, into r[17]
     { 0x1fe, WET_R, DRY_L, OUT_R },       // ins::WD_LEVEL[2], into r[18]
 };
@@ -676,75 +675,73 @@ void output_mix(yss236_core& c, int st, Output const& o)
 // taps, and the decor table takes each step's cell move and delay RAM read before any of them.
 void block_0x1a0(yss236_core& c)
 {
-	for (int st = 0x1a0; st < 0x200; st++)
+	for_steps<0x1a0, 0x200>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// the three serial inputs this window publishes, the four delay RAM reads and the four captures
 		// that go with them, all before the step's own arithmetic
 		publish(c, st);
 
 		// ---- ins::WAH_DRIVE[0], [1] and [2]: the same x16 gain on r[119], three steps apart ----
-		if (int const i = DRIVE_AT[st]; i >= 0) { gain(c, st, DRIVE[i].src, DRY, ROUTE_16); continue; }
+		if (int const i = DRIVE_AT[st]; i >= 0) { gain(c, st, DRIVE[i].src, DRY, ROUTE_16); return; }
 
 		// ---- ins::WAH_BAND's series, r[120] to r[123] and back to r[119] ----
-		if (int const i = BAND_AT[st]; i >= 0) { gain(c, st, BAND[i].in, BAND[i].out, ROUTE_16); continue; }
+		if (int const i = BAND_AT[st]; i >= 0) { gain(c, st, BAND[i].in, BAND[i].out, ROUTE_16); return; }
 
 		// ---- the four taps of the delay line, whose reads are in the decor table above ----
-		if (int const i = TAPS_AT[st]; i >= 0) { tap(c, st, TAPS[i]); continue; }
+		if (int const i = TAPS_AT[st]; i >= 0) { tap(c, st, TAPS[i]); return; }
 
 		// ---- 0x1a0 to 0x1ad: the input EQ, a copy and two shelves per channel ----
-		if (st < 0x1ae) { input_eq(c, st); continue; }
+		if (st < 0x1ae) { input_eq(c, st); return; }
 
 		// ---- 0x1ae and 0x1af: ins::WAH_MODE, the two channels as one signal ----
-		if (st < 0x1b0) { wah_mode(c, st); continue; }
+		if (st < 0x1b0) { wah_mode(c, st); return; }
 
 		// ---- 0x1b0 to 0x1b5: the level follower, two blocks of the same three steps ----
-		if (st < 0x1b6) { smoother(c, st, SMOOTHERS[(st - 0x1b0) / 3]); continue; }
+		if (st < 0x1b6) { smoother(c, st, SMOOTHERS[(st - 0x1b0) / 3]); return; }
 
 		// ---- 0x1b6 to 0x1bb: ins::WAH_MODE2 and ins::WAH_HPF_2[0], around the first drive step ----
-		if (st < 0x1bc) { mode_pair(c, st); continue; }
+		if (st < 0x1bc) { mode_pair(c, st); return; }
 
 		// ---- 0x1bd to 0x1bf: the resonator's integrator, its feedback and the attack ----
-		if (st < 0x1c1) { resonator_feedback(c, st); continue; }
+		if (st < 0x1c1) { resonator_feedback(c, st); return; }
 
 		// ---- 0x1c1 to 0x1c4: the two sums the delay line is fed ----
-		if (st < 0x1c6) { wet_sums(c, st); continue; }
+		if (st < 0x1c6) { wet_sums(c, st); return; }
 
 		// ---- 0x1c6 to 0x1d0, less the taps: the delay line's head and its accumulator ----
-		if (st < 0x1d2) { line_head(c, st); continue; }
+		if (st < 0x1d2) { line_head(c, st); return; }
 
 		// ---- 0x1d2 and 0x1d4, with the fourth tap between them: the resonator's drive ----
-		if (st < 0x1d6) { resonator_drive(c, st); continue; }
+		if (st < 0x1d6) { resonator_drive(c, st); return; }
 
 		// ---- 0x1d6 to 0x1dc: the delay line's input and its write ----
-		if (st < 0x1dd) { line_input(c, st); continue; }
+		if (st < 0x1dd) { line_input(c, st); return; }
 
 		// ---- 0x1dd and 0x1de: t[9], the loop's own gain ----
-		if (st < 0x1e0) { loop_gain(c, st); continue; }
+		if (st < 0x1e0) { loop_gain(c, st); return; }
 
 		// ---- 0x1e0 to 0x1e5: the four states ins::WAH_BAND left, summed into the dry signal ----
-		if (st < 0x1e6) { edge_sum(c, st, EDGE_SUM); continue; }
+		if (st < 0x1e6) { edge_sum(c, st, EDGE_SUM); return; }
 
 		// ---- 0x1e6 to 0x1ea: the resonator, and ins::WAH_LPF2's other four words ----
-		if (st < 0x1eb) { resonator(c, st); continue; }
+		if (st < 0x1eb) { resonator(c, st); return; }
 
 		// ---- 0x1eb and 0x1ec: the integrator again, and the peak's input ----
-		if (st < 0x1ed) { integrator(c, st); continue; }
+		if (st < 0x1ed) { integrator(c, st); return; }
 
 		// ---- 0x1ed to 0x1f2: ins::WAH_PEAK, the distortion's mid peak ----
-		if (st < 0x1f3) { wah_peak(c, st); continue; }
+		if (st < 0x1f3) { wah_peak(c, st); return; }
 
 		// ---- 0x1f3 to 0x1f7: the follower m[47] ----
-		if (st < 0x1f8) { follower(c, st); continue; }
+		if (st < 0x1f8) { follower(c, st); return; }
 
 		// ---- 0x1f8 to 0x1fb: the wah's own output, as m[43] and m[44] ----
-		if (st < 0x1fc) { wah_output(c, st); continue; }
+		if (st < 0x1fc) { wah_output(c, st); return; }
 
 		// ---- 0x1fc to 0x1ff: ins::WD_LEVEL, the two outputs ----
 		output_mix(c, st, OUTPUTS[(st - 0x1fc) / 2]);
-	}
+		});
 }
 
 }  // namespace

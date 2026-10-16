@@ -74,33 +74,9 @@ using namespace step;   // the step vocabulary: term, sum, close, gain, idle, ru
 // What a step of the block carries besides its term
 // ---------------------------------------------------------------------------------------------
 
-// What a step does with the hardware side: read the delay RAM, publish a capture of an earlier read
-// into a cell, take a serial input or an LFO into a cell, or send a cell to the serial out. `cell` is
-// the cell a DEC_CAPTURE, DEC_LFO or DEC_SERIAL_L/R takes into and the cell a DEC_OUT sends; a
-// DEC_READ's is unused, since the slot it reads is the step's own over four.
-enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_LFO, DEC_SERIAL_L, DEC_SERIAL_R, DEC_OUT };
-
-struct Decor { decor_t kind; int cell; };
-
 // The decors of one step, in the order step() does them: the delay RAM read comes before the cell
 // move, so a step that carries both reads first and publishes into the history it has just pushed.
 struct Decors { Decor first, second; };
-
-// Apply one decor. It comes before the step's arithmetic, because step() moves a cell or reads the
-// delay RAM before it multiplies anything.
-void decor(yss236_core& c, int st, Decor const& d)
-{
-	switch (d.kind)
-	{
-		case DEC_READ:      read_delay(c, st); break;
-		case DEC_CAPTURE:   take_capture(c, d.cell, st); break;
-		case DEC_LFO:       take_lfo(c, d.cell, st); break;
-		case DEC_SERIAL_L:  take_serial(c, d.cell, st, 0); break;
-		case DEC_SERIAL_R:  take_serial(c, d.cell, st, 1); break;
-		case DEC_OUT:       serial_out(c, st, d.cell); break;
-		case DEC_NONE: break;
-	}
-}
 
 void decors(yss236_core& c, int st, Decors const& d)
 {
@@ -132,10 +108,10 @@ void delay_flags(step::alu& a, delay_t d)
 struct Input { int st, in, out; Decors decor; };
 
 // r[3] and r[4] the block's two inputs, r[87] and r[90] what the four poles below start from.
-const Input INPUTS[2] = {
+constexpr Input INPUTS[2] = {
     //   st    in  out   decors
-    { 0x110,  3,  87, { {DEC_SERIAL_L, 1}, {DEC_NONE, 0} } },   // the left input, and m[1] the serial value
-    { 0x117,  4,  90, { {DEC_READ, 0},     {DEC_LFO, 8}    } },   // the right input, and m[8] the LFO 8
+    { 0x110, 3, 87, { {DEC_SERIAL_L, 1}, {}           } },  // the left input, and m[1] the serial value
+    { 0x117, 4, 90, { {DEC_READ, 0},     {DEC_LFO, 8} } },  // the right input, and m[8] the LFO 8
 };
 
 // The input step of st, if it is one. The index is the same on every pass, so the step reaches its row
@@ -159,12 +135,12 @@ struct Pole { int st, nsteps, in, out; route_t route; Decors decor[3]; };
 // The host's four word lists, one per pole, three words each, and the program takes them the other way
 // round: word 0 of rev::DELAY_LPF is at 0x113 and its word 2 at 0x111. The second pole of a side is fed
 // from the first, which is why its `in` is the pole before's `out`.
-const Pole POLES[4] = {
+constexpr Pole POLES[4] = {
     //   st  n  in  out  route   word 1, -a1 * y'    word 2, b1 * x     word 3, b0 * x
-    { 0x111, 3, 87,  88, ROUTE_2, { {DEC_SERIAL_R, 5}, {DEC_NONE, 0},    {DEC_READ, 0}    } },  // DELAY_LPF
-    { 0x114, 3, 88,  89, ROUTE_4, { {DEC_NONE, 0},     {DEC_NONE, 0},    {DEC_NONE, 0}    } },  // DELAY_HPF
-    { 0x118, 3, 90,  91, ROUTE_2, { {DEC_CAPTURE, 22}, {DEC_NONE, 0},    {DEC_NONE, 0}    } },  // DELAY_LPF_COPY
-    { 0x11b, 3, 91,  92, ROUTE_4, { {DEC_READ, 0},     {DEC_CAPTURE, 23}, {DEC_NONE, 0}    } },  // DELAY_HPF_COPY
+    { 0x111, 3, 87, 88, ROUTE_2, { {DEC_SERIAL_R, 5}, {},                {DEC_READ, 0} } },  // DELAY_LPF
+    { 0x114, 3, 88, 89, ROUTE_4, { {},                {},                {}            } },  // DELAY_HPF
+    { 0x118, 3, 90, 91, ROUTE_2, { {DEC_CAPTURE, 22}, {},                {}            } },  // DELAY_LPF_COPY
+    { 0x11b, 3, 91, 92, ROUTE_4, { {DEC_READ, 0},     {DEC_CAPTURE, 23}, {}            } },  // DELAY_HPF_COPY
 };
 
 // The pole of step st, if it is one: a pole's three steps are consecutive, so each of them indexes to the
@@ -187,13 +163,11 @@ void pole_step(yss236_core& c, int st, Pole const& p, int k)
 // step and its two, which is the order the four one-poles are written in.
 void block_0x110(yss236_core& c)
 {
-	for (int st = 0x110; st < 0x11e; st++)
+	for_steps<0x110, 0x11e>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 		if (int i = INPUTS_AT[st]; i >= 0) input_step(c, st, INPUTS[i]);
 		if (int p = POLES_AT[st]; p >= 0) pole_step(c, st, POLES[p], st - POLES[p].st);
-	}
+		});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -219,19 +193,19 @@ struct TapRun { int base; Decors decor[12]; };
 //
 // Every step of the twelve but 0x128 is class 0 with no adder, shift, clamp or sub and no memory cycle
 // of its own, so step() only moves the z^-1 latch for it, and what is left of a step is its decor.
-const TapRun TAPS = { 0x11e, {
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x11e
-    { {DEC_READ, 0}, {DEC_NONE, 0} },     // 0x11f  the slot 0x47, the first tap
-    { {DEC_CAPTURE, 24}, {DEC_NONE, 0} }, // 0x120  m[24] takes up the read of 0x11b
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x121
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x122
-    { {DEC_READ, 0}, {DEC_NONE, 0} },     // 0x123  the slot 0x48, the second tap
-    { {DEC_CAPTURE, 56}, {DEC_NONE, 0} }, // 0x124  m[56] takes up the first tap
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x125
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x126
-    { {DEC_READ, 0}, {DEC_LFO, 9} },      // 0x127  the slot 0x49, and m[9] the LFO 9
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x128  the earlier copy step, which brings its own decor
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x129
+constexpr TapRun TAPS = { 0x11e, {
+    { {},                {}           },  // 0x11e
+    { {DEC_READ, 0},     {}           },  // 0x11f  the slot 0x47, the first tap
+    { {DEC_CAPTURE, 24}, {}           },  // 0x120  m[24] takes up the read of 0x11b
+    { {},                {}           },  // 0x121
+    { {},                {}           },  // 0x122
+    { {DEC_READ, 0},     {}           },  // 0x123  the slot 0x48, the second tap
+    { {DEC_CAPTURE, 56}, {}           },  // 0x124  m[56] takes up the first tap
+    { {},                {}           },  // 0x125
+    { {},                {}           },  // 0x126
+    { {DEC_READ, 0},     {DEC_LFO, 9} },  // 0x127  the slot 0x49, and m[9] the LFO 9
+    { {},                {}           },  // 0x128  the earlier copy step, which brings its own decor
+    { {},                {}           },  // 0x129
 } };
 
 // One copy step, one per side. Each publishes the read of the next tap in the chain into `capture`,
@@ -243,7 +217,7 @@ struct TapCopy { int st, tap, capture, tap_reg; };
 
 // The two copies are four steps apart, which is the distance between the two damp pairs they belong
 // to, and each one is written on the next tap's read.
-const TapCopy COPIES[2] = {
+constexpr TapCopy COPIES[2] = {
 	{ 0x128, 56, 57, 93 },
 	{ 0x12c, 57, 58, 94 },
 };
@@ -260,7 +234,7 @@ bool tap_copy(yss236_core& c, int st)
 	if (int i = COPIES_AT[st]; i >= 0)
 	{
 		take_capture(c, COPIES[i].capture, st);
-		run(c, {st, 0, COPIES[i].tap, M2_CELL, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, COPIES[i].tap_reg});
+		run(c, {.st = st, .sm = COPIES[i].tap, .m2 = M2_CELL, .unity = true, .dr = COPIES[i].tap_reg});
 		return true;
 	}
 	return false;
@@ -270,14 +244,12 @@ bool tap_copy(yss236_core& c, int st)
 // Only the copy step computes anything; every other step of it is a decor and the latch.
 void block_0x11e(yss236_core& c)
 {
-	for (int st = TAPS.base; st < 0x12a; st++)
+	for_steps<TAPS.base, 0x12a>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
-		if (tap_copy(c, st)) continue;
+		if (tap_copy(c, st)) return;
 		decors(c, st, TAPS.decor[st - TAPS.base]);
 		idle(c);
-	}
+		});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -293,10 +265,10 @@ struct Damp { int st, nsteps, tap_reg, damped_reg; Decors close; };
 // EffectHost::storeHighDamp writes c0 = k * DB[12] and c1 = (1 - k) * DB[12] to the pair's two steps, so
 // r[119] = (c0 + c1) * r[93] and r[120] likewise of r[94]. Under Delay L,C,R rev::DELAY_CURVE_COPY is
 // not written and stays at the ROM's zero.
-const Damp DAMPS[2] = {
+constexpr Damp DAMPS[2] = {
 	//   st  n  tap_reg   damped  the closing step
-	{ 0x12a, 2,      93,     119, { {DEC_READ, 0}, {DEC_NONE, 0} } },
-	{ 0x12e, 2,      94,     120, { {DEC_NONE, 0}, {DEC_NONE, 0} } },
+	{ 0x12a, 2, 93, 119, { {DEC_READ, 0}, {} } },
+	{ 0x12e, 2, 94, 120, { {},            {} } },
 };
 
 // The damp pair of step st, if it is one: a pair's two steps are consecutive, so each of them indexes to
@@ -315,14 +287,12 @@ void damp_step(yss236_core& c, int st, Damp const& d, int k)
 // and the second pair itself.
 void block_0x12a(yss236_core& c)
 {
-	for (int st = 0x12a; st < 0x130; st++)
+	for_steps<0x12a, 0x130>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
-		if (tap_copy(c, st)) continue;
+		if (tap_copy(c, st)) return;
 		if (int d = DAMPS_AT[st]; d >= 0) damp_step(c, st, DAMPS[d], st - DAMPS[d].st);
 		if (st == 0x12d) idle(c);     // the step between the two pairs, which computes nothing
-	}
+		});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -341,16 +311,16 @@ struct LineBuild { int st, nsteps; LineTerm term[4]; Decors decor; };
 // The left line is the slot 0x4c (rom::rev::DELAY_SLOTS[0]) and is written by the step that closes the
 // sum; the right line is the slot 0x4e (rom::rev::DELAY_SLOTS[3]) and its closing step only latches,
 // so the write two steps on takes that latch rather than its own result.
-const LineBuild LINES[2] = {
+constexpr LineBuild LINES[2] = {
     { 0x130, 4, { { 89, ADD_OFF, NO_WRITE  },     // rev::DELAY_WORDS[11], the left filtered input
-                  { 92, ADD_ACC, NO_WRITE  },     // rev::DELAY_WORDS[12], the right one
-                  {119, ADD_ACC, NO_WRITE  },     // rev::DELAY_WORDS[7],  the first damped feedback
-                  {120, ADD_ACC, WRITE_OWN } },   // rev::DELAY_WORDS[9],  the second, and the write
-      { {DEC_CAPTURE, 59}, {DEC_NONE, 0} } },
+                  { 92,  ADD_ACC, NO_WRITE    },  // rev::DELAY_WORDS[12], the right one
+                  { 119, ADD_ACC, NO_WRITE    },  // rev::DELAY_WORDS[7],  the first damped feedback
+                  { 120, ADD_ACC, WRITE_OWN } },  // rev::DELAY_WORDS[9],  the second, and the write
+      { {DEC_CAPTURE, 59}, {} } },
     { 0x137, 3, { { 92, ADD_OFF, NO_WRITE  },     // rev::DELAY_WORDS[13], the right filtered input
-                  {120, ADD_ACC, NO_WRITE  },     // rev::DELAY_WORDS[8],   the second damped tap
-                  {119, ADD_ACC, SET_LATCH } },   // rev::DELAY_WORDS[10],  the first, latched
-      { {DEC_NONE, 0}, {DEC_NONE, 0} } },
+                  { 120, ADD_ACC, NO_WRITE    },  // rev::DELAY_WORDS[8],   the second damped tap
+                  { 119, ADD_ACC, SET_LATCH } },  // rev::DELAY_WORDS[10],  the first, latched
+      { {}, {} } },
 };
 
 // The line of step st, if it is one: a line's terms are consecutive, so each of them indexes to the same
@@ -379,10 +349,10 @@ struct WetSum { int st, nsteps, first_tap, mid_tap, out_tap, out_reg; delay_t mi
 // The left channel works off m[56], m[58] and m[59] and the right off m[57], m[59] and m[58], so which
 // numbered tap lands in which of the three positions is the host's own: rev::DELAY_WORDS[4] and [6] for
 // Delay L,C,R's centre level and Echo's second level, and [5] for the same level on the other side.
-const WetSum WET[2] = {
+constexpr WetSum WET[2] = {
     //   st  n  first   mid   out  out_reg  what the middle step does with the line
-    { 0x134, 3,    56,   58,   59,     124, NO_WRITE      },   // m[56], m[58] and m[59]
-    { 0x13a, 3,    57,   59,   58,     125, WRITE_LATCHED },   // m[57], m[59] and m[58], and the write
+    { 0x134, 3, 56, 58, 59, 124, NO_WRITE      },  // m[56], m[58] and m[59]
+    { 0x13a, 3, 57, 59, 58, 125, WRITE_LATCHED },  // m[57], m[59] and m[58], and the write
 };
 
 // The wet sum of step st, if it is one: a sum's three steps are consecutive, so each of them indexes to
@@ -409,15 +379,15 @@ struct Mix { int base, dry, wet, out; };
 
 // EffectHost::dryWet(w, d.word(0), ...) writes the two dry levels into rev::DELAY_WORDS[0] and [1],
 // these steps' first words, and the two wet levels into [2] and [3], their second words.
-const Mix MIX[2] = {
-    { 0x13d, 89, 124, 13 },     // the left output
-    { 0x13f, 92, 125, 14 },     // the right output
+constexpr Mix MIX[2] = {
+    { 0x13d, 89, 124, 13 },  // the left output
+    { 0x13f, 92, 125, 14 },  // the right output
 };
 
 void mix_step(yss236_core& c, int st, Mix const& m)
 {
 	if (st == m.base) term(c, st, m.dry);
-	else run(c, {st, m.wet, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_4, CLAMP_WRAP, m.out});
+	else run(c, {.st = st, .sr = m.wet, .add = ADD_ACC, .route = ROUTE_4, .dr = m.out});
 }
 
 // The run of 17 steps at 0x130. The schedule interleaves the two lines and the two wet sums: a line's
@@ -425,17 +395,15 @@ void mix_step(yss236_core& c, int st, Mix const& m)
 // mixes. LINES and WET between them take every step from 0x130 to 0x13c, and their ranges do not meet.
 void block_0x130(yss236_core& c)
 {
-	for (int st = 0x130; st < 0x141; st++)
+	for_steps<0x130, 0x141>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 		if (st < 0x13d)
 		{
 			if (int l = LINES_AT[st]; l >= 0) line_build_step(c, st, LINES[l], st - LINES[l].st);
 			if (int w = WET_AT[st]; w >= 0) wet_step(c, st, WET[w], st - WET[w].st);
 		}
 		else mix_step(c, st, MIX[st < 0x13f ? 0 : 1]);
-	}
+		});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -448,42 +416,40 @@ void block_0x130(yss236_core& c)
 // out.
 struct TailRun { int base; Decors decor[23]; };
 
-const TailRun TAIL = { 0x141, {
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x141
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x142
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x143
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x144
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x145
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x146
-    { {DEC_READ, 0}, {DEC_LFO, 10} },     // 0x147  the slot 0x51, and m[10] the LFO 10
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x148
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x149
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x14a
-    { {DEC_READ, 0}, {DEC_NONE, 0} },     // 0x14b  the slot 0x52
-    { {DEC_CAPTURE, 25}, {DEC_NONE, 0} }, // 0x14c  m[25] takes up the read of 0x147
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x14d
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x14e
-    { {DEC_READ, 0}, {DEC_NONE, 0} },     // 0x14f  the slot 0x53
-    { {DEC_CAPTURE, 26}, {DEC_NONE, 0} }, // 0x150  m[26] takes up the read of 0x14b
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x151
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x152
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x153
-    { {DEC_CAPTURE, 27}, {DEC_NONE, 0} }, // 0x154  m[27] takes up the read of 0x14f
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x155
-    { {DEC_OUT, 41}, {DEC_NONE, 0} },     // 0x156  the block's output, m[41] to the serial out
-    { {DEC_NONE, 0}, {DEC_NONE, 0} },     // 0x157
+constexpr TailRun TAIL = { 0x141, {
+    { {},                {}            },  // 0x141
+    { {},                {}            },  // 0x142
+    { {},                {}            },  // 0x143
+    { {},                {}            },  // 0x144
+    { {},                {}            },  // 0x145
+    { {},                {}            },  // 0x146
+    { {DEC_READ, 0},     {DEC_LFO, 10} },  // 0x147  the slot 0x51, and m[10] the LFO 10
+    { {},                {}            },  // 0x148
+    { {},                {}            },  // 0x149
+    { {},                {}            },  // 0x14a
+    { {DEC_READ, 0},     {}            },  // 0x14b  the slot 0x52
+    { {DEC_CAPTURE, 25}, {}            },  // 0x14c  m[25] takes up the read of 0x147
+    { {},                {}            },  // 0x14d
+    { {},                {}            },  // 0x14e
+    { {DEC_READ, 0},     {}            },  // 0x14f  the slot 0x53
+    { {DEC_CAPTURE, 26}, {}            },  // 0x150  m[26] takes up the read of 0x14b
+    { {},                {}            },  // 0x151
+    { {},                {}            },  // 0x152
+    { {},                {}            },  // 0x153
+    { {DEC_CAPTURE, 27}, {}            },  // 0x154  m[27] takes up the read of 0x14f
+    { {},                {}            },  // 0x155
+    { {DEC_OUT, 41},     {}            },  // 0x156  the block's output, m[41] to the serial out
+    { {},                {}            },  // 0x157
 } };
 
 // The run of 23 steps at 0x141, none of which computes anything but its decor and the z^-1 latch.
 void block_0x141(yss236_core& c)
 {
-	for (int st = TAIL.base; st < 0x158; st++)
+	for_steps<TAIL.base, 0x158>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 		decors(c, st, TAIL.decor[st - TAIL.base]);
 		idle(c);
-	}
+		});
 }
 
 // The five runs of steps the window's 72 steps fall into, in step order. The window hands the whole
@@ -492,12 +458,12 @@ void block_0x141(yss236_core& c)
 // loop.
 struct StepRun { int from, to; void (*block)(yss236_core&); };
 
-const StepRun RUNS[] = {
-    {0x110, 0x11e, block_0x110},     // the two inputs and the four tone filters
-    {0x11e, 0x12a, block_0x11e},     // the four delay taps and the captures for other windows
-    {0x12a, 0x130, block_0x12a},     // the two damped feedbacks
-    {0x130, 0x141, block_0x130},     // the two line writes, the two wet sums and the dry/wet mix
-    {0x141, 0x158, block_0x141},     // the empty stretch, three more reads and the output
+constexpr StepRun RUNS[] = {
+    { 0x110, 0x11e, block_0x110 },  // the two inputs and the four tone filters
+    { 0x11e, 0x12a, block_0x11e },  // the four delay taps and the captures for other windows
+    { 0x12a, 0x130, block_0x12a },  // the two damped feedbacks
+    { 0x130, 0x141, block_0x130 },  // the two line writes, the two wet sums and the dry/wet mix
+    { 0x141, 0x158, block_0x141 },  // the empty stretch, three more reads and the output
 };
 
 }  // namespace

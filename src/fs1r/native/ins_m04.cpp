@@ -165,7 +165,7 @@ enum decor_t { DEC_NONE, DEC_SERIAL_L, DEC_SERIAL_R, DEC_LFO };
 
 struct Decor { int st; decor_t kind; int cell; };
 
-const Decor DECORS[4] = {
+constexpr Decor DECORS[4] = {
     //  the step  the decor       the cell
     {  0x1a5, DEC_SERIAL_L, SERIAL_L },   // on the left channel's high shelf's -a1 step
     {  0x1a6, DEC_SERIAL_R, SERIAL_R },   // and on the step that closes that shelf into r[68]
@@ -199,7 +199,7 @@ void decor(yss236_core& c, int st, Decor const& d)
 // shelf's output is written a step before the high shelf reads it and the low one has to be a cell.
 struct Eq { int base, sig, in, shelf, out; };
 
-const Eq EQS[2] = {
+constexpr Eq EQS[2] = {
     //  base  sig    in        shelf         out
     { 0x1a0, SIG_L, EQ_L_IN,  SHELF_L, EQ_L },      // the left channel, over ins::LPF_WAH and ins::HPF_WAH
     { 0x1a7, SIG_R, EQ_R_IN,  SHELF_R, EQ_R },      // and the right, over their copies
@@ -222,7 +222,7 @@ void eq(yss236_core& c, int st, Eq const& e, int k)
 		break;
 	case 3:
 		// ins::LPF_WAH[0], b0 closing the low shelf into the cell the high shelf reads
-		run(c, {st, e.in, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, 0, false, e.shelf});
+		run(c, {.st = st, .sr = e.in, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dm = e.shelf});
 		break;
 	case 4:
 		term_cell(c, st, e.shelf);         // ins::HPF_WAH[1], b1 on the low shelf's output
@@ -232,7 +232,7 @@ void eq(yss236_core& c, int st, Eq const& e, int k)
 		break;
 	default:
 		// ins::HPF_WAH[0], b0 closing the high shelf into its register, a quarter at a time
-		run(c, {st, 0, e.shelf, M2_CELL, false, 0, ADD_ACC, false, ROUTE_4, CLAMP_SAT, e.out});
+		run(c, {.st = st, .sm = e.shelf, .m2 = M2_CELL, .add = ADD_ACC, .route = ROUTE_4, .clamp = CLAMP_SAT, .dr = e.out});
 		break;
 	}
 }
@@ -255,14 +255,12 @@ void mode_pair(yss236_core& c, int st)
 		break;
 	case 0x1af:
 		// ins::WAH_MODE[1]: r[76] = the right channel's wah signal + acc, and m[50] takes the left one
-		run(c, {st, 0, WAH_R, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, MODE,
-				false, WAH_L_OLD, true});
+		run(c, {.st = st, .sm = WAH_R, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = MODE, .dm = WAH_L_OLD, .prev = true});
 		break;
 	default:
 		// 0x1b0, ins::WAH_HPF_2's own b1 word on r[76], which also hands the right channel's wah signal
 		// on one pass old in m[51]
-		run(c, {st, MODE, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0,
-				false, WAH_R_OLD, true});
+		run(c, {.st = st, .sr = MODE, .dm = WAH_R_OLD, .prev = true});
 		break;
 	}
 }
@@ -280,7 +278,7 @@ void mode_pair(yss236_core& c, int st)
 // the step before's operand into, and only the first of the three has one.
 struct Band { int st, nsteps, in, out; route_t route; clamp_t open; int publish; };
 
-const Band BANDS[3] = {
+constexpr Band BANDS[3] = {
     //   st  n  in        out         route      open         publish
     { 0x1b0, 3, MODE,     BAND_HPF,   ROUTE_2,   CLAMP_WRAP,  WAH_R_OLD },  // ins::WAH_HPF_2
     { 0x1b3, 3, BAND_HPF, BAND_LPF,   ROUTE_2,   CLAMP_SAT,   0 },           // ins::WAH_LPF_2
@@ -310,9 +308,9 @@ void band(yss236_core& c, int st, Band const& b, int k)
 	}
 	if (b.publish)
 		// b1 on the input, opening the sum, and the step before's operand hands on one pass old
-		run(c, {st, b.in, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, b.open, 0, false, b.publish, true});
+		run(c, {.st = st, .sr = b.in, .clamp = b.open, .dm = b.publish, .prev = true});
 	else
-		run(c, {st, b.in, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, b.open});
+		run(c, {.st = st, .sr = b.in, .clamp = b.open});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -342,7 +340,7 @@ void touch_input(yss236_core& c, int st)
 // at both steps of the pair.
 struct Sense { int base, in, state, feedback, out; };
 
-const Sense SENSES[2] = {
+constexpr Sense SENSES[2] = {
     //  base  in        state  feedback  out
     { 0x1bd, EQ_L,     RES_L, RES_FB_L, SENSE_L },   // the left channel's, and the right's at 0x1c1
     { 0x1c1, EQ_R,     RES_R, RES_FB_R, SENSE_R },
@@ -356,16 +354,16 @@ void drive_and_sense(yss236_core& c, int st)
 	{
 		// ins::WAH_ATTACK: m[56] = |16 * k * r[72]|, the sensitivity level, which the clamp takes the
 		// absolute value of and which the mirror below rectifies
-		run(c, {st, IN_HPF, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_ABS, 0, false, ATTACK});
+		run(c, {.st = st, .sr = IN_HPF, .route = ROUTE_16, .clamp = CLAMP_ABS, .dm = ATTACK});
 		return;
 	}
 	Sense const& s = SENSES[(st - SENSES[0].base) / 4];
 	if (st == s.base)
 		// acc = k * m[feedback] - r[in]: the accumulator against the signal that drove it
-		run(c, {st, s.in, s.feedback, M2_CELL, false, 0, ADD_REG, true, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sr = s.in, .sm = s.feedback, .m2 = M2_CELL, .add = ADD_REG, .sub = true});
 	else
 		// ins::WAH_SENSE[0] and [1]: m[out] = saturate(k * r[state] - acc)
-		run(c, {st, s.state, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_SAT, 0, false, s.out});
+		run(c, {.st = st, .sr = s.state, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dm = s.out});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -382,7 +380,7 @@ void level_pair(yss236_core& c, int st)
 	case 0: term_cell(c, st, LEVEL_L); break;                     // ins::WAH_LPF[1]
 	case 1: sum_cell(c, st, LEVEL_R); break;                      // ins::WAH_LPF[2]
 	default:                                                       // ins::WAH_LPF[0]
-		run(c, {st, 0, LEVEL_L, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0, false, LEVEL_R});
+		run(c, {.st = st, .sm = LEVEL_L, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dm = LEVEL_R});
 		break;
 	}
 }
@@ -398,11 +396,11 @@ void mirror(yss236_core& c, int st)
 	{
 	case 0x1c3:
 		// ins::WAH_MIRROR[0]: acc = k * r[73] - m[56], and the negatives are held at zero
-		run(c, {st, RECT, ATTACK, M2_REG, false, 0, ADD_CELL, true, ROUTE_1, CLAMP_ZERO});
+		run(c, {.st = st, .sr = RECT, .sm = ATTACK, .add = ADD_CELL, .sub = true, .clamp = CLAMP_ZERO});
 		break;
 	case 0x1c4:
 		// r[73] = saturate(k * m[56] + acc), the rectifier's own output, and m[4] from the decor above
-		run(c, {st, 0, ATTACK, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, RECT});
+		run(c, {.st = st, .sm = ATTACK, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = RECT});
 		break;
 	case 0x1c5:
 		term_cell(c, st, LEVEL_L);         // the level on its own, so the next word adds to it
@@ -410,17 +408,17 @@ void mirror(yss236_core& c, int st)
 	case 0x1c6:
 		// ins::WAH_MIRROR[1]: the same word again on m[46], plus the level over 32768, which is what
 		// the adder offers when it names r[0] and there is no r[0]
-		run(c, {st, 0, LEVEL_L, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sm = LEVEL_L, .m2 = M2_CELL, .add = ADD_REG});
 		break;
 	case 0x1c7:
-		run(c, {st, 0, ATTACK, M2_CELL, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sm = ATTACK, .m2 = M2_CELL, .add = ADD_ACC, .sub = true});
 		break;
 	case 0x1c8:
 		// ins::WAH_MIRROR[2]: the same subtraction off r[73], the negatives held at zero again
-		run(c, {st, RECT, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_ZERO});
+		run(c, {.st = st, .sr = RECT, .add = ADD_ACC, .sub = true, .clamp = CLAMP_ZERO});
 		break;
 	case 0x1c9:
-		run(c, {st, 0, ATTACK, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0, false, LEVEL_L});
+		run(c, {.st = st, .sm = ATTACK, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dm = LEVEL_L});
 		break;
 	default:
 		level_pair(c, st);
@@ -437,7 +435,7 @@ void mirror(yss236_core& c, int st)
 // series below runs on the cell rather than on a register.
 struct Edge { int st, src, dst, cell; };
 
-const Edge EDGES[4] = {
+constexpr Edge EDGES[4] = {
     //   st  src     dst     cell
     { 0x1cd, DRIVE,  EDGE_1, 0       },   // ins::WAH_BAND[1], the edge's gain word fx_design.cpp derives
     { 0x1d1, EDGE_1, EDGE_2, 0       },   // ins::WAH_BAND[2]
@@ -454,7 +452,7 @@ Edge const* edge_for(int st) { return EDGES_AT[st] < 0 ? nullptr : &EDGES[EDGES_
 // One of the four steps: the word on the last one's output, into a register or into a cell.
 void edge_step(yss236_core& c, int st, Edge const& e)
 {
-	run(c, {st, e.src, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT, e.dst, false, e.cell});
+	run(c, {.st = st, .sr = e.src, .route = ROUTE_16, .clamp = CLAMP_SAT, .dr = e.dst, .dm = e.cell});
 }
 
 // The cutoff and its smoother, 0x1ce to 0x1d7, with 0x1d2, 0x1d5 and 0x1d9 the padding between. 0x1ce is
@@ -470,27 +468,27 @@ void cutoff(yss236_core& c, int st)
 	switch (st)
 	{
 	case 0x1ce:
-		load(c, st, 0, 0);                                       // acc = 128 * ins::WAH_CUTOFF[0]
+		load(c, {.st = st});                                       // acc = 128 * ins::WAH_CUTOFF[0]
 		break;
 	case 0x1cf:
 		sum_cell(c, st, LFO_CELL);                               // ins::WAH_DEPTH: the word on m[13] + acc
 		break;
 	case 0x1d0:
 		// r[121] = saturate(k * m[47] + acc), and the same value over 128 goes into t[9]
-		t_put(c, CUTOFF_T, run(c, {st, 0, LEVEL_R, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, SMOOTH}));
+		t_put(c, st, CUTOFF_T, run(c, {.st = st, .sm = LEVEL_R, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = SMOOTH}));
 		break;
 	case 0x1d3:
 		// r[121] = t[9] * r[121], which wraps where the other steps saturate, and the same value goes on
-		t_put(c, CUTOFF_T, run(c, {st, SMOOTH, 0, M2_REG, false, CUTOFF_T, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, SMOOTH}));
+		t_put(c, st, CUTOFF_T, run(c, {.st = st, .sr = SMOOTH, .treg = CUTOFF_T, .dr = SMOOTH}));
 		break;
 	case 0x1d6:
-		run(c, {st, SMOOTH, 0, M2_REG, false, CUTOFF_T, ADD_OFF, false, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sr = SMOOTH, .treg = CUTOFF_T});
 		break;
 	default:
 		// the class-1 load that adds the half the ROM's own word at this step is: t[9] takes
 		// saturate(0.5 + acc), and it is the clamped value that goes in, not the raw sum
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT);
-		t_put(c, CUTOFF_T, c.acc);
+		load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_SAT});
+		t_put(c, st, CUTOFF_T, c.acc);
 		break;
 	}
 }
@@ -506,7 +504,7 @@ void cutoff(yss236_core& c, int st)
 // second square, the shaper's cascade and ins::WAH_BAND's series run between them.
 struct Resonator { int state_step, acc_step, state, feedback, drive; };
 
-const Resonator RESONATOR[2] = {
+constexpr Resonator RESONATOR[2] = {
     //   state  acc     state  feedback  drive
     {   0x1da, 0x1e3,  RES_L, RES_FB_L, SENSE_L },
     {   0x1db, 0x1e4,  RES_R, RES_FB_R, SENSE_R },
@@ -541,10 +539,10 @@ void resonator_step(yss236_core& c, int st, Resonator const& p)
 {
 	if (st == p.state_step)
 		// r[state] = saturate(t[9] * m[drive] + r[state])
-		run(c, {st, p.state, p.drive, M2_CELL, false, CUTOFF_T, ADD_REG, false, ROUTE_1, CLAMP_SAT, p.state});
+		run(c, {.st = st, .sr = p.state, .sm = p.drive, .m2 = M2_CELL, .treg = CUTOFF_T, .add = ADD_REG, .clamp = CLAMP_SAT, .dr = p.state});
 	else
 		// m[feedback] = saturate(t[9] * r[state] + m[feedback])
-		run(c, {st, p.state, p.feedback, M2_REG, false, CUTOFF_T, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 0, false, p.feedback});
+		run(c, {.st = st, .sr = p.state, .sm = p.feedback, .treg = CUTOFF_T, .add = ADD_CELL, .clamp = CLAMP_SAT, .dm = p.feedback});
 }
 
 // ins::WAH_BAND's series, 0x1dd to 0x1e2: six steps over the shaper's own output and the three edge
@@ -589,7 +587,7 @@ enum part_t
 // one register that both of them read, and only the last section carries two shifts of its own.
 struct Tone { int st, nsteps, in, x1, y2, out; route_t route; part_t part[5]; };
 
-const Tone TONES[3] = {
+constexpr Tone TONES[3] = {
     //   st  n  in         x1  y2  out        route      the five steps, in the order the schedule runs them
     { 0x1e6, 5, DRIVE_GAIN, 80, 82, TONE_LPF,  ROUTE_2,  { B2_OPEN, B1,     A2_IN, A1,    B0 } },   // ins::WAH_LPF2
     { 0x1eb, 5, TONE_LPF,   82, 84, TONE_PEAK, ROUTE_2,  { B1_OPEN, B2,     A2,    A1,    B0 } },   // ins::WAH_PEAK
@@ -631,7 +629,7 @@ void tone_step(yss236_core& c, int st, Tone const& t, int k)
 // the base program reads back.
 struct Mix { int base, dry, wet, cell, out; m2_t dry_m2; };
 
-const Mix MIXES[4] = {
+constexpr Mix MIXES[4] = {
     //  base  dry        wet         cell      out
     { 0x1f5, EQ_L,      RES_L,      WAH_L,     0,      M2_REG  },   // ins::WAH_WET[0] and [1], the left
     { 0x1f7, EQ_R,      RES_R,      WAH_R,     0,      M2_REG  },   // ins::WAH_WET[4] and [5], the right
@@ -649,7 +647,7 @@ void mix(yss236_core& c, int st, Mix const& m, int k)
 		return;
 	}
 	// the wet word on top of the running value, into the cell or the output register
-	run(c, {st, m.wet, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_4, CLAMP_SAT, m.out, false, m.cell});
+	run(c, {.st = st, .sr = m.wet, .add = ADD_ACC, .route = ROUTE_4, .clamp = CLAMP_SAT, .dr = m.out, .dm = m.cell});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -663,10 +661,8 @@ void mix(yss236_core& c, int st, Mix const& m, int k)
 // registers and the shapes of its steps, and nothing here is a step at a time.
 void block_0x1a0(yss236_core& c)
 {
-	for (int st = 0x1a0; st < 0x200; st++)
+	for_steps<0x1a0, 0x200>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// ---- the four cells this window publishes, before the step's own arithmetic ----
 		if (int i = DECORS_AT[st]; i >= 0) decor(c, st, DECORS[i]);
@@ -676,63 +672,63 @@ void block_0x1a0(yss236_core& c)
 		{
 			Eq const& e = EQS[(st - EQS[0].base) / 7];
 			eq(c, st, e, st - e.base);
-			continue;
+			return;
 		}
 
 		// ---- 0x1ae and 0x1af, ins::WAH_MODE's pair, the two channels' wah signals as one ----
-		if (st < 0x1b0) { mode_pair(c, st); continue; }
+		if (st < 0x1b0) { mode_pair(c, st); return; }
 
 		// ---- the three band sections: the distortion's at 0x1b0 and 0x1b3, the Touch Wah's at 0x1b9 ----
-		if (Band const* b = band_for(st)) { band(c, st, *b, st - b->st); continue; }
+		if (Band const* b = band_for(st)) { band(c, st, *b, st - b->st); return; }
 
 		// ---- 0x1b6 to 0x1b8, ins::WAH_MODE2's pair and ins::WAH_DRIVE's first word ----
-		if (st < 0x1bc) { touch_input(c, st); continue; }
+		if (st < 0x1bc) { touch_input(c, st); return; }
 
 		// ---- 0x1bc to 0x1c2, the drive's two squares, the sense pair on both channels and the attack ----
-		if (st < 0x1c3) { drive_and_sense(c, st); continue; }
+		if (st < 0x1c3) { drive_and_sense(c, st); return; }
 
 		// ---- 0x1c3 to 0x1cc, the mirror round the level and ins::WAH_LPF over it ----
-		if (st < 0x1cd) { mirror(c, st); continue; }
+		if (st < 0x1cd) { mirror(c, st); return; }
 
 		// ---- 0x1cd to 0x1d9, the edge's cascade, the cutoff's smoother and the padding between them ----
 		if (st < 0x1da)
 		{
-			if (Edge const* e = edge_for(st)) { edge_step(c, st, *e); continue; }
-			if (st == 0x1d2 || st == 0x1d5 || st == 0x1d9) { idle(c); continue; }
+			if (Edge const* e = edge_for(st)) { edge_step(c, st, *e); return; }
+			if (st == 0x1d2 || st == 0x1d5 || st == 0x1d9) { idle(c); return; }
 			cutoff(c, st);
-			continue;
+			return;
 		}
 
 		// ---- 0x1da and 0x1db, the resonator's two states, and 0x1e3 and 0x1e4, its accumulators ----
-		if (Resonator const* p = resonator_for(st)) { resonator_step(c, st, *p); continue; }
+		if (Resonator const* p = resonator_for(st)) { resonator_step(c, st, *p); return; }
 
 		// ---- 0x1dc to 0x1e2, the fourth edge word and ins::WAH_BAND's series ----
 		if (st < 0x1e3)
 		{
 			if (st == 0x1dc)   // ins::WAH_BAND[5], the fourth shape word, off the cell it landed in
-				run(c, {st, 0, EDGE_4, M2_CELL, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT, DRIVE});
+				run(c, {.st = st, .sm = EDGE_4, .m2 = M2_CELL, .route = ROUTE_16, .clamp = CLAMP_SAT, .dr = DRIVE});
 			else
 				shaper(c, st);
-			continue;
+			return;
 		}
 
 		// ---- 0x1e5, ins::WAH_DRIVE's fourth word: the gain storeDrive() derives, into the tone chain ----
-		if (st == 0x1e5) { gain(c, st, DRIVE, DRIVE_GAIN, ROUTE_1); continue; }
+		if (st == 0x1e5) { gain(c, st, DRIVE, DRIVE_GAIN, ROUTE_1); return; }
 
 		// ---- 0x1e6 to 0x1f4, the tone chain's three sections ----
-		if (Tone const* t = tone_for(st)) { tone_step(c, st, *t, st - t->st); continue; }
+		if (Tone const* t = tone_for(st)) { tone_step(c, st, *t, st - t->st); return; }
 
 		// ---- 0x1f5 to 0x1fc, the dry and wet mix into the window's two outputs ----
 		if (st < 0x1fd)
 		{
 			Mix const& m = MIXES[(st - MIXES[0].base) / 2];
 			mix(c, st, m, st - m.base);
-			continue;
+			return;
 		}
 
 		// ---- 0x1fd to 0x1ff, three class-0 steps with no ALU, so only the x latch runs ----
 		idle(c);
-	}
+		});
 }
 
 }  // namespace

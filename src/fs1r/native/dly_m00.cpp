@@ -149,17 +149,15 @@ void word_step(yss236_core& c, int st, Word const& w)
 	{
 		// A class-1 step, where the word is the value itself. The t register it leaves is a 1.15 word
 		// of it, which is where the tone sections' filter coefficients come from.
-		load(c, st, w.sr, w.sm, w.add, false, w.route, w.clamp, w.dr);
-		if (w.side.tput) t_put(c, w.side.tput, c.acc);
+		load(c, {.st = st, .sr = w.sr, .sm = w.sm, .add = w.add, .route = w.route, .clamp = w.clamp, .dr = w.dr});
+		if (w.side.tput) t_put(c, st, w.side.tput, c.acc);
 		return;
 	}
 	// A class-2 or class-3 term. The three steps of this program that write a t register write the
 	// fraction of their result below one delay sample rather than a 1.15 word, and those are the three
 	// that load the delay address index as well, which is what the indexed reads take.
-	double const y = run(c, {st, w.sr, w.sm, w.sm ? M2_CELL : M2_REG, w.side.unity, w.treg, w.add,
-	                         false, w.route, w.clamp, w.dr, false, 0, false, false,
-	                         w.side.write != NO_WRITE, w.side.write == WRITE_OWN});
-	if (w.side.tput) { t_put_fraction(c, w.side.tput, y); load_index(c, y); }
+	double const y = run(c, {.st = st, .sr = w.sr, .sm = w.sm, .m2 = w.sm ? M2_CELL : M2_REG, .unity = w.side.unity, .treg = w.treg, .add = w.add, .route = w.route, .clamp = w.clamp, .dr = w.dr, .wdata = w.side.write != NO_WRITE, .write = w.side.write == WRITE_OWN});
+	if (w.side.tput) { t_put_fraction(c, st, w.side.tput, y); load_index(c, y); }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -177,7 +175,7 @@ struct Section { int st, nsteps; Word word[3]; };
 // The columns below are Word's, in the order it declares them. The steps around the sections are 0x110,
 // which takes the send in, 0x117, which reads the block's second line, and 0x11e to 0x126, the two tone
 // groups' states and the tap sums the sections close into. WORDS below holds those and the rest.
-const Section SECTIONS[4] = {
+constexpr Section SECTIONS[4] = {
     { 0x111, 3, {         { 0x111, 0, 12, 123, ADD_OFF, ROUTE_16, CLAMP_WRAP, 0, {LINE_NONE, CELL_SERIAL_R, 5}, {0, NO_WRITE, false, false} },
                         { 0x112, 0, 0, 125, ADD_ACC, ROUTE_2, CLAMP_WRAP, 0, {}, {0, NO_WRITE, true,  false} },
                         { 0x113, 124, 0, 0, ADD_OFF, ROUTE_1, CLAMP_ABS, 0, {LINE_READ, CELL_NONE, 0}, {0, NO_WRITE, false, true } } } },   // rev::DELAY_LPF,
@@ -219,7 +217,7 @@ struct Tap { int st, nsteps; int coef, lo, hi, out; Decor read, capture; };
 // steps. Under the thirteen reverb types that load this program all three running values there are zero,
 // so all three coefficients and all three indices are zero and every product below is zero: the reads
 // still happen, the cells still move, and the four sums are the running value on its own.
-const Tap TAPS[4] = {
+constexpr Tap TAPS[4] = {
     { 0x137, 2,  9, 56, 57, 119, {LINE_READ_IDX,       CELL_NONE,  0}, {LINE_NONE, CELL_CAPTURE, 61} },
     { 0x13b, 2, 11, 60, 61, 121, {LINE_READ_IDX_OLDER, CELL_NONE,  0}, {LINE_NONE, CELL_CAPTURE, 62} },
     { 0x147, 2, 11, 62, 63, 122, {LINE_READ,           CELL_LFO,   10}, {LINE_NONE, CELL_CAPTURE, 59} },
@@ -240,9 +238,9 @@ void tap_half(yss236_core& c, int st, Tap const& t, int k)
 {
 	decor(c, st, k ? t.capture : t.read);
 	if (!k)
-		run(c, {st, 0, t.lo, M2_CELL, false, t.coef, ADD_CELL, true, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sm = t.lo, .m2 = M2_CELL, .treg = t.coef, .add = ADD_CELL, .sub = true});
 	else
-		run(c, {st, 0, t.hi, M2_CELL, false, t.coef, ADD_ACC, true, ROUTE_1, CLAMP_SAT, t.out});
+		run(c, {.st = st, .sm = t.hi, .m2 = M2_CELL, .treg = t.coef, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = t.out});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -264,7 +262,7 @@ void line_write(yss236_core& c, int st)
 void block_output(yss236_core& c, int st)
 {
 	serial_out(c, st, 41);
-	run(c, {st, 92, 41, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP});
+	run(c, {.st = st, .sr = 92, .sm = 41});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -278,7 +276,7 @@ void block_output(yss236_core& c, int st)
 // tap; 0x139 to 0x146 open the third and close the fourth and hold what the line write takes; 0x14e to
 // 0x157 scale the running value out and write the line's second word. The reads at 0x147, 0x14b and
 // 0x14f go out in m[25], m[26] and m[27], taken up at 0x14c, 0x150 and 0x154.
-const Word WORDS[] = {
+constexpr Word WORDS[] = {
     //  st     sr  sm  dr    add      route     clamp       treg  decor                              side
     {  0x110,  0, 12, 124, ADD_CELL, ROUTE_2, CLAMP_WRAP, 0,    {LINE_NONE, CELL_SERIAL_L,     1}, { 0, NO_WRITE,   true,  false} },
     {  0x117, 124, 0, 127, ADD_OFF, ROUTE_1, CLAMP_SAT, 12,     {LINE_READ, CELL_LFO,         8}, { 0, NO_WRITE,   false, false} },
@@ -344,10 +342,8 @@ constexpr auto WORDS_AT = index_by_step(WORDS);
 // two that stand alone and the fifty of the table, rather than as a switch of cases.
 void block_0x110(yss236_core& c)
 {
-	for (int st = 0x110; st < 0x158; st++)
+	for_steps<0x110, 0x158>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// ---- the send and the host's four tone sections ----
 		bool done = false;
@@ -360,11 +356,11 @@ void block_0x110(yss236_core& c)
 		// ---- the two steps that stand alone: the line write and the block's output ----
 		if (!done && st == 0x153) { line_write(c, st); done = true; }
 		if (!done && st == 0x156) { block_output(c, st); done = true; }
-		if (done) continue;
+		if (done) return;
 
 		// ---- every other step, which WORDS holds in step order ----
 		if (int i = WORDS_AT[st]; i >= 0) word_step(c, st, WORDS[i]);
-	}
+		});
 }
 
 }  // namespace

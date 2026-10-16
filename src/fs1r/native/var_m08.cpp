@@ -135,18 +135,18 @@ struct Pub { int st, cell; };
 // last three are out of the window's own area; the four between them are the delay taps, and a tap's
 // capture often lands in a different block from the read, which is why the reads are one table of the
 // program rather than part of any one group's.
-const Pub PUBLISHED[10] = {
+constexpr Pub PUBLISHED[10] = {
     //  the read  the cell     what it carries
-    {  0x15b,     28 },        // the left channel's low pole
-    {  0x15f,     29 },        // the right channel's low pole
-    {  0x163,     30 },        // the right channel's second pole
-    {  0x167,     TAP1 },      // the first tap, the slot 0x59
-    {  0x16b,     TAP2 },      // the second, the slot 0x5A
-    {  0x16f,     TAP3 },      // the third, the slot 0x5B
-    {  0x173,     TAP4 },      // the fourth, the slot 0x5C
-    {  0x18f,     31 },        // the tail's three, the slots 0x63, 0x64 and 0x65
-    {  0x193,     32 },
-    {  0x197,     33 },
+    { 0x15b, 28   },  // the left channel's low pole
+    { 0x15f, 29   },  // the right channel's low pole
+    { 0x163, 30   },  // the right channel's second pole
+    { 0x167, TAP1 },  // the first tap, the slot 0x59
+    { 0x16b, TAP2 },  // the second, the slot 0x5A
+    { 0x16f, TAP3 },  // the third, the slot 0x5B
+    { 0x173, TAP4 },  // the fourth, the slot 0x5C
+    { 0x18f, 31   },  // the tail's three, the slots 0x63, 0x64 and 0x65
+    { 0x193, 32   },
+    { 0x197, 33   },
 };
 
 // The capture index: PUBLISHED's own indices at the step each read's capture lands at, and -1 everywhere
@@ -180,26 +180,6 @@ void publish(yss236_core& c, int st)
 // The host's four tone filters: var::DELAY_LPF and var::DELAY_HPF and their two copies
 // ---------------------------------------------------------------------------------------------
 
-// What a step of a channel's filters carries besides its arithmetic. The window publishes the two serial
-// inputs for the base program, which ride on the left channel's first two steps, and the page's LFO,
-// which rides on the right channel's first. The reads and the captures are in PUBLISHED above.
-enum decor_t { DEC_NONE, DEC_SERIAL_L, DEC_SERIAL_R, DEC_LFO };
-
-struct Decor { decor_t kind; int cell; };
-
-// The move a step's decor carries. It comes before the term, because step() moves a cell before it does
-// any arithmetic.
-void decor(yss236_core& c, int st, Decor const& d)
-{
-	switch (d.kind)
-	{
-		case DEC_SERIAL_L: take_serial(c, d.cell, st, 0); break;
-		case DEC_SERIAL_R: take_serial(c, d.cell, st, 1); break;
-		case DEC_LFO:      take_lfo(c, d.cell, st); break;
-		case DEC_NONE: break;
-	}
-}
-
 // One order-1 pole, which is three of a channel's seven steps. `in` is the register its input is in,
 // which the step before the pole wrote, and `out` is the register its output is in, which b0 overwrites
 // and which -a1 reads a pass later.
@@ -220,14 +200,14 @@ struct Tone
 // The left channel first, which is where the two serial inputs land for the base program, then the right
 // one, which publishes the page's LFO. The two rows are the same seven steps on the same two registers
 // apart, one channel's block after the other's.
-const Tone TONES[2] = {
+constexpr Tone TONES[2] = {
     //  base   src  in   the two poles                        the seven steps' decor
     {  0x158, L_IN, 103, { { 103, 104, ROUTE_2 }, { 104, L_DAMP, ROUTE_4 } },
-        { {DEC_SERIAL_L, 2}, {DEC_SERIAL_R, 6}, {DEC_NONE, 0}, {DEC_NONE, 0},
-          {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+        { {DEC_SERIAL_L, 2}, {DEC_SERIAL_R, 6}, {}, {},
+          {}, {}, {} } },
     {  0x15f, R_IN, 106, { { 106, 107, ROUTE_2 }, { 107, R_DAMP, ROUTE_4 } },
-        { {DEC_LFO, 11}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-          {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+        { {DEC_LFO, 11}, {}, {}, {},
+          {}, {}, {} } },
 };
 
 // One channel's seven steps. The first takes the input the base program left this window and starts
@@ -269,10 +249,10 @@ struct TapDamp
 
 // The two taps the program holds in registers of its own, one per channel, each the feedback the same
 // channel's line is built on.
-const TapDamp TAPS[2] = {
+constexpr TapDamp TAPS[2] = {
     //  base   cell  reg  out
-    {  0x170, TAP1, 109, L_TAP },     // var::DELAY_CURVE on the left tap
-    {  0x174, TAP2, 110, R_TAP },     // and var::DELAY_CURVE_COPY on the right one
+    { 0x170, TAP1, 109, L_TAP },  // var::DELAY_CURVE on the left tap
+    { 0x174, TAP2, 110, R_TAP },  // and var::DELAY_CURVE_COPY on the right one
 };
 
 // One of those four steps.
@@ -282,7 +262,7 @@ void tap_damp(yss236_core& c, int st, TapDamp const& t)
 	{
 	case 0:
 		// the class-3 step: a unity product with the adder off, which is step()'s plain copy
-		run(c, { st, 0, t.cell, M2_CELL, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, t.reg });
+		run(c, {.st = st, .sm = t.cell, .m2 = M2_CELL, .unity = true, .dr = t.reg});
 		break;
 	case 2: term(c, st, t.reg); break;            // var::DELAY_CURVE[1], the low half of the pair
 	case 3: close(c, st, t.reg, t.out); break;    // and its [0], the high half, saturating
@@ -322,10 +302,10 @@ struct Line
 
 // The left line, which writes the slot 0x5E in its own closing word, then the right line, whose closing
 // word only latches, because its writer is the middle step of the right channel's wet sum two steps on.
-const Line LINES[2] = {
+constexpr Line LINES[2] = {
     //  base   terms  the words' registers                      what the closing word does
-    {  0x178,      4, { L_DAMP, R_DAMP, L_TAP, R_TAP },   WRITE_OWN   },
-    {  0x17f,      3, { R_DAMP, R_TAP, L_TAP },           SET_LATCH   },
+    { 0x178, 4, { L_DAMP, R_DAMP, L_TAP, R_TAP }, WRITE_OWN },
+    { 0x17f, 3, { R_DAMP, R_TAP, L_TAP },         SET_LATCH },
 };
 
 // One of a line's words. The first opens the running value on the channel's damped input, the words
@@ -370,10 +350,10 @@ struct Wet
 
 // The two sums, three steps each, on the same three taps in the other order. The right channel's middle
 // step is the right line's writer, which is why that line closes a word early and writes here.
-const Wet WETS[2] = {
+constexpr Wet WETS[2] = {
     //  base   the three taps' cells              out    what the middle step does
-    {  0x17c, { TAP1, TAP3, TAP4 },         L_WET,   NO_WRITE      },
-    {  0x182, { TAP2, TAP4, TAP3 },         R_WET,   WRITE_LATCHED },
+    { 0x17c, { TAP1, TAP3, TAP4 }, L_WET, NO_WRITE      },
+    { 0x182, { TAP2, TAP4, TAP3 }, R_WET, WRITE_LATCHED },
 };
 
 // One of a wet sum's three steps: the first opens the running value on its tap, the middle adds the next
@@ -413,10 +393,10 @@ void wet(yss236_core& c, int st, Wet const& w)
 // channel's: the left page's has already gone out to the base program as m[11].
 struct Out { int base; int dry, wet, reg; int lfo; };
 
-const Out OUTPUTS[2] = {
+constexpr Out OUTPUTS[2] = {
     //  base   dry     wet     reg     lfo
-    {  0x185, L_DAMP, L_WET,  L_OUT,     0 },
-    {  0x187, R_DAMP, R_WET,  R_OUT,    12 },
+    { 0x185, L_DAMP, L_WET, L_OUT, 0  },
+    { 0x187, R_DAMP, R_WET, R_OUT, 12 },
 };
 
 // One of a channel's two output steps.
@@ -429,7 +409,7 @@ void output(yss236_core& c, int st, Out const& o)
 		return;
 	}
 	// the wet word on the channel's wet sum, closing the pair into the output, four times and wrapping
-	run(c, { st, o.wet, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_4, CLAMP_WRAP, o.reg });
+	run(c, {.st = st, .sr = o.wet, .add = ADD_ACC, .route = ROUTE_4, .dr = o.reg});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -441,10 +421,8 @@ void output(yss236_core& c, int st, Out const& o)
 // the groups the comments at the head of this file open.
 void block_0x158(yss236_core& c)
 {
-	for (int st = 0x158; st < 0x1a0; st++)
+	for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// the ten published reads and the captures that take them up, before any arithmetic
 		publish(c, st);
@@ -453,54 +431,54 @@ void block_0x158(yss236_core& c)
 		{
 			// ---- 0x158 to 0x165, the two inputs and the host's four tone filters ----
 			tone(c, st, TONES[(st - 0x158) / 7]);
-			continue;
+			return;
 		}
 		if (st < 0x170)
 		{
 			// ---- 0x166 to 0x16f, the first three taps: three reads with the padding between them ----
 			idle(c);
-			continue;
+			return;
 		}
 		if (st < 0x178)
 		{
 			// ---- 0x170 to 0x177, the first two taps and the host's damp pair ----
 			tap_damp(c, st, TAPS[(st - 0x170) / 4]);
-			continue;
+			return;
 		}
 		if (st < 0x17c)
 		{
 			// ---- 0x178 to 0x17b, the left line, which writes the slot 0x5E itself ----
 			line(c, st, LINES[0]);
-			continue;
+			return;
 		}
 		if (st < 0x17f)
 		{
 			// ---- 0x17c to 0x17e, the left channel's wet sum ----
 			wet(c, st, WETS[0]);
-			continue;
+			return;
 		}
 		if (st < 0x182)
 		{
 			// ---- 0x17f to 0x181, the right line, whose closing word only latches ----
 			line(c, st, LINES[1]);
-			continue;
+			return;
 		}
 		if (st < 0x185)
 		{
 			// ---- 0x182 to 0x184, the right channel's wet sum, the right line's writer in the middle ----
 			wet(c, st, WETS[1]);
-			continue;
+			return;
 		}
 		if (st < 0x189)
 		{
 			// ---- 0x185 to 0x188, the two outputs, a dry word and a wet word each ----
 			output(c, st, OUTPUTS[(st - 0x185) / 2]);
-			continue;
+			return;
 		}
 
 		// ---- 0x189 to 0x19f, the tail, which is idle but for the three reads publish() takes up ----
 		idle(c);
-	}
+		});
 }
 
 }  // namespace

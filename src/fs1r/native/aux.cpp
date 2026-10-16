@@ -53,7 +53,7 @@ using namespace step;   // the step vocabulary: term, sum, close, run and idle
 // One unit: the register its state is in, the register its difference is in and the cell it smooths.
 // In step order, four steps each, the second step of each being one of rom::STEPS_OUTPUT_GAIN.
 struct Unit { int state, diff, cell; };
-const Unit UNITS[8] = {
+constexpr Unit UNITS[8] = {
     { 61, 31,  1}, { 62, 43,  6}, { 63, 32,  2}, { 64, 44,  5},
     { 65, 33,  3}, { 66, 45, 40}, {101, 34,  4}, {102, 46, 41},
 };
@@ -63,7 +63,7 @@ const Unit UNITS[8] = {
 void take_state(yss236_core& c, Unit const& u, int st)
 {
 	// class 3 is unity: the word is ignored and the product is the register itself
-	run(c, {st, u.state, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP});
+	run(c, {.st = st, .sr = u.state, .unity = true});
 }
 
 // The unit's second step: the state moves toward the cell by the gain word times the difference, and
@@ -80,7 +80,7 @@ void cell_difference(yss236_core& c, Unit const& u, int st)
 {
 	// class 3 is unity again, and this time the multiplier's second input is the cell while the adder
 	// reads the register the step just fetched, negated
-	run(c, {st, u.state, u.cell, M2_CELL, true, 0, ADD_REG, true, ROUTE_2, CLAMP_SAT, u.diff});
+	run(c, {.st = st, .sr = u.state, .sm = u.cell, .m2 = M2_CELL, .unity = true, .add = ADD_REG, .sub = true, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = u.diff});
 }
 
 // The unit's fourth step, and the two empty steps and the last step of the tail: a class-0 step with no
@@ -101,7 +101,7 @@ void clear_acc(yss236_core& c, int reg, int st)
 // result). dr is 0, so the register it reads only feeds the multiplier.
 void write_cell(yss236_core& c, int reg, int cell, int st)
 {
-	run(c, {st, reg, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_16, CLAMP_SAT, 0, false, cell});
+	run(c, {.st = st, .sr = reg, .add = ADD_ACC, .route = ROUTE_16, .clamp = CLAMP_SAT, .dm = cell});
 }
 
 // The run of steps 0x0e8 to 0x110, the whole of the window's program. The loop is one iteration per
@@ -109,10 +109,8 @@ void write_cell(yss236_core& c, int reg, int cell, int st)
 // skips these steps as it would the interpreter's.
 void block_0x0e8(yss236_core& c)
 {
-	for (int st = 0x0e8; st < 0x110; st++)
+	for_steps<0x0e8, 0x110>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		int const i = st - 0x0e8;
 		if (i < 32)
@@ -126,7 +124,7 @@ void block_0x0e8(yss236_core& c)
 			case 2:  cell_difference(c, u, st); break;
 			default: empty_step(c); break;
 			}
-			continue;
+			return;
 		}
 		// ---- the tail ----
 		switch (st)
@@ -138,7 +136,7 @@ void block_0x0e8(yss236_core& c)
 		case 0x10d: write_cell(c, 18, 41, st); break;  // and into m[41], unit 7's cell
 		case 0x10e: serial_out(c, st, 17); empty_step(c); break;   // the window's serial output
 		}
-	}
+		});
 }
 
 }  // namespace

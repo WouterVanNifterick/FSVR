@@ -153,7 +153,7 @@ struct TermRun { int st, nsteps; Term term[16]; };
 	{ sr, cell, m2, add, route, dr, write, read, { mk, mc } }
 
 // ---- the four weights onto r[121] to r[124] ----
-const TermRun WEIGHTS[1] = {{
+constexpr TermRun WEIGHTS[1] = {{
     0x008, 4,
     { T(22, 0, M2_REG, ADD_OFF, ROUTE_1, 123, false, false, DEC_CAPTURE, 56),
       T(22, 0, M2_REG, ADD_OFF, ROUTE_1, 124, false, false, DEC_NONE, 0),
@@ -161,7 +161,7 @@ const TermRun WEIGHTS[1] = {{
       T(20, 0, M2_REG, ADD_OFF, ROUTE_1, 122, false, true,  DEC_NONE, 0) } }};
 
 // ---- the sends: the reverb delay's seven steps, then the variation's seven ----
-const TermRun SENDS[1] = {{
+constexpr TermRun SENDS[1] = {{
     0x00c, 14,
     { T(14,  0, M2_REG,  ADD_OFF, ROUTE_1,   0, false, false, DEC_CAPTURE, 57),
       T(124, 0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, false, DEC_NONE, 0),
@@ -181,7 +181,7 @@ const TermRun SENDS[1] = {{
 // ---- the twelve accumulators: the aux window's ten runs and the DC blocker's two halves ----
 // The first two runs open on a cell rather than a register, because the host leaves the word at those
 // steps at zero: they multiply m[23] and m[5], so they contribute nothing and only move the latch.
-const TermRun ACC[12] = {
+constexpr TermRun ACC[12] = {
     { 0x03a, 4, { T(  0, 23, M2_CELL, ADD_OFF, ROUTE_1,  0, false, false, DEC_NONE, 0),
                   T( 16,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, true,  DEC_NONE, 0),
                   T(122,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, false, DEC_NONE, 0),
@@ -255,8 +255,7 @@ constexpr auto ACC_AT = index_by_span(ACC);
 void term_step(yss236_core& c, int st, Term const& t)
 {
 	decor(c, st, t.read, t.move);
-	run(c, {st, t.src, t.cell, t.m2, false, 0, t.add, false, t.route,
-	         t.dr ? CLAMP_SAT : CLAMP_WRAP, t.dr, false, 0, false, false, false, t.write});
+	run(c, {.st = st, .sr = t.src, .sm = t.cell, .m2 = t.m2, .add = t.add, .route = t.route, .clamp = t.dr ? CLAMP_SAT : CLAMP_WRAP, .dr = t.dr, .write = t.write});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -268,7 +267,7 @@ void term_step(yss236_core& c, int st, Term const& t)
 // zero on all but 0x002, and that step still scales the register: the cell is there because m[16] is
 // what goes to the left DAC, not because the multiplier reads it.
 struct Pan { int reg, cell; bool read; Decor move; };
-const Pan PANS[8] = {
+constexpr Pan PANS[8] = {
     { 11,  0, false, {DEC_SERIAL_L, 6} },   // the aux pan, and m[6] takes the page 0 serial input
     { 12,  0, false, {DEC_SERIAL_R, 23} },  // and m[23] the second bank, which Effects::run leaves at zero
     { 13, 16, false, {DEC_OUT, 16} },       // the reverb delay's, and m[16] goes to out[0], the left DAC
@@ -303,7 +302,7 @@ struct Section
 	Decor move[5];
 };
 
-const Section EQ[6] = {
+constexpr Section EQ[6] = {
     //  st    n   in   b1  b2   a1  a2  out  prev  route      shape        reads               -a1              b1                b2                -a2                b0
     {  0x066, 5,  9,  23, 25,  24, 26,  25,   0, ROUTE_4,  COPY_ON_B2,
       { false, true, false, false, false },
@@ -365,7 +364,7 @@ void eq_step(yss236_core& c, int st, Section const& s, int k)
 // their copies. They compute nothing at all, so each step is its decor and the x latch. `st` is the
 // run's first step and `nsteps` how many it covers, which is what index_by_span keys on.
 struct WordRun { int st, nsteps; bool read[10]; Decor move[10]; };
-const WordRun WORDS[2] = {
+constexpr WordRun WORDS[2] = {
     { 0x075, 10, { false, false, true,  false, false, false, true,  false, false, false },
                { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_CAPTURE, 59}, {DEC_NONE, 0},
                  {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_CAPTURE, 60}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
@@ -382,8 +381,7 @@ constexpr auto WORDS_AT = index_by_span(WORDS);
 // cells, which are the only two steps here that write a cell from their own result.
 void master_volume(yss236_core& c, int st)
 {
-	run(c, {st, st == 0x0cf ? 29 : 41, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16,
-	         CLAMP_SAT, 0, false, st == 0x0cf ? 16 : 17});
+	run(c, {.st = st, .sr = st == 0x0cf ? 29 : 41, .route = ROUTE_16, .clamp = CLAMP_SAT, .dm = st == 0x0cf ? 16 : 17});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -393,12 +391,11 @@ void master_volume(yss236_core& c, int st)
 // One iteration per step, carrying the m_skip guard step() opens with, so a cskip in the reverb's
 // steps skips these as it would the interpreter's. There is no gate in this program; the skips come
 // from the reverb's steps around them.
-void base_steps(yss236_core& c, int from, int to)
+template <int from, int to>
+void base_steps(yss236_core& c)
 {
-	for (int st = from; st < to; st++)
+	for_steps<from, to>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// ---- the pan law, the four weights and the two sends: 0x000 to 0x019 ----
 		if (st < 0x01a)
@@ -409,27 +406,27 @@ void base_steps(yss236_core& c, int from, int to)
 				decor(c, st, p.read, p.move);
 				// r[reg] = the pan word on r[reg]: the send, panned, left in the register for the
 				// send sums below and for the window that reads it back
-				run(c, {st, p.reg, p.cell, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT, p.reg});
+				run(c, {.st = st, .sr = p.reg, .sm = p.cell, .clamp = CLAMP_SAT, .dr = p.reg});
 			}
 			else if (st < 0x00c)
 				term_step(c, st, WEIGHTS[0].term[st - 0x008]);
 			else
 				term_step(c, st, SENDS[0].term[st - 0x00c]);
-			continue;
+			return;
 		}
 
 		// ---- the twelve accumulators: the aux differences and the DC blocker ----
 		if (int k = ACC_AT[st]; k >= 0)
 		{
 			term_step(c, st, ACC[k].term[st - ACC[k].st]);
-			continue;
+			return;
 		}
 
 		// ---- the master EQ's six sections ----
 		if (int k = EQ_AT[st]; k >= 0)
 		{
 			eq_step(c, st, EQ[k], st - EQ[k].st);
-			continue;
+			return;
 		}
 
 		// ---- the two runs of class-0 word steps ----
@@ -438,22 +435,25 @@ void base_steps(yss236_core& c, int from, int to)
 			int const w = st - WORDS[k].st;
 			decor(c, st, WORDS[k].read[w], WORDS[k].move[w]);
 			idle(c);
-			continue;
+			return;
 		}
 
 		// ---- the master volume ----
 		if (st == 0x0cf || st == 0x0d0) master_volume(c, st);
-	}
+		});
 }
 
 #undef T
 
 // The eleven runs of steps the base program owns, in step order.
-const int RANGES[][2] = {
-	{0x000, 0x01a}, {0x03a, 0x03e}, {0x042, 0x04c}, {0x050, 0x059},
-	{0x05f, 0x062}, {0x066, 0x07f}, {0x089, 0x08e}, {0x092, 0x097},
-	{0x09b, 0x0a3}, {0x0b6, 0x0d1}, {0x0d8, 0x0e8},
+struct Range { int from, to; void (*run)(yss236_core&); };
+#define RANGE(a, b) {a, b, base_steps<a, b>}
+const Range RANGES[] = {
+	RANGE(0x000, 0x01a), RANGE(0x03a, 0x03e), RANGE(0x042, 0x04c), RANGE(0x050, 0x059),
+	RANGE(0x05f, 0x062), RANGE(0x066, 0x07f), RANGE(0x089, 0x08e), RANGE(0x092, 0x097),
+	RANGE(0x09b, 0x0a3), RANGE(0x0b6, 0x0d1), RANGE(0x0d8, 0x0e8),
 };
+#undef RANGE
 
 }  // namespace
 
@@ -463,7 +463,7 @@ const int RANGES[][2] = {
 void base(yss236_core& c, int from, int to)
 {
 	for (auto const& rg : RANGES)
-		if (rg[0] == from && rg[1] == to) { base_steps(c, from, to); return; }
+		if (rg.from == from && rg.to == to) { rg.run(c); return; }
 	for (int st = from; st < to; st++) c.step(st);
 }
 

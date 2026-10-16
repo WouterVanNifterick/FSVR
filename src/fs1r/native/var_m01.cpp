@@ -138,35 +138,35 @@ void decor(yss236_core& c, Decor const& d, int st)
 // leaves behind, which the next step either adds to or closes into a register.
 double carry(yss236_core& c, int st, int sr, route_t route = ROUTE_1, clamp_t clamp = CLAMP_SAT)
 {
-	return run(c, { st, sr, 0, M2_REG, false, 0, ADD_OFF, false, route, clamp });
+	return run(c, {.st = st, .sr = sr, .route = route, .clamp = clamp});
 }
 
 // p = |r[sr]|: a class-3 step, so the word is 1.0 and the register itself is the multiplier's second
 // input, with the absolute value the clamp takes.
 void abs_reg(yss236_core& c, int st, int sr)
 {
-	run(c, { st, sr, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_ABS });
+	run(c, {.st = st, .sr = sr, .unity = true, .clamp = CLAMP_ABS});
 }
 
 // r[dr] = saturate(t[tn] * r[sr]): one multiply of a decay chain, the word in a t register rather than
 // in the step itself.
 void t_gain(yss236_core& c, int st, int sr, int dr, int tn)
 {
-	run(c, { st, sr, 0, M2_REG, false, tn, ADD_OFF, false, ROUTE_1, CLAMP_SAT, dr });
+	run(c, {.st = st, .sr = sr, .treg = tn, .clamp = CLAMP_SAT, .dr = dr});
 }
 
 // p = m[cell] * (t[tn] - 1): the first half of an interpolation, the tap below the fraction scaled by
 // the fraction less one, with the cell's own value taken back off the adder.
 void interp_lo(yss236_core& c, int st, int cell, int tn)
 {
-	run(c, { st, 0, cell, M2_CELL, false, tn, ADD_CELL, true, ROUTE_1, CLAMP_WRAP });
+	run(c, {.st = st, .sm = cell, .m2 = M2_CELL, .treg = tn, .add = ADD_CELL, .sub = true});
 }
 
 // r[dr] = saturate(t[tn] * m[cell] - p): the second half, the same fraction on the tap above added to
 // the first half and the pair closed into a register.
 void interp_hi(yss236_core& c, int st, int cell, int tn, int dr)
 {
-	run(c, { st, 0, cell, M2_CELL, false, tn, ADD_ACC, true, ROUTE_1, CLAMP_SAT, dr });
+	run(c, {.st = st, .sm = cell, .m2 = M2_CELL, .treg = tn, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = dr});
 }
 
 // r[sr] = saturate(t[tn] * r[sr] + r[sr]): the interpolated pair scaled by its own decay gain plus
@@ -174,7 +174,7 @@ void interp_hi(yss236_core& c, int st, int cell, int tn, int dr)
 // the pitch move together.
 void scale_by_gain(yss236_core& c, int st, int sr, int tn)
 {
-	run(c, { st, sr, 0, M2_REG, false, tn, ADD_REG, false, ROUTE_1, CLAMP_SAT, sr });
+	run(c, {.st = st, .sr = sr, .treg = tn, .add = ADD_REG, .clamp = CLAMP_SAT, .dr = sr});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -196,7 +196,7 @@ struct Follower
 	int cell;           // the cell it publishes a serial input into, 0 for none
 	int bank;           // and the serial bank that input is on
 };
-const Follower FOLLOWERS[3] = {
+constexpr Follower FOLLOWERS[3] = {
 	{ 0x158, 123, 2, 0 },
 	{ 0x159, 125, 6, 1 },
 	{ 0x15a,   1, 0, 0 },
@@ -213,7 +213,7 @@ struct Decay
 	int follower, product;
 	int gain;           // the t register, which is one of the four the decay chains and the scalings share
 };
-const Decay DECAYS[3] = {
+constexpr Decay DECAYS[3] = {
 	{ { 0x15b, 0x15c, 0x161, 0x164 }, 123, 124,  9 },
 	{ { 0x15d, 0x15e, 0x162, 0x165 }, 125, 126, 11 },
 	{ { 0x15f, 0x160, 0x163, 0x166 },   1,   2, 13 },
@@ -232,7 +232,7 @@ struct TWrite
 	int cell;           // the cell it scales, or 0
 	Decor decor;
 };
-const TWrite T_WRITES[8] = {
+constexpr TWrite T_WRITES[8] = {
 	// t[15] and t[7] off m[9]: the positions the window is given, the second also the index
 	{ 0x167, 15, false,   0, 9, { DEC_NONE,     0 } },
 	{ 0x168,  7, true,    0, 9, { DEC_CAPTURE, 30 } },
@@ -258,7 +258,7 @@ struct Position
 	int product;        // and the one added to it
 	Decor decor;        // the read on the closing step, none on the right channel's position
 };
-const Position POSITIONS[3] = {
+constexpr Position POSITIONS[3] = {
 	{ 0x169, 123, 124, { DEC_INDEX, 0x5a } },   // the left tap's position, read at 0x5a
 	{ 0x16c,   1,   2, { DEC_NONE,   0    } },   // the third tap's position
 	{ 0x179, 125, 126, { DEC_INDEX, 0x5e } },   // the right tap's position, read at 0x5e
@@ -274,7 +274,7 @@ struct Comb
 	int in, scaled, y1, y2;
 	Decor decor[7];
 };
-const Comb COMBS[2] = {
+constexpr Comb COMBS[2] = {
 	//    base   in  scaled  y1   y2
 	{ 0x171,   5,   103, 104, 105, {
 		{ DEC_NONE,      0 }, { DEC_NONE,      0 }, { DEC_INDEX,   0x5c }, { DEC_NONE,      0 },
@@ -292,7 +292,7 @@ struct Interp
 	int tn, older, newer, out;
 	Decor decor[2];
 };
-const Interp INTERPS[4] = {
+constexpr Interp INTERPS[4] = {
 	{ 0x186, 10, 56, 57, 119, { { DEC_NONE,       0 }, { DEC_INDEX_OLD, 0x61 } } },
 	{ 0x188, 14, 60, 61, 121, { { DEC_CAPTURE,   58 }, { DEC_NONE,       0    } } },
 	{ 0x18a,  7, 62, 63, 122, { { DEC_NONE,       0 }, { DEC_NONE,       0    } } },
@@ -308,7 +308,7 @@ struct Scaling
 	int tn;             // and the gain it is scaled by
 	Decor decor;
 };
-const Scaling SCALINGS[4] = {
+constexpr Scaling SCALINGS[4] = {
 	{ 0x18c, 119,  9, { DEC_CAPTURE, 59 } },
 	{ 0x18d, 121, 13, { DEC_NONE,     0 } },
 	{ 0x18e, 122, 15, { DEC_NONE,     0 } },
@@ -324,7 +324,7 @@ struct OutSum
 	int out;            // the register the sum lands in
 	Decor decor;
 };
-const OutSum OUT_SUMS[2] = {
+constexpr OutSum OUT_SUMS[2] = {
 	{ 0x191, 119, 121, 122, 119, { DEC_READ, 0x64 } },
 	{ 0x195, 121, 122, 120, 120, { DEC_READ, 0x65 } },
 };
@@ -347,7 +347,7 @@ struct OutLine
 	bool adds;          // whether the delay line's write adds to the running value
 	Decor decor;
 };
-const OutLine OUT_LINES[2] = {
+constexpr OutLine OUT_LINES[2] = {
 	{ 0x198, 0x199, 0x19a, 0x19b, 105, 119, 15, true,  { DEC_CAPTURE, 32 } },
 	{ 0x19c, 0x19d,     0, 0x19f, 108, 120, 16, false, { DEC_CAPTURE, 33 } },
 };
@@ -362,7 +362,7 @@ void follower(yss236_core& c, Follower const& f)
 {
 	if (f.cell) take_serial(c, f.cell, f.st, f.bank);
 	// r[dr] = wrap(2 * (128 k + m[8])): the shared cell, the step's own word as a class-1 load, doubled
-	load(c, f.st, 0, 8, ADD_CELL, false, ROUTE_2, CLAMP_WRAP, f.dr);
+	load(c, {.st = f.st, .sm = 8, .add = ADD_CELL, .route = ROUTE_2, .dr = f.dr});
 }
 
 // One step of one decay chain, `k` its place in the chain's four.
@@ -374,8 +374,8 @@ void decay(yss236_core& c, Decay const& d, int k)
 	case 0:  abs_reg(c, st, d.follower); break;
 	case 1:
 		// r[follower] = saturate(2 * (128 k + p)) and t[gain] the running value as a 1.15 word
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, d.follower);
-		t_put(c, d.gain, c.acc);
+		load(c, {.st = st, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = d.follower});
+		t_put(c, st, d.gain, c.acc);
 		break;
 	case 2:  t_gain(c, st, d.follower, d.product, d.gain); break;
 	default: t_gain(c, st, d.product, d.product, d.gain); break;
@@ -389,10 +389,10 @@ void t_write(yss236_core& c, TWrite const& p)
 	// The multiplier's second input is the shared cell m[9] on the two positions the window is handed
 	// and a channel's own register on the rest.
 	double const y = p.cell
-		? run(c, { p.st, 0, p.cell, M2_CELL, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT })
+		? run(c, {.st = p.st, .sm = p.cell, .m2 = M2_CELL, .clamp = CLAMP_SAT})
 		: carry(c, p.st, p.sr);
-	if (p.frac) { t_put_fraction(c, p.tn, y); load_index(c, y); }
-	else t_put(c, p.tn, y);
+	if (p.frac) { t_put_fraction(c, p.st, p.tn, y); load_index(c, y); }
+	else t_put(c, p.st, p.tn, y);
 }
 
 // One modulated delay position, `k` its place in the three steps.
@@ -405,7 +405,7 @@ void position(yss236_core& c, int st, Position const& p)
 	default:
 		decor(c, p.decor, st);
 		// r[follower] = clamp_negatives(128 k + p): the position the taps below read at
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, p.follower);
+		load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_ZERO, .dr = p.follower});
 		break;
 	}
 }
@@ -467,16 +467,14 @@ void out_sum(yss236_core& c, int st, OutSum const& o, int k)
 // own spacing, so the ranges below are the program's and not ours.
 void block_0x158(yss236_core& c)
 {
-	for (int st = 0x158; st < 0x1a0; st++)
+	for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// ---- 0x158 to 0x15a, the two published serial inputs and the three followers ----
 		if (st < 0x15b)
 		{
 			follower(c, FOLLOWERS[st - 0x158]);
-			continue;
+			return;
 		}
 
 		// ---- 0x15b to 0x166, the three decay chains ----
@@ -497,37 +495,37 @@ void block_0x158(yss236_core& c)
 			bool const opens = st < 0x161;
 			int const j = st - (opens ? 0x15b : 0x161);
 			decay(c, DECAYS[opens ? j / 2 : j % 3], opens ? j % 2 : 2 + j / 3);
-			continue;
+			return;
 		}
 
 		// ---- 0x167 to 0x16e, the fractional delay positions ----
-		if (st < 0x169) { t_write(c, T_WRITES[st - 0x167]); continue; }               // t[15] and t[7] off m[9]
-		if (st < 0x16f) { position(c, st, POSITIONS[st < 0x16c ? 0 : 1]); continue; } // r[123] and r[1]
+		if (st < 0x169) { t_write(c, T_WRITES[st - 0x167]); return; }               // t[15] and t[7] off m[9]
+		if (st < 0x16f) { position(c, st, POSITIONS[st < 0x16c ? 0 : 1]); return; } // r[123] and r[1]
 
 		// ---- 0x16f to 0x17e, the left channel ----
-		if (st < 0x171) { t_write(c, T_WRITES[st - 0x16f + 2]); continue; }   // t[9] and t[10]: its two taps
-		if (st < 0x178) { Comb const& p = COMBS[0]; comb(c, st, p, st - p.base); continue; }
-		if (st < 0x179) { t_write(c, T_WRITES[4]); continue; }              // t[14]: the pair on r[1]
-		if (st < 0x17c) { position(c, st, POSITIONS[2]); continue; }        // the position r[125]
-		if (st < 0x17f) { t_write(c, T_WRITES[st - 0x17c + 5]); continue; }  // t[13], t[11] and t[12]
+		if (st < 0x171) { t_write(c, T_WRITES[st - 0x16f + 2]); return; }   // t[9] and t[10]: its two taps
+		if (st < 0x178) { Comb const& p = COMBS[0]; comb(c, st, p, st - p.base); return; }
+		if (st < 0x179) { t_write(c, T_WRITES[4]); return; }              // t[14]: the pair on r[1]
+		if (st < 0x17c) { position(c, st, POSITIONS[2]); return; }        // the position r[125]
+		if (st < 0x17f) { t_write(c, T_WRITES[st - 0x17c + 5]); return; }  // t[13], t[11] and t[12]
 
 		// ---- 0x17f to 0x185, the right channel ----
-		if (st < 0x186) { Comb const& p = COMBS[1]; comb(c, st, p, st - p.base); continue; }
+		if (st < 0x186) { Comb const& p = COMBS[1]; comb(c, st, p, st - p.base); return; }
 
 		// ---- 0x186 to 0x18e, three interpolations and the three scalings ----
 		if (st < 0x18c)
 		{
 			Interp const& i = INTERPS[(st - 0x186) / 2];
 			interp(c, st, i, (st - 0x186) % 2);
-			continue;
+			return;
 		}
-		if (st < 0x18f) { scaling(c, SCALINGS[st - 0x18c]); continue; }
+		if (st < 0x18f) { scaling(c, SCALINGS[st - 0x18c]); return; }
 
 		// ---- 0x18f to 0x197, the second interpolation, its scaling and the two output sums ----
-		if (st < 0x191) { Interp const& i = INTERPS[3]; interp(c, st, i, st - i.base); continue; }  // on t[12]
-		if (st < 0x194) { OutSum const& o = OUT_SUMS[0]; out_sum(c, st, o, st - o.base); continue; }
-		if (st == 0x194) { scaling(c, SCALINGS[3]); continue; }                                  // by t[11]
-		if (st < 0x198) { OutSum const& o = OUT_SUMS[1]; out_sum(c, st, o, st - o.base); continue; }
+		if (st < 0x191) { Interp const& i = INTERPS[3]; interp(c, st, i, st - i.base); return; }  // on t[12]
+		if (st < 0x194) { OutSum const& o = OUT_SUMS[0]; out_sum(c, st, o, st - o.base); return; }
+		if (st == 0x194) { scaling(c, SCALINGS[3]); return; }                                  // by t[11]
+		if (st < 0x198) { OutSum const& o = OUT_SUMS[1]; out_sum(c, st, o, st - o.base); return; }
 
 		// ---- 0x198 to 0x19f, the two outputs and the two delay line writes ----
 		// The same four steps on each channel: publish the last read and open the output sum on the
@@ -547,11 +545,10 @@ void block_0x158(yss236_core& c)
 		else if (st == o.write)
 			// The line is written from r[108] either way: the four-sample comb on the step's own word,
 			// and the running value the step before left where the channel has one.
-			write_delay_line(c, st, run(c, { st, COMB_OUT, 0, M2_REG, false, 0,
-			                                 o.adds ? ADD_ACC : ADD_OFF, false, ROUTE_1, CLAMP_SAT }));
+			write_delay_line(c, st, run(c, {.st = st, .sr = COMB_OUT, .add = o.adds ? ADD_ACC : ADD_OFF, .clamp = CLAMP_SAT}));
 		else
 			idle(c);                                             // 0x19e, the idle between the two writes
-	}
+		});
 }
 
 }  // namespace

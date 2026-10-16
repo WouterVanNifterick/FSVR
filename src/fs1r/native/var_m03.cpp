@@ -180,7 +180,7 @@ struct InFilter
     Decor decor[6];      // the input step, then b1, b2, -a1, -a2 and b0
 };
 
-const InFilter IN_FILTERS[2] = {
+constexpr InFilter IN_FILTERS[2] = {
     // base   in  x1   y1   y2  adds  input              b1                 b2                   -a1             -a2                  b0
     { 0x159, 103, 104, 105, 106, true,  { {DEC_SERIAL, 6, 1}, {DEC_NONE, 0},  {DEC_READ, 0x56},  {DEC_NONE, 0},  {DEC_NONE, 0},     {DEC_NONE, 0}     } },
     { 0x15f, 107, 108, 109, 110, false, { {DEC_READ, 0x57},   {DEC_CAPTURE, 28},{DEC_NONE, 0},    {DEC_NONE, 0},  {DEC_READ, 0x58},  {DEC_CAPTURE, 29} } },
@@ -220,13 +220,13 @@ void input_filter(yss236_core& c, int st, InFilter const& f, int k)
 // curve reads the steps.
 void threshold(yss236_core& c, int st)
 {
-    run(c, {st, 0, 55, M2_CELL, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 126});
+    run(c, {.st = st, .sm = 55, .m2 = M2_CELL, .clamp = CLAMP_SAT, .dr = 126});
 }
 
 // One channel of the drive: HM_DRIVE's word on that channel's filtered input, doubled, into the pair
 // of driven registers every step below works on.
 struct Drive { int filtered, driven; };
-const Drive DRIVE[2] = { {105, 1}, {109, 2} };
+constexpr Drive DRIVE[2] = { {105, 1}, {109, 2} };
 
 void drive(yss236_core& c, int st, int k)
 {
@@ -244,7 +244,7 @@ const int LADDER[8] = { 119, 120, 121, 122, 123, 124, 125, 126 };
 void ladder(yss236_core& c, int st, int k)
 {
     if (k == 0) take_capture(c, 30, st);   // m[30] takes up the slot 0x58 read of 0x163
-    load(c, st, 126, 0, ADD_REG, false, ROUTE_1, CLAMP_ZERO, LADDER[k]);
+    load(c, {.st = st, .sr = 126, .add = ADD_REG, .clamp = CLAMP_ZERO, .dr = LADDER[k]});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -255,7 +255,7 @@ void ladder(yss236_core& c, int st, int k)
 // the rest joining it. `route` is the scale the ROM has that word at. Nothing is written, so the
 // curve goes on in the running value alone.
 struct Tap { int reg; route_t route; };
-const Tap RATIO[8] = {
+constexpr Tap RATIO[8] = {
     { 119, ROUTE_2 }, { 121, ROUTE_2 }, { 122, ROUTE_2 }, { 120, ROUTE_2 },
     { 123, ROUTE_2 }, { 124, ROUTE_4 }, { 125, ROUTE_1 }, { 126, ROUTE_1 },
 };
@@ -263,8 +263,8 @@ const Tap RATIO[8] = {
 void ratio_tap(yss236_core& c, int st, int k)
 {
     Tap const& t = RATIO[k];
-    if (k == 0) run(c, {st, t.reg, 0, M2_REG, false, 0, ADD_OFF, false, t.route});   // the first term
-    else        run(c, {st, t.reg, 0, M2_REG, false, 0, ADD_ACC, false, t.route});   // the rest
+    if (k == 0) run(c, {.st = st, .sr = t.reg, .route = t.route});   // the first term
+    else        run(c, {.st = st, .sr = t.reg, .add = ADD_ACC, .route = t.route});   // the rest
 }
 
 // The one-pole smoother the curve goes through: the curve loaded into r[115], then DYN_ATTACK's three
@@ -274,11 +274,11 @@ void smoother(yss236_core& c, int st, int k)
 {
     switch (k)
     {
-    case 0: load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, 115); break;  // the curve into r[115]
+    case 0: load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_ZERO, .dr = 115}); break;  // the curve into r[115]
     case 1: term(c, st, 115); break;                                           // b on x[n-1]
     case 2: sum(c, st, 116); break;                                            // t on y[n-1]
     default:                                                            // b again, on x[n], into y[n]
-        t_put(c, 9, run(c, {st, 115, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 116}));
+        t_put(c, st, 9, run(c, {.st = st, .sr = 115, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = 116}));
         break;
     }
 }
@@ -306,7 +306,7 @@ void detector(yss236_core& c, int st, int k)
     {
     case 0: term(c, st, 1); break;      // k * r[1]: the left driven input, opening the sum
     case 1:  // the right one closing it, and the absolute value that makes it a magnitude
-        run(c, {st, 2, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_16, CLAMP_ABS, 119});
+        run(c, {.st = st, .sr = 2, .add = ADD_ACC, .route = ROUTE_16, .clamp = CLAMP_ABS, .dr = 119});
         break;
     default: release_fall(c, st, true); break;
     }
@@ -316,13 +316,13 @@ void detector(yss236_core& c, int st, int k)
 // 1.15 word of its own where `tdest` says so. That is how 0x17f and 0x180 hand the smoothed gain to
 // the output filters, and the pair at 0x187 and 0x188 read t[10] and t[11] back and publish nothing.
 struct ChanGain { int src, dr, treg, tdest; };
-const ChanGain GAIN[2] = { {1, 120, 9, 10}, {2, 121, 9, 11} };
-const ChanGain OUT_GAIN[2] = { {1, 122, 10, 0}, {2, 123, 11, 0} };
+constexpr ChanGain GAIN[2] = { {1, 120, 9, 10}, {2, 121, 9, 11} };
+constexpr ChanGain OUT_GAIN[2] = { {1, 122, 10, 0}, {2, 123, 11, 0} };
 
 void channel_gain(yss236_core& c, int st, ChanGain const& g)
 {
-    double const y = run(c, {st, g.src, 0, M2_REG, false, g.treg, ADD_OFF, false, ROUTE_1, CLAMP_SAT, g.dr});
-    if (g.tdest) t_put(c, g.tdest, y);
+    double const y = run(c, {.st = st, .sr = g.src, .treg = g.treg, .clamp = CLAMP_SAT, .dr = g.dr});
+    if (g.tdest) t_put(c, st, g.tdest, y);
 }
 
 // The level smoothed into the two accumulators, 0x181 to 0x186. m[54] is the fast one: the level comes
@@ -333,18 +333,18 @@ void release_chain(yss236_core& c, int st, int k)
     switch (k)
     {
     case 0:     // the fast accumulator's rise: r[119] + m[54], written back into m[54]
-        run(c, {st, 119, 54, M2_REG, true, 0, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 0, false, 54});
+        run(c, {.st = st, .sr = 119, .sm = 54, .unity = true, .add = ADD_CELL, .clamp = CLAMP_SAT, .dm = 54});
         break;
     case 1: term_cell(c, st, 55); break;   // k * m[55]
     case 2:     // the same word again, added to the running value over 32768: DYN_RELEASE's second word
-        run(c, {st, 0, 55, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_WRAP, 0});
+        run(c, {.st = st, .sm = 55, .m2 = M2_CELL, .add = ADD_REG});
         break;
     case 3:     // the decayed m[55] off the new level: r[119] - acc, with nothing written
-        run(c, {st, 119, 0, M2_REG, true, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP, 0});
+        run(c, {.st = st, .sr = 119, .unity = true, .add = ADD_ACC, .sub = true});
         break;
     case 4: release_fall(c, st, false); break;   // DYN_RELEASE's third word
     default:    // and the level back on top of the fall, into m[55] for the threshold to scale
-        run(c, {st, 119, 0, M2_REG, true, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0, false, 55});
+        run(c, {.st = st, .sr = 119, .unity = true, .add = ADD_ACC, .clamp = CLAMP_SAT, .dm = 55});
         break;
     }
 }
@@ -364,7 +364,7 @@ struct OutFilter
     Decor decor[6];
 };
 
-const OutFilter OUT_FILTERS[2] = {
+constexpr OutFilter OUT_FILTERS[2] = {
     // base   src  wet  pre  state out  input            wet                  state               -a1             -a2                  b0
     { 0x189,   1, 120, 122, 111, 112, { {DEC_LFO, 12},     {DEC_NONE, 0},  {DEC_NONE, 0},   {DEC_NONE, 0}, {DEC_NONE, 0},     {DEC_NONE, 0}      } },
     { 0x18f,   2, 121, 123, 113, 114, { {DEC_READ, 0x63},   {DEC_NONE, 0},  {DEC_NONE, 0},   {DEC_NONE, 0}, {DEC_READ, 0x64},   {DEC_CAPTURE, 31}   } },
@@ -378,7 +378,7 @@ void output_filter(yss236_core& c, int st, OutFilter const& f, int k)
     case 0:  term(c, st, f.src); break;      // the dry driven input, opening the sum
     case 1:  sum(c, st, f.wet); break;       // the same channel through the gain
     case 2:  // r[state] = saturate(16 (k r[pre] + acc)): the whole input sum, and the state with it
-        run(c, {st, f.pre, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_16, CLAMP_SAT, f.state});
+        run(c, {.st = st, .sr = f.pre, .add = ADD_ACC, .route = ROUTE_16, .clamp = CLAMP_SAT, .dr = f.state});
         break;
     case 3:  term(c, st, f.state); break;    // DYN_HPF's b1 word on the state
     case 4:  sum(c, st, f.out); break;       // and its -a1 word on the output, the one-pass delay
@@ -394,7 +394,7 @@ void output_filter(yss236_core& c, int st, OutFilter const& f, int k)
 // moves the sum along) and whether that term opens the sum or joins it.
 struct Mix { int reg, dr; add_t add; };
 
-const Mix OUT_MIX[5] = {
+constexpr Mix OUT_MIX[5] = {
     {  5,  0, ADD_OFF },   // 0x195 the dry left, opening the left channel's mix
     {112, 15, ADD_ACC },   // 0x196 the wet left, closing it into r[15]
     {  6,  0, ADD_OFF },   // 0x197 the dry right, and the read of the slot 0x65
@@ -421,10 +421,8 @@ void out_mix(yss236_core& c, int st, int k)
 // these steps as it would the interpreter's.
 void block_0x158(yss236_core& c)
 {
-    for (int st = 0x158; st < 0x1a0; st++)
+    for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
     {
-        c.begin_step();
-        if (st < c.m_skip) continue;
 
         if (st < 0x159)
         {
@@ -432,7 +430,7 @@ void block_0x158(yss236_core& c)
             //      program, and into the running value for the filter 0x159 closes it into ----
             take_serial(c, 2, st, 0);
             term(c, st, 5);
-            continue;
+            return;
         }
 
         if (st < 0x165)
@@ -440,37 +438,37 @@ void block_0x158(yss236_core& c)
             // ---- the left input's filter, then the right input's over its own registers ----
             InFilter const& f = IN_FILTERS[st < 0x15f ? 0 : 1];
             input_filter(c, st, f, st - f.base);
-            continue;
+            return;
         }
 
         if (st < 0x168)
         {
             // ---- the threshold, and the drive the level is measured against ----
-            if (st == 0x165) { threshold(c, st); continue; }
+            if (st == 0x165) { threshold(c, st); return; }
             drive(c, st, st - 0x166);
-            continue;
+            return;
         }
 
-        if (st < 0x170) { ladder(c, st, st - 0x168); continue; }
-        if (st < 0x178) { ratio_tap(c, st, st - 0x170); continue; }
-        if (st < 0x17c) { smoother(c, st, st - 0x178); continue; }
-        if (st < 0x17f) { detector(c, st, st - 0x17c); continue; }
+        if (st < 0x170) { ladder(c, st, st - 0x168); return; }
+        if (st < 0x178) { ratio_tap(c, st, st - 0x170); return; }
+        if (st < 0x17c) { smoother(c, st, st - 0x178); return; }
+        if (st < 0x17f) { detector(c, st, st - 0x17c); return; }
 
         if (st < 0x181)
         {
             // ---- the smoothed gain on the two channels, each published as a word of its own ----
             channel_gain(c, st, GAIN[st - 0x17f]);
-            continue;
+            return;
         }
 
-        if (st < 0x187) { release_chain(c, st, st - 0x181); continue; }
+        if (st < 0x187) { release_chain(c, st, st - 0x181); return; }
 
         if (st < 0x189)
         {
             // ---- the two words the output filters read their channels through ----
             if (st == 0x187) take_lfo(c, 12, st);      // m[12] takes the LFO of this page
             channel_gain(c, st, OUT_GAIN[st - 0x187]);
-            continue;
+            return;
         }
 
         if (st < 0x195)
@@ -478,16 +476,16 @@ void block_0x158(yss236_core& c)
             // ---- the left output's filter, then the right output's over its own registers ----
             OutFilter const& f = OUT_FILTERS[st < 0x18f ? 0 : 1];
             output_filter(c, st, f, st - f.base);
-            continue;
+            return;
         }
 
-        if (st < 0x19a) { out_mix(c, st, st - 0x195); continue; }
+        if (st < 0x19a) { out_mix(c, st, st - 0x195); return; }
 
         // ---- the tail: class 0 with no RAM mark and no ALU, so only the x latch moves, bar m[33]
         //      taking up the slot 0x65 read of 0x197 on the way past ----
         if (st == 0x19c) take_capture(c, 33, st);
         idle(c);
-    }
+        });
 }
 
 }  // namespace

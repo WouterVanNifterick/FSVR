@@ -142,7 +142,7 @@ struct Tap { int st; int cell; };
 // DIFFUSION case puts beside the left sum, and the two slots the last two diffusion rows write. The
 // cells are m[56] to m[63] and back again, eight cells for thirteen reads, and every block below that
 // scales one of them reads its tap from this table and not from a delay read of its own.
-const Tap TAPS[13] = {
+constexpr Tap TAPS[13] = {
     //  st    the cell   and what that slot holds
     {  0x1a3, 56 },   // ins::ER_SLOTS[1], the first right tap, read on the high pass's b1 step
     {  0x1a7, 57 },   // and [3], the second, on the first of the two zero words after the high pass
@@ -184,7 +184,7 @@ enum serial_t { SERIAL_L, SERIAL_R };
 
 struct Serial { int st, cell; serial_t bank; };
 
-const Serial SERIALS[3] = {
+constexpr Serial SERIALS[3] = {
 	{ 0x1a4, 3, SERIAL_L },    // page 13's left input, on the high pass's -a1 step
 	{ 0x1a5, 7, SERIAL_R },    // and its right, on the high pass's -a2 step
 	{ 0x1c2, 4, SERIAL_L },    // page 14's left input, on the seventh of the left gains
@@ -238,7 +238,7 @@ struct Section
 // b0 with nothing to copy, so only x[-2] needs a register of its own and its shift rides on the -a1
 // step. ins::ER_LPF_2's input comes out of the high pass and is written by a step of its own, so both
 // of its input delays need registers and both shifts sit in front of the five words.
-const Section SECTIONS[2] = {
+constexpr Section SECTIONS[2] = {
 	//  st    n  x1      x2      y1      y2      in       out      route      and the section's steps
 	{ 0x1a2, 7, MIX,    MIX_X2, HPF_OUT, HPF_Y2, MIX,    HPF_OUT, ROUTE_2,
 	  { B2, B1, A1_X2, A2_Y2, B0, ZERO_Y2, ZERO_OUT } },
@@ -296,7 +296,7 @@ struct Row { int st, nsteps, in, cell, out; row_shape_t shape; };
 // The first two rows run off the low pass's output and cascade: the second reads the register the
 // first closed into, which is why both end at r[119] and the second overwrites the first three steps
 // later. The last two run off the two sums, each closing back into its own register.
-const Row ROWS[4] = {
+constexpr Row ROWS[4] = {
 	//  st    n  in        cell  out      shape
 	{ 0x1b4, 4, LPF_OUT,   18, DIFF,    WRITE_LAST },     // ins::ER_ROW_STEPS[0] to [3], into the slot 0x6d
 	{ 0x1b8, 4, DIFF,      19, DIFF,    WRITE_LAST },     // and [4] to [7], into the slot 0x6e
@@ -323,8 +323,7 @@ void row_step(yss236_core& c, int st, Row const& r, int k)
 		// the line write: the row's allpass point added to the running value, which is the row's own
 		// output, into the row's slot. It carries the wdata flag and is the writer itself, so it clears
 		// any latched data and writes its own result.
-		run(c, {st, 0, r.cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0,
-		        false, 0, false, false, true, true});
+		run(c, {.st = st, .sm = r.cell, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .wdata = true, .write = true});
 		return;
 	}
 	if (k == (r.shape == WRITE_LAST ? 1 : 3))
@@ -332,7 +331,7 @@ void row_step(yss236_core& c, int st, Row const& r, int k)
 		// the allpass point: the row's cell scaled and added to the running value, closed into the
 		// row's output register with the x2 route. That register is where the next row reads from and,
 		// for the last two rows, where the mix below reads the wet signal back out of.
-		run(c, {st, 0, r.cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, r.out});
+		run(c, {.st = st, .sm = r.cell, .m2 = M2_CELL, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = r.out});
 		return;
 	}
 	term(c, st, r.in);
@@ -364,7 +363,7 @@ struct GainBank
 // ins::ER_SLOTS' even entries; the right taps are the cells TAPS filled, so the two banks differ in
 // where their taps came from and not in the arithmetic that scales them. ins::ER_STEPS[19] is the zero
 // word erPattern() leaves, so the tenth right tap contributes nothing to the sum it closes.
-const GainBank GAINS[2] = {
+constexpr GainBank GAINS[2] = {
 	{ 0x1bc, 10, LEFT_TOTAL,  SET_LATCH, { 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 } },
 	{ 0x1d2, 10, RIGHT_TOTAL, WRITE_OWN,  { 56, 57, 58, 59, 60, 61, 62, 63, 56, 57 } },
 };
@@ -405,7 +404,7 @@ void tap_gain(yss236_core& c, int st, GainBank const& g, int k)
 // channel with the other one's d + 1 samples behind it.
 struct SumPair { int st, nsteps, sum, cross, out; };
 
-const SumPair SUMS[2] = {
+constexpr SumPair SUMS[2] = {
 	{ 0x1dc, 2, LEFT_TOTAL,  CROSS_R, SUM_L },   // m[43] and m[33], the left sum with the right one behind
 	{ 0x1de, 2, RIGHT_TOTAL, DIFF_L, SUM_R },   // and m[44] with m[56], the other way round
 };
@@ -423,7 +422,7 @@ SumPair const* sum_for(int st) { return SUMS_AT[st] < 0 ? nullptr : &SUMS[SUMS_A
 void sum_pair(yss236_core& c, int st, SumPair const& s)
 {
 	if (st == s.st) term_cell(c, st, s.sum);
-	else               run(c, {st, 0, s.cross, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, s.out});
+	else               run(c, {.st = st, .sm = s.cross, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = s.out});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -435,7 +434,7 @@ void sum_pair(yss236_core& c, int st, SumPair const& s)
 // register the base program reads back, and `spare` the cell the third step writes a slot from.
 struct Mix { int st, nsteps, dry, wet, out, spare; };
 
-const Mix MIXES[2] = {
+constexpr Mix MIXES[2] = {
 	{ 0x1f1, 3, SIG_L, SUM_L, OUT_L, 20 },   // ins::ER_WET[0] and [1], into r[17], and the slot 0x7c
 	{ 0x1f5, 3, SIG_R, SUM_R, OUT_R, 21 },   // ins::ER_WET[2] and [3], into r[18], and the slot 0x7d
 };
@@ -462,8 +461,7 @@ void output_mix(yss236_core& c, int st, Mix const& m)
 		close(c, st, m.wet, m.out, ROUTE_4);
 		break;
 	default:
-		run(c, {st, 0, m.spare, M2_CELL, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0,
-		        false, 0, false, false, true, true});
+		run(c, {.st = st, .sm = m.spare, .m2 = M2_CELL, .clamp = CLAMP_SAT, .wdata = true, .write = true});
 		break;
 	}
 }
@@ -496,8 +494,7 @@ void high_damp(yss236_core& c, int st)
 		break;
 	case 0x1b2:
 		// ins::ER_LPF[1], b1 on m[42], and the write that leaves m[42] as the m[32] of a pass earlier
-		run(c, {st, 0, TAP20_Y, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_WRAP,
-		        0, false, TAP20_Y, true});
+		run(c, {.st = st, .sm = TAP20_Y, .m2 = M2_CELL, .add = ADD_ACC, .dm = TAP20_Y, .prev = true});
 		break;
 	default:
 		// ins::ER_LPF[2], -a1 on the filter's own output register, the delay line's input
@@ -515,8 +512,7 @@ void line_input(yss236_core& c, int st)
 {
 	if (st == 0x1ee) term(c, st, DIFF);
 	else
-		run(c, {st, DAMP, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
-		        0, false, 0, false, false, true, true});
+		run(c, {.st = st, .sr = DAMP, .add = ADD_ACC, .clamp = CLAMP_SAT, .wdata = true, .write = true});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -529,10 +525,8 @@ void line_input(yss236_core& c, int st)
 // guard never fires here; it is the base program's steps around these that set m_skip.
 void block_0x1a0(yss236_core& c)
 {
-	for (int st = 0x1a0; st < 0x200; st++)
+	for_steps<0x1a0, 0x200>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// The delay RAM reads and the cells that take them up, and the three serial inputs. Both come
 		// before the step's own arithmetic, because step() reads the delay RAM and moves a cell before
@@ -544,38 +538,38 @@ void block_0x1a0(yss236_core& c)
 			take_serial(c, SERIALS[s].cell, st, SERIALS[s].bank == SERIAL_R);
 
 		// ---- 0x1a0 and 0x1a1: the two signals in, mixed to mono for both filters ----
-		if (st < 0x1a2) { mono_mix(c, st); continue; }
+		if (st < 0x1a2) { mono_mix(c, st); return; }
 
 		// ---- 0x1a2 to 0x1b0: the two biquads, ins::ER_HPF and ins::ER_LPF_2 ----
-		if (Section const* s = section_for(st)) { section_step(c, st, *s, st - s->st); continue; }
+		if (Section const* s = section_for(st)) { section_step(c, st, *s, st - s->st); return; }
 
 		// ---- 0x1b1 to 0x1b3: the High Damp filter, ins::ER_LPF over the twentieth tap ----
-		if (st < 0x1b4) { high_damp(c, st); continue; }
+		if (st < 0x1b4) { high_damp(c, st); return; }
 
 		// ---- 0x1b4 to 0x1bb and 0x1e6 to 0x1ed: the four diffusion rows ----
-		if (Row const* r = row_for(st)) { row_step(c, st, *r, st - r->st); continue; }
+		if (Row const* r = row_for(st)) { row_step(c, st, *r, st - r->st); return; }
 
 		// ---- 0x1bc to 0x1c5 and 0x1d2 to 0x1db: the twenty tap gains, ten a channel ----
-		if (GainBank const* g = gain_for(st)) { tap_gain(c, st, *g, st - g->st); continue; }
+		if (GainBank const* g = gain_for(st)) { tap_gain(c, st, *g, st - g->st); return; }
 
 		// ---- 0x1c6 to 0x1d1: the left sum's write into the slot 0x71 and eleven steps of padding ----
-		if (st < 0x1d2) { if (st == 0x1c7) write_delay_latched(c, st); else idle(c); continue; }
+		if (st < 0x1d2) { if (st == 0x1c7) write_delay_latched(c, st); else idle(c); return; }
 
 		// ---- 0x1dc to 0x1df: the two sums, each with the other channel's a Diffusion delay back ----
-		if (SumPair const* s = sum_for(st)) { sum_pair(c, st, *s); continue; }
+		if (SumPair const* s = sum_for(st)) { sum_pair(c, st, *s); return; }
 
 		// ---- 0x1e0 to 0x1e5: the padding round the read of the last two rows' allpass point ----
-		if (st < 0x1e6) { idle(c); continue; }
+		if (st < 0x1e6) { idle(c); return; }
 
 		// ---- 0x1ee and 0x1ef: the delay line's input ----
-		if (st < 0x1f0) { line_input(c, st); continue; }
+		if (st < 0x1f0) { line_input(c, st); return; }
 
 		// ---- 0x1f0 to 0x1f7: the dry and wet mix, ins::ER_WET, and the two writes nothing reads ----
-		if (Mix const* m = mix_for(st)) { output_mix(c, st, *m); continue; }
+		if (Mix const* m = mix_for(st)) { output_mix(c, st, *m); return; }
 
 		// ---- 0x1f8 to 0x1ff: eight steps that count and nothing else ----
 		idle(c);
-	}
+		});
 }
 
 }  // namespace

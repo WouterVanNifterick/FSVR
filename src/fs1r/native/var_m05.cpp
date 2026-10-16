@@ -142,28 +142,6 @@ constexpr int ZERO = 56;             // m[56]: the ROM's own zero, which the rig
 // What a step does with a cell or the delay RAM before it does any arithmetic
 // ---------------------------------------------------------------------------------------------
 
-// A step that is more than a term: it reads the delay RAM, publishes a capture of an earlier read,
-// takes a serial input or an LFO. `cell` is the slot a DEC_READ reads, which is its own step over
-// four, or the cell the move lands in.
-enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_LFO, DEC_SERIAL_L, DEC_SERIAL_R };
-
-struct Decor { decor_t kind; int cell; };
-
-// The decor a step carries. It comes before the term, because step() moves a cell or reads the delay
-// RAM before it does any arithmetic.
-void decor(yss236_core& c, int st, Decor const& d)
-{
-    switch (d.kind)
-    {
-        case DEC_READ:      read_delay(c, st); break;
-        case DEC_CAPTURE:   take_capture(c, d.cell, st); break;
-        case DEC_LFO:       take_lfo(c, d.cell, st); break;
-        case DEC_SERIAL_L:  take_serial(c, d.cell, st, 0); break;
-        case DEC_SERIAL_R:  take_serial(c, d.cell, st, 1); break;
-        case DEC_NONE: break;
-    }
-}
-
 // ---------------------------------------------------------------------------------------------
 // The two channels' EQ, two order-1 shelves each
 // ---------------------------------------------------------------------------------------------
@@ -183,10 +161,10 @@ struct Eq
 // one, which publishes the two reads the base program asked for. The seven steps are the channel's
 // input on the ROM's ~unity word and then the low shelf's b1, -a1 and b0, then the high shelf's b1,
 // -a1 and b0, and each row's decor list is in that order.
-const Eq EQS[2] = {
+constexpr Eq EQS[2] = {
     //  base   src  in   lo   hi   the seven steps' decor, in that order
-    {  0x158,   5, 103, 104, 105, { {DEC_SERIAL_L, 2}, {DEC_SERIAL_R, 6}, {DEC_NONE, 0}, {DEC_READ, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
-    {  0x15f,   6, 106, 107, 108, { {DEC_READ, 0}, {DEC_CAPTURE, 28}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_READ, 0}, {DEC_CAPTURE, 29}, {DEC_NONE, 0} } },
+    { 0x158, 5, 103, 104, 105, { {DEC_SERIAL_L, 2}, {DEC_SERIAL_R, 6}, {}, {DEC_READ, 0}, {},            {},                {} } },
+    { 0x15f, 6, 106, 107, 108, { {DEC_READ, 0},     {DEC_CAPTURE, 28}, {}, {},            {DEC_READ, 0}, {DEC_CAPTURE, 29}, {} } },
 };
 
 // One channel's EQ step. The first step takes the input the base program wrote and starts nothing, and
@@ -227,11 +205,11 @@ struct Sum
 
 // The two halves of the eight section weights, which are the two cascades, and then the diffuse tap,
 // which is the same four steps on its own four registers.
-const Sum SUMS[3] = {
+constexpr Sum SUMS[3] = {
     //  base  first  cell      the three registers        out  route
-    {  0x167,     0, SECTION2, { 110, 111, 112 }, 120, ROUTE_2 },
-    {  0x16b,   115,       0, { 116, 117, 118 }, 121, ROUTE_2 },
-    {  0x170,   120,       0, { 121, 114, 117 }, 119, ROUTE_2 },
+    { 0x167, 0,   SECTION2, { 110, 111, 112 }, 120, ROUTE_2 },
+    { 0x16b, 115, 0,        { 116, 117, 118 }, 121, ROUTE_2 },
+    { 0x170, 120, 0,        { 121, 114, 117 }, 119, ROUTE_2 },
 };
 
 // One of those four steps, at base to base + 3.
@@ -257,15 +235,15 @@ void sum4(yss236_core& c, int st, Sum const& s)
 // cascades sweep against each other.
 void gain_load(yss236_core& c, int st, int tn, int depth)
 {
-    load(c, st, 0, depth, ADD_CELL, false, ROUTE_1, CLAMP_SAT, GAIN);
-    t_put(c, tn, c.acc);
+    load(c, {.st = st, .sm = depth, .add = ADD_CELL, .clamp = CLAMP_SAT, .dr = GAIN});
+    t_put(c, st, tn, c.acc);
 }
 
 // 0x16f and 0x17d: t[tn] = r[122] = saturate(t[tn] * r[122]), the gain squared and back into its own
 // t register.
 void gain_square(yss236_core& c, int st, int tn)
 {
-    t_put(c, tn, run(c, { st, GAIN, 0, M2_REG, false, tn, ADD_OFF, false, ROUTE_1, CLAMP_SAT, GAIN }));
+    t_put(c, st, tn, run(c, {.st = st, .sr = GAIN, .treg = tn, .clamp = CLAMP_SAT, .dr = GAIN}));
 }
 
 // 0x175 and 0x189: the square on r[122] times the gain, less what that cascade subtracts, which is
@@ -273,7 +251,7 @@ void gain_square(yss236_core& c, int st, int tn)
 // cell on the right.
 void gain_to_fourth(yss236_core& c, int st, int tn, add_t add, int cell)
 {
-    t_put(c, tn, run(c, { st, GAIN, cell, M2_REG, false, tn, add, true, ROUTE_1, CLAMP_SAT }));
+    t_put(c, st, tn, run(c, {.st = st, .sr = GAIN, .sm = cell, .treg = tn, .add = add, .sub = true, .clamp = CLAMP_SAT}));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -300,11 +278,11 @@ struct Feed
 
 // The first section, on the cross-channel feedback the left cascade starts from; the second, whose own
 // output is the cell; and the third, on that cell a pass back.
-const Feed FEEDS[3] = {
+constexpr Feed FEEDS[3] = {
     //  base        gain  reg  cell      shape
-    {  0x17b,      TL,  109,  FEEDBACK, SH_TAP   },
-    {  0x17e,      TL,  109,  SECTION2, SH_CELL  },
-    {  0x181,      TL,  110,  SECTION2, SH_TAP   },
+    { 0x17b, TL, 109, FEEDBACK, SH_TAP  },
+    { 0x17e, TL, 109, SECTION2, SH_CELL },
+    { 0x181, TL, 110, SECTION2, SH_TAP  },
 };
 
 // One of those two steps: the first opens the running value on the section's input and the second
@@ -314,16 +292,16 @@ void feed(yss236_core& c, int st, Feed const& f)
     if (f.shape == SH_TAP)
     {
         if (st == f.base)
-            run(c, { st, f.reg, f.cell, M2_REG, false, f.gain, ADD_CELL, true, ROUTE_1, CLAMP_WRAP });
+            run(c, {.st = st, .sr = f.reg, .sm = f.cell, .treg = f.gain, .add = ADD_CELL, .sub = true});
         else
-            run(c, { st, 0, f.cell, M2_CELL, false, f.gain, ADD_ACC, true, ROUTE_1, CLAMP_SAT, f.reg });
+            run(c, {.st = st, .sm = f.cell, .m2 = M2_CELL, .treg = f.gain, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = f.reg});
     }
     else
     {
         if (st == f.base)
-            run(c, { st, f.reg, f.cell, M2_CELL, false, f.gain, ADD_REG, true, ROUTE_1, CLAMP_WRAP });
+            run(c, {.st = st, .sr = f.reg, .sm = f.cell, .m2 = M2_CELL, .treg = f.gain, .add = ADD_REG, .sub = true});
         else
-            run(c, { st, f.reg, 0, M2_REG, false, f.gain, ADD_ACC, true, ROUTE_1, CLAMP_SAT, 0, false, f.cell });
+            run(c, {.st = st, .sr = f.reg, .treg = f.gain, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dm = f.cell});
     }
 }
 
@@ -342,15 +320,15 @@ struct Chain
 // the unity step that carries the section before's output, the section, and the step that writes the
 // section's own output register. The rows are three steps apart, so a step's row is its own offset
 // over three from the block's base.
-const Chain CHAINS[7] = {
+constexpr Chain CHAINS[7] = {
     //  base        gain  in  out  the three steps' decor, in that order
-    {  0x183,      TL, 110, 111, { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
-    {  0x186,      TL, 111, 112, { {DEC_LFO, 12}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
-    {  0x18d,      TR, 113, 114, { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_READ, 0} } },
-    {  0x190,      TR, 114, 115, { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
-    {  0x193,      TR, 115, 116, { {DEC_READ, 0}, {DEC_CAPTURE, 31}, {DEC_NONE, 0} } },
-    {  0x196,      TR, 116, 117, { {DEC_NONE, 0}, {DEC_READ, 0}, {DEC_CAPTURE, 32} } },
-    {  0x199,      TR, 117, 118, { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+    { 0x183, TL, 110, 111, { {},            {},                {}                } },
+    { 0x186, TL, 111, 112, { {DEC_LFO, 12}, {},                {}                } },
+    { 0x18d, TR, 113, 114, { {},            {},                {DEC_READ, 0}     } },
+    { 0x190, TR, 114, 115, { {},            {},                {}                } },
+    { 0x193, TR, 115, 116, { {DEC_READ, 0}, {DEC_CAPTURE, 31}, {}                } },
+    { 0x196, TR, 116, 117, { {},            {DEC_READ, 0},     {DEC_CAPTURE, 32} } },
+    { 0x199, TR, 117, 118, { {},            {},                {}                } },
 };
 
 // One of those three steps, at base to base + 2.
@@ -360,9 +338,9 @@ void chain(yss236_core& c, int st, Chain const& s)
     decor(c, st, s.decor[k]);
     switch (k)
     {
-    case 0:  run(c, { st, s.in, 0, M2_REG, true }); break;                    // the class-3 unity step
-    case 1:  run(c, { st, s.out, 0, M2_REG, false, s.gain, ADD_ACC, true, ROUTE_1, CLAMP_WRAP }); break;
-    default: run(c, { st, s.in, 0, M2_REG, false, s.gain, ADD_ACC, true, ROUTE_1, CLAMP_SAT, s.out }); break;
+    case 0:  run(c, {.st = st, .sr = s.in, .unity = true}); break;                    // the class-3 unity step
+    case 1:  run(c, {.st = st, .sr = s.out, .treg = s.gain, .add = ADD_ACC, .sub = true}); break;
+    default: run(c, {.st = st, .sr = s.in, .treg = s.gain, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = s.out}); break;
     }
 }
 
@@ -378,10 +356,10 @@ void left_feedback(yss236_core& c, int st)
     switch (st)
     {
     case 0x176: term(c, st, 105); break;      // a quarter of the left EQ output on the ROM's own word
-    case 0x177: run(c, { st, 108, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_WRAP }); break;
+    case 0x177: run(c, {.st = st, .sr = 108, .add = ADD_ACC, .route = ROUTE_2}); break;
     case 0x178: sum(c, st, 120); break;       // the left cascade's four sections, on PH_WIDTH1's word
     case 0x179:  // the right cascade's four sections close the sum and m[54] takes it saturated
-        run(c, { st, 121, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0, false, FEEDBACK });
+        run(c, {.st = st, .sr = 121, .add = ADD_ACC, .clamp = CLAMP_SAT, .dm = FEEDBACK});
         break;
     }
 }
@@ -393,7 +371,7 @@ void right_input(yss236_core& c, int st)
 {
     switch (st)
     {
-    case 0x18a: run(c, { st, 108, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_2, CLAMP_WRAP }); break;
+    case 0x18a: run(c, {.st = st, .sr = 108, .route = ROUTE_2}); break;
     case 0x18b: sum(c, st, 121); break;       // the right cascade's four sections, on PH_WIDTH2's word
     default:    close(c, st, 120, 113); break;
     }
@@ -411,10 +389,10 @@ struct Output
     int dry;
 };
 
-const Output OUTPUTS[2] = {
+constexpr Output OUTPUTS[2] = {
     //  base   out  wet  dry
-    {  0x19c,   15, 105, 119 },
-    {  0x19e,   16, 108, 121 },
+    { 0x19c, 15, 105, 119 },
+    { 0x19e, 16, 108, 121 },
 };
 
 void output(yss236_core& c, int st, Output const& o)
@@ -432,66 +410,64 @@ void output(yss236_core& c, int st, Output const& o)
 // the groups the comments at the head of this file open.
 void block_0x158(yss236_core& c)
 {
-    for (int st = 0x158; st < 0x1a0; st++)
+    for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
     {
-        c.begin_step();
-        if (st < c.m_skip) continue;
 
         if (st < 0x166)
         {
             // ---- 0x158 to 0x165, the two channels' EQ ----
             eq(c, st, EQS[(st - 0x158) / 7]);
-            continue;
+            return;
         }
         if (st == 0x166)
         {
             // ---- the left cascade's swept gain, the phase shift with the first LFO's depth on it ----
             take_lfo(c, 11, st);      // this page's LFO, published for the base program
             gain_load(c, st, TL, 8);
-            continue;
+            return;
         }
         if (st < 0x16f)
         {
             // ---- 0x167 to 0x16e, the eight section weights, four a cascade ----
             if (st == 0x168) take_capture(c, 30, st);      // the read of 0x163, five steps earlier
             sum4(c, st, SUMS[(st - 0x167) / 4]);
-            continue;
+            return;
         }
         if (st == 0x16f)
         {
             // ---- the left gain squared ----
             gain_square(c, st, TL);
-            continue;
+            return;
         }
         if (st < 0x174)
         {
             // ---- 0x170 to 0x173, the diffuse tap ----
             sum4(c, st, SUMS[2]);
-            continue;
+            return;
         }
         if (st == 0x174)
         {
             // ---- the constant the left gain's fourth power comes off: the ROM's 0x7ffe, about 128 ----
-            load(c, st, 0, 0);
-            continue;
+            load(c, {.st = st});
+            return;
         }
         if (st == 0x175)
         {
             // ---- the left gain to the fourth, less that constant ----
             gain_to_fourth(c, st, TL, ADD_ACC, 0);
-            continue;
+            return;
         }
         if (st < 0x17a)
         {
             // ---- 0x176 to 0x179, the feedback the left cascade starts from ----
             left_feedback(c, st);
-            continue;
+            return;
         }
         if (st == 0x17a)
         {
             // ---- the right cascade's swept gain, the same load on the second LFO's depth ----
             gain_load(c, st, TR, 9);
-            continue;
+            return;
         }
         if (st < 0x189)
         {
@@ -500,41 +476,41 @@ void block_0x158(yss236_core& c)
             if (st == 0x17d)
             {
                 gain_square(c, st, TR);
-                continue;
+                return;
             }
             if (st == 0x180)
             {
                 // the ROM's own zero, which m[56] takes and the right gain subtracts
-                load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0, ZERO);
-                continue;
+                load(c, {.st = st, .clamp = CLAMP_SAT, .dm = ZERO});
+                return;
             }
             if (st < 0x183) feed(c, st, FEEDS[(st - 0x17b) / 3]);
             else            chain(c, st, CHAINS[(st - 0x183) / 3]);
-            continue;
+            return;
         }
         if (st == 0x189)
         {
             // ---- the right gain to the fourth, less the zero cell ----
             gain_to_fourth(c, st, TR, ADD_CELL, ZERO);
-            continue;
+            return;
         }
         if (st < 0x18d)
         {
             // ---- 0x18a to 0x18c, what the right cascade starts from ----
             right_input(c, st);
-            continue;
+            return;
         }
         if (st < 0x19c)
         {
             // ---- 0x18d to 0x19b, the right cascade's five sections ----
             chain(c, st, CHAINS[2 + (st - 0x18d) / 3]);
-            continue;
+            return;
         }
 
         // ---- 0x19c to 0x19f, the dry and wet ----
         if (st == 0x19c) take_capture(c, 33, st);      // the read of 0x197, five steps earlier
         output(c, st, OUTPUTS[(st - 0x19c) / 2]);
-    }
+        });
 }
 
 }  // namespace

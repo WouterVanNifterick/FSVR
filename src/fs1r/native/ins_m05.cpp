@@ -159,7 +159,7 @@ enum decor_t { DEC_NONE, DEC_SERIAL_L, DEC_SERIAL_R, DEC_LFO };
 
 struct Decor { int st; decor_t kind; int cell; };
 
-const Decor DECORS[4] = {
+constexpr Decor DECORS[4] = {
     //  the step  the decor                    the cell
     {   0x1a5,   DEC_SERIAL_L, SERIAL_L   },   // on the right channel's -a2 word
     {   0x1a6,   DEC_SERIAL_R, SERIAL_R   },   // on that section's b0
@@ -194,7 +194,7 @@ void decor(yss236_core& c, int st, Decor const& d)
 // pass of that filter in it, and that is what the seven types' shapes are cut against.
 void shape_word(yss236_core& c, int st, int in, int out, int cell = 0)
 {
-	run(c, {st, in, cell, cell ? M2_CELL : M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT, out});
+	run(c, {.st = st, .sr = in, .sm = cell, .m2 = cell ? M2_CELL : M2_REG, .route = ROUTE_16, .clamp = CLAMP_SAT, .dr = out});
 }
 
 // The one word of the chain that publishes on its way out: m[43] takes the step before's own cell,
@@ -202,7 +202,7 @@ void shape_word(yss236_core& c, int st, int in, int out, int cell = 0)
 // shaper one pass late, which is what makes the dynamics a feedback path round the whole block.
 void shape_word_published(yss236_core& c, int st, int in, int out)
 {
-	run(c, {st, in, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT, out, false, CURVE_OLD, true});
+	run(c, {.st = st, .sr = in, .route = ROUTE_16, .clamp = CLAMP_SAT, .dr = out, .dm = CURVE_OLD, .prev = true});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -224,7 +224,7 @@ struct Biquad
 	bool y2_copy;
 };
 
-const Biquad BIQUADS[5] = {
+constexpr Biquad BIQUADS[5] = {
     //   st  n  in  x1  out  y2  route   the -a2 copy
     { 0x1a2, 5, IN_R, IN_R + 1, FILT_R, FILT_R + 1, ROUTE_2,  true  },   // ins::DIST_INPUT_C, right channel
     { 0x1ab, 5, IN_L, IN_L + 1, FILT_L, FILT_L + 1, ROUTE_2,  true  },   // ins::DIST_INPUT, left channel
@@ -304,7 +304,7 @@ void inputs(yss236_core& c, int st)
 // level to make the detector's second state.
 void release(yss236_core& c, int st, int dr)
 {
-	run(c, {st, PEAK, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_ZERO, dr});
+	run(c, {.st = st, .sr = PEAK, .add = ADD_ACC, .sub = true, .clamp = CLAMP_ZERO, .dr = dr});
 }
 
 // 0x1b0 to 0x1bb: four more words down the chain, with the level and the smoother between them. The
@@ -338,7 +338,7 @@ void shaper_chain(yss236_core& c, int st)
 	case 0x1b5:
 		// ins::DIST_LEVEL[0]: the left channel added on top and the sum taken at its absolute value,
 		// so m[49] is the peak of the two channels and not their total
-		run(c, {st, DET_L, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_16, CLAMP_ABS, 0, false, LEVEL});
+		run(c, {.st = st, .sr = DET_L, .add = ADD_ACC, .route = ROUTE_16, .clamp = CLAMP_ABS, .dm = LEVEL});
 		break;
 	case 0x1b6:
 		release(c, st, REL);                                 // ins::DYN_RELEASE[0]
@@ -352,8 +352,7 @@ void shaper_chain(yss236_core& c, int st)
 	default:
 		// ins::DYN_ATTACK[0]: the curve's own word on top, into the state cell and out to t[9], which
 		// is the gain the two channel scales at 0x1c9 and 0x1ca multiply by
-		t_put(c, 9, run(c, {st, 0, CURVE_OUT, M2_CELL, false, 0, ADD_ACC, false,
-		                     ROUTE_1, CLAMP_SAT, 0, false, SMOOTH}));
+		t_put(c, st, 9, run(c, {.st = st, .sm = CURVE_OUT, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dm = SMOOTH}));
 		break;
 	}
 }
@@ -368,7 +367,7 @@ void detector(yss236_core& c, int st)
 	{
 	case 0x1bc:
 		// r[75] = m[49] + r[121], the level plus the ramp 0x1b6 left
-		run(c, {st, REL, LEVEL, M2_CELL, true, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, PEAK});
+		run(c, {.st = st, .sr = REL, .sm = LEVEL, .m2 = M2_CELL, .unity = true, .add = ADD_REG, .clamp = CLAMP_SAT, .dr = PEAK});
 		break;
 	case 0x1bd:
 		// the ROM's own word on the second state, ins::DYN_RELEASE[1]'s first half
@@ -377,11 +376,11 @@ void detector(yss236_core& c, int st)
 	case 0x1be:
 		// and the same word again with the running value added at 1/32768, which is the decay term in
 		// register units: the second state is its own decay plus a little of what it was
-		run(c, {st, PEAK2, 0, M2_REG, false, 0, ADD_CELL, false, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sr = PEAK2, .add = ADD_CELL});
 		break;
 	case 0x1bf:
 		// class 3: acc = m[49] - acc, how far the level has fallen below its own decay
-		run(c, {st, 0, LEVEL, M2_CELL, true, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sm = LEVEL, .m2 = M2_CELL, .unity = true, .add = ADD_ACC, .sub = true});
 		break;
 	case 0x1c0:
 		// ins::DYN_RELEASE[2]: the ramp, the first state's decay less that, and never negative
@@ -389,7 +388,7 @@ void detector(yss236_core& c, int st)
 		break;
 	default:
 		// class 3: r[76] = m[49] + acc, the second state
-		run(c, {st, 0, LEVEL, M2_CELL, true, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, PEAK2});
+		run(c, {.st = st, .sm = LEVEL, .m2 = M2_CELL, .unity = true, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = PEAK2});
 		break;
 	}
 }
@@ -404,7 +403,7 @@ void detector(yss236_core& c, int st)
 // polynomial is the shape the drive's five multiplies reach the shaper with.
 struct PolyTerm { int reg; bool closes; };
 
-const PolyTerm POLY[6] = {
+constexpr PolyTerm POLY[6] = {
 	{ CHAIN,     false },     // ins::DIST_BAND[6], the only word with the adder off
 	{ CHAIN + 1, false },     // ins::DIST_BAND[7]
 	{ CHAIN + 2, false },     // ins::DIST_BAND[8]
@@ -416,8 +415,7 @@ const PolyTerm POLY[6] = {
 void polynomial(yss236_core& c, int st, int k)
 {
 	PolyTerm const& p = POLY[k];
-	run(c, {st, p.reg, 0, M2_REG, false, 0, k ? ADD_ACC : ADD_OFF, false,
-	         ROUTE_1, p.closes ? CLAMP_SAT : CLAMP_WRAP, p.closes ? CHAIN : 0});
+	run(c, {.st = st, .sr = p.reg, .add = k ? ADD_ACC : ADD_OFF, .clamp = p.closes ? CLAMP_SAT : CLAMP_WRAP, .dr = p.closes ? CHAIN : 0});
 }
 
 // The four steps that multiply by a t register, which is how the smoother's gain becomes a pole both
@@ -427,7 +425,7 @@ void polynomial(yss236_core& c, int st, int k)
 // steps that write none.
 struct TGain { int st; int src, dst; int treg, tn; };
 
-const TGain T_GAIN[4] = {
+constexpr TGain T_GAIN[4] = {
     //   st  src  dst  treg  tn
     { 0x1c9, DET_L, LEV_L,   9, 10 },     // the smoothed level of each channel, squared into its t register
     { 0x1ca, DET_R, LEV_R,   9, 11 },
@@ -443,8 +441,8 @@ TGain const* t_gain_for(int st) { return T_GAIN_AT[st] < 0 ? nullptr : &T_GAIN[T
 
 void t_gain(yss236_core& c, int st, TGain const& g)
 {
-	double const y = run(c, {st, g.src, 0, M2_REG, false, g.treg, ADD_OFF, false, ROUTE_1, CLAMP_SAT, g.dst});
-	if (g.tn) t_put(c, g.tn, y);
+	double const y = run(c, {.st = st, .sr = g.src, .treg = g.treg, .clamp = CLAMP_SAT, .dr = g.dst});
+	if (g.tn) t_put(c, st, g.tn, y);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -458,7 +456,7 @@ void t_gain(yss236_core& c, int st, TGain const& g)
 // a register because 0x1a0 reads it back into the shaper's chain, one pass behind.
 struct ChannelOut { int st, nsteps; int mode_reg, scale_src, scale_reg, in, state; };
 
-const ChannelOut CHANNELS[2] = {
+constexpr ChannelOut CHANNELS[2] = {
     //   st  n  mode  src  scale  in  state
     { 0x1dd, 6, LEV_L, DET_L, SCALE_L, OUT_L_IN, STATE_L },   // the left, off DIST_MODE and DIST_OUTPUT
     { 0x1e7, 6, LEV_R, DET_R, SCALE_R, OUT_R_IN, STATE_R },   // and the right, off DIST_OUTPUT_C
@@ -486,7 +484,7 @@ void channel_step(yss236_core& c, int st, ChannelOut const& p, int k)
 		sum_cell(c, st, p.state); break;                 // ins::DIST_OUTPUT[2], -a1 on y[-1]
 	default:
 		// ins::DIST_OUTPUT[0], b0: the filter's output into the cell its own -a1 reads, at a half
-		run(c, {st, p.in, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, 0, false, p.state});
+		run(c, {.st = st, .sr = p.in, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dm = p.state});
 		break;
 	}
 }
@@ -497,7 +495,7 @@ void channel_step(yss236_core& c, int st, ChannelOut const& p, int k)
 // two channels' dry signals into both outputs with one step of the pipeline in common.
 struct MixStep { int st; m2_t m2; int src; int cell; add_t add; route_t route; int dr; };
 
-const MixStep MIXES[3] = {
+constexpr MixStep MIXES[3] = {
     //  the step  what the word scales  its register  the adder's cell  the adder  route  out
     {   0x1e3,  M2_REG,                 EQ,      DRY_L,     ADD_CELL, ROUTE_4, OUT_L  },
     {   0x1e4,  M2_REG,                 EQ,      DRY_R,     ADD_CELL, ROUTE_1, 0      },
@@ -506,8 +504,7 @@ const MixStep MIXES[3] = {
 
 void mix_step(yss236_core& c, MixStep const& p)
 {
-	run(c, {p.st, p.src, p.cell, p.m2, false, 0, p.add, false, p.route,
-	         p.dr ? CLAMP_SAT : CLAMP_WRAP, p.dr});
+	run(c, {.st = p.st, .sr = p.src, .sm = p.cell, .m2 = p.m2, .add = p.add, .route = p.route, .clamp = p.dr ? CLAMP_SAT : CLAMP_WRAP, .dr = p.dr});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -524,7 +521,7 @@ void mix_step(yss236_core& c, MixStep const& p)
 // read them.
 struct Segment { int bp, w; route_t route; };
 
-const Segment CURVE[8] = {
+constexpr Segment CURVE[8] = {
     //   bp   w  route      the breakpoint lands in r[bp] and its own weight reads r[w]
     { CHAIN,     CHAIN,     ROUTE_2 },      // ins::DYN_RATIO[0]
     { CHAIN + 1, CHAIN + 2, ROUTE_2 },      // ins::DYN_RATIO[2]
@@ -541,7 +538,7 @@ void gain_curve(yss236_core& c, int st)
 	if (st < 0x1f5)
 	{
 		// one of the eight breakpoints: r[n] = max(0, 128 * k + r[123]), the level less that step
-		load(c, st, THRESH, 0, ADD_REG, false, ROUTE_1, CLAMP_ZERO, CURVE[st - 0x1ed].bp);
+		load(c, {.st = st, .sr = THRESH, .add = ADD_REG, .clamp = CLAMP_ZERO, .dr = CURVE[st - 0x1ed].bp});
 		return;
 	}
 	if (st < 0x1fd)
@@ -549,7 +546,7 @@ void gain_curve(yss236_core& c, int st)
 		// and the weight of one segment, the first on its own and the rest added to the running value.
 		// The routes differ step by step, which is the ratio law's own shape and not a table's.
 		Segment const& g = CURVE[st - 0x1f5];
-		run(c, {st, g.w, 0, M2_REG, false, 0, st == 0x1f5 ? ADD_OFF : ADD_ACC, false, g.route, CLAMP_WRAP});
+		run(c, {.st = st, .sr = g.w, .add = st == 0x1f5 ? ADD_OFF : ADD_ACC, .route = g.route});
 		return;
 	}
 	switch (st)
@@ -557,15 +554,15 @@ void gain_curve(yss236_core& c, int st)
 	case 0x1fd:
 		// m[42] = max(0, 128 * k + acc): the eight weights summed, biased by the ROM's own word and
 		// held at zero, which is the curve the smoother and so the shaper will read next pass
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, 0, CURVE_OUT);
+		load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_ZERO, .dm = CURVE_OUT});
 		break;
 	case 0x1fe:
 		// ins::DIST_WET[0]: m[47] = k * r[7], the left channel's dry signal
-		run(c, {st, SIG_L, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0, false, DRY_L});
+		run(c, {.st = st, .sr = SIG_L, .clamp = CLAMP_SAT, .dm = DRY_L});
 		break;
 	default:
 		// ins::DIST_WET[2]: m[48] = k * r[8], the right channel's
-		run(c, {st, SIG_R, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0, false, DRY_R});
+		run(c, {.st = st, .sr = SIG_R, .clamp = CLAMP_SAT, .dm = DRY_R});
 		break;
 	}
 }
@@ -580,10 +577,8 @@ void gain_curve(yss236_core& c, int st)
 // step, so no cskip of this block's own either: the guard is the only one a skip can open here.
 void block_0x1a0(yss236_core& c)
 {
-	for (int st = 0x1a0; st < 0x200; st++)
+	for_steps<0x1a0, 0x200>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// the four cells this window takes from the hardware side, before the step's own arithmetic
 		if (Decor const* d = decor_for(st)) decor(c, st, *d);
@@ -591,49 +586,49 @@ void block_0x1a0(yss236_core& c)
 		// ---- 0x1a0 to 0x1af: the drive chain, the two channels' inputs and their filters ----
 		if (st < 0x1b0)
 		{
-			if (Biquad const* b = biquad_for(st)) { biquad_step(c, st, *b, st - b->st); continue; }
+			if (Biquad const* b = biquad_for(st)) { biquad_step(c, st, *b, st - b->st); return; }
 			inputs(c, st);
-			continue;
+			return;
 		}
 
 		// ---- 0x1b0 to 0x1bb: the rest of the chain, the level and the smoother ----
-		if (st < 0x1bc) { shaper_chain(c, st); continue; }
+		if (st < 0x1bc) { shaper_chain(c, st); return; }
 
 		// ---- 0x1bc to 0x1c1: the detector's two states and the release between them ----
-		if (st < 0x1c2) { detector(c, st); continue; }
+		if (st < 0x1c2) { detector(c, st); return; }
 
 		// ---- 0x1c2 to 0x1cb: the polynomial, the two smoothed levels and the drive's last word ----
 		if (st < 0x1cc)
 		{
-			if (st == 0x1c2) { shape_word(c, st, CHAIN + 4, CHAIN); continue; }   // ins::DIST_BAND[5]
-			if (st < 0x1c9) { polynomial(c, st, st - 0x1c3); continue; }
-			if (st < 0x1cb) { t_gain(c, st, *t_gain_for(st)); continue; }
+			if (st == 0x1c2) { shape_word(c, st, CHAIN + 4, CHAIN); return; }   // ins::DIST_BAND[5]
+			if (st < 0x1c9) { polynomial(c, st, st - 0x1c3); return; }
+			if (st < 0x1cb) { t_gain(c, st, *t_gain_for(st)); return; }
 			// ins::DIST_DRIVE[3]: the polynomial at the drive's own gain, into the tone filters' input
 			gain(c, st, CHAIN, SHAPED, ROUTE_1);
-			continue;
+			return;
 		}
 
 		// ---- 0x1cc to 0x1db: the threshold and the three tone filters ----
 		if (st < 0x1dc)
 		{
-			if (Biquad const* b = biquad_for(st)) { biquad_step(c, st, *b, st - b->st); continue; }
+			if (Biquad const* b = biquad_for(st)) { biquad_step(c, st, *b, st - b->st); return; }
 			// ins::DYN_THRESHOLD: the second state past the threshold, which the curve measures against
 			gain(c, st, PEAK2, THRESH, ROUTE_1);
-			continue;
+			return;
 		}
 
 		// ---- 0x1dc to 0x1ec: the two output scales, the two channels' halves and the two mixes ----
 		if (st < 0x1ed)
 		{
-			if (TGain const* g = t_gain_for(st)) { t_gain(c, st, *g); continue; }
-			if (ChannelOut const* p = channel_for(st)) { channel_step(c, st, *p, st - p->st); continue; }
+			if (TGain const* g = t_gain_for(st)) { t_gain(c, st, *g); return; }
+			if (ChannelOut const* p = channel_for(st)) { channel_step(c, st, *p, st - p->st); return; }
 			mix_step(c, MIXES[st - 0x1e3]);
-			continue;
+			return;
 		}
 
 		// ---- 0x1ed to 0x1ff: the eight breakpoints, the eight weights and the two dry signals ----
 		gain_curve(c, st);
-	}
+		});
 }
 
 }  // namespace

@@ -159,7 +159,7 @@ void decor(yss236_core& c, int st, Decor const& d)
 // index that pair's two reads take three steps later.
 struct Sweep { int st, cell, src, treg; Decor move; };
 
-const Sweep SWEEPS[4] = {
+constexpr Sweep SWEEPS[4] = {
 	//  the step  the cell  the register  the t register   and the decor it carries
 	{  0x1a0,     12,      0,          10,               NONE                         },
 	{  0x1a8,      0,    122,          12,               { RD_NONE, MV_CAPTURE, 56 } },
@@ -170,9 +170,8 @@ const Sweep SWEEPS[4] = {
 void sweep(yss236_core& c, int st, Sweep const& s)
 {
 	decor(c, st, s.move);
-	double const y = run(c, { st, s.src, s.cell, s.cell ? M2_CELL : M2_REG, false, 0, ADD_OFF,
-	                          false, ROUTE_1, CLAMP_ZERO });
-	t_put_fraction(c, s.treg, y);   // the fraction below one sample
+	double const y = run(c, {.st = st, .sr = s.src, .sm = s.cell, .m2 = s.cell ? M2_CELL : M2_REG, .clamp = CLAMP_ZERO});
+	t_put_fraction(c, st, s.treg, y);   // the fraction below one sample
 	load_index(c, y);               // and the whole of it, which the pair's two reads take three steps on
 }
 
@@ -187,7 +186,7 @@ constexpr auto SWEEPS_AT = index_by_step(SWEEPS);
 // it one word older than the tap pair they serve.
 struct Mode { int st, reg; add_t add; Decor move; };
 
-const Mode MODES[6] = {
+constexpr Mode MODES[6] = {
 	//  the step  the register  the adder reads   and the delay RAM read it carries
 	{  0x1a5,     122,       ADD_ACC,           NONE                         },
 	{  0x1a7,     123,       ADD_ACC,           { RD_OLD_AT, MV_NONE, 0 }   },
@@ -200,7 +199,7 @@ const Mode MODES[6] = {
 void mode_word(yss236_core& c, int st, Mode const& m)
 {
 	decor(c, st, m.move);
-	load(c, st, m.add == ADD_REG ? m.reg : 0, 0, m.add, false, ROUTE_1, CLAMP_ZERO, m.reg);
+	load(c, {.st = st, .sr = m.add == ADD_REG ? m.reg : 0, .add = m.add, .clamp = CLAMP_ZERO, .dr = m.reg});
 }
 
 // The mode word of a step, -1 where there is none: six rows that never move, indexed once at compile time.
@@ -211,7 +210,7 @@ constexpr auto MODES_AT = index_by_step(MODES);
 // negative. The first one's step also takes this window's first LFO into m[13].
 struct Rect { int st, reg; Decor move; };
 
-const Rect RECTS[2] = {
+constexpr Rect RECTS[2] = {
 	{  0x1a6, CROSS_A, { RD_NONE, MV_LFO, 13 } },
 	{  0x1ae, RECT_2,  NONE },
 };
@@ -219,7 +218,7 @@ const Rect RECTS[2] = {
 void rectifier(yss236_core& c, int st, Rect const& r)
 {
 	decor(c, st, r.move);
-	run(c, { st, r.reg, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_ABS, r.reg });
+	run(c, {.st = st, .sr = r.reg, .unity = true, .clamp = CLAMP_ABS, .dr = r.reg});
 }
 
 // The rectifier of a step, -1 where there is none: two rows that never move, indexed once at compile time.
@@ -231,7 +230,7 @@ constexpr auto RECTS_AT = index_by_step(RECTS);
 // of page 13 into m[3].
 struct Unity { int st, cell, reg; Decor move; };
 
-const Unity UNITIES[2] = {
+constexpr Unity UNITIES[2] = {
 	{  0x1a1, 12, CROSS_A, { RD_NONE, MV_SERIAL_L, 3 } },
 	{  0x1a9, 13, RECT_2,  NONE },
 };
@@ -239,7 +238,7 @@ const Unity UNITIES[2] = {
 void unity(yss236_core& c, int st, Unity const& u)
 {
 	decor(c, st, u.move);
-	run(c, { st, 0, u.cell, M2_CELL, true, 0, ADD_OFF, false, ROUTE_2, CLAMP_WRAP, u.reg });
+	run(c, {.st = st, .sm = u.cell, .m2 = M2_CELL, .unity = true, .route = ROUTE_2, .dr = u.reg});
 }
 
 // The unity word of a step, -1 where there is none: two rows that never move, indexed once at compile time.
@@ -251,7 +250,7 @@ constexpr auto UNITIES_AT = index_by_step(UNITIES);
 // 0x1af into m[61], the later word of its pair.
 struct TapGain { int st, src, treg; Decor move; };
 
-const TapGain TAP_GAINS[4] = {
+constexpr TapGain TAP_GAINS[4] = {
 	//  the step  the length  the t register   and the decor it carries
 	{  0x1ab,   123,        9,               { RD_RING_AT, MV_NONE, 0 }    },
 	{  0x1b2,   CROSS_A,   11,               NONE                          },
@@ -262,7 +261,7 @@ const TapGain TAP_GAINS[4] = {
 void tap_gain(yss236_core& c, int st, TapGain const& g)
 {
 	decor(c, st, g.move);
-	t_put(c, g.treg, run(c, { st, g.src, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT }));
+	t_put(c, st, g.treg, run(c, {.st = st, .sr = g.src, .route = ROUTE_16, .clamp = CLAMP_SAT}));
 }
 
 // The tap gain of a step, -1 where there is none: four rows that never move, indexed once at compile time.
@@ -319,7 +318,7 @@ struct Tap { int st, nsteps; int treg, early, late, out; Decor move; };
 // t[10] and t[9] for the first, t[12] and t[14] for the second, t[3] for the third and t[15] and t[13]
 // for the fourth. The eight cells are the six slots ins::PC_SLOTS names at 0x68 to 0x6d, each read twice
 // a sample apart, once at the index the read position queued and once one word older.
-const Tap TAPS[4] = {
+constexpr Tap TAPS[4] = {
 	//  the first step  the steps it runs  the fraction  the earlier cell  the later cell  the register   and its decor
 	{  0x1b5,       2,             10,       56,          57,          VOICE_A,       NONE                        },
 	{  0x1b8,       2,             12,       60,          61,          CROSS_A,       { RD_NONE, MV_CAPTURE, 58 } },
@@ -336,12 +335,12 @@ void tap_pair(yss236_core& c, int st, Tap const& p, int k)
 		decor(c, st, p.move);
 		// the fraction on the word at the index, with the word itself taken off, which is the pair
 		// interpolated at the index less one word
-		run(c, { st, 0, p.early, M2_CELL, false, p.treg, ADD_CELL, true, ROUTE_1, CLAMP_WRAP });
+		run(c, {.st = st, .sm = p.early, .m2 = M2_CELL, .treg = p.treg, .add = ADD_CELL, .sub = true});
 		return;
 	}
 	// and the word one older on the same weight less the running value, into the register the voice's own
 	// gains scale. This is the tap the pair exists for.
-	run(c, { st, 0, p.late, M2_CELL, false, p.treg, ADD_ACC, true, ROUTE_1, CLAMP_SAT, p.out });
+	run(c, {.st = st, .sm = p.late, .m2 = M2_CELL, .treg = p.treg, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = p.out});
 }
 
 // The tap pair of a step, -1 where there is none. The two steps of a pair are consecutive, so both index
@@ -370,7 +369,7 @@ void first_voice(yss236_core& c, int st)
 // ROM's own. `st` is the pair's first step and `nsteps` the two it runs.
 struct Xfade { int st, nsteps; int treg0, in0, treg1, in1, out; };
 
-const Xfade XFADES[2] = {
+constexpr Xfade XFADES[2] = {
 	//  the first step  its steps  its weight  the tap it weighs   the second's weight  its tap    the register
 	{  0x1df,       2,        11,        CROSS_A,             9,                  VOICE_A,  CROSS_A      },
 	{  0x1e1,       2,        15,        CROSS_B,             13,                 VOICE_B,  CROSS_B      },
@@ -381,10 +380,10 @@ void voice_xfade(yss236_core& c, int st, Xfade const& x, int k)
 {
 	if (k == 0)
 	{
-		run(c, { st, x.in0, 0, M2_REG, false, x.treg0, ADD_REG, true, ROUTE_1, CLAMP_WRAP });
+		run(c, {.st = st, .sr = x.in0, .treg = x.treg0, .add = ADD_REG, .sub = true});
 		return;
 	}
-	run(c, { st, x.in1, 0, M2_REG, false, x.treg1, ADD_ACC, true, ROUTE_1, CLAMP_SAT, x.out });
+	run(c, {.st = st, .sr = x.in1, .treg = x.treg1, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = x.out});
 }
 
 // The crossfade of a step, -1 where there is none: the two steps of a crossfade are consecutive, so both
@@ -430,7 +429,7 @@ struct Band
 	Decor move[5];
 };
 
-const Band BANDS[6] = {
+constexpr Band BANDS[6] = {
 	//  base  n  in  x1  y2  out  route      the five parts                     and each step's decor
 	{  0x1bb, 5, 67, 68, 70, 69, ROUTE_2,   { B1, B2_X1, A1, A2, B0 },
 	  { { RD_RING_AT, MV_NONE, 0 }, { RD_NONE, MV_CAPTURE, 59 }, NONE, NONE, { RD_OLD_AT, MV_NONE, 0 } } },
@@ -508,7 +507,7 @@ void input_sum(yss236_core& c, int st)
 // ins::PC_VOICE1_A, ins::PC_VOICE2[0] and [1] and ins::PC_VOICE1_B.
 struct Voice { int in_st, out_st, reg, out; Decor move; };
 
-const Voice VOICES[2] = {
+constexpr Voice VOICES[2] = {
 	//  the first step  its closing step  the register  the output  and the decor the closing step carries
 	{  0x1e4,       0x1e7,            CROSS_A,     VOICE_B,    NONE                      },
 	{  0x1e6,       0x1e5,            CROSS_B,     VOICE_A,    { RD_NONE, MV_LFO, 15 }   },
@@ -557,8 +556,7 @@ void output_mix(yss236_core& c, int st)
 	case 0x1ec:
 		// the left line's signal, latched rather than written: m[42], the read of 0x1c3 published, which
 		// the write at 0x1ef spends. A class-3 step's word is 1.0 and it passes the cell through.
-		run(c, { st, 0, LINE_L, M2_CELL, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP,
-		         0, false, 0, false, false, true, false });
+		run(c, {.st = st, .sm = LINE_L, .m2 = M2_CELL, .unity = true, .wdata = true});
 		break;
 	case 0x1ed:
 		term(c, st, SIG_R);                        // ins::PC_WET[1], the right dry signal
@@ -569,8 +567,7 @@ void output_mix(yss236_core& c, int st)
 	case 0x1ef:
 		// the left line's write into the slot 0x7b. It spends the latch above rather than its own
 		// result, and its own word still goes on the running value, which is the left chain again.
-		run(c, { st, CHAIN_L, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_WRAP,
-		         0, false, 0, false, false, false, true });
+		run(c, {.st = st, .sr = CHAIN_L, .add = ADD_ACC, .write = true});
 		break;
 	case 0x1f0:
 		close(c, st, VOICE_B, OUT_R, ROUTE_4);     // ins::PC_MIX[6], the right output
@@ -597,8 +594,7 @@ void line_feed(yss236_core& c, int st)
 		// the second line's own signal, m[43] the read of 0x1c7 published, into the slot 0x7c. A writer
 		// carrying w1[13] drops any latched data and writes its own result, and it is a class-3 step, so
 		// its word is 1.0 and the cell passes through.
-		run(c, { st, 0, LINE_R, M2_CELL, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP,
-		         0, false, 0, false, false, true, true });
+		run(c, {.st = st, .sm = LINE_R, .m2 = M2_CELL, .unity = true, .wdata = true, .write = true});
 		break;
 	case 0x1f7:
 		term(c, st, CHAIN_L);                      // the left chain
@@ -612,8 +608,7 @@ void line_feed(yss236_core& c, int st)
 	case 0x1fa:
 		// the second voice's crossfade, and this one's result becomes the data of the write below rather
 		// than going to a register
-		run(c, { st, CROSS_B, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
-		         0, false, 0, false, false, true, false });
+		run(c, {.st = st, .sr = CROSS_B, .add = ADD_ACC, .clamp = CLAMP_SAT, .wdata = true});
 		break;
 	case 0x1fb:
 		idle(c);
@@ -628,8 +623,7 @@ void line_feed(yss236_core& c, int st)
 	case 0x1ff:
 		// ins::PC_FB[1] itself, into the slot 0x7f. A writer carrying w1[13], so it drops the latch
 		// 0x1fa left and writes its own result.
-		run(c, { st, CROSS_A, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
-		         0, false, 0, false, false, true, true });
+		run(c, {.st = st, .sr = CROSS_A, .add = ADD_ACC, .clamp = CLAMP_SAT, .wdata = true, .write = true});
 		break;
 	}
 }
@@ -639,35 +633,33 @@ void line_feed(yss236_core& c, int st)
 // as it would the interpreter's.
 void block_0x1a0(yss236_core& c)
 {
-	for (int st = 0x1a0; st < 0x200; st++)
+	for_steps<0x1a0, 0x200>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// ---- 0x1a0 to 0x1b4, the head: the four read positions, the six mode words, the two
 		//      rectifiers, the two unity words and the four tap gains ----
-		if (st < 0x1b5) { head(c, st); continue; }
+		if (st < 0x1b5) { head(c, st); return; }
 
 		// ---- 0x1b5 to 0x1ba, the first voice's two interpolated taps and the stereo switch. The
 		//      second voice's other read position, ins::LFO_DIR_STEPS[3], sits between the pairs,
 		//      so the sweep table is looked up here as well as in the head ----
-		if (st < 0x1bb) { first_voice(c, st); continue; }
+		if (st < 0x1bb) { first_voice(c, st); return; }
 
 		// ---- 0x1bb to 0x1c9 and 0x1cc to 0x1da, the two channels' three bands each ----
-		if (Band const* b = band_for(st)) { band_step(c, st, *b, st - b->st); continue; }
+		if (Band const* b = band_for(st)) { band_step(c, st, *b, st - b->st); return; }
 
 		// ---- 0x1ca and 0x1cb, the two signals summed into the other channel's input ----
-		if (st < 0x1cc) { input_sum(c, st); continue; }
+		if (st < 0x1cc) { input_sum(c, st); return; }
 
 		// ---- 0x1db to 0x1e2, the second voice's two interpolated taps and the two crossfades ----
-		if (st < 0x1e3) { second_voice(c, st); continue; }
+		if (st < 0x1e3) { second_voice(c, st); return; }
 
 		// ---- 0x1e3 to 0x1f0, the two voice levels and the dry and wet mix ----
-		if (st < 0x1f1) { output_mix(c, st); continue; }
+		if (st < 0x1f1) { output_mix(c, st); return; }
 
 		// ---- 0x1f1 to 0x1ff, the two delay lines' feeds and the four writes that end them ----
 		line_feed(c, st);
-	}
+		});
 }
 
 }  // namespace

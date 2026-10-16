@@ -163,7 +163,7 @@ struct Section
 // runs its cutoff through. Only the EQ's four carry decor, because the base program reads what each of
 // them publishes once and then gets on with it: three delay RAM reads and the captures that follow them
 // five steps later, and the two serial inputs this window takes for the base program.
-const Section SECTIONS[6] = {
+constexpr Section SECTIONS[6] = {
 	//  base   in   out  route      b1                   -a1                  b0
 	{ 0x159, 103, 104, ROUTE_2, { {DEC_NONE,    0, 0}, {DEC_NONE,    0, 0}, {DEC_READ,   0x56, 0} } },
 	{ 0x15c, 104, 105, ROUTE_4, { {DEC_SERIAL,  2, 0}, {DEC_SERIAL,  6, 1}, {DEC_NONE,    0, 0} } },
@@ -202,7 +202,7 @@ void section(yss236_core& c, int st, Section const& s, int k)
 // after it.
 struct EqIn { int st, in, out; bool reads_delay; };
 
-const EqIn EQ_IN[2] = {
+constexpr EqIn EQ_IN[2] = {
 	//  st   in   out  reads_delay
 	{ 0x158, 5, 103, false },
 	{ 0x15f, 6, 106, true  },
@@ -239,7 +239,7 @@ void cutoff(yss236_core& c, int st)
 	if (st == 0x166)
 	{
 		// the class-1 load of WAH_CUTOFF's word: p = 128 * k, and nothing else
-		load(c, st, 0, 0);
+		load(c, {.st = st});
 		return;
 	}
 	take_lfo(c, 11, st);        // m[11]: the LFO value this window publishes for the base program
@@ -259,22 +259,22 @@ void swept_gain(yss236_core& c, int st)
 		// under the first r[119] is the cutoff on its own and under the second the lowpass's output is
 		// scaled into it.
 		take_capture(c, 30, st);                                  // m[30]: the read of 0x163, five steps back
-		t_put(c, 9, run(c, { st, 113, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 119 }));
+		t_put(c, st, 9, run(c, {.st = st, .sr = 113, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = 119}));
 		return;
 	case 0x16e:
 		// r[119] = wrap(t[9] r[119]), and t[9] takes that back, so the gain the resonator runs by follows
 		// the cutoff a sample at a time instead of stepping with it
-		t_put(c, 9, run(c, { st, 119, 0, M2_REG, false, 9, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 119 }));
+		t_put(c, st, 9, run(c, {.st = st, .sr = 119, .treg = 9, .dr = 119}));
 		return;
 	case 0x172:
 		// p = t[9] r[119]: the same product, left in the running value for the step below to add to
-		run(c, { st, 119, 0, M2_REG, false, 9, ADD_OFF });
+		run(c, {.st = st, .sr = 119, .treg = 9});
 		return;
 	default:
 		// 0x173: the class-1 load adds its own word to that, 128 * 0x0080 = 0.5 under Auto Wah,
 		// saturates, and t[9] takes it: the one-pole's second half
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT);
-		t_put(c, 9, c.acc);
+		load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_SAT});
+		t_put(c, st, 9, c.acc);
 		return;
 	}
 }
@@ -310,7 +310,7 @@ struct Resonator
 	int eq, y, fb_cell, res_cell;
 };
 
-const Resonator RES[2] = {
+constexpr Resonator RES[2] = {
 	// open  sense state fb     eq   y  fb_cell res_cell
 	{ 0x16f, 0x170, 0x178, 0x182, 105, 114, 54, 56 },
 	{ 0x174, 0x175, 0x179, 0x183, 108, 115, 55, 57 },
@@ -322,7 +322,7 @@ const Resonator RES[2] = {
 void resonator_open(yss236_core& c, int st, Resonator const& r)
 {
 	// p = k m[fb_cell] - r[eq]
-	run(c, { st, r.eq, r.fb_cell, M2_CELL, false, 0, ADD_REG, true });
+	run(c, {.st = st, .sr = r.eq, .sm = r.fb_cell, .m2 = M2_CELL, .add = ADD_REG, .sub = true});
 }
 
 // 0x170 and 0x175: WAH_SENSE's word on the channel's own state, subtracted from what the step above left
@@ -330,7 +330,7 @@ void resonator_open(yss236_core& c, int st, Resonator const& r)
 void resonator_sense(yss236_core& c, int st, Resonator const& r)
 {
 	// p = saturate(k r[y] - p); m[res_cell] takes it
-	run(c, { st, r.y, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_SAT, 0, false, r.res_cell });
+	run(c, {.st = st, .sr = r.y, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dm = r.res_cell});
 }
 
 // 0x171: the Touch Wah's sensitivity, WAH_ATTACK's word on the highpass's own output r[110] scaled by 16
@@ -338,7 +338,7 @@ void resonator_sense(yss236_core& c, int st, Resonator const& r)
 // the Touch Wah's level alone, and both channels' partners below run against it.
 void sensitivity(yss236_core& c, int st)
 {
-	run(c, { st, 110, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_ABS, 0, false, 58 });
+	run(c, {.st = st, .sr = 110, .route = ROUTE_16, .clamp = CLAMP_ABS, .dm = 58});
 }
 
 // 0x178 and 0x179: the swept gain on the channel's input cell, added to its own state. That register is
@@ -346,14 +346,14 @@ void sensitivity(yss236_core& c, int st)
 void resonator_state(yss236_core& c, int st, Resonator const& r)
 {
 	// r[y] = saturate(t[9] m[res_cell] + r[y])
-	run(c, { st, r.y, r.res_cell, M2_CELL, false, 9, ADD_REG, false, ROUTE_1, CLAMP_SAT, r.y });
+	run(c, {.st = st, .sr = r.y, .sm = r.res_cell, .m2 = M2_CELL, .treg = 9, .add = ADD_REG, .clamp = CLAMP_SAT, .dr = r.y});
 }
 
 // 0x182 and 0x183: the same swept gain on the state register, added to the cell the input above subtracts.
 void resonator_fb(yss236_core& c, int st, Resonator const& r)
 {
 	// m[fb_cell] = saturate(t[9] r[y] + m[fb_cell]), clipped into the cell
-	run(c, { st, r.y, r.fb_cell, M2_REG, false, 9, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 0, false, r.fb_cell });
+	run(c, {.st = st, .sr = r.y, .sm = r.fb_cell, .treg = 9, .add = ADD_CELL, .clamp = CLAMP_SAT, .dm = r.fb_cell});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -374,7 +374,7 @@ struct Partner
 	bool from_cell;
 };
 
-const Partner PARTNER[2] = {
+constexpr Partner PARTNER[2] = {
 	// rect  close  read  out  cell  from_cell
 	{ 0x176, 0x177,  111,  111, 58, true  },
 	{ 0x17d, 0x17e,  111,  112, 58, false },
@@ -386,13 +386,13 @@ void level_partner(yss236_core& c, int st, Partner const& p)
 	{
 		// p = max(0, k r[read] - the level): the same value with the negatives clamped away
 		if (p.from_cell)
-			run(c, { st, p.read, p.cell, M2_REG, false, 0, ADD_CELL, true, ROUTE_1, CLAMP_ZERO });
+			run(c, {.st = st, .sr = p.read, .sm = p.cell, .add = ADD_CELL, .sub = true, .clamp = CLAMP_ZERO});
 		else
-			run(c, { st, p.read, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_ZERO });
+			run(c, {.st = st, .sr = p.read, .add = ADD_ACC, .sub = true, .clamp = CLAMP_ZERO});
 		return;
 	}
 	// r[out] = saturate(k m[58] + p), the partner's own register
-	run(c, { st, 0, p.cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, p.out });
+	run(c, {.st = st, .sm = p.cell, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = p.out});
 }
 
 // 0x17a to 0x17e: the lowpass's input, which is what the section below at 0x17f to 0x181 runs on.
@@ -404,8 +404,8 @@ void lowpass_in(yss236_core& c, int st)
 		// that same term again added to the running value over 32768 (the adder names a zero m cell, and
 		// that is where a divided running value comes from), then the sensitivity level subtracted.
 		if (st == 0x17a) term(c, st, 112);                                    // p = k r[112]
-		else if (st == 0x17b) run(c, { st, 112, 0, M2_REG, false, 0, ADD_CELL });  // p = k r[112] + p / 32768
-		else                run(c, { st, 0, 58, M2_CELL, false, 0, ADD_ACC, true });  // p = k m[58] - p
+		else if (st == 0x17b) run(c, {.st = st, .sr = 112, .add = ADD_CELL});  // p = k r[112] + p / 32768
+		else                run(c, {.st = st, .sm = 58, .m2 = M2_CELL, .add = ADD_ACC, .sub = true});  // p = k m[58] - p
 		return;
 	}
 	// 0x17d and 0x17e: the level's second partner, which closes into the lowpass's input register r[112].
@@ -422,7 +422,7 @@ struct Mix
 	int y, eq, out;             // the resonator's state, the EQ output and the output register
 };
 
-const Mix MIX[2] = {
+constexpr Mix MIX[2] = {
 	//  wet   dry     y   eq  out
 	{ 0x184, 0x185, 114, 105, 15 },
 	{ 0x186, 0x187, 115, 108, 16 },
@@ -462,40 +462,38 @@ void tail(yss236_core& c, int st)
 // steps as it would the interpreter's.
 void block_0x158(yss236_core& c)
 {
-	for (int st = 0x158; st < 0x1a0; st++)
+	for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
-		if (st < 0x166) { eq(c, st); continue; }                            // 0x158-0x165, both channels' EQ
-		if (st < 0x168) { cutoff(c, st); continue; }                        // 0x166-0x167, the swept cutoff
-		if (st == 0x168) { swept_gain(c, st); continue; }                   // t[9] takes it
-		if (st < 0x16e) { highpass(c, st); continue; }                      // 0x169-0x16d, the input highpass
-		if (st == 0x16e) { swept_gain(c, st); continue; }                   // 0x16e, the cutoff's one-pole
+		if (st < 0x166) { eq(c, st); return; }                            // 0x158-0x165, both channels' EQ
+		if (st < 0x168) { cutoff(c, st); return; }                        // 0x166-0x167, the swept cutoff
+		if (st == 0x168) { swept_gain(c, st); return; }                   // t[9] takes it
+		if (st < 0x16e) { highpass(c, st); return; }                      // 0x169-0x16d, the input highpass
+		if (st == 0x16e) { swept_gain(c, st); return; }                   // 0x16e, the cutoff's one-pole
 		if (st == RES[0].open || st == RES[1].open)
 		{
 			resonator_open(c, st, RES[st == RES[1].open]);                  // 0x16f and 0x174
-			continue;
+			return;
 		}
 		if (st == RES[0].sense || st == RES[1].sense)
 		{
 			resonator_sense(c, st, RES[st == RES[1].sense]);                // 0x170 and 0x175
-			continue;
+			return;
 		}
-		if (st == 0x171) { sensitivity(c, st); continue; }                   // 0x171, the Touch Wah's level
-		if (st < 0x174) { swept_gain(c, st); continue; }                    // 0x172-0x173, the smoother
-		if (st < 0x178) { level_partner(c, st, PARTNER[0]); continue; }      // 0x176-0x177, the first partner
-		if (st < 0x17a) { resonator_state(c, st, RES[st - RES[0].state]); continue; }   // 0x178-0x179
-		if (st < 0x17f) { lowpass_in(c, st); continue; }                    // 0x17a-0x17e, the lowpass's input
+		if (st == 0x171) { sensitivity(c, st); return; }                   // 0x171, the Touch Wah's level
+		if (st < 0x174) { swept_gain(c, st); return; }                    // 0x172-0x173, the smoother
+		if (st < 0x178) { level_partner(c, st, PARTNER[0]); return; }      // 0x176-0x177, the first partner
+		if (st < 0x17a) { resonator_state(c, st, RES[st - RES[0].state]); return; }   // 0x178-0x179
+		if (st < 0x17f) { lowpass_in(c, st); return; }                    // 0x17a-0x17e, the lowpass's input
 		if (st < 0x182)
 		{
 			section(c, st, SECTIONS[SEC_LPF], st - SECTIONS[SEC_LPF].base); // 0x17f-0x181, the lowpass
-			continue;
+			return;
 		}
-		if (st < 0x184) { resonator_fb(c, st, RES[st - RES[0].fb]); continue; }          // 0x182-0x183
-		if (st < 0x188) { out_mix(c, st, MIX[(st - MIX[0].wet) / 2]); continue; }          // 0x184-0x187
+		if (st < 0x184) { resonator_fb(c, st, RES[st - RES[0].fb]); return; }          // 0x182-0x183
+		if (st < 0x188) { out_mix(c, st, MIX[(st - MIX[0].wet) / 2]); return; }          // 0x184-0x187
 		tail(c, st);                                                          // 0x188-0x19f
-	}
+		});
 }
 
 }  // namespace

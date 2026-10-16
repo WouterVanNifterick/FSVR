@@ -157,7 +157,7 @@ struct Section
 // The two sections over the input chain, then the four over the quantized signal. The four steps that
 // carry a z^-1 are the only ones that are not one of a section's own words: two hold the input a pass
 // back for the b2 term and two hold the output two passes back for the -a2 term.
-const Section SECTIONS[6] = {
+constexpr Section SECTIONS[6] = {
     //   st   n  open   in  out  x1  y2  route      the rest of the section's steps
     {  0x1a7, 3,   68,  67,  68,   0,   0, ROUTE_4, { B1,               B0_CLOSE    } },
     {  0x1aa, 5,   70,  68,  70,  69,  71, ROUTE_2, { B1_Y2, B0_X1, A2, B2_CLOSE  } },
@@ -205,7 +205,7 @@ void section_step(yss236_core& c, int st, Section const& s, int k)
 // on r[119], the tone chain's output from the pass before, into that channel's output register.
 struct Mix { int st, nsteps, dry, out; };
 
-const Mix MIXES[2] = {
+constexpr Mix MIXES[2] = {
     { 0x1b5, 2, SIG_L, OUT_L },   // ins::LOFI_WET[0] and ins::LOFI_WET2[0], into r[17]
     { 0x1b8, 2, SIG_R, OUT_R },   // the same two words again, into r[18]
 };
@@ -235,7 +235,7 @@ enum decor_t { SERIAL_L, SERIAL_R };
 // One decor, and the step it rides on.
 struct Decor { int st; decor_t kind; int cell; };
 
-const Decor DECORS[3] = {
+constexpr Decor DECORS[3] = {
     //  the step  the decor                 the cell
     {  0x1a6, SERIAL_L,  3 },     // on the step that closes the input chain's sum into r[67]
     {  0x1a7, SERIAL_R,  7 },     // on the first step of the input chain's first section
@@ -272,18 +272,18 @@ void rate_counter(yss236_core& c, int st)
 	{
 	case 0x1a0:
 		// r[81] = k / 256 + r[81], the ROM's own word of one, and the register saturates as it goes
-		load(c, st, RATE, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, RATE);
+		load(c, {.st = st, .sr = RATE, .add = ADD_REG, .clamp = CLAMP_SAT, .dr = RATE});
 		break;
 	case 0x1a1:
 		// m[56] = ins::LOFI_BITS[0] / 256, the quantizer's step
-		load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, QSTEP);
+		load(c, {.st = st, .dm = QSTEP});
 		break;
 	case 0x1a2:
-		load(c, st, 0, 0);                 // acc = ins::LOFI_RATE[0] / 256, the threshold
+		load(c, {.st = st});                 // acc = ins::LOFI_RATE[0] / 256, the threshold
 		break;
 	default:
 		// the compare: acc = r[81] - acc, and its sign is the flag the latch at 0x1b0 waits on
-		run(c, {st, RATE, 0, M2_REG, true, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP, 0, false, 0, false, true});
+		run(c, {.st = st, .sr = RATE, .unity = true, .add = ADD_ACC, .sub = true, .cmp = true});
 		break;
 	}
 }
@@ -315,10 +315,10 @@ void sample_and_hold(yss236_core& c, int st)
 	case 0x1b1:
 		// m[42] = r[70], the sectioned signal held for the quantizer. A class-3 step's word is 1.0 and
 		// it passes the value through (s19), so nothing is applied to the register here.
-		run(c, {st, 70, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, false, HELD});
+		run(c, {.st = st, .sr = 70, .unity = true, .dm = HELD});
 		break;
 	case 0x1b2:
-		load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, RATE);      // r[81] = 0, the counter again
+		load(c, {.st = st, .dr = RATE});      // r[81] = 0, the counter again
 		break;
 	default:
 		idle(c);                           // 0x1b3
@@ -331,7 +331,7 @@ void sample_and_hold(yss236_core& c, int st)
 // what their clamp bits say, so this is the general form and not steps.h's compare(), which wraps.
 void quantizer_compare(yss236_core& c, int st, bool sub)
 {
-	run(c, {st, SCRATCH, QSTEP, M2_REG, true, 0, ADD_CELL, sub, ROUTE_1, CLAMP_SAT, 0, false, 0, false, true});
+	run(c, {.st = st, .sr = SCRATCH, .sm = QSTEP, .unity = true, .add = ADD_CELL, .sub = sub, .clamp = CLAMP_SAT, .cmp = true});
 }
 
 // One arm of the quantizer's dead zone: r[121] takes the quantizer's own step m[56], scaled by the word at
@@ -339,7 +339,7 @@ void quantizer_compare(yss236_core& c, int st, bool sub)
 // (s19), and the negative arm scales that same cell by the ROM's own -1 word at 0x1c1.
 void quantizer_arm(yss236_core& c, int st, bool unity)
 {
-	run(c, {st, 0, QSTEP, M2_CELL, unity, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, SCRATCH});
+	run(c, {.st = st, .sm = QSTEP, .m2 = M2_CELL, .unity = unity, .dr = SCRATCH});
 }
 
 // The quantizer, 0x1b7 to 0x1c3: two compares, two conditional skips and a jump around one subtraction.
@@ -389,21 +389,21 @@ void accumulators(yss236_core& c, int st)
 	switch (st)
 	{
 	case 0x1c4:
-		run(c, {st, SCRATCH, 0, M2_REG, true, 0, ADD_OFF});             // acc = r[121], the quantized value
+		run(c, {.st = st, .sr = SCRATCH, .unity = true});             // acc = r[121], the quantized value
 		break;
 	case 0x1c5:
 		// r[80] = r[80] + acc, the first accumulator, which ins::LOFI_LEVEL scales at 0x1c8
-		run(c, {st, ERR_A, 0, M2_REG, true, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, ERR_A});
+		run(c, {.st = st, .sr = ERR_A, .unity = true, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = ERR_A});
 		break;
 	case 0x1c8:
 		gain(c, st, ERR_A, SCRATCH, ROUTE_16);                          // r[121] = ins::LOFI_LEVEL * r[80] * 16
 		break;
 	case 0x1c9:
-		run(c, {st, SCRATCH, 0, M2_REG, true, 0, ADD_OFF});             // acc = r[121]
+		run(c, {.st = st, .sr = SCRATCH, .unity = true});             // acc = r[121]
 		break;
 	case 0x1ca:
 		// r[79] = r[79] + acc, the second accumulator, which 0x1b4 subtracts from the held signal
-		run(c, {st, ERR_B, 0, M2_REG, true, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, ERR_B});
+		run(c, {.st = st, .sr = ERR_B, .unity = true, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = ERR_B});
 		break;
 	case 0x1cb:
 		gain(c, st, SCRATCH, SCRATCH, ROUTE_16);                        // r[121] = r[121] * 16
@@ -424,63 +424,61 @@ void accumulators(yss236_core& c, int st)
 // use the same guard, and the m_skip they set is what selects the quantizer's branch.
 void block_0x1a0(yss236_core& c)
 {
-	for (int st = 0x1a0; st < 0x200; st++)
+	for_steps<0x1a0, 0x200>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// the three serial inputs this window publishes, before the step's own arithmetic
 		if (int const i = DECORS_AT[st]; i >= 0) decor(c, st, DECORS[i]);
 
 		// ---- 0x1a0 to 0x1a3: the rate counter, the quantizer's step and the compare on the two ----
-		if (st < 0x1a4) { rate_counter(c, st); continue; }
+		if (st < 0x1a4) { rate_counter(c, st); return; }
 
 		// ---- 0x1a4: the wet signal, r[119] = 2 * r[78] ----
-		if (st == 0x1a4) { gain(c, st, 78, WET, ROUTE_4); continue; }
+		if (st == 0x1a4) { gain(c, st, 78, WET, ROUTE_4); return; }
 
 		// ---- 0x1a5 and 0x1a6: the two signals in, summed at ins::LOFI_GAIN ----
-		if (st < 0x1a7) { input_sum(c, st); continue; }
+		if (st < 0x1a7) { input_sum(c, st); return; }
 
 		// ---- the six sections: two over the input sum, then the four of the tone chain ----
 		if (int const i = SECTIONS_AT[st]; i >= 0)
 		{
 			Section const& s = SECTIONS[i];
 			section_step(c, st, s, st - s.st);
-			continue;
+			return;
 		}
 
 		// ---- 0x1af: the one step of padding between the input chain and the sample and hold ----
-		if (st < 0x1b0) { idle(c); continue; }
+		if (st < 0x1b0) { idle(c); return; }
 
 		// ---- 0x1b0 to 0x1b3: the sample and hold, gated on the counter compare ----
-		if (st < 0x1b4) { sample_and_hold(c, st); continue; }
+		if (st < 0x1b4) { sample_and_hold(c, st); return; }
 
 		// ---- 0x1b4: the held signal less the second error accumulator, into the scratch register ----
 		// The word at this step is the ROM's own -1, so this is m[42] - r[79], the quantizer's input.
 		if (st == 0x1b4)
 		{
-			run(c, {st, ERR_B, HELD, M2_REG, false, 0, ADD_CELL, false, ROUTE_1, CLAMP_SAT, SCRATCH});
-			continue;
+			run(c, {.st = st, .sr = ERR_B, .sm = HELD, .add = ADD_CELL, .clamp = CLAMP_SAT, .dr = SCRATCH});
+			return;
 		}
 
 		// ---- the two output mixes, the left's at 0x1b5 and the right's at 0x1b8, two steps each ----
-		if (int const i = MIXES_AT[st]; i >= 0) { output_mix(c, st, MIXES[i]); continue; }
+		if (int const i = MIXES_AT[st]; i >= 0) { output_mix(c, st, MIXES[i]); return; }
 
 		// ---- 0x1b7 to 0x1c3: the quantizer's dead zone ----
-		if (st < 0x1c4) { quantizer(c, st); continue; }
+		if (st < 0x1c4) { quantizer(c, st); return; }
 
 		// ---- 0x1c4 to 0x1cb: the two error accumulators ----
-		if (st < 0x1cc) { accumulators(c, st); continue; }
+		if (st < 0x1cc) { accumulators(c, st); return; }
 
 		// ---- 0x1cc and 0x1cd: the padding before the output level ----
-		if (st < 0x1ce) { idle(c); continue; }
+		if (st < 0x1ce) { idle(c); return; }
 
 		// ---- 0x1ce: the bit assign's output level, which is the tone chain's input in r[72] ----
-		if (st == 0x1ce) { gain(c, st, SCRATCH, LEVEL, ROUTE_16); continue; }
+		if (st == 0x1ce) { gain(c, st, SCRATCH, LEVEL, ROUTE_16); return; }
 
 		// ---- 0x1dd to 0x1ff: 35 zero class-0 steps, nothing but the count and the x latch ----
 		idle(c);
-	}
+		});
 }
 
 }  // namespace

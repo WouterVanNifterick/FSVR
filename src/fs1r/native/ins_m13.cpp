@@ -162,7 +162,7 @@ constexpr int ATTACK_T = 9;
 // cells hold one signal read at four different steps.
 struct Tap { int read; int cell; int cap; };
 
-const Tap TAPS[4] = {
+constexpr Tap TAPS[4] = {
     //  the read  the cell  the capture    and what the two steps do besides
     {  0x1a4,  TAP0,  0x1a9 },      // slot 0x69: on ins::DD_HPF's b1 word, and the capture is a class-0 step
     {  0x1a8,  TAP1,  0x1ad },      // slot 0x6a: on ins::DD_DRIVE[1], and the capture rides DD_ATTACK[1]
@@ -175,7 +175,7 @@ const Tap TAPS[4] = {
 // and are applied before that step's arithmetic.
 struct Serial { int st; int bank; int cell; };
 
-const Serial SERIALS[3] = {
+constexpr Serial SERIALS[3] = {
     { 0x1a2, 0, SERIAL_13_L },      // on the step that closes the stereo pair into r[68]
     { 0x1a3, 1, SERIAL_13_R },      // on ins::DD_HPF's first step; Effects::run leaves the right bank at zero
     { 0x1c3, 0, SERIAL_14_L },      // on ins::DD_BAND's fifth word
@@ -229,7 +229,7 @@ struct Section
 // The six sections in step order, each running designFilter()'s own words in the schedule's order.
 // ins::DD_HPF carries a decor of its own, the read of the line's first tap, which the TAPS table above
 // holds; nothing else here does.
-const Section SECTIONS[6] = {
+constexpr Section SECTIONS[6] = {
     //   st  nsteps  in  x1  y1  out  route     the section's steps in the order they run
     {  0x1a3, 5, STEREO, HPF_X1, HPF_Y1, HPF_STATE, ROUTE_2,
        { B2_OPEN, B1_SUM, B0_X1, A2_SUM, A1_CLOSE } },                 // ins::DD_HPF
@@ -267,19 +267,17 @@ void section_step(yss236_core& c, int st, Section const& s, int k)
 		// ins::DD_LPF_2's b0 word on the first tap, and the z^-1 that keeps the wet signal a pass
 		// back in r[85], which the next step's b1 word and ins::DD_LOW_SHELF's -a2 word read
 	case B0_CELL_OPEN:
-		run(c, {st, 0, TAP0, M2_CELL, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, WET_COPY, true});
+		run(c, {.st = st, .sm = TAP0, .m2 = M2_CELL, .dr = WET_COPY, .z1 = true});
 		break;
 		// ins::DD_LPF_2's b1 word on m[43], which takes the m operand this step's predecessor
 		// overwrote, so the cell holds the first tap as it stood a pass on (s32)
 	case B1_CELL_PREV:
-		run(c, {st, 0, FEEDBACK_CELL, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_WRAP,
-		        0, false, FEEDBACK_CELL, true});
+		run(c, {.st = st, .sm = FEEDBACK_CELL, .m2 = M2_CELL, .add = ADD_ACC, .dm = FEEDBACK_CELL, .prev = true});
 		break;
 		// ins::DD_LPF's -a1 word on the leaky integrator, which is the state 0x1a0 scales into the
 		// drive: the section's output under its own leak rather than in a register of its own
 	case A1_CELL:
-		run(c, {st, 0, DRIVE_CELL, M2_CELL, false, 0, ADD_ACC, false, s.route, CLAMP_SAT,
-		        0, false, DRIVE_CELL});
+		run(c, {.st = st, .sm = DRIVE_CELL, .m2 = M2_CELL, .add = ADD_ACC, .route = s.route, .clamp = CLAMP_SAT, .dm = DRIVE_CELL});
 		break;
 	case B1_OPEN: term(c, st, s.in); break;                      // b1, the section's first word
 	case B1_SUM:  sum(c, st, s.in); break;                       // b1
@@ -302,7 +300,7 @@ void section_step(yss236_core& c, int st, Section const& s, int k)
 // wet word is the same on both and scales the same r[84], ins::DD_LOW_SHELF's state.
 struct Mix { int base, dry, out; };
 
-const Mix MIXES[2] = {
+constexpr Mix MIXES[2] = {
     { 0x1df, SIG_L, MIX_L },     // ins::DD_WET[0] and ins::DD_WET[1], into r[121]
     { 0x1e1, SIG_R, MIX_R },     // ins::DD_WET[2] and ins::DD_WET[3], into r[122]
 };
@@ -313,7 +311,7 @@ const Mix MIXES[2] = {
 // read and a serial take, which the two decor tables above hold.
 struct BandWord { int st, src, dst; };
 
-const BandWord BAND[5] = {
+constexpr BandWord BAND[5] = {
     { 0x1af, WORK,      THRESHOLD },      // ins::DD_BAND[1], the edge's gain word
     { 0x1b2, THRESHOLD, MIX_L },          // ins::DD_BAND[2], the first series word
     { 0x1b5, MIX_L,     MIX_R },          // ins::DD_BAND[3], the second, with the fourth tap's cell
@@ -333,7 +331,7 @@ constexpr auto BAND_AT = index_by_step(BAND);
 // is read twice and scaled by zero both times, and the second reading clears the running value.
 struct TapOut { int cell; int dr; };
 
-const TapOut TAP_OUT[4] = {
+constexpr TapOut TAP_OUT[4] = {
     { TAP3, 0 },          // 0x1e3: the fourth tap into the running value, the adder off
     { TAP2, TAP_L },      // 0x1e4: the third tap under a zero word, added to what 0x1e3 left
     { TAP2, 0 },          // 0x1e5: the third tap again under a zero word, the adder off, which clears
@@ -346,7 +344,7 @@ const TapOut TAP_OUT[4] = {
 // curve ins::storeRatio copied out of rom::COMP_RATIO.
 struct Ratio { int src; route_t route; add_t add; };
 
-const Ratio RATIO[8] = {
+constexpr Ratio RATIO[8] = {
     { WORK,    ROUTE_2, ADD_OFF  },      // 0x1f6, ins::DD_RATIO[0]: rung 0, opening the sum
     { MIX_L,   ROUTE_2, ADD_ACC  },      // 0x1f7, ins::DD_RATIO[2]: rung 1
     { MIX_R,   ROUTE_2, ADD_ACC  },      // 0x1f8, ins::DD_RATIO[3]: rung 2
@@ -371,7 +369,7 @@ void stereo_pair(yss236_core& c, int st)
 	case 0x1a0:
 		// ins::DD_DRIVE[0], the one entry of the drive table storeDrive never writes, so the word is
 		// the preset's own: a quarter under the route x16 on m[42], the state 0x1bd keeps
-		run(c, {st, 0, DRIVE_CELL, M2_CELL, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT, WORK});
+		run(c, {.st = st, .sm = DRIVE_CELL, .m2 = M2_CELL, .route = ROUTE_16, .clamp = CLAMP_SAT, .dr = WORK});
 		break;
 	case 0x1a1:
 		term(c, st, SIG_L);       // the preset's own word on the left signal, the adder off
@@ -394,8 +392,7 @@ void drive_and_highpass(yss236_core& c, int st)
 		// ins::DD_DRIVE[1] on r[119], the adder off, into m[60] under a clamp that takes |y|. The
 		// z^-1 puts r[119]'s own value into r[71], which is what makes the DD_HPF's two feedback
 		// words read the same state. The running value this leaves is not read again
-		run(c, {st, WORK, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT, HPF_Y1, true,
-		        MODE_CELL});
+		run(c, {.st = st, .sr = WORK, .route = ROUTE_16, .clamp = CLAMP_SAT, .dr = HPF_Y1, .z1 = true, .dm = MODE_CELL});
 		break;
 	case 0x1a9:
 		idle(c);            // the class-0 step that takes up the first tap's read
@@ -407,7 +404,7 @@ void drive_and_highpass(yss236_core& c, int st)
 		break;
 	default:
 		// ins::DD_DRIVE[2], the same word storeDrive wrote into 0x1a8, on m[60]
-		run(c, {st, 0, MODE_CELL, M2_CELL, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT, WORK});
+		run(c, {.st = st, .sm = MODE_CELL, .m2 = M2_CELL, .route = ROUTE_16, .clamp = CLAMP_SAT, .dr = WORK});
 		break;
 	}
 }
@@ -432,8 +429,7 @@ void attack(yss236_core& c, int st)
 		// ins::DD_ATTACK[2], the word t, on r[76] and t[9] takes the result as a 1.15 word. The two
 		// applications are 1 - t and t, so r[76] = t * r[76] + (1 - t) * r[74]: a one-pole smoother
 		// of unity gain, and t[9] is where the two steps that scale by it read it
-		t_put(c, ATTACK_T, run(c, {st, ENV_SMOOTH, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1,
-		                           CLAMP_SAT, ENV_SMOOTH}));
+		t_put(c, st, ATTACK_T, run(c, {.st = st, .sr = ENV_SMOOTH, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = ENV_SMOOTH}));
 		break;
 	}
 }
@@ -443,7 +439,7 @@ void attack(yss236_core& c, int st)
 // 0x1b1's t write field is set, so only that one of the two puts the result back into t[9].
 double mode_scale(yss236_core& c, int st, int dr)
 {
-	return run(c, {st, HPF_OUT, 0, M2_REG, false, ATTACK_T, ADD_OFF, false, ROUTE_1, CLAMP_SAT, dr});
+	return run(c, {.st = st, .sr = HPF_OUT, .treg = ATTACK_T, .clamp = CLAMP_SAT, .dr = dr});
 }
 
 // ins::DD_MODE's words and the release pair's first two steps, 0x1b0 to 0x1ba with ins::DD_BAND's three
@@ -455,22 +451,21 @@ void mode_and_release(yss236_core& c, int st)
 	case 0x1b0:
 		// ins::DD_MODE[2] on r[124], the DD_HPF's output, under the route x16 and a clamp that takes
 		// |y| into m[60]: the mode word the drive scales a pass later at 0x1ab
-		run(c, {st, HPF_OUT, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_ABS, 0, false,
-		        MODE_CELL});
+		run(c, {.st = st, .sr = HPF_OUT, .route = ROUTE_16, .clamp = CLAMP_ABS, .dm = MODE_CELL});
 		break;
 	case 0x1b1:
 		// t[9] on r[124] into r[125], and t[9] takes the result, which 0x1b6 then reads. The word at
 		// this step is never read: the multiplier's other input is t[9], not the coefficient
-		t_put(c, ATTACK_T, mode_scale(c, st, MODE_A));
+		t_put(c, st, ATTACK_T, mode_scale(c, st, MODE_A));
 		break;
 	case 0x1b3:
 		// ins::DD_RELEASE[0] on r[72] less m[60], the mode word, under a clamp that drops the
 		// negatives, and nothing is written
-		run(c, {st, REL_A, MODE_CELL, M2_REG, false, 0, ADD_CELL, true, ROUTE_1, CLAMP_ZERO});
+		run(c, {.st = st, .sr = REL_A, .sm = MODE_CELL, .add = ADD_CELL, .sub = true, .clamp = CLAMP_ZERO});
 		break;
 	case 0x1b4:
 		// the same release word on m[60], added to what 0x1b3 left, closing into r[72]
-		run(c, {st, 0, MODE_CELL, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, REL_A});
+		run(c, {.st = st, .sm = MODE_CELL, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = REL_A});
 		break;
 	case 0x1b6:
 		// t[9] on r[124] into r[126], the second of the two steps that scale by the smoothed envelope.
@@ -508,22 +503,22 @@ void release_tail(yss236_core& c, int st)
 	case 0x1bf:
 		// ins::DD_RELEASE[1] on r[73], added to the running value over 32768: the adder is the cell
 		// and no cell is latched, so it takes the running value scaled down rather than a cell
-		run(c, {st, REL_B, 0, M2_REG, false, 0, ADD_CELL, false, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sr = REL_B, .add = ADD_CELL});
 		break;
 	case 0x1c0:
 		// the preset's own full scale on m[60] less the running value, which takes the mode word back
 		// out of what 0x1bf left
-		run(c, {st, 0, MODE_CELL, M2_CELL, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP});
+		run(c, {.st = st, .sm = MODE_CELL, .m2 = M2_CELL, .add = ADD_ACC, .sub = true});
 		break;
 	case 0x1c1:
 		// ins::DD_RELEASE[2] on r[72] less the running value, under a clamp that drops the
 		// negatives. The host's word for it is -0x8000 - t, which is not a representable 1.15 word:
 		// it wraps on the way to the chip, and the step reads the wrapped value, a small positive
-		run(c, {st, REL_A, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_ZERO});
+		run(c, {.st = st, .sr = REL_A, .add = ADD_ACC, .sub = true, .clamp = CLAMP_ZERO});
 		break;
 	default:
 		// the same word as 0x1c0 on m[60], added to what 0x1c1 left, closing into r[73]
-		run(c, {st, 0, MODE_CELL, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, REL_B});
+		run(c, {.st = st, .sm = MODE_CELL, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = REL_B});
 		break;
 	}
 }
@@ -577,7 +572,7 @@ void tap_outputs(yss236_core& c, int st)
 	TapOut const& t = TAP_OUT[st - 0x1e3];
 	// the adder is the running value on the two steps that write a register and off on the two that
 	// only move it, which is what makes 0x1e4 the fourth tap alone and 0x1e5 a clear
-	if (t.dr) run(c, {st, 0, t.cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, t.dr});
+	if (t.dr) run(c, {.st = st, .sm = t.cell, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = t.dr});
 	else      term_cell(c, st, t.cell);
 }
 
@@ -593,14 +588,13 @@ void line_and_outputs(yss236_core& c, int st)
 	case 0x1e8:
 		// the same quarter of the right one under the route x2, added to the left one, so the right
 		// channel reaches the line's write at twice the level it reaches its own output at 0x1ec
-		run(c, {st, MIX_R, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_WRAP});
+		run(c, {.st = st, .sr = MIX_R, .add = ADD_ACC, .route = ROUTE_2});
 		break;
 	case 0x1e9:
 		// ins::DD_FB[0] on r[86], the line's feedback, added to the two quarters and written into
 		// slot 0x7a: this is the delay line's write. wdata is set and memop is 1, so the step clears
 		// the write latch rather than setting it and the RAM takes this step's own result
-		run(c, {st, FEEDBACK, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
-		        0, false, 0, false, false, true, true});
+		run(c, {.st = st, .sr = FEEDBACK, .add = ADD_ACC, .clamp = CLAMP_SAT, .wdata = true, .write = true});
 		break;
 	case 0x1ea:
 		// the left quarter again, the adder off: 0x1e7's copy went into the line's write and this
@@ -629,21 +623,21 @@ void level_ladder(yss236_core& c, int st)
 {
 	int const k = st - 0x1ee;
 	// the rungs go to r[119] and r[121] to r[127]: r[120] is left as the input all eight of them read
-	load(c, st, THRESHOLD, 0, ADD_REG, false, ROUTE_1, CLAMP_ZERO, WORK + k + (k ? 1 : 0));
+	load(c, {.st = st, .sr = THRESHOLD, .add = ADD_REG, .clamp = CLAMP_ZERO, .dr = WORK + k + (k ? 1 : 0)});
 }
 
 // ins::DD_RATIO, the curve over the ladder's eight bands, 0x1f6 to 0x1fd.
 void ratio_row(yss236_core& c, int st)
 {
 	Ratio const& q = RATIO[st - 0x1f6];
-	run(c, {st, q.src, 0, M2_REG, false, 0, q.add, false, q.route, CLAMP_WRAP});
+	run(c, {.st = st, .sr = q.src, .add = q.add, .route = q.route});
 }
 
 // The envelope, 0x1fe: full scale plus the weighted ladder under a clamp that drops the negatives,
 // which is the value 0x1ac smooths and the only reader of the ladder there is.
 void envelope(yss236_core& c, int st)
 {
-	load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, ENV);
+	load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_ZERO, .dr = ENV});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -656,10 +650,8 @@ void envelope(yss236_core& c, int st)
 // guard is the only control the loop needs.
 void block_0x1a0(yss236_core& c)
 {
-	for (int st = 0x1a0; st < 0x200; st++)
+	for_steps<0x1a0, 0x200>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// ---- the three serial inputs this window publishes, before any step's arithmetic ----
 		if (int i = SERIALS_AT[st]; i >= 0) take_serial(c, SERIALS[i].cell, st, SERIALS[i].bank);
@@ -674,51 +666,51 @@ void block_0x1a0(yss236_core& c)
 		}
 
 		// ---- 0x1a0 to 0x1a2: the stereo pair as one signal, and the drive state ----
-		if (st < 0x1a3) { stereo_pair(c, st); continue; }
+		if (st < 0x1a3) { stereo_pair(c, st); return; }
 
 		// ---- the six filter sections, where they fall ----
-		if (Section const* s = section_for(st)) { section_step(c, st, *s, st - s->st); continue; }
+		if (Section const* s = section_for(st)) { section_step(c, st, *s, st - s->st); return; }
 
 		// ---- 0x1a8 to 0x1ab: the drive again, the first tap, the DD_HPF's output, the drive again ----
-		if (st < 0x1ac) { drive_and_highpass(c, st); continue; }
+		if (st < 0x1ac) { drive_and_highpass(c, st); return; }
 
 		// ---- 0x1ac to 0x1ae: ins::DD_ATTACK, the envelope follower ----
-		if (st < 0x1af) { attack(c, st); continue; }
+		if (st < 0x1af) { attack(c, st); return; }
 
 		// ---- ins::DD_BAND's five series words, where they fall ----
-		if (int i = BAND_AT[st]; i >= 0) { gain(c, st, BAND[i].src, BAND[i].dst, ROUTE_16); continue; }
+		if (int i = BAND_AT[st]; i >= 0) { gain(c, st, BAND[i].src, BAND[i].dst, ROUTE_16); return; }
 
 		// ---- 0x1b0 to 0x1ba: ins::DD_MODE, the release pair, and ins::DD_MODE's own chain ----
-		if (st < 0x1bb) { mode_and_release(c, st); continue; }
+		if (st < 0x1bb) { mode_and_release(c, st); return; }
 
 		// ---- 0x1be to 0x1c2: the release pair's other two words ----
-		if (st < 0x1c3) { release_tail(c, st); continue; }
+		if (st < 0x1c3) { release_tail(c, st); return; }
 
 		// ---- 0x1c4 to 0x1c9: ins::DD_BAND's own last words, the edge's sum ----
-		if (st < 0x1ca) { edge_sum(c, st); continue; }
+		if (st < 0x1ca) { edge_sum(c, st); return; }
 
 		// ---- 0x1ca to 0x1cc: the threshold, the padding and ins::DD_DRIVE's gain word ----
-		if (st < 0x1cd) { threshold_and_drive(c, st); continue; }
+		if (st < 0x1cd) { threshold_and_drive(c, st); return; }
 
 		// ---- 0x1df to 0x1e2: the two dry and wet mixes ----
-		if (st < 0x1e3) { output_mix(c, st); continue; }
+		if (st < 0x1e3) { output_mix(c, st); return; }
 
 		// ---- 0x1e3 to 0x1e6: the four taps at the outputs ----
-		if (st < 0x1e7) { tap_outputs(c, st); continue; }
+		if (st < 0x1e7) { tap_outputs(c, st); return; }
 
 		// ---- 0x1e7 to 0x1ed: the two channels' quarters, the line's write and the outputs ----
-		if (st < 0x1ee) { line_and_outputs(c, st); continue; }
+		if (st < 0x1ee) { line_and_outputs(c, st); return; }
 
 		// ---- 0x1ee to 0x1f5: the level ladder ----
-		if (st < 0x1f6) { level_ladder(c, st); continue; }
+		if (st < 0x1f6) { level_ladder(c, st); return; }
 
 		// ---- 0x1f6 to 0x1fd: ins::DD_RATIO, the curve over the ladder's bands ----
-		if (st < 0x1fe) { ratio_row(c, st); continue; }
+		if (st < 0x1fe) { ratio_row(c, st); return; }
 
 		// ---- 0x1fe: the envelope, and 0x1ff: the program's last step, empty ----
 		if (st == 0x1fe) envelope(c, st);
 		else             idle(c);
-	}
+		});
 }
 
 }  // namespace

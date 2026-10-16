@@ -115,21 +115,21 @@ void read_shape(yss236_core& c, int st, read_t how)
 // r[126], are the envelope registers the whole block's pan balance runs from.
 void add_cell(yss236_core& c, int st, int dr)
 {
-    load(c, st, 0, 8, ADD_CELL, false, ROUTE_2, CLAMP_WRAP, dr);
+    load(c, {.st = st, .sm = 8, .add = ADD_CELL, .route = ROUTE_2, .dr = dr});
 }
 
 // r[dr] = the step's word doubled onto the running value, wrapping. Once only, into r[125], which is
 // the balance register the later |...| step reads back.
 void add_acc(yss236_core& c, int st, int dr)
 {
-    load(c, st, 0, 0, ADD_ACC, false, ROUTE_2, CLAMP_WRAP, dr);
+    load(c, {.st = st, .add = ADD_ACC, .route = ROUTE_2, .dr = dr});
 }
 
 // r[dr] = the step's word doubled onto r[123], which is the balance cell on its own through the
 // 16x its own step's route took. Into r[2] and r[127].
 void add_reg(yss236_core& c, int st, int dr)
 {
-    load(c, st, 123, 0, ADD_REG, false, ROUTE_2, CLAMP_WRAP, dr);
+    load(c, {.st = st, .sr = 123, .add = ADD_REG, .route = ROUTE_2, .dr = dr});
 }
 
 // r[dr] = the step's word doubled onto the running value and saturated, and t[tn] takes that same
@@ -137,15 +137,15 @@ void add_reg(yss236_core& c, int st, int dr)
 // two decay steps multiply by it.
 void decay_word(yss236_core& c, int st, int dr, int tn)
 {
-    load(c, st, 0, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, dr);
-    t_put(c, tn, c.acc);
+    load(c, {.st = st, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = dr});
+    t_put(c, st, tn, c.acc);
 }
 
 // r[dr] = the step's own word loaded onto the running value, with the negatives clamped away: a ramp,
 // and the position the block's delay lines are read at.
 void ramp(yss236_core& c, int st, int dr)
 {
-    load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, dr);
+    load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_ZERO, .dr = dr});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -156,27 +156,27 @@ void ramp(yss236_core& c, int st, int dr)
 // shapes it. These three read the envelope registers the class-1 loads wrote.
 void abs_read(yss236_core& c, int st, int sr)
 {
-    run(c, {st, sr, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_ABS, 0});
+    run(c, {.st = st, .sr = sr, .unity = true, .clamp = CLAMP_ABS});
 }
 
 // acc = |the step's word on r[sr]|: the same clamp on a register whose word sets the running value.
 void abs_term(yss236_core& c, int st, int sr)
 {
-    run(c, {st, sr, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_ABS, 0});
+    run(c, {.st = st, .sr = sr, .clamp = CLAMP_ABS});
 }
 
 // r[dr] = t[tn] * r[sr], saturated: one pole of an envelope register's decay, t[tn] being the
 // coefficient a decay_word() step published.
 void decay(yss236_core& c, int st, int tn, int sr, int dr)
 {
-    run(c, {st, sr, 0, M2_REG, false, tn, ADD_OFF, false, ROUTE_1, CLAMP_SAT, dr});
+    run(c, {.st = st, .sr = sr, .treg = tn, .clamp = CLAMP_SAT, .dr = dr});
 }
 
 // acc = 16 * the step's word * r[sr], saturated: a register scaled into the running value for the next
 // step to add a second register to.
 void scale(yss236_core& c, int st, int sr)
 {
-    run(c, {st, sr, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT, 0});
+    run(c, {.st = st, .sr = sr, .route = ROUTE_16, .clamp = CLAMP_SAT});
 }
 
 // acc = the step's word on r[sr] added to the running value, negatives clamped away; t[tn] takes the
@@ -185,8 +185,8 @@ void scale(yss236_core& c, int st, int sr)
 // at until the next position step replaces it.
 void position(yss236_core& c, int st, int sr, int tn)
 {
-    run(c, {st, sr, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, 0});
-    t_put_fraction(c, tn, c.acc);
+    run(c, {.st = st, .sr = sr, .add = ADD_ACC, .clamp = CLAMP_ZERO});
+    t_put_fraction(c, st, tn, c.acc);
     load_index(c, c.acc);
 }
 
@@ -194,7 +194,7 @@ void position(yss236_core& c, int st, int sr, int tn)
 // fraction less one. It is left in the running value for the second half to take back.
 void tap_ramp(yss236_core& c, int st, int tn, int cell)
 {
-    run(c, {st, 0, cell, M2_CELL, false, tn, ADD_CELL, true, ROUTE_1, CLAMP_WRAP, 0});
+    run(c, {.st = st, .sm = cell, .m2 = M2_CELL, .treg = tn, .add = ADD_CELL, .sub = true});
 }
 
 // The second half: r[dr] = t[tn] * m[cell] - acc, where `cell` is the cell after the first half's.
@@ -203,7 +203,7 @@ void tap_ramp(yss236_core& c, int st, int tn, int cell)
 // samples of the delay line, which the delay RAM's own word could not give on its own.
 void tap_interp(yss236_core& c, int st, int tn, int cell, int dr)
 {
-    run(c, {st, 0, cell, M2_CELL, false, tn, ADD_ACC, true, ROUTE_1, CLAMP_SAT, dr});
+    run(c, {.st = st, .sm = cell, .m2 = M2_CELL, .treg = tn, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = dr});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -221,7 +221,7 @@ struct Envelope { int base; int pos, tn; int src, dst; int take, env; read_t rea
 // The envelope network runs this cycle twice: once for the pair r[124] and r[127], once for the pair
 // r[1] and r[119]. The second cycle's decay word is r[126]'s, which the steps past it read back, and
 // it is the first cycle's opening step that reads the block's second published slot.
-const Envelope ENVELOPES[2] = {
+constexpr Envelope ENVELOPES[2] = {
     //  base    pos  tn  src  dst  take  env  read
     {  0x15f,  12, 13, 124, 127,   28,   1, AT_RING },
     {  0x167,  13, 12,   1, 119,   30, 126, NO_READ },
@@ -247,7 +247,7 @@ struct Chain { int base; int in, scaled, y1, y2; int take; };
 
 // The two channels' paths, the right one the mirror of the left with every register three higher and
 // the delay slots the other four of the eight taps.
-const Chain CHAINS[2] = {
+constexpr Chain CHAINS[2] = {
     //  base    in  scaled  y1  y2  take
     {  0x175,   5,    103, 104, 105,   57 },
     {  0x185,   6,    106, 107, 108,   63 },
@@ -284,7 +284,7 @@ struct Tap { int base; int pos, tap, mix; int take_first, take_second; read_t re
 // also makes the block's next read: 0x17f reads the slot 0x5f, whose capture the pair at 0x18f
 // interpolates, and 0x18f reads the slot 0x63, which is one of the six reads published rather than a
 // tap. The pair at 0x194 has no read of its own and publishes that one instead.
-const Tap TAPS[4] = {
+constexpr Tap TAPS[4] = {
     //  base    pos  tap  mix  take_first  take_second  read              lfo
     {  0x17f,   9,  56, 119,           0,          61, AT_INDEX,         0 },
     {  0x183,  11,  60, 121,           0,          62, AT_INDEX_OLDER,  0 },
@@ -317,7 +317,7 @@ void tap_pair(yss236_core& c, int st, Tap const& tp)
 // own area; the right unit's seeding step is where that read is taken up.
 struct Mix { int base; int seed, add; int src, out; route_t route; int take; read_t read; };
 
-const Mix MIXES[2] = {
+constexpr Mix MIXES[2] = {
     //  base   seed  add  src  out  route     take  read
     {  0x191,  119, 121, 122, 124, ROUTE_1,   0,   AT_RING },
     {  0x198,  121, 122, 120, 125, ROUTE_1,  32,   NO_READ },
@@ -339,7 +339,7 @@ void mix_step(yss236_core& c, int st, Mix const& mx)
 // the right unit's seeding step is where that read is taken up.
 struct Output { int base, feed, src, out; int take; read_t read; };
 
-const Output OUTPUTS[2] = {
+constexpr Output OUTPUTS[2] = {
     //  base  feed  src  out  take  read
     {  0x196,  105, 124,  15,    0,  AT_RING },
     {  0x19c,  108, 125,  16,   33,  NO_READ },
@@ -369,7 +369,7 @@ void write_left_delay(yss236_core& c, int st)
 // clipped and goes to the slot, and the write latch the left line would have taken is cleared.
 void write_right_delay(yss236_core& c, int st)
 {
-    double const y = run(c, {st, 120, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0});
+    double const y = run(c, {.st = st, .sr = 120, .add = ADD_ACC, .clamp = CLAMP_SAT});
     c.haswl = false;
     write_delay(c, st, yss236_core::clip(y, yss236_core::SAT));
 }
@@ -383,10 +383,8 @@ void write_right_delay(yss236_core& c, int st)
 // these steps as it would the interpreter's.
 void block_0x158(yss236_core& c)
 {
-    for (int st = 0x158; st < 0x1a0; st++)
+    for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
     {
-        c.begin_step();
-        if (st < c.m_skip) continue;
 
         if (st < 0x15b)
         {
@@ -398,11 +396,11 @@ void block_0x158(yss236_core& c)
                 take_serial(c, 6, st, 1);
                 // r[123] = 16 * the step's word * m[8]: the balance cell alone, through the 16x this
                 // step's own route takes, and the two steps at 0x15e and 0x171 then read back
-                run(c, {st, 0, 8, M2_CELL, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_WRAP, 123});
+                run(c, {.st = st, .sm = 8, .m2 = M2_CELL, .route = ROUTE_16, .dr = 123});
                 break;
             default:    add_acc(c, st, 125); break;
             }
-            continue;
+            return;
         }
 
         if (st < 0x15f)
@@ -412,7 +410,7 @@ void block_0x158(yss236_core& c)
             {
                 read_shape(c, st, AT_RING);        // the slot 0x56, the block's first published read
                 abs_read(c, st, 124);
-                continue;
+                return;
             }
             switch (st)
             {
@@ -420,7 +418,7 @@ void block_0x158(yss236_core& c)
             case 0x15d: add_cell(c, st, 1); break;
             default:    add_reg(c, st, 2); break;
             }
-            continue;
+            return;
         }
 
         if (st < 0x167)
@@ -430,7 +428,7 @@ void block_0x158(yss236_core& c)
             {
                 Envelope const& e = ENVELOPES[0];
                 envelope_cycle(c, st, e, st - e.base);
-                continue;
+                return;
             }
             switch (st)
             {
@@ -439,7 +437,7 @@ void block_0x158(yss236_core& c)
             case 0x165: sum(c, st, 127); break;    // the envelope's own delay, added back
             default:    ramp(c, st, 124); break;   // the sum closed into the envelope register
             }
-            continue;
+            return;
         }
 
         if (st < 0x16f)
@@ -449,7 +447,7 @@ void block_0x158(yss236_core& c)
             {
                 Envelope const& e = ENVELOPES[1];
                 envelope_cycle(c, st, e, st - e.base);
-                continue;
+                return;
             }
             switch (st)
             {
@@ -458,7 +456,7 @@ void block_0x158(yss236_core& c)
             case 0x16d: scale(c, st, 1); break;
             default:    sum(c, st, 119); break;
             }
-            continue;
+            return;
         }
 
         if (st < 0x175)
@@ -483,7 +481,7 @@ void block_0x158(yss236_core& c)
                 decay(c, st, 12, 124, 124);
                 break;
             }
-            continue;
+            return;
         }
 
         if (st < 0x17c)
@@ -491,7 +489,7 @@ void block_0x158(yss236_core& c)
             // ---- the left channel's input path, seven steps from r[5] into its delay line ----
             Chain const& ch = CHAINS[0];
             input_chain(c, st, ch, st - ch.base);
-            continue;
+            return;
         }
 
         if (st < 0x185)
@@ -505,17 +503,17 @@ void block_0x158(yss236_core& c)
                 case 0x17d: sum(c, st, 124); break;
                 default:    ramp(c, st, 126); break;
                 }
-                continue;
+                return;
             }
-            if (st < 0x181) { tap_pair(c, st, TAPS[0]); continue; }
+            if (st < 0x181) { tap_pair(c, st, TAPS[0]); return; }
             if (st < 0x183)
             {
                 if (st == 0x181) abs_term(c, st, 127);
                 else              position(c, st, 126, 10);
-                continue;
+                return;
             }
             tap_pair(c, st, TAPS[1]);
-            continue;
+            return;
         }
 
         if (st < 0x18c)
@@ -523,7 +521,7 @@ void block_0x158(yss236_core& c)
             // ---- the right channel's input path, the mirror of the left one ----
             Chain const& ch = CHAINS[1];
             input_chain(c, st, ch, st - ch.base);
-            continue;
+            return;
         }
 
         if (st < 0x191)
@@ -536,7 +534,7 @@ void block_0x158(yss236_core& c)
             case 0x18e:
             {
                 // The left delay line's value is latched here, thirteen steps before 0x19b writes it.
-                double const y = run(c, {st, 108, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0});
+                double const y = run(c, {.st = st, .sr = 108, .add = ADD_ACC, .clamp = CLAMP_SAT});
                 c.wlatch = yss236_core::clip(y, yss236_core::SAT);
                 c.haswl = true;
                 break;
@@ -551,7 +549,7 @@ void block_0x158(yss236_core& c)
                 tap_interp(c, st, TAPS[2].pos, TAPS[2].tap + 1, TAPS[2].mix);
                 break;
             }
-            continue;
+            return;
         }
 
         // ---- the tail: the mix units, the last tap pair, the outputs and the delay line writes ----
@@ -571,7 +569,7 @@ void block_0x158(yss236_core& c)
         case 0x19e: term(c, st, 108); break;             // the right delay line's own seeding step
         default:    write_right_delay(c, st); break;     // 0x19f
         }
-    }
+        });
 }
 
 }  // namespace

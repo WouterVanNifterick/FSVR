@@ -112,7 +112,7 @@ struct Decor { int st; decor_t kind; int cell; };
 // page 12's into m[12], which this program only reads), and the eight swept taps m[56] to m[63. Each tap
 // is five steps after the read that fills its cell, which is captured()'s lower bound, and the read's
 // slot is its own step over four, so a decor never names a slot.
-const Decor DECORS[22] = {
+constexpr Decor DECORS[22] = {
     //  the step  the decor
     {  0x1a1, DEC_SERIAL_L,  3 },    // the left serial input of page 13, for the windows outside this one
     {  0x1a2, DEC_SERIAL_R,  7 },    // and the right one
@@ -195,7 +195,7 @@ void publish(yss236_core& c, int st)
 // the one that fills m[12], out of the same hardware as this window's first LFO.
 struct Lfo { int st; bool unity; step::route_t route; step::clamp_t clamp; };
 
-const Lfo LFOS[3] = {
+constexpr Lfo LFOS[3] = {
     //  the step  unity  route    clamp
     {  0x1a0, true,  ROUTE_2,  CLAMP_ABS },    // |2 * m[12]|, the step ins::LFO_DIR_STEPS[0] names
     {  0x1a2, false, ROUTE_16, CLAMP_WRAP },   // 16 k m[12]: the offset the next accumulator takes
@@ -208,7 +208,7 @@ constexpr auto LFOS_AT = index_by_step(LFOS);
 
 void lfo_step(yss236_core& c, int st, Lfo const& x)
 {
-	run(c, { st, 0, 12, M2_CELL, x.unity, 0, ADD_OFF, false, x.route, x.clamp });
+	run(c, {.st = st, .sm = 12, .m2 = M2_CELL, .unity = x.unity, .route = x.route, .clamp = x.clamp});
 }
 
 // The three rectifiers that feed an accumulator back: the second accumulator at 0x1a8, the fourth at
@@ -216,7 +216,7 @@ void lfo_step(yss236_core& c, int st, Lfo const& x)
 // running value takes is its absolute value.
 struct Rect { int st, reg; };
 
-const Rect RECTS[3] = {
+constexpr Rect RECTS[3] = {
     {  0x1a8, 124 },     // ins::LFO_DIR_STEPS[1], and the rectifier that feeds the second accumulator back
     {  0x1b1, 123 },     // ins::PC_FB[5], on the fourth
     {  0x1ba, 122 },     // ins::PC_MIX[0], on the third
@@ -227,7 +227,7 @@ constexpr auto RECTS_AT = index_by_step(RECTS);
 
 void rectifier(yss236_core& c, int st, Rect const& r)
 {
-	run(c, { st, r.reg, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_ABS });
+	run(c, {.st = st, .sr = r.reg, .unity = true, .clamp = CLAMP_ABS});
 }
 
 // A sweep accumulator's word. This is a class-1 step, the one shape in this program that loads a value
@@ -240,7 +240,7 @@ struct Sweep { int st, reg, cell; add_t add; step::route_t route; step::clamp_t 
 // The seven sweep words of the head. Four saturate and three wrap: the two that load an accumulator for
 // the first time wrap, and so does 0x1ab, which is the fourth accumulator's first load and the only one
 // that reads the LFO cell instead of the running value.
-const Sweep SWEEPS[7] = {
+constexpr Sweep SWEEPS[7] = {
     //  the step  reg  cell  the adder    route    clamp
     {  0x1a1, 121,   0,  ADD_ACC,  ROUTE_2,  CLAMP_SAT },     // the first accumulator
     {  0x1a3, 124,   0,  ADD_ACC,  ROUTE_2,  CLAMP_WRAP },    // the second, wrapped rather than saturated
@@ -256,7 +256,7 @@ constexpr auto SWEEPS_AT = index_by_step(SWEEPS);
 
 void sweep(yss236_core& c, int st, Sweep const& s)
 {
-	load(c, st, 0, s.cell, s.add, false, s.route, s.clamp, s.reg);
+	load(c, {.st = st, .sm = s.cell, .add = s.add, .route = s.route, .clamp = s.clamp, .dr = s.reg});
 }
 
 // One of the four envelopes, in two steps: the accumulator's own value on the t register the feedback
@@ -264,7 +264,7 @@ void sweep(yss236_core& c, int st, Sweep const& s)
 // t[9], r[4] r[124] on t[15], r[3] r[123] on t[13] and r[2] r[122] on t[11]; all eight saturate.
 struct Envelope { int st, reg, src, treg; };
 
-const Envelope ENVELOPES[8] = {
+constexpr Envelope ENVELOPES[8] = {
     //  the step  the envelope  the accumulator  its weight
     {  0x1a7,     1,         121,           9 },
     {  0x1aa,     1,           1,           9 },
@@ -281,7 +281,7 @@ constexpr auto ENVELOPES_AT = index_by_step(ENVELOPES);
 
 void envelope(yss236_core& c, int st, Envelope const& e)
 {
-	run(c, { st, e.src, 0, M2_REG, false, e.treg, ADD_OFF, false, ROUTE_1, CLAMP_SAT, e.reg });
+	run(c, {.st = st, .sr = e.src, .treg = e.treg, .clamp = CLAMP_SAT, .dr = e.reg});
 }
 
 // One accumulator's amplitude envelope, the three steps that turn a sweep into an amplitude: the
@@ -292,7 +292,7 @@ void envelope(yss236_core& c, int st, Envelope const& e)
 // ins::MODE_STEPS_A[0] are three of the nine words these steps carry.
 struct AmpEnv { int st, nsteps, acc, env; };
 
-const AmpEnv AMP_ENV[4] = {
+constexpr AmpEnv AMP_ENV[4] = {
     //    st  n  acc  env
     {  0x1ad, 3, 121,  1 },
     {  0x1b6, 3, 124,  4 },
@@ -310,7 +310,7 @@ void amp_env(yss236_core& c, int st, AmpEnv const& a)
 	{
 	case 0:
 		// the accumulator's own value on the x16 route, saturating: what the envelope is built on
-		run(c, { st, a.acc, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT });
+		run(c, {.st = st, .sr = a.acc, .route = ROUTE_16, .clamp = CLAMP_SAT});
 		break;
 	case 1:
 		// the envelope's word on top of it, added to the running value
@@ -320,7 +320,7 @@ void amp_env(yss236_core& c, int st, AmpEnv const& a)
 		// the sweep word with the negatives held at zero, which is what makes the accumulator an
 		// amplitude: the offset it carries is ins::PC_FB[4] at 0x1af, ins::MOD_LEVEL[0] at 0x1b8 and the
 		// two of the third and fourth accumulators at 0x1c1 and 0x1c9
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, a.acc);
+		load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_ZERO, .dr = a.acc});
 		break;
 	}
 }
@@ -335,7 +335,7 @@ enum depth_t { D_FEEDBACK, D_POSITION, D_AMPLITUDE };
 // The twelve depth words, in step order. Each accumulator takes one of each, on the steps below.
 struct Depth { int st, reg, treg; depth_t kind; };
 
-const Depth DEPTHS[12] = {
+constexpr Depth DEPTHS[12] = {
     //  the step  reg  treg  the shape
     {  0x1a4, 121,   9, D_FEEDBACK },     // the first accumulator's feedback
     {  0x1ac, 124,  15, D_FEEDBACK },     // the second's
@@ -357,15 +357,15 @@ constexpr auto DEPTHS_AT = index_by_step(DEPTHS);
 void depth(yss236_core& c, int st, Depth const& d)
 {
 	double const y = d.kind == D_FEEDBACK
-		? run(c, { st, d.reg, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_2, CLAMP_SAT, d.reg })
-		: run(c, { st, d.reg, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT });
+		? run(c, {.st = st, .sr = d.reg, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = d.reg})
+		: run(c, {.st = st, .sr = d.reg, .clamp = CLAMP_SAT});
 	if (d.kind == D_POSITION)
 	{
-		t_put_fraction(c, d.treg, y);   // the fraction below one sample, which the tap pair interpolates on
+		t_put_fraction(c, st, d.treg, y);   // the fraction below one sample, which the tap pair interpolates on
 		load_index(c, y);               // and the whole of it, which the pair's two reads take three steps on
 		return;
 	}
-	t_put(c, d.treg, y);               // the other two leave a 1.15 multiplier: the envelope's or the gain's
+	t_put(c, st, d.treg, y);               // the other two leave a 1.15 multiplier: the envelope's or the gain's
 }
 
 // One step of the head, 0x1a0 to 0x1ce. The LFO cell, the four accumulators, their depth words and their
@@ -393,7 +393,7 @@ void accumulator(yss236_core& c, int st)
 // cells are taken up five steps after the read that filled them, which is captured()'s lower bound.
 struct Interp { int base; int treg, early, late, out; };
 
-const Interp INTERPOLATIONS[4] = {
+constexpr Interp INTERPOLATIONS[4] = {
     {  0x1ca, 10, 56, 57, 119 },     // the slots 0x6d and 0x6e: the left channel's first wet tap
     {  0x1e9, 12, 58, 59, 120 },     // the slots 0x73 and 0x74: the right channel's first wet tap
     {  0x1eb, 14, 60, 61, 121 },     // the slots 0x71 and 0x72, into the register the first accumulator held
@@ -406,13 +406,13 @@ void interp(yss236_core& c, int st, Interp const& p)
 	{
 		// the pair's weight: the fraction times the earlier word, with the word itself taken off, which
 		// is the pair interpolated at the index less one word
-		run(c, { st, 0, p.early, M2_CELL, false, p.treg, ADD_CELL, true, ROUTE_1, CLAMP_WRAP });
+		run(c, {.st = st, .sm = p.early, .m2 = M2_CELL, .treg = p.treg, .add = ADD_CELL, .sub = true});
 		return;
 	}
 	// the later word on that weight less the running value, into the register the pan words scale. The
 	// read of the pair's second slot rides on this step, and ins::EQ3_LEVEL[0] and ins::MOD_WORDS[4] are
 	// the two of the four closing words a table names; the other two are the ROM's own.
-	run(c, { st, 0, p.late, M2_CELL, false, p.treg, ADD_ACC, true, ROUTE_1, CLAMP_SAT, p.out });
+	run(c, {.st = st, .sm = p.late, .m2 = M2_CELL, .treg = p.treg, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = p.out});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -473,7 +473,7 @@ struct Channel { int base; int in, other, mixed; Band band[3]; };
 // The left channel first, whose steps also publish three of the eight delay reads the taps take up, then
 // the right one, which publishes the fourth LFO. The bands sit in the channel's own row, so each channel
 // has its own index of them and channel() is told which one to read.
-const Channel CHANNELS[2] = {
+constexpr Channel CHANNELS[2] = {
     //  base   in  other  mixed   the three bands
     {  0x1cf,   7,     8,     67,
         { { 0x1d1, 3, NO_COPY,    67,  0,  0, 68, ROUTE_2 },     // the low shelf, ins::LPF_ROT
@@ -519,7 +519,7 @@ struct Gain { int st, reg, treg; };
 
 // The four gains in step order, one per tap: ins::MOD_WORDS[7] at 0x1ef, ins::PC_MIX[5] at 0x1f0,
 // ins::MOD_WORDS[6] at 0x1f1, and the ROM's own word at 0x1f2.
-const Gain GAINS[4] = {
+constexpr Gain GAINS[4] = {
     {  0x1ef, 119,  9 },
     {  0x1f0, 120, 11 },
     {  0x1f1, 121, 13 },
@@ -528,7 +528,7 @@ const Gain GAINS[4] = {
 
 void tap_gain(yss236_core& c, int st, Gain const& g)
 {
-	run(c, { st, g.reg, 0, M2_REG, false, g.treg, ADD_REG, false, ROUTE_1, CLAMP_SAT, g.reg });
+	run(c, {.st = st, .sr = g.reg, .treg = g.treg, .add = ADD_REG, .clamp = CLAMP_SAT, .dr = g.reg});
 }
 
 // One channel's wet sum: three taps, each on its own word, and the sum closes back into the channel's
@@ -539,7 +539,7 @@ void tap_gain(yss236_core& c, int st, Gain const& g)
 // ins::MOD_WORDS[0] to [3] the same two; the middle step carries no table's word.
 struct Wet { int base; int first, second, third; };
 
-const Wet WETS[2] = {
+constexpr Wet WETS[2] = {
     {  0x1f3, 119, 121, 122 },     // the left channel, on ins::ROT_PAN[0] and [2]
     {  0x1f6, 120, 122, 121 },     // and the right, on ins::ROT_PAN[1] and [3]
 };
@@ -587,7 +587,7 @@ struct Out
 	step::clamp_t writer_clamp;   // and the clamp it takes
 };
 
-const Out OUTS[2] = {
+constexpr Out OUTS[2] = {
     //  base  latch  writer  tone  other  wet  reg  the slot  what the writer leaves  its clamp
     {  0x1f9,   1,      2,   72,    78, 119,  17,     0x7e,  WRITE_LATCHED,           CLAMP_WRAP },
     {  0x1fd,   0,      2,   78,     0, 120,  18,     0x7f,  WRITE_OWN,               CLAMP_SAT  },
@@ -605,8 +605,7 @@ void out_steps(yss236_core& c, int st, Out const& o)
 	{
 		// ins::TREM_WORDS[1]: the other channel's signal on its word added to this one, saturating, and
 		// latched as the data of the write the next step makes
-		run(c, { st, o.other, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0,
-		         false, 0, false, false, true });
+		run(c, {.st = st, .sr = o.other, .add = ADD_ACC, .clamp = CLAMP_SAT, .wdata = true});
 		return;
 	}
 	if (k == o.writer)
@@ -635,10 +634,8 @@ void out_steps(yss236_core& c, int st, Out const& o)
 // groups the comments at the head of this file open.
 void block_0x1a0(yss236_core& c)
 {
-	for (int st = 0x1a0; st < 0x200; st++)
+	for_steps<0x1a0, 0x200>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// the serial inputs, the LFOs, the captures and the delay RAM reads, before any arithmetic
 		publish(c, st);
@@ -647,59 +644,59 @@ void block_0x1a0(yss236_core& c)
 		{
 			// ---- 0x1a0 to 0x1b3, the LFO cell, four accumulators, their envelopes and their rectifiers
 			accumulator(c, st);
-			continue;
+			return;
 		}
 		if (st < 0x1ca)
 		{
 			// ---- 0x1b4 to 0x1c9, the four delay lengths and the eight delay RAM reads on the way past
 			accumulator(c, st);
-			continue;
+			return;
 		}
 		if (st < 0x1cc)
 		{
 			// ---- 0x1ca and 0x1cb, the first tap pair interpolated
 			interp(c, st, INTERPOLATIONS[0]);
-			continue;
+			return;
 		}
 		if (st < 0x1cf)
 		{
 			// ---- 0x1cc to 0x1ce, the fourth delay length and the two amplitude words off r[122] and r[124]
 			accumulator(c, st);
-			continue;
+			return;
 		}
 		if (st < 0x1dc)
 		{
 			// ---- 0x1cf to 0x1db, the left channel: the two signals summed, then the three bands
 			channel(c, st, CHANNELS[0], LEFT_BANDS_AT);
-			continue;
+			return;
 		}
 		if (st < 0x1e9)
 		{
 			// ---- 0x1dc to 0x1e8, the right channel, the same thirteen steps on the other registers
 			channel(c, st, CHANNELS[1], RIGHT_BANDS_AT);
-			continue;
+			return;
 		}
 		if (st < 0x1ef)
 		{
 			// ---- 0x1e9 to 0x1ee, the other three interpolations
 			interp(c, st, INTERPOLATIONS[(st - 0x1e9) / 2 + 1]);
-			continue;
+			return;
 		}
 		if (st < 0x1f3)
 		{
 			// ---- 0x1ef to 0x1f2, the four amplitude gains
 			tap_gain(c, st, GAINS[st - 0x1ef]);
-			continue;
+			return;
 		}
 		if (st < 0x1f9)
 		{
 			// ---- 0x1f3 to 0x1f8, the two wet sums, which the pan law words weight
 			wet(c, st, WETS[(st - 0x1f3) / 3]);
-			continue;
+			return;
 		}
 		// ---- 0x1f9 to 0x1ff, the dry mix, the two outputs and the two delay lines' writes
 		out_steps(c, st, OUTS[st < 0x1fd ? 0 : 1]);
-	}
+		});
 }
 
 }  // namespace

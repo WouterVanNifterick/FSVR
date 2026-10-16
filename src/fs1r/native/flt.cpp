@@ -84,28 +84,6 @@ using namespace step;   // the step vocabulary: term, sum, close, copy_z and the
 // What a step carries besides its arithmetic
 // ---------------------------------------------------------------------------------------------
 
-// A step of a page usually also moves a cell in from the hardware side or sends one out to the serial
-// output.  `cell` is the cell it moves into or out of and the step's own page decides the serial
-// bank, the LFO and the output slot, exactly as step() takes them: in[0] is the voice's own serial
-// input, in[1] the second bank, and in[3] the EG level.
-enum decor_t { DEC_NONE, DEC_SERIAL_L, DEC_SERIAL_R, DEC_EG, DEC_LFO, DEC_OUT };
-
-struct Decor { decor_t kind; int cell; };
-
-// Apply the decor, which comes before the term, because step() moves a cell before it adds.
-void decor(yss236_core& c, int st, Decor const& d)
-{
-	switch (d.kind)
-	{
-		case DEC_SERIAL_L:  take_serial(c, d.cell, st, 0); break;
-		case DEC_SERIAL_R:  take_serial(c, d.cell, st, 1); break;
-		case DEC_EG:        take_eg(c, d.cell, st); break;
-		case DEC_LFO:       take_lfo(c, d.cell, st); break;
-		case DEC_OUT:       serial_out(c, st, d.cell); break;
-		case DEC_NONE: break;
-	}
-}
-
 // One step's program words, folded into the arithmetic, in step::alu's own field order, save for the
 // step itself, so that a row reads as the expression it computes: the two operands, the multiplier's
 // word, the adder, the route and the clamp, and where the result goes.  The step is not in the row,
@@ -137,16 +115,15 @@ void row_step(yss236_core& c, int st, Row const& r, Decor const& d)
 	decor(c, st, d);
 	if (r.loadk)
 	{
-		load(c, st, r.sr, r.sm, r.add, r.sub, r.route, r.clamp, r.dr, r.dm);
+		load(c, {.st = st, .sr = r.sr, .sm = r.sm, .add = r.add, .sub = r.sub, .route = r.route, .clamp = r.clamp, .dr = r.dr, .dm = r.dm});
 		// t_write() reads the loaded value, which is the running value after the clamp and not the
 		// one load() hands back
-		if (r.tw & 2) t_put(c, r.tn, c.acc);
+		if (r.tw & 2) t_put(c, st, r.tn, c.acc);
 		else if (r.tw & 1) t_put_word(c, st, r.tn);
 		return;
 	}
-	double const y = run(c, {st, r.sr, r.sm, r.m2, r.unity, r.treg, r.add, r.sub, r.route, r.clamp,
-	                         r.dr, r.z1, r.dm});
-	if (r.tw & 2) t_put(c, r.tn, y);
+	double const y = run(c, {.st = st, .sr = r.sr, .sm = r.sm, .m2 = r.m2, .unity = r.unity, .treg = r.treg, .add = r.add, .sub = r.sub, .route = r.route, .clamp = r.clamp, .dr = r.dr, .z1 = r.z1, .dm = r.dm});
+	if (r.tw & 2) t_put(c, st, r.tn, y);
 	else if (r.tw & 1) t_put_word(c, st, r.tn);
 }
 
@@ -155,7 +132,7 @@ void row_step(yss236_core& c, int st, Row const& r, Decor const& d)
 // ---------------------------------------------------------------------------------------------
 
 // A page's first step, 16 + 124 * g, and where its four lanes sit: lane i owns r[24 * g + 6 * i .. +6].
-const int PAGE_BASE[4] = { 0x010, 0x08c, 0x108, 0x184 };
+constexpr int PAGE_BASE[4] = { 0x010, 0x08c, 0x108, 0x184 };
 inline int lane_base(int g, int i) { return 24 * g + 6 * i; }
 
 // The registers the schedule reads and writes the same way in every page, and the t registers it
@@ -177,78 +154,78 @@ const int OUT_TREG[4] = {  1,  2,  1,  2 };
 
 // ---- rel 0x0c to 0x13: the pole coefficients, the cutoff words onto m[62] by the route's two and
 //      then the first pole gains onto m[61].  The same eight steps in all four pages. ----
-const Row POLE_COEFS[8] = {
-	{  97, 62,  0, M2_REG  , false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO,  98, false,  0,  1, 2, false },
-	{  98, 62,  0, M2_REG  , false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO,  97, false,  0,  2, 2, false },
-	{  99, 62,  0, M2_REG  , false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO,  98, false,  0,  1, 2, false },
-	{  97, 62,  0, M2_REG  , false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO,  97, false,  0,  2, 2, false },
-	{  98, 61,  1, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO,  98, false,  0,  1, 2, false },
-	{  97, 61,  2, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO,  97, false,  0,  2, 2, false },
-	{  98, 61,  1, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO,  98, false,  0,  1, 2, false },
-	{  97, 61,  2, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO,  97, false,  0,  2, 2, false }
+constexpr Row POLE_COEFS[8] = {
+	{ 97, 62, 0, M2_REG, false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO, 98, false, 0, 1, 2, false },
+	{ 98, 62, 0, M2_REG, false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO, 97, false, 0, 2, 2, false },
+	{ 99, 62, 0, M2_REG, false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO, 98, false, 0, 1, 2, false },
+	{ 97, 62, 0, M2_REG, false, ADD_CELL, false, ROUTE_2, CLAMP_ZERO, 97, false, 0, 2, 2, false },
+	{ 98, 61, 1, M2_REG, false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO, 98, false, 0, 1, 2, false },
+	{ 97, 61, 2, M2_REG, false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO, 97, false, 0, 2, 2, false },
+	{ 98, 61, 1, M2_REG, false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO, 98, false, 0, 1, 2, false },
+	{ 97, 61, 2, M2_REG, false, ADD_CELL, false, ROUTE_1, CLAMP_ZERO, 97, false, 0, 2, 2, false }
 };
 
 // ---- rel 0x1c to 0x23: the resonance stage, four pole states less m[63] and four more it added ----
-const Row RESONANCE[8] = {
-	{  97, 63,  0, M2_REG  , false, ADD_CELL, true , ROUTE_1, CLAMP_SAT ,  98, false,  0,  0, 0, false },
-	{ 100, 63,  0, M2_REG  , false, ADD_CELL, true , ROUTE_1, CLAMP_SAT ,  99, false,  0,  0, 0, false },
-	{ 103, 63,  0, M2_REG  , false, ADD_CELL, true , ROUTE_1, CLAMP_SAT ,  98, false,  0,  0, 0, false },
-	{ 106, 63,  0, M2_REG  , false, ADD_CELL, true , ROUTE_1, CLAMP_SAT ,  99, false,  0,  0, 0, false },
-	{  98, 63,  0, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_SAT ,  98, false,  0,  0, 0, false },
-	{  99, 63,  0, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_SAT ,  99, false,  0,  0, 0, false },
-	{  98, 63,  0, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_SAT , 101, false,  0,  0, 0, false },
-	{  99, 63,  0, M2_REG  , false, ADD_CELL, false, ROUTE_1, CLAMP_SAT , 102, false,  0,  0, 0, false }
+constexpr Row RESONANCE[8] = {
+	{ 97,  63, 0, M2_REG, false, ADD_CELL, true,  ROUTE_1, CLAMP_SAT, 98,  false, 0, 0, 0, false },
+	{ 100, 63, 0, M2_REG, false, ADD_CELL, true,  ROUTE_1, CLAMP_SAT, 99,  false, 0, 0, 0, false },
+	{ 103, 63, 0, M2_REG, false, ADD_CELL, true,  ROUTE_1, CLAMP_SAT, 98,  false, 0, 0, 0, false },
+	{ 106, 63, 0, M2_REG, false, ADD_CELL, true,  ROUTE_1, CLAMP_SAT, 99,  false, 0, 0, 0, false },
+	{ 98,  63, 0, M2_REG, false, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 98,  false, 0, 0, 0, false },
+	{ 99,  63, 0, M2_REG, false, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 99,  false, 0, 0, 0, false },
+	{ 98,  63, 0, M2_REG, false, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 101, false, 0, 0, 0, false },
+	{ 99,  63, 0, M2_REG, false, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 102, false, 0, 0, 0, false }
 };
 
 // ---- rel 0x28 to 0x2f: the LPF12 coefficients onto r[104] and r[105], then their gains into t[1]
 //      and t[2].  The same eight steps in all four pages. ----
-const Row LPF12_COEFS[8] = {
-	{  98,  0,  0, M2_REG  , false, ADD_REG , true , ROUTE_2, CLAMP_SAT , 104, false,  0,  0, 0, true  },
-	{  99,  0,  0, M2_REG  , false, ADD_REG , true , ROUTE_2, CLAMP_SAT , 105, false,  0,  0, 0, true  },
-	{ 101,  0,  0, M2_REG  , false, ADD_REG , true , ROUTE_2, CLAMP_SAT , 104, false,  0,  0, 0, true  },
-	{ 102,  0,  0, M2_REG  , false, ADD_REG , true , ROUTE_2, CLAMP_SAT , 105, false,  0,  0, 0, true  },
-	{ 104,  0,  0, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  1, 2, false },
-	{ 105,  0,  0, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  2, 2, false },
-	{ 104,  0,  0, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  1, 2, false },
-	{ 105,  0,  0, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  2, 2, false }
+constexpr Row LPF12_COEFS[8] = {
+	{ 98,  0, 0, M2_REG, false, ADD_REG, true,  ROUTE_2, CLAMP_SAT, 104, false, 0, 0, 0, true  },
+	{ 99,  0, 0, M2_REG, false, ADD_REG, true,  ROUTE_2, CLAMP_SAT, 105, false, 0, 0, 0, true  },
+	{ 101, 0, 0, M2_REG, false, ADD_REG, true,  ROUTE_2, CLAMP_SAT, 104, false, 0, 0, 0, true  },
+	{ 102, 0, 0, M2_REG, false, ADD_REG, true,  ROUTE_2, CLAMP_SAT, 105, false, 0, 0, 0, true  },
+	{ 104, 0, 0, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0,   false, 0, 1, 2, false },
+	{ 105, 0, 0, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0,   false, 0, 2, 2, false },
+	{ 104, 0, 0, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0,   false, 0, 1, 2, false },
+	{ 105, 0, 0, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0,   false, 0, 2, 2, false }
 };
 
 // ---- rel 0x14 to 0x1b: the pole gains of the page's own four lanes.  The arithmetic is the same in
 //      all four pages and so is every register but one: only the cell a step latches is page's own,
 //      which GAIN_CELL below holds. ----
-const Row PAGE_GAINS[8] = {
-	{  98,  0,  1, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO,  98, false,  0,  1, 2, false },
-	{  97,  0,  2, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO,  97, false,  0,  2, 2, false },
-	{  98,  0,  1, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO,  98, false,  0,  1, 2, false },
-	{  97,  0,  2, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO,  99, false,  0,  2, 2, false },
-	{  98,  0,  1, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO,  97, false,  0,  1, 2, false },
-	{  97,  0,  2, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO, 100, false,  0,  2, 2, false },
-	{  98,  0,  1, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO, 103, false,  0,  3, 2, false },
-	{  99,  0,  2, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_ZERO, 106, false,  0,  4, 2, false }
+constexpr Row PAGE_GAINS[8] = {
+	{ 98, 0, 1, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_ZERO, 98,  false, 0, 1, 2, false },
+	{ 97, 0, 2, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_ZERO, 97,  false, 0, 2, 2, false },
+	{ 98, 0, 1, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_ZERO, 98,  false, 0, 1, 2, false },
+	{ 97, 0, 2, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_ZERO, 99,  false, 0, 2, 2, false },
+	{ 98, 0, 1, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_ZERO, 97,  false, 0, 1, 2, false },
+	{ 97, 0, 2, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_ZERO, 100, false, 0, 2, 2, false },
+	{ 98, 0, 1, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_ZERO, 103, false, 0, 3, 2, false },
+	{ 99, 0, 2, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_ZERO, 106, false, 0, 4, 2, false }
 };
 
 // ---- rel 0x24 to 0x27: the pole states into the cells the LPF12 taps and the sweep read them off ----
-const Row POLE_STATES[4] = {
-	{  97,  0,  1, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  0, 0, false },
-	{ 100,  0,  2, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  0, 0, false },
-	{ 103,  0,  3, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  0, 0, false },
-	{ 106,  0,  4, M2_REG  , false, ADD_OFF , false, ROUTE_1, CLAMP_SAT ,   0, false,  0,  0, 0, false }
+constexpr Row POLE_STATES[4] = {
+	{ 97,  0, 1, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0, false, 0, 0, 0, false },
+	{ 100, 0, 2, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0, false, 0, 0, 0, false },
+	{ 103, 0, 3, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0, false, 0, 0, 0, false },
+	{ 106, 0, 4, M2_REG, false, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0, false, 0, 0, 0, false }
 };
 
 // ---- rel 0x30 to 0x33: the LPF12 taps, a pole state scaled by t[1] or t[2] onto its cutoff word ----
-const Row LPF12_TAPS[4] = {
-	{  97,  0,  1, M2_CELL , false, ADD_REG , false, ROUTE_1, CLAMP_ZERO,   0, false,  0,  1, 2, false },
-	{ 100,  0,  2, M2_CELL , false, ADD_REG , false, ROUTE_1, CLAMP_ZERO,   0, false,  0,  3, 2, false },
-	{ 103,  0,  1, M2_CELL , false, ADD_REG , false, ROUTE_1, CLAMP_ZERO,   0, false,  0,  5, 2, false },
-	{ 106,  0,  2, M2_CELL , false, ADD_REG , false, ROUTE_1, CLAMP_ZERO,   0, false,  0,  7, 2, false }
+constexpr Row LPF12_TAPS[4] = {
+	{ 97,  0, 1, M2_CELL, false, ADD_REG, false, ROUTE_1, CLAMP_ZERO, 0, false, 0, 1, 2, false },
+	{ 100, 0, 2, M2_CELL, false, ADD_REG, false, ROUTE_1, CLAMP_ZERO, 0, false, 0, 3, 2, false },
+	{ 103, 0, 1, M2_CELL, false, ADD_REG, false, ROUTE_1, CLAMP_ZERO, 0, false, 0, 5, 2, false },
+	{ 106, 0, 2, M2_CELL, false, ADD_REG, false, ROUTE_1, CLAMP_ZERO, 0, false, 0, 7, 2, false }
 };
 
 // ---- rel 0x60 to 0x63: the cutoff words onto the tap gains t[1] to t[4], by the route's four ----
-const Row CUTOFF_GAINS[4] = {
-	{  97,  0,  0, M2_CELL , false, ADD_REG , false, ROUTE_4, CLAMP_ZERO,   0, false,  0,  1, 2, false },
-	{ 100,  0,  0, M2_CELL , false, ADD_REG , false, ROUTE_4, CLAMP_ZERO,   0, false,  0,  2, 2, false },
-	{ 103,  0,  0, M2_CELL , false, ADD_REG , false, ROUTE_4, CLAMP_ZERO,   0, false,  0,  3, 2, false },
-	{ 106,  0,  0, M2_CELL , false, ADD_REG , false, ROUTE_4, CLAMP_ZERO,   0, false,  0,  4, 2, false }
+constexpr Row CUTOFF_GAINS[4] = {
+	{ 97,  0, 0, M2_CELL, false, ADD_REG, false, ROUTE_4, CLAMP_ZERO, 0, false, 0, 1, 2, false },
+	{ 100, 0, 0, M2_CELL, false, ADD_REG, false, ROUTE_4, CLAMP_ZERO, 0, false, 0, 2, 2, false },
+	{ 103, 0, 0, M2_CELL, false, ADD_REG, false, ROUTE_4, CLAMP_ZERO, 0, false, 0, 3, 2, false },
+	{ 106, 0, 0, M2_CELL, false, ADD_REG, false, ROUTE_4, CLAMP_ZERO, 0, false, 0, 4, 2, false }
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -265,9 +242,9 @@ const int EG[4][4] = {
 	{ 22, 24, 29, 34 },
 	{ 28, 18, 17, 36 } };
 const int LFO2[4][4] = {
-	{  1,  2,  3,  4 },
-	{  5,  6,  7,  8 },
-	{  9, 10, 11, 12 },
+	{ 1, 2,  3,  4  },
+	{ 5, 6,  7,  8  },
+	{ 9, 10, 11, 12 },
 	{ 13, 14, 15, 16 } };
 
 // SWEEP_EG and SWEEP_EG2 are the two cells the EG to cutoff sweep reads per lane and SWEEP_TAP the
@@ -291,9 +268,9 @@ const int SWEEP_TAP[4][4] = {
 	{ 35, 40, 27, 41 },
 	{ 21, 40, 31, 35 } };
 const int LPF12_TAP[4][4] = {
-	{ 28,  0,  0,  0 },
-	{ 33,  0,  0,  0 },
-	{ 19,  0,  0,  0 },
+	{ 28, 0, 0, 0 },
+	{ 33, 0, 0, 0 },
+	{ 19, 0, 0, 0 },
 	{ 22,  0,  0,  0 } };
 const int LPF12_OUT_CELL[4][4] = {
 	{ 17, 18, 20, 17 },
@@ -329,9 +306,9 @@ const int STATE_CELL[4][4] = {
 	{ 29, 37, 38, 39 },
 	{ 33, 37, 38, 39 } };
 const int STATE_SRC[4][4] = {
-	{  0,  0,  0,  0 },
-	{  0,  0,  0,  0 },
-	{  0,  0,  0,  0 },
+	{ 0, 0, 0, 0 },
+	{ 0, 0, 0, 0 },
+	{ 0, 0, 0, 0 },
 	{ 21,  0,  0,  0 } };
 const int TAP_CELL[4][4] = {
 	{ 27, 41, 18, 42 },
@@ -339,34 +316,34 @@ const int TAP_CELL[4][4] = {
 	{ 35, 40, 27, 41 },
 	{ 21, 40, 31, 35 } };
 const int OUT_SRC[4][4] = {
-	{  0,  0,  0,  0 },
-	{  0,  0,  0,  0 },
-	{ 17,  0,  0,  0 },
+	{ 0,  0, 0, 0 },
+	{ 0,  0, 0, 0 },
+	{ 17, 0, 0, 0 },
 	{  0,  0,  0,  0 } };
 const int LPF18_SRC[4][4] = {
-	{ 29,  0,  0,  0 },
-	{  0,  0,  0,  0 },
-	{  0,  0,  0,  0 },
+	{ 29, 0, 0, 0 },
+	{ 0,  0, 0, 0 },
+	{ 0,  0, 0, 0 },
 	{  0,  0,  0,  0 } };
 const int SLOPE_SRC[4][4] = {
-	{  0,  0,  0,  0 },
-	{  0,  0,  0, 17 },
-	{  0,  0,  0,  0 },
+	{ 0, 0, 0, 0  },
+	{ 0, 0, 0, 17 },
+	{ 0, 0, 0, 0  },
 	{  0,  0,  0,  0 } };
 const int RAMP_EVEN_SRC[4][8] = {
-	{  0,  0,  0,  0,  0,  0,  0,  0 },
-	{ 35,  0,  0,  0,  0,  0,  0,  0 },
-	{ 20,  0,  0,  0,  0,  0,  0,  0 },
+	{ 0,  0, 0, 0, 0, 0, 0, 0 },
+	{ 35, 0, 0, 0, 0, 0, 0, 0 },
+	{ 20, 0, 0, 0, 0, 0, 0, 0 },
 	{ 23,  0,  0,  0,  0,  0,  0,  0 } };
 const int RAMP_ODD_SRC[4][8] = {
-	{  0,  0,  0,  0,  0,  0,  0, 31 },
-	{  0,  0,  0,  0,  0,  0,  0,  0 },
-	{  0,  0,  0,  0,  0,  0,  0,  0 },
+	{ 0, 0, 0, 0, 0, 0, 0, 31 },
+	{ 0, 0, 0, 0, 0, 0, 0, 0  },
+	{ 0, 0, 0, 0, 0, 0, 0, 0  },
 	{  0,  0,  0,  0,  0,  0,  0,  0 } };
 const int GAIN_CELL[4][8] = {
-	{  0,  0,  0,  0, 27,  0,  0,  0 },
-	{  0,  0,  0, 32,  0,  0,  0,  0 },
-	{  0,  0,  0,  0,  0,  0,  0, 18 },
+	{ 0, 0, 0, 0,  27, 0, 0, 0  },
+	{ 0, 0, 0, 32, 0,  0, 0, 0  },
+	{ 0, 0, 0, 0,  0,  0, 0, 18 },
 	{  0,  0,  0,  0,  0,  0,  0,  0 } };
 
 // The decor of every step that takes a value from the hardware side on its way in or sends one out,
@@ -374,137 +351,137 @@ const int GAIN_CELL[4][8] = {
 // and no formula either: page 0 takes all four voices' serial inputs in the block that opens the
 // page's own pole gains, page 3 in the block that opens the EG to cutoff sweep, and the others split
 // them between the two.
-const Decor OPEN_DEC[4][12] = {
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 11}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+constexpr Decor OPEN_DEC[4][12] = {
+	{ {}, {}, {}, {},
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {} },
+	{ {}, {}, {}, {},
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {} },
+	{ {}, {}, {}, {},
+		{}, {}, {DEC_LFO, 11}, {},
+		{}, {}, {}, {} },
 	{ {DEC_SERIAL_L, 20}, {DEC_SERIAL_R, 18}, {DEC_EG, 17}, {DEC_LFO, 15},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {} }
 };
 
-const Decor STATE_DEC[4][4] = {
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_OUT, 21}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+constexpr Decor STATE_DEC[4][4] = {
+	{ {},            {  }, {  }, {  } },
+	{ {},            {  }, {  }, {  } },
+	{ {},            {  }, {  }, {  } },
+	{ {DEC_OUT, 21}, {  }, {  }, {  } }
 };
 
-const Decor GAIN_DEC[4][8] = {
+constexpr Decor GAIN_DEC[4][8] = {
 	{ {DEC_SERIAL_L, 17}, {DEC_SERIAL_R, 20}, {DEC_EG, 26}, {DEC_LFO, 4},
-		{DEC_OUT, 27}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
+		{DEC_OUT, 27}, {}, {}, {} },
 	{ {DEC_SERIAL_L, 21}, {DEC_SERIAL_R, 25}, {DEC_EG, 30}, {DEC_OUT, 32},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 8}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+		{}, {}, {DEC_LFO, 8}, {} },
+	{ {}, {}, {}, {},
 		{DEC_SERIAL_L, 24}, {DEC_SERIAL_R, 18}, {DEC_EG, 34}, {DEC_OUT, 18} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+	{ {}, {}, {}, {},
+		{}, {}, {}, {} }
 };
 
-const Decor RES_DEC[4][8] = {
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 12},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_SERIAL_L, 17}, {DEC_SERIAL_R, 32}, {DEC_EG, 36}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 16}, {DEC_NONE, 0} }
+constexpr Decor RES_DEC[4][8] = {
+	{ {}, {}, {}, {},
+		{}, {}, {}, {} },
+	{ {}, {}, {}, {},
+		{}, {}, {}, {} },
+	{ {}, {}, {}, {DEC_LFO, 12},
+		{}, {}, {}, {} },
+	{ {DEC_SERIAL_L, 17}, {DEC_SERIAL_R, 32}, {DEC_EG, 36}, {},
+		{}, {}, {DEC_LFO, 16}, {} }
 };
 
-const Decor SWEEP_DEC[4][16] = {
+constexpr Decor SWEEP_DEC[4][16] = {
 	{ {DEC_SERIAL_L, 23}, {DEC_SERIAL_R, 27}, {DEC_EG, 19}, {DEC_LFO, 5},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_SERIAL_L, 27}, {DEC_SERIAL_R, 31}, {DEC_EG, 22}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 9}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_SERIAL_L, 31}, {DEC_SERIAL_R, 35}, {DEC_EG, 28}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 13},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_SERIAL_L, 18}, {DEC_SERIAL_R, 19}, {DEC_EG, 17}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 1}, {DEC_NONE, 0} }
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {} },
+	{ {DEC_SERIAL_L, 27}, {DEC_SERIAL_R, 31}, {DEC_EG, 22}, {},
+		{}, {}, {DEC_LFO, 9}, {},
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {} },
+	{ {}, {}, {}, {},
+		{DEC_SERIAL_L, 31}, {DEC_SERIAL_R, 35}, {DEC_EG, 28}, {},
+		{}, {}, {}, {DEC_LFO, 13},
+		{}, {}, {}, {} },
+	{ {}, {}, {}, {},
+		{}, {}, {}, {},
+		{DEC_SERIAL_L, 18}, {DEC_SERIAL_R, 19}, {DEC_EG, 17}, {},
+		{}, {}, {DEC_LFO, 1}, {} }
 };
 
-const Decor LPF12_DEC[4][16] = {
-	{ {DEC_OUT, 28}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_SERIAL_L, 22}, {DEC_SERIAL_R, 24}, {DEC_EG, 21}, {DEC_NONE, 0} },
-	{ {DEC_OUT, 33}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_OUT, 19}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_OUT, 22}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+constexpr Decor LPF12_DEC[4][16] = {
+	{ {DEC_OUT, 28}, {}, {}, {},
+		{ }, {}, {}, { },
+		{ }, {}, {}, { },
+		{DEC_SERIAL_L, 22}, {DEC_SERIAL_R, 24}, {DEC_EG, 21}, {} },
+	{ {DEC_OUT, 33}, {}, {}, {},
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {} },
+	{ {DEC_OUT, 19}, {}, {}, {},
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {} },
+	{ {DEC_OUT, 22}, {}, {}, {},
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {} }
 };
 
-const Decor LPF18_DEC[4][8] = {
-	{ {DEC_OUT, 29}, {DEC_NONE, 0}, {DEC_LFO, 6}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_SERIAL_L, 25}, {DEC_NONE, 0}, {DEC_SERIAL_R, 28}, {DEC_NONE, 0},
-		{DEC_EG, 24}, {DEC_NONE, 0}, {DEC_LFO, 10}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_SERIAL_L, 19}, {DEC_NONE, 0}, {DEC_SERIAL_R, 24}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+constexpr Decor LPF18_DEC[4][8] = {
+	{ {DEC_OUT, 29}, {}, {DEC_LFO, 6}, {},
+		{}, {}, {}, {} },
+	{ {DEC_SERIAL_L, 25}, {}, {DEC_SERIAL_R, 28}, {},
+		{DEC_EG, 24}, {}, {DEC_LFO, 10}, {} },
+	{ {}, {}, {}, {},
+		{DEC_SERIAL_L, 19}, {}, {DEC_SERIAL_R, 24}, {} },
+	{ {}, {}, {}, {},
+		{}, {}, {}, {} }
 };
 
-const Decor LPF18_TAP_DEC[4][4] = {
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_EG, 18}, {DEC_NONE, 0}, {DEC_LFO, 14}, {DEC_NONE, 0} },
-	{ {DEC_SERIAL_L, 21}, {DEC_SERIAL_R, 22}, {DEC_EG, 20}, {DEC_NONE, 0} }
+constexpr Decor LPF18_TAP_DEC[4][4] = {
+	{ {},                 {},                 {},            {  } },
+	{ {},                 {},                 {},            {  } },
+	{ {DEC_EG, 18},       {},                 {DEC_LFO, 14}, {  } },
+	{ {DEC_SERIAL_L, 21}, {DEC_SERIAL_R, 22}, {DEC_EG, 20},  {  } }
 };
 
-const Decor CGAIN_DEC[4][4] = {
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 2}, {DEC_NONE, 0} }
+constexpr Decor CGAIN_DEC[4][4] = {
+	{ {  }, {  }, {},           {  } },
+	{ {  }, {  }, {},           {  } },
+	{ {  }, {  }, {},           {  } },
+	{ {  }, {  }, {DEC_LFO, 2}, {  } }
 };
 
-const Decor RAMP_DEC[4][16] = {
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
+constexpr Decor RAMP_DEC[4][16] = {
+	{ {}, {}, {}, {},
+		{ }, {}, {}, { },
+		{ }, {}, {}, { },
 		{DEC_SERIAL_L, 28}, {DEC_SERIAL_R, 29}, {DEC_EG, 25}, {DEC_OUT, 31} },
-	{ {DEC_OUT, 35}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_OUT, 20}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_OUT, 23}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},
-		{DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+	{ {DEC_OUT, 35}, {}, {}, {},
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {} },
+	{ {DEC_OUT, 20}, {}, {}, {},
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {} },
+	{ {DEC_OUT, 23}, {}, {}, {},
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {  },
+		{ }, {}, {}, {} }
 };
 
-const Decor SLOPE_DEC[4][4] = {
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 7} },
+constexpr Decor SLOPE_DEC[4][4] = {
+	{ {},                 {},                 {},           {DEC_LFO, 7}  },
 	{ {DEC_SERIAL_L, 32}, {DEC_SERIAL_R, 33}, {DEC_EG, 29}, {DEC_OUT, 17} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} },
-	{ {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0} }
+	{ {},                 {},                 {},           {}            },
+	{ {},                 {},                 {},           {}            }
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -536,7 +513,7 @@ void lane_open(yss236_core& c, int g, int st, int rel)
 // ---- rel 0x0c to 0x13: the pole coefficients ----
 void pole_coeffs(yss236_core& c, int g, int st, int rel)
 {
-	row_step(c, st, POLE_COEFS[rel - 0x0c], {DEC_NONE, 0});
+	row_step(c, st, POLE_COEFS[rel - 0x0c], {});
 }
 
 // ---- rel 0x14 to 0x1b: the pole gains of the page's own four lanes ----
@@ -568,7 +545,7 @@ void pole_states(yss236_core& c, int g, int st, int rel)
 // ---- rel 0x28 to 0x2f: the LPF12 coefficients and their gains ----
 void lpf12_coeffs(yss236_core& c, int g, int st, int rel)
 {
-	row_step(c, st, LPF12_COEFS[rel - 0x28], {DEC_NONE, 0});
+	row_step(c, st, LPF12_COEFS[rel - 0x28], {});
 }
 
 // ---- rel 0x30 to 0x33: the LPF12 taps, a pole state scaled onto its cutoff word ----
@@ -578,7 +555,7 @@ void lpf12_taps(yss236_core& c, int g, int st, int rel)
 	Row r = LPF12_TAPS[i];
 	r.sm = STATE_CELL[g][i];
 	r.dm = TAP_CELL[g][i];
-	row_step(c, st, r, {DEC_NONE, 0});
+	row_step(c, st, r, {});
 }
 
 // ---- rel 0x34 to 0x43: the EG to cutoff sweep, four steps a lane.  The first two read the lane's EG
@@ -691,8 +668,8 @@ void ramp_slope(yss236_core& c, int g, int st, int rel)
 {
 	int const i = rel - 0x74, reg = lane_base(g, i) + 6;
 	decor(c, st, SLOPE_DEC[g][i]);
-	load(c, st, reg, SLOPE_SRC[g][i], ADD_REG, false, ROUTE_1, CLAMP_ZERO, reg, 0);
-	t_put(c, SLOPE_TREG[i], c.acc);
+	load(c, {.st = st, .sr = reg, .sm = SLOPE_SRC[g][i], .add = ADD_REG, .clamp = CLAMP_ZERO, .dr = reg});
+	t_put(c, st, SLOPE_TREG[i], c.acc);
 }
 
 // ---- rel 0x78 to 0x7b: the filter's own output, four steps a page.  The register the step reads
@@ -709,7 +686,7 @@ void output_taps(yss236_core& c, int g, int st, int rel)
 	latch_cell(c, sm);
 	double const y = (c.t[OUT_TREG[i]] * c.r[sr]) * yss236_core::RSCALE[c.ops[st].shift];
 	c.acc = yss236_core::accmode(y, CLAMP_SAT);
-	c.queue_d(OUT_CELL[g][i], yss236_core::clip(y, yss236_core::DSAT));
+	queue_d(c, st, OUT_CELL[g][i], yss236_core::clip(y, yss236_core::DSAT));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -723,10 +700,8 @@ void output_taps(yss236_core& c, int g, int st, int rel)
 // itself, so there is nothing there but begin_step() to do.
 void prologue(yss236_core& c)
 {
-	for (int st = 0x000; st <= 0x00f; st++)
+	for_steps<0x000, 0x00f + 1>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 		switch (st)
 		{
 		case 0x000: take_serial(c, 24, st, 0); idle(c); break;   // channel 0 into m[24]
@@ -734,26 +709,25 @@ void prologue(yss236_core& c)
 		case 0x002: take_eg(c, 23, st); idle(c); break;          // and the EG level into m[23]
 		case 0x003: serial_out(c, st, 25); idle(c); break;       // channel 0 out of m[25]
 		case 0x004: gate(c, st, 0x00b); break;                   // and the gate onto the block below
-		case 0x00b: load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, 63); break;
-		case 0x00c: load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 127, 0); break;
-		case 0x00d: load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, 62); break;
-		case 0x00e: load(c, st, 0, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, 61); break;
+		case 0x00b: load(c, {.st = st, .dm = 63}); break;
+		case 0x00c: load(c, {.st = st, .dr = 127}); break;
+		case 0x00d: load(c, {.st = st, .dm = 62}); break;
+		case 0x00e: load(c, {.st = st, .dm = 61}); break;
 		case 0x00f: take_lfo(c, 3, st); idle(c); break;          // and the LFO into m[3]
 		default: break;
 		}
-	}
+		});
 }
 
 // The 124 steps of page g, the seventeen blocks in order.  One iteration per step, carrying the
 // m_skip guard step() opens with.  The only gate in this program is the prologue's and it is shut
 // again by the time the first page runs, so nothing past 0x00f is ever skipped.
-void page(yss236_core& c, int g)
+template <int g>
+void page(yss236_core& c)
 {
-	for (int rel = 0; rel < 124; rel++)
+	for_steps<PAGE_BASE[g], PAGE_BASE[g] + 124>(c, [&](yss236_core& c, auto st)
 	{
-		int const st = PAGE_BASE[g] + rel;
-		c.begin_step();
-		if (st < c.m_skip) continue;
+		int const rel = st - PAGE_BASE[g];
 		if      (rel < 0x0c) lane_open(c, g, st, rel);
 		else if (rel < 0x14) pole_coeffs(c, g, st, rel);
 		else if (rel < 0x1c) page_pole_gains(c, g, st, rel);
@@ -769,7 +743,7 @@ void page(yss236_core& c, int g)
 		else if (rel < 0x74) output_ramp(c, g, st, rel);
 		else if (rel < 0x78) ramp_slope(c, g, st, rel);
 		else                 output_taps(c, g, st, rel);
-	}
+	});
 }
 
 }  // namespace
@@ -783,7 +757,10 @@ void flt(yss236_core& c, int from, int to)
 		return;
 	}
 	prologue(c);
-	for (int g = 0; g < 4; g++) page(c, g);
+	page<0>(c);
+	page<1>(c);
+	page<2>(c);
+	page<3>(c);
 }
 
 }  // namespace fs1r::native

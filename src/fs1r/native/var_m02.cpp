@@ -107,7 +107,7 @@ constexpr int PUBLISH_LAG = 5;
 // published delay read into r[119] on the way past.
 struct Pole { int st; int in, out; };
 
-const Pole POLES[8] = {
+constexpr Pole POLES[8] = {
 	{ 0x158, 108, 119 },
 	{ 0x15b, 119, 119 },
 	{ 0x15f, 119, 119 },
@@ -127,7 +127,7 @@ constexpr auto POLES_AT = index_by_step(POLES);
 // over four, so the step below is all the offset the table carries.
 struct Published { int st, cell; };
 
-const Published PUBLISHED[6] = {
+constexpr Published PUBLISHED[6] = {
 	{ 0x15b, 28 },   // the slot 0x56
 	{ 0x15f, 29 },   // 0x57
 	{ 0x163, 30 },   // 0x58
@@ -176,7 +176,7 @@ struct Filter
 // one's output. The low shelf's closing step is the odd one: it carries a delay read and the LFO of page
 // 12 on the way past, it takes the x16 route the other two do not, and its y1 tap is the fourth of the
 // rcopy steps the header above counts, the one on its own.
-const Filter FILTERS[3] = {
+constexpr Filter FILTERS[3] = {
 	//  base   in   x1   y1   y2   out  route     holds_y1  decor per step: the slot read, then the LFO
 	{  0x181, 109, 110, 111, 112, 111, ROUTE_2,  false, { { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } } },
 	{  0x186, 111, 112, 113, 114, 113, ROUTE_2,  false, { { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } } },
@@ -231,14 +231,14 @@ void filter(yss236_core& c, int st, Filter const& f, int k)
 // which is how a one-pole follower of the rectifier's level is written.
 void close_cell(yss236_core& c, int st, int sm, int dr)
 {
-	run(c, { st, 0, sm, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, dr });
+	run(c, {.st = st, .sm = sm, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = dr});
 }
 
 // A class-3 step (s19: the multiplier passes its second input through): a serial input read out of a
 // register and echoed into a cell, which this window's own mix reads a pass later.
 void echo(yss236_core& c, int st, int sr, int cell)
 {
-	run(c, { st, sr, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0, false, cell });
+	run(c, {.st = st, .sr = sr, .unity = true, .dm = cell});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -275,13 +275,13 @@ void rectifier(yss236_core& c, int st)
 	case 0x161:
 		// The level everything below works against: the input highpass's output with its absolute value,
 		// published into m[56] for the two shapers to take off the signal.
-		run(c, { st, 104, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_ABS, 0, false, 56 });
+		run(c, {.st = st, .sr = 104, .route = ROUTE_16, .clamp = CLAMP_ABS, .dm = 56});
 		break;
 	case 0x163: idle(c); break;                         // the read of the slot 0x58 and nothing else
 	case 0x164:
 		// The first shaper's difference: r[105] scaled by its own word with the level off it, negatives
 		// clamped away so the shaper only ever folds the signal down.
-		run(c, { st, 105, 56, M2_REG, false, 0, ADD_CELL, true, ROUTE_1, CLAMP_ZERO });
+		run(c, {.st = st, .sr = 105, .sm = 56, .add = ADD_CELL, .sub = true, .clamp = CLAMP_ZERO});
 		break;
 	case 0x165: close_cell(c, st, 56, 105); break;      // r[105]: the level's one-pole follower
 	case 0x167:                                         // m[11] for the base program, then r[106]
@@ -291,14 +291,14 @@ void rectifier(yss236_core& c, int st)
 	case 0x168:
 		// The second shaper's input. Its adder takes m[0], which is no cell, so the running value enters
 		// as acc / 32768: the accumulator read back as a cell word would read it.
-		run(c, { st, 106, 0, M2_REG, false, 0, ADD_CELL, false, ROUTE_1, CLAMP_WRAP });
+		run(c, {.st = st, .sr = 106, .add = ADD_CELL});
 		break;
 	case 0x169:
 		// The level off the running value this time, and off r[106] at the step below.
-		run(c, { st, 0, 56, M2_CELL, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP });
+		run(c, {.st = st, .sm = 56, .m2 = M2_CELL, .add = ADD_ACC, .sub = true});
 		break;
 	case 0x16a:
-		run(c, { st, 105, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_ZERO });
+		run(c, {.st = st, .sr = 105, .add = ADD_ACC, .sub = true, .clamp = CLAMP_ZERO});
 		break;
 	case 0x16b: close_cell(c, st, 56, 106); break;      // r[106]: the same follower, the other shaper
 	case 0x16d: idle(c); break;                         // class 0, no RAM mark and no ALU
@@ -323,12 +323,12 @@ void band_sum(yss236_core& c, int st)
 	case 0x16f:
 		// s24: a class-1 load reads back as v / 256, which is why the chip's 128 * k appears as one
 		// constant here. This one adds the running value the pole chain left and keeps the result.
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 125);
+		load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = 125});
 		break;
 	case 0x171:
 		// The same load off its own register, so its adder's input is r[124] and not the running value:
 		// the shaper's output with a constant added.
-		load(c, st, 124, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, 124);
+		load(c, {.st = st, .sr = 124, .add = ADD_REG, .clamp = CLAMP_SAT, .dr = 124});
 		break;
 	case 0x172: idle(c); break;  // class 0, no RAM mark and no ALU
 	}
@@ -350,11 +350,11 @@ void tone_stack(yss236_core& c, int st)
 	case 0x17a: term(c, st, 125); break;                 // the class-1 load's own output, unscaled
 	case 0x17b:
 		// The same sum with the x16 route and no register of its own: the ladder's input, saturated.
-		run(c, { st, 124, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_16, CLAMP_SAT });
+		run(c, {.st = st, .sr = 124, .add = ADD_ACC, .route = ROUTE_16, .clamp = CLAMP_SAT});
 		break;
 	case 0x17c:
 		// The bias the ladder works against, a class-1 constant with its negatives clamped away.
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_16, CLAMP_ZERO, 117);
+		load(c, {.st = st, .add = ADD_ACC, .route = ROUTE_16, .clamp = CLAMP_ZERO, .dr = 117});
 		break;
 	case 0x17d: term(c, st, 117); break;
 	case 0x17e: sum(c, st, 118); break;
@@ -378,7 +378,7 @@ void dry_and_wet(yss236_core& c, int st)
 	case 0x190:
 		// The level, and the t word the output section scales by: t[9], the one t register this program
 		// uses, which 0x195 reads back.
-		t_put(c, T_LEVEL, run(c, { st, 118, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_2, CLAMP_SAT }));
+		t_put(c, st, T_LEVEL, run(c, {.st = st, .sr = 118, .route = ROUTE_2, .clamp = CLAMP_SAT}));
 		break;
 	case 0x191: term_cell(c, st, 54); break;             // the left input, out of m[54]
 	case 0x192: close(c, st, 115, 15, ROUTE_4); break;   // r[15] = 4 (k r[115] + acc): the left output
@@ -387,7 +387,7 @@ void dry_and_wet(yss236_core& c, int st)
 	case 0x195:
 		// r[107] = t[9] * r[104]: the level term, the input highpass's output scaled by the word 0x190
 		// left in the t file.
-		run(c, { st, 104, 0, M2_REG, false, T_LEVEL, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 107 });
+		run(c, {.st = st, .sr = 104, .treg = T_LEVEL, .clamp = CLAMP_SAT, .dr = 107});
 		break;
 	case 0x196: term(c, st, 107); break;
 	case 0x197: sum(c, st, 108); break;                  // its read of the slot 0x65 is PUBLISHED's
@@ -402,18 +402,16 @@ void dry_and_wet(yss236_core& c, int st)
 // these steps as it would the interpreter's.
 void block_0x158(yss236_core& c)
 {
-	for (int st = 0x158; st < 0x1a0; st++)
+	for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 		published(c, st);  // a delay read or the capture of one, before any arithmetic
-		if (pole(c, st)) continue;
+		if (pole(c, st)) return;
 		if (st < 0x15f)      drive_and_input_hpass(c, st);
 		else if (st < 0x16f) rectifier(c, st);
 		else if (st < 0x179) band_sum(c, st);
 		else if (st < 0x190) tone_stack(c, st);
 		else                 dry_and_wet(c, st);
-	}
+		});
 }
 
 }  // namespace

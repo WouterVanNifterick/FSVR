@@ -182,7 +182,7 @@ struct Length
 // The steps 0x1a0 to 0x1be, in step order: all three accumulators' seeds, companions, rectifiers,
 // scaled sweep registers, interpolated products and depths, with the two fixed taps' reads at 0x1a3
 // and 0x1a7, the first swept tap's read at 0x1bb and the LFO and serial cells published along the way.
-const Length LENGTHS[31] = {
+constexpr Length LENGTHS[31] = {
 	L(LEN_SEED,    0, 12, 0, 121, CLAMP_WRAP, false, DEC_NONE,       0, DEC_NONE, 0),      // 0x1a0
 	L(LEN_FEED,    0, 12, 0, 127, CLAMP_WRAP, false, DEC_SERIAL_L,   3, DEC_NONE, 0),      // 0x1a1
 	L(LEN_CARRY,   0,  0, 0, 122, CLAMP_WRAP, false, DEC_SERIAL_R,   7, DEC_NONE, 0),      // 0x1a2
@@ -221,7 +221,7 @@ const Length LENGTHS[31] = {
 // first step and `nsteps` how many steps it runs.
 struct LengthRun { int st, nsteps; Length len[3]; };
 
-const LengthRun LENGTH_TAIL[3] = {
+constexpr LengthRun LENGTH_TAIL[3] = {
 	{ 0x1cb, 1, {
 		L(LEN_PRODUCT,   2, 0, 10, 2, CLAMP_SAT,  false, DEC_SWEEP, 0, DEC_NONE, 0) } },
 	{ 0x1cd, 3, {
@@ -247,49 +247,49 @@ void length(yss236_core& c, int st, Length const& s)
 	{
 	case LEN_FEED:
 		// r[127] = 16 * k * m[12]: the LFO cell through the feed word the two companions add
-		run(c, {st, 0, s.cell, M2_CELL, false, 0, ADD_OFF, false, ROUTE_16, s.clamp, s.out});
+		run(c, {.st = st, .sm = s.cell, .m2 = M2_CELL, .route = ROUTE_16, .clamp = s.clamp, .dr = s.out});
 		break;
 	case LEN_SEED:
 		// R = 2 * (128 * k + m[12]), the accumulator's first value off the LFO cell
-		load(c, st, 0, s.cell, ADD_CELL, false, ROUTE_2, s.clamp, s.out);
+		load(c, {.st = st, .sm = s.cell, .add = ADD_CELL, .route = ROUTE_2, .clamp = s.clamp, .dr = s.out});
 		break;
 	case LEN_CARRY:
 		// 2 * (128 * k + acc): the running value latched into the sweep register or its companion
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_2, s.clamp, s.out);
+		load(c, {.st = st, .add = ADD_ACC, .route = ROUTE_2, .clamp = s.clamp, .dr = s.out});
 		break;
 	case LEN_COMP:
 		// the companion, which adds r[127] on its own step rather than the running value
-		load(c, st, s.reg, 0, ADD_REG, false, ROUTE_2, s.clamp, s.out);
+		load(c, {.st = st, .sr = s.reg, .add = ADD_REG, .route = ROUTE_2, .clamp = s.clamp, .dr = s.out});
 		break;
 	case LEN_NEXT:
 		// the accumulator's next value, with no route and the negatives held at zero
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, s.clamp, s.out);
+		load(c, {.st = st, .add = ADD_ACC, .clamp = s.clamp, .dr = s.out});
 		break;
 	case LEN_RECT:
 		// acc = |R|: the sweep register rectified, the step's own word unused
-		run(c, {st, s.reg, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, s.clamp, 0});
+		run(c, {.st = st, .sr = s.reg, .unity = true, .clamp = s.clamp});
 		break;
 	case LEN_MRECT:
 		// acc = |k * C|: the companion through its own word, and rectified
-		run(c, {st, s.reg, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, s.clamp, 0});
+		run(c, {.st = st, .sr = s.reg, .clamp = s.clamp});
 		break;
 	case LEN_SCALE:
 	{
 		// R = 2 * k * R, and t the fraction below one sample of the delay R names in samples
-		double const y = run(c, {st, s.reg, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_2, s.clamp, s.out});
+		double const y = run(c, {.st = st, .sr = s.reg, .route = ROUTE_2, .clamp = s.clamp, .dr = s.out});
 		c.t_write(c.ops[st], st, y);
 		break;
 	}
 	case LEN_DEEP:
 		// acc = 16 * k * R, the sweep register scaled into what the depth step adds to
-		run(c, {st, s.reg, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, s.clamp, 0});
+		run(c, {.st = st, .sr = s.reg, .route = ROUTE_16, .clamp = s.clamp});
 		break;
 	case LEN_PRODUCT:
 		// P = t * R, and the same word again on P itself, which is the delay word interpolated twice
-		run(c, {st, s.reg, 0, M2_REG, false, s.treg, ADD_OFF, false, ROUTE_1, s.clamp, s.out});
+		run(c, {.st = st, .sr = s.reg, .treg = s.treg, .clamp = s.clamp, .dr = s.out});
 		break;
 	case LEN_ACC:
-		run(c, {st, s.reg, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, s.clamp, 0});
+		run(c, {.st = st, .sr = s.reg, .add = ADD_ACC, .clamp = s.clamp});
 		break;
 	default:
 	{
@@ -297,8 +297,7 @@ void length(yss236_core& c, int st, Length const& s)
 		// the index the swept taps read at. run() writes the delay RAM when the step is a writer, which
 		// is 0x1d3 alone; that write and the two publishes are on separate state, so the order they
 		// run in inside the step does not change what the step leaves behind.
-		double const y = run(c, {st, s.reg, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, s.clamp,
-		                         0, false, 0, false, false, false, s.write});
+		double const y = run(c, {.st = st, .sr = s.reg, .add = ADD_ACC, .clamp = s.clamp, .write = s.write});
 		c.t_write(c.ops[st], st, y);
 		load_index(c, y);
 		break;
@@ -349,7 +348,7 @@ struct Band
 // keep only x[-1], in the very register the mid peak above them reads its y[-2] from. The two low
 // shelves differ in one more thing, which is the order of their two terms: the left opens the sum with
 // -a1 on its own output and the right opens it with b1 on its input.
-const Band BANDS[6] = {
+constexpr Band BANDS[6] = {
 	//  base  steps  src  in  x1 keep  y1  y2  route    the band's roles                 its two decors per step
 	{  0x1bf, 4,   7, 67,  0,  0, 68,  0, ROUTE_2, { B_PRE, B_TERM_Y1, B_SUM_IN, B_B0 }, {
 		{ {DEC_SWEEP_OLDER, 0}, {DEC_NONE, 0} },
@@ -430,7 +429,7 @@ struct Tap
 	bool lead_write;
 };
 
-const Tap TAPS[4] = {
+constexpr Tap TAPS[4] = {
 	//  base  steps  lo  hi  treg  out  the first step     the second step            writer
 	{  0x1d0,  2,    60, 61,  11, 119, {DEC_CAPTURE, 62}, {DEC_SERIAL_L, 4},         false },
 	{  0x1d4,  2,    56, 57,   9,  79, {DEC_CAPTURE, 63}, {DEC_NONE, 0},              false },
@@ -444,13 +443,11 @@ void tap(yss236_core& c, int st, Tap const& p, int k)
 	if (k)
 	{
 		// r[out] = t * m[hi] - acc, which is m[lo] + t * (m[hi] - m[lo])
-		run(c, {st, 0, p.hi, M2_CELL, false, p.treg, ADD_ACC, true, ROUTE_1, CLAMP_SAT, p.out,
-		        false, 0, false, false, false, false});
+		run(c, {.st = st, .sm = p.hi, .m2 = M2_CELL, .treg = p.treg, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = p.out});
 		return;
 	}
 	// acc = t * m[lo] - m[lo]: the pair's own difference, which the second step adds back
-	run(c, {st, 0, p.lo, M2_CELL, false, p.treg, ADD_CELL, true, ROUTE_1, CLAMP_WRAP, 0,
-	        false, 0, false, false, false, p.lead_write});
+	run(c, {.st = st, .sm = p.lo, .m2 = M2_CELL, .treg = p.treg, .add = ADD_CELL, .sub = true, .write = p.lead_write});
 }
 
 // The tap of a step, -1 where there is none: four rows of two steps that never move.
@@ -461,7 +458,7 @@ constexpr auto TAPS_AT = index_by_span(TAPS);
 // the tap darker each time round the line. `st` is the run's first step and `nsteps` the three it runs.
 struct Damp { int st, nsteps; int tap, state; Decor decor[3]; };
 
-const Damp DAMPS[2] = {
+constexpr Damp DAMPS[2] = {
 	//  base  steps  tap  state  the first step      the second            the third
 	{  0x1d6,  3,     79,    80, { {DEC_NONE, 0}, {DEC_SWEEP, 0}, {DEC_NONE, 0} } },
 	{  0x1e7,  3,     81,    82, { {DEC_LFO, 15}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
@@ -486,7 +483,7 @@ constexpr auto DAMPS_AT = index_by_span(DAMPS);
 // program, so the pair is the window's only use of them.
 struct FixedTap { int st, cell; };
 
-const FixedTap FIXED[2] = {
+constexpr FixedTap FIXED[2] = {
 	{ 0x1cc, 42 },        // the left channel's, spent on the slot 0x74 at 0x1d3
 	{ 0x1ea, 43 },        // the right channel's, spent on the slot 0x7a at 0x1eb
 };
@@ -494,8 +491,7 @@ const FixedTap FIXED[2] = {
 void fixed_tap(yss236_core& c, FixedTap const& f)
 {
 	// acc = m[cell] with the step's own word unused, and the result latched as the next write's data
-	run(c, {f.st, 0, f.cell, M2_CELL, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 0,
-	        false, 0, false, false, true, false});
+	run(c, {.st = f.st, .sm = f.cell, .m2 = M2_CELL, .unity = true, .wdata = true});
 }
 
 // The fixed tap of a step, -1 where there is none: one step per row, indexed once at compile time.
@@ -510,7 +506,7 @@ constexpr auto FIXED_AT = index_by_step(FIXED);
 // and `nsteps` the three it runs.
 struct WetSum { int st, nsteps; int own, first, second; int out; };
 
-const WetSum WET[2] = {
+constexpr WetSum WET[2] = {
 	{ 0x1ed, 3, 79, 119, 120,  4 },       // the left output's
 	{ 0x1f0, 3, 81, 120, 119,  5 },       // the right output's
 };
@@ -534,7 +530,7 @@ constexpr auto WET_AT = index_by_span(WET);
 // step and `nsteps` the three it runs.
 struct Output { int st, nsteps; int dry, cross, wet; int reg; };
 
-const Output OUTPUTS[2] = {
+constexpr Output OUTPUTS[2] = {
 	{ 0x1f3, 3, 72, 78,  4, 17 },        // the left output, r[17]
 	{ 0x1f6, 3, 78, 72,  5, 18 },        // the right output, r[18]
 };
@@ -558,7 +554,7 @@ constexpr auto OUTPUTS_AT = index_by_span(OUTPUTS);
 // writes its own result. `st` is the run's first step and `nsteps` how long the run is.
 struct DelayWrite { int st, nsteps; int a, b, c, state; };
 
-const DelayWrite DELAYS[2] = {
+constexpr DelayWrite DELAYS[2] = {
 	{ 0x1f9, 3, 78, 82, 80, 80 },     // into the slot 0x7e, the second delay line's own write
 	{ 0x1fc, 4, 72, 78, 80, 82 },     // into the slot 0x7f, the first delay line's
 };
@@ -570,8 +566,7 @@ void delay_write(yss236_core& c, int st, DelayWrite const& w, int k)
 	// data and writes its own result rather than taking an earlier step's.
 	if (k == w.nsteps - 1)
 	{
-		run(c, {st, w.state, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0,
-		        false, 0, false, false, true, true});
+		run(c, {.st = st, .sr = w.state, .add = ADD_ACC, .clamp = CLAMP_SAT, .wdata = true, .write = true});
 		return;
 	}
 	switch (k)
@@ -599,41 +594,39 @@ constexpr auto DELAYS_AT = index_by_span(DELAYS);
 // first group's row exactly as the scans did.
 void block_0x1a0(yss236_core& c)
 {
-	for (int st = 0x1a0; st < 0x200; st++)
+	for_steps<0x1a0, 0x200>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// ---- 0x1a0 to 0x1be: the LFO, the three accumulators and the three delay lengths. This table is
 		//      not indexed by a scan but by hand, one row per step from 0x1a0, so the row is st - 0x1a0 ----
-		if (st < 0x1bf) { length(c, st, LENGTHS[st - 0x1a0]); continue; }
+		if (st < 0x1bf) { length(c, st, LENGTHS[st - 0x1a0]); return; }
 
 		int i;
 
 		// ---- 0x1bf to 0x1ca and 0x1d9 to 0x1e4: the two channels' three bands each ----
-		if ((i = BANDS_AT[st]) >= 0) { band(c, st, BANDS[i], st - BANDS[i].st); continue; }
+		if ((i = BANDS_AT[st]) >= 0) { band(c, st, BANDS[i], st - BANDS[i].st); return; }
 
 		// ---- 0x1d0, 0x1d4, 0x1e5 and 0x1eb: the four fractional taps, two steps each ----
-		if ((i = TAPS_AT[st]) >= 0) { tap(c, st, TAPS[i], st - TAPS[i].st); continue; }
+		if ((i = TAPS_AT[st]) >= 0) { tap(c, st, TAPS[i], st - TAPS[i].st); return; }
 
 		// ---- 0x1d6 and 0x1e7: the two damped feedbacks ----
-		if ((i = DAMPS_AT[st]) >= 0) { damp(c, st, DAMPS[i], st - DAMPS[i].st); continue; }
+		if ((i = DAMPS_AT[st]) >= 0) { damp(c, st, DAMPS[i], st - DAMPS[i].st); return; }
 
 		// ---- 0x1cc and 0x1ea: the two fixed taps ----
-		if ((i = FIXED_AT[st]) >= 0) { fixed_tap(c, FIXED[i]); continue; }
+		if ((i = FIXED_AT[st]) >= 0) { fixed_tap(c, FIXED[i]); return; }
 
 		// ---- the third accumulator's tail, interleaved with three of the groups above ----
-		if ((i = LENGTH_TAIL_AT[st]) >= 0) { length(c, st, LENGTH_TAIL[i].len[st - LENGTH_TAIL[i].st]); continue; }
+		if ((i = LENGTH_TAIL_AT[st]) >= 0) { length(c, st, LENGTH_TAIL[i].len[st - LENGTH_TAIL[i].st]); return; }
 
 		// ---- 0x1ed and 0x1f0: the two wet sums ----
-		if ((i = WET_AT[st]) >= 0) { wet_sum(c, st, WET[i], st - WET[i].st); continue; }
+		if ((i = WET_AT[st]) >= 0) { wet_sum(c, st, WET[i], st - WET[i].st); return; }
 
 		// ---- 0x1f3 and 0x1f6: the two outputs ----
-		if ((i = OUTPUTS_AT[st]) >= 0) { output(c, st, OUTPUTS[i], st - OUTPUTS[i].st); continue; }
+		if ((i = OUTPUTS_AT[st]) >= 0) { output(c, st, OUTPUTS[i], st - OUTPUTS[i].st); return; }
 
 		// ---- 0x1f9 to 0x1ff: the two delay lines' own writes ----
-		if ((i = DELAYS_AT[st]) >= 0) { delay_write(c, st, DELAYS[i], st - DELAYS[i].st); continue; }
-	}
+		if ((i = DELAYS_AT[st]) >= 0) { delay_write(c, st, DELAYS[i], st - DELAYS[i].st); return; }
+		});
 }
 
 }  // namespace

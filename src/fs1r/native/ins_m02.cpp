@@ -94,27 +94,6 @@ using namespace step;   // the step vocabulary: term, sum, close, gain, load and
 // What a step carries besides its arithmetic
 // ---------------------------------------------------------------------------------------------
 
-// Only five of the 96 steps move a cell on their way past, and none of them touches the delay RAM:
-// three take the serial inputs the other insertion windows read, one takes this window's own LFO for
-// the two sweep registers, and the last takes page 15's left input, which nothing here reads back.
-// `cell` is the cell the value lands in, which for the LFO step is the one the sweeps read off.
-enum decor_t { DEC_NONE, DEC_SERIAL_L, DEC_SERIAL_R, DEC_LFO };
-
-struct Decor { decor_t kind; int cell; };
-
-// Apply the decor, which comes before the arithmetic, because step() moves a cell before it multiplies,
-// adds or loads anything.
-void decor(yss236_core& c, int st, Decor const& d)
-{
-	switch (d.kind)
-	{
-		case DEC_SERIAL_L: take_serial(c, d.cell, st, 0); break;
-		case DEC_SERIAL_R: take_serial(c, d.cell, st, 1); break;
-		case DEC_LFO:      take_lfo(c, d.cell, st); break;
-		case DEC_NONE: break;
-	}
-}
-
 // ---------------------------------------------------------------------------------------------
 // The two channels' four shelves, 0x1a3 to 0x1b2
 // ---------------------------------------------------------------------------------------------
@@ -136,12 +115,12 @@ struct Shelf
 // ins::LPF_PH and ins::LPF_PH_C are the low shelves' three words and ins::HPF_PH and ins::HPF_PH_C the
 // high ones. The left high shelf's b1 step is the one that publishes the window's own LFO cell, and the
 // two sweep registers at 0x1aa and 0x1ab read that cell.
-const Shelf SHELVES[4] = {
+constexpr Shelf SHELVES[4] = {
     //   st     n  in  out  feed  route      the b1 step's decor
-    { 0x1a3,  4,  67,  68,    7, ROUTE_2, { DEC_NONE,  0 } },
-    { 0x1a7,  3,  68,  69,    0, ROUTE_4, { DEC_LFO,  13 } },
-    { 0x1ac,  4,  70,  71,    8, ROUTE_2, { DEC_NONE,  0 } },
-    { 0x1b0,  3,  71,  72,    0, ROUTE_4, { DEC_NONE,  0 } },
+    { 0x1a3, 4, 67, 68, 7, ROUTE_2, { DEC_NONE, 0  } },
+    { 0x1a7, 3, 68, 69, 0, ROUTE_4, { DEC_LFO,  13 } },
+    { 0x1ac, 4, 70, 71, 8, ROUTE_2, { DEC_NONE, 0  } },
+    { 0x1b0, 3, 71, 72, 0, ROUTE_4, { DEC_NONE, 0  } },
 };
 
 // Which shelf a step belongs to, so the step reaches its shelf rather than looking through the four for it.
@@ -192,10 +171,10 @@ Shelf const* find_shelf(int st)
 // steps ahead of the sections that read it.
 struct Sweep { int base, reg, treg; };
 
-const Sweep SWEEPS[2] = {
+constexpr Sweep SWEEPS[2] = {
     //   base  reg  treg
-    {  0x1b3, 122,  10 },      // ins::PH_DEPTH[0] then ins::PH_FB[0], for the cascade on t[10]
-    {  0x1b5, 123,  11 },      // ins::PH_DEPTH[1] then ins::PH_FB[1], for the cascade on t[11]
+    { 0x1b3, 122, 10 },  // ins::PH_DEPTH[0] then ins::PH_FB[0], for the cascade on t[10]
+    { 0x1b5, 123, 11 },  // ins::PH_DEPTH[1] then ins::PH_FB[1], for the cascade on t[11]
 };
 
 void sweep(yss236_core& c, int st, Sweep const& s, int k)
@@ -203,13 +182,13 @@ void sweep(yss236_core& c, int st, Sweep const& s, int k)
 	if (k == 0)
 	{
 		// ins::PH_DEPTH: acc = |k * r[reg]|, the LFO rectified and scaled by the depth
-		run(c, { st, s.reg, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_ABS });
+		run(c, {.st = st, .sr = s.reg, .clamp = CLAMP_ABS});
 	}
 	else
 	{
 		// ins::PH_FB: r[reg] = saturate(128 * k + acc), the phase shift added to the rectified depth
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, s.reg);
-		t_put(c, s.treg, c.acc);     // and the t register the sections of this cascade read
+		load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = s.reg});
+		t_put(c, st, s.treg, c.acc);     // and the t register the sections of this cascade read
 	}
 }
 
@@ -220,25 +199,25 @@ void sweep(yss236_core& c, int st, Sweep const& s, int k)
 // difference over 128 goes back into the t register, which is the fourth power less the offset.
 struct SweepTail { int square, offset, reg, treg; };
 
-const SweepTail SWEEP_TAIL[2] = {
+constexpr SweepTail SWEEP_TAIL[2] = {
     //  square  offset  reg  treg
-    {   0x1c1,   0x1c7, 122,  10 },      // the square at 0x1c1, and the offset at 0x1c7 and 0x1c8
-    {   0x1c2,   0x1c9, 123,  11 },      // the square at 0x1c2, and the offset at 0x1c9 and 0x1ca
+    { 0x1c1, 0x1c7, 122, 10 },  // the square at 0x1c1, and the offset at 0x1c7 and 0x1c8
+    { 0x1c2, 0x1c9, 123, 11 },  // the square at 0x1c2, and the offset at 0x1c9 and 0x1ca
 };
 
 void sweep_square(yss236_core& c, int st, SweepTail const& s)
 {
 	// r[reg] = saturate(t[treg] * r[reg]), and the same value over 128 back into the t register
-	t_put(c, s.treg, run(c, { st, s.reg, 0, M2_REG, false, s.treg, ADD_OFF, false, ROUTE_1, CLAMP_SAT, s.reg }));
+	t_put(c, st, s.treg, run(c, {.st = st, .sr = s.reg, .treg = s.treg, .clamp = CLAMP_SAT, .dr = s.reg}));
 }
 
 void sweep_offset(yss236_core& c, int st, SweepTail const& s, int k)
 {
-	if (k == 0) load(c, st, 0, 0);    // acc = 128 * k, the offset the square is taken down to
+	if (k == 0) load(c, {.st = st});    // acc = 128 * k, the offset the square is taken down to
 	else
 	{
 		// acc = t[treg] * r[reg] - acc, the offset off the square of the square, over 128 into the t register
-		t_put(c, s.treg, run(c, { st, s.reg, 0, M2_REG, false, s.treg, ADD_ACC, true, ROUTE_1, CLAMP_SAT }));
+		t_put(c, st, s.treg, run(c, {.st = st, .sr = s.reg, .treg = s.treg, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT}));
 	}
 }
 
@@ -251,10 +230,10 @@ void sweep_offset(yss236_core& c, int st, SweepTail const& s, int k)
 // `out`. The five registers are consecutive from `first`, which is what the ROM's own words assume.
 struct StageTap { int base, first, out; };
 
-const StageTap STAGES[2] = {
+constexpr StageTap STAGES[2] = {
     //  base  first  out
-    { 0x1b7,    75, 120 },      // the first cascade, r[75] to r[79] into its selected stage r[120]
-    { 0x1bc,    82, 121 },      // the second, r[82] to r[86] into r[121]
+    { 0x1b7, 75, 120 },  // the first cascade, r[75] to r[79] into its selected stage r[120]
+    { 0x1bc, 82, 121 },  // the second, r[82] to r[86] into r[121]
 };
 
 void stage_tap(yss236_core& c, int st, StageTap const& s, int k)
@@ -269,7 +248,7 @@ void stage_tap(yss236_core& c, int st, StageTap const& s, int k)
 // the left output carries.
 struct Diffuse { int base; int reg[4]; int out; };
 
-const Diffuse DIFFUSE[1] = {
+constexpr Diffuse DIFFUSE[1] = {
     //  base                the four registers        out
     { 0x1c3, { 120, 121, 81, 85 }, 119 },
 };
@@ -299,17 +278,16 @@ struct CascadeIn
 	int dr;                      // the register the last step writes, the cascade's input
 };
 
-const CascadeIn CASCADE_IN[2] = {
+constexpr CascadeIn CASCADE_IN[2] = {
     //  base   n                  the registers           the adders                       the routes            dr
     { 0x1cb, 4, { 69, 72, 120, 121 }, { ADD_OFF, ADD_ACC, ADD_ACC, ADD_ACC }, { ROUTE_1, ROUTE_2, ROUTE_1, ROUTE_1 }, 73 },
-    { 0x1e1, 3, { 72, 121, 120 },      { ADD_OFF, ADD_ACC, ADD_ACC },           { ROUTE_2, ROUTE_1, ROUTE_1 },                  80 },
+    { 0x1e1, 3, { 72, 121, 120 },     { ADD_OFF, ADD_ACC, ADD_ACC },          { ROUTE_2, ROUTE_1, ROUTE_1 },          80 },
 };
 
 void cascade_in(yss236_core& c, int st, CascadeIn const& p, int k)
 {
 	bool const last = k == p.n - 1;
-	run(c, { st, p.sr[k], 0, M2_REG, false, 0, p.add[k], false, p.route[k],
-	         last ? CLAMP_SAT : CLAMP_WRAP, last ? p.dr : 0 });
+	run(c, {.st = st, .sr = p.sr[k], .add = p.add[k], .route = p.route[k], .clamp = last ? CLAMP_SAT : CLAMP_WRAP, .dr = last ? p.dr : 0});
 }
 
 // One cascade of six allpass sections on a swept coefficient, y = t * x - y a step back. The class-3
@@ -326,17 +304,17 @@ struct Cascade
 	int treg;       // the swept coefficient all six of them multiply by
 };
 
-const Cascade CASCADES[2] = {
+constexpr Cascade CASCADES[2] = {
     //  base  input  first  treg
-    { 0x1cf,     73,    74,   10 },      // r[74] takes r[73], and r[79] takes r[78]
-    { 0x1e4,     80,    81,   11 },      // r[81] takes r[80], and r[86] takes r[85]
+    { 0x1cf, 73, 74, 10 },  // r[74] takes r[73], and r[79] takes r[78]
+    { 0x1e4, 80, 81, 11 },  // r[81] takes r[80], and r[86] takes r[85]
 };
 
 void cascade(yss236_core& c, int st, Cascade const& p, int k)
 {
 	if (k == 0)
 	{
-		run(c, { st, p.input, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP });
+		run(c, {.st = st, .sr = p.input, .unity = true});
 		return;
 	}
 	int const j = (k - 1) / 3;      // which of the six sections
@@ -344,15 +322,14 @@ void cascade(yss236_core& c, int st, Cascade const& p, int k)
 	if (m == 2)
 	{
 		// the section's output, handed on as the running value the next section works from
-		run(c, { st, p.first + j, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP });
+		run(c, {.st = st, .sr = p.first + j, .unity = true});
 		return;
 	}
 	// The first of the pair reads the section's own output a step back and leaves the running value
 	// wrapping; the second reads the register before it, which is the section's input, and saturates
 	// its result into the section's own register.
 	int const src = m ? (j ? p.first + j - 1 : p.input) : p.first + j;
-	run(c, { st, src, 0, M2_REG, false, p.treg, ADD_ACC, true, ROUTE_1,
-	         m ? CLAMP_SAT : CLAMP_WRAP, m ? p.first + j : 0 });
+	run(c, {.st = st, .sr = src, .treg = p.treg, .add = ADD_ACC, .sub = true, .clamp = m ? CLAMP_SAT : CLAMP_WRAP, .dr = m ? p.first + j : 0});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -364,10 +341,10 @@ void cascade(yss236_core& c, int st, Cascade const& p, int k)
 // the base program reads back.
 struct MixPair { int base, dry_reg, wet_reg, out; };
 
-const MixPair MIX[2] = {
+constexpr MixPair MIX[2] = {
     //   base  dry_reg  wet_reg  out
-    { 0x1f6,      69,     119,  17 },      // the left output, the wet off the diffuse tap r[119]
-    { 0x1f8,      72,     121,  18 },      // the right output, the wet off r[121]
+    { 0x1f6, 69, 119, 17 },  // the left output, the wet off the diffuse tap r[119]
+    { 0x1f8, 72, 121, 18 },  // the right output, the wet off r[121]
 };
 
 void mix(yss236_core& c, int st, MixPair const& p, int k)
@@ -387,10 +364,8 @@ void mix(yss236_core& c, int st, MixPair const& p, int k)
 // time.
 void block_0x1a0(yss236_core& c)
 {
-	for (int st = 0x1a0; st < 0x200; st++)
+	for_steps<0x1a0, 0x200>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		// ---- 0x1a0 to 0x1a2, the two serial inputs and the window's own running value ----
 		// None of the three writes a register: 0x1a0 loads its own word as a value, 0x1a1 scales m[42]
@@ -401,13 +376,13 @@ void block_0x1a0(yss236_core& c)
 		{
 			switch (st)
 			{
-			case 0x1a0: take_serial(c, 3, st, 0); load(c, st, 0, 0); break;
+			case 0x1a0: take_serial(c, 3, st, 0); load(c, {.st = st}); break;
 			case 0x1a1: take_serial(c, 7, st, 1);
-			            run(c, { st, 0, 42, M2_CELL, false, 0, ADD_REG, true, ROUTE_1, CLAMP_WRAP });
+			            run(c, {.st = st, .sm = 42, .m2 = M2_CELL, .add = ADD_REG, .sub = true});
 			            break;
-			default:    load(c, st, 0, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP, 0, 42); break;
+			default:    load(c, {.st = st, .add = ADD_ACC, .sub = true, .dm = 42}); break;
 			}
-			continue;
+			return;
 		}
 
 		// ---- 0x1a3 to 0x1b2, the two channels' shelves, with the two sweep registers between the pairs ----
@@ -416,13 +391,13 @@ void block_0x1a0(yss236_core& c)
 			if (Shelf const* s = find_shelf(st))
 			{
 				shelf(c, st, *s, st - s->st);
-				continue;
+				return;
 			}
 			// 0x1aa and 0x1ab: ins::PH_OFFSET is the word phaser2()'s LFO Phase writes, at the second of
 			// the two. A class-1 load wraps its result into the register, and its adder takes the LFO
 			// cell m[13] that 0x1a7 queued.
-			load(c, st, 0, 13, ADD_CELL, false, ROUTE_1, CLAMP_WRAP, st == 0x1aa ? 122 : 123);
-			continue;
+			load(c, {.st = st, .sm = 13, .add = ADD_CELL, .dr = st == 0x1aa ? 122 : 123});
+			return;
 		}
 
 		// ---- 0x1b3 to 0x1ca, the swept coefficients, the ten stage words, the diffuse taps and the offsets ----
@@ -430,41 +405,41 @@ void block_0x1a0(yss236_core& c)
 		{
 			Sweep const& s = SWEEPS[(st - SWEEPS[0].base) / 2];
 			sweep(c, st, s, st - s.base);
-			continue;
+			return;
 		}
 		if (st < 0x1c1)
 		{
 			StageTap const& s = STAGES[(st - STAGES[0].base) / 5];
 			stage_tap(c, st, s, st - s.base);
-			continue;
+			return;
 		}
-		if (st < 0x1c3) { sweep_square(c, st, SWEEP_TAIL[st - SWEEP_TAIL[0].square]); continue; }
-		if (st < 0x1c7) { diffuse(c, st, DIFFUSE[0], st - DIFFUSE[0].base);            continue; }
+		if (st < 0x1c3) { sweep_square(c, st, SWEEP_TAIL[st - SWEEP_TAIL[0].square]); return; }
+		if (st < 0x1c7) { diffuse(c, st, DIFFUSE[0], st - DIFFUSE[0].base);            return; }
 		if (st < 0x1cb)
 		{
 			SweepTail const& s = SWEEP_TAIL[(st - SWEEP_TAIL[0].offset) / 2];
 			sweep_offset(c, st, s, st - s.offset);
-			continue;
+			return;
 		}
 
 		// ---- 0x1cb to 0x1f5, the two cascades: each one's input, then its six allpass sections ----
-		if (st < 0x1cf) { CascadeIn const& p = CASCADE_IN[0];         cascade_in(c, st, p, st - p.base); continue; }
-		if (st < 0x1e1) { cascade(c, st, CASCADES[0], st - CASCADES[0].base); continue; }
-		if (st < 0x1e4) { CascadeIn const& p = CASCADE_IN[1];         cascade_in(c, st, p, st - p.base); continue; }
-		if (st < 0x1f6) { cascade(c, st, CASCADES[1], st - CASCADES[1].base); continue; }
+		if (st < 0x1cf) { CascadeIn const& p = CASCADE_IN[0];         cascade_in(c, st, p, st - p.base); return; }
+		if (st < 0x1e1) { cascade(c, st, CASCADES[0], st - CASCADES[0].base); return; }
+		if (st < 0x1e4) { CascadeIn const& p = CASCADE_IN[1];         cascade_in(c, st, p, st - p.base); return; }
+		if (st < 0x1f6) { cascade(c, st, CASCADES[1], st - CASCADES[1].base); return; }
 
 		// ---- 0x1f6 to 0x1f9, the dry and wet mix into the window's two outputs ----
 		if (st < 0x1fa)
 		{
 			MixPair const& p = MIX[(st - MIX[0].base) / 2];
 			mix(c, st, p, st - p.base);
-			continue;
+			return;
 		}
 
 		// ---- 0x1fa to 0x1ff, the last cell, and five steps that only count ----
 		if (st == 0x1fa) take_serial(c, 4, st, 0);
 		idle(c);
-	}
+		});
 }
 
 }  // namespace

@@ -190,7 +190,7 @@ enum head_t { H_SERIAL, H_IDLE, H_HALF, H_BASE, H_ABS, H_FIRST, H_SECOND };
 // two channels' steps interleave one apart and 0x15a is idle between the left channel's first two.
 struct Head { head_t shape; int cell; int reg; int reg2; Decor decor; };
 
-const Head HEADS[12] = {
+constexpr Head HEADS[12] = {
 	//  shape       cell  reg  reg2  the decor
 	{  H_SERIAL,       8, 123,   0, { DEC_SERIAL_L, 2, 0 } },   // 0x158: the left cell, doubled, with the left serial input
 	{  H_SERIAL,       9, 126,   0, { DEC_SERIAL_R, 6, 0 } },   // 0x159: the right one, and the right serial input
@@ -215,22 +215,22 @@ void head(yss236_core& c, int st)
 	switch (h.shape)
 	{
 	case H_SERIAL:  // r[123] and r[126]: the class-3 step, 2 * the LFO cell, wrapped at +-128
-		run(c, { st, 0, h.cell, M2_CELL, true, 0, ADD_OFF, false, ROUTE_2, CLAMP_WRAP, h.reg });
+		run(c, {.st = st, .sm = h.cell, .m2 = M2_CELL, .unity = true, .route = ROUTE_2, .dr = h.reg});
 		break;
 	case H_HALF:    // the ROM's half on that register, into the running value
 		term(c, st, h.reg);
 		break;
 	case H_BASE:    // r[125] and r[2]: max(0, 64 + that half), the line's base delay
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, h.reg);
+		load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_ZERO, .dr = h.reg});
 		break;
 	case H_ABS:     // r[124] and r[1]: |2 * the LFO cell|, which both weights come off
-		run(c, { st, h.reg, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_ABS, h.reg2 });
+		run(c, {.st = st, .sr = h.reg, .unity = true, .clamp = CLAMP_ABS, .dr = h.reg2});
 		break;
 	case H_FIRST:   // max(0, that - 24), the first weight of the channel, before its factor
-		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, h.reg);
+		load(c, {.st = st, .add = ADD_ACC, .clamp = CLAMP_ZERO, .dr = h.reg});
 		break;
 	case H_SECOND:  // max(0, the left |2 * m[8]| - 40), the second weight of the left channel
-		load(c, st, h.reg, 0, ADD_REG, false, ROUTE_1, CLAMP_ZERO, h.reg);
+		load(c, {.st = st, .sr = h.reg, .add = ADD_REG, .clamp = CLAMP_ZERO, .dr = h.reg});
 		break;
 	default:        // 0x15a: class 0, no RAM mark and no ALU, so only the x latch
 		idle(c);
@@ -262,7 +262,7 @@ struct Eq
 // which publishes the LFO of its page. The seven steps are the channel's input on the ROM's own word,
 // then the low shelf's -a1, b1 and b0, then the high shelf's -a1, b1 and b0, and each row's decor list
 // is in that order.
-const Eq EQS[2] = {
+constexpr Eq EQS[2] = {
 	//  base   src  in   lo   hi   the seven steps' decor, in that order
 	{  0x165,   5, 103, 104, 105, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_READ_INDEX, 0, 0}, {DEC_CAPTURE, 24, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_READ_INDEX_OLD, 0, 0} } },
 	{  0x174,   6, 106, 107, 108, { {DEC_CAPTURE, 60, 0}, {DEC_LFO, 9, 0}, {DEC_NONE, 0, 0}, {DEC_READ_INDEX, 0, 0}, {DEC_CAPTURE, 61, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
@@ -305,7 +305,7 @@ struct Index
 	Decor decor;
 };
 
-const Index INDICES[4] = {
+constexpr Index INDICES[4] = {
 	//  base   cell  reg  treg  the decor
 	{  0x164,     8,   0,   10, { DEC_CAPTURE,      23, 0 } },   // the first left tap, on m[8]
 	{  0x16c,     0, 125,   12, { DEC_CAPTURE,      56, 0 } },   // the second left tap, on r[125]
@@ -319,9 +319,9 @@ const Index INDICES[4] = {
 void tap_index(yss236_core& c, int st, Index const& x)
 {
 	decor(c, st, x.decor);
-	double const y = x.cell ? run(c, { st, 0, x.cell, M2_CELL, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_ZERO })
-	                        : run(c, { st, x.reg, 0, M2_REG,   false, 0, ADD_OFF, false, ROUTE_1, CLAMP_ZERO });
-	t_put_fraction(c, x.treg, y);   // the position between the two words the pair reads
+	double const y = x.cell ? run(c, {.st = st, .sm = x.cell, .m2 = M2_CELL, .clamp = CLAMP_ZERO})
+	                        : run(c, {.st = st, .sr = x.reg, .clamp = CLAMP_ZERO});
+	t_put_fraction(c, st, x.treg, y);   // the position between the two words the pair reads
 	load_index(c, y);                // and the same value in whole samples, for the reads themselves
 }
 
@@ -332,7 +332,7 @@ struct Weight { int reg; int treg; Decor decor; };
 
 // The four weights in step order: the left channel's -24 and -40 forms then the right channel's, and
 // the last step publishes this page's LFO for the base program as it goes.
-const Weight WEIGHTS[4] = {
+constexpr Weight WEIGHTS[4] = {
 	//  reg  treg  the decor
 	{   123,     9, { DEC_READ_INDEX, 0, 0 } },    // 0x16f: the slot 0x5b, at the index 0x16c loaded
 	{   124,    11, { DEC_CAPTURE, 57, 0 } },      // 0x170: the read of 0x16b
@@ -343,7 +343,7 @@ const Weight WEIGHTS[4] = {
 void weight(yss236_core& c, int st, Weight const& w)
 {
 	decor(c, st, w.decor);
-	t_put(c, w.treg, run(c, { st, w.reg, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT }));
+	t_put(c, st, w.treg, run(c, {.st = st, .sr = w.reg, .route = ROUTE_16, .clamp = CLAMP_SAT}));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -371,7 +371,7 @@ struct Unit
 // The six in step order: the four taps, the left crossfade between the second and third of them, and
 // the right crossfade last. The steps between are class 0 and idle, so the gaps are the program's own
 // rather than anything these rows work around.
-const Unit UNITS[6] = {
+constexpr Unit UNITS[6] = {
 	//  base      shape    in  in2  pos  pos2  out  the two steps' decor
 	{  0x17c, U_TAP,    56,  57,   10,    0, 119, { {DEC_CAPTURE, 58, 0}, {DEC_NONE, 0, 0}          } },
 	{  0x17f, U_TAP,    60,  61,   12,    0, 121, { {DEC_READ_INDEX, 0, 0}, {DEC_CAPTURE, 59, 0}   } },
@@ -391,15 +391,15 @@ void unit(yss236_core& c, int st, Unit const& u)
 	if (u.shape == U_TAP)
 	{
 		if (k == 0)
-			run(c, { st, 0, u.in,  M2_CELL, false, u.pos, ADD_CELL, true, ROUTE_1, CLAMP_WRAP });
+			run(c, {.st = st, .sm = u.in, .m2 = M2_CELL, .treg = u.pos, .add = ADD_CELL, .sub = true});
 		else
-			run(c, { st, 0, u.in2, M2_CELL, false, u.pos, ADD_ACC,  true, ROUTE_1, CLAMP_SAT, u.out });
+			run(c, {.st = st, .sm = u.in2, .m2 = M2_CELL, .treg = u.pos, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = u.out});
 		return;
 	}
 	if (k == 0)
-		run(c, { st, u.in,  0, M2_REG, false, u.pos,  ADD_REG, true, ROUTE_1, CLAMP_WRAP });
+		run(c, {.st = st, .sr = u.in, .treg = u.pos, .add = ADD_REG, .sub = true});
 	else
-		run(c, { st, u.out, 0, M2_REG, false, u.pos2, ADD_ACC, true, ROUTE_1, CLAMP_SAT, u.out });
+		run(c, {.st = st, .sr = u.out, .treg = u.pos2, .add = ADD_ACC, .sub = true, .clamp = CLAMP_SAT, .dr = u.out});
 }
 
 // Which of the six a step belongs to, or -1 for the class-0 steps between them.
@@ -421,7 +421,7 @@ int unit_of(int st)
 // lines, so each channel's blend has to be somewhere else for its output step to read.
 struct Copy { int base; int dst; Decor decor[2]; };
 
-const Copy COPIES[2] = {
+constexpr Copy COPIES[2] = {
 	//  base    dst  the two steps' decor
 	{  0x191,   121, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
 	{  0x193,   122, { {DEC_READ, 0, 0}, {DEC_CAPTURE, 25, 0} } },
@@ -442,7 +442,7 @@ void tap_copy(yss236_core& c, int st, Copy const& p)
 // which is what the left line's write at 0x19b takes where there is no latched data to write instead.
 struct Output { int base; int out, dry, wet; Decor decor[2]; };
 
-const Output OUTPUTS[2] = {
+constexpr Output OUTPUTS[2] = {
 	//  base    out  dry  wet  the two steps' decor
 	{  0x195,    15, 105, 121, { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
 	{  0x19b,    16, 108, 122, { {DEC_NONE, 0, 0}, {DEC_CAPTURE, 27, 0} } },
@@ -451,8 +451,8 @@ const Output OUTPUTS[2] = {
 double output(yss236_core& c, int st, Output const& o)
 {
 	decor(c, st, o.decor[st - o.base]);
-	if (st == o.base) return run(c, { st, o.dry });       // the dry word, on the channel's EQ output
-	return run(c, { st, o.wet, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_4, CLAMP_SAT, o.out });
+	if (st == o.base) return run(c, {.st = st, .sr = o.dry});       // the dry word, on the channel's EQ output
+	return run(c, {.st = st, .sr = o.wet, .add = ADD_ACC, .route = ROUTE_4, .clamp = CLAMP_SAT, .dr = o.out});
 }
 
 // One delay line's input: the run of steps that opens on the channel's EQ output, adds the ROM's own
@@ -468,7 +468,7 @@ struct Line
 	Decor decor[4];
 };
 
-const Line LINES[2] = {
+constexpr Line LINES[2] = {
 	//  base    n  the registers                    ram  the decor, in step order
 	{  0x197, 4, { 105, 108, 120, 119 },  false, { {DEC_READ, 0, 0}, {DEC_CAPTURE, 26, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
 	{  0x19d, 3, { 108, 119, 120,   0 },  true,  { {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0}, {DEC_NONE, 0, 0} } },
@@ -484,8 +484,7 @@ void line(yss236_core& c, int st, Line const& l)
 	if (k == 0) term(c, st, l.src[0]);
 	else if (k < l.n - 1) sum(c, st, l.src[k]);
 	else
-		run(c, { st, l.src[k], 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
-		         0 /* dr */, false, 0, false, false, true, l.ram });
+		run(c, {.st = st, .sr = l.src[k], .add = ADD_ACC, .clamp = CLAMP_SAT, .dr = 0 /* dr */, .wdata = true, .write = l.ram});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -497,70 +496,68 @@ void line(yss236_core& c, int st, Line const& l)
 // of the groups the comments at the head of this file open.
 void block_0x158(yss236_core& c)
 {
-	for (int st = 0x158; st < 0x1a0; st++)
+	for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		if (st < 0x164)
 		{
 			// ---- 0x158 to 0x163, the two LFO cells, the two base delays and the four weights ----
 			head(c, st);
-			continue;
+			return;
 		}
 		if (st == 0x164)
 		{
 			// ---- DETUNE_DET[0]: the first left tap pair's position ----
 			tap_index(c, st, INDICES[0]);
-			continue;
+			return;
 		}
 		if (st < 0x16c)
 		{
 			// ---- 0x165 to 0x16b, the left channel's input and its two shelves ----
 			eq(c, st, EQS[0]);
-			continue;
+			return;
 		}
 		if (st == 0x16c)
 		{
 			// ---- DETUNE_DET[1]: the second left tap pair's position ----
 			tap_index(c, st, INDICES[1]);
-			continue;
+			return;
 		}
 		if (st == 0x16d)
 		{
 			// ---- the right channel's second weight, max(0, |2 * m[9]| - 40), over the first ----
-			load(c, st, 1, 0, ADD_REG, false, ROUTE_1, CLAMP_ZERO, 1);
-			continue;
+			load(c, {.st = st, .sr = 1, .add = ADD_REG, .clamp = CLAMP_ZERO, .dr = 1});
+			return;
 		}
 		if (st == 0x16e)
 		{
 			// the idle step between the right weight and the four the weights go into
 			idle(c);
-			continue;
+			return;
 		}
 		if (st < 0x173)
 		{
 			// ---- 0x16f to 0x172, the four crossfade weights ----
 			weight(c, st, WEIGHTS[st - 0x16f]);
-			continue;
+			return;
 		}
 		if (st == 0x173)
 		{
 			// ---- DETUNE_DET[2]: the first right tap pair's position ----
 			tap_index(c, st, INDICES[2]);
-			continue;
+			return;
 		}
 		if (st < 0x17b)
 		{
 			// ---- 0x174 to 0x17a, the right channel's input and its two shelves ----
 			eq(c, st, EQS[1]);
-			continue;
+			return;
 		}
 		if (st == 0x17b)
 		{
 			// ---- DETUNE_DET[3]: the second right tap pair's position ----
 			tap_index(c, st, INDICES[3]);
-			continue;
+			return;
 		}
 		if (st < 0x191)
 		{
@@ -575,25 +572,25 @@ void block_0x158(yss236_core& c)
 			}
 			else
 				unit(c, st, UNITS[u]);
-			continue;
+			return;
 		}
 		if (st < 0x195)
 		{
 			// ---- 0x191 to 0x194, the two copies of the crossfades ----
 			tap_copy(c, st, COPIES[(st - 0x191) / 2]);
-			continue;
+			return;
 		}
 		if (st < 0x197)
 		{
 			// ---- 0x195 and 0x196, the left output ----
 			output(c, st, OUTPUTS[0]);
-			continue;
+			return;
 		}
 		if (st < 0x19b)
 		{
 			// ---- 0x197 to 0x19a, what goes into the left line ----
 			line(c, st, LINES[0]);
-			continue;
+			return;
 		}
 		if (st < 0x19d)
 		{
@@ -611,12 +608,12 @@ void block_0x158(yss236_core& c)
 				}
 				write_delay(c, st, v);
 			}
-			continue;
+			return;
 		}
 
 		// ---- 0x19d to 0x19f, what goes into the right line, whose write is its own last step ----
 		line(c, st, LINES[1]);
-	}
+		});
 }
 
 }  // namespace

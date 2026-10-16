@@ -29,6 +29,9 @@ set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp src/fs1r/native/*.cpp)
 add_library(vop3host STATIC ${VOP3HOST} src/fs1r/effects.cpp src/fs1r/filter.cpp src/fs1r/chips/vop3.cpp)
 target_include_directories(vop3host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# C++20 for the natives' designated initializers ({.st = st, .sr = 5, .add = ADD_ACC}), which name a
+# step's fields instead of counting commas.
+set_target_properties(vop3host PROPERTIES CXX_STANDARD 20)
 # Every program runs as C++, from src/fs1r/native/, so nothing else is compiled or linked here.
 foreach(t vop3host)
   if(MSVC)
@@ -94,6 +97,11 @@ if(NOT MSVC)
   target_compile_options(vop3_native_check PRIVATE -ffp-contract=off)
 endif()
 add_test(NAME vop3_native COMMAND vop3_native_check)
+# The two chips' cost per sample, and their output's hash (not a test: a number to compare builds by).
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+  add_executable(vop3_bench EXCLUDE_FROM_ALL tools/vop3_bench.cpp)
+  target_link_libraries(vop3_bench PRIVATE vop3host)
+endif()
 # The same programs as the engine installs them, all at once, which is the path the plugin runs.
 add_test(NAME vop3_installed COMMAND vop3_native_check --installed)
 

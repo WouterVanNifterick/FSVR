@@ -118,15 +118,6 @@ namespace {
 
 using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
 
-// What a band's step carries besides its term. The three left bands publish the base program's delay
-// reads and the window's LFOs on the way past, and the right bands carry nothing, because the base
-// program reads them once and the channels' coefficients are all it needs from them.
-enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_LFO };
-
-// One band's five steps. `cell` is the slot a DEC_READ step reads (which is its own step over four) or
-// the cell a DEC_CAPTURE or DEC_LFO step publishes into.
-struct Decor { decor_t kind; int cell; };
-
 // One band, in direct form I. `in` is the register its input is in, which b1 and b0 read a pass later
 // than the step before the band wrote it; `x1` holds that input a pass older, which is what b2 reads and
 // what the same step writes; `y1` is the band's output a pass back, which -a1 reads and b0 overwrites;
@@ -144,27 +135,21 @@ struct Band
 // right high band are the two designFilter(2, 4, ...) sections, so their closing steps carry the x16
 // route the other four do not, and those two are the bands whose own -a2 step keeps their y[-2]: the
 // four lower bands read that delay out of the register the next band up writes.
-const Band BANDS[6] = {
+constexpr Band BANDS[6] = {
     //  base   in  x1   y1   y2  route        b1               b2                 -a1            -a2             b0
-    {  0x15a, 103, 104, 105, 106, ROUTE_2,  false, { {DEC_NONE, 0},    {DEC_READ, 0x56},    {DEC_NONE, 0},  {DEC_NONE, 0},    {DEC_NONE, 0}    } },
-    {  0x15f, 105, 106, 107, 108, ROUTE_2,  false, { {DEC_READ, 0x57}, {DEC_CAPTURE, 28},   {DEC_NONE, 0},  {DEC_NONE, 0},    {DEC_READ, 0x58} } },
-    {  0x164, 107, 108, 109, 110, ROUTE_16, true,  { {DEC_CAPTURE, 29},{DEC_NONE, 0},       {DEC_LFO, 11},  {DEC_NONE, 0},    {DEC_CAPTURE, 30} } },
-    {  0x16a, 111, 112, 113, 114, ROUTE_2,  false, { {DEC_NONE, 0},    {DEC_NONE, 0},       {DEC_NONE, 0},  {DEC_NONE, 0},    {DEC_NONE, 0}    } },
-    {  0x16f, 113, 114, 115, 116, ROUTE_2,  false, { {DEC_NONE, 0},    {DEC_NONE, 0},       {DEC_NONE, 0},  {DEC_NONE, 0},    {DEC_NONE, 0}    } },
-    {  0x174, 115, 116, 117, 118, ROUTE_16, true,  { {DEC_NONE, 0},    {DEC_NONE, 0},       {DEC_NONE, 0},  {DEC_NONE, 0},    {DEC_NONE, 0}    } },
+    { 0x15a, 103, 104, 105, 106, ROUTE_2,  false, { {},                {DEC_READ, 0x56},  {},            {}, {}                } },
+    { 0x15f, 105, 106, 107, 108, ROUTE_2,  false, { {DEC_READ, 0x57},  {DEC_CAPTURE, 28}, {},            {}, {DEC_READ, 0x58}  } },
+    { 0x164, 107, 108, 109, 110, ROUTE_16, true,  { {DEC_CAPTURE, 29}, {},                {DEC_LFO, 11}, {}, {DEC_CAPTURE, 30} } },
+    { 0x16a, 111, 112, 113, 114, ROUTE_2,  false, { {},                {},                {},            {}, {}                } },
+    { 0x16f, 113, 114, 115, 116, ROUTE_2,  false, { {},                {},                {},            {}, {}                } },
+    { 0x174, 115, 116, 117, 118, ROUTE_16, true,  { {},                {},                {},            {}, {}                } },
 };
 
 // One band's five steps. The decor the step's words carry comes first, because step() moves a cell or
 // reads the delay RAM before it does any arithmetic, and then the band's term for this step.
 void band(yss236_core& c, int st, Band const& b, int k)
 {
-	switch (b.decor[k].kind)
-	{
-		case DEC_READ:    read_delay(c, st); break;
-		case DEC_CAPTURE: take_capture(c, b.decor[k].cell, st); break;
-		case DEC_LFO:     take_lfo(c, b.decor[k].cell, st); break;
-		case DEC_NONE: break;
-	}
+	decor(c, st, b.decor[k]);
 	switch (k)
 	{
 	case 0:  term(c, st, b.in); break;                                   // b1 on x[n]
@@ -185,10 +170,8 @@ void band(yss236_core& c, int st, Band const& b, int k)
 // these steps as it would the interpreter's.
 void block_0x158(yss236_core& c)
 {
-	for (int st = 0x158; st < 0x1a0; st++)
+	for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
 		if (st < 0x15a)
 		{
@@ -204,7 +187,7 @@ void block_0x158(yss236_core& c)
 				// r[103] = (k * r[6] + acc) * 2: the left and right inputs summed for the bands
 				close(c, st, 6, 103, ROUTE_2);
 			}
-			continue;
+			return;
 		}
 
 		if (st < 0x169)
@@ -212,14 +195,14 @@ void block_0x158(yss236_core& c)
 			// ---- the left channel's three bands, cascaded ----
 			Band const& b = BANDS[(st - 0x15a) / 5];
 			band(c, st, b, st - b.base);
-			continue;
+			return;
 		}
 
 		if (st == 0x169)
 		{
 			// EQ3_A[2]: the right input doubled on its own, with no adder input
 			gain(c, st, 6, 111, ROUTE_2);
-			continue;
+			return;
 		}
 
 		if (st < 0x179)
@@ -227,7 +210,7 @@ void block_0x158(yss236_core& c)
 			// ---- the right channel's three bands, the same six steps on the copy ----
 			Band const& b = BANDS[3 + (st - 0x16a) / 5];
 			band(c, st, b, st - b.base);
-			continue;
+			return;
 		}
 
 		if (st < 0x17c)
@@ -239,7 +222,7 @@ void block_0x158(yss236_core& c)
 			case 0x17a: term(c, st, 109); break;                    // the same word with no route and no register
 			default:    close(c, st, 117, 16, ROUTE_4); break;      // r[16] = 4 (k r[117] + acc): the right chain
 			}
-			continue;
+			return;
 		}
 
 		// ---- the tail: three published reads, the captures that take them up, and the second LFO ----
@@ -253,7 +236,7 @@ void block_0x158(yss236_core& c)
 		else if (st == 0x186)
 			take_lfo(c, 12, st);
 		idle(c);
-	}
+		});
 }
 
 }  // namespace

@@ -1,6 +1,7 @@
 // vop3_bench - the two VOP3 chips' cost, and their output as a bit-exact reference.
 //
 //   build.bat bench                       builds bin\vop3_bench.exe with the vop3host flags
+//   cmake --build build --target vop3_bench   the same with CMake (x86-64)
 //   vop3_bench [-i] [out.raw]             10 s at 48 kHz, ns per sample and TSC cycles per step; -i interprets
 //
 // Effects runs Hall 1 and Chorus, Filter an LPF24 voice on four slots, all fed the same fixed noise with
@@ -11,7 +12,11 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#ifdef _MSC_VER
 #include <intrin.h>
+#else
+#include <x86intrin.h>
+#endif
 #include <memory>
 #include <vector>
 #include "fs1r/effects.h"

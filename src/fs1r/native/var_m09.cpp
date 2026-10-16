@@ -121,30 +121,10 @@ constexpr int TAP_EVEN = 61;   //        units write their own line off
 // What a step does with a cell or the delay RAM before it does any arithmetic
 // ---------------------------------------------------------------------------------------------
 
-// A step of this program is more than its term about as often as not: it reads the delay RAM, publishes
-// a capture of an earlier read, or takes the page's LFO. `cell` is the slot a DEC_READ reads, which is
-// its own step over four, or the cell the move lands in.
-enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_LFO };
-
-struct Decor { decor_t kind; int cell; };
-
 // What a row unit's own line does with the delay line. It carries w1[13], so it either latches its
 // result for the class-0 writer two steps along, which is the first unit, or it is that writer itself,
 // which writes its own result and clears anything latched. No other step of the program writes the RAM.
 enum delay_t { SET_LATCH, WRITE_OWN };
-
-// Apply the decor a unit's step carries. It comes before the term, because step() moves a cell or reads
-// the delay RAM before it does any arithmetic.
-void decor(yss236_core& c, int st, Decor const& d)
-{
-	switch (d.kind)
-	{
-		case DEC_READ:      read_delay(c, st); break;
-		case DEC_CAPTURE:   take_capture(c, d.cell, st); break;
-		case DEC_LFO:       take_lfo(c, d.cell, st); break;
-		case DEC_NONE: break;
-	}
-}
 
 // ---------------------------------------------------------------------------------------------
 // 0x158 and 0x159: the two serial inputs and the mono the whole chain runs on
@@ -181,10 +161,10 @@ struct Tone { int base; int x, y1; Decor decor[3]; };
 // The high-pass runs on the mono and the low-pass on the high-pass's output, one after the other. The
 // read of the base program's own slot rides on each section's b1 step: the slot 0x56 on the high-pass
 // and the slot 0x57 on the low-pass, and each is published five steps later.
-const Tone TONES[2] = {
+constexpr Tone TONES[2] = {
 	//  base   x     y1   -a1              b1                 b0
-	{  0x15a, MONO, HPF, { {DEC_NONE, 0}, {DEC_READ, 0},    {DEC_NONE, 0} } },   // var::KARAOKE_HPF
-	{  0x15d, HPF,  LPF, { {DEC_NONE, 0}, {DEC_NONE, 0},     {DEC_READ, 0} } },   // var::KARAOKE_LPF
+	{ 0x15a, MONO, HPF, { {}, {DEC_READ, 0}, {}            } },  // var::KARAOKE_HPF
+	{ 0x15d, HPF,  LPF, { {}, {},            {DEC_READ, 0} } },  // var::KARAOKE_LPF
 };
 
 // One pole's step at base + k.
@@ -247,19 +227,19 @@ struct Row
 // {0x5D, 0x5A}, {0x61, 0x5E} and {0x62, 0x5F} of var::KARAOKE_ROW_SLOTS, a write slot and a read slot
 // apiece. The first unit runs on the low-pass's output and the fourth closes the second chain, and it
 // is the first and the second of the four that publish the next unit's read slot on their way past.
-const Row ROWS[4] = {
+constexpr Row ROWS[4] = {
 	//  base   in      out     tap      wr       write       s28            s24            s26              s22
-	{  0x16e, LPF,    ROW_L,  TAP_ODD, TAP_ODD,  SET_LATCH, { {DEC_NONE, 0}, {DEC_READ, 0},  {DEC_CAPTURE, TAP_EVEN}, {DEC_NONE, 0} } },
-	{  0x174, ROW_L,  ROW_L,  TAP_EVEN,TAP_EVEN, WRITE_OWN, { {DEC_NONE, 0}, {DEC_NONE, 0},  {DEC_CAPTURE, LINE},    {DEC_NONE, 0} } },
-	{  0x184, ROW_L,  ROW_L,  TAP_ODD, TAP_ODD,  WRITE_OWN, { {DEC_CAPTURE, TAP_EVEN}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_LFO, 12} } },
-	{  0x188, ROW_R,  ROW_R,  TAP_EVEN,TAP_ODD,  WRITE_OWN, { {DEC_NONE, 0}, {DEC_NONE, 0},  {DEC_NONE, 0},         {DEC_NONE, 0} } },
+	{ 0x16e, LPF,   ROW_L, TAP_ODD,  TAP_ODD,  SET_LATCH, { {},                      {DEC_READ, 0}, {DEC_CAPTURE, TAP_EVEN}, {}            } },
+	{ 0x174, ROW_L, ROW_L, TAP_EVEN, TAP_EVEN, WRITE_OWN, { {},                      {},            {DEC_CAPTURE, LINE},     {}            } },
+	{ 0x184, ROW_L, ROW_L, TAP_ODD,  TAP_ODD,  WRITE_OWN, { {DEC_CAPTURE, TAP_EVEN}, {},            {},                      {DEC_LFO, 12} } },
+	{ 0x188, ROW_R, ROW_R, TAP_EVEN, TAP_ODD,  WRITE_OWN, { {},                      {},            {},                      {}            } },
 };
 
 // r[out] = 2 * (k * m[cell] + acc): the unit's read of its own line, closing the s28 word into the
 // chain's sum. The route is the x2 the row's own words are half of.
 void row_read(yss236_core& c, int st, int cell, int out)
 {
-	run(c, { st, 0, cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, out });
+	run(c, {.st = st, .sm = cell, .m2 = M2_CELL, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = out});
 }
 
 // k * m[cell] + acc, saturated, and the delay line's next write: the unit's s22 word, its own line out
@@ -267,7 +247,7 @@ void row_read(yss236_core& c, int st, int cell, int out)
 // or is that writer itself, and a writer clears any latched data and writes its own result.
 void row_write(yss236_core& c, int st, int cell, delay_t w)
 {
-	run(c, { st, 0, cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0, false, 0, false, false, w == SET_LATCH, w == WRITE_OWN });
+	run(c, {.st = st, .sm = cell, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .wdata = w == SET_LATCH, .write = w == WRITE_OWN});
 }
 
 // One row unit's step at base + k. The first unit's write is two steps behind its own latched result,
@@ -303,7 +283,7 @@ const int TAPS[2] = { ROW_L, ROW_R };
 // line's output is the only term.
 void line_tap(yss236_core& c, int st, int out)
 {
-	run(c, { st, 0, LINE, M2_CELL, false, 0, ADD_OFF, false, ROUTE_2, CLAMP_SAT, out });
+	run(c, {.st = st, .sm = LINE, .m2 = M2_CELL, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = out});
 }
 
 // The block, in two halves. The first six steps are the feedback off the line's own tap and the write
@@ -322,12 +302,12 @@ void main_line(yss236_core& c, int st)
 		case 0x17a:
 			// The feedback onto itself a pass back. The cell still holds the previous pass's sum, which
 			// is what the adder adds, and the result goes back into it.
-			run(c, { st, 0, FB, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0, false, FB });
+			run(c, {.st = st, .sm = FB, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .dm = FB});
 			break;
 		case 0x17d:
 			// The line's own write: the row chain's sum on this step's word, the feedback cell as the
 			// adder's input, and the result latched for 0x183.
-			run(c, { st, ROW_L, FB, M2_REG, false, 0, ADD_CELL, false, ROUTE_1, CLAMP_SAT, 0, false, 0, false, false, true });
+			run(c, {.st = st, .sr = ROW_L, .sm = FB, .add = ADD_CELL, .clamp = CLAMP_SAT, .wdata = true});
 			break;
 		case 0x17b:
 		case 0x17c:
@@ -358,10 +338,10 @@ void main_line(yss236_core& c, int st)
 // it up five steps later in the tail.
 struct Pan { int base; int src, wet, out; Decor decor[2]; };
 
-const Pan PANS[2] = {
+constexpr Pan PANS[2] = {
 	//  base  src  wet     out
-	{  0x18c,   5, ROW_L,  15, { {DEC_NONE, 0}, {DEC_NONE, 0} } },
-	{  0x18e,   6, ROW_R,  16, { {DEC_NONE, 0}, {DEC_READ, 0 } } },
+	{ 0x18c, 5, ROW_L, 15, { {}, {}             } },
+	{ 0x18e, 6, ROW_R, 16, { {}, {DEC_READ, 0 } } },
 };
 
 // One channel's step at base + k.
@@ -384,18 +364,16 @@ void pan(yss236_core& c, int st, Pan const& p)
 // the groups the comments at the head of this file open.
 void block_0x158(yss236_core& c)
 {
-	for (int st = 0x158; st < 0x1a0; st++)
+	for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
-		if (st < 0x15a) { mono(c, st); continue; }                                  // the mono sum
-		if (st < 0x160) { tone(c, st, TONES[(st - 0x15a) / 3]); continue; }        // the two poles
-		if (st < 0x16e) { published(c, st); continue; }                             // the published reads
-		if (st < 0x178) { row_unit(c, st, ROWS[(st - 0x16e) / 6]); continue; }     // row units 1 and 2
-		if (st < 0x184) { main_line(c, st); continue; }                            // the main line
-		if (st < 0x18c) { row_unit(c, st, ROWS[2 + (st - 0x184) / 4]); continue; } // row units 3 and 4
-		if (st < 0x190) { pan(c, st, PANS[(st - 0x18c) / 2]); continue; }          // the two outputs
+		if (st < 0x15a) { mono(c, st); return; }                                  // the mono sum
+		if (st < 0x160) { tone(c, st, TONES[(st - 0x15a) / 3]); return; }        // the two poles
+		if (st < 0x16e) { published(c, st); return; }                             // the published reads
+		if (st < 0x178) { row_unit(c, st, ROWS[(st - 0x16e) / 6]); return; }     // row units 1 and 2
+		if (st < 0x184) { main_line(c, st); return; }                            // the main line
+		if (st < 0x18c) { row_unit(c, st, ROWS[2 + (st - 0x184) / 4]); return; } // row units 3 and 4
+		if (st < 0x190) { pan(c, st, PANS[(st - 0x18c) / 2]); return; }          // the two outputs
 
 		// ---- 0x190 to 0x19f, the tail ----
 		// Two more of the base program's own reads, the slots 0x64 and 0x65, and the three captures
@@ -405,7 +383,7 @@ void block_0x158(yss236_core& c)
 		if (k == 4 || k == 8) read_delay(c, st);
 		else if (k == 5 || k == 9 || k == 13) take_capture(c, 31 + (k - 5) / 4, st);
 		idle(c);
-	}
+		});
 }
 
 }  // namespace

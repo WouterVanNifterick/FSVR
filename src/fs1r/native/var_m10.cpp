@@ -210,7 +210,7 @@ struct Tone
 	Decor decor[3];
 };
 
-const Tone TONES[2] = {
+constexpr Tone TONES[2] = {
 	//  base  state  in  route     -a1 on the state      b1 on the input         b0 closing
 	{ 0x15a,   104, 103, ROUTE_1, { {DEC_NONE, 0},      {DEC_READ, 0x56},      {DEC_NONE, 0}     } },
 	{ 0x15d,   105, 104, ROUTE_2, { {DEC_NONE, 0},      {DEC_NONE, 0},         {DEC_READ, 0x57} } },
@@ -269,8 +269,8 @@ void level(yss236_core& c, int st)
 // running value for whoever reads it next.
 void pre_delay_return(yss236_core& c, int st)
 {
-	if (st == 0x165) run(c, { st, 0, PRE_BACK, M2_CELL, false, 0, ADD_OFF, false, ROUTE_2, CLAMP_SAT, PRE });
-	else run(c, { st, PRE, 0, M2_REG, true });   // the class-3 pass-through of r[109]
+	if (st == 0x165) run(c, {.st = st, .sm = PRE_BACK, .m2 = M2_CELL, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = PRE});
+	else run(c, {.st = st, .sr = PRE, .unity = true});   // the class-3 pass-through of r[109]
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -282,7 +282,7 @@ void pre_delay_return(yss236_core& c, int st)
 // anyone reads. The read of the slot 0x59 and the page's LFO ride on the first, m[30] takes up the
 // read of 0x163 on the second, the pre-delay's read of the slot 0x5A on the fifth and m[56] takes it
 // up on the sixth.
-const Decor COPIES[8] = {
+constexpr Decor COPIES[8] = {
 	//  the slot 0x59 and m[11]   m[30]         -           -           the slot 0x5A   m[56]         -       -
 	{DEC_READ_LFO, 11}, {DEC_CAPTURE, 30}, {DEC_NONE, 0}, {DEC_NONE, 0},
 	{DEC_READ, 0x5A},   {DEC_CAPTURE, 56}, {DEC_NONE, 0}, {DEC_NONE, 0},
@@ -293,7 +293,7 @@ void copies(yss236_core& c, int st)
 	int const k = st - 0x167;
 	decor(c, st, COPIES[k]);
 	// r[110 + k] takes the step before's x operand, and the word is 1.0 so the accumulator is idle.
-	run(c, { st, 110 + k, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP, 110 + k, true });
+	run(c, {.st = st, .sr = 110 + k, .unity = true, .dr = 110 + k, .z1 = true});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -320,7 +320,7 @@ struct Unit
 	Decor decor[4];
 };
 
-const Unit UNITS[2] = {
+constexpr Unit UNITS[2] = {
 	//  base  in   cell  line  tap  tap_cell  own_write  the four words' decor
 	{ 0x170, 105,    0, LINE2, 120, false,     true, { {DEC_CAPTURE, PREDELAY}, {DEC_NONE, 0},
 													   {DEC_NONE, 0},           {DEC_NONE, 0}    } },
@@ -335,16 +335,14 @@ void unit(yss236_core& c, int st, Unit const& u)
 	if (k == 1)
 	{
 		// s24, the line's tap gain, closing what s28 opened: doubled and saturated into the tap.
-		run(c, { st, 0, u.line, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT,
-				 u.tap_cell ? 0 : u.tap_out, false, u.tap_cell ? u.tap_out : 0 });
+		run(c, {.st = st, .sm = u.line, .m2 = M2_CELL, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = u.tap_cell ? 0 : u.tap_out, .dm = u.tap_cell ? u.tap_out : 0});
 		return;
 	}
 	if (k == 3)
 	{
 		// s22, the line's feedback, closing what s26 opened: the unit's write, which this word either
 		// makes itself or latches for the step eight later that does. w1[13] is carried either way.
-		run(c, { st, 0, u.line, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
-				 0, false, 0, false, false, true, u.own_write });
+		run(c, {.st = st, .sm = u.line, .m2 = M2_CELL, .add = ADD_ACC, .clamp = CLAMP_SAT, .wdata = true, .write = u.own_write});
 		return;
 	}
 	// k 0 and k 2: the two feedforward words, s28 and s26, on the unit's input, neither of which the
@@ -363,8 +361,7 @@ void predelay(yss236_core& c, int st)
 	if (st == 0x174) { take_capture(c, LINE1, st); idle(c); return; }         // m[58] takes it up
 	if (st == 0x177)                                                          // var::REVERB_WIDTH[0]
 	{
-		run(c, { st, TAP2, PREDELAY, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT,
-				 0, false, 0, false, false, true, true });
+		run(c, {.st = st, .sr = TAP2, .sm = PREDELAY, .m2 = M2_CELL, .add = ADD_REG, .clamp = CLAMP_SAT, .wdata = true, .write = true});
 		return;
 	}
 	if (st < 0x174) { unit(c, st, UNITS[0]); return; }     // the unit's four words
@@ -385,8 +382,7 @@ void first_unit(yss236_core& c, int st)
 		// The unit's write into the slot 0x60, which is whatever 0x17b latched: this word does not
 		// carry w1[13], so it spends the latch rather than writing its own result. What it does
 		// compute is the first damping lowpass's input, twice the word on the cell nothing fills.
-		run(c, { st, 0, EMPTY, M2_CELL, false, 0, ADD_OFF, false, ROUTE_2, CLAMP_SAT, DAMP_IN,
-				 false, 0, false, false, false, true });
+		run(c, {.st = st, .sm = EMPTY, .m2 = M2_CELL, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = DAMP_IN, .write = true});
 		return;
 	}
 	idle(c);                                                  // 0x17c to 0x17e and 0x181, 0x182
@@ -410,7 +406,7 @@ struct Lowpass
 	Decor decor[3];
 };
 
-const Lowpass LOWPASSES[2] = {
+constexpr Lowpass LOWPASSES[2] = {
 	//  base  state  the first x word     the second x word    the a word and b0's decor
 	{ 0x184, DAMP1, DAMP_IN,      0, DAMP_IN,      0, { {DEC_CAPTURE, ER1}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
 	{ 0x187, DAMP2,       0, DEAD,          0, ER1,     { {DEC_READ_LFO, 12}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
@@ -428,8 +424,7 @@ void lowpass(yss236_core& c, int st, Lowpass const& f)
 	        break;
 	default:
 	        if (f.second_cell)                                   // and the second closing the pole
-	            run(c, { st, 0, f.second_cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2,
-	                     CLAMP_SAT, f.state });
+	            run(c, {.st = st, .sm = f.second_cell, .m2 = M2_CELL, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = f.state});
 	        else
 	            close(c, st, f.second_reg, f.state, ROUTE_2);
 	        break;
@@ -440,7 +435,7 @@ void lowpass(yss236_core& c, int st, Lowpass const& f)
 // 0x18b for m[62] to take up at 0x190, the read of the slot 0x61 at 0x187 for m[61] to take up here,
 // and the other two steps are idle, 0x18a among them: its M_PREVIOUS write of m[54] is on a class-0
 // step, which step() returns before, so nothing ever writes m[54].
-const Decor ER_CELL[4] = {
+constexpr Decor ER_CELL[4] = {
 	//  0x18a, the dead step   the slot 0x62   m[61]     0x18d
 	{DEC_NONE, 0}, {DEC_READ, 0x62}, {DEC_CAPTURE, 61}, {DEC_NONE, 0},
 };
@@ -461,23 +456,22 @@ void output_sums(yss236_core& c, int st)
 	{
 	// var::REVERB_W[9]: the first early reflection m[60], with the level r[119] added behind it
 	case 0x18e:
-		run(c, { st, LEVEL, ER1, M2_CELL, false, 0, ADD_REG, false, ROUTE_1, CLAMP_WRAP });
+		run(c, {.st = st, .sr = LEVEL, .sm = ER1, .m2 = M2_CELL, .add = ADD_REG});
 		break;
 	// var::REVERB_W[8]: the second early reflection m[61] closing that into r[120], with the read of
 	// the slot 0x63 riding on it for m[31] to take up at 0x194
 	case 0x18f:
 		read_delay(c, st);
-		run(c, { st, 0, ER2, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, TAP2 });
+		run(c, {.st = st, .sm = ER2, .m2 = M2_CELL, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = TAP2});
 		break;
 	// the pre-delay tap on the running value, and the read of the slot 0x62 published in m[62]
 	case 0x190:
 		take_capture(c, ER3, st);
-		run(c, { st, 0, PREDELAY, M2_CELL, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP });
+		run(c, {.st = st, .sm = PREDELAY, .m2 = M2_CELL, .unity = true});
 		break;
 	// var::REVERB_W[0]: the tap a pass back scaled, and republished as this pass's own
 	case 0x191:
-		run(c, { st, 0, PRE_BACK, M2_CELL, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP,
-				 0, false, PRE_BACK, true });
+		run(c, {.st = st, .sm = PRE_BACK, .m2 = M2_CELL, .dm = PRE_BACK, .prev = true});
 		break;
 	// var::REVERB_W[6]: the cell m[59], which stays at zero, onto that
 	case 0x192:
@@ -485,7 +479,7 @@ void output_sums(yss236_core& c, int st)
 		break;
 	default:  // var::REVERB_W[7]: the early reflection m[62] closing the left sum into r[121]
 		read_delay(c, st);            // the slot 0x64, which m[32] takes up at 0x198
-		run(c, { st, 0, ER3, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, SUM_L });
+		run(c, {.st = st, .sm = ER3, .m2 = M2_CELL, .add = ADD_ACC, .route = ROUTE_2, .clamp = CLAMP_SAT, .dr = SUM_L});
 		break;
 	}
 }
@@ -502,7 +496,7 @@ struct Pan
 	Decor decor[2];
 };
 
-const Pan PANS[2] = {
+constexpr Pan PANS[2] = {
 	//  base  in  sum   out   the input word      the sum word
 	{ 0x195,   5, SUM_L,  15, { {DEC_NONE, 0},    {DEC_NONE, 0}     } },
 	{ 0x197,   6, TAP2,  16, { {DEC_READ, 0x65}, {DEC_CAPTURE, 32} } },
@@ -527,8 +521,7 @@ void comb_gain(yss236_core& c, int st)
 {
 	if (st == 0x19c) { take_capture(c, 33, st); idle(c); return; }   // m[33], the read of the slot 0x65
 	if (st != 0x19b && st != 0x19f) { idle(c); return; }            // the four steps between
-	run(c, { st, COMB_DAMPER[(st - 0x19b) / 4], TAP1, M2_CELL, false, 0, ADD_REG, false, ROUTE_1,
-			 CLAMP_SAT, 0, false, 0, false, false, true, true });
+	run(c, {.st = st, .sr = COMB_DAMPER[(st - 0x19b) / 4], .sm = TAP1, .m2 = M2_CELL, .add = ADD_REG, .clamp = CLAMP_SAT, .wdata = true, .write = true});
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -540,29 +533,27 @@ void comb_gain(yss236_core& c, int st)
 // the groups the head of this file opens.
 void block_0x158(yss236_core& c)
 {
-	for (int st = 0x158; st < 0x1a0; st++)
+	for_steps<0x158, 0x1a0>(c, [&](yss236_core& c, auto st)
 	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
 
-		if (st < 0x15a) { inputs(c, st); continue; }                          // 0x158, 0x159
-		if (st < 0x160) { tone(c, st, TONES[(st - 0x15a) / 3]); continue; }  // 0x15a to 0x15f
-		if (st < 0x165) { level(c, st); continue; }                            // 0x160 to 0x164
-		if (st < 0x167) { pre_delay_return(c, st); continue; }                // 0x165, 0x166
-		if (st < 0x16f) { copies(c, st); continue; }                           // 0x167 to 0x16e
-		if (st < 0x178) { predelay(c, st); continue; }                        // 0x16f to 0x177
-		if (st < 0x184) { first_unit(c, st); continue; }                     // 0x178 to 0x183
-		if (st < 0x18a) { lowpass(c, st, LOWPASSES[(st - 0x184) / 3]); continue; }  // 0x184 to 0x189
+		if (st < 0x15a) { inputs(c, st); return; }                          // 0x158, 0x159
+		if (st < 0x160) { tone(c, st, TONES[(st - 0x15a) / 3]); return; }  // 0x15a to 0x15f
+		if (st < 0x165) { level(c, st); return; }                            // 0x160 to 0x164
+		if (st < 0x167) { pre_delay_return(c, st); return; }                // 0x165, 0x166
+		if (st < 0x16f) { copies(c, st); return; }                           // 0x167 to 0x16e
+		if (st < 0x178) { predelay(c, st); return; }                        // 0x16f to 0x177
+		if (st < 0x184) { first_unit(c, st); return; }                     // 0x178 to 0x183
+		if (st < 0x18a) { lowpass(c, st, LOWPASSES[(st - 0x184) / 3]); return; }  // 0x184 to 0x189
 		if (st < 0x18e) {                                                  // 0x18a to 0x18d
 			decor(c, st, ER_CELL[st - 0x18a]);
 			idle(c);
-			continue;
+			return;
 		}
-		if (st < 0x194) { output_sums(c, st); continue; }                        // 0x18e to 0x193
-		if (st == 0x194) { take_capture(c, 31, st); idle(c); continue; }        // m[31]
-		if (st < 0x199) { pan(c, st, PANS[(st - 0x195) / 2]); continue; }        // 0x195 to 0x198
+		if (st < 0x194) { output_sums(c, st); return; }                        // 0x18e to 0x193
+		if (st == 0x194) { take_capture(c, 31, st); idle(c); return; }        // m[31]
+		if (st < 0x199) { pan(c, st, PANS[(st - 0x195) / 2]); return; }        // 0x195 to 0x198
 		comb_gain(c, st);                                                      // 0x199 to 0x19f
-	}
+		});
 }
 
 }  // namespace
