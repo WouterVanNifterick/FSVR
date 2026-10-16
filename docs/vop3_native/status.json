@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-16T00:16:35Z",
+ "updated": "2026-10-16T00:20:47Z",
  "programs": [
   {
    "key": "flt",
@@ -572,13 +572,13 @@
     "ins-29 Dist+Delay",
     "ins-31 Odrv+Delay"
    ],
-   "stage": "writing",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 38400,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Cmp+DS+Dly, Cmp+OD+Dly, Dist+Delay, Odrv+Delay",
-   "note": "Straight transcription of all 96 steps is identical: 4 types, 38400 native passes. Next: name the structures and comment each block.",
-   "updated": "2026-10-16T00:16:35Z",
+   "note": "Done: 96 steps 0x1a0-0x1ff of rom::INSERTION_PROGRAMS[13], identical on 4 types over 38400 native passes. ctest green (engine, vop3_jit, vop3_native). Header names the structures: one signal from r[7]/r[8] at 0x1a1-0x1a2, six designFilter sections (ins::DD_HPF, DD_LPF, DD_LPF2, DD_PEAK, DD_LOW_SHELF, DD_LPF_2), the delay line on ins::DD_SLOTS {0x7a write, 0x69-0x6c taps} with only the fourth tap reaching an output (0x1e4 and 0x1e6 multiply the third and second by the program's own zero words), and the eight-rung class-1 ladder at 0x1ee weighted by ins::DD_RATIO in the compiler's order 0,2,3,1,4,5,6,7. Note for whoever reads it: the release pair's registers r[72] and r[73] are their own rcopy's value, so r[120] at 0x1ca is the threshold word times zero and the ladder is a staircase of constants; marked INFERRED in the file.",
+   "updated": "2026-10-16T00:20:47Z",
    "claimed": "2026-10-16T00:13:01Z",
    "nudges": 0,
    "sessions": 1
