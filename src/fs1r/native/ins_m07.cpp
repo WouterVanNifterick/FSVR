@@ -45,1060 +45,589 @@
 // in floating point over a shelf, a peak and a high shelf; it has none of these words, so it is no reference
 // for any number here.
 //
+// The registers, so the names below can be checked against the words. r[7] and r[8] the two signals the
+// base program leaves this window and r[17] and r[18] the two outputs it reads back; r[67] ins::PC_MIX[0]
+// and r[75] ins::PC_MIX[1] and [2], the two channels' inputs; r[68] to r[82] the six sections' own
+// registers, where a section's x[-1] is the next one's y[-2]; r[73] and r[81] the two chains' outputs;
+// r[119] and r[120] the two voice levels; r[121] to r[126] the head's six, which are two rectified LFO
+// amplitudes and four delay lengths. The head's registers change hands as the program runs: r[121] is one
+// voice's rectified amplitude through 0x1aa and that voice's first tap from 0x1b9, and r[122] is the other
+// voice's second delay length through 0x1a8 and the second crossfade's output from 0x1dc. Of the cells,
+// m[3] and m[7] are the banks of page 13's serial input, m[4] page 14's left, m[13], m[14] and m[15] the
+// LFOs of pages 13, 14 and 14, m[42] and m[43] the two delay lines' signals, and m[56] to m[63] the eight
+// swept taps. Of the slots ins::PC_SLOTS names ten; the program reads two more, 0x70 and 0x71 at 0x1c3
+// and 0x1c7, and writes two more, 0x7b and 0x7c at 0x1ef and 0x1f3, which no list in the ROM names.
+//
 // Every constant the program reads is read from c.coef[st] on the pass and every delay offset through
 // c.addr() off the c.slot[] entry the host last wrote, so no number the firmware chose is folded in here:
 // the program words are fixed per row and each step's fields are folded into the arithmetic below in the
 // order yss236_core::step() runs its own.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time. Inside the groups the comments below open, each repeated shape
+// is a table and a small function that runs it: the head's four read positions, mode words, rectifiers
+// and tap gains, the four interpolated taps, the six order-2 sections, the two voice crossfades, the
+// two voice levels and the two delay lines' feeds.
 //
 // vop3_native_check ins-m07: identical, 3 types, 28800 native passes.
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
+
+using namespace step;   // the step vocabulary: load, run, term, sum, close, copy_z and the rest
+
+// ---------------------------------------------------------------------------------------------
+// The registers and the cells the code below names
+// ---------------------------------------------------------------------------------------------
+
+// The two signals the base program leaves this window and the two outputs it reads back, the register
+// each band chain ends in, and the four registers the voice levels, the crossfades and the two delay
+// lines pass between them. The six sections' own registers are named by the sections themselves, which
+// are what read and write them, and so is r[124], which only the head uses.
+enum
+{
+	SIG_L = 7,       // the two signals in, r[7] and r[8]: the panned sends the base program leaves here
+	SIG_R = 8,
+	OUT_L = 17,      // the two outputs the base program reads back, r[17] and r[18]
+	OUT_R = 18,
+	DRY_L = 67,      // r[67]: ins::PC_MIX[0], the stereo switch on the left input, and the low band's
+	MONO = 75,       //   input; r[75]: ins::PC_MIX[1] and [2], the two signals summed, the other input
+	CHAIN_L = 73,    // r[73]: the left chain's output, which ins::PC_MIX[3] and the first line read;
+	CHAIN_C = 81,    //   r[81]: the summed chain's, which ins::EQ3_LEVEL[0] and the second line read
+	VOICE_A = 119,   // r[119] and r[120]: ins::PC_VOICE2[1] and ins::PC_VOICE1_B, the two voice levels,
+	VOICE_B = 120,   //   which the two crossfades weigh and the two outputs close on
+	CROSS_A = 121,   // r[121] and r[122]: one tap and one crossfade output each. The head has r[121] as
+	CROSS_B = 122,   //   a rectified amplitude and r[122] as a delay length before 0x1b9 and 0x1dc
+	RECT_2 = 124,    // r[124]: the second voice's rectified amplitude, which nothing after 0x1b4 reads
+	LINE_L = 42,     // m[42] and m[43]: the two cells the two delay lines take their signals through
+	LINE_R = 43,
+};
+
+// ---------------------------------------------------------------------------------------------
+// What a step moves into a cell, or reads out of the delay RAM, before it does any arithmetic
+// ---------------------------------------------------------------------------------------------
+
+// A step of this program usually also takes a serial input, an LFO, a capture of an earlier delay RAM
+// read, or reads the delay RAM itself. The read comes first on every step that carries both, because
+// step() reads the delay RAM before it moves a cell. RD_RING reads at the ring pointer, RD_RING_AT the
+// same read at the index a delay length queued, which is what makes a tap pair two words a sample
+// apart, and RD_OLD_AT the word one further on.
+enum read_t { RD_NONE, RD_RING, RD_RING_AT, RD_OLD_AT };
+
+// MV_CAPTURE takes up the read made CAPMIN to 11 steps earlier, MV_LFO the step's own page's LFO, and
+// MV_SERIAL_L and MV_SERIAL_R that page's left and right serial input.
+enum move_t { MV_NONE, MV_CAPTURE, MV_LFO, MV_SERIAL_L, MV_SERIAL_R };
+
+// What one step does before its arithmetic: its delay RAM read, and the value it moves into a cell.
+struct Decor { read_t read; move_t move; int cell; };
+
+// The decor of a step that carries neither, so a row names only the steps that have one.
+constexpr Decor NONE = { RD_NONE, MV_NONE, 0 };
+
+// Apply a step's decor. Both halves come before its arithmetic, in the order step() does them.
+void decor(yss236_core& c, int st, Decor const& d)
+{
+	switch (d.read)
+	{
+		case RD_RING:    read_delay(c, st); break;
+		case RD_RING_AT: read_delay(c, st, false, true); break;
+		case RD_OLD_AT:  read_delay(c, st, true, true); break;
+		case RD_NONE: break;
+	}
+	switch (d.move)
+	{
+		case MV_CAPTURE:  take_capture(c, d.cell, st); break;
+		case MV_LFO:      take_lfo(c, d.cell, st); break;
+		case MV_SERIAL_L: take_serial(c, d.cell, st, 0); break;
+		case MV_SERIAL_R: take_serial(c, d.cell, st, 1); break;
+		case MV_NONE: break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x1a0 to 0x1b4, the head: four read positions, six mode words, two unity words, two rectifiers,
+// four tap gains, and four steps of its own
+// ---------------------------------------------------------------------------------------------
+
+// One of the four read positions, ins::LFO_DIR_STEPS. Its word on the cell it scales or on the register
+// it reads, with the negatives held at zero, leaves the delay length in samples: the fraction below one
+// goes into the t register the tap pair further down interpolates on, and the whole part becomes the
+// index that pair's two reads take three steps later.
+struct Sweep { int st, cell, src, treg; Decor move; };
+
+const Sweep SWEEPS[4] = {
+	//  the step  the cell  the register  the t register   and the decor it carries
+	{  0x1a0,     12,      0,          10,               NONE                         },
+	{  0x1a8,      0,    122,          12,               { RD_NONE, MV_CAPTURE, 56 } },
+	{  0x1b0,     13,      0,          14,               { RD_NONE, MV_CAPTURE, 60 } },
+	{  0x1b7,      0,    125,           3,               { RD_OLD_AT, MV_NONE, 0 }    },
+};
+
+void sweep(yss236_core& c, int st, Sweep const& s)
+{
+	decor(c, st, s.move);
+	double const y = run(c, { st, s.src, s.cell, s.cell ? M2_CELL : M2_REG, false, 0, ADD_OFF,
+	                          false, ROUTE_1, CLAMP_ZERO });
+	t_put_fraction(c, s.treg, y);   // the fraction below one sample
+	load_index(c, y);               // and the whole of it, which the pair's two reads take three steps on
+}
+
+// One of the six mode words, the class-1 steps that load a register from its own word with the negatives
+// held at zero. Four add the word to the running value and two to the register the step has just latched,
+// which is what a word the host writes as a difference from the value already there wants rather than as
+// a depth on top of it. All six are ins::PC_FB's words, and the two of them that read the delay RAM read
+// it one word older than the tap pair they serve.
+struct Mode { int st, reg; add_t add; Decor move; };
+
+const Mode MODES[6] = {
+	//  the step  the register  the adder reads   and the delay RAM read it carries
+	{  0x1a5,     122,       ADD_ACC,           NONE                         },
+	{  0x1a7,     123,       ADD_ACC,           { RD_OLD_AT, MV_NONE, 0 }   },
+	{  0x1aa,     121,       ADD_REG,           NONE                         },
+	{  0x1ad,     125,       ADD_ACC,           NONE                         },
+	{  0x1af,     126,       ADD_ACC,           { RD_OLD_AT, MV_NONE, 0 }   },
+	{  0x1b1,     124,       ADD_REG,           NONE                         },
+};
+
+void mode_word(yss236_core& c, int st, Mode const& m)
+{
+	decor(c, st, m.move);
+	load(c, st, m.add == ADD_REG ? m.reg : 0, 0, m.add, false, ROUTE_1, CLAMP_ZERO, m.reg);
+}
+
+// The two rectifiers. Each is a class-3 step, so its word is 1.0 and the register it has just latched is
+// the product whole, and what the running value takes is its absolute value: a delay length is never
+// negative. The first one's step also takes this window's first LFO into m[13].
+struct Rect { int st, reg; Decor move; };
+
+const Rect RECTS[2] = {
+	{  0x1a6, CROSS_A, { RD_NONE, MV_LFO, 13 } },
+	{  0x1ae, RECT_2,  NONE },
+};
+
+void rectifier(yss236_core& c, int st, Rect const& r)
+{
+	decor(c, st, r.move);
+	run(c, { st, r.reg, 0, M2_REG, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_ABS, r.reg });
+}
+
+// The two unity words, which put a rectified amplitude on its own voice's first tap register before the
+// mode word of ins::PC_FB[2] and [3] adds its depth to it. A class-3 step multiplies nothing, so the
+// cell is the whole of it and the x2 is the route. The first one's step also takes the left serial input
+// of page 13 into m[3].
+struct Unity { int st, cell, reg; Decor move; };
+
+const Unity UNITIES[2] = {
+	{  0x1a1, 12, CROSS_A, { RD_NONE, MV_SERIAL_L, 3 } },
+	{  0x1a9, 13, RECT_2,  NONE },
+};
+
+void unity(yss236_core& c, int st, Unity const& u)
+{
+	decor(c, st, u.move);
+	run(c, { st, 0, u.cell, M2_CELL, true, 0, ADD_OFF, false, ROUTE_2, CLAMP_WRAP, u.reg });
+}
+
+// One of the four tap gains, the steps that scale a delay length by x16 and leave it in the t file as a
+// 1.15 multiplier, which is what weights the tap pair further down against the voice's gain. The two
+// steps that carry a delay RAM read are the pair's earlier word; the last one publishes the read of
+// 0x1af into m[61], the later word of its pair.
+struct TapGain { int st, src, treg; Decor move; };
+
+const TapGain TAP_GAINS[4] = {
+	//  the step  the length  the t register   and the decor it carries
+	{  0x1ab,   123,        9,               { RD_RING_AT, MV_NONE, 0 }    },
+	{  0x1b2,   CROSS_A,   11,               NONE                          },
+	{  0x1b3,   126,       13,               { RD_RING_AT, MV_NONE, 0 }    },
+	{  0x1b4,   RECT_2,    15,               { RD_NONE, MV_CAPTURE, 61 }   },
+};
+
+void tap_gain(yss236_core& c, int st, TapGain const& g)
+{
+	decor(c, st, g.move);
+	t_put(c, g.treg, run(c, { st, g.src, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT }));
+}
+
+// The head. Its steps are irregular and interleave the five tables above, so each step is looked up in
+// them and the first that names it runs it, which is every step from 0x1a0 to 0x1b4 and nothing else.
+// Four steps fit none of the five and are here.
+void head(yss236_core& c, int st)
+{
+	for (Sweep const& s : SWEEPS)      if (s.st == st) { sweep(c, st, s); return; }
+	for (Rect const& r : RECTS)        if (r.st == st) { rectifier(c, st, r); return; }
+	for (Mode const& m : MODES)        if (m.st == st) { mode_word(c, st, m); return; }
+	for (Unity const& u : UNITIES)     if (u.st == st) { unity(c, st, u); return; }
+	for (TapGain const& g : TAP_GAINS) if (g.st == st) { tap_gain(c, st, g); return; }
+	switch (st)
+	{
+	case 0x1a2:
+		// m[7] takes the right serial input of page 13, which no step of this program reads
+		take_serial(c, 7, st, 1);
+		idle(c);
+		break;
+	case 0x1a3:
+		read_delay(c, st, false, true);    // the slot 0x68 at the position 0x1a0 loaded, for m[56] at 0x1a8
+		idle(c);
+		break;
+	case 0x1a4:
+		term(c, st, CROSS_A);             // the ROM's own word on the first voice's amplitude, r[121]
+		break;
+	case 0x1ac:
+		take_capture(c, 57, st);          // m[57] takes up the read of 0x1a7, the later word of the
+		term(c, st, RECT_2);              //   pair the gain at 0x1ab weights
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The four interpolated taps, 0x1b5, 0x1b8, 0x1db and 0x1dd, and the two voice crossfades
+// ---------------------------------------------------------------------------------------------
+
+// One tap pair: two words a sample apart at the index a read position queued, with the position's
+// fraction taken off the earlier word and applied to the later one, so the register the pair's second
+// step writes holds the delay line interpolated at that position. `treg` is the t register holding the
+// fraction, `early` the cell the word at the index filled and `late` the cell the word one older filled,
+// both taken up five steps after the read that filled them, and `out` the register the pair closes in.
+// `move` is the decor the pair's first step carries, which is the only step of any of the four that has
+// one: m[58] publishes the read of 0x1b3.
+struct Tap { int base; int treg, early, late, out; Decor move; };
+
+// The four pairs interpolate on the t registers the read positions and the tap gains wrote between them:
+// t[10] and t[9] for the first, t[12] and t[14] for the second, t[3] for the third and t[15] and t[13]
+// for the fourth. The eight cells are the six slots ins::PC_SLOTS names at 0x68 to 0x6d, each read twice
+// a sample apart, once at the index the read position queued and once one word older.
+const Tap TAPS[4] = {
+	//  the first step  the fraction  the earlier cell  the later cell  the register   and its decor
+	{  0x1b5,       10,       56,          57,          VOICE_A,       NONE                        },
+	{  0x1b8,       12,       60,          61,          CROSS_A,       { RD_NONE, MV_CAPTURE, 58 } },
+	{  0x1db,        3,       62,          63,          CROSS_B,       NONE                        },
+	{  0x1dd,       14,       58,          59,          VOICE_B,       NONE                        },
+};
+
+void tap_pair(yss236_core& c, int st, Tap const& p)
+{
+	if (st == p.base)
+	{
+		decor(c, st, p.move);
+		// the fraction on the word at the index, with the word itself taken off, which is the pair
+		// interpolated at the index less one word
+		run(c, { st, 0, p.early, M2_CELL, false, p.treg, ADD_CELL, true, ROUTE_1, CLAMP_WRAP });
+		return;
+	}
+	// and the word one older on the same weight less the running value, into the register the voice's own
+	// gains scale. This is the tap the pair exists for.
+	run(c, { st, 0, p.late, M2_CELL, false, p.treg, ADD_ACC, true, ROUTE_1, CLAMP_SAT, p.out });
+}
+
+// The first voice's two taps, 0x1b5 to 0x1b9, and ins::PC_MIX[0] at 0x1ba. ins::LFO_DIR_STEPS[3] sits
+// between the two pairs and is one of the four read positions, so the sweep table is looked up here as
+// well as in the head.
+void first_voice(yss236_core& c, int st)
+{
+	for (Tap const& p : TAPS)
+		if (st == p.base || st == p.base + 1) { tap_pair(c, st, p); return; }
+	for (Sweep const& s : SWEEPS)
+		if (s.st == st) { sweep(c, st, s); return; }
+	// ins::PC_MIX[0]: r[67] = 2 * ins::PC_MIX[0] * r[7], the stereo switch on the left input, which is
+	// the low band's input. The adder is off, so this is a gain on the input rather than a sum, and the
+	// tap pair above leaves the running value alone.
+	gain(c, st, SIG_L, DRY_L, ROUTE_2);
+}
+
+// The two voice crossfades, which weigh one voice's two taps against the other's. The same two steps as a
+// tap pair, but on the registers two tap pairs closed into rather than on the cells the delay RAM
+// filled, and the first step's adder reads the register it has just latched rather than the running
+// value, so the two of them are a value and its complement rather than a sum. The four words are the
+// ROM's own.
+struct Xfade { int base; int treg0, in0, treg1, in1, out; };
+
+const Xfade XFADES[2] = {
+	//  the first step  its weight  the tap it weighs   the second's weight  its tap    the register
+	{  0x1df,         11,        CROSS_A,             9,                  VOICE_A,  CROSS_A      },
+	{  0x1e1,         15,        CROSS_B,             13,                 VOICE_B,  CROSS_B      },
+};
+
+void voice_xfade(yss236_core& c, int st, Xfade const& x)
+{
+	if (st == x.base)
+	{
+		run(c, { st, x.in0, 0, M2_REG, false, x.treg0, ADD_REG, true, ROUTE_1, CLAMP_WRAP });
+		return;
+	}
+	run(c, { st, x.in1, 0, M2_REG, false, x.treg1, ADD_ACC, true, ROUTE_1, CLAMP_SAT, x.out });
+}
+
+// The second voice's two taps and the two crossfades, 0x1db to 0x1e2. The first pair reads at the
+// position ins::LFO_DIR_STEPS[3] loaded and the second at the one ins::LFO_DIR_STEPS[2] did, so the two
+// voices' taps are crossfaded in the other order from the first voice's.
+void second_voice(yss236_core& c, int st)
+{
+	for (Tap const& p : TAPS)
+		if (st == p.base || st == p.base + 1) { tap_pair(c, st, p); return; }
+	for (Xfade const& x : XFADES)
+		if (st == x.base || st == x.base + 1) { voice_xfade(c, st, x); return; }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The six order-2 sections, 0x1bb to 0x1c9 and 0x1cc to 0x1da
+// ---------------------------------------------------------------------------------------------
+
+// Which of a section's five steps computes which of the coefficients designFilter() wrote. b1 opens the
+// sum on the section's input, b2 adds the input a pass back and is the step that keeps it there, -a1
+// adds the section's output a pass back, -a2 adds the output two passes back, and b0 closes the sum
+// into the output with the route the designer's own (16 >> scale) asks for. The two high bands carry
+// their z^-1 on the -a2 step instead, which is A2_Y2: the same term, and y[-2] kept.
+enum band_part_t { B1, B2_X1, A1, A2, A2_Y2, B0 };
+
+// One section, in direct form I. `in` is the register the previous section's output arrives in, or the
+// stereo switch's for the first of each channel, `x1` the one that holds the input a pass back, `y2` the
+// one that holds the output two passes back, and `out` the one b0 writes and -a1 reads a pass back. The
+// register each pair of neighbours shares is the first one's y2 and the second's x1, which is how the six
+// run as one chain three bands deep per channel rather than as six sections of their own. The rows below
+// are ins::EQ7_A, EQ7_B and EQ7_C and then ins::EQ7_A_C, EQ7_B_C and EQ7_C_C, each naming its five words
+// b0 first and the other four in designFilter's order.
+struct Band
+{
+	int base;
+	int in, x1, y2, out;
+	step::route_t route;
+	band_part_t part[5];
+	Decor move[5];
+};
+
+const Band BANDS[6] = {
+	//  base  in  x1  y2  out  route      the five parts                     and each step's decor
+	{  0x1bb, 67, 68, 70, 69, ROUTE_2,   { B1, B2_X1, A1, A2, B0 },
+	  { { RD_RING_AT, MV_NONE, 0 }, { RD_NONE, MV_CAPTURE, 59 }, NONE, NONE, { RD_OLD_AT, MV_NONE, 0 } } },
+	{  0x1c0, 69, 70, 72, 71, ROUTE_2,   { B1, B2_X1, A1, A2, B0 },
+	  { { RD_NONE, MV_CAPTURE, 62 }, NONE, NONE, { RD_RING, MV_NONE, 0 }, { RD_NONE, MV_CAPTURE, 63 } } },
+	{  0x1c5, 71, 72, 74, 73, ROUTE_16,  { B1, B2_X1, A1, A2_Y2, B0 },
+	  { NONE, NONE, { RD_RING, MV_LFO, 14 }, { RD_NONE, MV_CAPTURE, 42 }, NONE } },
+	{  0x1cc, 75, 76, 78, 77, ROUTE_2,   { B1, B2_X1, A1, A2, B0 },
+	  { { RD_NONE, MV_CAPTURE, 43 }, NONE, NONE, NONE, NONE } },
+	{  0x1d1, 77, 78, 80, 79, ROUTE_2,   { B1, B2_X1, A1, A2, B0 },
+	  { { RD_NONE, MV_SERIAL_L, 4 }, NONE, NONE, NONE, NONE } },
+	{  0x1d6, 79, 80, 82, 81, ROUTE_16,  { B1, B2_X1, A1, A2_Y2, B0 },
+	  { NONE, NONE, NONE, NONE, NONE } },
+};
+
+// The section a step belongs to, or null when it belongs to none. The two runs of three are 0x1bb to
+// 0x1c9 and 0x1cc to 0x1da, the left channel's bands and the other one's.
+Band const* band_for(int st)
+{
+	for (Band const& b : BANDS)
+		if (st >= b.base && st < b.base + 5) return &b;
+	return nullptr;
+}
+
+// One section's step k of five, named after the coefficient the step's word is.
+void band_step(yss236_core& c, int st, Band const& b, int k)
+{
+	decor(c, st, b.move[k]);
+	switch (b.part[k])
+	{
+	case B1:
+		term(c, st, b.in);                                   // b1 on the input, opening the section
+		break;
+	case B2_X1:
+		copy_z(c, st, b.x1, b.x1, ADD_ACC, CLAMP_WRAP);      // b2 on the input a pass back, and kept
+		break;
+	case A1:
+		sum(c, st, b.out);                                   // -a1 on the output a pass back
+		break;
+	case A2:
+		sum(c, st, b.y2);                                    // -a2 on the output two passes back
+		break;
+	case A2_Y2:
+		copy_z(c, st, b.y2, b.y2, ADD_ACC, CLAMP_WRAP);      // the same, and y[-2] kept
+		break;
+	default:
+		close(c, st, b.in, b.out, b.route);                  // b0 on the input, closing the section
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x1ca and 0x1cb: the two signals summed into the other channel's input
+// ---------------------------------------------------------------------------------------------
+
+// ins::PC_MIX[2] and [1]: the right signal's word on its own, then the left one's on top of it, doubled
+// and saturated into r[75], which is where the other channel's low band starts. In stereo the left
+// chain joins the dry signal instead, which is what ins::PC_MIX[3] and ins::EQ3_LEVEL[0] are for.
+void input_sum(yss236_core& c, int st)
+{
+	if (st == 0x1ca) { term(c, st, SIG_R); return; }
+	close(c, st, SIG_L, MONO, ROUTE_2);
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x1e3 to 0x1f0, the two voice levels and the dry and wet mix
+// ---------------------------------------------------------------------------------------------
+
+// One voice's level, two steps: its gain word scales the register its crossfade left, and that same word
+// scales it again into the register the wet mix closes on. The left voice takes 0x1e4 and 0x1e7 and the
+// right 0x1e6 and 0x1e5, so the schedule runs the two voices across each other, and the right voice's
+// closing step is the one that also takes this window's last LFO into m[15]. The four words are
+// ins::PC_VOICE1_A, ins::PC_VOICE2[0] and [1] and ins::PC_VOICE1_B.
+struct Voice { int in_st, out_st, reg, out; Decor move; };
+
+const Voice VOICES[2] = {
+	//  the first step  its closing step  the register  the output  and the decor the closing step carries
+	{  0x1e4,       0x1e7,            CROSS_A,     VOICE_B,    NONE                      },
+	{  0x1e6,       0x1e5,            CROSS_B,     VOICE_A,    { RD_NONE, MV_LFO, 15 }   },
+};
+
+void voice_level(yss236_core& c, int st, Voice const& v)
+{
+	if (st == v.in_st) { term(c, st, v.reg); return; }
+	decor(c, st, v.move);
+	close(c, st, v.reg, v.out, ROUTE_1);
+}
+
+// The dry and wet mix. The two channels share the shape and take different chains: ins::PC_WET's two
+// words scale the two signals the base program leaves this window, ins::PC_MIX[3] adds the left chain
+// and ins::EQ3_LEVEL[0] the summed one, ins::PC_MIX[5] and [6] close the sums into the two outputs, and
+// ins::PC_MIX[4] adds the summed chain to the left output before the right one closes on r[120]. Which
+// chain is a word of its own is what the mode parameter moves: in stereo the left chain joins the dry
+// signal and in mono the summed one, and the other chain's step leaves the running value as it was.
+void output_mix(yss236_core& c, int st)
+{
+	for (Voice const& v : VOICES)
+		if (st == v.in_st || st == v.out_st) { voice_level(c, st, v); return; }
+	switch (st)
+	{
+	case 0x1e3:
+		idle(c);                                   // the padding before the two voice levels
+		break;
+	case 0x1e8:
+		term(c, st, SIG_L);                        // ins::PC_WET[0], the left dry signal
+		break;
+	case 0x1e9:
+		sum(c, st, CHAIN_L);                       // ins::PC_MIX[3]: the left chain joins the dry
+		break;
+	case 0x1ea:
+		sum(c, st, CHAIN_C);                       // ins::EQ3_LEVEL[0], the summed chain
+		break;
+	case 0x1eb:
+		close(c, st, VOICE_A, OUT_L, ROUTE_4);     // ins::PC_MIX[5], the left output
+		break;
+	case 0x1ec:
+		// the left line's signal, latched rather than written: m[42], the read of 0x1c3 published, which
+		// the write at 0x1ef spends. A class-3 step's word is 1.0 and it passes the cell through.
+		run(c, { st, 0, LINE_L, M2_CELL, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP,
+		         0, false, 0, false, false, true, false });
+		break;
+	case 0x1ed:
+		term(c, st, SIG_R);                        // ins::PC_WET[1], the right dry signal
+		break;
+	case 0x1ee:
+		sum(c, st, CHAIN_C);                       // ins::PC_MIX[4]
+		break;
+	case 0x1ef:
+		// the left line's write into the slot 0x7b. It spends the latch above rather than its own
+		// result, and its own word still goes on the running value, which is the left chain again.
+		run(c, { st, CHAIN_L, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_WRAP,
+		         0, false, 0, false, false, false, true });
+		break;
+	case 0x1f0:
+		close(c, st, VOICE_B, OUT_R, ROUTE_4);     // ins::PC_MIX[6], the right output
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x1f1 to 0x1ff, the two delay lines' feeds and the four writes that end them
+// ---------------------------------------------------------------------------------------------
+
+// The two delay lines' feeds. The first voice's line runs the left chain, the summed chain and both
+// crossfades in that order and spends the latch 0x1fa leaves on the write at 0x1fb; the second line
+// takes the summed chain and both crossfades and writes its own result. ins::PC_FB[0] and [1] are the
+// two crossfade terms and the two chains' words are the ROM's own.
+void line_feed(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x1f1: case 0x1f2: case 0x1f4: case 0x1f5: case 0x1f6: case 0x1fc:
+		idle(c);                                   // the padding between the writes
+		break;
+	case 0x1f3:
+		// the second line's own signal, m[43] the read of 0x1c7 published, into the slot 0x7c. A writer
+		// carrying w1[13] drops any latched data and writes its own result, and it is a class-3 step, so
+		// its word is 1.0 and the cell passes through.
+		run(c, { st, 0, LINE_R, M2_CELL, true, 0, ADD_OFF, false, ROUTE_1, CLAMP_WRAP,
+		         0, false, 0, false, false, true, true });
+		break;
+	case 0x1f7:
+		term(c, st, CHAIN_L);                      // the left chain
+		break;
+	case 0x1f8:
+		sum(c, st, CHAIN_C);                       // and the summed one
+		break;
+	case 0x1f9:
+		sum(c, st, CROSS_A);                       // ins::PC_FB[0], the first voice's crossfade
+		break;
+	case 0x1fa:
+		// the second voice's crossfade, and this one's result becomes the data of the write below rather
+		// than going to a register
+		run(c, { st, CROSS_B, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
+		         0, false, 0, false, false, true, false });
+		break;
+	case 0x1fb:
+		idle(c);
+		write_delay_latched(c, st);                // the slot 0x7e, the first voice's line
+		break;
+	case 0x1fd:
+		term(c, st, CHAIN_C);                      // the summed chain into the second line
+		break;
+	case 0x1fe:
+		sum(c, st, CROSS_B);                       // the second voice's crossfade
+		break;
+	case 0x1ff:
+		// ins::PC_FB[1] itself, into the slot 0x7f. A writer carrying w1[13], so it drops the latch
+		// 0x1fa left and writes its own result.
+		run(c, { st, CROSS_A, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
+		         0, false, 0, false, false, true, true });
+		break;
+	}
+}
 
 // The run of steps 0x1a0 to 0x1ff, the whole of the window's program. The loop is one iteration per
 // step and carries the m_skip guard step() opens with, so a gate in the base program skips these steps
 // as it would the interpreter's.
 void block_0x1a0(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers
-	double* const m = c.m;                 // the 64 cells, which carry the values between the steps
-	double xv, k, m2, prod, a, y, v, outv; // the step's operands and its result
-
-	// The step's x operand: the register r[sr] into the latch every step but a class-2/3 one moves, and
-	// xv alongside it for the multiplier.
-	auto fetch = [&](int sr) { xv = sr ? r[sr] : 0.0; c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = sr != 0; };
-	// The t file write of a step whose result is y, in the register form: t as a 1.15 multiplier.
-	auto twr = [&](double yy, int tn) {
-		double const w = yy * 256.0;
-		c.queue_t(tn, (w < -32768.0 ? -32768.0 : 32767.0 < w ? 32767.0 : w) / 32768.0);
-	};
-	// The same write in the fraction form (w1[14]): the fraction below one delay sample, which is what
-	// the tap a step's index load steers reads between.
-	auto twf = [&](double yy, int tn) { double const w = yy * 256.0; c.queue_t(tn, w - std::floor(w)); };
-
 	for (int st = 0x1a0; st < 0x200; st++)
 	{
 		c.begin_step();
 		if (st < c.m_skip) continue;
-		switch (st)
-		{
 
-		// ---- 0x1a0 to 0x1af, the first voice's two read positions and the four taps ----
-		// ins::LFO_DIR_STEPS[0]: acc = max(0, k * m[12]), t[10] takes the fraction below one sample of
-		// that and the delay index takes the whole part, both three steps later
-		case 0x1a0:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[12];
-			m2 = c.src; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 2);
-			twf(y, 10);
-			c.queue_i(std::floor(y * 256.0));
-			break;
-		// m[3] takes the left serial input of page 13; class 3 takes m[12] at unity: r[121] = 2 * m[12]
-		case 0x1a1:
-			c.queue_d(3, c.in[0][13]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[12];
-			m2 = c.src; prod = m2;
-			a = 0.0;
-			y = (prod + a) * 2.0;
-			c.queue_r(121, yss236_core::mode(y, 0));
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// m[7] takes the right serial input of page 13. A class-0 step still moves the x latch, step()
-		//'s one latch move outside the class test
-		case 0x1a2:
-			c.queue_d(7, c.in[1][13]);
-			fetch(0);
-			break;
-		// the read of the slot 0x68 at the position 0x1a0 loaded; the capture at 0x1a8 takes it
-		case 0x1a3:
-			c.push_hist(st, c.ram[c.addr(0x68, c.cur_idx(), false)]);
-			fetch(0);
-			break;
-		// the ROM's own word: acc = k * r[121]
-		case 0x1a4:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(121);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the ROM's own word: r[122] = max(0, 128 * k + acc)
-		case 0x1a5:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[0];
-			a = c.acc;
-			v = 128.0 * k + a;
-			v *= 1.0;
-			c.queue_r(122, yss236_core::mode(v, 2));
-			c.acc = yss236_core::accmode(v, 2);
-			break;
-		// m[13] takes the LFO of page 13; class 3 at absolute value: r[121] = |r[121]|
-		case 0x1a6:
-			c.queue_d(13, c.lfo[13]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(121);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(121, yss236_core::mode(y, 3));
-			y = c.acc = yss236_core::accmode(y, 3);
-			break;
-		// ins::PC_FB[2] and the read of the slot 0x69, one word older, at the same position:
-		// r[123] = max(0, 128 * k + acc)
-		case 0x1a7:
-			c.push_hist(st, c.ram[c.addr(0x69, (c.cur_idx() + 1), false)]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[0];
-			a = c.acc;
-			v = 128.0 * k + a;
-			v *= 1.0;
-			c.queue_r(123, yss236_core::mode(v, 2));
-			c.acc = yss236_core::accmode(v, 2);
-			break;
-		// m[56] takes up the read of 0x1a3; ins::LFO_DIR_STEPS[1] and ins::PC_FB's second position:
-		// acc = max(0, k * r[122]), with t[12] the fraction and the index the whole part
-		case 0x1a8:
-			c.queue_d(56, c.captured(m[56], st));
-			k = yss236_core::s16(c.coef[st]);
-			fetch(122);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 2);
-			twf(y, 12);
-			c.queue_i(std::floor(y * 256.0));
-			break;
-		// class 3: r[124] = 2 * m[13]
-		case 0x1a9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[13];
-			m2 = c.src; prod = m2;
-			a = 0.0;
-			y = (prod + a) * 2.0;
-			c.queue_r(124, yss236_core::mode(y, 0));
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::PC_FB[3] off r[121] itself, the latch this step reads: r[121] = max(0, 128 * k + x)
-		case 0x1aa:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(121);
-			c.psrc = c.src; c.src = m[0];
-			a = c.x;
-			v = 128.0 * k + a;
-			v *= 1.0;
-			c.queue_r(121, yss236_core::mode(v, 2));
-			c.acc = yss236_core::accmode(v, 2);
-			break;
-		// the read of the slot 0x6a at the position 0x1a8 loaded: acc = 16 * (k * r[123]), and t[9]
-		// takes it in the register form
-		case 0x1ab:
-			c.push_hist(st, c.ram[c.addr(0x6a, c.cur_idx(), false)]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(123);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			twr(y, 9);
-			break;
-		// m[57] takes up the read of 0x1a7; the ROM's own word: acc = k * r[124]
-		case 0x1ac:
-			c.queue_d(57, c.captured(m[57], st));
-			k = yss236_core::s16(c.coef[st]);
-			fetch(124);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the ROM's own word: r[125] = max(0, 128 * k + acc)
-		case 0x1ad:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[0];
-			a = c.acc;
-			v = 128.0 * k + a;
-			v *= 1.0;
-			c.queue_r(125, yss236_core::mode(v, 2));
-			c.acc = yss236_core::accmode(v, 2);
-			break;
-		// class 3 at absolute value: r[124] = |r[124]|
-		case 0x1ae:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(124);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(124, yss236_core::mode(y, 3));
-			y = c.acc = yss236_core::accmode(y, 3);
-			break;
-		// ins::PC_FB[4] and the read of the slot 0x6b, one word older, at the same position:
-		// r[126] = max(0, 128 * k + acc)
-		case 0x1af:
-			c.push_hist(st, c.ram[c.addr(0x6b, (c.cur_idx() + 1), false)]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[0];
-			a = c.acc;
-			v = 128.0 * k + a;
-			v *= 1.0;
-			c.queue_r(126, yss236_core::mode(v, 2));
-			c.acc = yss236_core::accmode(v, 2);
-			break;
+		// ---- 0x1a0 to 0x1b4, the head: the four read positions, the six mode words, the two
+		//      rectifiers, the two unity words and the four tap gains ----
+		if (st < 0x1b5) { head(c, st); continue; }
 
-		// ---- 0x1b0 to 0x1b4, the second voice's two read positions ----
-		// m[60] takes up the read of 0x1ab; ins::LFO_DIR_STEPS[2]: acc = max(0, k * m[13]), t[14] the
-		// fraction and the index the whole part
-		case 0x1b0:
-			c.queue_d(60, c.captured(m[60], st));
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[13];
-			m2 = c.src; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 2);
-			twf(y, 14);
-			c.queue_i(std::floor(y * 256.0));
-			break;
-		// ins::PC_FB[5] off the latch this step takes: r[124] = max(0, 128 * k + x)
-		case 0x1b1:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(124);
-			c.psrc = c.src; c.src = m[0];
-			a = c.x;
-			v = 128.0 * k + a;
-			v *= 1.0;
-			c.queue_r(124, yss236_core::mode(v, 2));
-			c.acc = yss236_core::accmode(v, 2);
-			break;
-		// acc = 16 * (k * r[121]), and t[11] takes it in the register form
-		case 0x1b2:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(121);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			twr(y, 11);
-			break;
-		// the read of the slot 0x6c at the position 0x1b0 loaded: acc = 16 * (k * r[126]), and t[13]
-		// takes it in the register form
-		case 0x1b3:
-			c.push_hist(st, c.ram[c.addr(0x6c, c.cur_idx(), false)]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(126);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			twr(y, 13);
-			break;
-		// m[61] takes up the read of 0x1af: acc = 16 * (k * r[124]), the adder input off, and t[15]
-		// takes it in the register form
-		case 0x1b4:
-			c.queue_d(61, c.captured(m[61], st));
-			k = yss236_core::s16(c.coef[st]);
-			fetch(124);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			twr(y, 15);
-			break;
+		// ---- 0x1b5 to 0x1ba, the first voice's two interpolated taps and the stereo switch. The
+		//      second voice's other read position, ins::LFO_DIR_STEPS[3], sits between the pairs,
+		//      so the sweep table is looked up here as well as in the head ----
+		if (st < 0x1bb) { first_voice(c, st); continue; }
 
-		// ---- 0x1b5 to 0x1b9, the four taps, each a pair of words crossfaded by its fraction ----
-		// the first voice's first tap: acc = t[10] * m[56] - m[56]
-		case 0x1b5:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[56];
-			m2 = c.src; prod = c.t[10] * m2;
-			a = c.src;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// and the word one older: r[119] = saturate(t[10] * m[57] - acc), the tap itself
-		case 0x1b6:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[57];
-			m2 = c.src; prod = c.t[10] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(119, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::LFO_DIR_STEPS[3] and the read of the slot 0x6d, one word older: acc = max(0, k * r[125]),
-		// t[3] the fraction and the index the whole part, so this read runs on the position the step
-		// itself loads
-		case 0x1b7:
-			c.push_hist(st, c.ram[c.addr(0x6d, (c.cur_idx() + 1), false)]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(125);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 2);
-			twf(y, 3);
-			c.queue_i(std::floor(y * 256.0));
-			break;
-		// m[58] takes up the read of 0x1b3; the first voice's second tap: acc = t[12] * m[60] - m[60]
-		case 0x1b8:
-			c.queue_d(58, c.captured(m[58], st));
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[60];
-			m2 = c.src; prod = c.t[12] * m2;
-			a = c.src;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// and the word one older: r[121] = saturate(t[12] * m[61] - acc)
-		case 0x1b9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[61];
-			m2 = c.src; prod = c.t[12] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(121, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
+		// ---- 0x1bb to 0x1c9 and 0x1cc to 0x1da, the two channels' three bands each ----
+		if (Band const* b = band_for(st)) { band_step(c, st, *b, st - b->base); continue; }
 
-		// ---- 0x1ba to 0x1c9, the left channel's three bands ----
-		// ins::PC_MIX[0], the stereo switch on the left input: r[67] = saturate(2 * (k * r[7]))
-		case 0x1ba:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(7);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 2.0;
-			c.queue_r(67, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::EQ7_A[1], b1, and the read of the slot 0x6e: acc = k * r[67], the adder input off,
-		// which is how each section's first word starts the section afresh
-		case 0x1bb:
-			c.push_hist(st, c.ram[c.addr(0x6e, c.cur_idx(), false)]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(67);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// m[59] takes up the read of 0x1b7; ins::EQ7_A[2], b2, and r[68] takes the step before's x:
-		// acc = k * r[68] + acc
-		case 0x1bc:
-			c.queue_d(59, c.captured(m[59], st));
-			k = yss236_core::s16(c.coef[st]);
-			fetch(68);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(68, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_A[3], -a1: acc = k * r[69] + acc
-		case 0x1bd:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(69);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_A[4], -a2: acc = k * r[70] + acc
-		case 0x1be:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(70);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_A[0], b0, and the read of the slot 0x6f, one word older:
-		// r[69] = saturate(2 * (k * r[67] + acc)), the band's own output a pass back for the next
-		// section's -a1
-		case 0x1bf:
-			c.push_hist(st, c.ram[c.addr(0x6f, (c.cur_idx() + 1), false)]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(67);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(69, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// m[62] takes up the read of 0x1bb; ins::EQ7_B[1], b1: acc = k * r[69]
-		case 0x1c0:
-			c.queue_d(62, c.captured(m[62], st));
-			k = yss236_core::s16(c.coef[st]);
-			fetch(69);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_B[2], b2, and r[70] takes the step before's x: acc = k * r[70] + acc
-		case 0x1c1:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(70);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(70, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_B[3], -a1: acc = k * r[71] + acc
-		case 0x1c2:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(71);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_B[4], -a2, and the read of the slot 0x70: acc = k * r[72] + acc
-		case 0x1c3:
-			c.push_hist(st, c.ram[c.addr(0x70, 0, false)]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(72);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// m[63] takes up the read of 0x1bf; ins::EQ7_B[0], b0: r[71] = saturate(2 * (k * r[69] + acc))
-		case 0x1c4:
-			c.queue_d(63, c.captured(m[63], st));
-			k = yss236_core::s16(c.coef[st]);
-			fetch(69);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(71, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::EQ7_C[1], b1: acc = k * r[71]
-		case 0x1c5:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(71);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_C[2], b2, and r[72] takes the step before's x: acc = k * r[72] + acc
-		case 0x1c6:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(72);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(72, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// m[14] takes the LFO of page 14; ins::EQ7_C[3], -a1, and the read of the slot 0x71:
-		// acc = k * r[73] + acc
-		case 0x1c7:
-			c.push_hist(st, c.ram[c.addr(0x71, 0, false)]);
-			c.queue_d(14, c.lfo[14]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(73);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// m[42] takes up the read of 0x1c3; ins::EQ7_C[4], -a2, and r[74] takes the step before's x:
-		// acc = k * r[74] + acc
-		case 0x1c8:
-			c.queue_d(42, c.captured(m[42], st));
-			k = yss236_core::s16(c.coef[st]);
-			fetch(74);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(74, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_C[0], b0: r[73] = saturate(16 * (k * r[71] + acc)), the left chain's output
-		case 0x1c9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(71);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 16.0;
-			c.queue_r(73, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
+		// ---- 0x1ca and 0x1cb, the two signals summed into the other channel's input ----
+		if (st < 0x1cc) { input_sum(c, st); continue; }
 
-		// ---- 0x1ca to 0x1da, the input sum and the other channel's three bands ----
-		// ins::PC_MIX[2]: acc = k * r[8]
-		case 0x1ca:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(8);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::PC_MIX[1]: r[75] = saturate(2 * (k * r[7] + acc)), the summed input
-		case 0x1cb:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(7);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(75, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// m[43] takes up the read of 0x1c7; ins::EQ7_A_C[1], b1: acc = k * r[75]
-		case 0x1cc:
-			c.queue_d(43, c.captured(m[43], st));
-			k = yss236_core::s16(c.coef[st]);
-			fetch(75);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_A_C[2], b2, and r[76] takes the step before's x: acc = k * r[76] + acc
-		case 0x1cd:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(76);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(76, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_A_C[3], -a1: acc = k * r[77] + acc
-		case 0x1ce:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(77);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_A_C[4], -a2: acc = k * r[78] + acc
-		case 0x1cf:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(78);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_A_C[0], b0: r[77] = saturate(2 * (k * r[75] + acc))
-		case 0x1d0:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(75);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(77, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// m[4] takes the left serial input of page 14; ins::EQ7_B_C[1], b1: acc = k * r[77]
-		case 0x1d1:
-			c.queue_d(4, c.in[0][14]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(77);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_B_C[2], b2, and r[78] takes the step before's x: acc = k * r[78] + acc
-		case 0x1d2:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(78);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(78, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_B_C[3], -a1: acc = k * r[79] + acc
-		case 0x1d3:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(79);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_B_C[4], -a2: acc = k * r[80] + acc
-		case 0x1d4:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(80);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_B_C[0], b0: r[79] = saturate(2 * (k * r[77] + acc))
-		case 0x1d5:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(77);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(79, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::EQ7_C_C[1], b1: acc = k * r[79]
-		case 0x1d6:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(79);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_C_C[2], b2, and r[80] takes the step before's x: acc = k * r[80] + acc
-		case 0x1d7:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(80);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(80, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_C_C[3], -a1: acc = k * r[81] + acc
-		case 0x1d8:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(81);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_C_C[4], -a2, and r[82] takes the step before's x: acc = k * r[82] + acc
-		case 0x1d9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(82);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(82, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ7_C_C[0], b0: r[81] = saturate(16 * (k * r[79] + acc)), the chain that feeds the delay
-		// lines and, in mono, the dry signal too
-		case 0x1da:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(79);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 16.0;
-			c.queue_r(81, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-
-		// ---- 0x1db to 0x1e2, the second voice's two taps and the two crossfades ----
-		// the second voice's tap at the position 0x1b7 loaded: acc = t[3] * m[62] - m[62]
-		case 0x1db:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[62];
-			m2 = c.src; prod = c.t[3] * m2;
-			a = c.src;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// and the word one older: r[122] = saturate(t[3] * m[63] - acc)
-		case 0x1dc:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[63];
-			m2 = c.src; prod = c.t[3] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(122, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// the second voice's tap at the position 0x1b0 loaded: acc = t[14] * m[58] - m[58]
-		case 0x1dd:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[58];
-			m2 = c.src; prod = c.t[14] * m2;
-			a = c.src;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// and the word one older: r[120] = saturate(t[14] * m[59] - acc)
-		case 0x1de:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[59];
-			m2 = c.src; prod = c.t[14] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(120, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// the first crossfade: acc = t[11] * r[121] - x
-		case 0x1df:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(121);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = c.t[11] * m2;
-			a = c.x;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// r[121] = saturate(t[9] * r[119] - acc), the two voices' first tap crossfaded
-		case 0x1e0:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(119);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = c.t[9] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(121, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// the second crossfade: acc = t[15] * r[122] - x
-		case 0x1e1:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(122);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = c.t[15] * m2;
-			a = c.x;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// r[122] = saturate(t[13] * r[120] - acc), the two voices' second tap crossfaded
-		case 0x1e2:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(120);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = c.t[13] * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(122, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
+		// ---- 0x1db to 0x1e2, the second voice's two interpolated taps and the two crossfades ----
+		if (st < 0x1e3) { second_voice(c, st); continue; }
 
 		// ---- 0x1e3 to 0x1f0, the two voice levels and the dry and wet mix ----
-		case 0x1e3:
-			fetch(0);
-			break;
-		// ins::PC_VOICE1_A: acc = k * r[121]
-		case 0x1e4:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(121);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// m[15] takes the LFO of page 14; ins::PC_VOICE2[1]: r[119] = saturate(k * r[122] + acc)
-		case 0x1e5:
-			c.queue_d(15, c.lfo[14]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(122);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(119, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::PC_VOICE2[0]: acc = k * r[122]
-		case 0x1e6:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(122);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::PC_VOICE1_B: r[120] = saturate(k * r[121] + acc)
-		case 0x1e7:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(121);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(120, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::PC_WET[0]: acc = k * r[7], the left dry signal
-		case 0x1e8:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(7);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::PC_MIX[3]: acc = k * r[73] + acc, the left chain
-		case 0x1e9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(73);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::EQ3_LEVEL[0]: acc = k * r[81] + acc, the summed chain, which the mode parameter leaves
-		// at a word of its own
-		case 0x1ea:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(81);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::PC_MIX[5]: r[17] = saturate(4 * (k * r[119] + acc)), the left output
-		case 0x1eb:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(119);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(17, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// class 3 at unity: the value the slot 0x7b write below takes is m[42], the read 0x1c3 published
-		case 0x1ec:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[42];
-			m2 = c.src; prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.wlatch = outv; c.haswl = true;
-			break;
-		// ins::PC_WET[1]: acc = k * r[8], the right dry signal
-		case 0x1ed:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(8);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::PC_MIX[4]: acc = k * r[81] + acc
-		case 0x1ee:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(81);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the write of the slot 0x7b, which takes the latch 0x1ec left rather than its own result
-		case 0x1ef:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(73);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-			c.ram[c.addr(0x7b, 0, false)] = outv;
-			break;
-		// ins::PC_MIX[6]: r[18] = saturate(4 * (k * r[120] + acc)), the right output
-		case 0x1f0:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(120);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(18, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
+		if (st < 0x1f1) { output_mix(c, st); continue; }
 
-		// ---- 0x1f1 to 0x1ff, the second delay line's write and the first's feedback ----
-		case 0x1f1:
-		case 0x1f2:
-			fetch(0);
-			break;
-		// class 3 at unity and a writer carrying w1[13], so it writes its own value: m[43], the read
-		// 0x1c7 published, into the slot 0x7c
-		case 0x1f3:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[43];
-			m2 = c.src; prod = m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.haswl = false;
-			c.ram[c.addr(0x7c, 0, false)] = outv;
-			break;
-		case 0x1f4:
-		case 0x1f5:
-		case 0x1f6:
-			fetch(0);
-			break;
-		// the ROM's own word: acc = k * r[73], which with the step's word zero clears the running value
-		case 0x1f7:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(73);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the ROM's own word: acc = k * r[81] + acc, the signal going into the line
-		case 0x1f8:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(81);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::PC_FB[0]: acc = k * r[121] + acc, the feedback off the first crossfade
-		case 0x1f9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(121);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the running value into the write latch (w1[13]), which the class-0 writer 0x1fb takes
-		case 0x1fa:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(122);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.wlatch = outv; c.haswl = true;
-			break;
-		// the write of the slot 0x7e, the first voice's delay line
-		case 0x1fb:
-			fetch(0);
-			if (c.haswl) { c.ram[c.addr(0x7e, 0, false)] = c.wlatch; c.haswl = false; }
-			break;
-		case 0x1fc:
-			fetch(0);
-			break;
-		// the ROM's own word: acc = k * r[81], the second line's signal
-		case 0x1fd:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(81);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::PC_FB[1]: acc = k * r[122] + acc, the feedback off the second crossfade
-		case 0x1fe:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(122);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// a writer carrying w1[13] writes its own value: the slot 0x7f, the second voice's delay line
-		case 0x1ff:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(121);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.haswl = false;
-			c.ram[c.addr(0x7f, 0, false)] = outv;
-			break;
-		}
+		// ---- 0x1f1 to 0x1ff, the two delay lines' feeds and the four writes that end them ----
+		line_feed(c, st);
 	}
 }
 
