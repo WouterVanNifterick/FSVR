@@ -659,6 +659,19 @@ int main() {
                 CHECK(u.get("gui.eg_sync") == 0 && picture() == was, "not synced, operator 2's plot still followed operator 1's");
                 u.click("pages/envs_sync");
             }
+            // The side pane's plot is the same model plot: the wheel zooms, a double-click fits again.
+            if (u.rect("opcol/envelope", env)) {
+                u.set(id("eg_t4"), 40);
+                u.run(2);
+                const int ex = env.x + env.w / 3, ey = env.y + env.h / 2;
+                u.clickAt(env.x + env.w - 10, env.y + 6, true);
+                const uint64_t fit = picture();
+                u.gui.wheel(ex, ey, 3, false);
+                u.run(2);
+                CHECK(picture() != fit, "the wheel did not zoom the side pane's EG plot");
+                u.clickAt(env.x + env.w - 10, env.y + 6, true);
+                CHECK(picture() == fit, "a double-click did not fit the side pane's EG plot again");
+            }
         }
 
         // ---- sliders: the volume knob and Easy's attack fader drag, and a double-click resets ----------

@@ -1650,7 +1650,7 @@
      "op.{op}.{layer}.eg_l4.{part}"
     ]
    ],
-   "tip": "Drag a point: sideways its time, up and down its level",
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
    "grid": "#ffffff24",
    "area": "@op{op}_line/40",
    "curve": "@op{op}_line",
@@ -1659,7 +1659,42 @@
    "area2": "@op{op}_line/05",
    "glow": "@op{op}_line/22",
    "ring": "#25292cff",
-   "width": 1
+   "width": 1,
+   "model": "fs1r.aeg",
+   "inputs": {
+    "L1": "op.{op}.{layer}.eg_l1.{part}",
+    "L2": "op.{op}.{layer}.eg_l2.{part}",
+    "L3": "op.{op}.{layer}.eg_l3.{part}",
+    "L4": "op.{op}.{layer}.eg_l4.{part}",
+    "T1": "op.{op}.{layer}.eg_t1.{part}",
+    "T2": "op.{op}.{layer}.eg_t2.{part}",
+    "T3": "op.{op}.{layer}.eg_t3.{part}",
+    "T4": "op.{op}.{layer}.eg_t4.{part}",
+    "hold": "op.{op}.{layer}.eg_hold.{part}",
+    "timeScale": "op.{op}.{layer}.eg_time_scale.{part}",
+    "attack": "part.attack.{part}",
+    "decay": "part.decay.{part}",
+    "release": "part.release.{part}"
+   },
+   "dbParam": "gui.eg_db",
+   "overlay": {
+    "var": "op",
+    "values": [
+     "1",
+     "2",
+     "3",
+     "4",
+     "5",
+     "6",
+     "7",
+     "8"
+    ],
+    "param": "gui.eg_overlay"
+   },
+   "text": {
+    "font": "plot_tiny"
+   },
+   "overlayCurve": "@op{op}_line/80"
   },
   {
    "type": "button",
