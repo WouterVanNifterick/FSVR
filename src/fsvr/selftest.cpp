@@ -200,6 +200,17 @@ int selftest(Synth& S) {
     S.perf.part[0].p[4] = 0; S.forceChannel = 0;
     S.midi_in(0xB0, 101, 0); S.midi_in(0xB0, 100, 0); S.midi_in(0xB0, 6, 12);
     ck("RPN bend range", S.perf.part[0].p[0x26] == 0x4C && S.perf.part[0].p[0x27] == 0x34);
+    // Ours: a 14-bit bend. The LSB lands between the unit's 128 MSB steps, and an LSB of 0 is the unit's word.
+    { Part& pt = S.perf.part[0];
+      auto bw = [&](int lsb, int msb) { S.midi_in(0xE0, lsb, msb); return S.bend_word(pt); };
+      const double w0 = bw(0, 96), w1 = bw(0, 97), wh = bw(64, 96);
+      ck("bend: an LSB of 0 is the unit's 7-bit word", w0 == 512 && w1 == 528);
+      ck("bend: the LSB lands halfway between two MSB steps", wh == (w0 + w1) / 2);
+      bool up = true; double last = -1e9;
+      for (int v = 0; v < 16384; v += 37) { double w = bw(v & 127, v >> 7); up = up && w >= last; last = w; }
+      ck("bend: the 14-bit sweep never steps back", up);
+      S.bend14 = false; ck("bend: and the MSB alone with bend14 off", bw(64, 96) == w0); S.bend14 = true;
+      bw(0, 64); }
     S.midi_in(0xB0, 100, 2); S.midi_in(0xB0, 6, 0x28 + 12);
     ck("RPN note shift", S.perf.part[0].p[8] == 12);
     S.midi_in(0xB0, 99, 1); S.midi_in(0xB0, 98, 0x20); S.midi_in(0xB0, 6, 90);

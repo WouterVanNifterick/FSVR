@@ -166,7 +166,7 @@ void Synth::refresh_ctl(Chan& C) {
         // harmonics 33..48 cents, the same as its pms 2 sine carriers, where a window on C.f0 gave 541.
         // The transpose word rides that pitch. The width stays the same number of Hz, so the window
         // length in periods follows the grain rate.
-        int base = C.regPitch + 0x1243 + pmw - C.vcFreq[o][0];
+        double base = C.regPitch + 0x1243 + pmw - C.vcFreq[o][0];
         int trans = v.form == 7 ? C.frmtWord[o] - 0x1243 - C.detW[o] : 0;
         s.fw = word_hz(base + trans);
         s.bw = clampi(C.bwReg[o] + C.vcBw[o][0], 0, 99);                 // register 0x218, the formant's

@@ -6,7 +6,7 @@ does something the hardware does not, because the hardware's behaviour is an art
 to its chips rather than a musical decision. Each entry says what the unit does, what FSVR does, and where
 the firmware says so.
 
-The engine has two entries: one is a choice you can turn off, the other a byte the unit ignores. The last forced one, a filter switch that reached
+The engine has three entries: two are choices made for the musician (32 filtered voices, a 14-bit pitch bend), the third a byte the unit ignores. The last forced one, a filter switch that reached
 notes already sounding, went on 2026-10-14 when the filter moved onto its chip: on the unit a change of part byte
 0x07 runs `FUN_0002087E`, which stops every channel before it latches the four switches, and FSVR now does the same.
 
@@ -22,7 +22,17 @@ on; a channel of a part without a filter goes straight to its bus. This is the d
 32 Filtered Voices off (`Device::setFilterPoly32(false)`, `-flt16` on the console) gives the unit's 16, and renders bit-identically to the single-chip engine: all fifteen demo songs were checked.
 Changing it stops every note, as a filter switch does. Nothing about the second chip can be measured, since the
 unit has none, so `tools/render_capture`, which renders what a capture is compared against, keeps the unit's
-16 unless given `-flt32`.
+16 unless given `-fsvr`.
+
+## 14-bit pitch bend
+
+**The unit.** It keeps the pitch bend MSB alone (MIDI handler: the part's bend is `(msb - 64) * 16`), so the wheel
+moves in 128 steps: at a range of 12 semitones each is 19 cents, which a slow bend makes audible as a staircase.
+
+**FSVR.** The LSB is kept too and lands between the unit's steps as a fraction of the MSB's step, so the
+wheel has 16,384 positions and an LSB of 0 gives exactly the unit's pitch word. The bend as a controller
+source (destination routing, set_source) is still the MSB, as on the unit. `Device::setBend14(false)` gives the
+unit's 7 bits; `tools/render_capture` keeps them unless given `-fsvr`, since the Ana-Unison demo sends LSBs.
 
 ## Oscillator initial phase
 

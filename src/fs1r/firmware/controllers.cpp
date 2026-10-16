@@ -75,13 +75,15 @@ int Synth::ctrl_eg_bias(int part) const {
     return out < 0 ? 0 : out;
 }
 
-int Synth::bend_word(const Part& pt) const {
+// Ours (docs/Differences.md): the LSB the unit drops is added on as a fraction of the MSB's step, so a 14-bit
+// bend glides between the unit's 128 positions and an LSB of 0 gives exactly the unit's word.
+double Synth::bend_word(const Part& pt) const {
     int b = pt.bend; int r = (b < 0 ? pt.p[0x27] : pt.p[0x26]) - 0x40; int v;
     if (r < 0) { v = BENDTAB[std::min(48, -r)]; if (b >= 0) v = -v; } else { v = BENDTAB[std::min(48, r)]; if (b < 0) v = -v; }
     int k = b >> 3; if (k == 0x7F) k = 0x80;
     int w = (v * k) >> 7;
     w += ctrl_pitch_bias((int)(&pt - perf.part));
-    return w;
+    return w + v * (pt.bendLsb / 64.0) / 128.0;
 }
 
 void Synth::part_levels(int part, int& vAtt, int& uAtt) const {

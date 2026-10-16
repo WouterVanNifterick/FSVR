@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     const char* mid = nullptr;
     const char* syx = nullptr;
     double gain = 1.0, tail = 1.0, secs = 3.0;
-    bool flt32 = false;   // FSVR's 32 filtered voices; off, the unit's 16, which is what a capture is compared against
+    bool fsvr = false;    // FSVR's own additions (32 filtered voices, 14-bit bend); off, the unit, which a capture is compared against
     int perfIdx = -1, pick = -1, fseqIdx = -1, note = 60, note2 = -1, monoTime = -1, channel = -1;
     std::vector<std::pair<int, int>> cc;
     fs1r_smf::WavFormat fmt = fs1r_smf::WAV_S16;
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
         else if (a == "-v" && i + 1 < argc) syx = argv[++i];
         else if (a == "-c" && i + 1 < argc) channel = atoi(argv[++i]) - 1;
         else if (a == "-n" && i + 1 < argc) note = atoi(argv[++i]);
-        else if (a == "-flt32") flt32 = true;
+        else if (a == "-fsvr") fsvr = true;
         else if (a == "-n2" && i + 1 < argc) note2 = atoi(argv[++i]);
         else if (a == "-mono" && i + 1 < argc) monoTime = atoi(argv[++i]);
         else if (a == "-w" && i + 1 < argc) wav = argv[++i];
@@ -53,14 +53,14 @@ int main(int argc, char** argv) {
     if (!wav) {
         printf("usage: render_capture [-r eprom.bin] [-g gain] [-d tail secs] [-f] out.wav file.mid\n"
                "       render_capture [-r eprom.bin] [-P perf] [-p voice] [-fseq n] [-v file.syx] [-c ch]\n"
-               "                      [-n note] [-n2 note] [-cc num=val] [-mono time] [-d secs] [-flt32] -w out.wav\n");
+               "                      [-n note] [-n2 note] [-cc num=val] [-mono time] [-d secs] [-fsvr] -w out.wav\n");
         return 1;
     }
     fs1r::Device dev;
     if (rom && !dev.loadRom(rom)) { printf("cannot load %s\n", rom); return 1; }
     dev.setSampleRate(fs1r::ENGINE_RATE);
     dev.setGain(gain);
-    dev.setFilterPoly32(flt32);
+    dev.setFilterPoly32(fsvr); dev.setBend14(fsvr);
     if (perfIdx >= 0 && !dev.loadRomPerformance(perfIdx)) { printf("-P needs -r\n"); return 1; }
     if (syx) {
         FILE* f = fopen(syx, "rb"); if (!f) { printf("cannot open %s\n", syx); return 1; }

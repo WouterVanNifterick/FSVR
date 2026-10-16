@@ -45,6 +45,7 @@ void Device::setSpeed(int s) {
     p->s.gateDb = k.gateDb, p->s.ctlDecimation = k.ctl, p->linear = k.linear;
 }
 void Device::setFilterPoly32(bool on) { p->s.filter32 = on; }   // render latches it
+void Device::setBend14(bool on) { p->s.bend14 = on; }
 void Device::forceChannel(int channel) { p->s.forceChannel = channel; }
 
 void Device::process(float* outL, float* outR, int n) {
