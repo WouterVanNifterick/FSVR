@@ -14,8 +14,8 @@
 #include "embedded_skin.h"
 #include "audio_fseq.h"
 #include "fs1r.h"
-#include "fsvr/egview.h"
-#include "fsvr/tuning.h"
+#include "display/egview.h"
+#include "engine/tuning.h"
 #include "library.h"
 #include <algorithm>
 #include <array>
@@ -185,7 +185,7 @@ static const char* const kCorner[4] = {"tl", "tr", "bl", "br"};   // A to D, the
 // ---- the EG plots' curves ---------------------------------------------------------------------------
 
 // The models behind the envelope plots, see "The envelopes" in docs/editor.md.
-// fsvr/egview.h calculates the curves; nothing is rendered.
+// display/egview.h calculates the curves; nothing is rendered.
 // Inputs are param values: amp levels 0..99, pitch and filter levels -50..50, part offsets -64..63.
 static const bool kEgModels = [] {
     auto model = [](int kind) {

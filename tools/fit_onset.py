@@ -156,7 +156,7 @@ def main():
             print(f"FAIL: onset-feg reads {feg['ratio']:.2f}x against the control's {ctrl['ratio']:.2f}x "
                   f"(limit {limit:.2f}x).")
             print("  The operator frequency EG is reaching fixed-frequency operators again; the unit")
-            print("  holds that carrier flat. See render_chan in src/fs1r/chips/ymp706.cpp.")
+            print("  holds that carrier flat. See render_chan in src/tonegen/channel.cpp.")
             return 1
         print(f"check ok: onset-feg {feg['ratio']:.2f}x is within {limit:.2f}x of the control")
 

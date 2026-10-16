@@ -12,7 +12,7 @@ import struct
 import sys
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parents[1] / "src/fs1r/firmware/vop3host"
+OUT = Path(__file__).resolve().parents[1] / "src/fs1r"
 BASE = 0x200000                               # where the EPROM sits in the CPU's map
 ELEM = {"u8": ("uint8_t", ">B"), "s8": ("int8_t", ">b"), "u16": ("uint16_t", ">H"), "s16": ("int16_t", ">h"), "f32": ("float", ">f")}
 
@@ -145,12 +145,7 @@ GRIDS = [
     ("TYPE_MAP_VARIATION", 0x372146, "u8", 29, 2),   # Data List type -> (msb, lsb)
     ("TYPE_MAP_INSERTION", 0x372180, "u8", 41, 2),
     ("INSERTION_CONTROL", 0x3895F2, "u8", 41, 14),   # per insertion type: controller destination 1..14 -> parameter, 0xFF none
-    ("BASE_TAGS", 0x3661E4, "u8", 2, 232),           # the base program's tags, then its cleared tags
 ]
-# A window's programs, one per type msb: (name, address, entries, steps); each step is five words. Tags alike.
-PROGRAMS = [("BASE_PROGRAM", 0x3658D4, 1, 232), ("AUX_PROGRAM", 0x3663B4, 1, 40), ("INSERTION_PROGRAMS", 0x366A94, 15, 96),
-            ("REVERB_DELAY_PROGRAMS", 0x36A874, 12, 72), ("VARIATION_PROGRAMS", 0x36CA34, 12, 72)]
-TAGS = [("AUX_TAGS", 0x3669F4, 1, 40), ("INSERTION_TAGS", 0x36A2D4, 15, 96), ("DELAY_TAGS", 0x36EBF4, 12, 72)]
 # Presets: a block of constants, delay offsets and LFO words per type, found through an index table, and sixteen
 # default parameters per type. window: (words a block, {msb: (blocks, index table, defaults)}); a missing msb is msb 0.
 PRESETS = {
@@ -168,7 +163,7 @@ PRESETS = {
 }
 # The filter host's program and laws, in namespace flt: (name, address, element, count[, words a row]). The laws are
 # 128 long where the firmware indexes them with a byte as it came, whatever lies behind their last real entry.
-FILTER = [("PROGRAM", 0x375E1A, "u16", 512, 5), ("CONSTANTS", 0x37541A, "u16", 512), ("TAGS", 0x375C1A, "u8", 512),
+FILTER = [("CONSTANTS", 0x37541A, "u16", 512),
           ("CFG16", 0x37861A, "u8", 15), ("LFO2_SPEED", 0x374A04, "u16", 128), ("LFO2_PHASE", 0x374B04, "u16", 128),
           ("RESONANCE_A", 0x374B24, "u16", 128), ("RESONANCE_B", 0x374C24, "u16", 128), ("GAIN", 0x374D24, "u16", 128),
           ("EG_RATE", 0x374F4E, "u16", 102)]
@@ -229,24 +224,6 @@ for name, addr, elem, r, k in GRIDS:
     vals = [struct.unpack(ELEM[elem][1], rom[a - BASE:a - BASE + size])[0] for a in range(addr, addr + r * k * size, size)]
     h.append(f"extern const {ELEM[elem][0]} {name}[{r}][{k}];")
     c += [f"const {ELEM[elem][0]} {name}[{r}][{k}] = {{"] + ["    {" + ",".join(lit(v, elem) for v in vals[i:i + k]) + "}," for i in range(0, r * k, k)] + ["};"]
-for name, addr, entries, steps in PROGRAMS:
-    vals = [u16(a) for a in range(addr, addr + entries * steps * 10, 2)]
-    note = f"   // {entries} programs of {steps} steps, by type msb" if entries > 1 else ""
-    h.append(f"extern const uint16_t {name}[{entries * steps}][5];{note}")
-    c.append(f"const uint16_t {name}[{entries * steps}][5] = {{")
-    for e in range(entries):
-        if entries > 1: c.append(f"    // {e}")
-        c += ["    " + ",".join("{" + ",".join(lit(v, "u16") for v in vals[(e * steps + s) * 5:(e * steps + s) * 5 + 5]) + "}" for s in range(t, min(t + 6, steps))) + ","
-              for t in range(0, steps, 6)]
-    c.append("};")
-for name, addr, entries, steps in TAGS:
-    note = f"   // {entries} programs of {steps} steps, by type msb" if entries > 1 else ""
-    h.append(f"extern const uint8_t {name}[{entries * steps}];{note}")
-    c.append(f"const uint8_t {name}[{entries * steps}] = {{")
-    for e in range(entries):
-        vals = [u8(a) for a in range(addr + e * steps, addr + (e + 1) * steps)]
-        c += rows(vals, 32, "u8") if entries == 1 else ["    " + ",".join(lit(v, "u8") for v in vals) + ","]
-    c.append("};")
 h.append(""); c.append("")
 
 # ---- the filter host's tables, and the index maps it computes instead of reading

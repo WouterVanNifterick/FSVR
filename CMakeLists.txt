@@ -23,26 +23,14 @@ endif()
 # Everything meant to be run lands in bin/: the console here, the plug-in formats under bin/<Format>/.
 set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
-# The chip, its two hosts and the sections over them. They are bit-exact only without FMA contraction, so they
+# The two hosts and the filters and effects they drive. They are bit-exact only without FMA contraction, so they
 # are a library of their own with its own flags; excess precision effect_host.h refuses at compile time.
-file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp)
-add_library(vop3host STATIC ${VOP3HOST} src/fs1r/effects.cpp src/fs1r/filter.cpp src/fs1r/chips/vop3.cpp)
+# The effects and the voice filters (src/effects/, src/filters/) are bit-exact for the same reason, so they live here too.
+file(GLOB VOP3HOST CONFIGURE_DEPENDS src/effects/host/*.cpp src/effects/*.cpp src/filters/*.cpp)
+add_library(vop3host STATIC ${VOP3HOST} src/modulators/modulators.cpp src/fs1r/rom_tables.cpp)
 target_include_directories(vop3host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-# The chip's programs compiled to native code, with AsmJit (third_party/asmjit). AsmJit needs C++20, so it and
-# yss236_jit.cpp, the one file that includes it, are built as C++20; the rest stays C++17.
-file(GLOB ASMJIT CONFIGURE_DEPENDS third_party/asmjit/asmjit/core/*.cpp third_party/asmjit/asmjit/x86/*.cpp
-     third_party/asmjit/asmjit/arm/*.cpp third_party/asmjit/asmjit/axl/*.cpp)
-add_library(asmjit STATIC ${ASMJIT})
-target_include_directories(asmjit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/asmjit)
-target_compile_definitions(asmjit PUBLIC ASMJIT_STATIC ASMJIT_NO_BUILDER ASMJIT_NO_COMPILER ASMJIT_NO_UJIT ASMJIT_NO_FOREIGN ASMJIT_NO_SHM_OPEN)
-find_package(Threads REQUIRED)
-target_link_libraries(asmjit PUBLIC Threads::Threads)
-add_library(vop3jit STATIC src/fs1r/chips/yss236_jit.cpp)
-target_include_directories(vop3jit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(vop3jit PRIVATE asmjit)
-set_target_properties(asmjit vop3jit PROPERTIES CXX_STANDARD 20)
-target_link_libraries(vop3host PUBLIC vop3jit)
-foreach(t vop3host vop3jit)
+set_target_properties(vop3host PROPERTIES CXX_STANDARD 20)
+foreach(t vop3host)
   if(MSVC)
     target_compile_options(${t} PRIVATE /W3 /fp:precise /permissive-)
   else()
@@ -51,19 +39,21 @@ foreach(t vop3host vop3jit)
 endforeach()
 
 add_library(fs1rLib STATIC
-    src/fs1r/chips/ymp706.cpp
-    src/fs1r/firmware/controllers.cpp
-    src/fs1r/firmware/fseq.cpp
-    src/fs1r/firmware/midi.cpp
-    src/fs1r/firmware/notes.cpp
-    src/fs1r/firmware/patch.cpp
-    src/fs1r/firmware/rom.cpp
-    src/fsvr/device.cpp
-    src/fsvr/fastmath.cpp
-    src/fsvr/selftest.cpp)
+    src/tonegen/operator.cpp
+    src/tonegen/channel.cpp
+    src/engine/render.cpp
+    src/engine/controllers.cpp
+    src/engine/fseq.cpp
+    src/engine/midi.cpp
+    src/engine/notes.cpp
+    src/presets/patch.cpp
+    src/presets/rom.cpp
+    src/device/device.cpp
+    src/math/fastmath.cpp
+    src/selftest/selftest.cpp)
 target_include_directories(fs1rLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(fs1rLib PUBLIC vop3host)
-# The sample loop's maths backend, src/fsvr/fastmath.h: LUT (the default, and the fastest measured), RAW
+# The sample loop's maths backend, src/math/fastmath.h: LUT (the default, and the fastest measured), RAW
 # (libm, kept for A/B renders), CORDIC, or HYBRID, where the table seeds a short CORDIC rotation.
 set(FSVR_MATH "LUT" CACHE STRING "fastmath backend: RAW, LUT, CORDIC or HYBRID")
 set_property(CACHE FSVR_MATH PROPERTY STRINGS RAW LUT CORDIC HYBRID)
@@ -99,12 +89,19 @@ else()
   add_test(NAME engine COMMAND engine_selftest)
 endif()
 
-# The compiled VOP3 programs against the interpreter, on whatever this runs on: x86-64 on Windows and Linux,
-# the arm64 slice of the universal build on an Apple silicon runner. It skips where there is no compiler.
-add_executable(vop3_jit_check tools/vop3_jit_check.cpp)
-target_link_libraries(vop3_jit_check PRIVATE vop3host)
-add_test(NAME vop3_jit COMMAND vop3_jit_check)
-set_tests_properties(vop3_jit PROPERTIES SKIP_RETURN_CODE 77)
+# The filters' and effects' output, pinned (verified bit for bit against the firmware's DSP programs before
+# those moved to the VOP3 project).
+add_executable(dsp_check tools/dsp_check.cpp)
+target_link_libraries(dsp_check PRIVATE vop3host)
+if(NOT MSVC)
+  target_compile_options(dsp_check PRIVATE -ffp-contract=off)
+endif()
+add_test(NAME dsp COMMAND dsp_check)
+# Their cost per sample, and the output's hash (not a test: a number to compare builds by).
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+  add_executable(dsp_bench EXCLUDE_FROM_ALL tools/dsp_bench.cpp)
+  target_link_libraries(dsp_bench PRIVATE vop3host)
+endif()
 
 option(FSVR_BUILD_PLUGIN "Build the plug-in (downloads its SDKs on the first configure)" OFF)
 if(FSVR_BUILD_PLUGIN)
