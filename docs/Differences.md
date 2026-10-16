@@ -26,13 +26,14 @@ unit has none, so `tools/render_capture`, which renders what a capture is compar
 
 ## 14-bit pitch bend
 
-**The unit.** It keeps the pitch bend MSB alone (MIDI handler: the part's bend is `(msb - 64) * 16`), so the wheel
-moves in 128 steps: at a range of 12 semitones each is 19 cents, which a slow bend makes audible as a staircase.
+**The unit.** The Pitch Bend handler (0x15B80) keeps `(msb - 64) * 16 + (lsb >> 3)`, and the pitch takes that
+>> 3 (`FUN_0002022C`), so the wheel moves in 256 steps: at a range of 12 semitones each is 9.4 cents, which a
+slow bend makes audible as a staircase.
 
-**FSVR.** The LSB is kept too and lands between the unit's steps as a fraction of the MSB's step, so the
-wheel has 16,384 positions and an LSB of 0 gives exactly the unit's pitch word. The bend as a controller
-source (destination routing, set_source) is still the MSB, as on the unit. `Device::setBend14(false)` gives the
-unit's 7 bits; `tools/render_capture` keeps them unless given `-fsvr`, since the Ana-Unison demo sends LSBs.
+**FSVR.** The LSB's low six bits, which the unit drops, land between its steps as a fraction of one, so the
+wheel has 16,384 positions and the unit's pitch word comes out exactly wherever those bits are 0. The bend as a
+controller source is the unit's own -128..127, unchanged. `Device::setBend14(false)` gives the unit's 256
+steps; `tools/render_capture` keeps them unless given `-fsvr`, since the Ana-Unison demo sends LSBs.
 
 ## Oscillator initial phase
 

@@ -8,6 +8,22 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-16, pitch bend keeps the LSB's top bits, and source PB is -128..127
+
+rgwan read source PB as a raw signed byte, -128..127, where the engine fed it `msb - 64`. The Pitch Bend handler
+at 0x15B80 (no Ghidra function; `tools/ghidra_disasm_sh2.py 0x15b80-0x15c48`) settles it and one more thing:
+
+- the bend word at DAT_010293F4 is `((msb - 64) << 8 | lsb << 1) >> 4`, `(msb - 64) * 16 + (lsb >> 3)`. The
+  engine's "the firmware keeps the MSB only" was wrong; `FUN_0002022C`'s `bend >> 3` gives the pitch the
+  LSB's top bit, 256 steps.
+- that `>> 3` goes back into the data byte with 0xE0 as the controller number and the handler jumps to
+  `FUN_00014AD0`, where PB is in the raw mask 0x17C0: source PB is `(msb - 64) * 2 + (lsb >> 6)`, -128..127.
+  At `msb - 64` a set on PB reached half its depth.
+
+Both are fixed in `midi.cpp`; the engine self check covers them.
+
+---
+
 ## 2026-10-15, session 41 (cont.): Vokodrone's flanger depth matches; the 4.3x was the probe, the DRAM word is wider than +-8
 
 rgwan's Vokodrone report ("feeds back a little more, sounds like a flanger") was the doubled LFO, fixed by the s41 LFO shapes: rendered through the whole device from the same performance and sine-voice bulks the rig sends, the insertion flanger's FM is 0.0028 rad/sample against the unit's 0.0030, and 0.0051 before s41. The 4.3x excess reported earlier came from the harness, which drove the insertion bus with a 0.25 sine, hotter than the rig's voice, into the program's +-8 clip.

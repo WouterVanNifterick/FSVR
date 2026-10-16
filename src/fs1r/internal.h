@@ -200,8 +200,8 @@ bool rom_ready(const Rom* R);
 struct Part {
     uint8_t p[52]; Voice voice;
     // controller state (MIDI)
-    int bend = 0;            // (msb - 64) * 16, the firmware keeps the MSB only
-    int bendLsb = 0;         // ours: the LSB the firmware drops, for a 14-bit bend (bend_word)
+    int bend = 0;            // (msb - 64) * 16 + (lsb >> 3), the handler at 0x15B80 (DAT_010293F4)
+    int bendLsb = 0;         // ours: the whole LSB, for a 14-bit bend (bend_word)
     int expr = 254;          // DAT_010297fa
     // FUN_0000edf0, the per-part controller reset: expression back to 0xFE, bend and every controller
     // source to zero. Reset All Controllers runs it, and so does loading a performance, which walks the

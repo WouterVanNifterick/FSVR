@@ -200,16 +200,21 @@ int selftest(Synth& S) {
     S.perf.part[0].p[4] = 0; S.forceChannel = 0;
     S.midi_in(0xB0, 101, 0); S.midi_in(0xB0, 100, 0); S.midi_in(0xB0, 6, 12);
     ck("RPN bend range", S.perf.part[0].p[0x26] == 0x4C && S.perf.part[0].p[0x27] == 0x34);
-    // Ours: a 14-bit bend. The LSB lands between the unit's 128 MSB steps, and an LSB of 0 is the unit's word.
+    // Pitch bend (0x15B80): the bend word is (msb - 64) * 16 + (lsb >> 3), the pitch takes it >> 3, 256 steps,
+    // and source PB gets the same >> 3 raw, -128..127. Ours: bend14 puts the LSB's low six bits between those steps.
     { Part& pt = S.perf.part[0];
       auto bw = [&](int lsb, int msb) { S.midi_in(0xE0, lsb, msb); return S.bend_word(pt); };
-      const double w0 = bw(0, 96), w1 = bw(0, 97), wh = bw(64, 96);
-      ck("bend: an LSB of 0 is the unit's 7-bit word", w0 == 512 && w1 == 528);
-      ck("bend: the LSB lands halfway between two MSB steps", wh == (w0 + w1) / 2);
+      S.bend14 = false;
+      const double w0 = bw(0, 96), w1 = bw(64, 96);
+      ck("bend: the unit's pitch keeps the LSB's top bit", w0 == 512 && w1 == 520 && bw(63, 96) == w0);
+      bw(0, 0); const int lo = pt.src[S.SRC_PB]; bw(127, 127); const int hi = pt.src[S.SRC_PB]; bw(64, 64);
+      ck("bend: source PB spans -128..127, the LSB's top bit included", lo == -128 && hi == 127 && pt.src[S.SRC_PB] == 1);
+      S.bend14 = true;
+      ck("bend: an LSB whose low six bits are 0 is the unit's word", bw(0, 96) == w0 && bw(64, 96) == w1);
+      ck("bend: 32 lands halfway between two of the unit's steps", bw(32, 96) == (w0 + w1) / 2);
       bool up = true; double last = -1e9;
       for (int v = 0; v < 16384; v += 37) { double w = bw(v & 127, v >> 7); up = up && w >= last; last = w; }
       ck("bend: the 14-bit sweep never steps back", up);
-      S.bend14 = false; ck("bend: and the MSB alone with bend14 off", bw(64, 96) == w0); S.bend14 = true;
       bw(0, 64); }
     S.midi_in(0xB0, 100, 2); S.midi_in(0xB0, 6, 0x28 + 12);
     ck("RPN note shift", S.perf.part[0].p[8] == 12);
