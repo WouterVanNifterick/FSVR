@@ -7,7 +7,7 @@
 #include <cstdint>
 #include "fs1r/vop3_regs.h"
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 using namespace ::vop3;     // the chip's registers and LFO waves, by name
 
@@ -44,4 +44,4 @@ struct ChipHost {
     }
 };
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

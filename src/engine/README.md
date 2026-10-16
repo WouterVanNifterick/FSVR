@@ -15,4 +15,4 @@
 
 ## Structure
 `Synth` owns state and sequencing; the parts it drives are in their own folders and do not know about `Synth`:
-`presets/` the data it decodes, `tonegen/` the tone generator (a channel renders from a `Voice`, not from `Synth`), `filters/`, `effects/`. The public API is `src/fs1r.h` (`fs1r::Device`, in `src/device/device.cpp`).
+`presets/` the data it decodes, `tonegen/` the tone generator (a channel renders from a `Voice`, not from `Synth`), `filters/`, `effects/`. The public API is `src/fs1r.h` (`fsvr::Device`, in `src/device/device.cpp`).

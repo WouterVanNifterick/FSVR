@@ -6,7 +6,7 @@
 
 #include "effects/programs.h"
 
-namespace fs1r::effects {
+namespace fsvr::effects {
 
 using namespace word;
 
@@ -44,4 +44,4 @@ void ins_m14(State& s)
 	m[15] = lfo[15];
 }
 
-}  // namespace fs1r::effects
+}  // namespace fsvr::effects

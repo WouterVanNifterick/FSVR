@@ -6,7 +6,7 @@
 
 #include "effects/programs.h"
 
-namespace fs1r::effects {
+namespace fsvr::effects {
 
 using namespace word;
 
@@ -110,4 +110,4 @@ void ins_m05(State& s)
 	m[42] = cell(pos((128.0 * k[0x1fd]) + sum_on(wrap_sum(((k[0x1fa] * v36) + wrap_sum(((k[0x1f9] * v35) + wrap_sum(((k[0x1f8] * v34) + wrap_sum(((k[0x1f7] * v33) + wrap_sum(((k[0x1f6] * v32) + wrap_sum(((k[0x1f5] * v31) + 0.0) * 2.0)) * 2.0)) * 2.0)) * 2.0)) * 2.0)) * 4.0), k[0x1fb] * v29, k[0x1fc] * v30)));
 }
 
-}  // namespace fs1r::effects
+}  // namespace fsvr::effects

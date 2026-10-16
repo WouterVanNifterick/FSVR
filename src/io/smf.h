@@ -16,7 +16,7 @@
 
 namespace fs1r_smf {
 
-static const int SR = (int)fs1r::ENGINE_RATE;
+static const int SR = (int)fsvr::ENGINE_RATE;
 
 // 16-bit for listening, 32-bit float for measuring: a render compared against a 24-bit capture must not
 // carry a quantisation floor of its own, and the quietest segments of the capture set sit below -100 dB.
@@ -131,7 +131,7 @@ inline bool read_smf(const char* path, std::vector<SmfEvent>& out) {
 // lives here rather than in console/main.cpp so the portable renderer can run it too: tools/regress.py
 // is the gate every engine change has to pass, and on a machine without the Windows console it could
 // not run at all.
-inline int render_note(fs1r::Device& dev, const char* path, int note, double secs, int note2,
+inline int render_note(fsvr::Device& dev, const char* path, int note, double secs, int note2,
                        const std::vector<std::pair<int, int>>& cc, WavFormat format = WAV_S16) {
     int frames = (int)(secs * SR), half = frames / 2, third = frames / 3;
     std::vector<float> l(frames, 0.f), r(frames, 0.f);
@@ -152,7 +152,7 @@ inline int render_note(fs1r::Device& dev, const char* path, int note, double sec
 }
 
 // Part 1 mono with full-time portamento at this time, over sysex, exactly as the console's -mono does.
-inline void set_mono_porta(fs1r::Device& dev, int time) {
+inline void set_mono_porta(fsvr::Device& dev, int time) {
     uint8_t m[10] = {0xF0, 0x43, 0x10, 0x5E, 0x30, 0x00, 0x05, 0, 0, 0xF7};
     dev.sendMidi(m, 10);                                             // mono
     m[6] = 0x06; m[8] = 0; dev.sendMidi(m, 10);                      // last-note priority
@@ -160,7 +160,7 @@ inline void set_mono_porta(fs1r::Device& dev, int time) {
     m[6] = 0x25; m[8] = (uint8_t)(time & 0x7F); dev.sendMidi(m, 10);
 }
 
-inline int render_smf(fs1r::Device& dev, const char* smfPath, const char* wavPath, double tailSecs,
+inline int render_smf(fsvr::Device& dev, const char* smfPath, const char* wavPath, double tailSecs,
                       WavFormat format = WAV_S16) {
     std::vector<SmfEvent> ev;
     if (!read_smf(smfPath, ev)) return 1;

@@ -6,7 +6,7 @@
 #pragma once
 #include "effects/host/effect_host.h"
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 namespace var = rom::var;
 namespace ins = rom::ins;
@@ -22,4 +22,4 @@ constexpr int32_t HALF_AREA = ((AREA[3] - AREA[2]) >> 1) + 1;
 // the wah's cutoff word, 3052 v / 16 above a base
 inline int32_t wahCutoff(uint32_t v, int32_t base) { return int32_t((3052u * (v & 0xFFFF)) >> 4) + base; }
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

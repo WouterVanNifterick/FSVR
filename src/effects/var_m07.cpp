@@ -7,7 +7,7 @@
 
 #include "effects/programs.h"
 
-namespace fs1r::effects {
+namespace fsvr::effects {
 
 namespace {
 
@@ -65,4 +65,4 @@ void var_m07(State& s)
 	for (int i = 0; i < 6; i++) s.m[28 + i] = tap[i];
 }
 
-}  // namespace fs1r::effects
+}  // namespace fsvr::effects

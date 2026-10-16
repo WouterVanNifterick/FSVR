@@ -17,7 +17,7 @@
 // (VS 2022 17.0 and later contract only under /fp:contract or /fp:fast; older ones need /fp:strict).
 static_assert(FLT_EVAL_METHOD == 0, "the effect host needs float and double arithmetic without excess precision");
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 // The five program windows, then the two parameter groups that have none.
 enum { REVERB, AUX, INSERTION, REVERB_DELAY, VARIATION, MASTER_EQ, MIXER };
@@ -258,4 +258,4 @@ struct EffectHost : ChipHost {
     void threeBandEq(int w, int p);    void loFi(int w, int p);
 };
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

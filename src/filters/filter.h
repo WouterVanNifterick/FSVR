@@ -1,7 +1,7 @@
 // license:BSD-3-Clause
 // copyright-holders:Wouter van Nifterick
 
-// The FS1R's voice filters: one fs1r::filters::VoiceFilter per tone generator channel, programmed by the
+// The FS1R's voice filters: one fsvr::filters::VoiceFilter per tone generator channel, programmed by the
 // firmware's filter host. In: the channels' samples. Out: the same channels, filtered. No chip is emulated:
 // the host's register writes are read for what they mean to a voice (Filter::write).
 //
@@ -18,11 +18,11 @@ struct Filter {
     static constexpr int SLOTS = 16, BANKS = 2, VOICES = SLOTS * BANKS;
 
     // A bank: the firmware's host, the sixteen EGs and LFO2s it programs, and sixteen voices.
-    struct Bank final : fs1r::vop3host::WriteSink {
-        fs1r::vop3host::FilterHost host;
+    struct Bank final : fsvr::vop3host::WriteSink {
+        fsvr::vop3host::FilterHost host;
         Modulators mod;
-        fs1r::filters::VoiceFilter voice[SLOTS];
-        fs1r::filters::VoiceFilter::Shared shared = {};
+        fsvr::filters::VoiceFilter voice[SLOTS];
+        fsvr::filters::VoiceFilter::Shared shared = {};
 
         Bank() { host.sink = this; host.boot(); reset(); }
         Bank(const Bank&) = delete;                          // the host writes to this bank
@@ -43,7 +43,7 @@ struct Filter {
 
     Bank bank[BANKS];
 
-    fs1r::vop3host::FilterHost& host(int ch) { return bank[ch >> 4].host; }   // the host of channel ch's slot
+    fsvr::vop3host::FilterHost& host(int ch) { return bank[ch >> 4].host; }   // the host of channel ch's slot
     void reset() { for (Bank& b : bank) b.reset(); }
     // A part's voice and record, and its three controller offsets, into the first `banks` banks.
     void sync(int banks, int part, const uint8_t* voice, const uint8_t* rec, int cutoffMod, int lfo2Depth, int lfo2Speed)

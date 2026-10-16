@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <cstdlib>
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 namespace {
 
@@ -744,4 +744,4 @@ void EffectHost::pitchChange(int w, int p)
     }
 }
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

@@ -11,12 +11,12 @@
 #include "effects/host/effect_host.h"
 #include "effects/programs.h"
 
-struct Effects final : fs1r::vop3host::WriteSink {
-    fs1r::vop3host::EffectHost host;
+struct Effects final : fsvr::vop3host::WriteSink {
+    fsvr::vop3host::EffectHost host;
     Modulators mod;                              // the LFOs the host programs
-    fs1r::effects::State state;                  // what the programs share
+    fsvr::effects::State state;                  // what the programs share
     // the programs loaded: base, aux, reverb delay, variation, insertion
-    fs1r::effects::Program stage[5] = {fs1r::effects::base, fs1r::effects::aux};
+    fsvr::effects::Program stage[5] = {fsvr::effects::base, fsvr::effects::aux};
 
     Effects() { host.sink = this; host.init(); }
     Effects(const Effects&) = delete;             // the host writes to this section

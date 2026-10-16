@@ -2,7 +2,7 @@
 // Written by tools/extract_vop3_rom.py. Do not edit.
 #include "fs1r/rom_tables.h"
 
-namespace fs1r::vop3host::rom {
+namespace fsvr::vop3host::rom {
 
 const uint8_t RESET_SLOTS_REVERB[14] = {0xA,0xD,0xF,0x15,0x18,0x20,0x23,0x26,0x2A,0x2B,0x2C,0x2D,0x34,0x35};
 const uint8_t RESET_SLOTS_REVERB_DELAY[12] = {0x47,0x48,0x49,0x4A,0x4B,0x4C,0x4D,0x4E,0x4F,0x50,0x54,0x55};
@@ -1798,4 +1798,4 @@ const ParamRange INSERTION_PARAMS[41][31] = {
     {{0,1,2},{0,0,0},{0,127,2},{0,0,0},{0,10,2},{0,0,0},{0,127,2},{0,0,0},{1,127,2},{0,0,0},{0,52,2},{0,0,0},{34,60,2},{0,0,0},{0,16383,2},{0,0,0},{0,16383,2},{0,0,0},{1,127,2},{0,0,0},{0,10,2},{0,0,0},{0,3,2},{0,0,0},{1,10,2},{0,0,0},{0,16383,2},{0,0,0},{0,16383,2},{0,0,0},{0,16383,2}},
 };
 
-}  // namespace fs1r::vop3host::rom
+}  // namespace fsvr::vop3host::rom

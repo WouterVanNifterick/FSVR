@@ -3,7 +3,7 @@
 #pragma once
 #include <cstdint>
 
-namespace fs1r::vop3host::rom {
+namespace fsvr::vop3host::rom {
 
 extern const uint8_t RESET_SLOTS_REVERB[14];
 extern const uint8_t RESET_SLOTS_REVERB_DELAY[12];
@@ -422,4 +422,4 @@ extern const ParamRange REVERB_PARAMS[17][24];   // by type, then byte within th
 extern const ParamRange VARIATION_PARAMS[29][31];   // by type, then byte within the block
 extern const ParamRange INSERTION_PARAMS[41][31];   // by type, then byte within the block
 
-}  // namespace fs1r::vop3host::rom
+}  // namespace fsvr::vop3host::rom

@@ -12,7 +12,7 @@
 #include <memory>
 #include <vector>
 
-namespace fs1r {
+namespace fsvr {
 
 static const double ENGINE_RATE = 48000.0;   // the FS1R's DAC clock, measured on rgwan's digital-out board
 
@@ -93,4 +93,4 @@ private:
     std::unique_ptr<Impl> p;
 };
 
-}  // namespace fs1r
+}  // namespace fsvr

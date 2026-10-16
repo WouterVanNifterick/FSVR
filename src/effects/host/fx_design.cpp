@@ -5,7 +5,7 @@
 // arithmetic, in its precision and its order, so the words come out bit for bit.
 #include "effects/host/effect_host.h"
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 namespace {
 
@@ -274,4 +274,4 @@ void EffectHost::designTypeShelf(int index, const uint16_t* steps)
         designFilter(1, 2, LOW_SHELF1, row[0], gain, 0, steps);
 }
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

@@ -8,7 +8,7 @@
 // than the hardware's are in engine/tuning.h.
 #pragma once
 
-static const int SR = 48000;   // the hardware rate; fs1r::Device resamples to the host
+static const int SR = 48000;   // the hardware rate; fsvr::Device resamples to the host
 static const int NCHAN = 32;
 static const int FILTER_CHANNELS = 16;          // the channels wired through the filter chip, 0 to 15 (FUN_0000fa5c)
 static const double PI = 3.14159265358979323846;

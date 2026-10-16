@@ -9,7 +9,7 @@
 #include <memory>
 #include "effects/effects.h"
 #include "filters/filter.h"
-namespace H = fs1r::vop3host;
+namespace H = fsvr::vop3host;
 static uint32_t seed; static double noise() { seed = seed * 1664525u + 1013904223u; return (int32_t)seed * (0.2 / 2147483648.0); }
 static uint64_t rng; static uint32_t rnd() { rng ^= rng << 13; rng ^= rng >> 7; rng ^= rng << 17; return uint32_t(rng); }
 static uint64_t h = 1469598103934665603ull;

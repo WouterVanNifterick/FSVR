@@ -19,7 +19,7 @@
 
 #include "fs1r/rom_tables.h"
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 namespace {
 
@@ -398,4 +398,4 @@ void FilterHost::flush()
     }
 }
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

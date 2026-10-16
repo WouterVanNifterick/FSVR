@@ -4,7 +4,7 @@
 // The tone effects: the 3-band EQ of the variation and the insertion, and the insertion's Lo-Fi.
 #include "effects/host/fx_common.h"
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 namespace {
 
@@ -153,4 +153,4 @@ void EffectHost::loFi(int w, int p)
     }
 }
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

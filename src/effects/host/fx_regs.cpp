@@ -5,7 +5,7 @@
 #include "effects/host/effect_host.h"
 #include <algorithm>
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 // the constants of n listed steps, unless the hold flag is set
 void EffectHost::writeCoefs(uint32_t n, const uint16_t* steps)
@@ -167,4 +167,4 @@ void EffectHost::init()
     setMute(ALL, 0);
 }
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

@@ -41,7 +41,7 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 
 **Cite the firmware by address.** Anything read from the disassembly names its `FUN_xxxxxxxx` so the next person can re-check it in Ghidra. `tools/ghidra_ctrl_dests.py` shows how to reach code Ghidra never turns into functions.
 
-**The plugin never models synthesis.** It moves parameter values in and out of the engine as sysex, exactly as a hardware editor would, and learns state back from the engine's own bulk dumps. If you find yourself computing audio in `plugin/`, you are in the wrong layer. The morph square blends voice bytes into a voice bulk and Import Audio writes Fseq bytes on the scales `fs1r::Device` gives it; neither renders anything.
+**The plugin never models synthesis.** It moves parameter values in and out of the engine as sysex, exactly as a hardware editor would, and learns state back from the engine's own bulk dumps. If you find yourself computing audio in `plugin/`, you are in the wrong layer. The morph square blends voice bytes into a voice bulk and Import Audio writes Fseq bytes on the scales `fsvr::Device` gives it; neither renders anything.
 
 **Generated files are generated.** Do not hand-edit anything in `plugin/generated/`, nor `src/fs1r/tables.h` or `algorithms.h`. Change the generator or its source and re-run it. `plugin/generated/README.md` names each generator. `plugin/skin/` is not generated: it is the source, edited in place with the web editor of the Hollow project beside this repository (`python hollow.py editor` there opens it by default). Its params and `data/fs1r_sysex.json` were made from `plugin/generated/` once, so a change to the parameter descriptions reaches the skin only by editing it there too.
 
@@ -119,7 +119,7 @@ The EPROM image itself is not in this repo either. It is rgwan's dump, kept outs
 ## Things that will trip you up
 
 - `captures/` is measurement data with two pipelines and a rule, stated in `captures/README.md`. Recordings and analysis are gitignored; only inputs are tracked
-- The engine always runs at 48 kHz whatever the host rate. `fs1r::Device` resamples on the way out, so patch timing is identical everywhere
+- The engine always runs at 48 kHz whatever the host rate. `fsvr::Device` resamples on the way out, so patch timing is identical everywhere
 - `TICK_HZ` is 192.3 Hz. Only `render`, `render_chan` and `refresh_ctl` run per sample; everything `tick()` reaches is control rate
 - Three tables are filled once by `init_tables()` and have external linkage on purpose. Making them file-static again would give every translation unit its own zeroed copy and the engine would render silence
 - The plug-in's processor runs on two threads: the audio thread sends param changes and MIDI and renders, a worker loads patches and files and reads the engine back into the params. `ctl` guards what both touch, and the audio thread only ever try-locks it. `saving()` finishes whatever the worker has not reached before the host saves

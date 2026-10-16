@@ -1,8 +1,8 @@
-// device/device.cpp - fs1r::Device: host sample rate, state, the public surface. Ours.
+// device/device.cpp - fsvr::Device: host sample rate, state, the public surface. Ours.
 #include "engine/synth.h"
 
-// ------------------------------------------------------------------------------------------ fs1r::Device
-namespace fs1r {
+// ------------------------------------------------------------------------------------------ fsvr::Device
+namespace fsvr {
 
 struct Device::Impl {
     Synth s;
@@ -197,5 +197,5 @@ int Device::selfTest() {
     return fails;
 }
 
-}  // namespace fs1r
+}  // namespace fsvr
 

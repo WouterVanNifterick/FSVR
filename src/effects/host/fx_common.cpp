@@ -5,7 +5,7 @@
 // steps, dry and wet, the shelving pair, and every parameter at once.
 #include "effects/host/fx_common.h"
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 // ---- arithmetic the handlers share ----
 int32_t EffectHost::bipolar500(int v) { return 500 * (v - 64); }
@@ -230,4 +230,4 @@ void EffectHost::setLfoWave(int lfo, int wave)
     lfoReg[1][lfo] = uint16_t((lfoReg[1][lfo] & 0xFF1F) | wave << 5);
 }
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

@@ -17,9 +17,9 @@
 
 #include "dsp/word.h"
 
-namespace fs1r::filters {
+namespace fsvr::filters {
 
-namespace word = fs1r::word;
+namespace word = fsvr::word;
 
 struct VoiceFilter
 {
@@ -120,4 +120,4 @@ struct VoiceFilter
 	}
 };
 
-}  // namespace fs1r::filters
+}  // namespace fsvr::filters

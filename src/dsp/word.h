@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace fs1r::word {
+namespace fsvr::word {
 
 inline double floored_mod(double a, double m)
 {
@@ -52,4 +52,4 @@ inline double sum_on(double s) { return s; }
 template <class... Rest> inline double sum_on(double s, double a, Rest... rest) { return sum_on(wrap_sum(a + s), rest...); }
 template <class... Rest> inline double sum(double a, Rest... rest) { return sum_on(wrap_sum(a + 0.0), rest...); }
 
-}  // namespace fs1r::word
+}  // namespace fsvr::word

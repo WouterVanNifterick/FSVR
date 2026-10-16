@@ -27,9 +27,9 @@ void Synth::filter_latch() {
 // has them do (FUN_00017192 and the five after it); 42, 44 and 45 are offsets the host keeps itself.
 void Synth::filter_sync(int part) {
     const Part& pt = perf.part[part];
-    using namespace fs1r::vop3host::filter;
+    using namespace fsvr::vop3host::filter;
     static const int BYTE[6] = {PART_CUTOFF, PART_RESONANCE, PART_EG_DEPTH, PART_ATTACK, PART_DECAY, PART_RELEASE};
-    uint8_t rec[fs1r::vop3host::FilterHost::PART_BYTES]; memcpy(rec, pt.p, sizeof rec);
+    uint8_t rec[fsvr::vop3host::FilterHost::PART_BYTES]; memcpy(rec, pt.p, sizeof rec);
     for (int d = 0; d < 6; d++) rec[BYTE[d]] = (uint8_t)ctrl_part(part, 21 + d, pt.p[BYTE[d]]);
     flt.sync(flt_banks(), part, pt.voice.raw, rec, ctrl_offset(part, 42), ctrl_offset(part, 44), ctrl_offset(part, 45));
 }

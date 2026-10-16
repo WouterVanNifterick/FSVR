@@ -5,7 +5,7 @@
 #include "effects/host/effect_host.h"
 #include <algorithm>
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 namespace {
 
@@ -152,4 +152,4 @@ void EffectHost::applyParam(int kind, int p)
     }
 }
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

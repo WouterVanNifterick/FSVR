@@ -56,9 +56,9 @@ int main(int argc, char** argv) {
                "                      [-n note] [-n2 note] [-cc num=val] [-mono time] [-d secs] [-fsvr] -w out.wav\n");
         return 1;
     }
-    fs1r::Device dev;
+    fsvr::Device dev;
     if (rom && !dev.loadRom(rom)) { printf("cannot load %s\n", rom); return 1; }
-    dev.setSampleRate(fs1r::ENGINE_RATE);
+    dev.setSampleRate(fsvr::ENGINE_RATE);
     dev.setGain(gain);
     dev.setFilterPoly32(fsvr); dev.setBend14(fsvr);
     if (perfIdx >= 0 && !dev.loadRomPerformance(perfIdx)) { printf("-P needs -r\n"); return 1; }

@@ -9,7 +9,7 @@
 #include "effects/host/effect_host.h"
 #include <algorithm>
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 using namespace rom::mix;
 
@@ -440,4 +440,4 @@ void EffectHost::setSendReverbOffset(uint32_t v)
     post(WAKE | MIXER_CHANGED);
 }
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

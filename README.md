@@ -186,7 +186,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 
 **Engine.** No Windows, no host, no GUI. This is what the plugin links. The tree says where a claim comes from, which is the thing to know before changing anything in it.
 
-- `src/fs1r.h` the public header, `fs1r::Device`. The only one the plugin includes
+- `src/fs1r.h` the public header, `fsvr::Device`. The only one the plugin includes
 Each `src/` folder has a `README.md` with its files and rules; the summary:
 
 `src/fs1r/` is the hardware's values and nothing else: what presets and the engine read, never code.
@@ -210,7 +210,7 @@ The engine, one folder a part. **KNOWN** parts are rewritten from the disassembl
 
 Ours, with no hardware counterpart:
 
-- `src/device/` `fs1r::Device`, host-rate resampling and state as bulk dumps
+- `src/device/` `fsvr::Device`, host-rate resampling and state as bulk dumps
 - `src/math/` the sample loop's sine, 2^x and dB: a table (the default), CORDIC, a hybrid of the two, or raw libm, chosen by `FSVR_MATH`
 - `src/engine/tuning.h` cost knobs, the control-rate decimation and the queue cap. Changing one must not change the output
 - `src/display/` how the unit shows values (transcribed from K_Take's [FS1R Editor](https://synth-voice.sakura.ne.jp/fs1r_editor_english.html), checked against the Data List and the ROM) and the editor's EG plots
@@ -219,7 +219,7 @@ Ours, with no hardware counterpart:
 
 **Plugin.** The plug-in layer, which never models synthesis; it moves parameter values in and out of the engine as sysex, exactly as a hardware editor would.
 
-- `plugin/plugin.cpp` the processor: every param a sysex parameter change into `fs1r::Device`, the engine's own bulk dumps read back into the params, program change, the monitor, and the Save and Import menus' and bank manager's requests
+- `plugin/plugin.cpp` the processor: every param a sysex parameter change into `fsvr::Device`, the engine's own bulk dumps read back into the params, program change, the monitor, and the Save and Import menus' and bank manager's requests
 - `plugin/library.cpp` the bank manager's data: .syx files as banks (FS1R bulks, DX7 single voices and 32-voice banks), the factory bank and the user library folder; `audio_decode.cpp` and `audio_fseq.cpp` Import Audio
 - `plugin/skin/` the editor, a [Hollow](hollow/) skin: views, params (`params.json`, 3,223 of them), images (at 1x in `images/`, at 0.5x, 0.75x, 1.5x and 2x in `scales/`) and its TrueType fonts, and `data/fs1r_sysex.json`, the address and packing of every param. This copy is the source: edit it with the web editor of the Hollow project (kept beside this repository, not published), which opens it by default and saves into it
 - `blender/` the skin's artwork as Blender components (the window's chrome, buttons, panels, displays, glyphs, logos, pots, faders, wheels and keys), `blender/scripts/` what builds and renders them into the skin at every scale, and `blender/textures/` the blue mottled chrome they share ([docs/editor.md](docs/editor.md), The art: Blender)

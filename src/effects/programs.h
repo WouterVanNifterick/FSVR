@@ -19,9 +19,9 @@
 
 #include "dsp/word.h"
 
-namespace fs1r::effects {
+namespace fsvr::effects {
 
-namespace word = fs1r::word;
+namespace word = fsvr::word;
 
 // What the programs share, by the names the chip and the host use for it.
 struct State {
@@ -61,4 +61,4 @@ void ins_m00(State&); void ins_m01(State&); void ins_m02(State&); void ins_m03(S
 void ins_m04(State&); void ins_m05(State&); void ins_m07(State&); void ins_m10(State&);
 void ins_m12(State&); void ins_m13(State&); void ins_m14(State&);
 
-}  // namespace fs1r::effects
+}  // namespace fsvr::effects

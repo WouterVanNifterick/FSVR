@@ -1,5 +1,5 @@
 // FSVR on Hollow: the FS1R engine (fs1rLib) behind the FSVR skin. The processor is a controller for
-// fs1r::Device and nothing more (AGENTS.md): every param is a sysex parameter change into the engine, as
+// fsvr::Device and nothing more (AGENTS.md): every param is a sysex parameter change into the engine, as
 // the skin's data/fs1r_sysex.json addresses it, and what the engine holds comes back out of its own bulk
 // dumps. Around that sit the parts of the GUI the unit never had: the bank manager (factory banks and a
 // user library of .syx files, library.h, and its Save, Import and right-click menus), the morph square
@@ -225,7 +225,7 @@ public:
         factory = parseSyx(factoryBytes("fs1r_performances.syx"), "Yamaha FS1R");
         factory.voices = parseSyx(factoryBytes("fs1r_presets.syx"), "").voices;
         factory.fseqs = parseSyx(factoryBytes("fs1r_fseqs.syx"), "").fseqs;
-        dev.setSampleRate(fs1r::ENGINE_RATE);
+        dev.setSampleRate(fsvr::ENGINE_RATE);
         // A fresh instance is what its params say (FSVR's init performance and voice): the engine takes
         // them as whole bulks, over its own init images for the bytes no param names.
         std::vector<uint8_t> dump;
@@ -318,7 +318,7 @@ public:
 
 private:
     State& st;
-    fs1r::Device dev;
+    fsvr::Device dev;
     std::vector<double> base;          // each param's value as the engine last had it (the audio thread's)
     std::vector<double> sel;           // and as the worker last acted on it (loads, pages, requests)
     std::vector<Field> fields;
@@ -331,7 +331,7 @@ private:
     Library lib;
     std::mutex ctl;
     unsigned loadsSeen = 0;
-    double hostRate = fs1r::ENGINE_RATE;
+    double hostRate = fsvr::ENGINE_RATE;
 
     // params by id
     int P(const std::string& id) const { return st.indexOf(id); }

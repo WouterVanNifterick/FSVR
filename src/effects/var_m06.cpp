@@ -5,7 +5,7 @@
 
 #include "effects/programs.h"
 
-namespace fs1r::effects {
+namespace fsvr::effects {
 
 using namespace word;
 
@@ -118,4 +118,4 @@ void var_m06(State& s)
 	t[15] = v22;
 }
 
-}  // namespace fs1r::effects
+}  // namespace fsvr::effects

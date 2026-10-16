@@ -176,7 +176,7 @@ inline EgCurve filter(const Input& in) {
             t = i == 3 ? t + off : ci(t + off, 0, 99);     // the release is scaled before it is clamped
             int t2 = t - (in.timeScale * t * (in.note - 60)) / 0x57F;
             if (i == 0) t2 -= (in.velSens * t * (in.vel - 127)) / 0x6F2;
-            return cal::FEG_SEG_S * std::pow(2.0, fs1r::vop3host::rom::flt::EG_RATE[ci(t2, 0, 99)] / cal::FEG_RATE_OCT);
+            return cal::FEG_SEG_S * std::pow(2.0, fsvr::vop3host::rom::flt::EG_RATE[ci(t2, 0, 99)] / cal::FEG_RATE_OCT);
         });
     };
     auto shown = [](double w) { return w * 50 / 256; };

@@ -1,5 +1,5 @@
 // audioToFseq: fseq-flash's analysis (FormantDetector, PitchDetector, SpectralAnalysis) with the frame bytes
-// written on the engine's own scales (fs1r::Device::fseqWord, fseqLevel, fseqFrameSeconds).
+// written on the engine's own scales (fsvr::Device::fseqWord, fseqLevel, fseqFrameSeconds).
 #include "audio_fseq.h"
 #include "fs1r.h"
 #include <algorithm>
@@ -47,8 +47,8 @@ std::vector<uint8_t> audioToFseq(const std::vector<float>& x, double sr, const s
     // slowest the whole sound is spread over 512 (fseq-flash always spreads over 512).
     int speed = 0;
     for (int s = 127; s >= 0; --s)
-        if (dur / fs1r::Device::fseqFrameSeconds(s) <= 512) { speed = s; break; }
-    const int n = std::clamp((int)std::ceil(dur / fs1r::Device::fseqFrameSeconds(speed)), 1, 512);
+        if (dur / fsvr::Device::fseqFrameSeconds(s) <= 512) { speed = s; break; }
+    const int n = std::clamp((int)std::ceil(dur / fsvr::Device::fseqFrameSeconds(speed)), 1, 512);
     const double step = dur / n;
 
     const int M = sr > 50000 ? 4096 : 2048;   // fseq-flash's 2048 at 44.1 kHz, the same span at 96
@@ -170,17 +170,17 @@ std::vector<uint8_t> audioToFseq(const std::vector<float>& x, double sr, const s
         const Frame& f = fr[(size_t)std::min(k, n - 1)];
         if (f.voiced >= 0.5 && f.pitch > 0) pitch = f.pitch;   // an unvoiced frame holds the last pitch
         uint8_t* q = d.data() + 32 + (size_t)k * 50;
-        const int pw = fs1r::Device::fseqWord(pitch);
+        const int pw = fsvr::Device::fseqWord(pitch);
         q[0] = (uint8_t)(pw >> 8);
         q[1] = (uint8_t)((pw & 0xFF) >> 1);
         const bool silent = f.rms < loud * 1e-3;   // 60 dB under the loudest frame
         for (int i = 0; i < 8; ++i) {
-            const int w = fs1r::Device::fseqWord(f.hz[i]);
+            const int w = fsvr::Device::fseqWord(f.hz[i]);
             const double a = top > 0 && !silent ? f.amp[i] / top : 0;
             q[2 + i] = q[0x1A + i] = (uint8_t)(w >> 8);
             q[0x0A + i] = q[0x22 + i] = (uint8_t)((w & 0xFF) >> 1);
-            q[0x12 + i] = (uint8_t)fs1r::Device::fseqLevel(a * f.voiced);
-            q[0x2A + i] = (uint8_t)fs1r::Device::fseqLevel(a * (1 - f.voiced));
+            q[0x12 + i] = (uint8_t)fsvr::Device::fseqLevel(a * f.voiced);
+            q[0x2A + i] = (uint8_t)fsvr::Device::fseqLevel(a * (1 - f.voiced));
         }
     }
     framesOut = n;

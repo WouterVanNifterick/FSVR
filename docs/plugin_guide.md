@@ -1,6 +1,6 @@
 # FSVR plugin guide
 
-The plugin is a controller for the engine, not a second synthesiser. Everything you move becomes a sysex parameter change into `fs1r::Device`, and what the engine holds comes back into the editor out of its own bulk dumps. That is how a hardware editor works, and it means the plugin and the console always agree. [editor.md](editor.md) says why the editor is laid out the way it is; this page is how to use it.
+The plugin is a controller for the engine, not a second synthesiser. Everything you move becomes a sysex parameter change into `fsvr::Device`, and what the engine holds comes back into the editor out of its own bulk dumps. That is how a hardware editor works, and it means the plugin and the console always agree. [editor.md](editor.md) says why the editor is laid out the way it is; this page is how to use it.
 
 ## Formats and installing
 

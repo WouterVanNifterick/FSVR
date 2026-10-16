@@ -21,7 +21,7 @@
 #include "effects/effects.h"
 #include "filters/filter.h"
 
-namespace H = fs1r::vop3host;
+namespace H = fsvr::vop3host;
 
 int main(int argc, char** argv) {
     const char* path = argc > 1 ? argv[1] : "build\\dsp_bench.raw";

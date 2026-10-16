@@ -5,7 +5,7 @@
 //   fsvr_console.exe [-m N] [-o N] [-c ch] [-v voice.syx] [-r eprom.bin [-p voice] [-P perf] [-f fseq]]
 //                [-g gain] [-w test.wav [-n note] [-n2 note] [-cc num=val] [-d secs]]
 //
-// The console owns no synthesis. It feeds MIDI bytes to fs1r::Device and pulls audio back.
+// The console owns no synthesis. It feeds MIDI bytes to fsvr::Device and pulls audio back.
 #define _CRT_SECURE_NO_WARNINGS
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -25,7 +25,7 @@
 
 using fs1r_smf::write_wav;
 using fs1r_smf::render_smf;
-static const int SR = (int)fs1r::ENGINE_RATE;    // the console runs the host at the engine rate
+static const int SR = (int)fsvr::ENGINE_RATE;    // the console runs the host at the engine rate
 static const int BLOCK = 128;                    // frames per waveOut buffer (~2.7 ms)
 static const int NBUF = 8;
 
@@ -57,7 +57,7 @@ static void send_sysex(const std::vector<uint8_t>& m) {
     while (!(h.dwFlags & MHDR_DONE)) Sleep(0);
     midiOutUnprepareHeader(g_hmo, &h, sizeof h);
 }
-static void pump_midi(fs1r::Device& dev) {
+static void pump_midi(fsvr::Device& dev) {
     uint32_t m;
     while (g_q.pop(m)) { uint8_t b[3] = {(uint8_t)(m & 0xFF), (uint8_t)(m >> 8 & 0x7F), (uint8_t)(m >> 16 & 0x7F)}; dev.sendMidi(b, 3); }
     std::vector<std::vector<uint8_t>> sx;
@@ -81,14 +81,14 @@ static int list_midi_out() { int n = midiOutGetNumDevs(); for (int i = 0; i < n;
 static int list_midi() { int n = midiInGetNumDevs(); for (int i = 0; i < n; i++) { MIDIINCAPSA c; midiInGetDevCapsA(i, &c, sizeof c); printf("  %d: %s\n", i, c.szPname); } return n; }
 
 int main(int argc, char** argv) {
-    fs1r::Device dev;
+    fsvr::Device dev;
     dev.setSampleRate(SR);
     int midiPort = -1, midiOutPort = -1, pick = -1, perfIdx = -1, fseqIdx = -1, channel = -1;
     const char* syx = nullptr; const char* romPath = nullptr; const char* wav = nullptr; const char* smf = nullptr;
     int testNote = 60, monoTime = -1; double testSecs = 3.0;
     for (int i = 1; i < argc; i++) {
         std::string a = argv[i];
-        if (a == "-selftest") return fs1r::Device::selfTest();
+        if (a == "-selftest") return fsvr::Device::selfTest();
         else if (a == "-l") { printf("MIDI inputs:\n"); list_midi(); printf("MIDI outputs:\n"); list_midi_out(); return 0; }
         else if (a == "-m" && i + 1 < argc) midiPort = atoi(argv[++i]);
         else if (a == "-o" && i + 1 < argc) midiOutPort = atoi(argv[++i]);

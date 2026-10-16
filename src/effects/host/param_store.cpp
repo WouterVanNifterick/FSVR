@@ -5,7 +5,7 @@
 // The effect parameters take the descriptors of the current effect type.
 #include "effects/host/effect_host.h"
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 const rom::ParamRange& EffectHost::descriptor(uint32_t index) const
 {
@@ -25,4 +25,4 @@ int32_t EffectHost::readParameter(uint32_t id)
     return v;
 }
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

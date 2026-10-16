@@ -5,7 +5,7 @@
 
 #include "effects/programs.h"
 
-namespace fs1r::effects {
+namespace fsvr::effects {
 
 using namespace word;
 
@@ -76,4 +76,4 @@ void var_m04(State& s)
 	r[112] = sat((k[0x17e] * v16) + pos((k[0x17d] * v17) - wrap_sum((k[0x17c] * v16) - sum_on(sum(k[0x17a] * r[112]) / 32768.0, k[0x17b] * r[112]))));
 }
 
-}  // namespace fs1r::effects
+}  // namespace fsvr::effects

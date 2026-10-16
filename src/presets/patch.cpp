@@ -145,7 +145,7 @@ void Part::reset_ctl() {
 
 void init_perf(Perf& P) {
     memset(P.c, 0, 80); memset(P.fx, 0, 112); memcpy(P.c, "Init        ", 12); P.c[0x10] = 127; P.c[0x11] = 64; P.c[0x12] = 24;
-    namespace H = fs1r::vop3host;   // fx holds the common bytes past the 80 of c
+    namespace H = fsvr::vop3host;   // fx holds the common bytes past the 80 of c
     P.fx[H::EQ_LOW_GAIN - sizeof P.c] = P.fx[H::EQ_MID_GAIN - sizeof P.c] = P.fx[H::EQ_HIGH_GAIN - sizeof P.c] = 64;   // master EQ gains at 0 dB
     P.c[0x18] = 7; P.c[0x19] = 104;   // Fseq speed ratio 1000 = 100 %
     P.c[0x21] = 2;

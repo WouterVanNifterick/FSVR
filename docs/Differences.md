@@ -18,7 +18,7 @@ share 16 voices between them, and a 17th filtered note steals one even when the 
 unfiltered parts are capped at 16 the same way.
 
 **FSVR.** FSVR does not emulate the filter chip: it runs what the chip's program computes, one resonant ladder
-per voice (`fs1r::filters::VoiceFilter`, bit for bit, pinned by `dsp_check`). A voice is as cheap to add as a struct, so every one of the 32 channels has one.
+per voice (`fsvr::filters::VoiceFilter`, bit for bit, pinned by `dsp_check`). A voice is as cheap to add as a struct, so every one of the 32 channels has one.
 The firmware's filter host drives sixteen slots, so the 32 voices are two banks of sixteen, each with its own
 host, EGs and LFO2s (`Filter::Bank`); channel n is slot `n & 15` of bank `n >> 4`. Both banks run the same
 host and calibration; nothing about the second needed a new constant.

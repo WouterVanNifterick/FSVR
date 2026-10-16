@@ -7,8 +7,8 @@
 #include <cmath>
 
 namespace {
-using fs1r::filters::VoiceFilter;
-namespace word = fs1r::word;
+using fsvr::filters::VoiceFilter;
+namespace word = fsvr::word;
 
 // OPEN: the level a channel reaches the filter at. A channel at its clip level is taken to be a full-scale
 // serial word. What comes back is scaled so that the passband loses cal::FLT_LOSS, as measured on the unit.
@@ -76,7 +76,7 @@ void Filter::Bank::coef(int step, uint16_t v) {
 
 // The slot's output: which tap the type reads, and its scale. The BPF's is x1, the others x2.
 void Filter::Bank::setType(int s, int type) {
-    using namespace fs1r::vop3host::filter;
+    using namespace fsvr::vop3host::filter;
     VoiceFilter& f = voice[s];
     f.route = type == BPF ? 1 : 2;
     // ponytail: a type byte past BEF makes the unit read whatever register the byte names, which is another

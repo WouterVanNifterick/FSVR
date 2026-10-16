@@ -199,8 +199,8 @@ def rows(vals, per, elem, indent="    "):
     return [indent + ",".join(lit(v, elem) for v in vals[i:i + per]) + "," for i in range(0, len(vals), per)]
 
 h = ["// FS1R v1.20 EPROM: the tables the two hosts read. Yamaha's data.", "// Written by tools/extract_vop3_rom.py. Do not edit.",
-     "#pragma once", "#include <cstdint>", "", "namespace fs1r::vop3host::rom {", ""]
-c = [h[0], h[1], '#include "rom_tables.h"', "", "namespace fs1r::vop3host::rom {", ""]
+     "#pragma once", "#include <cstdint>", "", "namespace fsvr::vop3host::rom {", ""]
+c = [h[0], h[1], '#include "fs1r/rom_tables.h"', "", "namespace fsvr::vop3host::rom {", ""]
 
 # ---- plain tables
 for ns, tables in TABLES.items():
@@ -321,7 +321,7 @@ for g, (name, table, types, n) in zip(GRIDS[:3], TYPED_PARAMS):
     last = s16(COMMON_PARAMS + 16 * {"REVERB_PARAMS": 168, "VARIATION_PARAMS": 171, "INSERTION_PARAMS": 175}[name] + 8)
     if last != types - 1 or g[3] != types: sys.exit(f"{name}: {types} types against a type byte that goes to {last}")
 
-tail = ["", "}  // namespace fs1r::vop3host::rom", ""]
+tail = ["", "}  // namespace fsvr::vop3host::rom", ""]
 (OUT / "rom_tables.h").write_bytes("\n".join(h + tail).encode())
 (OUT / "rom_tables.cpp").write_bytes("\n".join(c + tail).encode())
 print(f"wrote rom_tables.h and rom_tables.cpp: {sum(len(t) for t in TABLES.values())} plain tables, {len(owner)} bytes in them")

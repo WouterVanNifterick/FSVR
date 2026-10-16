@@ -8,7 +8,7 @@
 
 #include "dsp/sink.h"
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 namespace filter {
 
@@ -81,4 +81,4 @@ struct FilterHost : ChipHost {
     bool typeChanged[4] = {}, cutoffChanged[4] = {}, lfoChanged[4] = {}, egChanged[4] = {}, slotChanged[16] = {};
 };
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

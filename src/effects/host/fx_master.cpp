@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <iterator>
 
-namespace fs1r::vop3host {
+namespace fsvr::vop3host {
 
 using namespace rom::mix;
 
@@ -207,4 +207,4 @@ void EffectHost::setOutputGain()
     writeCoefs(8, rom::STEPS_OUTPUT_GAIN);
 }
 
-}  // namespace fs1r::vop3host
+}  // namespace fsvr::vop3host

@@ -8,8 +8,8 @@
 #include "fs1r/cal.h"
 #include "fs1r/vop3_regs.h"
 
-namespace vop3host = fs1r::vop3host;
-namespace effects = fs1r::effects;
+namespace vop3host = fsvr::vop3host;
+namespace effects = fsvr::effects;
 
 namespace {
 const int TYPE_BYTE[3] = {vop3host::REVERB_TYPE, vop3host::VARIATION_TYPE, vop3host::INSERTION_TYPE};
@@ -106,6 +106,6 @@ void Effects::run(const double bus[8], double& l, double& r) {
     std::copy(mod.lfoOut, mod.lfoOut + 16, s.lfo);
     for (effects::Program p : stage) if (p) p(s);
     s.ptr = (s.ptr - 1) & (effects::State::RAM_WORDS - 1);
-    l = fs1r::word::dac(s.out[0]) / cal::WORD;
-    r = fs1r::word::dac(s.out[8]) / cal::WORD;
+    l = fsvr::word::dac(s.out[0]) / cal::WORD;
+    r = fsvr::word::dac(s.out[8]) / cal::WORD;
 }

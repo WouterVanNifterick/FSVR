@@ -6,7 +6,7 @@
 
 #include "effects/programs.h"
 
-namespace fs1r::effects {
+namespace fsvr::effects {
 
 namespace {
 
@@ -45,4 +45,4 @@ void aux(State& s)
 	m[41] = cell(sat((k[0x10d] * r[18] + sum(k[0x10c] * r[8])) * 16.0));
 }
 
-}  // namespace fs1r::effects
+}  // namespace fsvr::effects

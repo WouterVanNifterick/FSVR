@@ -11,7 +11,7 @@
 // The effect section's type and parameter paths, as the Data List addresses them: reverb slots 1-8 are
 // two bytes and 9-16 one byte, variation and insertion slots two bytes.
 namespace fx {
-namespace H = fs1r::vop3host;
+namespace H = fsvr::vop3host;
 enum Block { REVERB, VARIATION, INSERTION };
 void setType(H::EffectHost& h, Block b, int type) {
     const int byte[3] = {H::REVERB_TYPE, H::VARIATION_TYPE, H::INSERTION_TYPE};
@@ -425,9 +425,9 @@ int selftest(Synth& S) {
     // the truth showed.
     // The voice filters, on their chip. A slot's passband, that no slot leaks into another, the corner's
     // octave per twelve cutoff bytes and the resonance's lift.
-    { using namespace fs1r::vop3host::filter;
+    { using namespace fsvr::vop3host::filter;
       auto f = std::make_unique<Filter::Bank>();
-      uint8_t v[fs1r::vop3host::FilterHost::VOICE_BYTES] = {}, r[fs1r::vop3host::FilterHost::PART_BYTES] = {};
+      uint8_t v[fsvr::vop3host::FilterHost::VOICE_BYTES] = {}, r[fsvr::vop3host::FilterHost::PART_BYTES] = {};
       for (int i = 0x18; i <= 0x23; i++) r[i] = 64;                  // the part's offsets at their centres
       r[PART_LFO2_SPEED] = r[PART_LFO2_DEPTH] = 64;
       v[RESONANCE_VEL] = v[EG_DEPTH_VEL] = 7; v[CUTOFF] = 127; v[KEY_SCALE_DEPTH] = 64; v[KEY_SCALE_POINT] = 60;
@@ -478,7 +478,7 @@ int selftest(Synth& S) {
       auto energy = [](const std::vector<float>& x) { double e = 0; for (float s : x) e += (double)s * s; return e; };
       std::vector<float> l0(4800), r0(4800), l1(4800), r1(4800), l2(4800), r2(4800);
       auto open = [](Synth& T) {
-          using namespace fs1r::vop3host::filter;
+          using namespace fsvr::vop3host::filter;
           uint8_t* b = T.perf.part[0].voice.raw;
           b[FILTER_TYPE] = LPF24; b[RESONANCE] = 0; b[CUTOFF] = 40; b[CUTOFF_LFO1] = b[CUTOFF_LFO2] = 0; b[INPUT_GAIN] = 12; b[EG_DEPTH] = 64; };
       auto A = std::make_unique<Synth>(), B = std::make_unique<Synth>(), C = std::make_unique<Synth>();
@@ -813,7 +813,7 @@ int selftest(Synth& S) {
           // and one segment's time after the key comes up the level has covered two thirds of the way back.
           Part& fp = S.perf.part[0]; uint8_t* b = fp.voice.raw;
           S.all_off(); fp.p[7] = 1;
-          using namespace fs1r::vop3host::filter;
+          using namespace fsvr::vop3host::filter;
           for (int i = 0; i < 3; i++) b[EG_L1 + i] = (uint8_t)fL[i], b[EG_T1 + i] = (uint8_t)(fT[i] - 22);
           b[EG_L4] = (uint8_t)fL[3]; b[EG_T4] = (uint8_t)(fT[3] - 22); b[EG_SCALING] = 3 << 3 | 2; b[EG_DEPTH] = 64;
           S.midi_in(0x90, 72, 100);
@@ -954,7 +954,7 @@ int selftest(Synth& S) {
         init_perf(S.perf); }
       // 7. the host's register writes, pinned: its start and a load, every type with each parameter at both ends,
       //    the mixer and EQ bytes, the controller offsets, and a load of every byte.
-      { namespace H = fs1r::vop3host;
+      { namespace H = fsvr::vop3host;
         fx::HashSink sink;
         auto h = std::make_unique<H::EffectHost>(); h->sink = &sink;
         uint8_t perf[H::COMMON_BYTES] = {};
@@ -994,9 +994,9 @@ int selftest(Synth& S) {
       // 9. the filter host's register writes, pinned: sixteen notes through their EG segments, over every filter type
       //    and LFO2 wave, the key sync and the firmware's slip, the sensitivities either side of 7 and segments with no
       //    swing; then the part offsets and every byte marked alone.
-      { using namespace fs1r::vop3host::filter;
+      { using namespace fsvr::vop3host::filter;
         fx::HashSink sink;
-        auto f = std::make_unique<fs1r::vop3host::FilterHost>(); f->sink = &sink;
+        auto f = std::make_unique<fsvr::vop3host::FilterHost>(); f->sink = &sink;
         auto report = [&](int s) { sink.status = 0x10 | ((s + 2) & 15); f->egInterrupt(); };
         f->boot(); f->freeSlots(); f->clearStates();
         for (int p = 0; p < 4; p++) {

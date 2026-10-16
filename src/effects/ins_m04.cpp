@@ -5,7 +5,7 @@
 
 #include "effects/programs.h"
 
-namespace fs1r::effects {
+namespace fsvr::effects {
 
 using namespace word;
 
@@ -98,4 +98,4 @@ void ins_m04(State& s)
 	m[49] = cell(sat(((k[0x1f8] * v32) + sum(k[0x1f7] * v18)) * 4.0));
 }
 
-}  // namespace fs1r::effects
+}  // namespace fsvr::effects
