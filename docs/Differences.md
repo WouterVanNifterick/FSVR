@@ -5,7 +5,7 @@ bug (`AGENTS.md`, "Where a claim comes from"). This file is the short list of pl
 does something the hardware does not. Each entry says what the unit does, what FSVR does, where the firmware
 says so, and how to get the unit's behaviour back.
 
-## Toggle Filter Effects Playing Notes
+## Toggle Filter Effects on Playing Notes
 On a real FS1R if the filter or effects is turned off while notes are being played, they remain enabled on those held notes. In FSVR, this toggle is immediately applied to held notes.
 
 ## 32 filtered voices
