@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-16T00:02:13Z",
+ "updated": "2026-10-16T00:11:59Z",
  "programs": [
   {
    "key": "flt",
@@ -550,13 +550,13 @@
     "ins-18 Wah+DS+Dly",
     "ins-19 Wah+OD+Dly"
    ],
-   "stage": "writing",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 19200,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Wah+DS+Dly, Wah+OD+Dly",
-   "note": "Straight transcription of all 96 steps written from the dump: vop3_native_check ins-m12 reports identical, 2 types, 19200 native passes. Next: name the registers and group the steps into the structures they form.",
-   "updated": "2026-10-16T00:02:13Z",
+   "note": "Done: 96 steps transcribed and read into blocks. vop3_native_check ins-m12: identical, 2 types, 19200 native passes; ctest 3/3. The reading: an input EQ of two cascaded order-1 shelves per channel (ins::LPF_WAH/HPF_WAH and the _C copies), a difference-and-smooth level follower on the wah output (r[80], r[81]), the resonator r[78] whose loop gain t[9] is the loop's own signal so the resonance sweeps with the level, the four-tap delay line of ins::WD_SL read into m[60]-m[63], ins::WAH_PEAK and ins::WAH_LPF2 over it, and ins::WD_LEVEL into r[17]/r[18]. Noted: ins::WAH_BAND[5] and ins::WD_FB[0] are both 0x1dc, and the word ins::WAH_LPF2 lists at 0x1e6 is not the one that step multiplies by.",
+   "updated": "2026-10-16T00:11:59Z",
    "claimed": "2026-10-16T00:00:01Z",
    "nudges": 0,
    "sessions": 1
