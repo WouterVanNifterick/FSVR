@@ -712,7 +712,7 @@ static void boxDraw(Gui& g, Canvas& c, const Hit& h, Rect r) {
                 if (img.px[(size_t)(t.y + y) * img.w + (size_t)(t.x + x)] >> 24 >= 128) x0 = std::min(x0, x), x1 = std::max(x1, x), y0 = std::min(y0, y), y1 = std::max(y1, y);
         const int k = g.skin().lw();
         const uint32_t ring = colourField(g, h, "ring", 0xffe8f3ef);
-        Rect o{r.x + x0 - k, r.y + y0 - k, x1 - x0 + 1 + 2 * k, y1 - y0 + 1 + 2 * k};
+        Rect o = Rect{r.x + x0 - k, r.y + y0 - k, x1 - x0 + 1 + 2 * k, y1 - y0 + 1 + 2 * k} & r;   // inside the widget, which clips
         fillRect(c, {o.x, o.y, o.w, k}, ring);
         fillRect(c, {o.x, o.y + o.h - k, o.w, k}, ring);
         fillRect(c, {o.x, o.y + k, k, o.h - 2 * k}, ring);

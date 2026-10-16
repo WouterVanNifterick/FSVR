@@ -738,7 +738,7 @@
    "surface": false
   },
   {
-   "type": "number",
+   "type": "textbox",
    "name": "lcd_performance",
    "rect": [
     134,
@@ -746,6 +746,7 @@
     228,
     16
    ],
+   "key": "live.lcd.perf",
    "text": {
     "text": "",
     "font": "lcd_small",
@@ -758,42 +759,7 @@
     0,
     0
    ],
-   "surface": false,
-   "param": "perf.program",
-   "drag": false,
-   "reset": false,
-   "showIf": {
-    "param": "perf.bank",
-    "notEquals": 1
-   }
-  },
-  {
-   "type": "textbox",
-   "name": "lcd_user_perf_name",
-   "rect": [
-    134,
-    47,
-    228,
-    16
-   ],
-   "key": "perf.user.name",
-   "text": {
-    "text": "",
-    "font": "lcd_small",
-    "align": "left",
-    "valign": "top"
-   },
-   "pad": [
-    0,
-    0,
-    0,
-    0
-   ],
-   "surface": false,
-   "showIf": {
-    "param": "perf.bank",
-    "equals": 1
-   }
+   "surface": false
   },
   {
    "type": "button",

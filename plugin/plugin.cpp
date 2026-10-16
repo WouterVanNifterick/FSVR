@@ -344,6 +344,7 @@ private:
     // The params hold the same numbers up to their 16,384, a host's range; the library has no such limit.
     int userPerf = 0, userVoice[4] = {0, 0, 0, 0}, userFseq = 0;
     std::string voiceShown[4];         // each part's voice name as last published (part.voice.pN)
+    std::string lcdShown;              // the LCD's performance line as last published (live.lcd.perf)
     // Options (page_options): kept for every instance, not with a session, in <Documents>/FSVR/Settings.json under
     // these keys, then "scale", the GUI scale a new window opens at
     static constexpr std::pair<const char*, const char*> kOptions[] = {
@@ -702,6 +703,21 @@ private:
         if (adoptWanted.exchange(false)) adopt();
         selectors();
         voiceNames();
+        lcdPerf();
+    }
+
+    // The LCD's performance line: the preset it was loaded as while the engine still holds that name, else the
+    // engine's own name, so a performance bulk from the host or a rename shows what plays.
+    void lcdPerf() {
+        const std::string n = perfName(), user = st.data("perf.user.name");
+        std::string s = n;
+        if (get(perfBank) == 1) {
+            if (trimmed(user.substr(0, 12)) == n) s = user;   // a .fsvr name can run past the 12 bytes
+        } else {
+            const std::string label = st.text((size_t)perfProgram, get(perfProgram));   // "A001 Zap !"
+            if (label.size() > 5 && trimmed(label.substr(5)) == n) s = label;
+        }
+        if (s != lcdShown) st.setData("live.lcd.perf", lcdShown = s);
     }
 
     // The user items a session or a fresh instance names, from its params (which stop at 16,384).

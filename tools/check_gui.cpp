@@ -218,6 +218,14 @@ int main() {
         Ui u;
         const std::string M = kModal;
         CHECK(u.until([&] { return u.data("perf.name") == "Zap !"; }), "A001 did not load (\"%s\")", u.data("perf.name").c_str());
+        CHECK(u.until([&] { return u.data("live.lcd.perf") == "A001 Zap !"; }), "the LCD reads \"%s\" for A001", u.data("live.lcd.perf").c_str());
+        {   // a performance name from the host's sysex reaches the LCD, not just the parts' voices
+            const uint8_t x[10] = {0xF0, 0x43, 0x10, 0x5E, 0x10, 0x00, 0x00, 0x00, 'X', 0xF7}, z[10] = {0xF0, 0x43, 0x10, 0x5E, 0x10, 0x00, 0x00, 0x00, 'Z', 0xF7};
+            u.proc->midi(0, x, 10);
+            CHECK(u.until([&] { return u.data("live.lcd.perf") == "Xap !"; }), "a sysex name left the LCD at \"%s\"", u.data("live.lcd.perf").c_str());
+            u.proc->midi(0, z, 10);
+            CHECK(u.until([&] { return u.data("live.lcd.perf") == "A001 Zap !"; }), "the LCD did not come back to A001 (\"%s\")", u.data("live.lcd.perf").c_str());
+        }
 
         // ---- the top bar ------------------------------------------------------------------------------
         if (u.click("topbar/save_menu"))
@@ -393,6 +401,13 @@ int main() {
         u.click("opcol/edit");
         CHECK(u.ui().find("\"view\":\"page_operator\"") != std::string::npos && u.shows("pages/fm_matrix/op_6"),
               "Edit Operator did not open the operator page");
+        {   // the selected box's ring is whole: its right side is inside the box, which clips it
+            Rect r;
+            if (u.rect("pages/fm_matrix/op_6", r)) {
+                const uint32_t p = u.gui.pixels()[(size_t)(r.y + r.h / 2) * u.gui.width() + r.x + r.w - 1] & 0xffffff;
+                CHECK(p == 0xe8f3ef, "the selected matrix box's ring has no right side (%06x)", p);
+            }
+        }
         CHECK(u.until([&] { return u.data("live.wave.p1.6").size() > 128; }), "the engine drew no wave for operator 6 (\"%s\")",
               u.data("live.wave.p1.6").substr(0, 40).c_str());
         CHECK(u.st->save().find("live.wave") == std::string::npos, "the panel's wave went into the saved session");
