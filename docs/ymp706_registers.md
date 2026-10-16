@@ -152,6 +152,19 @@ both is still FUN_00019414's word rather than the unit's, and the pitch EG never
 with the carrier level correction in bits 4-7 of the low byte, and an input select of 0 promoted to 1 on the way.
 Only three distinct `t0` values appear in the capture set, so the promotion is the least tested line here.
 
+**The sum bus is cleared by t1 bit 1, not by a read** (INFERRED from the table, no capture has checked it). t1 bit 1
+reaches the chip as bit 2 of the low byte. In the 88 entries it sits exactly where a bus that a read leaves alone needs
+clearing: 58 entries add to or read the sum bus, and each has t1 bit 1 at or before its first add (operator 1 in 55,
+operator 3 in 38, 39 and 40); 13 set it again, on the operator that starts a second sum after the first was read
+(45, 47, 48, 50, 51, 53, 62, 64, 70, 71, 72, 77, 83); none sets it while an add waits for its reader; the six without
+it (2, 37, 76, 82, 86, 87) never touch the bus. In 45, 48, 50, 51, 53 and 62 one operator reads the first sum, sets the
+bit and adds, so the clear falls between its read and its add. Read this way, 65 has operators 3 and 4 driving 5, 6, 7
+and 8 and 80 has 1 and 2 driving 3 to 8, as the FS1R Algorithm Sheet (p.2) and the MONTAGE Data List's Algorithm Chart
+(pp.172-173) draw them. A read that clears the bus, the engine's model until this was found, gave 65 only 3 and 4 into
+5 and 80 only 1 and 2 into 3, and routed the other 86 the same as now. What would settle it on a unit: algorithm 80,
+operator 1 the only modulator at level 99 and operator 4 the only sounding carrier; a cleared bus leaves operator 4 a
+plain sine.
+
 **Which pair carries the sound.** In all 492 segments +0x3D reads 0x7F and +0x3E and +0x3F read 0xFF, which mutes
 the 0x22C/D and 0x22E/F pairs and leaves 0x22A/0x22B as the pair the note comes out of. Those patches send nothing
 to either effect block, so the reading is that 0x22A/0x22B is the dry pair and the other two are the sends; the
@@ -319,6 +332,7 @@ part, sysex layout. Part bank 2..12 = PrA..PrK (PrA and PrB are the native banks
 - Per-op pms as the DX7 pitch mod sensitivity curve, ams and fms as linear fractions of the channel words.
 - Feedback `0.5 * 2^(fb - 7)`, modulation index 1 cycle at full level. Detune is no longer here at all: the chip reads the EPROM's own `FRMDET`, measured over six octaves, and `cal::DETUNE_CENTS` is gone.
 - Frequency EG range +-4 octaves, timed like the amplitude EG.
+- The sum bus cleared by t1 bit 1 of the algorithm word rather than by a read (the algorithm word, above).
 - The formant window (bandwidth and skirt), the harmonic forms, the noise formant: patent model, see research.md.
 
 ## The per-voice filter (VOP3-1, not this chip)

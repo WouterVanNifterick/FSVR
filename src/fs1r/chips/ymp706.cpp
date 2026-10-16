@@ -241,7 +241,6 @@ double Synth::render_chan(Chan& C) {
         OpState& s = C.op[o]; const OpV& v = V.v[o];
         unsigned char t0 = alg[2 * o], t1 = alg[2 * o + 1]; int F = (t0 >> 3) & 7;
         double in = F == 3 ? C.fbBus * C.fbGain : F == 4 ? Cb : F == 5 ? H : F == 6 ? S : 0.0;
-        if (F == 6) S = 0;
         double egdb = s.eg.tick();
         double y = 0;
         // The level register glides rather than stepping, so a frame write reaches the output over
@@ -263,7 +262,11 @@ double Synth::render_chan(Chan& C) {
             if (!v.fixed && s.feg.stage < 2) fop *= fm::exp2(s.feg.tick() / 12.0);
             y = op_sample(s, v, s.fw, fop, s.ratio, in * FM_INDEX + C.phOff[o], gain);
         }
-        Cb = y; if (t0 & 2) H = y; if (t1 & 4) S += y; if (t0 & 4) fbNew = y;
+        // A read leaves the sum bus as it is; t1 bit 1 starts it over, after this operator's read and
+        // before its add. INFERRED from the table, not measured: the bit is set wherever a second sum
+        // starts and never over an add no operator has read yet, and so 65 and 80 fan out to every
+        // reader as the Algorithm Sheet draws them (docs/ymp706_registers.md, the algorithm word).
+        Cb = y; if (t0 & 2) H = y; if (t1 & 2) S = 0; if (t1 & 4) S += y; if (t0 & 4) fbNew = y;
         if (t1 & 1) mix += y * partV;
         // unvoiced (noise formant) operator
         const OpU& u = V.u[o];

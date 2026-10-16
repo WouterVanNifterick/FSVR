@@ -26,6 +26,15 @@ function; `tools/ghidra_disasm_sh2.py 0x15b80-0x15c48`), which agrees on both:
 Both are fixed in `midi.cpp`; the engine self check covers them.
 
 ---
+## 2026-10-16, the sum bus is cleared by t1 bit 1 of the algorithm word, not by a read: 65 and 80 fan out
+
+`render_chan` cleared the sum bus whenever an operator read it, a guess from the first commit. On two algorithms that cut the routing short. 65 has operators 3 and 4 adding to the bus and 5, 6, 7 and 8 all reading it with nothing in between, and 80 has 1 and 2 adding and 3 to 8 reading; with a clearing read only the first reader was modulated, so 65 played 3 and 4 into 5 alone and 80 played 1 and 2 into 3 alone. The FS1R Algorithm Sheet (p.2), the MONTAGE Data List's Algorithm Chart (pp.172-173) and the Montage plugin's own table all draw 3 and 4 into each of 5 to 8 and 1 and 2 into each of 3 to 8.
+
+The table says where the bus does clear. t1 bit 1, which `algorithms.h` listed as unknown and which reaches the chip as bit 2 of the low algorithm byte, sits exactly where a bus that a read leaves alone needs clearing. Every entry that adds to the bus has it at or before its first add; thirteen set it again on the operator that starts a second sum after the first was read (45, 47, 48, 50, 51, 53, 62, 64, 70, 71, 72, 77, 83); none sets it while an add waits for its reader; the six without it never touch the bus. With a clearing read every one of those thirteen bits did nothing. In six of them one operator reads the first sum, sets the bit and adds, so the clear falls between its read and its add, which is where `render_chan` now does it. Read this way the 88 route as the sheet draws them, and 65 and 80 are the only two that change.
+
+It reaches two ROM voices: native 104 Saws2 (65), where operators 6, 7 and 8 played as plain sines, and native 132 Mukkuri (80), where five of the six formant carriers played unmodulated; and through them ROM performances 118 Mukkuri and 228 OB Pad. The self check now asserts the table's pattern and renders a later reader on 65 and on 80 with one modulator at full level.
+
+**Not measured.** It is the table's reading, INFERRED like the rest of the chip. A capture would settle it: algorithm 80, operator 1 the only modulator at level 99 and operator 4 the only sounding carrier. A clearing read leaves operator 4 a plain sine. `docs/ymp706_registers.md` has the working.
 
 ## 2026-10-15, session 41 (cont.): Vokodrone's flanger depth matches; the 4.3x was the probe, the DRAM word is wider than +-8
 

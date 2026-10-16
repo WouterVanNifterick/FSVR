@@ -569,6 +569,51 @@ int selftest(Synth& S) {
           bool carrier = alg[2 * o + 1] & 1, want = (6 - j) == 1 || (6 - j) == 3 || (6 - j) == 5; if (carrier != want) ok = false; }
       ck("DX7 alg 5 carriers land on FS1R carriers (B025 Tremolo)", ok); }
 
+    // A read leaves the sum bus as it is and t1 bit 1 starts it over (docs/ymp706_registers.md, the algorithm word).
+    // The table bears that out on all 88: the bit never falls while an add waits for its reader, and every entry
+    // that adds to the bus sets it at or before its first add.
+    { bool drops = false, late = false;
+      for (int a = 0; a < 88; a++) {
+          bool waiting = false, cleared = false;
+          for (int o = 0; o < 8; o++) {
+              const int t0 = FS1R_ALG[a][2 * o], t1 = FS1R_ALG[a][2 * o + 1];
+              if (((t0 >> 3) & 7) == 6) waiting = false;
+              if (t1 & 2) { if (waiting) drops = true; cleared = true; }
+              if (t1 & 4) { if (!cleared) late = true; waiting = true; }
+          }
+      }
+      ck("algorithm table: t1 bit 1 never clears a sum no operator has read", !drops);
+      ck("algorithm table: every entry that adds to the sum bus clears it first", !late); }
+
+    // So 65 and 80 fan out as the Algorithm Sheet draws them: 3 and 4 into each of 5..8, 1 and 2 into each of 3..8.
+    // One modulator at full level and one carrier past the first reader, everything else silent: the carrier is a
+    // plain sine without the modulator and not one with it. When a read cleared the bus it stayed a plain sine.
+    { struct { int alg, mod, car; const char* what; } fan[] = {
+          {64, 2, 6, "algorithm 65: operator 3 reaches operator 7 over the sum bus"},
+          {79, 0, 3, "algorithm 80: operator 1 reaches operator 4 over the sum bus"}};
+      for (auto& f : fan) {
+          double purity[2];
+          for (int with = 0; with < 2; with++) {
+              init_perf(S.perf); Part& pt = S.perf.part[0]; Voice& V = pt.voice; pt.p[1] = 2; pt.p[4] = 0x10;
+              init_blank_voice(V.raw); V.raw[0x2C] = (uint8_t)f.alg;
+              V.raw[112 + f.car * 62 + 22] = 99; V.raw[112 + f.mod * 62 + 22] = with ? 99 : 0;
+              decode_voice(V);
+              S.all_off(); S.midi_in(0x90, 69, 100);
+              std::vector<float> l(24000), r(24000);
+              for (int at = 0; at < 24000; at += 480) S.render(l.data() + at, r.data() + at, 480);
+              double fop = 0; for (auto& c : S.ch) if (c.active && c.part == 0) fop = c.op[f.car].fop;
+              // The share of the last 0.1 s that is a sine at the carrier's own frequency.
+              const int from = 19200; double re = 0, im = 0, all = 0;
+              for (int n = from; n < 24000; n++) {
+                  const double x = l[n] + r[n], ph = 2 * PI * fop * (n - from) / SR;
+                  re += x * cos(ph); im += x * sin(ph); all += x * x;
+              }
+              purity[with] = all > 0 ? 2 * (re * re + im * im) / (24000 - from) / all : 0;
+          }
+          ck(f.what, purity[0] > 0.99 && purity[1] < 0.5);
+      }
+      S.all_off(); init_perf(S.perf); }
+
     // The formant window follows the operator's own pitch mod sense, not the channel word at pms 7
     { S.perf.part[0].p[1] = 2; S.perf.part[0].p[4] = 0x10; Voice& V = S.perf.part[0].voice;
       V.v[0].form = 7; V.v[0].fixed = 1; V.v[0].pms = 1; V.pmd = 99; V.lfo1delay = 0;
