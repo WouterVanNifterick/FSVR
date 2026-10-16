@@ -331,8 +331,8 @@ void Synth::render(float* outL, float* outR, int frames) {
         tickAcc += TICK_HZ / SR; while (tickAcc >= 1) { tickAcc -= 1; tick(); }
         // The channels, each panned onto its part's pair. While a part has its filter on the first sixteen
         // pass through the filter chip first, sounding or not, so that a filter rings out after its note.
-        // With fltWide the second chip takes the other sixteen, and a channel of an unfiltered part goes straight on.
-        const int nf = flt_chips() * FILTER_CHANNELS;
+        // With fltWide the other sixteen have filter voices too, and a channel of an unfiltered part goes straight on.
+        const int nf = flt_banks() * FILTER_CHANNELS;
         double pl[4] = {}, pr[4] = {}, v[NCHAN] = {};
         for (int n = 0; n < NCHAN; n++) {
             Chan& c = ch[n];
@@ -340,7 +340,7 @@ void Synth::render(float* outL, float* outR, int frames) {
             const double m = render_chan(c);
             if (n < nf && (c.filtered || !fltWide)) v[n] = m; else { pl[c.part] += m * c.panL; pr[c.part] += m * c.panR; }
         }
-        for (int k = 0; k < flt_chips(); k++) flt[k].run(v + k * FILTER_CHANNELS);
+        flt.run(flt_banks(), v);
         for (int n = 0; n < nf; n++) { pl[ch[n].part] += v[n] * ch[n].panL; pr[ch[n].part] += v[n] * ch[n].panR; }
         // Four stereo buses into the effect chip: dry, insertion, variation send, reverb send. The rest is the chip's.
         double bus[8] = {}, l, r;

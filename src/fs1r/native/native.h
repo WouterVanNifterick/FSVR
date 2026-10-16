@@ -12,15 +12,13 @@ namespace fs1r::native {
 
 using Run = void (*)(yss236_core& core, int from, int to);
 
-// Which of the programs below to run on a chip, from the words the chip's registers hold: the filter
-// chip's on install_filter(), the effect chip's on install_effect(). A window running a program we did not
-// port gets no range and runs on the interpreter, which gives the same answer more slowly. Call these
-// after anything that writes a program word (Vop3::programDirty says when that was), not every pass.
-void install_filter(yss236_core& core);
+// Which of the programs below to run on the effect chip, from the words its registers hold. A window running
+// a program we did not port gets no range and runs on the interpreter, which gives the same answer more
+// slowly. Call it after anything that writes a program word (Vop3::programDirty says when that was).
+// The voice filter is not a chip program here at all: fs1r/native/voice_filter.h.
 void install_effect(yss236_core& core);
 
 // A ported program, by its key in the tracker:
-//   flt                       the filter chip's program, all 512 steps
 //   base                      the effect chip's base program, outside the reverb's steps
 //   rev                       the reverb's steps of the base program
 //   aux                       the aux window's program
@@ -34,7 +32,6 @@ void aux(yss236_core& c, int from, int to);         // aux: the aux window's pro
 void base(yss236_core& c, int from, int to);         // base: the effect chip's base program, its 138 steps
 void dly_m00(yss236_core& c, int from, int to);     // dly-m00: the reverb delay window's program for type msb 00
 void dly_m08(yss236_core& c, int from, int to);     // dly-m08: the reverb delay window's program for type msb 08
-void flt(yss236_core& c, int from, int to);         // flt: the filter chip's program, all 512 steps
 void ins_m00(yss236_core& c, int from, int to);     // ins-m00: the insertion window's program for type msb 00
 void ins_m01(yss236_core& c, int from, int to);     // ins-m01: the insertion window's program for type msb 01
 void ins_m02(yss236_core& c, int from, int to);     // ins-m02: the insertion window's program for type msb 02

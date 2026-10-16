@@ -85,12 +85,6 @@ void mark_window(bool taken[], bool covered[], int window)
 
 }  // namespace
 
-// The filter chip runs one program for every type it has, so all 512 steps are ours.
-void install_filter(yss236_core& c)
-{
-    c.natives = Runs{{0, yss236_core::STEPS, flt}};
-}
-
 // The effect chip's steps, as far as we have C++ for what is loaded on it.
 //
 //   base      every step no window owns

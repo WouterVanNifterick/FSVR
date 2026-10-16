@@ -1,6 +1,8 @@
 # The VOP3 programs in C++
 
-FSVR runs both of the FS1R's VOP3 chips on an emulated YSS236: the filter chip (VOP3-1) and the effect chip (VOP3-2) execute the firmware's own microcode, compiled at run time by the JIT in `src/fs1r/chips/yss236_jit.cpp` and checked against the interpreter in `src/fs1r/chips/yss236_core.h` by the `vop3_jit` test. This port replaces that microcode, program by program, with C++ that produces the same result bit for bit.
+The FS1R runs its voice filters and its effects on two VOP3 chips executing the firmware's own microcode. FSVR replaces that microcode with C++ that produces the same result bit for bit, and the interpreter in `src/fs1r/chips/yss236_core.h` stays only as the reference the C++ is checked against.
+
+The voice filter is done and is no longer a chip program at all: `src/fs1r/native/voice_filter.h` is one voice's resonant ladder as plain DSP, and `src/fs1r/filter.h` runs one per channel (32 of them), programmed by the firmware's filter host. The effect programs are still run on the effect chip's state, one native per program, which is what the rest of this brief describes.
 
 The tracker is `docs/vop3_native/status.json`, one row per chip program the FS1R loads, and the public view of it is https://ai.musica.studio/effects. Work happens on the `vop3-native` branch only.
 

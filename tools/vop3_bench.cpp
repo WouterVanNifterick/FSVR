@@ -39,8 +39,7 @@ int main(int argc, char** argv) {
     fx->host.setByte(H::REVERB_TYPE, 1);       // Hall 1
     fx->host.setByte(H::VARIATION_TYPE, 1);    // Chorus
 
-    auto flt = std::make_unique<Filter>();
-    flt->chip.core.interpret = interp;
+    auto flt = std::make_unique<Filter::Bank>();
     { using namespace H::filter;
       uint8_t v[H::FilterHost::VOICE_BYTES] = {}, r[H::FilterHost::PART_BYTES] = {};
       for (int i = 0x18; i <= 0x23; i++) r[i] = 64;

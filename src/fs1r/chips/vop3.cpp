@@ -25,20 +25,28 @@ void Vop3::write(uint32_t reg, uint16_t v)
         case SLOT_HIGH:
         case SLOT_LOW:      core.slot[step & (yss236_core::SLOTS - 1)][reg - SLOT_HIGH] = v; break;
         case TRIGGER:       core.trigger(); break;
+        default:            Modulators::write(reg, step, v); break;   // the rest is the EGs and LFOs, or not modelled
+    }
+}
+
+// The EG and LFO registers; serial port setup and the mute are not modelled.
+bool Modulators::write(uint32_t reg, int step, uint16_t v)
+{
+    switch (reg) {
         case LFO_RESET:     // to the start phase, LFO_WAVE's low 5 bits
-            for (int n = 0; n < yss236_core::LFOS; n++) if (v >> n & 1) phase[n] = (uint32_t)(lfoReg[n][1] & 0x1f) << 27;
-            break;
-        case EG_STATUS:     enable = v; break;
+            for (int n = 0; n < 16; n++) if (v >> n & 1) phase[n] = (uint32_t)(lfoReg[n][1] & 0x1f) << 27;
+            return true;
+        case EG_STATUS:     enable = v; return true;
         case LFO_SPEED: case LFO_WAVE: case LFO_DEPTH:
-        case LFO_DIRECTION: lfoReg[step & (yss236_core::LFOS - 1)][reg - LFO_SPEED] = v; break;
+        case LFO_DIRECTION: lfoReg[step & 15][reg - LFO_SPEED] = v; return true;
         case EG_RATE: case EG_TARGET:
-        case EG_AIM:        if (step < 16) egWrite(step, reg, v); break;
-        default:            break;      // serial port setup and the mute: not modelled
+        case EG_AIM:        if (step < 16) egWrite(step, reg, v); return true;
+        default:            return false;
     }
 }
 
 // EG_STATUS read: bit 4 and the lowest channel whose segment ended, of those enabled.
-uint16_t Vop3::read(uint32_t reg) const
+uint16_t Modulators::read(uint32_t reg) const
 {
     const uint16_t p = done & enable;
     if ((reg & 0xff) != EG_STATUS || !p) return 0;
@@ -54,7 +62,7 @@ uint16_t Vop3::read(uint32_t reg) const
 // so a segment whose rate is written last starts as well.
 // OPEN: a segment armed within two units of its target ends after cal::FEG_FLAT_S whatever its rate.
 // That is what the unit was measured to do. How it does it is not known.
-void Vop3::egWrite(int n, uint32_t reg, uint16_t v)
+void Modulators::egWrite(int n, uint32_t reg, uint16_t v)
 {
     Eg& g = eg[n];
     if (reg == EG_AIM) { g.aim = (int16_t)v; return; }
@@ -72,7 +80,7 @@ void Vop3::egWrite(int n, uint32_t reg, uint16_t v)
 }
 
 // An LFO's value, -1..1 times its depth: its LFO_SPEED, LFO_WAVE and start phase, LFO_DEPTH, LFO_DIRECTION.
-float Vop3::lfo(int n) const
+float Modulators::lfo(int n) const
 {
     const uint16_t* reg = lfoReg[n];
     const float x = (float)phase[n] * (1.0f / 4294967296.0f);
@@ -102,7 +110,7 @@ float Vop3::lfo(int n) const
 // The speed word is 10 bits, cycles per sample * 2^20 (s41: the effects modulate at the Data List's LFO Freq).
 // A full LFO fills a register at 128.
 // OPEN: the EGs step once a sample here; the chip's own step rate is not known.
-void Vop3::run()
+void Modulators::step()
 {
     for (int n = 0; n < 16; n++) {
         Eg& g = eg[n];
@@ -111,16 +119,23 @@ void Vop3::run()
             else g.level = std::clamp(g.level + (g.aim - g.level) * g.k, -512.0, 511.0);
             if (g.side && !g.flat && (g.level - g.target) * g.side <= 0) { g.level = g.target; g.side = 0; done |= 1u << n; }
         }
-        core.in[3][n] = g.level * (yss236_core::RANGE / 512);
+        egOut[n] = g.level * (yss236_core::RANGE / 512);
     }
-    for (int n = 0; n < yss236_core::LFOS; n++) {
+    for (int n = 0; n < 16; n++) {
         const uint32_t was = phase[n];
         phase[n] = was + ((uint32_t)(lfoReg[n][0] & 0x3ff) << 12);
         if (((lfoReg[n][1] >> 5) & 7) == SAMPLE_HOLD && phase[n] < was) {
             rnd = rnd * 1664525u + 1013904223u;
             hold[n] = (float)(int16_t)(rnd >> 16) * (1.0f / 32768.0f);
         }
-        core.lfo[n] = lfo(n) * yss236_core::RANGE;
+        lfoOut[n] = lfo(n) * yss236_core::RANGE;
     }
+}
+
+void Vop3::run()
+{
+    step();
+    std::copy(egOut, egOut + 16, core.in[3]);
+    std::copy(lfoOut, lfoOut + 16, core.lfo);
     core.pass();
 }

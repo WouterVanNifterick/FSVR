@@ -7,7 +7,9 @@
 //   vop3_native_check --dump <key> [dir]   the program's steps as the core holds them, decoded; with dir also
 //                                      <dir>/<key>.prog and .coef for tools/vop3_disasm.py
 //
-// Two effect sections (two filter sections for flt) take the same performance, the same parameter changes
+// flt is the voice filter (fs1r/native/voice_filter.h) against the chip running the firmware's filter program,
+// compared slot by slot every sample. For the effect programs: two effect sections take the same performance,
+// the same parameter changes
 // and the same input. Both run on the interpreter, and one hands the program's steps to the native function
 // whenever that program is loaded. After every pass the two cores must hold the same state, and the first
 // field that differs is printed with the type and the pass. Each type is loaded over the last, so a program
@@ -27,6 +29,7 @@
 #include "fs1r/effects.h"
 #include "fs1r/filter.h"
 #include "fs1r/native/native.h"
+#include "vop3_chip_filter.h"
 #include "vop3_state_diff.h"
 
 namespace H = fs1r::vop3host;
@@ -178,43 +181,58 @@ static void checkEffects(const Target& t, int n, Tally& tl, bool quiet) {
         }
 }
 
-// The six filter types on every slot, notes starting and releasing, cutoff and resonance moving halfway
-static void checkFilter(int n, Tally& tl, bool quiet) {
-    auto fa = std::make_unique<Filter>(), fb = std::make_unique<Filter>();
-    fa->chip.core.interpret = true;
-    const Ranges pin = rangesFor({"flt", FLT, 0}, fb->chip.core);
-    auto pinRanges = [&]{ fb->chip.core.natives = pin; fb->chip.programDirty = false; };
-    pinRanges();
+// The self check's natives: the interpreter itself, and the interpreter leaving every register a hair off.
+// Not the running value: a later step overwrites it before anything reads it, so that native is no different
+// from the program, and the check rightly calls it identical.
+static void passThrough(yss236_core& c, int from, int to) { for (int st = from; st < to; st++) c.step(st); }
+static void hairOff(yss236_core& c, int from, int to) { passThrough(c, from, to); for (double& v : c.r) v += 1.0 / 65536; }
+
+// The filter has no chip program any more: fs1r::native::VoiceFilter, sixteen of them in a Filter::Bank,
+// against the chip running the firmware's filter program (vop3_chip_filter.h), every slot's output compared
+// every sample. The six filter types, notes starting and releasing, cutoff and resonance moving halfway, the
+// host's clear, and a slot killed and taken again; `tamper` puts a hair on one voice's state each sample,
+// which the self check expects to be caught.
+static void checkFilter(int n, Tally& tl, bool quiet, bool tamper = false) {
+    auto fa = std::make_unique<ChipFilter>();
+    auto fb = std::make_unique<Filter::Bank>();
     for (int type = 0; type < 6; type++) {
         using namespace H::filter;
         uint8_t v[H::FilterHost::VOICE_BYTES] = {}, r[H::FilterHost::PART_BYTES] = {};
         for (int i = 0x18; i <= 0x23; i++) r[i] = 64;
         r[PART_LFO2_SPEED] = r[PART_LFO2_DEPTH] = 64;
         v[FILTER_TYPE] = (uint8_t)type; v[CUTOFF] = 70; v[RESONANCE] = 90; v[KEY_SCALE_DEPTH] = 64; v[KEY_SCALE_POINT] = 60;
-        v[INPUT_GAIN] = 12; v[EG_DEPTH] = 90; v[CUTOFF_LFO2] = 40;
+        v[INPUT_GAIN] = 12; v[EG_DEPTH] = 90; v[CUTOFF_LFO2] = 40; v[LFO2_WAVE] = uint8_t(type % 6); v[LFO2_KEY_SYNC] = type & 1;
         for (int i = EG_L4; i <= EG_L3; i++) v[i] = 20 + 10 * (i - EG_L4);
-        for (Filter* f : {fa.get(), fb.get()}) {
-            f->reset();
-            for (int p = 0; p < 4; p++) f->sync(p, v, r, 0, 0, 0);
-            for (int s = 0; s < 16; s++) f->host.noteOn(s, s & 3, 36 + 3 * s, 64 + 4 * s);
-        }
+        auto both = [&](auto&& f) { f(*fa); f(*fb); };
+        both([&](auto& f) {
+            f.reset();
+            for (int p = 0; p < 4; p++) f.sync(p, v, r, 0, 0, 0);
+            for (int s = 0; s < 16; s++) f.host.noteOn(s, s & 3, 36 + 3 * s, 64 + 4 * s);
+        });
         tl.types++;
         for (int i = 0; i < n; i++) {
             if (i == n / 2) {
                 v[CUTOFF] = uint8_t(rnd() % 128); v[RESONANCE] = uint8_t(rnd() % 128);
-                for (Filter* f : {fa.get(), fb.get()}) {
-                    for (int p = 0; p < 4; p++) f->sync(p, v, r, 0, 0, 0);
-                    for (int s = 0; s < 16; s += 2) f->host.noteOff(s);
-                }
+                const int mod = int(rnd() % 255) - 127;
+                both([&](auto& f) {
+                    for (int p = 0; p < 4; p++) f.sync(p, v, r, mod, mod / 2, -mod / 3);
+                    for (int s = 0; s < 16; s += 2) f.host.noteOff(s);
+                    f.host.setSlotCutoffMod(3, mod); f.host.flush();
+                });
             }
+            if (i == 3 * n / 4) both([&](auto& f) { f.host.kill(5); f.host.noteOn(5, 2, 77, 30); });
             double xa[16], xb[16];
-            for (int s = 0; s < 16; s++) xa[s] = xb[s] = noise();
-            pinRanges();
+            for (int s = 0; s < 16; s++) xa[s] = xb[s] = noise() + (i % 2400 == 0 ? 0.9 : 0.0);
             fa->run(xa); fb->run(xb);
+            if (tamper) fb->voice[7].s3 += 1.0 / 65536;
             tl.passes++;
-            if (!same("filter", type, i, fa->chip.core, fb->chip.core, !std::memcmp(xa, xb, sizeof xa), quiet)) { tl.bad = true; return; }
+            for (int s = 0; s < 16; s++)
+                if (std::memcmp(&xa[s], &xb[s], 8)) {
+                    if (!quiet) std::printf("  filter type %d: slot %d differs after sample %d (chip %.17g, native %.17g)\n", type, s, i, xa[s], xb[s]);
+                    tl.bad = true;
+                    return;
+                }
         }
-        if (!same("filter", type, n - 1, fa->chip.core, fb->chip.core, true, quiet, true)) { tl.bad = true; return; }
     }
 }
 
@@ -222,10 +240,10 @@ static void checkFilter(int n, Tally& tl, bool quiet) {
 static const char* check(const Target& t, N::Run run, int n, Tally& tl, bool quiet = false) {
     g_run = run; g_calls = 0; seed = 12345; rng = 88172645463325252ull;
     tl = {};
-    if (t.area == FLT) checkFilter(n, tl, quiet); else checkEffects(t, n, tl, quiet);
+    if (t.area == FLT) checkFilter(n, tl, quiet, run == hairOff); else checkEffects(t, n, tl, quiet);
     if (tl.bad) return "differs";
     if (!tl.types) return "unused";
-    if (!g_calls) { if (!quiet) std::printf("  the native was attached but never called\n"); return "differs"; }
+    if (t.area != FLT && !g_calls) { if (!quiet) std::printf("  the native was attached but never called\n"); return "differs"; }
     return "identical";
 }
 
@@ -236,45 +254,6 @@ static int installedCheck(int n) {
     Tally tl;
     g_run = nullptr;
     int fails = 0;
-    {   // the filter chip: one program over all 512 steps, every type
-        auto fa = std::make_unique<Filter>(), fb = std::make_unique<Filter>();
-        fa->chip.core.interpret = true;
-        fb->chip.core.interpret = false;
-        fb->chip.programDirty = false;
-        N::install_filter(fb->chip.core);
-        const bool runs = !fb->chip.core.natives.empty();
-        if (!runs) { std::printf("installed flt: no ranges\n"); fails++; }
-        for (int type = 0; type < 6; type++) {
-            using namespace H::filter;
-            uint8_t v[H::FilterHost::VOICE_BYTES] = {}, r[H::FilterHost::PART_BYTES] = {};
-            for (int i = 0x18; i <= 0x23; i++) r[i] = 64;
-            r[PART_LFO2_SPEED] = r[PART_LFO2_DEPTH] = 64;
-            v[FILTER_TYPE] = (uint8_t)type; v[CUTOFF] = 70; v[RESONANCE] = 90; v[KEY_SCALE_DEPTH] = 64; v[KEY_SCALE_POINT] = 60;
-            v[INPUT_GAIN] = 12; v[EG_DEPTH] = 90; v[CUTOFF_LFO2] = 40;
-            for (int i = EG_L4; i <= EG_L3; i++) v[i] = 20 + 10 * (i - EG_L4);
-            for (Filter* f : {fa.get(), fb.get()}) {
-                f->reset();
-                for (int p = 0; p < 4; p++) f->sync(p, v, r, 0, 0, 0);
-                for (int s = 0; s < 16; s++) f->host.noteOn(s, s & 3, 36 + 3 * s, 64 + 4 * s);
-            }
-            tl.types++;
-            for (int i = 0; i < n; i++) {
-                if (i == n / 2) {
-                    v[CUTOFF] = uint8_t(rnd() % 128); v[RESONANCE] = uint8_t(rnd() % 128);
-                    for (Filter* f : {fa.get(), fb.get()}) {
-                        for (int p = 0; p < 4; p++) f->sync(p, v, r, 0, 0, 0);
-                        for (int s = 0; s < 16; s += 2) f->host.noteOff(s);
-                    }
-                }
-                double xa[16], xb[16];
-                for (int s = 0; s < 16; s++) xa[s] = xb[s] = noise();
-                fa->run(xa); fb->run(xb);
-                tl.passes++;
-                if (!same("installed filter", type, i, fa->chip.core, fb->chip.core, !std::memcmp(xa, xb, sizeof xa), false)) { fails++; break; }
-            }
-            fb->chip.programDirty = false;
-        }
-    }
     {   // the effect chip: every block on every type, with install() picking all of them at once
         auto ea = std::make_unique<Effects>(), eb = std::make_unique<Effects>();
         ea->chip.core.interpret = true;
@@ -318,11 +297,6 @@ static int installedCheck(int n) {
     return fails;
 }
 
-// The self check's natives: the interpreter itself, and the interpreter leaving every register a hair off.
-// Not the running value: a later step overwrites it before anything reads it, so that native is no different
-// from the program, and the check rightly calls it identical.
-static void passThrough(yss236_core& c, int from, int to) { for (int st = from; st < to; st++) c.step(st); }
-static void hairOff(yss236_core& c, int from, int to) { passThrough(c, from, to); for (double& v : c.r) v += 1.0 / 65536; }
 
 static int selfTest() {
     int fails = 0;
@@ -360,7 +334,7 @@ static int dump(const std::string& key, const char* dir) {
     Target t;
     if (!parse(key, t)) { std::printf("no program is called %s\n", key.c_str()); return 2; }
     auto e = std::make_unique<Effects>();
-    auto f = std::make_unique<Filter>();
+    auto f = std::make_unique<ChipFilter>();
     const yss236_core* k = &f->chip.core;
     std::string under = "the filter chip as booted, every slot's type at LPF24";
     if (t.area != FLT) {
@@ -407,7 +381,7 @@ static int dump(const std::string& key, const char* dir) {
 static int one(const std::string& key, N::Run run, int n) {
     Target t;
     if (!parse(key, t)) { std::printf("no program is called %s (flt, base, rev, aux, ins-mNN, dly-mNN, var-mNN)\nRESULT %s unported 0 0\n", key.c_str(), key.c_str()); return 2; }
-    if (!run) { std::printf("%s has no native in src/fs1r/native/native.cpp yet\nRESULT %s unported 0 0\n", key.c_str(), key.c_str()); return 2; }
+    if (!run && t.area != FLT) { std::printf("%s has no native in src/fs1r/native/native.cpp yet\nRESULT %s unported 0 0\n", key.c_str(), key.c_str()); return 2; }
     Tally tl;
     const char* r = check(t, run, n, tl);
     std::printf("%-6s %d types, %lld native passes: %s\nRESULT %s %s %d %lld\n", key.c_str(), tl.types, tl.passes, r, key.c_str(), r, tl.types, tl.passes);
@@ -423,7 +397,7 @@ int main(int argc, char** argv) {
         const N::Program* p = N::find(argv[1]);
         return one(argv[1], p ? p->run : nullptr, argc > 2 ? std::atoi(argv[2]) : 9600);
     }
-    int fails = 0;
+    int fails = one("flt", nullptr, 9600) != 0;      // the voice filter, which is no chip program
     for (const N::Program* p = N::PROGRAMS; p->key; p++) fails += one(p->key, p->run, 2400) != 0;
     fails += selfTest();
     fails += installedCheck(2400);

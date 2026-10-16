@@ -10,7 +10,6 @@ const Program PROGRAMS[] = {
     {"base", base},
     {"dly-m00", dly_m00},
     {"dly-m08", dly_m08},
-    {"flt", flt},
     {"ins-m00", ins_m00},
     {"ins-m01", ins_m01},
     {"ins-m02", ins_m02},

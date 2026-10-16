@@ -21,8 +21,8 @@
    "passes": 57600,
    "commit": null,
    "start_from": "git show a9cb37d^:src/fs1r/chips/vop3_filter.h (the measured 4-pole ladder and 2-pole state-variable structure), docs/filter.md",
-   "note": "Whole program transcribed and tidied: every step written out, the registers and cells named, the page and lane schedule in the header. The three things that move with a parameter are read from the core (coefficients, the sixteen tap steps setType points at a slot's filter output, and the gated block that only the host's trigger opens). Checker says identical on all six types, 57600 native passes.",
-   "updated": "2026-10-15T19:53:53Z",
+   "note": "Rewritten as plain DSP, no chip: src/fs1r/native/voice_filter.h is one voice's ladder (the program's 16 voices share nothing), src/fs1r/filter.h runs one per channel, 32 in two banks of 16 host slots. vop3_native_check flt compares it slot by slot against the chip running the firmware's program: identical, 6 types, 57600 samples x 16 slots.",
+   "updated": "2026-10-16T12:00:00Z",
    "sessions": 1
   },
   {

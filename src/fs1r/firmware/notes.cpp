@@ -18,7 +18,7 @@ void Synth::filter_latch() {
     if (sw == fltSw && filter32 == fltWide) return;
     all_off();
     fltSw = sw; fltWide = filter32;
-    flt[0].reset(); flt[1].reset();
+    flt.reset();
     nextChan[0] = nextChan[1] = 0; nextChan[2] = FILTER_CHANNELS;
     for (int p = 0; p < 4; p++) partChan[p] = sw && !fltWide && !(sw >> p & 1) ? FILTER_CHANNELS : 0;
 }
@@ -31,7 +31,7 @@ void Synth::filter_sync(int part) {
     static const int BYTE[6] = {PART_CUTOFF, PART_RESONANCE, PART_EG_DEPTH, PART_ATTACK, PART_DECAY, PART_RELEASE};
     uint8_t rec[fs1r::vop3host::FilterHost::PART_BYTES]; memcpy(rec, pt.p, sizeof rec);
     for (int d = 0; d < 6; d++) rec[BYTE[d]] = (uint8_t)ctrl_part(part, 21 + d, pt.p[BYTE[d]]);
-    for (int k = 0; k < flt_chips(); k++) flt[k].sync(part, pt.voice.raw, rec, ctrl_offset(part, 42), ctrl_offset(part, 44), ctrl_offset(part, 45));
+    flt.sync(flt_banks(), part, pt.voice.raw, rec, ctrl_offset(part, 42), ctrl_offset(part, 44), ctrl_offset(part, 45));
 }
 
 void Synth::note_on(int part, int note, int vel) {
@@ -102,7 +102,7 @@ void Synth::note_on(int part, int note, int vel) {
     cursor = slot; partChan[part] = slot;
     // FUN_000112c0: the filter slot is silenced before the note takes it. With fltWide an unfiltered note can
     // take a channel a filtered one rang out on, so its slot is silenced too.
-    if (filtered || (fltSw && fltWide)) flt[slot >> 4].host.kill(slot & 15);
+    if (filtered || (fltSw && fltWide)) flt.host(slot).kill(slot & 15);
     Chan& C = *c; bool sync = V.lfo1sync != 0; uint32_t keepPhase = C.lfoPhase;
     // FUN_00023000: the firmware damps the channel it is about to take, it does not silence it. The mask
     // it is called with comes out of the one-hot table at 0x35B260 indexed by the allocated channel, and
@@ -127,7 +127,7 @@ void Synth::note_on(int part, int note, int vel) {
     if (fseq.valid && fseqPart == part && ((perf.c[0x24] & 1) || !anyOther(C))) fseq_start(vel);
     // The filter slot starts before the tone generator's registers are written: its modulation word
     // (FUN_0002a47c), then the note (FUN_0000b0e8), which takes the note after its shifts and the curved velocity.
-    if (filtered) { filter_sync(part); auto& h = flt[slot >> 4].host; h.setSlotCutoffMod(slot & 15, filter_mod(C)); h.noteOn(slot & 15, part, C.noteP, vel); }
+    if (filtered) { filter_sync(part); auto& h = flt.host(slot); h.setSlotCutoffMod(slot & 15, filter_mod(C)); h.noteOn(slot & 15, part, C.noteP, vel); }
     refresh_regs(C, pt);
     if (getenv("FS1R_DEBUG")) {
         printf("note %d vel %d -> note' %d pitch %d keyfact %d C0 %d\n", note, vel, C.noteP, C.pitchNote, C.keyfact, C.regC0);
@@ -280,7 +280,7 @@ void Synth::note_off(int part, int note) {
 void Synth::release(Chan& C) {
     for (auto& s : C.op) { s.eg.release(); s.ueg.release(); }
     const int slot = int(&C - ch);
-    if (C.filtered) flt[slot >> 4].host.noteOff(slot & 15);   // FUN_00010a52
+    if (C.filtered) flt.host(slot).noteOff(slot & 15);   // FUN_00010a52
     C.pegStage = 4; C.pegTarget = C.pegLvl[4]; C.pegRate = C.pegRt[4];
     fseq_keys();
 }
@@ -411,7 +411,7 @@ void Synth::tick() {
         if (!C.active) continue;
         const Part& pt = perf.part[C.part];
         lfo_tick(C, pt); peg_tick(C); porta_tick(C); refresh_regs(C, pt);
-        if (C.filtered) flt[n >> 4].host.setSlotCutoffMod(n & 15, filter_mod(C));   // FUN_0002c998
+        if (C.filtered) flt.host(n).setSlotCutoffMod(n & 15, filter_mod(C));   // FUN_0002c998
     }
-    for (int k = 0; k < flt_chips(); k++) flt[k].host.flush();
+    flt.flush(flt_banks());
 }

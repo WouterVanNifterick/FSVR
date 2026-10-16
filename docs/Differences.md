@@ -17,26 +17,31 @@ channels 0 to 15 (`FUN_0000fa5c`), parts with it off get 16 to 31 (`FUN_0000fcfa
 share 16 voices between them, and a 17th filtered note steals one even when the other half is idle; the
 unfiltered parts are capped at 16 the same way.
 
-**FSVR.** The VOP3 is emulated, so FSVR runs a second VOP3-1, filtering channels 16 to 31, alongside the
-unit's on 0 to 15. Channel n is slot `n & 15` on chip `n >> 4`. Both chips run the same filter program, host
-and calibration; nothing about the second needed a new constant.
+**FSVR.** FSVR does not emulate the filter chip: it runs what the chip's program computes, one resonant ladder
+per voice (`fs1r::native::VoiceFilter`, checked bit for bit against the chip's program by
+`vop3_native_check flt`). A voice is as cheap to add as a struct, so every one of the 32 channels has one.
+The firmware's filter host drives sixteen slots, so the 32 voices are two banks of sixteen, each with its own
+host, EGs and LFO2s (`Filter::Bank`); channel n is slot `n & 15` of bank `n >> 4`. Both banks run the same
+host and calibration; nothing about the second needed a new constant.
 
 - **Allocation.** With both chips there is nothing to split: the allocator walks all 32 channels with the one
   cursor and the stealing rules it uses when no filter is on.
 - **Routing.** A note is filtered when its part's filter switch is on, whichever channel it lands on
   (`Chan::filtered`). A channel of a part with its filter off goes straight to its part's bus, bypassing the
-  chip. Note on, note off, the cutoff modulation every tick and all-notes-off go to the slot on the note's own
-  chip.
+  filter. Note on, note off, the cutoff modulation every tick and all-notes-off go to the slot in the note's own
+  bank.
 - **Ring-out.** Once its note ends, a filtered channel keeps passing through its slot, so the filter rings out
   as on the unit. When a note from a part with its filter off takes that channel, the slot is silenced first,
   the same way the unit silences a slot before a filtered note takes it.
-- **Cost.** The second chip only runs while a part has its filter on, and only in this mode.
+- **Cost.** The second bank only runs while a part has its filter on, and only in this mode.
+- **A type byte past BEF.** On the unit it points a slot's output step at a register the byte happens to
+  name, which is another voice's state rather than a filter; FSVR plays silence there. No voice holds one.
 
 It is the default. Options > Special > 32 Filtered Voices switches it off (`Device::setFilterPoly32(false)`,
 `-flt16` on the console); the setting is kept in `Settings.json` for every instance. Off is the unit's 16 and
 renders bit-identically to the single-chip engine: all fifteen demo songs were checked. Changing the setting
-stops every note, as a filter switch does. Nothing about the second chip can be measured, since the unit has
-none.
+stops every note, as a filter switch does. Nothing about the second bank can be measured, since the unit has
+no second chip.
 
 ## 14-bit pitch bend
 
