@@ -1,8 +1,8 @@
 // license:BSD-3-Clause
 // copyright-holders:Wouter van Nifterick
 
-// The FS1R's filter host: what the CPU does to run the sixteen voice filters on their chip.
-// A slot is one filter. Slot s takes tone generator channel s and runs on the chip's channel (s + 2) & 15.
+// The FS1R's filter host: what the CPU does to run the sixteen voice filters.
+// A slot is one filter. Slot s takes tone generator channel s, which the unit runs on DSP channel (s + 2) & 15.
 #pragma once
 #include <cstdint>
 
@@ -57,9 +57,9 @@ struct FilterHost : ChipHost {
 
     uint8_t voice[4][VOICE_BYTES] = {}, part[4][PART_BYTES] = {};   // each part's voice and record
 
-    void boot();                                         // the program; every slot muted and every EG held
+    void boot();                                         // the constants; every slot muted and every EG held
     void freeSlots();
-    void clearStates();                                  // every filter's state registers
+    void clearStates();                                  // every filter's state
     void noteOn(int slot, int part, int note, int vel);
     void noteOff(int slot);                              // the EG's release
     void kill(int slot);
@@ -73,7 +73,6 @@ struct FilterHost : ChipHost {
     void flush();                                        // applies what was marked
 
     // ---- state ----
-    uint16_t prog[512][5] = {};                          // the program, as uploaded and patched since
     uint8_t slotPart[16] = {}, note[16] = {}, vel[16] = {};   // what each slot plays; part 16 is a free slot
     uint8_t type[16] = {}, stage[16] = {};               // its filter type, and its EG's Stage
     int8_t slotMod[16] = {}, ksDepth[16] = {};

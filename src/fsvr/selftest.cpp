@@ -28,7 +28,13 @@ void setParam(H::EffectHost& h, Block b, int slot, int word) {   // slot 1..16
 struct HashSink : H::WriteSink {
     uint64_t h = 1469598103934665603ull;
     uint32_t status = 0;
-    void write(uint32_t reg, uint32_t v) override { h = (h ^ (reg << 16 | v)) * 1099511628211ull; if (reg == vop3::EG_RATE) status = 0; }
+    uint32_t sel = 0; bool pending = false;   // a SELECT counts once a write it selects for follows it
+    void write(uint32_t reg, uint32_t v) override {
+        if (reg == vop3::EG_RATE) status = 0;
+        if (reg == vop3::SELECT) { sel = v; pending = true; return; }
+        if (pending) { h = (h ^ sel) * 1099511628211ull; pending = false; }
+        h = (h ^ (reg << 16 | v)) * 1099511628211ull;
+    }
     uint32_t read(uint32_t) override { return status; }
 };
 }  // namespace fx
@@ -942,13 +948,12 @@ int selftest(Synth& S) {
         float inserted = peak();
         S.perf.fx[179 - 80] = 0;
         float silent = peak();
-        ck("engine: a note sounds through the effect chip", direct > 0.001f);
+        ck("engine: a note sounds through the effects", direct > 0.001f);
         ck("engine: a part on the insertion is heard through it", inserted > direct * 0.1f);
         ck("engine: a part on the insertion has no dry path", silent < direct * 0.001f);
         init_perf(S.perf); }
       // 7. the host's register writes, pinned: its start and a load, every type with each parameter at both ends,
-      //    the mixer and EQ bytes, the controller offsets, and a load of every byte. build/oracle's pin mode
-      //    replays the same against the reference.
+      //    the mixer and EQ bytes, the controller offsets, and a load of every byte.
       { namespace H = fs1r::vop3host;
         fx::HashSink sink;
         auto h = std::make_unique<H::EffectHost>(); h->sink = &sink;
@@ -972,23 +977,23 @@ int selftest(Synth& S) {
         for (int i = 0; i < (int)H::COMMON_BYTES; i++) perf[i] = (uint8_t)((i * 29 + 7) & 127);
         perf[H::REVERB_TYPE] %= 17; perf[H::VARIATION_TYPE] %= 29; perf[H::INSERTION_TYPE] %= 41;   // types the unit has
         h->load(perf);
-        ck("effect host: its register writes are the firmware's", sink.h == 0x424348fb986bc6b3ull); }
-      // 8. the chip's EG generators: a segment's time, its report, the acknowledgement, and a segment with no swing
-      { auto c = std::make_unique<Vop3>();
-        auto w = [&](int ch, int reg, int v) { c->write(vop3::SELECT, (uint16_t)ch); c->write(reg, (uint16_t)v); };
+        ck("effect host: its register writes are the firmware's", sink.h == 0x573bae0212dcff1eull); }
+      // 8. the filter's EG generators: a segment's time, its report, the acknowledgement, and a segment with no swing
+      { auto c = std::make_unique<Modulators>();
+        auto w = [&](int ch, int reg, int v) { c->write(reg, ch, (uint16_t)v); };
         using namespace vop3;
-        auto wait = [&] { int n = 0; while (!c->read(EG_STATUS) && n < SR * 4) { c->run(); n++; } return n / (double)SR; };
-        c->write(EG_STATUS, 0xffff);
+        auto wait = [&] { int n = 0; while (!c->read(EG_STATUS) && n < SR * 4) { c->step(); n++; } return n / (double)SR; };
+        c->write(EG_STATUS, 0, 0xffff);
         w(3, EG_RATE, 0); w(3, EG_TARGET, -200); w(3, EG_RATE, 120); w(3, EG_TARGET, 200); w(3, EG_AIM, 400);   // -200 to 200, the aim half the swing past
         double took = wait(), law = cal::FEG_SEG_S * pow(2.0, 120 / cal::FEG_RATE_OCT);
-        ck("filter chip: an EG segment takes the law's time and reports its channel", fabs(took / law - 1) < 0.01 && c->read(EG_STATUS) == (0x10 | 3));
+        ck("filter EG: an EG segment takes the law's time and reports its channel", fabs(took / law - 1) < 0.01 && c->read(EG_STATUS) == (0x10 | 3));
         w(3, EG_RATE, 255);
-        ck("filter chip: a rate write acknowledges the segment", c->read(EG_STATUS) == 0 && c->eg[3].level == 200);
+        ck("filter EG: a rate write acknowledges the segment", c->read(EG_STATUS) == 0 && c->eg[3].level == 200);
         w(5, EG_RATE, 0); w(5, EG_TARGET, 100); w(5, EG_RATE, 40); w(5, EG_TARGET, 102); w(5, EG_AIM, 103);
-        ck("filter chip: a segment with no swing takes FEG_FLAT_S", fabs(wait() - cal::FEG_FLAT_S) < 0.001); }
+        ck("filter EG: a segment with no swing takes FEG_FLAT_S", fabs(wait() - cal::FEG_FLAT_S) < 0.001); }
       // 9. the filter host's register writes, pinned: sixteen notes through their EG segments, over every filter type
       //    and LFO2 wave, the key sync and the firmware's slip, the sensitivities either side of 7 and segments with no
-      //    swing; then the part offsets and every byte marked alone. build/oracle_flt's pin mode replays the same.
+      //    swing; then the part offsets and every byte marked alone.
       { using namespace fs1r::vop3host::filter;
         fx::HashSink sink;
         auto f = std::make_unique<fs1r::vop3host::FilterHost>(); f->sink = &sink;
@@ -1014,7 +1019,7 @@ int selftest(Synth& S) {
             for (int i = 0; i < f->PART_BYTES; i++) { f->mark(f->PART + i, p); f->flush(); } }
         for (int s = 0; s < 16; s++) f->kill(s);
         f->freeSlots();
-        ck("filter host: its register writes are the firmware's", sink.h == 0x883806b071ca74f9ull); }
+        ck("filter host: its register writes are the firmware's", sink.h == 0xf188051d637d4182ull); }
     }
 
     printf(g_fails ? "selftest: %d FAILURES\n" : "selftest: ok\n", g_fails);

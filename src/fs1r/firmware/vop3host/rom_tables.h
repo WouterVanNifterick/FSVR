@@ -396,20 +396,9 @@ extern const uint8_t TYPE_MAP_REVERB[17][2];
 extern const uint8_t TYPE_MAP_VARIATION[29][2];
 extern const uint8_t TYPE_MAP_INSERTION[41][2];
 extern const uint8_t INSERTION_CONTROL[41][14];
-extern const uint8_t BASE_TAGS[2][232];
-extern const uint16_t BASE_PROGRAM[232][5];
-extern const uint16_t AUX_PROGRAM[40][5];
-extern const uint16_t INSERTION_PROGRAMS[1440][5];   // 15 programs of 96 steps, by type msb
-extern const uint16_t REVERB_DELAY_PROGRAMS[864][5];   // 12 programs of 72 steps, by type msb
-extern const uint16_t VARIATION_PROGRAMS[864][5];   // 12 programs of 72 steps, by type msb
-extern const uint8_t AUX_TAGS[40];
-extern const uint8_t INSERTION_TAGS[1440];   // 15 programs of 96 steps, by type msb
-extern const uint8_t DELAY_TAGS[864];   // 12 programs of 72 steps, by type msb
 
 namespace flt {
-extern const uint16_t PROGRAM[512][5];
 extern const uint16_t CONSTANTS[512];
-extern const uint8_t TAGS[512];
 extern const uint8_t CFG16[15];
 extern const uint16_t LFO2_SPEED[128];
 extern const uint16_t LFO2_PHASE[128];

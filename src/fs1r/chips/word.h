@@ -2,8 +2,8 @@
 //
 // Values are doubles in register units: a register wraps or saturates at +-128, the running sum wraps at
 // +-256, a cell clips at +-128, a delay RAM word at +-32 and a t register holds a 1.15 word. These are the
-// operations yss236_core::step() applies, by name; a DSP built from them in the chip's order is bit for bit
-// the chip. Keep the `+ 0.0`s a lifted program carries: they turn a -0 into +0, as the chip does.
+// operations the unit's DSP applies, by name; a filter or effect built from them in the unit's order is bit for
+// bit the unit. Keep the `+ 0.0`s: they turn a -0 into +0, as the unit does.
 #pragma once
 
 #include <algorithm>

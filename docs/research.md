@@ -170,7 +170,7 @@ Two roads, and the plan uses both:
 
 ## 8. The two VOP3s (2026-09-14, addressing settled 2026-09-16)
 
-The board carries two YSS236-F chips with different jobs (section 2.0.1), and the pinout is in `docs/vop3_pinout.md` (AN200 service manual page 12: 128 CPU registers on CA0-CA6, 8 serial inputs and 8 outputs, a bank of external DRAM per chip). Each chip has one CSN, and rgwan read what drives the two of them off the FS1R schematic (2026-09-16):
+The board carries two YSS236-F chips with different jobs (section 2.0.1), and the pinout is in the AN200 service manual page 12: 128 CPU registers on CA0-CA6, 8 serial inputs and 8 outputs, a bank of external DRAM per chip). Each chip has one CSN, and rgwan read what drives the two of them off the FS1R schematic (2026-09-16):
 
 ```
 VOP3_SELN   = CS2N | A8
@@ -205,23 +205,4 @@ Both drivers use register 0 as an address latch with bit 15 selecting a second a
 
 **Which chip is which, settled.** The block the firmware drives hardest, 0x800200, is VOP3-1, the chip wired into the tone generators' channel loop, and three things in the firmware agree: `FUN_0000B010` initialises exactly 16 channels through it, which is the filter channel count and not any effect count; every routine that driver reaches is a filter routine (`FUN_0000C36C` cutoff with key scaling and a note breakpoint, `FUN_0000C3D0` resonance, `FUN_0000CA44` the per-slope mix coefficient); and the table at 0x374F2E that `FUN_0000D050` indexes reads `02 03 04 ... 0F 00 01`, a 16-entry channel-to-block rotation rather than a list of effect types. So `FUN_0000D050` is the filter setup for one channel and not the effect type change this section called it before the decode arrived.
 
-The registers below are therefore VOP3-1's, the filter chip's:
-
-| register | written by | contents |
-|---|---|---|
-| 1 | init | reset/run (1 at the start of init, 0 at the end) |
-| 5 | init | mode word 0x1004 |
-| 6-10 | FUN_0000B600, init | five 16-bit words per program step, 512 steps: the VOP3 program. Boot image at EPROM 0x375E1A (alternate 0x37721A), 5 x 1024 bytes, copied to DRAM 0x01069978 and patched per effect type |
-| 0xB | FUN_0000B6A4 | one word per step from 0x37541A (alternate 0x37581A), DRAM copy 0x01068F78 |
-| 0xC | FUN_0000B788/B7EE | one byte per step from 0x375C1A, DRAM copy 0x01069628; 0x0E is the mute value used while a type changes |
-| 0x16 | FUN_0000B85E | 15 per-bus words from 0x37861A (address = bus + 1) |
-| 0x17 | init | 0x23 during the upload, 0 after |
-| 0x24-0x2A | FUN_0000B8EC..BA84 | 15 per-bus values each (levels, sends, pans; defaults 0x15, 0, 0x1000) |
-
-The step addresses written before each data word come from the list at 0x37501A. The variant argument of `FUN_0000BC8C` is a literal at both call sites rather than a computed value: `FUN_0000B010` passes 0 on the normal boot from `FUN_003B0108`, and `FUN_0000B0E2` passes 1 from `FUN_003C2038`, the diagnostic entry, which loads VOP3-2's image 0 in the same breath. So the two table sets are two configurations of the filter chip, the ordinary one and the test one, not one program per chip. (`FUN_0020315C`, named here before as the variant selector, is a division helper; that was a misread of the decompiler's `0x800000` constants.)
-
-`FUN_0000D050(channel, part)` mutes a filter channel's steps with 0x0E, waits, patches the program words through `FUN_0000B600` with the per-type table (0x378629/0x37862F/0x378635/0x37863B, 0x378642), then restores. Parameter edits go through `FUN_0000C36C..C6C0` into the 0xB and 0xC ports.
-
-Consequences: the filter and the effect algorithms are both VOP3 microcode in the EPROM, not fixed functions in the chips. No public description of the instruction set exists, so exact effects would need the ISA decoded from this microcode plus recordings. The plan models the effects from the Data List and keeps the firmware's parameter-to-coefficient conversions and the extracted microcode as reference (STATUS.md, Tier 0 and Tier 4).
-
-**What `docs/vop3_microcode.md` actually holds.** It is the 0x800200 upload, so it is VOP3-1's filter program and not the effect algorithms. The effect microcode is the pair of 512-step images at EPROM 0x372204 and 0x373604 that `FUN_0003C9C4` uploads, and nobody has extracted it. That is a straight extension of `tools/extract_vop3.py`, which now has the second driver's register map to work from.
+The DSP itself, its register-level behaviour and the program images the firmware uploads, is the separate [VOP3](https://github.com/musicastudio/VOP3) project.

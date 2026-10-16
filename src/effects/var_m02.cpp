@@ -1,60 +1,7 @@
-// effects/var_m02.cpp - the variation window's program for Distortion, Overdrive and Amp Sim:
-// its 72 steps.
+// effects/var_m02.cpp - the variation window under Distortion, Overdrive and Amp Sim.
 //
-// The host writes this program's coefficients through the word lists in fx_drive.cpp's DRIVES[0] and
-// rom_tables.cpp's var:: namespace, and those lists name most of the steps below: DIST_DRIVE
-// {0x158, 0x15b, 0x15f, 0x180}, DIST_INPUT {0x15e, 0x15c, 0x15d}, DIST_OUTPUT {0x198, 0x196, 0x197},
-// DIST_LOW_SHELF {0x18f, 0x18c, 0x18b, 0x18d, 0x18e}, DIST_PEAK {0x18a, 0x187, 0x186, 0x189, 0x188},
-// DIST_LPF2 {0x185, 0x182, 0x181, 0x184, 0x183}, DIST_BAND {0x15f, 0x162, 0x166, 0x16c, 0x170, 0x173,
-// 0x174, 0x175, 0x176, 0x177, 0x178, 0x179} and DIST_PAN {0x191, 0x192, 0x193, 0x194}. What the steps
-// compute, in the groups the comments open:
-//
-//   0x158-0x15e  the drive and the input highpass. 0x158 scales the feedback register r[108] by the
-//                drive gain the host derives from the Drive parameter, 0x159 and 0x15a add the two
-//                serial inputs into r[103], and 0x15b is a pole on r[119] the same drive drives.
-//                0x15c to 0x15e are the input highpass's three words (DIST_INPUT), a biquad whose two
-//                input cells m[2] and m[6] this window publishes for it.
-//   0x15f-0x166  the rectifier. 0x15f is the second pole the drive drives, 0x161 takes the running
-//                value's absolute value into m[56], which is the level everything below works against,
-//                0x162 and 0x166 are poles, 0x164 subtracts that level from the signal with negatives
-//                clamped away, and 0x165 is the level's one-pole follower into r[105].
-//   0x167-0x16e  the same pair again for the second half of the shaper: 0x168 to 0x16b mirror the
-//                rectifier into r[106], 0x16c is a pole and 0x16e scales r[106] into r[124].
-//   0x16f-0x178  the two class-1 loads and the band sum. 0x16f loads the running value into r[125] and
-//                0x171 adds its own constant to r[124], both class-1 steps (s24: a class-1 load reads
-//                back as v / 256, which is why the 128 * k form appears). 0x170 and 0x173 are poles, and
-//                0x174 to 0x178 sum the five poles r[119] to r[123], the twelve band words DIST_BAND
-//                ending here.
-//   0x179-0x18f  the tone stack and the ladder. 0x180 is the gain the host derives from the drive and
-//                the output level. 0x181 to 0x185 are the second lowpass (DIST_LPF2), 0x186 to 0x18a the
-//                mid peak (DIST_PEAK) and 0x18b to 0x18f the low shelf (DIST_LOW_SHELF): three filters of
-//                five words each, every one of them on the last one's output. The four rcopy steps 0x183,
-//                0x188, 0x18d and 0x18e each write the previous step's x operand, and the first three are
-//                what hold r[110], r[112] and r[114], the one-pass delays those two-tap structures close
-//                on. r[116] is a fourth, on its own, holding the low shelf's own output a pass back.
-//   0x190-0x19f  the dry and wet. 0x190 is the one step here the host parameterises for neither this
-//                family nor the others: it takes r[118] into the t file as a 1.15 word, and 0x195 reads
-//                t[9] back as the multiplier that scales r[104] into r[107]. 0x191 to 0x194 are the pan
-//                and dry/wet words (DIST_PAN) and the two outputs r[15] and r[16]. 0x196 to 0x198 are the
-//                output lowpass (DIST_OUTPUT), 0x199 and 0x19a are the two class-3 steps that publish the
-//                inputs into m[54] and m[55], and 0x19c publishes the last read.
-//
-// The registers, as the tables above name them: r[5] and r[6] the two serial inputs the base program
-// writes, r[15] and r[16] the two outputs, which the base program reads as the stereo pair after r[13]
-// and r[14], r[103] the input sum and r[104] the input highpass's output, r[105] and r[106] the
-// rectifier's two followers, r[107] the level term, r[108] the output filter's tail and the register the
-// drive gain reads, r[109], r[111], r[113] and r[115] the ladder's four stage outputs with r[110], r[112],
-// r[114] and r[116] the four one-pass delays between them, r[117] the biased signal and r[118] its
-// one-pole, and r[119] to r[123] the five poles the band sum adds. The cells: m[2] and m[6] the serial
-// inputs this window publishes, m[11] and m[12] the two LFO values, m[28] to m[30] and m[31] to m[33] the
-// six published reads, m[54] and m[55] the two inputs echoed into cells, and m[56] the level the
-// rectifier works against. The delay slots: 0x56, 0x57, 0x58, 0x63, 0x64 and 0x65, all read at the ring
-// pointer with no index; this program writes none of them, so the lines behind these taps are filled
-// elsewhere.
-//
-// The one t register the program uses is t[9], written at 0x190 and read at 0x195.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

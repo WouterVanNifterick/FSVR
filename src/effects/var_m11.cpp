@@ -1,7 +1,8 @@
 // effects/var_m11.cpp - the variation window's clear program, which the host loads to silence the window
-// (EffectHost::clearWindow): it moves the window's inputs into their cells and computes nothing.
+// (EffectHost::clearWindow): it passes the window's inputs on and computes nothing.
 //
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

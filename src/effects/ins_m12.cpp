@@ -1,22 +1,7 @@
-// effects/ins_m12.cpp - the insertion window's program for Wah+DS+Dly and Wah+OD+Dly:
-// its 96 steps.
+// effects/ins_m12.cpp - the insertion window under Wah+DS+Dly and Wah+OD+Dly.
 //
-// It is a wah, a distortion and a delay, in that order. What the 96 steps compute:
-//
-// The registers, so the names above can be checked against the words: r[7] and r[8] the two signals
-// in; r[17] and r[18] the two outputs; r[67] to r[72] the input EQ, a copy, a low shelf and a high
-// shelf per channel; r[73] the resonator's input; r[74] the state 0x1bb leaves; r[75] and r[76] the
-// delay line's head; r[77] the accumulator the third tap feeds; r[79] the two channels summed, r[80]
-// and r[81] the level follower; r[82] to r[84] ins::WAH_PEAK; r[85] the two-sample average of the
-// first tap; r[119] the signal that leaves dry; r[120] and r[121] ins::WAH_LPF2's output and the left
-// dry signal; r[122] and r[123] ins::WAH_BAND's series; r[124] the resonator's drive. Of the cells,
-// m[42] is the resonator's integrator, m[43] and m[44] the wah's output, m[45] to m[47] the follower,
-// m[48] the two-sample tap, m[56] and m[57] the feedback and the absolute value, m[58] and m[59] the
-// two sums the delay line is fed, m[60] to m[63] the four taps. m[3], m[4] and m[7] are written here
-// from the serial inputs of pages 13 and 14 and read nowhere in this window, and m[12] is latched at
-// 0x1d3 and multiplied by the word at that step, which the ROM leaves at zero.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

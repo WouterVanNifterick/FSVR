@@ -1,51 +1,7 @@
-// effects/var_m01.cpp - the variation window's program for Rotary SP, Tremolo and Auto
-// Pan: its 72 steps.
+// effects/var_m01.cpp - the variation window under Rotary SP, Tremolo and Auto Pan.
 //
-//   0x158-0x15a  the two serial inputs this window publishes, m[2] and m[6], and the three registers the
-//                rest of the block works from, r[123], r[125] and r[1], each taken off the shared cell
-//                m[8] and doubled.
-//   0x15b-0x166  the three decay chains those three feed. Each folds a published slot's read through
-//                |r|, then a saturating doubling that writes t[9], t[11] or t[13], then two multiplies
-//                into r[124], r[126] and r[2]. m[28], m[29] and m[30] carry the three reads on.
-//   0x167-0x16e  the fractional delay positions: t[15] and t[7] off the cell m[9], the first with an
-//                index load of its own, and the two modulated positions r[123] and r[1], each clamped at
-//                zero, which the taps below read at.
-//   0x16f-0x17e  the left channel. The first tap (the slot 0x5b, read past the ring pointer) and the LFO
-//                publish m[11] with t[9]; the second tap's capture m[62] and t[10] with its index load;
-//                the input path r[5] to r[103], r[104] and r[105] against the taps 0x5c and 0x5d, which
-//                are the two- and four-sample combs the delay line is written through; the captures m[56]
-//                and m[57] with t[14] and t[12]; and the right position r[125] clamped at zero.
-//   0x17f-0x185  the right channel, the mirror of the left one: the input path r[6] to r[106], r[107] and
-//                r[108], the taps 0x5f and 0x60, the captures m[60], m[61] and m[58], and the tap read
-//                0x61.
-//   0x186-0x18e  the four interpolations, each written as its fraction times the second tap less the
-//                fraction times the first, so m[56] and m[57] on t[10] make r[119], m[60] and m[61] on
-//                t[14] make r[121] and m[62] and m[63] on t[7] make r[122]; then the three of them scaled
-//                by (1 + t[9]), (1 + t[13]) and (1 + t[15]), which is where this block differs from the
-//                chorus program's and what makes the amplitude and pitch move together.
-//   0x18f-0x197  the second interpolation off the pair m[58] and m[59] on t[12] into r[120], its scaling by
-//                (1 + t[11]), and the two output sums that add the three scaled values to the running
-//                one.
-//   0x198-0x19f  the two outputs r[15] and r[16], the captures m[32] and m[33] of the reads at 0x64 and
-//                0x65, the two delay line writes into the slots 0x66 and 0x67, and the idle step 0x19e
-//                between them.
-//
-// The registers, as the tables above name them: r[5] and r[6] the two serial inputs, r[103] and r[106]
-// the scaled inputs, r[104], r[105], r[107] and r[108] the input accumulators, r[15] and r[16] the two
-// outputs, which the base program reads at 0x018 and 0x03b as the later stereo pair after r[13] and
-// r[14], r[119] to r[122] the four interpolated tap sums, r[123], r[125] and r[1] the three followers
-// that end as two delay positions, r[124], r[126] and r[2] the products between them. The cells: m[8]
-// the shared cell, m[2] and m[6] the serial inputs this window publishes, m[9] the cell the t[15] and
-// t[7] positions scale off, m[11] and m[12] the two LFO values it publishes, m[28] to m[33] the six
-// published reads and m[56] to m[63] the eight taps. The delay slots: 0x66 and 0x67 the two delay lines,
-// 0x5a to 0x61 the eight taps (rom::var::MOD_SLOTS), 0x56 to 0x58 and 0x63 to 0x65 the six reads it hands
-// on.
-//
-// The t registers: t[7], t[10], t[12] and t[14] the four fractional tap positions, t[9], t[11], t[13] and
-// t[15] the decay and scaling coefficients. Every one of the eight is written from a running value the
-// step itself produced, so they move with the block and not with a parameter directly.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

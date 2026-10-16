@@ -28,9 +28,6 @@ void EffectHost::clearWindow(int kind)
     };
     switch (kind & 0xFF) {
         case REVERB:
-            // the second tag image behind the base tags: the base program's silent tags
-            std::copy_n(rom::BASE_TAGS[1], std::size(rom::BASE_TAGS[1]), tag);
-            writeTags(WINDOWS[REVERB].nsteps, rom::STEPS_REVERB);
             zero(REVERB);
             spread(rom::RESET_SLOTS_REVERB, AREA[1] - AREA[0]);
             break;

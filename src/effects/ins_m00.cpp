@@ -1,39 +1,8 @@
-// effects/ins_m00.cpp - the insertion window's program for type msb 00.
+// effects/ins_m00.cpp - the insertion window under Chorus, Celeste, Flanger, Symphonic, Delay LCR, Delay L,R,
+// Echo and CrossDelay.
 //
-// rom::INSERTION_PROGRAMS[0], the program the insertion window holds under every type
-// fx_dispatch.cpp's INSERTION_ROUTES files at msb 0, and under Thru, which loads it with every
-// coefficient at zero. The nine the tracker names for this row are Thru, Chorus, Celeste, Flanger,
-// Symphonic, Delay L,C,R, Delay L,R, Echo and Cross Delay, programmed by EffectHost::chorus(),
-// flanger(), symphonic(), delayLCR(), delayLR(), echo() and crossDelay(). It is one of the fifteen
-// programs the window shares: nothing here knows which type is running, because the program words are
-// fixed and only the constants and the delay offsets move, which fx_modulation.cpp and fx_delay.cpp
-// write whenever a parameter does. The code reads them where they live on the pass, as step() reads
-// them, because that is the contract and not because the numbers are known here.
-//
-// What the 96 steps compute, in these groups. The host names every group
-// it programs, in EffectHost::chorus(), flanger(), symphonic(), delayLCR(), delayLR(), echo(),
-// crossDelay() and the tables they call:
-//
-// The cells the program fills are its two serial inputs and its LFO, m[3] and m[7] from the banks at
-// page 13 and m[4] from page 14, and m[13], m[14] and m[15] the page's LFOs, for the windows outside
-// this one; and the eight reads it takes up for itself, m[42] and m[43] from the fixed slots 0x68 and
-// 0x69 and m[56] to m[63] from the six swept taps, each five to eleven steps after the read that fills
-// it, which is captured()'s window. The registers: r[7] and r[8] the two signals the base program
-// leaves the window; r[67], r[68], r[70] and r[72] the left channel's three bands and r[73], r[74],
-// r[76] and r[78] the right's; r[79] and r[80] the left channel's tap and its damped feedback, r[81] and
-// r[82] the right's; r[119] and r[120] the two fractional taps; r[4] and r[5] the two wet sums; r[17] and
-// r[18] the two outputs; r[121], r[125] and r[123] the three accumulators, with r[122], r[124], r[126]
-// and r[127] their companion registers, r[1], r[2] and r[3] the seeds' products and r[69], r[71], r[75]
-// and r[77] the four z^-1 copies the two right-hand filter bands ride on. The slots: 0x68 and 0x69 the
-// two fixed taps, 0x6E and 0x6F, 0x70 and 0x71, 0x72 and 0x73 and 0x75 and 0x76 the four tap pairs,
-// 0x74 and 0x7A the two slots the fixed taps are written into, which no step of this program reads,
-// and 0x7E and 0x7F the two delay lines' own writes, which ins::MOD_SLOTS calls slots 5 and 0.
-//
-// The old model in vop3_effects.h has no case for this program's types beyond its chorus, flanger and
-// echo one-liners, each a single delay line with a feedback and a dry/wet, and is no reference for any
-// number here.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

@@ -14,11 +14,10 @@ namespace effects = fs1r::effects;
 namespace {
 const int TYPE_BYTE[3] = {vop3host::REVERB_TYPE, vop3host::VARIATION_TYPE, vop3host::INSERTION_TYPE};
 // Bus sample to serial word, so that a dry performance leaves the chip at cal::OUT_GAIN.
-const double BUS = cal::OUT_GAIN / cal::FX_DRY_GAIN * Vop3::WORD;
+const double BUS = cal::OUT_GAIN / cal::FX_DRY_GAIN * cal::WORD;
 
 // The programs the host loads, by the window that holds them and the type msb they are filed under, with
-// each window's clear entry (WINDOWS[w].clearEntry). Nothing else is ever loaded: vop3_native_check runs
-// every type.
+// each window's clear entry (WINDOWS[w].clearEntry).
 struct Loadable { int msb; effects::Program run; };
 const Loadable DELAY[] = {{0, effects::dly_m00}, {8, effects::dly_m08}, {11, effects::dly_m11}};
 const Loadable VARIATION[] = {
@@ -31,8 +30,8 @@ const Loadable INSERTION[] = {
     {14, effects::ins_m14}};
 }
 
-// A register write from the host. Program words say which programs to run, the constants are the programs'
-// parameters, the slots their delay offsets, and the rest is the LFOs (or nothing the programs see).
+// A register write from the host. The constants are the programs' parameters, the slots their delay offsets,
+// and the rest is the LFOs (or nothing the programs see).
 void Effects::write(uint32_t reg, uint32_t value) {
     using namespace vop3;
     const uint16_t v = (uint16_t)value;
@@ -41,8 +40,6 @@ void Effects::write(uint32_t reg, uint32_t value) {
     const int step = select & 511;
     if (select & AUTO_INCREMENT) select = (uint16_t)((select & ~511) | ((step + 1) & 511));
     switch (reg) {
-        case PROGRAM - 4: case PROGRAM - 3: case PROGRAM - 2: case PROGRAM - 1:
-        case PROGRAM:   prog[step][PROGRAM - reg] = v; loaded = false; break;
         case COEF:      state.k[step] = int16_t(v) / 32768.0; break;
         case SLOT_HIGH:
         case SLOT_LOW: {
@@ -51,28 +48,22 @@ void Effects::write(uint32_t reg, uint32_t value) {
             state.offset[step & 127] = (uint32_t(s[0] & 0x1ff) << 9) | (s[1] & 0x1ff);
             break;
         }
-        default:        mod.write(reg, step, v); break;   // TAG, CONFIG and the mute mean nothing here
+        default:        mod.write(reg, step, v); break;   // CONFIG and the mute mean nothing here
     }
 }
 
-// Which program each window holds, from its words
-void Effects::identify() {
-    auto holds = [&](int w, int msb) {
-        const vop3host::Window& win = vop3host::WINDOWS[w];
-        for (int i = 0; i < win.nsteps; i++)
-            if (std::memcmp(prog[win.steps[i]], win.programs[msb * win.nsteps + i], sizeof prog[0])) return false;
-        return true;
+// The host loads a window's program, by its type msb
+void Effects::load(int window, int msb) {
+    auto find = [&](auto const& list) -> effects::Program {
+        for (const Loadable& p : list) if (p.msb == msb) return p.run;
+        return nullptr;   // ponytail: the host routes every type to a listed msb; another would run nothing
     };
-    auto find = [&](int w, auto const& list) -> effects::Program {
-        for (const Loadable& p : list) if (holds(w, p.msb)) return p.run;
-        return nullptr;   // ponytail: a window part-way through an upload runs nothing; the host never runs one
-    };
-    stage[0] = effects::base;
-    stage[1] = effects::aux;
-    stage[2] = find(vop3host::REVERB_DELAY, DELAY);
-    stage[3] = find(vop3host::VARIATION, VARIATION);
-    stage[4] = find(vop3host::INSERTION, INSERTION);
-    loaded = true;
+    switch (window) {
+        case vop3host::REVERB_DELAY: stage[2] = find(DELAY); break;
+        case vop3host::VARIATION:    stage[3] = find(VARIATION); break;
+        case vop3host::INSERTION:    stage[4] = find(INSERTION); break;
+        default: break;                          // aux has the one program
+    }
 }
 
 void Effects::sync(uint8_t* c) {
@@ -105,7 +96,6 @@ void Effects::control(int dest, int offset) {
 // One sample. Serial channels k and k + 4 are the two halves of a frame and the left DAC plays channel 0, so a
 // bus's left goes to channel k + 4.
 void Effects::run(const double bus[8], double& l, double& r) {
-    if (!loaded) identify();
     effects::State& s = state;
     for (int b = 0; b < 4; b++) {
         s.in[0][2 * (4 + b)] = s.in[0][2 * (4 + b) + 1] = bus[2 * b] * BUS;
@@ -116,6 +106,6 @@ void Effects::run(const double bus[8], double& l, double& r) {
     std::copy(mod.lfoOut, mod.lfoOut + 16, s.lfo);
     for (effects::Program p : stage) if (p) p(s);
     s.ptr = (s.ptr - 1) & (effects::State::RAM_WORDS - 1);
-    l = fs1r::word::dac(s.out[0]) / Vop3::WORD;
-    r = fs1r::word::dac(s.out[8]) / Vop3::WORD;
+    l = fs1r::word::dac(s.out[0]) / cal::WORD;
+    r = fs1r::word::dac(s.out[8]) / cal::WORD;
 }

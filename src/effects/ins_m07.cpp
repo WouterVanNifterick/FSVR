@@ -1,51 +1,7 @@
-// effects/ins_m07.cpp - the insertion window's program for Pitch Chng, Ens Detune and 3-Band EQ:
-// its 96 steps.
+// effects/ins_m07.cpp - the insertion window under Pitch Chng, Ens Detune and 3-Band EQ.
 //
-// rom::INSERTION_PROGRAMS[7], the program the insertion window holds under the three types
-// fx_dispatch.cpp's INSERTION_ROUTES files at msb 7: ins-07 Pitch Chng on EffectHost::pitchChange,
-// ins-08 Ens Detune on EffectHost::ensembleDetune and ins-21 3-Band EQ on EffectHost::threeBandEq. One
-// program, three types: the handlers differ only in which words they write, so nothing here knows which of
-// them is running. No step of it is a control step.
-//
-// The ROM names the steps, and the lists agree with the program word for word:
-//
-//   LFO_DIR_STEPS  {0x1A0,0x1A8,0x1B0,0x1B7}        the four read positions
-//   PC_FB          {0x1F9,0x1FE,0x1A7,0x1AA,0x1AF,0x1B1}    the delay feedback
-//   PC_MIX         {0x1BA,0x1CB,0x1CA,0x1E9,0x1EE,0x1EB,0x1F0}
-//   PC_WET         {0x1E8,0x1ED}
-//   PC_VOICE1_A    {0x1E4}   PC_VOICE1_B {0x1E7}   PC_VOICE2 {0x1E6,0x1E5}
-//   EQ3_LEVEL      {0x1EA}
-//   EQ7_A          {0x1BF,0x1BB,0x1BC,0x1BD,0x1BE}   the low band: b0, b1, b2, -a1, -a2
-//   EQ7_B          {0x1C4,0x1C0,0x1C1,0x1C2,0x1C3}   the middle band, the same five
-//   EQ7_C          {0x1C9,0x1C5,0x1C6,0x1C7,0x1C8}   the high band, the same five
-//   EQ7_A_C        {0x1D0,0x1CC,0x1CD,0x1CE,0x1CF}   and each band's copy for the other channel
-//   EQ7_B_C        {0x1D5,0x1D1,0x1D2,0x1D3,0x1D4}
-//   EQ7_C_C        {0x1DA,0x1D6,0x1D7,0x1D8,0x1D9}
-//   PC_SLOTS       {0x7E,0x68,0x69,0x6A,0x6B,0x7F,0x6C,0x6D,0x6E,0x6F}
-//
-// fx_tone.cpp's threeBandEq() designs each band with designFilter(2, 1, ...) for the two lower ones and
-// designFilter(2, 4, ...) for the high one, which writes b0, b1, b2, -a1 and -a2 into the list in that
-// order and copies them to the other channel's list. Each word is the designed coefficient times
-// 2048 * (16 >> scale), which the chip's s16() halves, and the b0 step's own route multiplies the whole
-// section it closes: a shift of one on 0x1BF, 0x1C4, 0x1D0 and 0x1D5, and a shift of three on 0x1C9 and
-// 0x1DA, so RSCALE's 2 and 16 restore the factor the designer's scale took out. What each section computes
-// is then
-//
-//   y[n] = b0 x[n-1] + b1 x[n-1] + b2 x[n-2] + (-a1) y[n-1] + (-a2) y[n-2]
-//
-// six order-2 sections, three bands per channel, each on the previous band's output. The gain path runs one
-// sample behind the input because the b1 step reads the input register the step before the b0 step
-// refilled, which is what r[68] and r[70] and r[72] are for: each is an rcopy step, so it takes the value
-// the step before it latched.
-//
-// The mode parameter is the one input mix. ins::PC_MIX[0] (0x1BA) is the stereo switch on the left input,
-// ins::PC_MIX[1] and [2] (0x1CB, 0x1CA) sum the two inputs into r[75], and ins::PC_MIX[3] (0x1E9) against
-// ins::EQ3_LEVEL (0x1EA) choose which chain joins the dry signal, so in stereo the left chain does and in
-// mono the summed one. The old model in vop3_effects.h runs this as two detuned fractional taps crossfaded
-// in floating point over a shelf, a peak and a high shelf; it has none of these words, so it is no reference
-// for any number here.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

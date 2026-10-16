@@ -13,7 +13,11 @@ using namespace ::vop3;     // the chip's registers and LFO waves, by name
 
 struct WriteSink {
     virtual void write(uint32_t reg, uint32_t value) = 0;
-    virtual uint32_t read(uint32_t) { return 0; }       // the filter chip's EG_STATUS
+    virtual uint32_t read(uint32_t) { return 0; }       // the filter's EG_STATUS
+    // Where the firmware uploads DSP program words, the section is told what they mean instead:
+    virtual void load(int /*window*/, int /*program*/) {}   // the effect host: a window's program, by type msb
+    virtual void setType(int /*slot*/, int /*type*/) {}     // the filter host: a slot's filter type
+    virtual void clear(int /*slot*/) {}                     // and a slot's filter state, zeroed
 };
 
 // A register, an entry of CONFIG, an LFO register from its shadow, and an LFO phase reset

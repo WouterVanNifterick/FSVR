@@ -1,74 +1,7 @@
-// effects/ins_m01.cpp - the insertion window's program for type msb 01.
+// effects/ins_m01.cpp - the insertion window under Rotary SP, 2WayRotary, Tremolo, Auto Pan and Ambience.
 //
-// rom::INSERTION_PROGRAMS[1], the program the insertion window holds under the five types
-// fx_dispatch.cpp's INSERTION_ROUTES files at msb 1: ins-09 Rotary SP, ins-10 2-Way Rotary,
-// ins-11 Tremolo, ins-12 Auto Pan and ins-13 Ambience, programmed by EffectHost::rotarySpeaker(),
-// twoWayRotary(), tremolo(), autoPan() and ambience(). Like ins-m00 it is one of the fifteen
-// programs the window shares: nothing here knows which type is running, because the program words
-// are fixed and only the constants and the delay offsets move, which fx_modulation.cpp and
-// fx_delay.cpp write whenever a parameter does. The code reads them where they live on the pass, as
-// step() reads them, because that is the contract and not because the numbers are known here.
-//
-// What the 96 steps compute, in the groups the comments open each of. The host names every group it
-// programs, in EffectHost::rotarySpeaker(), twoWayRotary(), tremolo(), autoPan() and ambience(), and in
-// the tables they call:
-//   0x1a0-0x1b3  the window's LFO cell through a rectifier into four accumulators, r[121], r[124],
-//                r[122] and r[123], each of which names a delay length in samples: a register's value
-//                times 256 is the delay, its integer part is the index the taps read at (queued at
-//                0x1b4, 0x1bc, 0x1c4 and 0x1cc, in effect three steps later) and its fraction the
-//                multiplier that interpolates between a line's two taps. Four envelopes, r[1], r[4],
-//                r[3] and r[2], smooth each accumulator, and the two rectifiers at 0x1a8 and 0x1b1 feed
-//                two of them back. ins::BAL_STEP_A, BAL_STEP_B, BAL_STEP_C, ins::MODE_STEPS_A and
-//                MODE_STEPS_B, the tremolo's phase, the auto pan's direction and the 2-way rotary's mic
-//                angle, are steps of this block. ins::LFO_DIR_STEPS, ins::PC_FB and ins::PC_MIX, which
-//                name 0x1a0, 0x1a8, 0x1b0, 0x1b7, 0x1a7, 0x1aa, 0x1af, 0x1b1 and 0x1ba, are the
-//                ensemble detune's and the pitch change's, so no handler that loads this program writes
-//                them and under these five types they hold the words the preset left.
-//   0x1b4-0x1ce  the four delay lengths. ins::ROT_LEVEL[1], [7], [5] and [3] are the depth words that
-//                scale the accumulator into samples and queue its index; ins::ROT_LEVEL[0], [4], [2] and
-//                [6] are the negative ones, which reach t[9], t[13], t[11] and t[15] as multipliers.
-//                Eight reads of the delay RAM happen on the way past, the tap pairs at one word apart
-//                and at the same index, one pair per delay length.
-//   0x1ca-0x1ee  the four interpolations, each two cells taken five steps after the read that filled
-//                them: m[56] and m[57] to r[119] on t[10], m[60] and m[61] to r[121] on t[14], m[62] and
-//                m[63] to r[122] on t[3], m[58] and m[59] to r[120] on t[12]. The last two registers
-//                reuse the accumulators' own, which have finished with them by then.
-//   0x1cf-0x1e8  the two channels' tone shaping, three bands each: r[67] to r[68] through
-//                ins::LPF_ROT, then to r[70] through ins::EQ_ROT, then to r[72] through ins::HPF_ROT,
-//                and ins::LPF_ROT_C, ins::EQ_ROT_C and ins::HPF_ROT_C for r[73], r[74], r[76] and r[78].
-//                Each shelf's own state a step back, in r[69], r[71], r[75] and r[77, is what the a-terms
-//                ride on.
-//   0x1ef-0x1f8  the four amplitude gains, and then the two wet sums: ins::ROT_PAN's four words weigh
-//                the taps, which is the 2-way rotary's low/high balance and the ambience's phase.
-//   0x1f9-0x1ff  the dry mix, ins::TREM_WORDS and ins::ROT_WORDS, the two outputs r[17] and r[18],
-//                which the base program reads back, and the two delay lines' writes: the slot 0x7e takes
-//                the tremolo mode's mix at 0x1fb and the slot 0x7f its own value at 0x1ff.
-//
-// The cells the program fills are its two serial inputs and its four LFOs, m[3] and m[7] from the banks
-// at page 13 and m[4] from page 14, and m[13], m[14] and m[15] from the LFOs of pages 13, 14 and 15,
-// which no step of this program reads; and the eight reads it takes up for itself, m[56] to m[63] from
-// the eight swept taps, each five steps after the read that fills it, which is captured()'s window. The
-// LFO cell this program sweeps, m[12], it only reads: the step that fills it is the variation window's
-// at 0x18f, which takes lfo[12], this window's first LFO, out of the same hardware.
-//
-// The registers: r[7] and r[8] the two signals the base program leaves the window; r[67], r[68], r[70]
-// and r[72] the left channel's three bands and r[73], r[74], r[76] and r[78] the right's, with r[69],
-// r[71], r[75] and r[77] their a-term copies a step back; r[1], r[4], r[3] and r[2] the four envelopes;
-// r[121], r[124], r[122] and r[123] the four accumulators, each of which names one delay length and one
-// tap pair; by 0x1ec and 0x1ee r[121] and r[122] have been reused for the third and the second tap, with
-// r[119] holding the first and r[120] the fourth; r[17] and r[18] the two outputs. The slots: 0x6d and 0x6e, 0x6f and 0x70, 0x71 and
-// 0x72 and 0x73 and 0x74 the four tap pairs, of which ins::TREM_SLOTS holds the first as its second and
-// third, the third as its fourth and fifth and the fourth as its seventh and eighth, and the second
-// pair not at all; and 0x7e and 0x7f the two lines' own writes, its zeroth and sixth. Of the eight
-// offsets ins::TREM_SLOTS names, these five types are the only ones that move any: ambience()'s
-// DELAY_TIME and tremolo()'s MODE, every other handler here writing coefficients and LFO words only.
-//
-// The old model in vop3_effects.h has a case for each of these five types, and each is a handful of
-// lines over an FxLfo, a delay line and a pair of gains: no filter of three bands, no four taps and no
-// accumulator. It is no reference for any number here, and where the two differ, the program above is
-// what runs.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

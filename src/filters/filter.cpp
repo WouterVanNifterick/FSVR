@@ -12,13 +12,13 @@ namespace word = fs1r::word;
 
 // OPEN: the level a channel reaches the filter at. A channel at its clip level is taken to be a full-scale
 // serial word. What comes back is scaled so that the passband loses cal::FLT_LOSS, as measured on the unit.
-const double TO_FILTER = Vop3::WORD / cal::CHAN_CLIP;
-const double FROM_FILTER = cal::CHAN_CLIP * cal::FLT_LOSS / Vop3::WORD;
+const double TO_FILTER = cal::WORD / cal::CHAN_CLIP;
+const double FROM_FILTER = cal::CHAN_CLIP * cal::FLT_LOSS / cal::WORD;
 
 // The unit's serial schedule. The chip runs sixteen voices in four pages over one pass and moves each voice's
 // input, EG level and LFO2 in, and its output out, at fixed steps; where that step falls on the wrong side of
 // the voice's page, the voice hears or answers a sample late. By the slot's chip channel, (s + 2) & 15, read
-// off the program (tools/vop3_native_check checks it against the chip).
+// off the firmware's filter program.
 struct Late { bool in, eg, lfo, out; };
 constexpr Late LATE[16] = {
     {0,0,0,0}, {0,1,1,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,1,1,0}, {0,0,0,1}, {0,0,0,1},
@@ -26,9 +26,8 @@ constexpr Late LATE[16] = {
 };
 }
 
-// A register write from the host (FilterHost, in the firmware's layout of the chip's program). Constants and
-// program words land in the slot's VoiceFilter; the EG and LFO registers go to the modulators; the trigger
-// clears the states the gated block was pointed at.
+// A register write from the host (FilterHost, in the firmware's layout of the constants). Constants land in
+// the slot's VoiceFilter; the EG and LFO registers go to the modulators.
 void Filter::Bank::write(uint32_t reg, uint32_t value) {
     using namespace vop3;
     const uint16_t v = (uint16_t)value;
@@ -36,20 +35,13 @@ void Filter::Bank::write(uint32_t reg, uint32_t value) {
     if (reg == SELECT) { select = v; return; }
     const int step = select & 511;
     if (select & AUTO_INCREMENT) select = (uint16_t)((select & ~511) | ((step + 1) & 511));
-    switch (reg) {
-        case PROGRAM - 4: case PROGRAM - 3: case PROGRAM - 2: case PROGRAM - 1:
-        case PROGRAM:  prog[step][PROGRAM - reg] = v; program(step); break;
-        case COEF:     coef(step, v); break;
-        case TRIGGER:  // steps 5 to 9 load zero into the five states of the slot the host pointed them at
-            for (int st = 5; st <= 9; st++) {
-                const int r = prog[st][1] & 0x7f, s = ((r - 1) / 6 + 12) & 15, k = (r - 1) % 6;
-                if (r < 1 || r > 96 || k == 5) continue;
-                VoiceFilter& f = voice[s];
-                (k == 0 ? f.x1 : k == 1 ? f.s2 : k == 2 ? f.s3 : k == 3 ? f.s4 : f.s5) = 0.0;
-            }
-            break;
-        default:       mod.write(reg, step, v); break;   // TAG, CONFIG, the slots and the rest mean nothing here
-    }
+    if (reg == COEF) coef(step, v);
+    else mod.write(reg, step, v);   // CONFIG, the slots and the rest mean nothing here
+}
+
+void Filter::Bank::clear(int s) {
+    VoiceFilter& f = voice[s];
+    f.x1 = f.s2 = f.s3 = f.s4 = f.s5 = 0.0;
 }
 
 // A constant: the program's shared ones in steps 11 to 14, else one of a slot's words in its page.
@@ -82,21 +74,16 @@ void Filter::Bank::coef(int step, uint16_t v) {
     // the rest: the second serial bank's gain, always 0 on the FS1R, and words no step multiplies by
 }
 
-// A program word: after boot only a slot's output step changes (FilterHost's setType). Its register is the
-// type's tap and its shift the output's route.
-void Filter::Bank::program(int step) {
-    if (step < 16) return;
-    const int g = (step - 16) / 124, rel = (step - 16) % 124;
-    if (rel < 120) return;
-    const int k = rel - 120, s = 4 * ((g + 3) & 3) + k, base = 6 * ((s + 4) & 15);
-    const int tap = (prog[step][4] >> 7) & 0x7f, shift = (prog[step][3] >> 12) & 3;
+// The slot's output: which tap the type reads, and its scale. The BPF's is x1, the others x2.
+void Filter::Bank::setType(int s, int type) {
+    using namespace fs1r::vop3host::filter;
     VoiceFilter& f = voice[s];
-    f.route = shift == 0 ? 1 : shift == 1 ? 2 : shift == 2 ? 4 : 16;
-    // ponytail: a type byte past BEF makes the unit's output step read whatever register the byte names,
-    // which is another voice's state and not a filter. It plays silence here (docs/Differences.md).
-    f.tap = tap == base + 5 ? VoiceFilter::LPF24 : tap == base + 4 ? VoiceFilter::LPF18 : tap == base + 3 ? VoiceFilter::LPF12
-          : tap == base + 2 ? VoiceFilter::BPF : tap == 99 + 3 * k ? VoiceFilter::HPF : tap == 98 + 3 * k ? VoiceFilter::BEF
-          : VoiceFilter::NONE;
+    f.route = type == BPF ? 1 : 2;
+    // ponytail: a type byte past BEF makes the unit read whatever register the byte names, which is another
+    // voice's state and not a filter. It plays silence here (docs/Differences.md).
+    static constexpr VoiceFilter::Tap TAP[6] = {VoiceFilter::LPF24, VoiceFilter::LPF18, VoiceFilter::LPF12,
+                                                 VoiceFilter::HPF, VoiceFilter::BPF, VoiceFilter::BEF};
+    f.tap = type >= 0 && type <= BEF ? TAP[type] : VoiceFilter::NONE;
 }
 
 void Filter::Bank::sync(int p, const uint8_t* voiceBytes, const uint8_t* rec, int cutoffMod, int lfo2Depth, int lfo2Speed) {

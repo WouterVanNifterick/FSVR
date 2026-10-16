@@ -23,6 +23,7 @@
 #include "../hardware.h"
 
 namespace cal {
+static const double WORD         = 8.0;     // a full-scale serial word, in the DSP's register units (fs1r/chips/word.h)
 static const double FM_INDEX     = 3.369;   // cycles of phase deviation at full modulator level. MEASURED: two
                                             // sweeps of algorithm 8's modulator level register, 2026-09-19, whose
                                             // sidebands give 21.139 and 21.205 radians at register 0 over 25 and

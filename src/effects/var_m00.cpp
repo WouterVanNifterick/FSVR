@@ -1,48 +1,7 @@
-// effects/var_m00.cpp - the variation window's program for No Effect, Chorus, Celeste,
-// Flanger and Symphonic: its 72 steps.
+// effects/var_m00.cpp - the variation window under Chorus, Celeste, Flanger and Symphonic.
 //
-// What the 72 steps compute, in these groups:
-//
-//   0x158-0x15a  the three registers the block's pan balance works from: r[124], r[123] and r[125] off
-//                the shared cell m[8], and the two serial inputs published as m[2] and m[6].
-//   0x15b-0x163  the first three reads of the block's own area (the slots 0x56, 0x57 and 0x58) and the
-//                envelope network: r[124], r[126], r[127], r[1] and r[2] decay and ramp against the
-//                coefficients t[12] and t[13], and the two of them the block reads back.
-//   0x164-0x16e  the m[29] and m[30] captures, two more envelope steps, and the first modulated delay
-//                position: 0x16c takes r[124]'s running value, clamps it, writes its fraction to t[9] and
-//                loads it as the delay index the taps below read at.
-//   0x16f-0x184  the left channel: the input path r[5] to r[103], r[104] and r[105]; the four taps of
-//                the left delay line (the slots 0x5b, 0x5c, 0x5d and 0x5e), each read at the modulated
-//                index and captured five steps later into m[56], m[57], m[60] and m[61]; and the two
-//                pairwise tap sums in r[119] and r[121], each t[9] or t[11] against the cell beside it.
-//   0x185-0x19f  the right channel, the mirror of the left one: the input path r[6] to r[106], r[107]
-//                and r[108], the four taps of the right delay line read in the order 0x5f, 0x60, 0x61,
-//                0x62 into m[62], m[63], m[58] and m[59], the two pairwise sums in r[122] and r[120],
-//                the two outputs r[15] and r[16], the three published reads of the slots 0x63, 0x64
-//                and 0x65 into m[31], m[32] and m[33], and the two delay line writes, the left one from
-//                the write latch set at 0x18e and taken at 0x19b, the right one written directly at
-//                0x19f.
-//
-// So the block is a pair of modulated delay lines with an envelope on each, not a filter: the eight
-// taps are read at one moving index, each pair of neighbouring cells is interpolated by the fraction
-// t[9], t[10] or t[11] that the three position steps published, and the four pairwise sums are the
-// stereo mix the outputs close from.
-//
-// The registers, as the groups above name them: r[5] and r[6] the two serial inputs, r[103], r[106] the
-// scaled inputs, r[104], r[105], r[107], r[108] the input accumulators, r[15] and r[16] the two outputs,
-// which the base program reads at 0x018 and 0x03b as the later stereo pair after r[13] and r[14],
-// r[119] to r[122] the four tap sums, r[123] to r[127] and r[1], r[2] the envelope and ramp registers.
-// The cells: m[8] the shared balance cell, m[2] and m[6] the serial inputs this window publishes, m[11]
-// and m[12] the two LFO values it publishes, m[28] to m[33] the six published reads and m[56] to m[63]
-// the eight modulated delay taps. The delay slots: 0x66 and 0x67 the two delay lines, 0x5b to 0x62 the
-// eight taps (rom::var::MOD_SLOTS), 0x56 to 0x58 and 0x63 to 0x65 the six reads it hands on.
-//
-// The t registers: t[12] and t[13] the two decay coefficients the envelope network multiplies by, and
-// t[9], t[10] and t[11] the three fractional delay positions, each of which also loads the delay index
-// the taps at that position's four steps read at. Every one of the six is written from a running value
-// the step before it clamps, so they move with the block and not with a parameter directly.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

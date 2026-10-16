@@ -19,7 +19,7 @@ static_assert(FLT_EVAL_METHOD == 0, "the effect host needs float and double arit
 
 namespace fs1r::vop3host {
 
-// The chip's five program windows, then the two parameter groups that have none.
+// The five program windows, then the two parameter groups that have none.
 enum { REVERB, AUX, INSERTION, REVERB_DELAY, VARIATION, MASTER_EQ, MIXER };
 constexpr int OUTPUT = 5;                                               // setMute's sixth flag
 constexpr uint32_t AREA[5] = {0, 0xFFFF, 0x10000, 0x20000, 0x30000};   // where each window's delay memory starts
@@ -82,13 +82,11 @@ enum Shape { LPF1, HPF1, LOW_SHELF1, HIGH_SHELF1, LPF2, HPF2, LOW_SHELF2, HIGH_S
 // Individual out
 enum { OUT_OFF, OUT_PRE_INSERTION, OUT_POST_INSERTION };
 
-// One window of the chip's program: its steps, its delay slots and its LFOs, and what the EPROM holds for it.
+// One window: the steps of its constants, its delay slots and its LFOs.
 struct Window {
     const uint16_t* steps;  int nsteps;
     const uint8_t* slots;  int nslots;
     const uint8_t* lfos = nullptr;  uint32_t lfoMask = 0;    // four LFOs and their phase reset bits; the reverb has none
-    const uint16_t (*programs)[5] = nullptr;                 // per type msb: five words for each step,
-    const uint8_t* tags = nullptr;                           // and a tag
     int clearEntry = 0;                                      // the program that silences the window
 };
 extern const Window WINDOWS[5];
@@ -138,7 +136,6 @@ struct EffectHost : ChipHost {
     uint32_t posted         = 0;     // what was posted to the effect task and not handled yet
     bool     hold           = false; // while set, changes go to the shadows and nothing is written to the chip
     uint16_t coef[512]      = {};    // each step's COEF
-    uint8_t  tag[512]       = {};    // and TAG
     int32_t  delay[128]     = {};    // each delay slot's offset inside its area
     TypeCode code[5]        = {};    // each window's type
     uint8_t  mute[6]        = {};    // nonzero silences the five windows and the OUTPUT
@@ -156,11 +153,9 @@ struct EffectHost : ChipHost {
     // ---- chip registers ----
     void writeCoefs(uint32_t n, const uint16_t* steps);                 // the constants of n listed steps
     void writeCoefsBurst(uint32_t n, const uint16_t* steps);            // of n steps in a row, from the first listed
-    void writeTags(uint32_t n, const uint16_t* steps);                  // the tags of n listed steps
-    void writeTagsBurst(uint32_t n, const uint16_t* steps);
     void writeDelays(uint32_t n, const uint8_t* slots);                 // the offsets of n listed delay slots
     void writeLfo(Reg reg, uint32_t lfo);                               // ChipHost's, unless held
-    void uploadProgram(int window, int clear);                          // a window's program words and tags
+    void uploadProgram(int window, int clear);                          // a window's program, or the one that silences it
     void uploadWindow(int kind);                                        // its program, constants, delays and LFOs
     void uploadAll();
     void initChip();

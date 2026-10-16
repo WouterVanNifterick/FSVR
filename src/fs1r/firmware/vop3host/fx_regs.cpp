@@ -1,7 +1,7 @@
 // license:BSD-3-Clause
 // copyright-holders:Wouter van Nifterick
 
-// The chip's register layer, the window loaders and the engine initialisation.
+// The register layer, the window loaders and the initialisation.
 #include "effect_host.h"
 #include <algorithm>
 
@@ -24,25 +24,6 @@ void EffectHost::writeCoefsBurst(uint32_t n, const uint16_t* steps)
     writeReg(SELECT, steps[0] | AUTO_INCREMENT);
     for (uint32_t i = 0; i < n; i++)
         writeReg(COEF, coef[steps[i]]);
-}
-
-// the tags of n listed steps, unless held
-void EffectHost::writeTags(uint32_t n, const uint16_t* steps)
-{
-    if (hold)
-        return;
-    for (uint32_t i = 0; i < n; i++) {
-        writeReg(SELECT, steps[i]);
-        writeReg(TAG, tag[steps[i]]);
-    }
-}
-
-// tags through the latch
-void EffectHost::writeTagsBurst(uint32_t n, const uint16_t* steps)
-{
-    writeReg(SELECT, steps[0] | AUTO_INCREMENT);
-    for (uint32_t i = 0; i < n; i++)
-        writeReg(TAG, tag[steps[i]]);
 }
 
 // the offsets of n listed delay slots, unless held. The
@@ -70,38 +51,18 @@ void EffectHost::writeLfo(Reg reg, uint32_t lfo)
 
 const Window WINDOWS[5] = {
     {rom::STEPS_REVERB, int(std::size(rom::STEPS_REVERB)), rom::SLOTS_REVERB, int(std::size(rom::SLOTS_REVERB))},
-    {rom::STEPS_AUX, 40, rom::SLOTS_AUX, 10, rom::LFOS_AUX, 0x000F, rom::AUX_PROGRAM, rom::AUX_TAGS},
-    {rom::STEPS_INSERTION, 96, rom::SLOTS_INSERTION, 40, rom::LFOS_INSERTION, 0xF000, rom::INSERTION_PROGRAMS, rom::INSERTION_TAGS, 14},
-    {rom::STEPS_REVERB_DELAY, 72, rom::SLOTS_REVERB_DELAY, 12, rom::LFOS_REVERB_DELAY, 0x00F0, rom::REVERB_DELAY_PROGRAMS, rom::DELAY_TAGS, 11},
-    {rom::STEPS_VARIATION, 72, rom::SLOTS_VARIATION, 12, rom::LFOS_VARIATION, 0x0F00, rom::VARIATION_PROGRAMS, rom::DELAY_TAGS, 11},
+    {rom::STEPS_AUX, 40, rom::SLOTS_AUX, 10, rom::LFOS_AUX, 0x000F},
+    {rom::STEPS_INSERTION, 96, rom::SLOTS_INSERTION, 40, rom::LFOS_INSERTION, 0xF000, 14},
+    {rom::STEPS_REVERB_DELAY, 72, rom::SLOTS_REVERB_DELAY, 12, rom::LFOS_REVERB_DELAY, 0x00F0, 11},
+    {rom::STEPS_VARIATION, 72, rom::SLOTS_VARIATION, 12, rom::LFOS_VARIATION, 0x0F00, 11},
 };
 
-// the tag and the five program words of every step of a window, for
-// its type msb or, with `clear`, the program that silences it. Kind 0 is the base program.
+// a window's program for its type msb or, with `clear`, the program that silences it. Kind 0 is the base program,
+// which every performance runs.
 void EffectHost::uploadProgram(int kind, int clear)
 {
-    if (kind >= 1 && kind <= 4) {
-        const Window& w = WINDOWS[kind];
-        const int entry = clear ? w.clearEntry : code[kind].msb;
-        // the tag shadow is filled from the window's first step on, not step by step
-        std::copy_n(w.tags + entry * w.nsteps, w.nsteps, tag + w.steps[0]);
-        writeTagsBurst(w.nsteps, w.steps);
-        const uint16_t (*program)[5] = w.programs + entry * w.nsteps;
-        for (int word = 0; word < 5; word++) {
-            writeReg(SELECT, w.steps[0] | AUTO_INCREMENT);
-            for (int s = 0; s < w.nsteps; s++)
-                writeReg(PROGRAM - word, program[s][word]);
-        }
-        return;
-    }
-    std::copy_n(rom::BASE_TAGS[0], std::size(rom::BASE_TAGS[0]), tag);
-    writeTags(int(std::size(rom::STEPS_MASTER_EQ)), rom::STEPS_MASTER_EQ);
-    writeTags(int(std::size(rom::STEPS_SYSTEM)), rom::STEPS_SYSTEM);
-    for (int word = 0; word < 5; word++) {
-        writeReg(SELECT, AUTO_INCREMENT);
-        for (int s = 0; s < int(std::size(rom::BASE_PROGRAM)); s++)
-            writeReg(PROGRAM - word, rom::BASE_PROGRAM[s][word]);
-    }
+    if (kind >= 1 && kind <= 4)
+        sink->load(kind, clear ? WINDOWS[kind].clearEntry : code[kind].msb);
 }
 
 // bracket the chip, upload a window's program, constants, delay
@@ -115,8 +76,6 @@ void EffectHost::uploadWindow(int kind)
             const Window& w = WINDOWS[REVERB];
             writeDelays(w.nslots, w.slots);
             writeCoefs(w.nsteps, w.steps);
-            std::copy_n(rom::BASE_TAGS[0], std::size(rom::BASE_TAGS[0]), tag);
-            writeTags(w.nsteps, w.steps);
             break;
         }
         case AUX: case INSERTION: case REVERB_DELAY: case VARIATION: {
@@ -134,7 +93,6 @@ void EffectHost::uploadWindow(int kind)
             writeCoefs(int(std::size(rom::STEPS_MASTER_EQ)), rom::STEPS_MASTER_EQ);
             break;
         default:
-            writeTags(int(std::size(rom::STEPS_SYSTEM)), rom::STEPS_SYSTEM);
             writeCoefs(int(std::size(rom::STEPS_SYSTEM)), rom::STEPS_SYSTEM);
             break;
     }

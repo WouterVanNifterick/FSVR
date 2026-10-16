@@ -1,37 +1,8 @@
-// effects/ins_m05.cpp - the insertion window's program for Distortion, Overdrive, Amp Sim,
-// Compressor, Comp+Dist, HM Enhancer and Noise Gate: its 96 steps.
+// effects/ins_m05.cpp - the insertion window under HM Enhncer, Noise Gate, Compressor, Comp+Dist, Distortion,
+// Overdrive and Amp Sim.
 //
-// rom::INSERTION_PROGRAMS[5], the program the insertion window holds under the seven types
-// fx_dispatch.cpp's INSERTION_ROUTES files at msb 5: ins-28 Distortion and ins-30 Overdrive on
-// EffectHost::distortion, ins-32 Amp Sim on EffectHost::ampSimulator, ins-24 Compressor on
-// EffectHost::compressor, ins-25 Comp+Dist on EffectHost::compressorDistortion, ins-22 HM Enhancer on
-// EffectHost::enhancer and ins-23 Noise Gate on EffectHost::noiseGate. One program, seven types: the
-// handlers differ only in which words they write, so nothing here knows which of them is running.
-// Nothing in this program touches the delay RAM, and no step of it is a control step.
-//
-// So the seven types are one chain: a fixed two-channel input filter, a peak detector on the sum of
-// the two channels, an eight-segment gain curve off the detector, a smoother, a five-multiply shape,
-// three tone filters and a dry and wet mix. The gate and the compressor use the whole of it; the
-// distortion and the enhancer reach it through ins::DIST_MODE. The old model in vop3_effects.h runs
-// tanh and a power law for the shape, one envelope and a hard ratio for the dynamics, and a shelf
-// plus a peak; it has none of this program's words, so it is no reference for any number here.
-//
-// The registers: r[7] and r[8] the two signals the base program leaves the window; r[1] to r[6] the
-// shape's chain and then the curve's breakpoints; r[17] and r[18] the two outputs; r[67] to r[74] the
-// two input filters and their states; r[75], r[76] and r[121] the detector's states; r[79] the
-// shaper's output; r[80], r[82], r[84], r[86] the three tone filters' delays; r[81], r[83] the first
-// two tone filters' outputs and r[85] the third's; r[119] to r[121] the detector's input scale; r[123]
-// the thresholded level; r[124], r[125] the level times the smoother, and then the curve's last two
-// breakpoints; r[126], r[127] the output's input scale. The cells: m[3], m[7] the serial inputs this
-// block takes for the base program, m[4] from page 14 and m[13] the page 13's LFO; m[42], m[43] the
-// curve's output and that one pass old; m[44] the smoother's state; m[45] the left output filter's
-// state; m[46] the right one's; m[47], m[48] the two channels' dry signals; m[49] the level.
-//
-// The three t registers the program uses are t[9], written at 0x1ba, read at 0x1c9 and 0x1ca, the
-// smoother's gain; and t[10] and t[11], written at 0x1c9 and 0x1ca and read at 0x1dc and 0x1e6, that
-// same gain squared onto the two channels.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

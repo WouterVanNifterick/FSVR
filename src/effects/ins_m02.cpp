@@ -1,68 +1,7 @@
-// effects/ins_m02.cpp - the insertion window's program for type msb 02.
+// effects/ins_m02.cpp - the insertion window under Phaser1 and Phaser2.
 //
-// rom::INSERTION_PROGRAMS[2], the program the insertion window holds under the two types
-// fx_dispatch.cpp's INSERTION_ROUTES files at msb 2: ins-05 Phaser1 and ins-06 Phaser2, programmed by
-// EffectHost::phaser1() and phaser2() in fx_modulation.cpp. Like ins_m01 it is one of the fifteen
-// programs the window shares, and the same words run under both types: what the two differ by is
-// which coefficients they write, phaser1() its ten stage words and one feedback word, phaser2() the
-// same ten, two feedback words and the LFO phase. Nothing here knows which one is running.
-//
-// What the 96 steps compute, in the groups the comments open each of. The names are the host's:
-// phaser1() and phaser2() name every step they program, through the tables in rom_tables.cpp.
-//   0x1a0-0x1b2  the two signals in and the two shelves. r[7] and r[8] are the two the base program
-//                leaves the window; r[67] and r[70] take them, r[68] and r[71] are the low shelves'
-//                outputs (ins::LPF_PH[0], [1], [2] and ins::LPF_PH_C[0], [1], [2]) and r[69] and
-//                r[72] the high shelves' (ins::HPF_PH[0], [1], [2] and ins::HPF_PH_C[0], [1], [2]).
-//                0x1aa and 0x1ab take the window's own LFO cell, m[13], into r[122] and r[123], the
-//                two sweep registers.
-//   0x1b3-0x1c2  the swept coefficient of each cascade. ins::PH_DEPTH[0] and [1], 0x1b3 and 0x1b5,
-//                rectify and scale the LFO the register holds, ins::PH_FB[0] and [1], 0x1b4 and
-//                0x1b6, add the phase shift and register it, and 0x1c1 and 0x1c2 multiply the register
-//                by itself through t[10] and t[11]: the sweep is squared. 0x1b4, 0x1b6, 0x1c1 and
-//                0x1c2 each queue t[10] or t[11] three steps ahead, which is how the sections from
-//                0x1d0 on come to read them.
-//   0x1b7-0x1c0  the ten stage words, ins::PH_STAGES: five taps of each cascade, r[75] to r[79] and
-//                r[82] to r[86], summed a half at a time into r[120] and r[121]. phaser1() and
-//                phaser2() open one word of each cascade and leave the other four at zero, so each
-//                cascade's output is the one stage the Stage parameter names, the 2 and the half
-//                cancelling, and walking that parameter walks the output along the cascade.
-//   0x1c3-0x1c6  the diffuse taps, ins::PH_DIR: r[81] and r[85] of the second cascade and its
-//                selected stage r[121] into r[119], the signal the left output carries. phaser1()'s
-//                Diffuse parameter opens one of the three; phaser2() has none, so under it the ROM's
-//                words stand and r[119] is r[81], the second cascade's first section.
-//   0x1c7-0x1ca  the tail of the sweep. 0x1c7 and 0x1c9 load the offset, and 0x1c8 and 0x1ca take it
-//                off the square of 0x1c1 and queue t[10] and t[11] again, so the coefficient the
-//                sections run is the fourth power of the phase shift plus depth term less that offset.
-//   0x1cb-0x1ce  the cascade on r[74] to r[79]'s input: r[69] and r[72], the shelves' outputs, come
-//                in at a quarter and a half, and the other cascade's selected stage r[121] through
-//                ins::PH_WIDTH1[0], the one word phaser1() writes. The matching word for the cascade
-//                on r[81] to r[86] is 0x1e2, ins::PH_WIDTH2[1], which adds r[121] to the 0x1e3 that
-//                takes r[120], and phaser2() writes ins::PH_WIDTH2[0] at 0x1cd as well, so under it
-//                each cascade takes the other's output back: that is the FB Level, and the two
-//                cascades feed each other by it.
-//   0x1cf-0x1e0  the first cascade, six allpass sections r[74] to r[79] on t[10], three steps
-//                each: y = t[10] * x - y a step back, r[74] taking r[73] and r[79] taking r[78]. The
-//                class-3 step of each group hands the section's output on as the running value.
-//   0x1e1-0x1f5  the second cascade, the same six sections r[81] to r[86] on t[11], behind its own
-//                input at 0x1e1 to 0x1e3.
-//   0x1f6-0x1f9  the dry and wet mix, ins::PH_WET: r[69] and r[72], the shelves' outputs, at
-//                ins::PH_WET[0] and [2] against the wet at [1] and [3], into r[17] and r[18], the two
-//                outputs, which the base program reads back.
-//
-// The registers: r[7] and r[8] the two signals the base program leaves the window; r[67] and r[70]
-// the shelves' inputs, r[68], r[69], r[71] and r[72] the two shelves of each channel; r[122] and
-// r[123] the two sweep registers, the LFO at 0x1aa and 0x1ab, the phase shift plus depth term at
-// 0x1b4 and 0x1b6 and its square at 0x1c1 and 0x1c2, which 0x1c8 and 0x1ca raise to the fourth power;
-// r[73] and r[80] the cascades' inputs and r[74] to r[79] and r[81] to r[86] their twelve sections;
-// r[120], r[121] and r[119] each cascade's selected stage and the diffuse tap; r[17] and r[18] the
-// two outputs.
-//
-// The old model in vop3_effects.h has a case for each of these two types, and it is a loop of
-// `stages` allpasses whose frequency the LFO sweeps through a tan formula: no delay RAM either, but
-// no shelves worth the name, no stage crossfade, no cross-cascade feedback and no diffuse taps. It
-// is no reference for any number here, and where the two differ, the program above is what runs.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

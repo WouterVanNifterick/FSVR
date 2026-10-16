@@ -1,46 +1,7 @@
-// effects/var_m04.cpp - the variation window's program for Auto Wah and Touch Wah.
+// effects/var_m04.cpp - the variation window under Auto Wah and Touch Wah.
 //
-//   WAH_FILTER      {0x15B, 0x159, 0x15A}       the left channel's low shelf: b0, b1, -a1
-//   WAH_FILTER_2    {0x15E, 0x15C, 0x15D}       the left channel's high shelf, the same three
-//   WAH_FILTER_3    {0x162, 0x160, 0x161}       the right channel's low shelf
-//   WAH_FILTER_4    {0x165, 0x163, 0x164}       the right channel's high shelf
-//   WAH_CUTOFF      {0x166}                     the cutoff
-//   WAH_DEPTH       {0x167}                     the LFO depth on it: autoWah() writes it, touchWah()
-//                                                does not, so the sweep is the Auto Wah's
-//   WAH_SENSE       {0x170, 0x175}              the resonance: wahSense() writes one word into both
-//   WAH_ATTACK      {0x171}                     the Touch Wah's sensitivity, autoWah() leaves it
-//   WAH_HPF         {0x16D, 0x16B, 0x16C}       touchWah()'s input highpass, its words only
-//   WAH_LPF         {0x181, 0x17F, 0x180}       touchWah()'s input lowpass, its words only
-//   WAH_PAN         {0x185, 0x184, 0x187, 0x186} the dry and wet, interleaved: dry, wet, dry, wet
-//
-// fx_common.cpp's shelves() designs the four shelves as order-1 filters from EQ Low Freq/Gain and High
-// Freq/Gain, so each is b0 * x[n] + b1 * x[n-1] - a1 * y[n-1] over one register's delay of the input and
-// one of the output. fx_design.cpp's designFilter scales its words by 2048 * (16 >> scale), and the step
-// carries 2^scale as its result route, which is why the low shelf's b0 sits on a step that doubles and the
-// high shelf's on one that quadruples: scale 1 against highScale's 2.
-//
-//   b1   the word on the section's own input, with no adder, which opens the sum
-//   -a1  the word on the section's own output a pass back
-//   b0   the word on the input again, closing the sum into the output with the section's route
-//
-// The registers: r[5] and r[6] the two inputs the base program leaves this window (0x096 and 0x1f2 write
-// the first, 0x08d the second) and r[15] and r[16] the two outputs it reads back (0x004 and 0x005).
-// r[103] to r[105] the left channel's EQ: input, low shelf, high shelf; r[106] to r[108] the right
-// channel's. r[109] and r[110] the highpass, r[112] and r[113] the lowpass, r[114] and r[115] the
-// resonator's two states, r[119] the cutoff and then the smoother's state, r[111] the rectified level's
-// partner. The cells: m[2] and m[6] the serial inputs this block takes for the base program, m[8] the
-// window's first LFO, m[11] and m[12] the two LFO values it publishes, m[28] to m[33] the six published
-// delay RAM reads, m[54] and m[55] the resonator's two feedback accumulators, m[56] and m[57] its two
-// inputs and m[58] the sensitivity level. The delay slots: 0x56, 0x57, 0x58, 0x63, 0x64 and 0x65, read at
-// the ring pointer with no index; this program writes none of them, so the lines behind these taps are
-// filled elsewhere. Each capture takes the read five steps before it (captured()'s lower bound), so
-// m[28] carries the slot 0x56 word, m[29] the slot 0x57 word, m[30] the slot 0x58 word, and m[31], m[32]
-// and m[33] the slots 0x63, 0x64 and 0x65 words.
-//
-// The one t register the program uses is t[9], written at 0x168, 0x16e and 0x173 and read at 0x16e, 0x172,
-// 0x178, 0x179, 0x182 and 0x183: the cutoff, then the smoother's gain, then the resonator's gain.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

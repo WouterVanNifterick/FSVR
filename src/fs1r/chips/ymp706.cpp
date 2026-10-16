@@ -342,7 +342,7 @@ void Synth::render(float* outL, float* outR, int frames) {
         }
         flt.run(flt_banks(), v);
         for (int n = 0; n < nf; n++) { pl[ch[n].part] += v[n] * ch[n].panL; pr[ch[n].part] += v[n] * ch[n].panR; }
-        // Four stereo buses into the effect chip: dry, insertion, variation send, reverb send. The rest is the chip's.
+        // Four stereo buses into the effects: dry, insertion, variation send, reverb send.
         double bus[8] = {}, l, r;
         for (int p = 0; p < 4; p++) {
             if (insSw[p]) { bus[2] += pl[p]; bus[3] += pr[p]; continue; }

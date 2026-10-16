@@ -1,28 +1,8 @@
-// effects/aux.cpp - the aux window's program.
+// effects/aux.cpp - the aux window: eight one-pole smoothers on the send levels, which every performance
+// runs. The base program reads their differences back.
 //
-// Eight units of four steps and a tail:
-//
-//   0x0e8-0x107  eight units, each a first-order smoother of one cell. The unit's state is a register,
-//                its cell is the multiplier input, and the word on the unit's second step is the pole:
-//                those eight steps are rom::STEPS_OUTPUT_GAIN (0xe9, 0xed, 0xf1, 0xf5, 0xf9, 0xfd,
-//                0x101, 0x105), which EffectHost::setOutputGain writes 21 into for 0 dB. So one pass
-//                moves the state toward the cell by the gain word times the difference the unit's third
-//                step left, and the third step leaves the cell minus the state, doubled, in a second
-//                register. The base program reads all eight of those differences once each, at 0x046,
-//                0x050, 0x056, 0x05f, 0x089, 0x092, 0x0d8 and 0x0e0, and adds them into the running
-//                value on the way to the outputs.
-//   0x108-0x10f  the tail: two empty steps, then two pairs that clear the running value and write it
-//                into the cells m[40] and m[41], which are two of the eight units' cells, and the
-//                window's serial output, the cell m[17] to out[8].
-//
-// The registers, as UNITS names them: r[61] to r[66], r[101] and r[102] the eight states,
-// r[31] to r[34] and r[43] to r[46] the eight differences, r[7] and r[8] what the tail's two clear steps
-// read, r[17] and r[18] what its two write steps multiply in. Of the eight states, only r[101] and
-// r[102] are read outside this window, by the reverb delay window's programs; the other six are read
-// here and nowhere else in the program set. Of the eight cells, m[1] to m[6] are written by a step of
-// another window, while m[40] and m[41] are written by the base program at 0x082 and 0x0c0 from the
-// serial inputs and then overwritten with zero by the tail, three steps before the next pass reads
-// them.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

@@ -1,42 +1,7 @@
-// effects/var_m03.cpp - the variation window's program for HM Enhancer, Noise Gate and
-// Compressor: its 72 steps.
+// effects/var_m03.cpp - the variation window under HM Enhncer, Noise Gate and Compressor.
 //
-//   DYN_HPF2      {0x15E, 0x15A, 0x15B, 0x15C, 0x15D}   the left input's filter
-//   DYN_HPF2_COPY {0x164, 0x160, 0x161, 0x162, 0x163}   the right input's, the same five words
-//   DYN_THRESHOLD {0x165}
-//   HM_DRIVE      {0x166, 0x167}                        the enhancer's drive only
-//   DYN_RATIO     {0x170, 0x173, 0x171, 0x172, 0x174, 0x175, 0x176, 0x177}
-//   DYN_ATTACK    {0x17B, 0x179, 0x17A}
-//   DYN_RELEASE   {0x17E, 0x183, 0x185}
-//   DYN_HPF       {0x18E, 0x18C, 0x18D}                  the left output's filter
-//   DYN_HPF_COPY  {0x194, 0x192, 0x193}                  the right output's
-//   DYN_OUT       {0x195, 0x196, 0x197, 0x199}           dry left, wet left, dry right, wet right
-//
-// fx_design.cpp's designFilter writes an order-2 filter as b0, b1, b2, -a1, -a2 in that list order, and
-// an order-1 one as b0, b1, -a1. The two input filters are designed as HPF2 for the enhancer and as HPF1
-// for the compressor and the gate, and HPF1 leaves b2 and -a2 at zero, so the five words carry three
-// coefficients and two zeros for those two types. The two output filters are HPF1 for the enhancer and
-// GAIN_ONLY for the other two, over the same three words.
-//
-// The registers: r[5] and r[6] the two serial inputs the base program writes, r[15] and r[16] the two
-// outputs, r[1] and r[2] the two driven inputs, r[103] and r[107] the two filter inputs doubled, r[104]
-// and r[108] their one-pass delays, r[105] and r[109] their states and outputs, r[106] and r[110] their
-// outputs delayed again, r[111] and r[113] the output filters' states with r[112] and r[114] their
-// sums and one-pass delays, r[119] the left input's gain at first and the level from 0x17d on, r[120]
-// and r[121] the two channels after t[9], r[122] and r[123] the two after t[10] and t[11], r[126] the
-// level the threshold scales, and r[124] and r[125] the ladder's two taps this row's constants hold at
-// zero. The cells: m[2] and m[6] the two serial inputs, m[11] and m[12] the two LFO values, m[28] to
-// m[33] the six published delay RAM reads, m[54] and m[55] the release chain's two accumulators. The
-// delay slots: 0x56, 0x57, 0x58, 0x63, 0x64 and 0x65, all read at the ring pointer with no index; this
-// program writes none of them, so the lines behind these taps are filled elsewhere. Each capture takes
-// the read five steps before it (captured()'s lower bound), so m[28] carries the slot 0x56 word, m[29]
-// the slot 0x57 word, m[30] the slot 0x58 word, and m[31], m[32] and m[33] the slots 0x63, 0x64 and
-// 0x65 words.
-//
-// The three t registers the program uses are t[9], written at 0x17b and read at 0x17f and 0x180, and
-// t[10] and t[11], written at 0x17f and 0x180 and read at 0x187 and 0x188.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

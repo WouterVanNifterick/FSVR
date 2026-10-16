@@ -1,39 +1,7 @@
-// effects/dly_m00.cpp - the reverb delay window's first program.
+// effects/dly_m00.cpp - the reverb delay window under the reverb types: the reverb's delay half.
 //
-// rom::REVERB_DELAY_PROGRAMS[0], the program the window holds for reverb types 0 to 12 (No Effect,
-// Hall 1 and 2, Room 1 to 3, Stage 1 and 2, Plate, White Room, Tunnel, Basement, Canyon). Types 13 to
-// 16 of the reverb block (Delay L,C,R, Delay L,R, Echo, Cross Delay) run their programs here instead,
-// under the keys dly-m08 to dly-m11, and fx_delay.cpp is the host that feeds those. Under types 0 to
-// 12 no DELAY_ROUTES entry matches, so nothing rewrites the window's constants or delay offsets when a
-// parameter moves: they are the reverb type's preset (rom::REVERB_DELAY_0_BLOCKS) and they are the
-// same thirteen times over, which a read of c.coef[] and c.slot[] under each type confirms. The code
-// reads them where they live all the same, as step() reads them, because that is the contract and not
-// because the numbers are known here.
-//
-// What the 72 steps compute, in these groups:
-//
-//   0x110-0x126  the send into the block and the host's four tone sections, rev::DELAY_LPF,
-//                rev::DELAY_HPF and their two copies, three steps each and each leaving a
-//                coefficient in t[12] or t[13]. Three of the twenty steps, 0x113, 0x117 and 0x11b,
-//                read the block's own three lines (the slots 0x44, 0x45 and 0x46, in the reverb's
-//                area), and those reads go out in m[22], m[23] and m[24] five steps later.
-//   0x127-0x14d  the window's own line, read as four pairs with the index added, each read taken up
-//                by a cell five steps later and each pair differenced and scaled by t[9], t[11], t[11]
-//                or t[10] onto the running value. Those three coefficients and the three index loads
-//                are all zero under every type that loads this program, so the four products are zero
-//                and what the group adds is the running value on its own.
-//   0x14e-0x157  three more reads of the block's own area, published in m[25], m[26] and m[27], the
-//                two writes of the window's line (the value 0x146 latched, and 0x157's own result),
-//                and the block's output, the cell m[41] to the serial out at 0x156.
-//
-// The registers: r[123] and r[2] the two inputs of the filter groups, r[124], r[126] and r[1] their
-// three states, r[127] the first group's output, r[119], r[121], r[122] and r[120] the four tap sums,
-// r[13] and r[14] the running value scaled out. The cells: m[12] the send, written by a window outside
-// this one, m[56] to m[63] the eight tap captures, m[22] to m[27] what this window publishes, m[8] to
-// m[10] the three LFO values it hands on, m[1] and m[5] the two serial inputs. The t registers:
-// t[12] and t[13] the two filter coefficients, t[9], t[10] and t[11] the three tap coefficients.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

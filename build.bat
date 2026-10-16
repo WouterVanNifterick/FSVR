@@ -6,7 +6,7 @@ rem   build.bat test                 -> builds and runs the self checks (engine,
 rem   build.bat plugin               -> every plug-in format through CMake into bin\<format>: CLAP, VST3, VST2 and the
 rem                                     standalone (64-bit, build\x64), then the 32-bit VST2 with the DXi in it (build\x86),
 rem                                     then the plug-in's own checks (check_plugin, check_gui)
-rem   build.bat bench                -> bin\vop3_bench.exe, the filter and effects' cost and bit-exact output (tools\vop3_bench.cpp)
+rem   build.bat bench                -> bin\dsp_bench.exe, the filter and effects' cost and bit-exact output (tools\dsp_bench.cpp)
 rem   build.bat file.cpp [cl args]   -> compiles whatever you pass (paths relative to this folder)
 rem   set FSVR_MATH=0..3           -> the sample loop's maths backend (src\fsvr\fastmath.h): 0 raw libm, 1 LUT (unset), 2 CORDIC, 3 hybrid
 rem CMakeLists.txt builds the same targets for anything that is not MSVC-on-Windows.
@@ -15,9 +15,8 @@ call "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Bu
 if not exist build mkdir build
 if not exist bin mkdir bin
 set MATHDEF=
-rem The chip, its two hosts and the sections over them are bit-exact only without FMA contraction, so they are compiled apart.
-rem VS 2022 does not contract under /fp:precise (tools\vop3_bench.cpp writes the same bytes as under /fp:strict).
-rem The filters and effects are plain C++ DSP in src\filters\ and src\effects\; no chip is emulated at run time.
+rem The two hosts and the filters and effects are bit-exact only without FMA contraction, so they are compiled apart.
+rem VS 2022 does not contract under /fp:precise (tools\dsp_bench.cpp writes the same bytes as under /fp:strict).
 set VOP3FLAGS=/nologo /O2 /EHsc /W3 /std:c++20 /fp:precise /I src
 set VOP3OBJ=build\vop3host\*.obj
 if defined FSVR_MATH set MATHDEF=/DFSVR_MATH=%FSVR_MATH%
@@ -37,7 +36,7 @@ if "%~1"=="" (
   build\x64\check_gui.exe
 ) else if "%~1"=="bench" (
   call :vop3host || goto :done
-  cl %VOP3FLAGS% tools\vop3_bench.cpp %VOP3OBJ% /Fe:bin\vop3_bench.exe /Fobuild\
+  cl %VOP3FLAGS% tools\dsp_bench.cpp %VOP3OBJ% /Fe:bin\dsp_bench.exe /Fobuild\
 ) else (
   cl /nologo /O2 /EHsc /W3 /std:c++17 %* /Fobuild\
 )
@@ -52,7 +51,7 @@ exit /b %ERRORLEVEL%
 :vop3host
 if exist build\vop3host rmdir /s /q build\vop3host
 mkdir build\vop3host
-cl /c /MP %VOP3FLAGS% src\fs1r\firmware\vop3host\*.cpp src\effects\*.cpp src\filters\*.cpp src\fs1r\chips\vop3.cpp /Fobuild\vop3host\ || exit /b 1
+cl /c /MP %VOP3FLAGS% src\fs1r\firmware\vop3host\*.cpp src\effects\*.cpp src\filters\*.cpp src\fs1r\chips\modulators.cpp /Fobuild\vop3host\ || exit /b 1
 exit /b %ERRORLEVEL%
 
 :done

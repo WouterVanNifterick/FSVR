@@ -10,7 +10,7 @@ Licensed GPL-3, see `LICENSE` and `NOTICE.md`.
 
 **Discord:** https://discord.gg/6sXu3GmkNm
 
-The tone generator, the CPU-side firmware logic and everything that feeds them match rgwan's FS1R inside the measurement, file by file. Since 0.8.0 both VOP3 chips, the filter and the effects, run the firmware's own microcode on an emulated YSS236, compiled to native code at run time. Next is rewriting the effects in C++. See [VOP3](#vop3-as-of-oct-14-2026) and [FS1R vs FSVR](#fs1r-vs-fsvr).
+The tone generator, the CPU-side firmware logic and everything that feeds them match rgwan's FS1R inside the measurement, file by file. The voice filter and the effects compute what the firmware's own DSP programs compute, bit for bit, as plain C++. See [Filters and effects](#filters-and-effects) and [FS1R vs FSVR](#fs1r-vs-fsvr).
 
 ## Demos
 
@@ -20,7 +20,7 @@ The tone generator, the CPU-side firmware logic and everything that feeds them m
 
 https://github.com/user-attachments/assets/8afa466b-e7c4-4427-a058-392120f1a15d
 
-**FSVR (v0.8.0 w/ VOP3 emulation)**
+**FSVR (v0.8.0)**
 
 https://github.com/user-attachments/assets/bd0fc75f-4aa0-4bf9-9219-08d003f38e84
 
@@ -30,7 +30,7 @@ https://github.com/user-attachments/assets/bd0fc75f-4aa0-4bf9-9219-08d003f38e84
 
 https://github.com/user-attachments/assets/fc235492-d053-4abb-af04-8e1041c32d46
 
-**FSVR (v0.8.0, w/ VOP3 emulation)**
+**FSVR (v0.8.0)**
 
 https://github.com/user-attachments/assets/db4cbe31-0bfa-451b-b8e1-563970ff559d
 
@@ -46,20 +46,20 @@ Today, jameshansen, rgwan and other contributors are collaborating on this proje
 
 AI coding agents and frontier LLMs have played a large role in making this project possible. The initial recreation was created using Claude Fable 5.1, with much of the ongoing analysis and engine improvements being assisted with Claude Opus 5. As part of the collaborative process, developers on the project can now use these tools via [Discord](https://discord.gg/6sXu3GmkNm).
 
-## VOP3 / Effects
+## Filters and effects
 
-As of v0.8.0 the VOP3 is now emulated. Both YSS236 chips, the per-voice filter (VOP3-1) and the effects (VOP3-2), now run the firmware's own microcode on an emulated YSS236 core instead of approximations.
+The per-voice filter (`src/filters`) and the effects (`src/effects`) are plain C++ DSP that computes, bit for bit, what the firmware's own programs compute on the FS1R's two DSPs: 17 reverb, 29 variation and 41 insertion types and the master EQ, and the six filter types on all 32 voices. The work on the DSP itself (its instruction set, the programs and the tools that read them) lives in the separate [VOP3](https://github.com/musicastudio/VOP3) project.
 
-Thank you to **Wouter van Nifterick** ([WouterVanNifterick](https://github.com/WouterVanNifterick)) for his work on this and contributing [PR #36](https://github.com/musicastudio/FSVR/pull/36), which ports the firmware's effect and filter hosts to C++ and runs their uploads on a microcode-level model of the chip, measured on the unit.
+Thank you to **Wouter van Nifterick** ([WouterVanNifterick](https://github.com/WouterVanNifterick)) for his work on this and contributing [PR #36](https://github.com/musicastudio/FSVR/pull/36), which ports the firmware's effect and filter hosts to C++, measured on the unit.
 
 * **Checked against the real firmware.** For all 87 effect types, the host uploads word for word what the FS1R's firmware uploads, traced in MAME. Fed the unit's own upload and recorded input, the five reverbs checked so far match the hardware to within 2 to 12 LSB (correlation 0.99999 or better). The delay, modulation and insertion programs run the same uploads but are not yet checked against a recording, since they take their send from the serial port and need a purpose-built take.
-* **The filters and effects as plain DSP, no chip.** The voice filter (`src/filters`) and every effect program the firmware loads (`src/effects`) run as C++ DSP functions, without emulating the VOP3 chips that run them on the unit. Each is bit for bit the firmware's program on the chip: `vop3_native_check` compares them with the chip interpreter every sample over every effect type and filter type, delay memory included. The effect programs are lifted from the chip's by `tools/fx_lift`.
+* **Pinned.** `dsp_check` (a ctest) hashes the filter over every type and the effects over every type with every parameter randomised; the hashes are the firmware programs' own output for the same drive.
 
 **Next: checking the effects against recordings.** The reverbs checked so far match the unit to within 2 to 12 LSB. The delay, modulation and insertion programs run the same uploads but still need a purpose-built take.
 
 ## FS1R vs FSVR
 
-**Where it stands, 2026-10-14: the engine is done and the effects are now emulated.** Against rgwan's unit the synthesis engine matches close to 1:1. Every constant that models the tone generator is measured off a recording or a register session rather than guessed, and every file in the 38-file capture set outside the three effect files sits inside the measurement: the amplitude EG, the formant window and its skirt on all seven forms, the noise formant, FM and feedback, detune, the velocity law, the per-voice filter and its EG, LFO1 and LFO2, pan and the output stage. Since 0.8.0 both VOP3 chips run the firmware's own microcode on an emulated YSS236, so the effects are no longer modelled from the Data List. The reverbs checked so far match the unit to within 2 to 12 LSB; the delay, modulation and insertion programs are still to be checked against a recording. `docs/fidelity_plan.md` has the numbers per file from before the emulation.
+**Where it stands, 2026-10-16: the engine is done, and the filter and effects are bit for bit.** Against rgwan's unit the synthesis engine matches close to 1:1. Every constant that models the tone generator is measured off a recording or a register session rather than guessed, and every file in the 38-file capture set outside the three effect files sits inside the measurement: the amplitude EG, the formant window and its skirt on all seven forms, the noise formant, FM and feedback, detune, the velocity law, the per-voice filter and its EG, LFO1 and LFO2, pan and the output stage. The filter and the effects compute what the firmware's own DSP programs compute, bit for bit. The reverbs checked so far match the unit to within 2 to 12 LSB; the delay, modulation and insertion programs are still to be checked against a recording. `docs/fidelity_plan.md` has the numbers per file from before the emulation.
 
 The FS1R (1998) is Yamaha's formant-shaping FM synth: 8 operators per voice, 32 channels, four parts, and a second oscillator type that generates a formant with a shaped spectral window instead of a sine. Its tone generator is the YMP706, a QFP128 part used in exactly two products, the FS1R and the PLG150-DX board. There is no public register documentation for it and no emulation of it anywhere.
 
@@ -84,9 +84,9 @@ A short list of places FSVR behaves differently **on purpose** is kept in [docs/
   - **Amplitude modulation sensitivity.** Measured: the chip's AM word is seven bits and the sensitivity is a 3-bit shift-and-add, {0,1,2,4,5,6,7,8}/8.
   - **Which write starts a note.** Unknown. 0xFC/0xFD goes out before the registers load and nothing says what the chip makes of it.
 
-- **YSS236-F / VOP3-1, the per-voice filter**, at 0x800200. **CPU side read, chip emulated.** Yamaha's VOP3 is the same programmable DSP that is the synthesis engine of the AN1x, AN200 and PLG150-AN; the FS1R has two, and this one sits in a channel-level loop off both tone generators. The CPU's whole side of it is read out of the firmware: sixteen filter channels mapped to parts, a dirty flag per parameter group, and closed-form conversions for cutoff, resonance, type and input gain. Since 0.8.0 the filter runs the program the firmware uploads on its own emulated YSS236, in place of the model measured off `15_filter` (a corner of `17.4 * 2^(byte / 12)`, three lowpasses as taps off one 4-pole ladder, and a 2-pole state-variable filter for HPF, BPF and BEF). The filter EG is stepped segment by segment by the CPU and run by the chip; its rate law came off the CPU's own stage word over the debug monitor and its depth scale off one recording. `tools/extract_vop3.py` has the microcode out into `docs/vop3/`, register by register.
+- **YSS236-F / VOP3-1, the per-voice filter**, at 0x800200. **CPU side read, DSP bit for bit.** Yamaha's VOP3 is the same programmable DSP that is the synthesis engine of the AN1x, AN200 and PLG150-AN; the FS1R has two, and this one sits in a channel-level loop off both tone generators. The CPU's whole side of it is read out of the firmware: sixteen filter channels mapped to parts, a dirty flag per parameter group, and closed-form conversions for cutoff, resonance, type and input gain. The filter computes what the firmware's filter program computes (`src/filters/voice_filter.h`), in place of the model measured off `15_filter` (a corner of `17.4 * 2^(byte / 12)`, three lowpasses as taps off one 4-pole ladder, and a 2-pole state-variable filter for HPF, BPF and BEF). The filter EG is stepped segment by segment by the CPU; its rate law came off the CPU's own stage word over the debug monitor and its depth scale off one recording.
 
-- **YSS236-F / VOP3-2, the effects**, at 0x800000. **Emulated.** Reverb (17 types), variation (29), insertion (41) and the master EQ in the XG topology, with the part dry and send levels and the insertion switch. The firmware's effect host is ported to C++ in `src/fs1r/firmware/vop3host/` and its uploads run on the emulated YSS236. All 87 types upload word for word what the firmware does, traced in MAME, and the reverbs checked so far match recordings of the unit to within 2 to 12 LSB. The delay, modulation and insertion programs are not yet checked against a recording. This replaces the Data List models of 0.5.2 and earlier, which read 17 to 29 dB against real impulse responses. `tools/extract_vop3_2.py` has that chip's two images out into `docs/vop3_2/`. Next is rewriting the effects in C++, each checked against the emulation.
+- **YSS236-F / VOP3-2, the effects**, at 0x800000. **Bit for bit.** Reverb (17 types), variation (29), insertion (41) and the master EQ in the XG topology, with the part dry and send levels and the insertion switch. The firmware's effect host is ported to C++ in `src/fs1r/firmware/vop3host/`, and `src/effects/` computes what its programs compute. All 87 types upload word for word what the firmware does, traced in MAME, and the reverbs checked so far match recordings of the unit to within 2 to 12 LSB. The delay, modulation and insertion programs are not yet checked against a recording. This replaces the Data List models of 0.5.2 and earlier, which read 17 to 29 dB against real impulse responses. Next is making the effect programs read as the DSP blocks they are, as `aux.cpp` and `var_m07.cpp` already do.
 
 - **The board around them.** Read. One 24.576 MHz crystal runs the audio side and the main Sanyo LC78834M DAC is the I2S master at exactly 48 kHz, so the engine runs at 48 kHz whatever the host rate and resamples on the way out. The recording tap is that DAC's I2S input, after both DSPs and before the analogue volume pot, which is what makes a recording's absolute level comparable. The output path's fixed gain, the hard clip on the channel accumulator and the filter loop's insertion loss are all numbers off that tap. `docs/research.md` 2.0.1 and section 8 have the clocking and the CS2 decode.
 
@@ -107,7 +107,7 @@ Nothing in `cal.h` is a guess any more, and nothing outside the effects is open.
 
 **Known issue:** performances that layer two parts of a voice with all eight unvoiced operators live (A020 Vox Morph is the extreme) are heavy, about half a desktop core at 8 notes and more than a laptop i7 has to give. [docs/performance.md](docs/performance.md) has the measurements and the fixes in order of cost.
 
-The VOP3 is no longer outstanding. Both chips run the firmware's microcode on an emulated YSS236, compiled to native code at run time, which costs 21% of an x86-64 core for the two of them. What is next is **rewriting the effects in C++**, with the emulation as the exact reference each one is checked against. Tiers 0 to 3 and 5 are done, so the engine, the library and console split, the plugin in every format with its editor, the licence and CI are all in, and Tier 4, fidelity and verification, is complete outside the effects.
+The filters and effects are no longer outstanding: both are bit for bit, at about 5% of an x86-64 core together. Tiers 0 to 3 and 5 are done, so the engine, the library and console split, the plugin in every format with its editor, the licence and CI are all in, and Tier 4, fidelity and verification, is complete outside the effects.
 
 ## Build and run
 
@@ -202,7 +202,8 @@ python tools/regress.py                 # the whole fixed preset list against th
 
 - `cal.h` the calibration surface, every modelled constant in one place
 - `ymp706.cpp` the tone generator: operators, envelopes, the formant window, and the render path
-- `yss236_core.h` the YSS236 microcode engine, measured on the unit, and the reference; `yss236_jit.cpp` the same engine compiled to x86-64 or arm64 with AsmJit (`third_party/asmjit/`), checked against it by `vop3_jit_check` (`build.bat bench`, and the `vop3_jit` ctest on every CI leg); `vop3.h` the chip around it: its registers, LFOs and EG generators. `src/effects/effects.h` and `src/filters/filter.h` are the two boards around it, over the firmware's effect and filter tasks in `src/fs1r/firmware/vop3host/`
+- `modulators.h` the DSPs' EG generators and LFOs, `vop3_regs.h` the registers the hosts write, `word.h` the DSPs' number format
+- `src/filters/` the voice filter (`voice_filter.h` one voice, `filter.h` 32 of them) and `src/effects/` the effect programs (`programs.h` their shared state, one file a program), over the firmware's filter and effect hosts in `src/fs1r/firmware/vop3host/`. `tools/dsp_check.cpp` pins their output and `tools/dsp_bench.cpp` times it
 
 `src/fsvr/` is **ours**. Nothing in the hardware corresponds to any of it.
 
@@ -227,7 +228,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 - `tools/build_fs1r_ghidra.py` imports and decompiles the firmware into `../FS1R_DISASM` with pyghidra (SH-2); `decomp.py`, `ghidra_disasm.py`, `ghidra_switches.py`, `ghidra_handlers.py` and `ghidra_probe.py` query it
 - `tools/ghidra_ctrl_dests.py` decompiles the 48 controller destination handlers, which Ghidra never turns into functions because only a pointer table reaches them
 - `tools/extract_tables.py`, `extract_presets.py` and `extract_demo.py` pull the conversion tables, the 1408 voices, 384 performances and 90 Fseqs, and the demo songs out of the EPROM image
-- `tools/extract_vop3.py` and `extract_vop3_2.py` pull the two VOP3 microcode uploads into `docs/vop3/` and `docs/vop3_2/`
+- `tools/extract_vop3_rom.py` writes the two hosts' EPROM tables, `src/fs1r/firmware/vop3host/rom_tables.*`
 
 **Tools, calibration.**
 
@@ -239,7 +240,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 **Tools, checks.**
 
 - `tools/regress.py` renders the fixed preset list and diffs it against `regress_ref.json`: pitch, harmonic peaks, envelope, stereo width, centroid
-- `fsvr_console -selftest` (`engine_selftest` away from Windows) is the engine check, the effect chip's included: dry unity, Hall 1, the LFO law, the type path, a part on the insertion. It runs under `ctest`
+- `fsvr_console -selftest` (`engine_selftest` away from Windows) is the engine check, the effects included: dry unity, Hall 1, the LFO law, the type path, a part on the insertion. It runs under `ctest`
 - `tools/check_plugin.cpp` drives the plug-in's processor the way a host does: factory banks, a saved session, Import SysEx, the bank browser, Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, and the Init Patch and the standalone's Load Last Patch. `ctest` runs it in a plug-in build
 - `tools/check_gui.cpp` drives the editor over the processor without a window, as a mouse and a keyboard would: the top bar's menus and toggles, every page by its tab or button, the operator panel and its waveform, the browser's right-click menus, every dialog, the modal's veil, Escape and close X, the close prompt, the Options page (every scale, both keyboards and each setting) and About, then every page's dials, faders, dropdowns and toggles. `ctest` runs it as "gui"
 - `tools/check_wav.py`, `check_formant.py` and `check_presets.py`, the rest of what `build.bat test` runs; `check_skirt.py` renders every harmonic form at every skirt against the register sweep
@@ -255,7 +256,6 @@ python tools/regress.py                 # the whole fixed preset list against th
 - [docs/fidelity_plan.md](docs/fidelity_plan.md) the ranked read of where the engine stands against every recording; `capture_0918.md` and `hardware_capture_request.md` are the capture working
 - `docs/aeg.md`, `formant.md`, `skirt.md`, `noise.md` and `detune.md`, one measurement each, the working behind the constants in `cal`
 - `docs/midi_dispatch.md` how a Note On, a Control Change and both aftertouches get from the SCI0 interrupt to the tone generator; `interface_from_firmware.md` the unit's screen tables, cursor stops and MIDI View, read out of the EPROM
-- `docs/vop3_microcode.md`, `vop3_2_microcode.md` and `vop3_pinout.md` the VOP3 reference
 - [docs/Differences.md](docs/Differences.md) the short list of places FSVR knowingly behaves differently from the unit, and why
 - [docs/plugin_guide.md](docs/plugin_guide.md) the plugin user guide, and [docs/editor.md](docs/editor.md) why the editor is the way it is: which of the unit's limits it drops, the bank manager and what the processor answers for the GUI. The Data List and owner's manual text and the formant patent are here too.
 - [hollow/docs/](hollow/docs/) the plug-in framework: `framework.md` how a product is built on it, `skin-format.md` the skin's contract

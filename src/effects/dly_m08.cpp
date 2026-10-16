@@ -1,52 +1,7 @@
-// effects/dly_m08.cpp - the reverb delay window's program for the four delay types.
+// effects/dly_m08.cpp - the reverb delay window under Delay LCR, Delay L,R, Echo and CrossDelay.
 //
-// rom::REVERB_DELAY_PROGRAMS[8], the program the window holds for reverb types 13 to 16 (Delay L,C,R,
-// Delay L,R, Echo, Cross Delay). Types 0 to 12 run dly-m00's program in this window instead, under the
-// same keys' first entry, and fx_delay.cpp is the host that feeds both. Under these four types the
-// DELAY_ROUTES entry (fx_dispatch.cpp) matches and one of EffectHost::delayLCR, delayLR, echo or
-// crossDelay runs, so every one of them rewrites this window's constants and delay offsets when a
-// parameter moves. Which of the four is running is not a code difference here: the program words are
-// the same under all of them and only the constants (rom::rev::DELAY_WORDS and the damp curve) and the
-// six delay offsets (rom::rev::DELAY_SLOTS) differ. The code reads them where they live all the same,
-// as step() reads them, because that is the contract and not because the numbers are known here.
-//
-//   0x110-0x11d  the two serial inputs and the host's four tone filters, rev::DELAY_LPF, rev::DELAY_HPF
-//                and their copies, one three-step one-pole each. r[88] and r[91] are the two first
-//                poles, r[89] and r[92] the two second ones, and the second pole of a side is fed from
-//                the first. The three reads that ride on the first step of each group (the slots 0x44,
-//                0x45 and 0x46, in the reverb's area) are published in m[22], m[23] and m[24].
-//   0x11e-0x129  three of the four delay taps, read here and taken up by cells five steps later, and the
-//                three captures the windows outside this one read (m[24], m[56] and m[57]). Only one
-//                step of the twelve computes anything: 0x128 copies m[56] into r[93].
-//   0x12a-0x12f  the fourth tap's read at 0x12b and the two damped feedbacks. rev::DELAY_CURVE and
-//                rev::DELAY_CURVE_COPY are a pair of words each on the same operand, r[93] and r[94],
-//                into r[119] and r[120]; 0x12c copies m[57] into r[94] between them.
-//   0x130-0x140  the two line writes, the two wet sums and the dry/wet mix. 0x133 carries w1[13] and
-//                is itself a writer, so it writes its own result into the slot 0x4c (rev::DELAY_SLOTS[0],
-//                the left line); 0x139 only latches, and the write at 0x13b into the slot 0x4e
-//                (rev::DELAY_SLOTS[3]) takes that latch rather than its own result. r[124] and r[125]
-//                are the two wet sums, and r[13] and r[14] the block's outputs after the dry/wet mix.
-//   0x141-0x157  six steps of nothing (they only move the z^-1 latch), then three more reads of the
-//                block's own area (the slots 0x51, 0x52 and 0x53) published in m[25], m[26] and m[27],
-//                the LFO values m[10], and the block's output, the cell m[41] to the serial out at
-//                0x156.
-//
-// The registers: r[3] and r[4] the two inputs of the block, r[87] to r[92] the tone filters' inputs
-// and states, r[93] and r[94] the first two taps, r[119] and r[120] those two taps damped, r[124] and
-// r[125] the two wet sums, r[13] and r[14] the outputs. The cells: m[1] and m[5] the two serial inputs
-// (which no step of this program reads; the filters work on r[3] and r[4] instead), m[8], m[9] and m[10]
-// the LFO values it hands on, m[22] to m[27] the six reads it publishes, m[41] the block's output, m[56]
-// to m[59] the four taps. There is no t register anywhere in this program: no step has tw or tfrac set,
-// and no step takes a multiplier from the t file.
-//
-// A delay RAM read is made at one step and taken up by a cell 5 to 11 steps later, which is what
-// yss236_core::captured() returns and what an msrc of 4 queues. Every read here is five steps ahead of
-// its cell, so each capture takes the read its window names. The coefficients are spread one to a step
-// rather than one to a group, which is how the host gets a word of its own for each of them: the two
-// halves of a damp pair multiply the same operand, the pole of a tone filter is one step and its gain
-// the next, and the dry/wet mix is the same three-step shape with a multiply by four instead of two.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

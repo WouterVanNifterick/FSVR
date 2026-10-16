@@ -1,14 +1,13 @@
 // filters/voice_filter.h - one voice of the FS1R's filter: a resonant 4-pole ladder with taps. Ours.
 //
-// This is what the filter chip's program computes for one voice, written as the DSP it is. The program
+// This is what the firmware's filter program computes for one voice, written as the DSP it is. The program
 // runs sixteen of these interleaved in one 512-step pass; nothing in it couples two voices, so here a
 // voice is a struct and a filter is as many of them as the engine wants (filters/filter.h).
 //
 // The arithmetic is the chip's, operation for operation, in its own number format: values are doubles
 // that a register wraps or saturates at +-128, a t register holds as a 1.15 word, and a cell clips at
 // +-128 (fs1r/chips/word.h). Keep every operation in this order, including the `+ 0.0`s, which the chip does
-// and which turn a -0 into +0: the voice is checked bit for bit against the chip's program
-// (tools/vop3_native_check flt).
+// and which turn a -0 into +0: tools/dsp_check pins the result.
 //
 // The coefficients are the words the filter host writes (FilterHost, in the firmware's layout), as
 // fractions: k = int16(word) / 32768. Six of them are constants of the program the host never changes.
@@ -36,8 +35,8 @@ struct VoiceFilter
 	double ramp = 0;                                  // the output ramp's step a sample: up while the note sounds
 	double exp_slope = 0, reso_bias = 0, fb_scale = 0;   // the program's own constants
 	double stage_k = 0, damp_k = 0, pole_k = 0;
-	Tap tap = LPF24;
-	double route = 2;                                 // the output's scale, x1 for the bandpass and x2 otherwise
+	Tap tap = BPF;                                    // as the unit boots, before the host sets a type
+	double route = 1;                                 // the output's scale, x1 for the bandpass and x2 otherwise
 
 	// ---- the state ----
 	double x1 = 0;              // the input a sample ago

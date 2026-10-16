@@ -1,16 +1,16 @@
 // license:BSD-3-Clause
 // copyright-holders:Wouter van Nifterick
 
-// The filter chip's host. Slot s has a page of the program, B = 16 + 124 * (((s >> 2) + 1) & 3), and a
-// lane in it, k = s & 3. Where its parameters land:
-//   type         program step B+120+k: the register it reads, which is the filter's tap, and its shift
+// The filter's host. Slot s has a page of constants, B = 16 + 124 * (((s >> 2) + 1) & 3), and a lane in
+// it, k = s & 3. Where its parameters land:
+//   type         the slot's tap (WriteSink::setType)
 //   cutoff       constant B+3k+2: 3085 + 169 * cutoff + key scaling, up to 24576; 169 is a semitone
 //   resonance    constants B+32+k and B+54+4k
 //   input gain   constant B+52+4k
 //   EG depth     constant B+3k: 288 * depth
 //   LFO2         the LFO registers of the slot's channel, and its depth in constant B+3k+1
 //   output ramp  constant B+116+k
-// The EG runs in the chip, a segment at a time: EG_RATE, the level it heads for (EG_AIM) and the
+// The EG runs a segment at a time: EG_RATE, the level it heads for (EG_AIM) and the
 // level at which it reports (EG_TARGET). A level byte L is (L - 50) * 256 / 50. The aim lies half the
 // swing past the target, so the curve arrives with a slope.
 #include "filter_host.h"
@@ -30,7 +30,6 @@ using namespace filter;
 const uint8_t NONE[Host::VOICE_BYTES] = {};                 // what a free slot's part reads as
 constexpr int RUN = 682, IDLE = -379, MUTE = -1137;         // the output ramp's step a sample: a fade in and two fades out
 constexpr int HOLD = 255, HELD = 101;                       // the EG rate that holds, and its entry in EG_RATE
-constexpr int GLIDE = 2, JUMP = 14;                         // a constant's tag: glide to a new value, or jump
 
 int page(int s) { return 16 + 124 * (((s >> 2) + 1) & 3); }
 int lane(int s) { return s & 3; }
@@ -52,21 +51,10 @@ void egRate(Host& h, int ch, int v) { h.writeReg(SELECT, ch); h.writeReg(EG_RATE
 void egTarget(Host& h, int ch, int v) { h.writeReg(SELECT, ch); h.writeReg(EG_TARGET, v); }
 void egAim(Host& h, int ch, int v) { h.writeReg(SELECT, ch); h.writeReg(EG_AIM, v); }
 void egInterrupts(Host& h, bool on) { h.writeReg(EG_STATUS, on ? 0xFFFF : 0); }
-void writeProgram(Host& h, int step)
-{
-    h.writeReg(SELECT, step);
-    for (int w = 0; w < 5; w++)
-        h.writeReg(PROGRAM - w, h.prog[step][w]);
-}
 void setCoef(Host& h, int step, int v)
 {
     h.writeReg(SELECT, step);
     h.writeReg(COEF, v);
-}
-void setTag(Host& h, int step, int v)
-{
-    h.writeReg(SELECT, step);
-    h.writeReg(TAG, v);
 }
 
 // ---- a slot's parameters ----
@@ -76,40 +64,20 @@ void setGain(Host& h, int s, bool second, int v) { setCoef(h, page(s) + 52 + 4 *
 void setRamp(Host& h, int s, int step) { setCoef(h, page(s) + 116 + lane(s), step); }
 void setEgDepth(Host& h, int s, int depth) { setCoef(h, page(s) + 3 * lane(s), 288 * depth); }
 
-// the tag of the slot's EG depth, LFO2 depth, cutoff and first resonance constants. A jump also zeroes them.
-void slotTags(Host& h, int s, int tag)
+// the slot's EG depth, LFO2 depth, cutoff and first resonance constants, zeroed when a slot is taken over
+void zeroSlot(Host& h, int s)
 {
     const int B = page(s), k = lane(s);
-    for (int step : {B + 3 * k, B + 3 * k + 1, B + 3 * k + 2, B + 32 + k}) {
-        setTag(h, step, tag);
-        if (tag == JUMP)
-            setCoef(h, step, 0);
-    }
-}
-void gainTags(Host& h, int s, int tag)
-{
-    setTag(h, page(s) + 52 + 4 * lane(s), tag);
-    setTag(h, page(s) + 53 + 4 * lane(s), tag);
+    for (int step : {B + 3 * k, B + 3 * k + 1, B + 3 * k + 2, B + 32 + k})
+        setCoef(h, step, 0);
 }
 
-// the slot's output step reads the tap of the type and shifts it
+// the slot's output: which of the filter's taps the type reads (filters/filter.h)
 void setType(Host& h, int s, int type)
 {
-    const int r = 6 * ((s + 4) & 15), k = lane(s), step = page(s) + 120 + k;
-    int tap = s, shift = type;                              // what the firmware is left with past the last type
-    switch (type) {
-        case LPF24: tap = r + 5;      shift = 1; break;
-        case LPF18: tap = r + 4;      shift = 1; break;
-        case LPF12: tap = r + 3;      shift = 1; break;
-        case HPF:   tap = 99 + 3 * k; shift = 1; break;
-        case BPF:   tap = r + 2;      shift = 0; break;
-        case BEF:   tap = 98 + 3 * k; shift = 1; break;
-    }
     h.type[s] = uint8_t(type);
-    h.prog[step][4] = uint16_t(tap << 7 | (h.prog[step][4] & 0xC07F));
-    h.prog[step][3] = uint16_t(shift << 12 | (h.prog[step][3] & 0xCFFF));
-    writeProgram(h, step);
-    setCoef(h, page(s) + 28 + k, type <= BEF ? 0 : type);
+    h.sink->setType(s, type);
+    setCoef(h, page(s) + 28 + lane(s), type <= BEF ? 0 : type);
 }
 
 // the cutoff word from a cutoff byte and the slot's key scaling
@@ -182,7 +150,7 @@ void setLfo(Host& h, int s, const uint8_t* V, const uint8_t* R, int p)
 
 }  // namespace
 
-// the program, tags and constants, then every slot muted with its EG held. Registers 1 and 5
+// the constants, then every slot muted with its EG held. Registers 1 and 5
 // and the three tables of fifteen at 0x28..0x2A are written here only.
 void FilterHost::boot()
 {
@@ -201,14 +169,6 @@ void FilterHost::boot()
     h.writeReg(1, 0);
     h.writeConfig(0, 0x40);
     h.writeReg(UPLOADING, 0x23);
-    h.writeReg(SELECT, AUTO_INCREMENT);
-    for (int i = 0; i < 512; i++)
-        h.writeReg(TAG, flt::TAGS[i]);
-    for (int w = 0; w < 5; w++) {
-        h.writeReg(SELECT, AUTO_INCREMENT);
-        for (int i = 0; i < 512; i++)
-            h.writeReg(PROGRAM - w, prog[i][w] = flt::PROGRAM[i][w]);
-    }
     for (int i = 0; i < 512; i++)
         setCoef(h, i, flt::CONSTANTS[i]);
     h.writeConfig(0, flt::CFG16[0]);
@@ -222,8 +182,6 @@ void FilterHost::boot()
     for (int i = 0; i < 16; i++) {
         egRate(h, i, HOLD);
         egAim(h, i, 511);
-        gainTags(h, i, GLIDE);
-        slotTags(h, i, GLIDE);
     }
 }
 
@@ -241,17 +199,11 @@ void FilterHost::freeSlots()
     }
 }
 
-// Steps 5 to 9 load 0 into five registers once the chip is triggered. They are pointed at each
-// slot's five state registers in turn.
+// every slot's filter state back to zero
 void FilterHost::clearStates()
 {
-    for (int s = 0; s < 16; s++) {
-        for (int j = 0; j < 5; j++) {
-            prog[5 + j][1] = uint16_t((prog[5 + j][1] & 0xFF80) | (6 * ((s + 4) & 15) + 1 + j));
-            writeProgram(*this, 5 + j);
-        }
-        writeReg(TRIGGER, 1);
-    }
+    for (int s = 0; s < 16; s++)
+        sink->clear(s);
 }
 
 void FilterHost::noteOn(int s, int p, int n, int v)
@@ -264,7 +216,7 @@ void FilterHost::noteOn(int s, int p, int n, int v)
     const uint8_t* R = partOf(h, p);
     const int ch = channel(s);
     stage[s] = START;
-    slotTags(h, s, JUMP);
+    zeroSlot(h, s);
 
     // the EG jumps to its start level, then runs the attack: to L1 in T1, shortened by key and velocity
     egRate(h, ch, 0);
@@ -293,8 +245,6 @@ void FilterHost::noteOn(int s, int p, int n, int v)
     else if (V[5] == 1)                                     // a byte of the voice's name: the firmware's own slip,
         lfoPhase(h, ch, ch);                                // with the channel as the phase
     setEgDepth(h, s, egDepth(h, s, V, R));
-    gainTags(h, s, GLIDE);
-    slotTags(h, s, GLIDE);
     setGain(h, s, false, V[INPUT_GAIN]);
     setRamp(h, s, RUN);
 }
@@ -376,7 +326,6 @@ void FilterHost::noteOff(int s)
 
 void FilterHost::kill(int s)
 {
-    gainTags(*this, s, JUMP);
     setRamp(*this, s, MUTE);
     setGain(*this, s, false, -1);
 }

@@ -7,12 +7,11 @@
 // the host has loaded, in the order the chip runs them, on one State.
 //
 // The programs talk to each other only through the State: the stereo sends in r[3]..r[8], the returns in
-// r[9]..r[18], a few cells and the delay memory (tools/fx_lift --seal proves nothing else crosses). Their
-// arithmetic is the chip's, in its number format (fs1r/chips/word.h) and its order, so the section is bit for
-// bit the unit's DSP; tools/vop3_native_check compares it with the chip interpreter every sample.
+// r[9]..r[18], a few cells and the delay memory. Their arithmetic is the unit's, in its number format
+// (fs1r/chips/word.h) and its order, so the section is bit for bit the unit's DSP; tools/dsp_check pins it.
 //
-// A program's file was lifted from the chip's program by tools/fx_lift and can be edited from there:
-// name what it computes, split it into the DSP blocks it is made of. The checker says whether it still is.
+// Most programs are still straight-line arithmetic over numbered registers. aux.cpp and var_m07.cpp show the
+// form they are headed for: name the DSP blocks, keep every operation and its order, run dsp_check.
 #pragma once
 
 #include <cstdint>

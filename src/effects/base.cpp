@@ -1,42 +1,8 @@
-// effects/base.cpp - the base program, steps 0x000-0x0e7: the mixer, the sends and returns, the master EQ,
-// and the reverb, whose 94 steps sit among the base program's.
+// effects/base.cpp - the base program: the mixer, the sends and returns, the master EQ and the reverb (Hall,
+// Room, Stage, Plate, White Room, Tunnel, Canyon, Basement). Every performance runs it.
 //
-// The base program is the one every performance loads (EffectHost::uploadProgram's kind 0). Nothing in it
-// synthesises: the windows do that, and this program takes what they hand back, pans it, sums it, filters
-// it and scales it, and runs the reverb.
-//
-// The registers: r[7] and r[8] two of the summed aux differences and r[9] and r[10] two more; r[11] to
-// r[18] the panned sends; r[19] and r[20], r[21] and r[22] the windows' returns, which no step here writes;
-// r[23] to r[30] the first channel's EQ delays and r[35] to r[42] the second's; r[31] to r[34] and r[43] to
-// r[46] the aux window's eight differences; r[119] to r[124] the summed differences and the weighted
-// returns. Of the cells, m[16] and m[17] are the two outputs, m[6] and m[23] the serial inputs of page 0,
-// and m[56] to m[60] the early reflection taps this program captures; the rest are moved once each and read
-// by a window.
-//
-// The reverb, its 94 steps:
-//
-// What the 94 steps compute is named from the host that feeds them, in fx_reverb.cpp and the rev: tables
-// of rom_tables.cpp, which between them say which constant belongs to which part of the reverb:
-//
-//   six comb units     rev::HALL_COMB_STEPS, four words each: the gain, two input taps and the feedback
-//                      coefficient, the four words EffectHost::combUnit() writes per unit
-//   six allpass units  rev::ROW_STEPS, four words each: s28, s24, s26 and s22, the four words
-//                      EffectHost::diffusers() writes, with rev::ROW_SLOTS giving each unit's offset
-//   the input filters  rev::HPF_STEPS and rev::LPF_STEPS, three words each, copied into three more
-//                      steps each by rev::HPF_COPY and rev::LPF_COPY
-//   22 early reflections rev::ER_WORDS: the first ten scaled by the ER/Rev balance in
-//                      EffectHost::erBalance(), the last twelve set to the complement of it
-//   the surround       rev::MIX_STEPS, rev::LEVEL_STEPS, rev::WIDTH_STEPS and the type's shelf words in
-//                      rev::TABLE_STEPS
-//
-// The cells carry the values between the units. A delay RAM read is made at one step and taken up by a
-// cell 5 to 11 steps later, which is what yss236_core::captured() returns and what an msrc of 4 queues;
-// m[34] to m[40] are a chain of the previous step's own operand (msrc 7), one cell per step, which gives
-// each comb unit its second input tap a step after its first. The registers are r[47] to r[54] for the
-// input filters, r[55] to r[60] for the six comb units' states, r[119] and r[120] for the two sums the
-// surround reads, r[125] for an allpass state, and r[9] and r[10] for the level.
-//
-// Lifted by tools/fx_lift; tools/vop3_native_check compares it with the chip, every sample.
+// The parameters are the words the effect host writes, k[] by the host's step numbering (rom_tables.h names
+// them); the registers r[], cells m[] and t[] and the delay memory are the effect State (programs.h).
 
 #include "effects/programs.h"
 

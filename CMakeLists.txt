@@ -23,11 +23,11 @@ endif()
 # Everything meant to be run lands in bin/: the console here, the plug-in formats under bin/<Format>/.
 set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 
-# The chip, its two hosts and the sections over them. They are bit-exact only without FMA contraction, so they
+# The two hosts and the filters and effects they drive. They are bit-exact only without FMA contraction, so they
 # are a library of their own with its own flags; excess precision effect_host.h refuses at compile time.
 # The effects and the voice filters (src/effects/, src/filters/) are bit-exact for the same reason, so they live here too.
 file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp src/effects/*.cpp src/filters/*.cpp)
-add_library(vop3host STATIC ${VOP3HOST} src/fs1r/chips/vop3.cpp)
+add_library(vop3host STATIC ${VOP3HOST} src/fs1r/chips/modulators.cpp)
 target_include_directories(vop3host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set_target_properties(vop3host PROPERTIES CXX_STANDARD 20)
 foreach(t vop3host)
@@ -87,21 +87,18 @@ else()
   add_test(NAME engine COMMAND engine_selftest)
 endif()
 
-# The native filters and effects against the firmware's programs on the chip interpreter, every type.
-add_executable(vop3_native_check tools/vop3_native_check.cpp)
-target_link_libraries(vop3_native_check PRIVATE vop3host)
+# The filters' and effects' output, pinned (verified bit for bit against the firmware's DSP programs before
+# those moved to the VOP3 project).
+add_executable(dsp_check tools/dsp_check.cpp)
+target_link_libraries(dsp_check PRIVATE vop3host)
 if(NOT MSVC)
-  target_compile_options(vop3_native_check PRIVATE -ffp-contract=off)
+  target_compile_options(dsp_check PRIVATE -ffp-contract=off)
 endif()
-add_test(NAME vop3_native COMMAND vop3_native_check)
-# Lifts the effect programs out of the chip's (rewrites src/effects/<program>.cpp; not a test).
-add_executable(fx_lift EXCLUDE_FROM_ALL tools/fx_lift.cpp)
-set_target_properties(fx_lift PROPERTIES CXX_STANDARD 20)
-target_link_libraries(fx_lift PRIVATE vop3host)
-# The two chips' cost per sample, and their output's hash (not a test: a number to compare builds by).
+add_test(NAME dsp COMMAND dsp_check)
+# Their cost per sample, and the output's hash (not a test: a number to compare builds by).
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-  add_executable(vop3_bench EXCLUDE_FROM_ALL tools/vop3_bench.cpp)
-  target_link_libraries(vop3_bench PRIVATE vop3host)
+  add_executable(dsp_bench EXCLUDE_FROM_ALL tools/dsp_bench.cpp)
+  target_link_libraries(dsp_bench PRIVATE vop3host)
 endif()
 
 option(FSVR_BUILD_PLUGIN "Build the plug-in (downloads its SDKs on the first configure)" OFF)
