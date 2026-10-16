@@ -6,7 +6,7 @@
 //
 // The arithmetic is the chip's, operation for operation, in its own number format: values are doubles
 // that a register wraps or saturates at +-128, a t register holds as a 1.15 word, and a cell clips at
-// +-128 (fs1r/chips/word.h). Keep every operation in this order, including the `+ 0.0`s, which the chip does
+// +-128 (dsp/word.h). Keep every operation in this order, including the `+ 0.0`s, which the chip does
 // and which turn a -0 into +0: tools/dsp_check pins the result.
 //
 // The coefficients are the words the filter host writes (FilterHost, in the firmware's layout), as
@@ -15,7 +15,7 @@
 
 #include <cmath>
 
-#include "fs1r/chips/word.h"
+#include "dsp/word.h"
 
 namespace fs1r::filters {
 

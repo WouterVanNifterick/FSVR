@@ -4,7 +4,7 @@
 // a fit. Nothing in this file is a calibration knob: if one of these disagrees with a real unit the
 // answer is that we read it wrong, not that it needs tuning. See STATUS.md, the KNOWN list.
 //
-// Quantities we have measured but not read are in fs1r/chips/cal.h. Quantities that are ours rather
+// Quantities we have measured but not read are in fs1r/cal.h. Quantities that are ours rather
 // than the hardware's are in fsvr/tuning.h.
 #pragma once
 

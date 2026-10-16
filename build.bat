@@ -45,13 +45,13 @@ goto :done
 rem The console.
 :console
 call :vop3host || exit /b 1
-cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src src\fs1r\chips\ymp706.cpp src\fs1r\firmware\controllers.cpp src\fs1r\firmware\fseq.cpp src\fs1r\firmware\midi.cpp src\fs1r\firmware\notes.cpp src\fs1r\firmware\patch.cpp src\fs1r\firmware\rom.cpp src\fsvr\device.cpp src\fsvr\fastmath.cpp src\fsvr\selftest.cpp %VOP3OBJ% src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
+cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src src\tonegen\ymp706.cpp src\engine\controllers.cpp src\engine\fseq.cpp src\engine\midi.cpp src\engine\notes.cpp src\presets\patch.cpp src\presets\rom.cpp src\fsvr\device.cpp src\fsvr\fastmath.cpp src\fsvr\selftest.cpp %VOP3OBJ% src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
 exit /b %ERRORLEVEL%
 
 :vop3host
 if exist build\vop3host rmdir /s /q build\vop3host
 mkdir build\vop3host
-cl /c /MP %VOP3FLAGS% src\fs1r\firmware\vop3host\*.cpp src\effects\*.cpp src\filters\*.cpp src\fs1r\chips\modulators.cpp /Fobuild\vop3host\ || exit /b 1
+cl /c /MP %VOP3FLAGS% src\effects\*.cpp src\effects\host\*.cpp src\filters\*.cpp src\modulators\*.cpp src\fs1r\rom_tables.cpp /Fobuild\vop3host\ || exit /b 1
 exit /b %ERRORLEVEL%
 
 :done

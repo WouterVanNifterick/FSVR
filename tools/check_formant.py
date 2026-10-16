@@ -25,7 +25,7 @@ from fs1r_render import renderer, note_args
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "build"
-TABLES = ROOT / "src/fs1r/firmware/tables.h"
+TABLES = ROOT / "src/fs1r/tables.h"
 
 
 def load_tables():

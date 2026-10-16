@@ -26,8 +26,8 @@ set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 # The two hosts and the filters and effects they drive. They are bit-exact only without FMA contraction, so they
 # are a library of their own with its own flags; excess precision effect_host.h refuses at compile time.
 # The effects and the voice filters (src/effects/, src/filters/) are bit-exact for the same reason, so they live here too.
-file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp src/effects/*.cpp src/filters/*.cpp)
-add_library(vop3host STATIC ${VOP3HOST} src/fs1r/chips/modulators.cpp)
+file(GLOB VOP3HOST CONFIGURE_DEPENDS src/effects/host/*.cpp src/effects/*.cpp src/filters/*.cpp)
+add_library(vop3host STATIC ${VOP3HOST} src/modulators/modulators.cpp src/fs1r/rom_tables.cpp)
 target_include_directories(vop3host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set_target_properties(vop3host PROPERTIES CXX_STANDARD 20)
 foreach(t vop3host)
@@ -39,13 +39,13 @@ foreach(t vop3host)
 endforeach()
 
 add_library(fs1rLib STATIC
-    src/fs1r/chips/ymp706.cpp
-    src/fs1r/firmware/controllers.cpp
-    src/fs1r/firmware/fseq.cpp
-    src/fs1r/firmware/midi.cpp
-    src/fs1r/firmware/notes.cpp
-    src/fs1r/firmware/patch.cpp
-    src/fs1r/firmware/rom.cpp
+    src/tonegen/ymp706.cpp
+    src/engine/controllers.cpp
+    src/engine/fseq.cpp
+    src/engine/midi.cpp
+    src/engine/notes.cpp
+    src/presets/patch.cpp
+    src/presets/rom.cpp
     src/fsvr/device.cpp
     src/fsvr/fastmath.cpp
     src/fsvr/selftest.cpp)

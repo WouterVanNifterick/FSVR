@@ -8,7 +8,7 @@
 //
 // The programs talk to each other only through the State: the stereo sends in r[3]..r[8], the returns in
 // r[9]..r[18], a few cells and the delay memory. Their arithmetic is the unit's, in its number format
-// (fs1r/chips/word.h) and its order, so the section is bit for bit the unit's DSP; tools/dsp_check pins it.
+// (dsp/word.h) and its order, so the section is bit for bit the unit's DSP; tools/dsp_check pins it.
 //
 // Most programs are still straight-line arithmetic over numbered registers. aux.cpp and var_m07.cpp show the
 // form they are headed for: name the DSP blocks, keep every operation and its order, run dsp_check.
@@ -17,7 +17,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "fs1r/chips/word.h"
+#include "dsp/word.h"
 
 namespace fs1r::effects {
 

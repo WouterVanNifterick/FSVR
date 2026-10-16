@@ -1,5 +1,5 @@
 // fsvr/selftest.cpp - the engine self check. Ours, not the hardware's.
-#include "fs1r/internal.h"
+#include "engine/synth.h"
 #include "display.h"
 #include "egview.h"
 #include <cstring>

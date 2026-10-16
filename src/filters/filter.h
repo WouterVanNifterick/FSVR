@@ -10,8 +10,8 @@
 // The unit uses bank 0 only; bank 1 is ours (docs/Differences.md, 32 filtered voices).
 #pragma once
 #include <cstdint>
-#include "fs1r/chips/modulators.h"
-#include "fs1r/firmware/vop3host/filter_host.h"
+#include "modulators/modulators.h"
+#include "filters/filter_host.h"
 #include "filters/voice_filter.h"
 
 struct Filter {

@@ -9,7 +9,7 @@
 // a real unit as evidence about one of them.
 //
 // Facts read off the board are in fs1r/hardware.h. Quantities measured off a real unit, which are
-// claims about the hardware and are changed only by measuring, are in fs1r/chips/cal.h.
+// claims about the hardware and are changed only by measuring, are in fs1r/cal.h.
 #pragma once
 #include <cstdint>
 #if defined(_M_X64) || defined(__x86_64__) || defined(_M_IX86) || defined(__i386__)

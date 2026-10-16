@@ -3,7 +3,7 @@
 
 // Built without FMA contraction, like the hosts.
 #include "filters/filter.h"
-#include "fs1r/chips/cal.h"
+#include "fs1r/cal.h"
 #include <cmath>
 
 namespace {

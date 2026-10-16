@@ -7,8 +7,8 @@
 // stereo pair.
 #pragma once
 #include <cstdint>
-#include "fs1r/chips/modulators.h"
-#include "fs1r/firmware/vop3host/effect_host.h"
+#include "modulators/modulators.h"
+#include "effects/host/effect_host.h"
 #include "effects/programs.h"
 
 struct Effects final : fs1r::vop3host::WriteSink {

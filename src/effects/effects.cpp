@@ -5,8 +5,8 @@
 #include "effects/effects.h"
 #include <algorithm>
 #include <cstring>
-#include "fs1r/chips/cal.h"
-#include "fs1r/chips/vop3_regs.h"
+#include "fs1r/cal.h"
+#include "fs1r/vop3_regs.h"
 
 namespace vop3host = fs1r::vop3host;
 namespace effects = fs1r::effects;

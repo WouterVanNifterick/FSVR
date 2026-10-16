@@ -18,14 +18,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EPROM = ROOT.parent / "FS1R_DISASM/roms/fs1r_v120_eprom_cpuview.bin"
-SRC = sorted(str(p) for p in (list((ROOT / "src/fs1r").glob("*.cpp")) + list((ROOT / "src/fs1r/chips").glob("*.cpp"))
-                              + list((ROOT / "src/fs1r/firmware").glob("*.cpp")) + list((ROOT / "src/fs1r/firmware/vop3host").glob("*.cpp"))
-                              + list((ROOT / "src/fsvr").glob("*.cpp")) + [ROOT / "tools/render_capture.cpp"]))
+SRC = sorted(str(p) for p in (ROOT / "src").rglob("*.cpp") if p.parent.name != "console") + [str(ROOT / "tools/render_capture.cpp")]
 
 
 def build(exe):
     # the chip and its hosts are bit-exact only without contraction (CMakeLists.txt)
-    cmd = ["g++", "-O2", "-std=c++17", "-ffp-contract=off", "-I", str(ROOT / "src")] + SRC + ["-o", str(exe)]
+    cmd = ["g++", "-O2", "-std=c++20", "-ffp-contract=off", "-I", str(ROOT / "src")] + SRC + ["-o", str(exe)]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode:
         sys.exit(r.stderr)

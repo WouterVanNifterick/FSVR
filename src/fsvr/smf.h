@@ -12,7 +12,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
-#include "../fs1r.h"
+#include "fs1r.h"
 
 namespace fs1r_smf {
 

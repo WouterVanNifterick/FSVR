@@ -12,7 +12,7 @@ import struct
 import sys
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parents[1] / "src/fs1r/firmware/vop3host"
+OUT = Path(__file__).resolve().parents[1] / "src/fs1r"
 BASE = 0x200000                               # where the EPROM sits in the CPU's map
 ELEM = {"u8": ("uint8_t", ">B"), "s8": ("int8_t", ">b"), "u16": ("uint16_t", ">H"), "s16": ("int16_t", ">h"), "f32": ("float", ">f")}
 

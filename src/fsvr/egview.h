@@ -15,10 +15,10 @@
 #include <algorithm>
 #include <cmath>
 #include <vector>
-#include "../fs1r/hardware.h"
-#include "../fs1r/chips/cal.h"
-#include "../fs1r/firmware/tables.h"
-#include "../fs1r/firmware/vop3host/rom_tables.h"
+#include "fs1r/hardware.h"
+#include "fs1r/cal.h"
+#include "fs1r/tables.h"
+#include "fs1r/rom_tables.h"
 
 namespace egview {
 
@@ -53,7 +53,7 @@ template <class F> double between(double x, F f) {
     return u == 0 ? f(i) : f(i) + u * (f(i + 1) - f(i));
 }
 
-// Copies from fs1r/internal.h (egrate, rate_secs, eg_ratescale, EG::lvl_db). Keep them in step.
+// Copies from engine/synth.h (egrate, rate_secs, eg_ratescale, EG::lvl_db). Keep them in step.
 // The KEYOFF table is measured, see docs/aeg.md.
 inline int eg_rate(int t) { return ((99 - ci(t, 0, 99)) * 0xA4) >> 8; }
 inline double rate_secs(int q) { q = ci(q, 0, 63); return std::pow(2.0, 26 - (q >> 2)) / (4 + (q & 3)) / SR; }
@@ -78,7 +78,7 @@ struct Path {
     }
 };
 
-// Amplitude EG, after struct EG in fs1r/internal.h. Levels in dB.
+// Amplitude EG, after struct EG in engine/synth.h. Levels in dB.
 // A decay is a straight line in dB, 96 dB per rate_secs.
 // A rise starts at the attack floor and approaches EG_OVERSHOOT exponentially, stopping at its target.
 // A stage lasts at least one sample. Level 3 is the sustain, and below -120 dB the note is over.

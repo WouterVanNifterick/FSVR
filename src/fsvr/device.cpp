@@ -1,5 +1,5 @@
 // fsvr/device.cpp - fs1r::Device: host sample rate, state, the public surface. Ours.
-#include "fs1r/internal.h"
+#include "engine/synth.h"
 
 // ------------------------------------------------------------------------------------------ fs1r::Device
 namespace fs1r {

@@ -63,7 +63,7 @@ Thank you to **Wouter van Nifterick** ([WouterVanNifterick](https://github.com/W
 
 The FS1R (1998) is Yamaha's formant-shaping FM synth: 8 operators per voice, 32 channels, four parts, and a second oscillator type that generates a formant with a shaped spectral window instead of a sine. Its tone generator is the YMP706, a QFP128 part used in exactly two products, the FS1R and the PLG150-DX board. There is no public register documentation for it and no emulation of it anywhere.
 
-FSVR is a rewrite of that logic, not an emulation of the processors on the board. The SH7044 is not emulated and its firmware does not run here. `tools/build_fs1r_ghidra.py` imports the EPROM into Ghidra as SH-2 and decompiles it, and the note-on path, the tick pipeline, the parameter conversion tables and the 88-algorithm routing table are read straight out of that code and ported to C++. The YMP706 cannot be treated that way, since nobody has register semantics for it, so it is a model, and every constant behind it sits in `src/fs1r/chips/cal.h` where calibrating against a recording of a real unit is one table edit. The YSS236's instruction set has been decoded and measured on the unit, so both VOP3 chips are emulated and run the microcode the firmware uploads to them.
+FSVR is a rewrite of that logic, not an emulation of the processors on the board. The SH7044 is not emulated and its firmware does not run here. `tools/build_fs1r_ghidra.py` imports the EPROM into Ghidra as SH-2 and decompiles it, and the note-on path, the tick pipeline, the parameter conversion tables and the 88-algorithm routing table are read straight out of that code and ported to C++. The YMP706 cannot be treated that way, since nobody has register semantics for it, so it is a model, and every constant behind it sits in `src/fs1r/cal.h` where calibrating against a recording of a real unit is one table edit. The YSS236's instruction set has been decoded and measured on the unit, so both VOP3 chips are emulated and run the microcode the firmware uploads to them.
 
 Four words carry the status of each piece below. **Read** is lifted out of the decompiled firmware, its tables or the board, and needs no calibration. **Measured** is a model whose constants came off a recording of rgwan's unit rather than off a guess. **Emulated** runs the firmware's own microcode on a model of the chip measured on the unit. **Modelled** is inferred from the DX7 lineage, Yamaha's formant synthesis patent (US5610354) or the Data List, and marked INFERRED in the source.
 
@@ -86,7 +86,7 @@ A short list of places FSVR behaves differently **on purpose** is kept in [docs/
 
 - **YSS236-F / VOP3-1, the per-voice filter**, at 0x800200. **CPU side read, DSP bit for bit.** Yamaha's VOP3 is the same programmable DSP that is the synthesis engine of the AN1x, AN200 and PLG150-AN; the FS1R has two, and this one sits in a channel-level loop off both tone generators. The CPU's whole side of it is read out of the firmware: sixteen filter channels mapped to parts, a dirty flag per parameter group, and closed-form conversions for cutoff, resonance, type and input gain. The filter computes what the firmware's filter program computes (`src/filters/voice_filter.h`), in place of the model measured off `15_filter` (a corner of `17.4 * 2^(byte / 12)`, three lowpasses as taps off one 4-pole ladder, and a 2-pole state-variable filter for HPF, BPF and BEF). The filter EG is stepped segment by segment by the CPU; its rate law came off the CPU's own stage word over the debug monitor and its depth scale off one recording.
 
-- **YSS236-F / VOP3-2, the effects**, at 0x800000. **Bit for bit.** Reverb (17 types), variation (29), insertion (41) and the master EQ in the XG topology, with the part dry and send levels and the insertion switch. The firmware's effect host is ported to C++ in `src/fs1r/firmware/vop3host/`, and `src/effects/` computes what its programs compute. All 87 types upload word for word what the firmware does, traced in MAME, and the reverbs checked so far match recordings of the unit to within 2 to 12 LSB. The delay, modulation and insertion programs are not yet checked against a recording. This replaces the Data List models of 0.5.2 and earlier, which read 17 to 29 dB against real impulse responses. Next is making the effect programs read as the DSP blocks they are, as `aux.cpp` and `var_m07.cpp` already do.
+- **YSS236-F / VOP3-2, the effects**, at 0x800000. **Bit for bit.** Reverb (17 types), variation (29), insertion (41) and the master EQ in the XG topology, with the part dry and send levels and the insertion switch. The firmware's effect host is ported to C++ in `src/effects/host/`, and `src/effects/` computes what its programs compute. All 87 types upload word for word what the firmware does, traced in MAME, and the reverbs checked so far match recordings of the unit to within 2 to 12 LSB. The delay, modulation and insertion programs are not yet checked against a recording. This replaces the Data List models of 0.5.2 and earlier, which read 17 to 29 dB against real impulse responses. Next is making the effect programs read as the DSP blocks they are, as `aux.cpp` and `var_m07.cpp` already do.
 
 - **The board around them.** Read. One 24.576 MHz crystal runs the audio side and the main Sanyo LC78834M DAC is the I2S master at exactly 48 kHz, so the engine runs at 48 kHz whatever the host rate and resamples on the way out. The recording tap is that DAC's I2S input, after both DSPs and before the analogue volume pot, which is what makes a recording's absolute level comparable. The output path's fixed gain, the hard clip on the channel accumulator and the filter loop's insertion loss are all numbers off that tap. `docs/research.md` 2.0.1 and section 8 have the clocking and the CS2 decode.
 
@@ -187,23 +187,23 @@ python tools/regress.py                 # the whole fixed preset list against th
 **Engine.** No Windows, no host, no GUI. This is what the plugin links. The tree says where a claim comes from, which is the thing to know before changing anything in it.
 
 - `src/fs1r.h` the public header, `fs1r::Device`. The only one the plugin includes
-- `src/fs1r/hardware.h` the FS1R's own numbers, read off the board. Facts, never tuned
-- `src/fs1r/internal.h` the engine's shared declarations, including `struct Synth`
+`src/fs1r/` is the hardware's values and nothing else: what presets and the engine read, never code.
 
-`src/fs1r/firmware/` is **KNOWN**, rewritten from the disassembly, and every claim in it cites a `FUN_` address. A disagreement with a real unit is a bug here, not a calibration.
-
-- `patch.cpp` voice, performance and part data as the firmware decodes it, with the DX7 conversion
-- `controllers.cpp` the eight controller sets, the three scalers and the 48 destinations
-- `notes.cpp` note on and off, operator setup, pitch, portamento, and the 192.3 Hz tick
-- `fseq.cpp` formant sequence playback; `midi.cpp` MIDI in and sysex in and out; `rom.cpp` EPROM and sysex loading
+- `hardware.h` the FS1R's own numbers, read off the board. Facts, never tuned
 - `tables.h` the EPROM's conversion tables, by `tools/extract_tables.py`; `algorithms.h` the 88-algorithm routing table
+- `rom_tables.h`, `rom_tables.cpp` the filter and effect hosts' EPROM tables, by `tools/extract_vop3_rom.py`
+- `vop3_regs.h` the DSP registers the hosts write
+- `cal.h` the calibration surface, every modelled constant in one place: **INFERRED**, changed by measuring against a recording and never by taste
 
-`src/fs1r/chips/` is **INFERRED**, because neither custom chip has public register documentation. These are claims about the hardware, changed by measuring against a recording and never by taste.
+The engine, one folder a part. **KNOWN** parts are rewritten from the disassembly and cite a `FUN_` address; a disagreement with a real unit is a bug there, not a calibration. **INFERRED** parts are modelled, with their constants in `cal.h`.
 
-- `cal.h` the calibration surface, every modelled constant in one place
-- `ymp706.cpp` the tone generator: operators, envelopes, the formant window, and the render path
-- `modulators.h` the DSPs' EG generators and LFOs, `vop3_regs.h` the registers the hosts write, `word.h` the DSPs' number format
-- `src/filters/` the voice filter (`voice_filter.h` one voice, `filter.h` 32 of them) and `src/effects/` the effect programs (`programs.h` their shared state, one file a program), over the firmware's filter and effect hosts in `src/fs1r/firmware/vop3host/`. `tools/dsp_check.cpp` pins their output and `tools/dsp_bench.cpp` times it
+- `src/engine/` **KNOWN**: `synth.h` the engine's shared declarations, including `struct Synth`; `notes.cpp` note on and off, operator setup, pitch, portamento, and the 192.3 Hz tick; `controllers.cpp` the eight controller sets, the three scalers and the 48 destinations; `fseq.cpp` formant sequence playback; `midi.cpp` MIDI in and sysex in and out
+- `src/presets/` **KNOWN**: `patch.cpp` voice, performance and part data as the firmware decodes it, with the DX7 conversion; `rom.cpp` EPROM and sysex loading
+- `src/tonegen/` **INFERRED**: `ymp706.cpp` the tone generator: operators, envelopes, the formant window, and the render path
+- `src/modulators/` **INFERRED**: the EG generators and LFOs the filter and effect hosts program
+- `src/filters/` the voice filter: `voice_filter.h` one voice, `filter.h` 32 of them, `filter_host.*` the firmware's filter host
+- `src/effects/` the effects: `programs.h` their shared state and one file a program, `effects.h` the section, `host/` the firmware's effect host
+- `src/dsp/` what the filters and effects share: `word.h` the DSPs' number format, `sink.h` how a host talks to its section. `tools/dsp_check.cpp` pins the filters' and effects' output and `tools/dsp_bench.cpp` times it
 
 `src/fsvr/` is **ours**. Nothing in the hardware corresponds to any of it.
 
@@ -228,7 +228,7 @@ python tools/regress.py                 # the whole fixed preset list against th
 - `tools/build_fs1r_ghidra.py` imports and decompiles the firmware into `../FS1R_DISASM` with pyghidra (SH-2); `decomp.py`, `ghidra_disasm.py`, `ghidra_switches.py`, `ghidra_handlers.py` and `ghidra_probe.py` query it
 - `tools/ghidra_ctrl_dests.py` decompiles the 48 controller destination handlers, which Ghidra never turns into functions because only a pointer table reaches them
 - `tools/extract_tables.py`, `extract_presets.py` and `extract_demo.py` pull the conversion tables, the 1408 voices, 384 performances and 90 Fseqs, and the demo songs out of the EPROM image
-- `tools/extract_vop3_rom.py` writes the two hosts' EPROM tables, `src/fs1r/firmware/vop3host/rom_tables.*`
+- `tools/extract_vop3_rom.py` writes the two hosts' EPROM tables, `src/fs1r/rom_tables.*`
 
 **Tools, calibration.**
 

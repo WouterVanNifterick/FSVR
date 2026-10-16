@@ -20,10 +20,11 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 
 | Path | Status | A disagreement with the unit means |
 |---|---|---|
-| `src/fs1r/firmware/` | **KNOWN**, rewritten from the disassembly | you have a bug. Go read the firmware |
-| `src/fs1r/hardware.h` | **KNOWN**, read off the board | you read it wrong. It is not a knob |
-| `src/fs1r/chips/` | **INFERRED**, modelled | it needs calibrating against a recording |
-| `src/fs1r/chips/cal.h` | the calibration surface | this is the file you edit to calibrate |
+| `src/fs1r/` | the hardware's values: `hardware.h` read off the board, the EPROM's tables (generated), the DSP register map, and `cal.h` | read wrong, or for `cal.h` not yet calibrated. Nothing else lives here |
+| `src/fs1r/cal.h` | **INFERRED**, the calibration surface | this is the file you edit to calibrate |
+| `src/engine/`, `src/presets/`, `src/effects/host/`, `src/filters/filter_host.*` | **KNOWN**, rewritten from the disassembly | you have a bug. Go read the firmware |
+| `src/tonegen/`, `src/modulators/` | **INFERRED**, modelled; constants in `cal.h` | it needs calibrating against a recording |
+| `src/filters/`, `src/effects/` (the DSP) | **KNOWN**, bit for bit what the firmware's DSP programs compute | you changed the sound; `dsp_check` says so |
 | `src/fsvr/` | **ours**, no hardware counterpart | nothing. The hardware has no opinion |
 | `src/fsvr/tuning.h` | our cost knobs | nothing, and changing one must not alter the output |
 | `plugin/` | the plug-in: processor, bank manager, Import Audio | it never models synthesis, see below |
@@ -32,7 +33,7 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 
 ## The rules
 
-**Never invent a constant.** If a number is not read from the firmware or measured off hardware, it does not go in. Every modelled constant lives in `src/fs1r/chips/cal.h` and names the document that measured it.
+**Never invent a constant.** If a number is not read from the firmware or measured off hardware, it does not go in. Every modelled constant lives in `src/fs1r/cal.h` and names the document that measured it.
 
 **A number fitted against one recording is not measured.** This is the expensive lesson of this project. Three conclusions in two days were written up with a residual quoted and all three were wrong, because a model was fitted against a single recording until the error stopped moving. The modulation index was published twice at the wrong value. Read the 2026-09-19 entry in `docs/findings.md` before you quote a residual. Two datasets, or a firmware trace, or it is not settled.
 
@@ -40,7 +41,7 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 
 **The plugin never models synthesis.** It moves parameter values in and out of the engine as sysex, exactly as a hardware editor would, and learns state back from the engine's own bulk dumps. If you find yourself computing audio in `plugin/`, you are in the wrong layer. The morph square blends voice bytes into a voice bulk and Import Audio writes Fseq bytes on the scales `fs1r::Device` gives it; neither renders anything.
 
-**Generated files are generated.** Do not hand-edit anything in `plugin/generated/`, nor `src/fs1r/firmware/tables.h` or `algorithms.h`. Change the generator or its source and re-run it. `plugin/generated/README.md` names each generator. `plugin/skin/` is not generated: it is the source, edited in place with the web editor of the Hollow project beside this repository (`python hollow.py editor` there opens it by default). Its params and `data/fs1r_sysex.json` were made from `plugin/generated/` once, so a change to the parameter descriptions reaches the skin only by editing it there too.
+**Generated files are generated.** Do not hand-edit anything in `plugin/generated/`, nor `src/fs1r/tables.h` or `algorithms.h`. Change the generator or its source and re-run it. `plugin/generated/README.md` names each generator. `plugin/skin/` is not generated: it is the source, edited in place with the web editor of the Hollow project beside this repository (`python hollow.py editor` there opens it by default). Its params and `data/fs1r_sysex.json` were made from `plugin/generated/` once, so a change to the parameter descriptions reaches the skin only by editing it there too.
 
 **Scale is not fidelity.** `src/fsvr/tuning.h` holds knobs that trade CPU for nothing else. If changing one moves a measurement, the value is wrong, not the hardware's.
 
