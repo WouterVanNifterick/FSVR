@@ -29,21 +29,8 @@ set(FS1R_BIN ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 file(GLOB VOP3HOST CONFIGURE_DEPENDS src/fs1r/firmware/vop3host/*.cpp src/fs1r/native/*.cpp)
 add_library(vop3host STATIC ${VOP3HOST} src/fs1r/effects.cpp src/fs1r/filter.cpp src/fs1r/chips/vop3.cpp)
 target_include_directories(vop3host PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-# The chip's programs compiled to native code, with AsmJit (third_party/asmjit). AsmJit needs C++20, so it and
-# yss236_jit.cpp, the one file that includes it, are built as C++20; the rest stays C++17.
-file(GLOB ASMJIT CONFIGURE_DEPENDS third_party/asmjit/asmjit/core/*.cpp third_party/asmjit/asmjit/x86/*.cpp
-     third_party/asmjit/asmjit/arm/*.cpp third_party/asmjit/asmjit/axl/*.cpp)
-add_library(asmjit STATIC ${ASMJIT})
-target_include_directories(asmjit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/asmjit)
-target_compile_definitions(asmjit PUBLIC ASMJIT_STATIC ASMJIT_NO_BUILDER ASMJIT_NO_COMPILER ASMJIT_NO_UJIT ASMJIT_NO_FOREIGN ASMJIT_NO_SHM_OPEN)
-find_package(Threads REQUIRED)
-target_link_libraries(asmjit PUBLIC Threads::Threads)
-add_library(vop3jit STATIC src/fs1r/chips/yss236_jit.cpp)
-target_include_directories(vop3jit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(vop3jit PRIVATE asmjit)
-set_target_properties(asmjit vop3jit PROPERTIES CXX_STANDARD 20)
-target_link_libraries(vop3host PUBLIC vop3jit)
-foreach(t vop3host vop3jit)
+# Every program runs as C++, from src/fs1r/native/, so nothing else is compiled or linked here.
+foreach(t vop3host)
   if(MSVC)
     target_compile_options(${t} PRIVATE /W3 /fp:precise /permissive-)
   else()
@@ -100,12 +87,6 @@ else()
   add_test(NAME engine COMMAND engine_selftest)
 endif()
 
-# The compiled VOP3 programs against the interpreter, on whatever this runs on: x86-64 on Windows and Linux,
-# the arm64 slice of the universal build on an Apple silicon runner. It skips where there is no compiler.
-add_executable(vop3_jit_check tools/vop3_jit_check.cpp)
-target_link_libraries(vop3_jit_check PRIVATE vop3host)
-add_test(NAME vop3_jit COMMAND vop3_jit_check)
-set_tests_properties(vop3_jit PROPERTIES SKIP_RETURN_CODE 77)
 # The programs written in C++ against the interpreter, each on every type that runs it (docs/vop3_native/).
 add_executable(vop3_native_check tools/vop3_native_check.cpp)
 target_link_libraries(vop3_native_check PRIVATE vop3host)
@@ -113,6 +94,8 @@ if(NOT MSVC)
   target_compile_options(vop3_native_check PRIVATE -ffp-contract=off)
 endif()
 add_test(NAME vop3_native COMMAND vop3_native_check)
+# The same programs as the engine installs them, all at once, which is the path the plugin runs.
+add_test(NAME vop3_installed COMMAND vop3_native_check --installed)
 
 option(FSVR_BUILD_PLUGIN "Build the plug-in (downloads its SDKs on the first configure)" OFF)
 if(FSVR_BUILD_PLUGIN)

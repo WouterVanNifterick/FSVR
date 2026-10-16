@@ -5,8 +5,10 @@
 #include "fs1r/effects.h"
 #include <cstring>
 #include "fs1r/chips/cal.h"
+#include "fs1r/native/native.h"
 
 namespace vop3host = fs1r::vop3host;
+namespace native = fs1r::native;
 
 namespace {
 const int TYPE_BYTE[3] = {vop3host::REVERB_TYPE, vop3host::VARIATION_TYPE, vop3host::INSERTION_TYPE};
@@ -45,6 +47,10 @@ void Effects::control(int dest, int offset) {
 // left DAC plays channel 0, so a bus's left goes to channel k + 4.
 void Effects::run(const double bus[8], double& l, double& r) {
     yss236_core& core = chip.core;
+    if (chip.programDirty) {                 // the host uploaded a program: pick our steps to match it
+        chip.programDirty = false;
+        native::install_effect(core);
+    }
     for (int b = 0; b < 4; b++) {
         core.in[0][2 * (4 + b)] = core.in[0][2 * (4 + b) + 1] = bus[2 * b] * BUS;
         core.in[0][2 * b] = core.in[0][2 * b + 1] = bus[2 * b + 1] * BUS;

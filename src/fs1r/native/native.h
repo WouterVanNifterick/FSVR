@@ -12,6 +12,13 @@ namespace fs1r::native {
 
 using Run = void (*)(yss236_core& core, int from, int to);
 
+// Which of the programs below to run on a chip, from the words the chip's registers hold: the filter
+// chip's on install_filter(), the effect chip's on install_effect(). A window running a program we did not
+// port gets no range and runs on the interpreter, which gives the same answer more slowly. Call these
+// after anything that writes a program word (Vop3::programDirty says when that was), not every pass.
+void install_filter(yss236_core& core);
+void install_effect(yss236_core& core);
+
 // A ported program, by its key in the tracker:
 //   flt                       the filter chip's program, all 512 steps
 //   base                      the effect chip's base program, outside the reverb's steps

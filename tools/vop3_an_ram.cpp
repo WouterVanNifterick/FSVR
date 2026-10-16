@@ -14,11 +14,6 @@
 #include "fs1r/chips/yss236_core.h"
 #undef private
 
-// The probe steps the interpreter itself, so it links no compiler.
-bool yss236_core::jit_pass() { return false; }
-void yss236_core::jit_free::operator()(jit_code *) const {}
-const char *const yss236_core::jit_target = nullptr;
-
 int main() {
     yss236_core c;
     c.interpret = true;

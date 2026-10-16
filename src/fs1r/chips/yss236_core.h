@@ -27,8 +27,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
-#include <memory>
 #include <vector>
 
 class yss236_core
@@ -139,11 +139,7 @@ public:
 
 	void decode(int st)
 	{
-		op o;
-		decode(prog[st], o);
-		if (std::memcmp(&o, &ops[st], sizeof o))
-			m_stale = true;               // the compiled pass no longer matches the program
-		ops[st] = o;
+		decode(prog[st], ops[st]);
 	}
 
 	static void decode(uint16_t const *w, op &o)
@@ -226,6 +222,8 @@ public:
 	// A program written in C++ (src/fs1r/native/) for steps [from, to): it runs them in place of the
 	// interpreter and must leave every field of the core as step() would, so one can stand in for the
 	// other a step range at a time and be checked bit for bit (tools/vop3_native_check.cpp).
+	// fs1r::native::install() picks the ranges from the words the chip holds; a program we did not port
+	// gets none, and step() runs it.
 	struct native_run { int from, to; void (*run)(yss236_core &, int from, int to); };
 	std::vector<native_run> natives;      // in step order and not overlapping; empty runs the program as uploaded
 
@@ -233,11 +231,11 @@ public:
 	void pass()
 	{
 		m_skip = 0;
-		if (!natives.empty())
-			native_pass();
-		else if (!jit_pass())
+		if (interpret || natives.empty())
 			for (int st = 0; st < STEPS; st++)
 				step(st);
+		else
+			native_pass();
 		m_nhist = 0;
 		ptr = (ptr - 1) & (RAM_WORDS - 1);
 	}
@@ -290,20 +288,9 @@ public:
 	int64_t m_iq_at[4];
 	double m_iq_v[4];
 
-	// The program compiled to native code (yss236_jit.cpp), which pass() runs in place of step() when it
-	// can. A decode that changes a step marks it stale and the next pass compiles again; coefficients and
-	// slot offsets are read from memory, so writing them does not. interpret, or FSVR_VOP3_INTERP in the
-	// environment, keeps a core on the interpreter, for A/B runs.
-	bool interpret = false;
-	bool m_stale = true;
-	struct jit_code;
-	struct jit_free { void operator()(jit_code *) const; };
-	std::unique_ptr<jit_code, jit_free> m_jit;
-	int64_t m_n0;                          // n when the compiled pass started
-	double m_tmp[8];                       // its scratch: helper arguments and saved temporaries
-	bool jit_pass();                       // runs the compiled pass; false when there is none
-	static const char *const jit_target;   // the architecture compile() emits, or null where it has none
-	friend struct yss236_jit;
+	// interpret, or FSVR_VOP3_INTERP in the environment, keeps a core on the interpreter and off the C++
+	// programs in native/, for A/B runs. Both are bit for bit the same; this only says which runs.
+	bool interpret = []{ return std::getenv("FSVR_VOP3_INTERP") != nullptr; }();
 
 	// Public for the native programs, which reuse the step's own arithmetic and pipeline
 	// to stay bit for bit with it.

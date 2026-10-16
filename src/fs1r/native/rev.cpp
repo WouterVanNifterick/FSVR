@@ -103,7 +103,7 @@ void decor(yss236_core& c, int st, Decor const& d)
 // its taps come off, and `out_reg` or `out_cell` where s24 puts the result.
 struct Allpass
 {
-	int base;                  // the first of the four steps
+	int st, nsteps;            // the unit's four steps, and how many that is (always four)
 	int in, dly;
 	int out_reg, out_cell;     // s24's result: a register, or a cell when out_reg is 0
 	Decor decor[4];
@@ -114,16 +114,16 @@ struct Allpass
 // offsets. Three of the six units write their own tap into the line (NO_WRITE is never used: s22
 // either latches its result for the next writer or writes the latched one).
 const Allpass ALLPASS[6] = {
-    //  base   in   dly  out_reg out_cell  s26                s22                  s28                s24
-    {  0x03e,  54,   22,    125,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 56}, {DEC_NONE, 0}     }, WRITE_OWN     },
-    {  0x04c, 125,   59,      0,      62, { {DEC_CAPTURE, 58}, {DEC_NONE, 0}, {DEC_NONE, 0},  {DEC_READ, 0}    }, SET_LATCH     },
-    {  0x062, 119,   56,    119,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 61}, {DEC_NONE, 0}     }, WRITE_OWN     },
-    {  0x07f, 119,   61,    119,       0, { {DEC_READ, 0}, {DEC_CAPTURE, 61}, {DEC_NONE, 0},   {DEC_SERIAL_L, 40}}, SET_LATCH     },
-    {  0x08e, 120,   56,    120,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 56}, {DEC_NONE, 0}     }, WRITE_OWN     },
-    {  0x097, 120,   57,    120,       0, { {DEC_READ, 0}, {DEC_CAPTURE, 57}, {DEC_NONE, 0},   {DEC_NONE, 0}     }, SET_LATCH     },
+    //  base   n  in   dly  out_reg out_cell  s26                s22                  s28                s24
+    {  0x03e,  4,  54,   22,    125,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 56}, {DEC_NONE, 0}     }, WRITE_OWN     },
+    {  0x04c,  4, 125,   59,      0,      62, { {DEC_CAPTURE, 58}, {DEC_NONE, 0}, {DEC_NONE, 0},  {DEC_READ, 0}    }, SET_LATCH     },
+    {  0x062,  4, 119,   56,    119,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 61}, {DEC_NONE, 0}     }, WRITE_OWN     },
+    {  0x07f,  4, 119,   61,    119,       0, { {DEC_READ, 0}, {DEC_CAPTURE, 61}, {DEC_NONE, 0},   {DEC_SERIAL_L, 40}}, SET_LATCH     },
+    {  0x08e,  4, 120,   56,    120,       0, { {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 56}, {DEC_NONE, 0}     }, WRITE_OWN     },
+    {  0x097,  4, 120,   57,    120,       0, { {DEC_READ, 0}, {DEC_CAPTURE, 57}, {DEC_NONE, 0},   {DEC_NONE, 0}     }, SET_LATCH     },
 };
 
-// One allpass unit's four steps, s26, s22, s28 and s24, each at base + k.
+// One allpass unit's four steps, s26, s22, s28 and s24, each at st + k.
 void allpass_step(yss236_core& c, int st, Allpass const& u, int k)
 {
 	decor(c, st, u.decor[k]);
@@ -240,7 +240,8 @@ void comb_step(yss236_core& c, int st, Comb const& k, comb_role_t role)
 // the surround the reverb sends to the left and the right, r[119] and r[120].
 struct ErWord
 {
-	int st, cell, out_reg;   // out_reg 0 unless this word closes its group
+	int st;                  // the step this word is at, which is what index_by_step keys on
+	int cell, out_reg;       // out_reg 0 unless this word closes its group
 	add_t add;
 	int add_reg;             // the register the adder reads, when `add` is ADD_REG
 	Decor decor;
@@ -293,6 +294,18 @@ void er_word(yss236_core& c, ErWord const& e)
 	run(c, a);
 }
 
+// The early reflection word of step st, if it is one. The index is the same for every pass and every
+// type, so the step reaches its word rather than looking through the twenty-two for it.
+constexpr auto ER_AT = index_by_step(ER);
+
+// The allpass unit of step st, if it is one. The four steps of a unit are consecutive, so each of them
+// indexes to the same row with a different k.
+constexpr auto ALLPASS_AT = index_by_span(ALLPASS);
+
+// The early reflection word of a step, or null. `assert` is not wanted on the sample path, so a step
+// no word owns is simply one the caller does not hand here.
+ErWord const* er_at(int st) { return ER_AT[st] < 0 ? nullptr : &ER[ER_AT[st]]; }
+
 // ---------------------------------------------------------------------------------------------
 // The input filters, rev::HPF_STEPS, rev::LPF_STEPS and their two copies
 // ---------------------------------------------------------------------------------------------
@@ -302,30 +315,37 @@ void er_word(yss236_core& c, ErWord const& e)
 // the section's own register with the route its design gave, which is what the highpass sections' x1
 // and the lowpass sections' x2 are. `w1` is the register word 1 reads, which is also where word 3
 // writes, and `w2` the register word 2 reads, one stage back.
-struct Section3 { int base, w1, w2, out; step::route_t route; Decor decor[3]; };
+struct Section3 { int st, nsteps, w1, w2, out; step::route_t route; Decor decor[3]; };
 
 const Section3 SECTIONS[4] = {
-    //  base  w1  w2  out  route    word 1            word 2              word 3
-    {  0x01b, 51, 50,  51, ROUTE_1, { {DEC_READ, 0},  {DEC_CAPTURE, 62},  {DEC_NONE, 0}    } },   // HPF_COPY
-    {  0x01e, 52, 51,  52, ROUTE_2, { {DEC_NONE, 0},  {DEC_READ, 0},      {DEC_CAPTURE, 22} } },   // LPF_COPY
-    {  0x023, 48, 47,  48, ROUTE_1, { {DEC_READ, 0},  {DEC_CAPTURE, 61},  {DEC_NONE, 0}    } },   // HPF_STEPS
-    {  0x026, 49, 48,  49, ROUTE_2, { {DEC_LFO, 9},   {DEC_READ, 0},      {DEC_CAPTURE, 56} } },   // LPF_STEPS
+    //  base   n  w1  w2  out  route    word 1            word 2              word 3
+    {  0x01b,  3, 51, 50,  51, ROUTE_1, { {DEC_READ, 0},  {DEC_CAPTURE, 62},  {DEC_NONE, 0}    } },   // HPF_COPY
+    {  0x01e,  3, 52, 51,  52, ROUTE_2, { {DEC_NONE, 0},  {DEC_READ, 0},      {DEC_CAPTURE, 22} } },   // LPF_COPY
+    {  0x023,  3, 48, 47,  48, ROUTE_1, { {DEC_READ, 0},  {DEC_CAPTURE, 61},  {DEC_NONE, 0}    } },   // HPF_STEPS
+    {  0x026,  3, 49, 48,  49, ROUTE_2, { {DEC_LFO, 9},   {DEC_READ, 0},      {DEC_CAPTURE, 56} } },   // LPF_STEPS
 };
+
+// A section's three steps, and so which section and which word of it a step is. The index is the same on
+// every pass, so the step reaches its section rather than looking through the four for it.
+constexpr auto SECTION3_AT = index_by_span(SECTIONS);
 
 // ---------------------------------------------------------------------------------------------
 // The runs of steps, which rom::STEPS_REVERB fixes and RUNS below names
 // ---------------------------------------------------------------------------------------------
 
-// A run of the reverb's steps: the window's whole block is these ten, and the `rev` entry point hands
-// each one to its block in turn.
-struct StepRun { int from, to; void (*block)(yss236_core&); };
+// One run of the window's steps and the function that runs it. Every block here walks its own run from
+// `from` to `to`, so a block shared by several runs needs nothing but the range.
+struct StepRun
+{
+	int from, to;
+	void (*block)(yss236_core&, int from, int to);
+};
 
 // ---- 0x01a to 0x039: the mix and width words, the input filters and the first ten reflections ----
-void block_0x01a(yss236_core& c)
+void block_0x01a(yss236_core& c, int from, int to)
 {
-	for (int st = 0x01a; st < 0x03a; st++)
+	for (int st = from; st < to; st++)
 	{
-		if (getenv("VOP3_INTERP_BLOCK")) { c.step(st); continue; }
 		c.begin_step();
 		if (st < c.m_skip) continue;
 		// ---- the surround's mix words, the stereo width and the type's shelf ----
@@ -353,114 +373,42 @@ void block_0x01a(yss236_core& c)
 		}
 
 		// ---- the two input filters and the two copies the type's shelf works from ----
-		for (Section3 const& f : SECTIONS)
+		if (int const k = SECTION3_AT[st]; k >= 0)
 		{
-			int const k = st - f.base;
-			if (k < 0 || k > 2) continue;
-			decor(c, st, f.decor[k]);
-			switch (k)
+			Section3 const& f = SECTIONS[k];
+			int const w = st - f.st;
+			decor(c, st, f.decor[w]);
+			switch (w)
 			{
 			case 0:  term(c, st, f.w1); break;                       // word 1: the coefficient on the stage before
 			case 1:  sum(c, st, f.w2); break;                        // word 2: plus this section's own delay
 			default: close(c, st, f.w2, f.out, f.route); break;      // word 3: closed and scaled into this section
 			}
-			break;
 		}
 
 		// ---- the first ten early reflections, rev::ER_WORDS[0] to [9] ----
-		for (ErWord const& e : ER)
-			if (e.st == st) { er_word(c, e); break; }
+		if (ErWord const* e = er_at(st)) er_word(c, *e);
 	}
 }
 
-// ---- 0x03e to 0x041: allpass unit 0 ----
-void block_0x03e(yss236_core& c)
+// ---- one run of the reverb's steps that is allpass units and early reflections, nothing else ----
+void unit_block(yss236_core& c, int from, int to)
 {
-	for (int st = 0x03e; st < 0x042; st++)
+	for (int st = from; st < to; st++)
 	{
 		c.begin_step();
 		if (st < c.m_skip) continue;
-		allpass_step(c, st, ALLPASS[0], st - ALLPASS[0].base);
-	}
-}
-
-// ---- 0x04c to 0x04f: allpass unit 1 ----
-void block_0x04c(yss236_core& c)
-{
-	for (int st = 0x04c; st < 0x050; st++)
-	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
-		allpass_step(c, st, ALLPASS[1], st - ALLPASS[1].base);
-	}
-}
-
-// ---- 0x059 to 0x05e: early reflections 10 to 15 ----
-void block_0x059(yss236_core& c)
-{
-	for (int st = 0x059; st < 0x05f; st++)
-	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
-		for (ErWord const& e : ER)
-			if (e.st == st) { er_word(c, e); break; }
-	}
-}
-
-// ---- 0x062 to 0x065: allpass unit 2 ----
-void block_0x062(yss236_core& c)
-{
-	for (int st = 0x062; st < 0x066; st++)
-	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
-		allpass_step(c, st, ALLPASS[2], st - ALLPASS[2].base);
-	}
-}
-
-// ---- 0x07f to 0x088: allpass unit 3, then early reflections 16 to 21 ----
-void block_0x07f(yss236_core& c)
-{
-	for (int st = 0x07f; st < 0x089; st++)
-	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
-		if (st < 0x083)
-		{
-			allpass_step(c, st, ALLPASS[3], st - ALLPASS[3].base);
-			continue;
-		}
-		for (ErWord const& e : ER)
-			if (e.st == st) { er_word(c, e); break; }
-	}
-}
-
-// ---- 0x08e to 0x091: allpass unit 4 ----
-void block_0x08e(yss236_core& c)
-{
-	for (int st = 0x08e; st < 0x092; st++)
-	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
-		allpass_step(c, st, ALLPASS[4], st - ALLPASS[4].base);
-	}
-}
-
-// ---- 0x097 to 0x09a: allpass unit 5 ----
-void block_0x097(yss236_core& c)
-{
-	for (int st = 0x097; st < 0x09b; st++)
-	{
-		c.begin_step();
-		if (st < c.m_skip) continue;
-		allpass_step(c, st, ALLPASS[5], st - ALLPASS[5].base);
+		if (int u = ALLPASS_AT[st]; u >= 0)
+			allpass_step(c, st, ALLPASS[u], st - ALLPASS[u].st);
+		else if (ErWord const* e = er_at(st))
+			er_word(c, *e);
 	}
 }
 
 // ---- 0x0a3 to 0x0b5: the six comb units' state steps and the first four gains ----
-void block_0x0a3(yss236_core& c)
+void comb_block(yss236_core& c, int from, int to)
 {
-	for (int st = 0x0a3; st < 0x0b6; st++)
+	for (int st = from; st < to; st++)
 	{
 		c.begin_step();
 		if (st < c.m_skip) continue;
@@ -470,9 +418,11 @@ void block_0x0a3(yss236_core& c)
 }
 
 // ---- 0x0d1 to 0x0d7: comb 4's gain, comb 5's state steps, the level, comb 5's gain ----
-void block_0x0d1(yss236_core& c)
+// The level's two words are the surround's own registers scaled by the type's level words, the one step
+// that is not a comb unit's, so the run has its own switch rather than the schedule's.
+void level_block(yss236_core& c, int from, int to)
 {
-	for (int st = 0x0d1; st < 0x0d8; st++)
+	for (int st = from; st < to; st++)
 	{
 		c.begin_step();
 		if (st < c.m_skip) continue;
@@ -489,29 +439,31 @@ void block_0x0d1(yss236_core& c)
 	}
 }
 
+// The ten runs of the window's block, in step order. Five of them are one allpass unit each and all six
+// run the same function, so the reverb is six units and twenty-two reflections laid out in step order
+// rather than ten separate blocks.
 const StepRun RUNS[] = {
-    {0x01a, 0x03a, block_0x01a},
-    {0x03e, 0x042, block_0x03e},
-    {0x04c, 0x050, block_0x04c},
-    {0x059, 0x05f, block_0x059},
-    {0x062, 0x066, block_0x062},
-    {0x07f, 0x089, block_0x07f},
-    {0x08e, 0x092, block_0x08e},
-    {0x097, 0x09b, block_0x097},
-    {0x0a3, 0x0b6, block_0x0a3},
-    {0x0d1, 0x0d8, block_0x0d1},
+    {0x01a, 0x03a, block_0x01a},      // the mix and width words, the input filters, reflections 0 to 9
+    {0x03e, 0x042, unit_block},       // allpass unit 0
+    {0x04c, 0x050, unit_block},       // allpass unit 1
+    {0x059, 0x05f, unit_block},       // reflections 10 to 15
+    {0x062, 0x066, unit_block},       // allpass unit 2
+    {0x07f, 0x089, unit_block},       // allpass unit 3, then reflections 16 to 21
+    {0x08e, 0x092, unit_block},       // allpass unit 4
+    {0x097, 0x09b, unit_block},       // allpass unit 5
+    {0x0a3, 0x0b6, comb_block},       // the comb units' state steps and the first four gains
+    {0x0d1, 0x0d8, level_block},      // comb 4's gain, comb 5's steps, the level, comb 5's gain
 };
 
 }  // namespace
 
-// One run of the reverb window's steps, exactly as yss236_core::step() would run them. The check hands
-// this the ten runs above, one call each per pass; a range the window never hands us, which no host
-// builds, falls back to the interpreter.
+// One run of the reverb window's steps, exactly as yss236_core::step() would run them. The engine hands
+// this one of the ten runs above per pass; a range none of them covers, which no host builds, falls
+// back to the interpreter.
 void rev(yss236_core& c, int from, int to)
 {
-    if (!getenv("VOP3_INTERP_REV"))
-        for (StepRun const& run : RUNS)
-            if (run.from == from && run.to == to) { run.block(c); return; }
+    for (StepRun const& run : RUNS)
+        if (run.from == from && run.to == to) { run.block(c, from, to); return; }
     for (int st = from; st < to; st++) c.step(st);
 }
 

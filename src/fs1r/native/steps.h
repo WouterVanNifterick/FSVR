@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <array>
 #include <cmath>
 
 #include "fs1r/chips/yss236_core.h"
@@ -350,5 +351,45 @@ inline void skip_negative(yss236_core& c, int st, int target)
 
 // The jump (cskip 1): the steps up to `target` never run, so this is the branch's other arm.
 inline void jump(yss236_core& c, int st, int target) { c.m_skip = (st & 0x100) | target; }
+
+// ---------------------------------------------------------------------------------------------
+// Finding a step's row, without looking for it
+// ---------------------------------------------------------------------------------------------
+
+// The tables below are the program's structure and they are what a reader wants to see, but a program
+// runs one step per microsecond and every table is short, so scanning one per step costs more than the
+// step itself did. index_by_step builds the map the interpreter gets for free from its switch: a step
+// indexes straight to its row.
+//
+// It needs a table whose first field is the step the row is at (`int st`, or `int base` for a row that
+// covers a run of them, with the run's length named by `nsteps`, `len` or `n`). A row of n steps from
+// base takes base to base + n - 1.
+//
+// The result is a constexpr array of row indices, -1 for a step no row owns, so it costs nothing at run
+// time and the compiler can see every row it needs.
+
+// The row of `rows` at each step, -1 where no row is. One row per step, keyed on the row's first field.
+template <typename T, int N>
+constexpr std::array<int16_t, yss236_core::STEPS> index_by_step(T const (&rows)[N])
+{
+    std::array<int16_t, yss236_core::STEPS> ix{};
+    for (int16_t& i : ix) i = -1;
+    for (int k = 0; k < N; k++)
+        ix[rows[k].st] = int16_t(k);
+    return ix;
+}
+
+// The same, where each row covers `nsteps` consecutive steps from its own `st`. All four steps of a
+// unit index to the same row, and a step's place within its unit is `st - row.st`.
+template <typename T, int N>
+constexpr std::array<int16_t, yss236_core::STEPS> index_by_span(T const (&rows)[N])
+{
+    std::array<int16_t, yss236_core::STEPS> ix{};
+    for (int16_t& i : ix) i = -1;
+    for (int k = 0; k < N; k++)
+        for (int i = 0; i < rows[k].nsteps; i++)
+            ix[rows[k].st + i] = int16_t(k);
+    return ix;
+}
 
 }  // namespace fs1r::native::step

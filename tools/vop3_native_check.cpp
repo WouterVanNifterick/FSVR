@@ -81,7 +81,9 @@ static int loaded(const yss236_core& c, int w) {
     return -1;
 }
 
-// A step list as runs of consecutive steps
+// A step list as runs of consecutive steps. These are the window's own runs: a program's entry point is
+// handed one of them per call, and rom::STEPS_* lists them in exactly this shape, so the maximal runs
+// here are the ones the program already splits its block into.
 static Ranges runs(const std::vector<bool>& in) {
     Ranges r;
     for (int st = 0; st < yss236_core::STEPS; st++)
@@ -128,7 +130,8 @@ static bool same(const char* what, int type, int i, const yss236_core& a, const 
 // Every effect type of each block on two effect sections, the native standing in on one
 static void checkEffects(const Target& t, int n, Tally& tl, bool quiet) {
     auto ea = std::make_unique<Effects>(), eb = std::make_unique<Effects>();
-    ea->chip.core.interpret = eb->chip.core.interpret = true;
+    // a is the interpreter and nothing else; b runs the target's steps in C++ where it can
+    ea->chip.core.interpret = true;
     uint8_t c[H::COMMON_BYTES] = {};
     c[0x10] = 127; c[0x11] = 64; c[0x12] = 24;
     c[H::EQ_LOW_GAIN] = c[H::EQ_MID_GAIN] = c[H::EQ_HIGH_GAIN] = 64;
@@ -141,8 +144,12 @@ static void checkEffects(const Target& t, int n, Tally& tl, bool quiet) {
     for (auto& bl : blocks)
         for (int type = 0; type < bl.types; type++) {
             ea->host.setByte(bl.byte, type); eb->host.setByte(bl.byte, type);
-            eb->chip.core.natives = rangesFor(t, eb->chip.core);
-            const bool runs = !eb->chip.core.natives.empty();
+            // The check runs one program at a time and counts the calls, so it owns the ranges: it re-pins
+            // them before every pass, since a host write in between would otherwise install the whole set.
+            const Ranges pin = rangesFor(t, eb->chip.core);
+            auto pinRanges = [&]{ eb->chip.core.natives = pin; eb->chip.programDirty = false; };
+            pinRanges();
+            const bool runs = !pin.empty();
             // a type that does not run the program still runs both sections a little, so state carries over
             const int passes = runs ? n : 16;
             tl.types += runs;
@@ -159,6 +166,7 @@ static void checkEffects(const Target& t, int n, Tally& tl, bool quiet) {
                 const double x = noise() + (i % 4800 == 0 ? 0.9 : 0.0);
                 const double bus[8] = {x, -x, x, 0.5 * x, x, x, -x, x};
                 double la, ra, lb, rb;
+                pinRanges();
                 ea->run(bus, la, ra); eb->run(bus, lb, rb);
                 tl.passes += runs;
                 if (!same(bl.name, type, i, ea->chip.core, eb->chip.core, !std::memcmp(&la, &lb, 8) && !std::memcmp(&ra, &rb, 8), quiet)) {
@@ -173,8 +181,10 @@ static void checkEffects(const Target& t, int n, Tally& tl, bool quiet) {
 // The six filter types on every slot, notes starting and releasing, cutoff and resonance moving halfway
 static void checkFilter(int n, Tally& tl, bool quiet) {
     auto fa = std::make_unique<Filter>(), fb = std::make_unique<Filter>();
-    fa->chip.core.interpret = fb->chip.core.interpret = true;
-    fb->chip.core.natives = rangesFor({"flt", FLT, 0}, fb->chip.core);
+    fa->chip.core.interpret = true;
+    const Ranges pin = rangesFor({"flt", FLT, 0}, fb->chip.core);
+    auto pinRanges = [&]{ fb->chip.core.natives = pin; fb->chip.programDirty = false; };
+    pinRanges();
     for (int type = 0; type < 6; type++) {
         using namespace H::filter;
         uint8_t v[H::FilterHost::VOICE_BYTES] = {}, r[H::FilterHost::PART_BYTES] = {};
@@ -199,6 +209,7 @@ static void checkFilter(int n, Tally& tl, bool quiet) {
             }
             double xa[16], xb[16];
             for (int s = 0; s < 16; s++) xa[s] = xb[s] = noise();
+            pinRanges();
             fa->run(xa); fb->run(xb);
             tl.passes++;
             if (!same("filter", type, i, fa->chip.core, fb->chip.core, !std::memcmp(xa, xb, sizeof xa), quiet)) { tl.bad = true; return; }
@@ -216,6 +227,95 @@ static const char* check(const Target& t, N::Run run, int n, Tally& tl, bool qui
     if (!tl.types) return "unused";
     if (!g_calls) { if (!quiet) std::printf("  the native was attached but never called\n"); return "differs"; }
     return "identical";
+}
+
+// What actually ships: the ranges fs1r::native::install() picks from the words the chip holds, rather
+// than the ones this file would pick for a single key. Every program at once, on both chips, against the
+// interpreter, so a program installed on the wrong steps or missing from a window's own shows up here.
+static int installedCheck(int n) {
+    Tally tl;
+    g_run = nullptr;
+    int fails = 0;
+    {   // the filter chip: one program over all 512 steps, every type
+        auto fa = std::make_unique<Filter>(), fb = std::make_unique<Filter>();
+        fa->chip.core.interpret = true;
+        fb->chip.core.interpret = false;
+        fb->chip.programDirty = false;
+        N::install_filter(fb->chip.core);
+        const bool runs = !fb->chip.core.natives.empty();
+        if (!runs) { std::printf("installed flt: no ranges\n"); fails++; }
+        for (int type = 0; type < 6; type++) {
+            using namespace H::filter;
+            uint8_t v[H::FilterHost::VOICE_BYTES] = {}, r[H::FilterHost::PART_BYTES] = {};
+            for (int i = 0x18; i <= 0x23; i++) r[i] = 64;
+            r[PART_LFO2_SPEED] = r[PART_LFO2_DEPTH] = 64;
+            v[FILTER_TYPE] = (uint8_t)type; v[CUTOFF] = 70; v[RESONANCE] = 90; v[KEY_SCALE_DEPTH] = 64; v[KEY_SCALE_POINT] = 60;
+            v[INPUT_GAIN] = 12; v[EG_DEPTH] = 90; v[CUTOFF_LFO2] = 40;
+            for (int i = EG_L4; i <= EG_L3; i++) v[i] = 20 + 10 * (i - EG_L4);
+            for (Filter* f : {fa.get(), fb.get()}) {
+                f->reset();
+                for (int p = 0; p < 4; p++) f->sync(p, v, r, 0, 0, 0);
+                for (int s = 0; s < 16; s++) f->host.noteOn(s, s & 3, 36 + 3 * s, 64 + 4 * s);
+            }
+            tl.types++;
+            for (int i = 0; i < n; i++) {
+                if (i == n / 2) {
+                    v[CUTOFF] = uint8_t(rnd() % 128); v[RESONANCE] = uint8_t(rnd() % 128);
+                    for (Filter* f : {fa.get(), fb.get()}) {
+                        for (int p = 0; p < 4; p++) f->sync(p, v, r, 0, 0, 0);
+                        for (int s = 0; s < 16; s += 2) f->host.noteOff(s);
+                    }
+                }
+                double xa[16], xb[16];
+                for (int s = 0; s < 16; s++) xa[s] = xb[s] = noise();
+                fa->run(xa); fb->run(xb);
+                tl.passes++;
+                if (!same("installed filter", type, i, fa->chip.core, fb->chip.core, !std::memcmp(xa, xb, sizeof xa), false)) { fails++; break; }
+            }
+            fb->chip.programDirty = false;
+        }
+    }
+    {   // the effect chip: every block on every type, with install() picking all of them at once
+        auto ea = std::make_unique<Effects>(), eb = std::make_unique<Effects>();
+        ea->chip.core.interpret = true;
+        eb->chip.core.interpret = false;
+        uint8_t c[H::COMMON_BYTES] = {};
+        c[0x10] = 127; c[0x11] = 64; c[0x12] = 24;
+        c[H::EQ_LOW_GAIN] = c[H::EQ_MID_GAIN] = c[H::EQ_HIGH_GAIN] = 64;
+        c[H::REVERB_PAN] = c[H::VARIATION_PAN] = c[H::INSERTION_PAN] = 64;
+        c[H::REVERB_RETURN] = c[H::VARIATION_RETURN] = 100; c[H::INSERTION_LEVEL] = 127;
+        c[H::INSERTION_TO_REVERB] = c[H::INSERTION_TO_VARIATION] = c[H::VARIATION_TO_REVERB] = 40;
+        ea->load(c); eb->load(c);
+        const struct { const char* name; uint32_t byte; int types; } blocks[] = {
+            {"reverb", H::REVERB_TYPE, 17}, {"variation", H::VARIATION_TYPE, 29}, {"insertion", H::INSERTION_TYPE, 41}};
+        for (auto& bl : blocks)
+            for (int type = 0; type < bl.types; type++) {
+                ea->host.setByte(bl.byte, type); eb->host.setByte(bl.byte, type);
+                N::install_effect(eb->chip.core);
+                tl.types++;
+                for (int i = 0; i < n; i++) {
+                    if (i == n / 2) {
+                        uint8_t ca[H::COMMON_BYTES], cb[H::COMMON_BYTES];
+                        std::memcpy(ca, ea->host.perf, sizeof ca);
+                        for (uint32_t k = H::REVERB_PARAM_BYTES; k <= H::EQ_HIGH_SHAPE; k++)
+                            if (k != H::REVERB_TYPE && k != H::VARIATION_TYPE && k != H::INSERTION_TYPE) ca[k] = uint8_t(rnd() % 128);
+                        std::memcpy(cb, ca, sizeof cb);
+                        ea->sync(ca); eb->sync(cb);
+                        N::install_effect(eb->chip.core);
+                    }
+                    const double x = noise() + (i % 4800 == 0 ? 0.9 : 0.0);
+                    const double bus[8] = {x, -x, x, 0.5 * x, x, x, -x, x};
+                    double la, ra, lb, rb;
+                    ea->run(bus, la, ra); eb->run(bus, lb, rb);
+                    tl.passes++;
+                    if (!same((std::string("installed ") + bl.name).c_str(), type, i, ea->chip.core, eb->chip.core,
+                              !std::memcmp(&la, &lb, 8) && !std::memcmp(&ra, &rb, 8), false)) { fails++; break; }
+                }
+                N::install_effect(eb->chip.core);
+            }
+    }
+    std::printf("installed  %d type-settings, %lld passes: %s\n", tl.types, tl.passes, fails ? "differs" : "identical");
+    return fails;
 }
 
 // The self check's natives: the interpreter itself, and the interpreter leaving every register a hair off.
@@ -318,6 +418,7 @@ int main(int argc, char** argv) {
     if (argc > 1 && !std::strcmp(argv[1], "--map")) { map(); return 0; }
     if (argc > 1 && !std::strcmp(argv[1], "--selftest")) return selfTest() ? 1 : 0;
     if (argc > 2 && !std::strcmp(argv[1], "--dump")) return dump(argv[2], argc > 3 ? argv[3] : nullptr);
+    if (argc > 1 && !std::strcmp(argv[1], "--installed")) return installedCheck(argc > 2 ? std::atoi(argv[2]) : 480) ? 1 : 0;
     if (argc > 1) {
         const N::Program* p = N::find(argv[1]);
         return one(argv[1], p ? p->run : nullptr, argc > 2 ? std::atoi(argv[2]) : 9600);
@@ -325,6 +426,7 @@ int main(int argc, char** argv) {
     int fails = 0;
     for (const N::Program* p = N::PROGRAMS; p->key; p++) fails += one(p->key, p->run, 2400) != 0;
     fails += selfTest();
+    fails += installedCheck(2400);
     std::printf("%s\n", fails ? "FAIL" : "all identical");
     return fails ? 1 : 0;
 }

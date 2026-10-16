@@ -13,6 +13,7 @@ struct Vop3 {
 
     yss236_core core;
     uint16_t select = 0;                    // the register latch
+    bool programDirty = true;               // a program word was written since fs1r::native::install last ran
     uint16_t lfoReg[yss236_core::LFOS][4] = {};   // LFO_SPEED, LFO_WAVE, LFO_DEPTH and LFO_DIRECTION
     uint32_t phase[yss236_core::LFOS] = {}, rnd = 1;
     float hold[yss236_core::LFOS] = {};     // sample and hold
