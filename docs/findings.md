@@ -10,7 +10,7 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ## 2026-10-16, pitch bend keeps the LSB's top bits, and source PB is -128..127
 
-Found by WouterVanNifterick in PR #43 (closed): source PB is a raw signed byte, -128..127, where the engine fed
+Found by WouterVanNifterick in PR #43 (merged): source PB is a raw signed byte, -128..127, where the engine fed
 it `msb - 64`, and the bend word drops the LSB. Re-read here off the Pitch Bend handler at 0x15B80 (no Ghidra
 function; `tools/ghidra_disasm_sh2.py 0x15b80-0x15c48`), which agrees on both:
 

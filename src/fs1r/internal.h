@@ -515,7 +515,7 @@ struct Synth {
     // slots are disabled when the system's knob receive switch is off.
     enum { SRC_KN1, SRC_KN2, SRC_KN3, SRC_KN4, SRC_MC1, SRC_MC2, SRC_PB, SRC_CAT,
            SRC_PAT, SRC_FC, SRC_BC, SRC_MC3, SRC_MW, SRC_MC4 };
-    static const int SRC_RAW = 0x17C0;           // PB, CAT, PAT, FC, BC, MW keep the raw 0..127 value
+    static const int SRC_RAW = 0x17C0;           // PB, CAT, PAT, FC, BC, MW keep the value as it comes: PB -128..127, the rest 0..127
     int ccSource(int cc) const;
     // FUN_00014AD0: (v - 64) * 2 for the knobs and MIDI controls, raised so full scale reaches 127;
     // the physical controllers are stored as they come.
