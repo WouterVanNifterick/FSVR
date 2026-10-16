@@ -200,7 +200,7 @@ bool rom_ready(const Rom* R);
 struct Part {
     uint8_t p[52]; Voice voice;
     // controller state (MIDI)
-    int bend = 0;            // (msb - 64) * 16, the firmware keeps the MSB only
+    int bend = 0;            // (midi14 - 8192) >> 3, FUN_00015B80's word at 0x010293F4
     int expr = 254;          // DAT_010297fa
     // FUN_0000edf0, the per-part controller reset: expression back to 0xFE, bend and every controller
     // source to zero. Reset All Controllers runs it, and so does loading a performance, which walks the
@@ -508,7 +508,7 @@ struct Synth {
     // slots are disabled when the system's knob receive switch is off.
     enum { SRC_KN1, SRC_KN2, SRC_KN3, SRC_KN4, SRC_MC1, SRC_MC2, SRC_PB, SRC_CAT,
            SRC_PAT, SRC_FC, SRC_BC, SRC_MC3, SRC_MW, SRC_MC4 };
-    static const int SRC_RAW = 0x17C0;           // PB, CAT, PAT, FC, BC, MW keep the raw 0..127 value
+    static const int SRC_RAW = 0x17C0;           // PB, CAT, PAT, FC, BC, MW keep the value as it comes: PB -128..127, the rest 0..127
     int ccSource(int cc) const;
     // FUN_00014AD0: (v - 64) * 2 for the knobs and MIDI controls, raised so full scale reaches 127;
     // the physical controllers are stored as they come.

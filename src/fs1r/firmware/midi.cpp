@@ -45,7 +45,9 @@ void Synth::midi_in(int st, int d1, int d2) {
         case 0x80: note_off(p, d1); fseq_keys(); break;
         case 0xA0: set_source(pt, SRC_PAT, d2); break;
         case 0xD0: set_source(pt, SRC_CAT, d1); break;
-        case 0xE0: pt.bend = (d2 - 64) * 16; set_source(pt, SRC_PB, d2 - 64); break;
+        // FUN_00015B80 keeps all 14 bits: w = (midi14 - 8192) * 2, the channel's bend word is w >> 4, and
+        // w >> 7 goes on to FUN_00014AD0 as controller 0xE0, which stores it in the PB slot as it is.
+        case 0xE0: { int w = ((d2 << 7 | d1) - 8192) * 2; pt.bend = w >> 4; set_source(pt, SRC_PB, w >> 7); break; }
         case 0xC0: if (rom_ready(rom) && sys[0x13] && pt.p[1] && sys[8]) { pt.p[2] = (uint8_t)d1; rom_voice(*rom, bank_voice_index(pt.p[1], d1), pt.voice); } break;
         case 0xB0: control_change(p, d1, d2); break;
         }

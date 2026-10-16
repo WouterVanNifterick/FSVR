@@ -8,6 +8,10 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-16, pitch bend keeps all 14 bits: the PB source was half the firmware's, and the bend word dropped the LSB
+
+`FUN_00015B80`, entry 6 of the channel table at flash 0x3D9E4, forms `w = (midi14 - 8192) * 2` from both data bytes, stores `w >> 4` as the channel's bend word (0x010293F4), writes `w >> 7` into data 2 and 0xE0 into data 1, and jumps into `FUN_00014AD0`. There 0xE0 skips the CC table and matches the PB slot, which `FUN_000191C0` fills with the constant 0xE0 (CAT 0xD0, PAT 0xA0), and the writer stores data 2 sign-extended, as it does every slot in mask 0x17C0. So the PB source is `(midi14 - 8192) >> 6`, -128..127. The engine stored `msb - 64`, half of it, which moved every PB-driven controller set half as far: PB half down to volume at depth +63 took a part at volume 100 to 36 instead of 0. Full bend down saturates either way. The bend word was `(msb - 64) * 16`, without `lsb >> 3`, so `bend_word`'s `k` (`FUN_0002022C`, `bend >> 3`) took even values only and never reached the 127 that the firmware raises to 128: the top of an upward bend was 126/128 of the range. Read from the v1.20 image; the working is Montage's F-0412. `regress.py` does not move: no case sends pitch bend, and run with `--rom` on the `_swap` EPROM image (the default cpuview image is not on this machine) the same six cases fail with and without the change, to the same numbers.
+
 ## 2026-10-15, session 41 (cont.): Vokodrone's flanger depth matches; the 4.3x was the probe, the DRAM word is wider than +-8
 
 rgwan's Vokodrone report ("feeds back a little more, sounds like a flanger") was the doubled LFO, fixed by the s41 LFO shapes: rendered through the whole device from the same performance and sine-voice bulks the rig sends, the insertion flanger's FM is 0.0028 rad/sample against the unit's 0.0030, and 0.0051 before s41. The 4.3x excess reported earlier came from the harness, which drove the insertion bus with a 0.25 sine, hotter than the rig's voice, into the program's +-8 clip.
