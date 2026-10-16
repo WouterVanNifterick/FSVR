@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-16T00:11:59Z",
+ "updated": "2026-10-16T00:16:35Z",
  "programs": [
   {
    "key": "flt",
@@ -572,13 +572,16 @@
     "ins-29 Dist+Delay",
     "ins-31 Odrv+Delay"
    ],
-   "stage": "todo",
+   "stage": "writing",
    "check": null,
    "passes": 0,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the model of Cmp+DS+Dly, Cmp+OD+Dly, Dist+Delay, Odrv+Delay",
-   "note": "",
-   "updated": null
+   "note": "Straight transcription of all 96 steps is identical: 4 types, 38400 native passes. Next: name the structures and comment each block.",
+   "updated": "2026-10-16T00:16:35Z",
+   "claimed": "2026-10-16T00:13:01Z",
+   "nudges": 0,
+   "sessions": 1
   },
   {
    "key": "base",
