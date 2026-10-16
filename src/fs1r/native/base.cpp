@@ -11,57 +11,52 @@
 //
 //   0x000-0x007  the pan law. rom::mix::MIXER_A pairs the eight send registers r[11] to r[18] with the
 //                eight pan words the host writes: the aux pan at steps 0 and 1, the reverb delay's at
-//                2 and 3, the variation's at 4 and 5, the insertion's at 6 and 7, and the two mixer
-//                parameters that have no performance byte, 13 at steps 8 and 9 and 12 at steps 0x0a and
-//                0x0b. Each step multiplies its own register by the word in that step, so one pass pans
-//                the eight sends. 0x000 takes the page 0 serial input into m[6] and 0x001 the second
-//                serial bank into m[23]; Effects::run writes only the first bank, so m[23] is zero.
-//                0x002 sends m[16] to out[0], the left DAC: Effects::run reads out[0] and out[8], and
-//                the aux window's 0x10e puts m[17] on out[8].
+//                2 and 3, the variation's at 4 and 5, the insertion's at 6 and 7. Each step multiplies
+//                its own register by the word in that step, so one pass pans the eight sends. PANS
+//                below is those eight steps, one row each.
 //   0x008-0x00b  four multiplies on r[20] and r[22] into r[121] to r[124]. The words at 0x008 and
 //                0x009 are the high-mid band's b1 and b2 (rom::mix::EQ_HIGH_MID is {0x7e,0x7b,0x7a,
 //                0x7c,0x7d}, designFilter's b0, b1, -a1, b2, -a2 order), and the words at 0x00a and
 //                0x00b are mixer 12's pan pair. Nothing writes r[19] to r[22]: they are what the
 //                windows leave, and these four steps weight them into the sums below.
-//   0x00c-0x019  the sends into the reverb and the variation. 0x00c takes mixer 4's level word
-//                (rom::mix::MIXER_C[13], which EffectHost::mixerParam's case 4 writes) times r[14], the
-//                reverb delay's right pan, and 0x011 adds mixer 7's (MIXER_C[8]) times r[16], the
-//                variation's right pan; 0x012 scales the pair into r[120]. 0x013 and 0x018 do the same
-//                for the left pans r[13] and r[15]: 0x017 writes the first of them into delay RAM slot
-//                5, and 0x019 scales the second into r[119]. The steps between those sums, 0x00d, 0x00e,
-//                0x00f, 0x010, 0x014, 0x015, 0x016, add coefficients no host write ever reaches, so
-//                they leave the running value as it was; what they are for is their delay RAM. The
-//                five reads of slots 0 to 4 at 0x003, 0x007, 0x00b, 0x00f and 0x013 are the reverb's
-//                early reflection slots (rom::ER_BASE_SLOTS), and each feeds the capture five steps
-//                later into m[56], m[57], m[58], m[59] and m[60].
-//   0x03a-0x03d, 0x042-0x04b, 0x050-0x058, 0x05f-0x061, 0x089-0x08d, 0x092-0x096, 0x0d8-0x0df,
+//   0x00c-0x019  the sends into the reverb and the variation, as two halves of seven steps that end in
+//                the scaled sum, r[120] for the reverb delay and r[119] for the variation. The steps
+//                between the partial sums add coefficients no host write ever reaches, so they leave
+//                the running value as it was; what they are for is their delay RAM and their captures.
+//                The five reads of slots 0 to 4 at 0x003, 0x007, 0x00b, 0x00f and 0x013 are the
+//                reverb's early reflection slots (rom::ER_BASE_SLOTS), and each feeds the capture five
+//                steps later into m[56], m[57], m[58], m[59] and m[60].
+//   0x03a-0x03d, 0x042-0x045, 0x046-0x04b, 0x050-0x055, 0x056-0x058, 0x05f-0x061, 0x0d8-0x0df,
 //   0x0e0-0x0e7  the aux window's eight differences, which aux.cpp names for that program: one run
 //                each for r[46], r[34], r[44], r[32], r[45], r[33], r[43] and r[31], the eight smoothers'
 //                difference registers (the diff column of its UNITS table), taken into the running
-//                value and scaled by a route of 8, 16 or 4 into r[3] to r[8] and r[121] to r[124]. Each
-//                run starts by clearing the running value, 0x03a and 0x042 excepted: those two multiply
-//                a cell by a word the host leaves at zero.
-//   0x066-0x074  the master EQ's first three bands on one channel and 0x0b6-0x0c4 the same three on
-//                the other: low (rom::mix::EQ_LOW {0x6a,0x67,0x66,0x68,0x69}), mid (EQ_MID) and high
-//                (EQ_HIGH), each an order-2 section of five steps, the words copied to the second
-//                channel's steps by masterEq's copyCoefs. The shape is the same in all three. The -a1
-//                step puts -a1 times the output delay into the running value, the b1 step adds b1 times
-//                the input's second delay, the b2 step adds b2 times its first delay and carries the
-//                rcopy that shifts the output delay along, the b0 step writes the section's input
-//                scaled by the route into that input delay, and the -a2 step adds -a2 times the last
-//                delay. Registers r[23] to r[30] on the first channel and r[35] to r[42] on the
-//                second. The two steps that read the delay RAM are the reverb's slots 25 to 30 on the
-//                first channel and the insertion's 46 to 50 on the second.
+//                value and scaled by a route of 16 or 4 into r[3] to r[10]. Each run starts by
+//                clearing the running value, 0x03a and 0x042 excepted: those two multiply a cell by a
+//                word the host leaves at zero. ACC below is those eight runs, one row of terms each.
+//   0x09b-0x0a2  the DC blocker, rom::mix::MIXER_HPF {0xa2,0xa1,0xa0} and its copy {0x9e,0x9d,0x9c},
+//                one order-1 section per channel, and two more rows of ACC. 0x09b takes the second
+//                channel's input out of m[58] into r[21] and writes it into slot 38, 0x09f takes the
+//                first's out of m[7] into r[19] and reads slot 39 back, and -a1 and b0 follow in each
+//                half.
+//   0x066-0x074, 0x0b6-0x0c4  the master EQ's three bands on each channel: low (rom::mix::EQ_LOW
+//                {0x6a,0x67,0x66,0x68,0x69}), mid (EQ_MID) and high (EQ_HIGH), each an order-2 section
+//                of five steps, the words copied to the second channel's steps by masterEq's
+//                copyCoefs. The shape is the same in all three. The -a1 step puts -a1 times the output
+//                delay into the running value, the b1 step adds b1 times the input's second delay, the
+//                b2 step adds b2 times its first delay and may carry the rcopy that shifts the output
+//                delay along, the b0 step writes the section's input scaled by the route into that
+//                input delay, and the -a2 step adds -a2 times the last delay and always carries the
+//                rcopy that shifts that delay along. Registers r[23] to r[30] on the first channel
+//                and r[35] to r[42] on the second. The two steps that read the delay RAM are the
+//                reverb's slots 25 to 30 on the first channel and the insertion's 46 to 50 on the
+//                second. EQ below is those six sections, and SHAPE says which of the three shapes of
+//                section the program's own schedule uses, which is which steps carry the copies.
 //   0x075-0x07e, 0x0c5-0x0ce  the other two bands' word steps, EQ_LOW_MID and EQ_HIGH_MID and their
 //                copies. All twenty are class-0 steps with no adder, shift, clamp or sub, so they
 //                compute nothing: they move the x latch and, where the field says so, a delay RAM read
 //                or an m cell move (m[14], m[15], m[18] to m[21], m[56], m[57], m[59], m[60], m[63], and
 //                two LFOs). Their words are read at 0x008 to 0x00b above, and the copies' at no step
-//                here.
-//   0x09b-0x0a2  the DC blocker, rom::mix::MIXER_HPF {0xa2,0xa1,0xa0} and its copy {0x9e,0x9d,0x9c},
-//                one order-1 section per channel. 0x09f reads the first channel's input out of the
-//                delay RAM at slot 39 into r[19], 0x09b writes the second's into slot 38 out of the
-//                capture at 0x09c, and -a1, b1 and b0 follow in each half.
+//                here. WORDS below is those two runs.
 //   0x0cf-0x0d0  the master volume, rom::mix::MIXER_B[14] and [15], which mixerParam's MIX_VOLUME case
 //                writes as v * v * masterLevel / 127^2, onto r[29] and r[41] by the route's 16 into
 //                m[16] and m[17]: the two master outputs, m[16] on the left DAC at 0x002 and m[17] on
@@ -77,1697 +72,342 @@
 //
 // Every constant the program reads is read from c.coef[st] on the pass, so no word the host moves is
 // folded in here: the program words are fixed per row and each step's fields are folded into the
-// arithmetic below in yss236_core::step()'s order. The word on each case line is what the check boots
-// with, there to match a line of the dump; a step that only passes the running value on says so. The
-// old model in vop3_effects.h runs this as a float mixer of pans, returns and sends into three Biq
-// bands; its numbers were fitted to recordings and nothing here is one of them.
+// arithmetic below in yss236_core::step()'s order. The old model in vop3_effects.h runs this as a
+// float mixer of pans, returns and sends into three Biq bands; its numbers were fitted to recordings
+// and nothing here is one of them.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
 //
 // vop3_native_check base: identical, 87 types, 835,200 native passes.
+
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
-// The 138 steps, one case each. The loop is one iteration per step and carries the m_skip guard
-// step() opens with, so a cskip in the reverb's steps skips these as it would the interpreter's.
-// There is no gate in this program; the skips come from the reverb's steps around them.
+using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
+
+// ---------------------------------------------------------------------------------------------
+// What a step carries besides its term
+// ---------------------------------------------------------------------------------------------
+
+// A step of this program usually also moves a cell, reads the delay RAM, or sends a cell to a serial
+// output. `cell` is the cell it moves into, and `st`'s own page decides the serial bank, the LFO and
+// the output slot, exactly as step() takes them.
+enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_LFO, DEC_SERIAL_L, DEC_SERIAL_R, DEC_OUT };
+
+struct Decor { decor_t kind; int cell; };
+
+// Apply the decor, which comes before the term, because step() moves a cell or reads the delay RAM
+// before it does any arithmetic.
+void decor(yss236_core& c, int st, Decor const& d)
+{
+	switch (d.kind)
+	{
+		case DEC_READ:      read_delay(c, st); break;
+		case DEC_CAPTURE:   take_capture(c, d.cell, st); break;
+		case DEC_LFO:       take_lfo(c, d.cell, st); break;
+		case DEC_SERIAL_L:  take_serial(c, d.cell, st, 0); break;
+		case DEC_SERIAL_R:  take_serial(c, d.cell, st, 1); break;
+		case DEC_OUT:       serial_out(c, st, d.cell); break;
+		case DEC_NONE: break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The accumulators: a run of terms, the last of which closes into a register
+// ---------------------------------------------------------------------------------------------
+
+// One term of an accumulator. `src` is the register it reads and `cell` the cell, and `m2` says which
+// of the two the multiplier scales. `add` is what the adder adds to the product, `route` the route its
+// result takes, and `dr` the register it writes, which only the closing term has. A term that also
+// writes the delay RAM says so, and the decor is what the step's words carry on the way past.
+struct Term
+{
+	int src, cell;
+	m2_t m2;
+	add_t add;
+	route_t route;
+	int dr;
+	bool write;
+	Decor decor;
+};
+
+// One run of terms, one step each. The closing term is the one with a register to write, and it is
+// also the one that saturates: every other term only moves the running value.
+struct TermRun { int base; int n; Term term[16]; };
+
+// One accumulator's term: the register or cell it reads, the word, the adder, the route, the register
+// it closes into, whether it writes the delay RAM, and the decor.
+#define T(sr, cell, m2, add, route, dr, write, dk, dc) { sr, cell, m2, add, route, dr, write, { dk, dc } }
+
+// ---- the pan law: eight steps, one per send, each on its own register ----
+struct Pan { int reg, cell; Decor decor; };
+const Pan PANS[8] = {
+    { 11,  0, {DEC_SERIAL_L, 6} },      // the aux pan, and m[6] takes the page 0 serial input
+    { 12,  0, {DEC_SERIAL_R, 23} },     // and m[23] the second bank, which Effects::run leaves at zero
+    { 13, 16, {DEC_OUT, 0} },           // the reverb delay's, and m[16] goes to out[0], the left DAC
+    { 14,  0, {DEC_READ, 0} },          // and the read of the reverb's first early reflection slot
+    { 15,  0, {DEC_NONE, 0} },          // the variation's
+    { 16,  0, {DEC_NONE, 0} },
+    { 17,  0, {DEC_LFO, 8} },           // the insertion's
+    { 18,  0, {DEC_READ, 0} },          // and the read of the reverb's last early reflection slot
+};
+
+// ---- the four weights onto r[121] to r[124] ----
+const TermRun WEIGHTS[1] = {{
+    0x008, 4,
+    { T(22, 0, M2_REG, ADD_OFF, ROUTE_1, 123, false, DEC_CAPTURE, 56),
+      T(22, 0, M2_REG, ADD_OFF, ROUTE_1, 124, false, DEC_NONE, 0),
+      T(20, 0, M2_REG, ADD_OFF, ROUTE_1, 121, false, DEC_NONE, 0),
+      T(20, 0, M2_REG, ADD_OFF, ROUTE_1, 122, false, DEC_READ, 0) } }};
+
+// ---- the sends: the reverb delay's seven steps, then the variation's seven ----
+const TermRun SENDS[1] = {{
+    0x00c, 14,
+    { T(14,  0, M2_REG, ADD_OFF, ROUTE_1,   0, false, DEC_CAPTURE, 57),
+      T(124, 0, M2_REG, ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+      T(122, 0, M2_REG, ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+      T(18,  0, M2_REG, ADD_ACC, ROUTE_1,   0, false, DEC_READ, 0),
+      T(12,  0, M2_REG, ADD_ACC, ROUTE_1,   0, false, DEC_CAPTURE, 58),
+      T(16,  0, M2_REG, ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+      T(0,  58, M2_CELL, ADD_ACC, ROUTE_4, 120, false, DEC_NONE, 0),
+      T(13,  0, M2_REG, ADD_OFF, ROUTE_1,   0, false, DEC_READ, 0),
+      T(123, 0, M2_REG, ADD_ACC, ROUTE_1,   0, false, DEC_CAPTURE, 59),
+      T(121, 0, M2_REG, ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+      T(17,  0, M2_REG, ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+      T(11,  0, M2_REG, ADD_ACC, ROUTE_1,   0, false, DEC_READ, 0),
+      T(15,  0, M2_REG, ADD_ACC, ROUTE_1,   0, false, DEC_CAPTURE, 60),
+      T(0,   1, M2_CELL, ADD_ACC, ROUTE_4, 119, false, DEC_NONE, 0) } }};
+
+// ---- the aux window's eight differences, and the DC blocker's two halves ----
+// The first two runs open on a cell rather than a register, because the host leaves the word at those
+// steps at zero: they multiply m[23] and m[5], so they contribute nothing and only move the latch.
+const TermRun ACC[10] = {
+    { 0x03a, 4, { T(  0, 23, M2_CELL, ADD_OFF, ROUTE_1,  0, false, DEC_NONE, 0),
+                  T( 16,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_READ, 0),
+                  T(122,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_NONE, 0),
+                  T(124,  0, M2_REG,  ADD_ACC, ROUTE_16, 4, false, DEC_NONE, 0) } },
+    { 0x042, 4, { T(  0,  5, M2_CELL, ADD_OFF, ROUTE_1,  0, false, DEC_NONE, 0),
+                  T( 15,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_SERIAL_L, 5),
+                  T(121,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_SERIAL_R, 60),
+                  T(123, 40, M2_REG,  ADD_ACC, ROUTE_16, 3, false, DEC_OUT, 0) } },
+    { 0x046, 6, { T( 46,  0, M2_REG,  ADD_OFF, ROUTE_1,  0, false, DEC_NONE, 0),
+                  T( 16,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_LFO, 10),
+                  T( 12,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_CAPTURE, 57),
+                  T( 18,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_NONE, 0),
+                  T(122,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_NONE, 0),
+                  T(124,  0, M2_REG,  ADD_ACC, ROUTE_16, 4, false, DEC_READ, 0) } },
+    { 0x050, 6, { T( 34,  0, M2_REG,  ADD_OFF, ROUTE_1,  0, false, DEC_CAPTURE, 59),
+                  T( 15,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_NONE, 0),
+                  T( 11,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_NONE, 0),
+                  T( 17,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_READ, 0),
+                  T(121,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_CAPTURE, 63),
+                  T(123,  0, M2_REG,  ADD_ACC, ROUTE_16, 3, false, DEC_NONE, 0) } },
+    { 0x056, 3, { T( 44,  0, M2_REG,  ADD_OFF, ROUTE_1,  0, false, DEC_NONE, 0),
+                  T(122,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, true,  DEC_NONE, 0),
+                  T(124,  0, M2_REG,  ADD_ACC, ROUTE_16, 8, false, DEC_CAPTURE, 56) } },
+    { 0x05f, 3, { T( 32,  0, M2_REG,  ADD_OFF, ROUTE_1,  0, false, DEC_READ, 0),
+                  T(121,  0, M2_REG,  ADD_ACC, ROUTE_1,  0, false, DEC_CAPTURE, 56),
+                  T(123,  0, M2_REG,  ADD_ACC, ROUTE_16, 7, false, DEC_NONE, 0) } },
+    { 0x0d8, 8, { T( 43,  0, M2_REG,  ADD_OFF, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T( 10,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T( 14,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T( 16,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T( 12,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T( 18,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T(122,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T(124,  0, M2_REG,  ADD_ACC, ROUTE_4,  10, false, DEC_NONE, 0) } },
+    { 0x0e0, 8, { T( 31,  0, M2_REG,  ADD_OFF, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T(  9,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T( 13,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T( 15,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T( 11,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T( 17,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T(121,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_LFO, 15),
+                  T(123,  0, M2_REG,  ADD_ACC, ROUTE_4,   9, false, DEC_NONE, 0) } },
+    // the DC blocker's second channel: the input out of m[58] into r[21] and into slot 38, then -a1 on
+    // r[21] and b0 closing into r[22]
+    { 0x09b, 4, { T( 0, 58, M2_CELL, ADD_OFF, ROUTE_16, 21, true,  DEC_NONE, 0),
+                  T(22,  0, M2_REG,  ADD_OFF, ROUTE_1,   0, false, DEC_CAPTURE, 58),
+                  T(21,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T(21,  0, M2_REG,  ADD_ACC, ROUTE_1,  22, false, DEC_NONE, 0) } },
+    // and its first channel: the input out of m[7] into r[19] and back out of slot 39
+    { 0x09f, 4, { T( 0,  7, M2_CELL, ADD_OFF, ROUTE_16, 19, false, DEC_READ, 0),
+                  T(20,  0, M2_REG,  ADD_OFF, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T(19,  0, M2_REG,  ADD_ACC, ROUTE_1,   0, false, DEC_NONE, 0),
+                  T(19,  0, M2_REG,  ADD_ACC, ROUTE_1,  20, false, DEC_NONE, 0) } },
+};
+
+// One term of an accumulator, at step st.
+void term_step(yss236_core& c, int st, Term const& t)
+{
+	decor(c, st, t.decor);
+	run(c, {st, t.src, t.cell, t.m2, false, 0, t.add, false, t.route,
+	         t.dr ? CLAMP_SAT : CLAMP_WRAP, t.dr, false, 0, false, false, false, t.write});
+}
+
+// ---------------------------------------------------------------------------------------------
+// The master EQ's six sections
+// ---------------------------------------------------------------------------------------------
+
+// Which of a section's steps carry the z^-1 copies that shift its delay registers along. The -a2 step
+// always carries one, which is how y[-2] exists at all; the other two steps are where the schedule
+// puts them, and which is which is all that separates the program's three shapes of section.
+enum shape_t { COPY_ON_B2, COPY_ON_A1, COPY_ON_A2 };
+
+// One order-2 section in direct form I. The five steps run -a1, b1, b2, -a2 and b0. `a1` is the
+// section's output delay and `a2` its second, `b1` its input's second delay and `b2` its first, and
+// `in` is the register the section's input arrives in. `out` is where b0 puts the result, which is the
+// next section's input. `prev_b1` is the delay register COPY_ON_A1 shifts, which is the one the section
+// before this one reads.
+struct Section
+{
+	int base, in, b1, b2, a1, a2, out, prev_b1;
+	step::route_t route;
+	shape_t shape;
+	Decor decor[5];
+};
+
+const Section EQ[6] = {
+    //  base  in   b1  b2   a1  a2  out  prev  route      shape       -a1            b1              b2              -a2            b0
+    {  0x066,  9,  23, 25,  24, 26,  25,   0, ROUTE_4,  COPY_ON_B2, { {DEC_NONE, 0}, {DEC_LFO, 11}, {DEC_NONE, 0},   {DEC_NONE, 0},   {DEC_NONE, 0}    } },
+    {  0x06b, 25,  25, 27,  26, 28,  27,  23, ROUTE_4,  COPY_ON_A1, { {DEC_NONE, 0}, {DEC_CAPTURE, 56}, {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_READ, 0}    } },
+    {  0x070, 27,  27, 29,  28, 30,  29,   0, ROUTE_16, COPY_ON_A2, { {DEC_CAPTURE, 57}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_READ, 0},   {DEC_CAPTURE, 58} } },
+    {  0x0b6, 10,  35, 37,  36, 38,  37,   0, ROUTE_4,  COPY_ON_B2, { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_NONE, 0},   {DEC_NONE, 0}    } },
+    {  0x0bb, 37,  37, 39,  38, 40,  39,  35, ROUTE_4,  COPY_ON_A1, { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0},   {DEC_CAPTURE, 18}, {DEC_READ, 0}  } },
+    {  0x0c0, 39,  39, 41,  40, 42,  41,   0, ROUTE_16, COPY_ON_A2, { {DEC_SERIAL_L, 41}, {DEC_READ, 0}, {DEC_CAPTURE, 19}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+};
+
+// One master EQ section's step k of five: -a1 opens the sum, b1 and b2 add the input's delays, -a2 adds
+// the output's second delay and b0 closes the section into its output register.
+void eq_step(yss236_core& c, int st, Section const& s, int k)
+{
+	decor(c, st, s.decor[k]);
+	switch (k)
+	{
+	case 0:
+		// -a1 on the output delay, and on the first section of the pair the copy that shifts the
+		// previous section's input delay along
+		if (s.shape == COPY_ON_A1) copy_z(c, st, s.a1, s.prev_b1, ADD_OFF, CLAMP_WRAP);
+		else                    term(c, st, s.a1);
+		break;
+	case 1:
+		sum(c, st, s.b1); break;                              // b1 on the input's second delay
+	case 2:
+		// b2 on the input's first delay, and on the first section of the pair the copy that shifts
+		// this section's output delay along
+		if (s.shape == COPY_ON_B2) copy_z(c, st, s.b2, s.a1, ADD_ACC, CLAMP_WRAP);
+		else                    sum(c, st, s.b2);
+		break;
+	case 3:
+		copy_z(c, st, s.a2, s.a2, ADD_ACC, CLAMP_WRAP); break; // -a2 on y[-2], and y[-2] kept
+	default:
+		close(c, st, s.in, s.out, s.route); break;            // b0 on the input, into the output
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two runs of class-0 word steps, and the master volume
+// ---------------------------------------------------------------------------------------------
+
+// The two runs of class-0 steps that carry the master EQ's spare words: EQ_LOW_MID and EQ_HIGH_MID and
+// their copies. They compute nothing at all, so each step is its decor and the x latch.
+struct WordRun { int base; Decor decor[10]; };
+const WordRun WORDS[2] = {
+    { 0x075, { {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_READ, 0}, {DEC_CAPTURE, 59}, {DEC_NONE, 0},
+               {DEC_NONE, 0}, {DEC_READ, 0}, {DEC_CAPTURE, 60}, {DEC_NONE, 0}, {DEC_NONE, 0} } },
+    { 0x0c5, { {DEC_READ, 0}, {DEC_CAPTURE, 20}, {DEC_LFO, 14}, {DEC_NONE, 0}, {DEC_READ, 0},
+               {DEC_CAPTURE, 21}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_NONE, 0}, {DEC_CAPTURE, 56} } },
+};
+
+// The master volume: r[29] and r[41] scaled by its two words by the route's 16 into the two output
+// cells, which are the only two steps here that write a cell from their own result.
+void master_volume(yss236_core& c, int st)
+{
+	run(c, {st, st == 0x0cf ? 29 : 41, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16,
+	         CLAMP_SAT, 0, false, st == 0x0cf ? 16 : 17});
+}
+
+// ---------------------------------------------------------------------------------------------
+// The 138 steps
+// ---------------------------------------------------------------------------------------------
+
+// One iteration per step, carrying the m_skip guard step() opens with, so a cskip in the reverb's
+// steps skips these as it would the interpreter's. There is no gate in this program; the skips come
+// from the reverb's steps around them.
 void base_steps(yss236_core& c, int from, int to)
 {
-	double* const r = c.r;             // the 128 registers
-	double* const m = c.m;             // the 64 cells, which carry the values between the steps
-	double xv, m2, prod, a, y, outv;   // the step's operands and its result
-
 	for (int st = from; st < to; st++)
 	{
 		c.begin_step();
 		if (st < c.m_skip) continue;
-		switch (st)
+
+		// ---- the pan law, the four weights and the two sends: 0x000 to 0x019 ----
+		if (st < 0x01a)
 		{
-
-		// ---- the pan law on the eight sends, and the page 0 serial inputs ----
-	case 0x000: // word 0x5a82
-		// the aux pan's left word (rom::mix::MIXER_A[0]) on r[11]; m[6] takes the page 0 serial input
-		c.queue_d(6, c.in[0][0]); // the serial input into the cell
-		xv = r[11];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(11, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x001: // word 0x5a82
-		// the aux pan's right word (MIXER_A[1]) on r[12]; m[23] takes the second bank, which nothing writes
-		c.queue_d(23, c.in[1][0]); // the second serial bank into the cell
-		xv = r[12];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(12, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x002: // word 0x5a82
-		// the insertion pan's left word (MIXER_A[2]) on r[13], and the left DAC: out[0] = m[16]
-		c.out[0] = m[16];
-		xv = r[13];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[16];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(13, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x003: // word 0x5a82
-		// the insertion pan's right word (MIXER_A[3]) on r[14], and the read of slot 0
-		// the delay RAM read of this step: slot 0, pushed on the capture history
-		c.push_hist(3, c.ram[c.addr(0, 0, false)]);
-		xv = r[14];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(14, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x004: // word 0x0000
-		// the reverb delay's left pan (MIXER_A[4]) on r[15]
-		xv = r[15];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(15, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x005: // word 0x0000
-		// the reverb delay's right pan (MIXER_A[5]) on r[16]
-		xv = r[16];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(16, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x006: // word 0x7fff
-		// the variation's left pan (MIXER_A[6]) on r[17]; m[8] takes the LFO of page 0
-		c.queue_d(8, c.lfo[0]); // the LFO of this step's page
-		xv = r[17];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(17, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x007: // word 0x0000
-		// the variation's right pan (MIXER_A[7]) on r[18], and the read of slot 1
-		// the delay RAM read of this step: slot 1, pushed on the capture history
-		c.push_hist(7, c.ram[c.addr(1, 0, false)]);
-		xv = r[18];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(18, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-
-		// ---- the two windows' returns, weighted by the high-mid band's b1 and b2 and by mixer 12's pan ----
-	case 0x008: // word 0x5a82
-		// the high-mid band's b1 (0x7b) on r[22] into r[123]; m[56] captures the read of slot 0 at 0x003
-		c.queue_d(56, c.captured(m[56], 8)); // the latest RAM read 5..11 steps back
-		xv = r[22];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(123, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x009: // word 0x5a82
-		// the high-mid band's b2 (0x7c) on r[22] into r[124]
-		xv = r[22];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(124, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x00a: // word 0x5a82
-		// mixer 12's left pan (MIXER_A[8]) on r[20] into r[121]
-		xv = r[20];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(121, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x00b: // word 0x5a82
-		// mixer 12's right pan (MIXER_A[9]) on r[20] into r[122], and the read of slot 2
-		// the delay RAM read of this step: slot 2, pushed on the capture history
-		c.push_hist(11, c.ram[c.addr(2, 0, false)]);
-		xv = r[20];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(122, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-
-		// ---- the sends into the reverb and the variation, over the reverb's six early reflection slots ----
-	case 0x00c: // word 0x2d5a
-		// mixer 4's level (MIXER_C[13]) times r[14]; m[57] captures the read of slot 1 at 0x007
-		c.queue_d(57, c.captured(m[57], 12)); // the latest RAM read 5..11 steps back
-		xv = r[14];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x00d: // word 0x0000
-		// a word no host write reaches: the running value passes on
-		xv = r[124];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x00e: // word 0x0000
-		// another one: the running value passes on
-		xv = r[122];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x00f: // word 0x0000
-		// and the read of slot 3
-		// the delay RAM read of this step: slot 3, pushed on the capture history
-		c.push_hist(15, c.ram[c.addr(3, 0, false)]);
-		xv = r[18];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x010: // word 0x0000
-		// another one; m[58] captures the read of slot 2 at 0x00b
-		c.queue_d(58, c.captured(m[58], 16)); // the latest RAM read 5..11 steps back
-		xv = r[12];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x011: // word 0x0000
-		// mixer 7's level (MIXER_C[8]) times r[16] joins the sum
-		xv = r[16];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x012: // word 0x0000
-		// r[120] = 4 * the sum. The word here multiplies m[58] and no host write reaches it, so it adds nothing
-		xv = 0.0; // no register
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[58];
-		m2 = c.src; // the multiplier's second input is the cell
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[2]; // route 2
-		c.queue_r(120, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x013: // word 0x2d5a
-		// mixer 4's level times r[13], and the read of slot 4
-		// the delay RAM read of this step: slot 4, pushed on the capture history
-		c.push_hist(19, c.ram[c.addr(4, 0, false)]);
-		xv = r[13];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x014: // word 0x0000
-		// another one; m[59] captures the read of slot 3 at 0x00f
-		c.queue_d(59, c.captured(m[59], 20)); // the latest RAM read 5..11 steps back
-		xv = r[123];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x015: // word 0x0000
-		// another one: the running value passes on
-		xv = r[121];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x016: // word 0x0000
-		// another one: the running value passes on
-		xv = r[17];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x017: // word 0x0000
-		// and the read of slot 5, the reverb's sixth early reflection tap
-		// the delay RAM read of this step: slot 5, pushed on the capture history
-		c.push_hist(23, c.ram[c.addr(5, 0, false)]);
-		xv = r[11];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x018: // word 0x0000
-		// mixer 7's level times r[15]; m[60] captures the read of slot 4 at 0x013, and the left pans' running value from 0x013 is dropped
-		c.queue_d(60, c.captured(m[60], 24)); // the latest RAM read 5..11 steps back
-		xv = r[15];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x019: // word 0x0000
-		// r[119] = 4 * mixer 7's level times r[15]. The word here multiplies m[1] and no host write reaches it
-		xv = 0.0; // no register
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[1];
-		m2 = c.src; // the multiplier's second input is the cell
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[2]; // route 2
-		c.queue_r(119, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-
-		// ---- the aux window's eight differences, run by run ----
-	case 0x03a: // word 0x0000
-		// the running value is cleared: the word here is the system default's zero, so this is zero times a cell
-		xv = 0.0; // no register
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[23];
-		m2 = c.src; // the multiplier's second input is the cell
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x03b: // word 0x0000
-		// the running value passes on, and the read of slot 14
-		// the delay RAM read of this step: slot 14, pushed on the capture history
-		c.push_hist(59, c.ram[c.addr(14, 0, false)]);
-		xv = r[16];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x03c: // word 0x0000
-		// the running value passes on
-		xv = r[122];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x03d: // word 0x0000
-		// r[4] = 8 * the word at this step times r[124]
-		xv = r[124];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(4, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x042: // word 0x0000
-		// the running value is cleared again
-		xv = 0.0; // no register
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[5];
-		m2 = c.src; // the multiplier's second input is the cell
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x043: // word 0x0000
-		// the read of slot 16
-		// the delay RAM read of this step: slot 16, pushed on the capture history
-		c.push_hist(67, c.ram[c.addr(16, 0, false)]);
-		c.queue_d(5, c.in[0][2]); // the serial input into the cell
-		xv = r[15];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x044: // word 0x0000
-		// the running value passes on; m[60] takes the second serial bank of page 2
-		c.queue_d(60, c.in[1][2]); // the second serial bank into the cell
-		xv = r[121];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x045: // word 0x0000
-		// out[2] = m[0], the window's own serial output
-		c.out[2] = m[40];
-		xv = r[123];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[40];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(3, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x046: // word 0x7fff
-		// the aux window's unit 7 difference, r[46], into the running value
-		xv = r[46];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x047: // word 0x0000
-		// the running value passes on; m[10] takes the LFO of page 1, and the read of slot 17
-		// the delay RAM read of this step: slot 17, pushed on the capture history
-		c.push_hist(71, c.ram[c.addr(17, 0, false)]);
-		c.queue_d(10, c.lfo[2]); // the LFO of this step's page
-		xv = r[16];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x048: // word 0x0000
-		// the running value passes on; m[57] takes the latest RAM read 5..11 steps back
-		c.queue_d(57, c.captured(m[57], 72)); // the latest RAM read 5..11 steps back
-		xv = r[12];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x049: // word 0x0000
-		// the running value passes on
-		xv = r[18];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x04a: // word 0x0000
-		// the running value passes on
-		xv = r[122];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x04b: // word 0x0000
-		// r[4] = 8 * the word here times r[124], and the write of slot 18
-		// the delay RAM read of this step: slot 18, pushed on the capture history
-		c.push_hist(75, c.ram[c.addr(18, 0, false)]);
-		xv = r[124];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(4, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x050: // word 0x7fff
-		// the aux window's unit 6 difference, r[34]; m[59] captures the latest RAM read
-		c.queue_d(59, c.captured(m[59], 80)); // the latest RAM read 5..11 steps back
-		xv = r[34];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x051: // word 0x0000
-		// the running value passes on
-		xv = r[15];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x052: // word 0x0000
-		// the running value passes on
-		xv = r[11];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x053: // word 0x0000
-		// the running value passes on, and the read of slot 20
-		// the delay RAM read of this step: slot 20, pushed on the capture history
-		c.push_hist(83, c.ram[c.addr(20, 0, false)]);
-		xv = r[17];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x054: // word 0x0000
-		// the running value passes on; m[63] takes the latest RAM read
-		c.queue_d(63, c.captured(m[63], 84)); // the latest RAM read 5..11 steps back
-		xv = r[121];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x055: // word 0x0000
-		// r[3] = 8 * the word here times r[123]
-		xv = r[123];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(3, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x056: // word 0x7fff
-		// the aux window's unit 3 difference, r[44], into the running value
-		xv = r[44];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x057: // word 0x0000
-		// the running value passes on, and the write of slot 21
-		xv = r[122];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		if (c.haswl) { outv = c.wlatch; c.haswl = false; } // wdata made another step's output the data
-		c.ram[c.addr(21, 0, false)] = outv; // the delay RAM write of this step
-		break;
-
-	case 0x058: // word 0x0000
-		// r[8] = 8 * the word here times r[124]
-		c.queue_d(56, c.captured(m[56], 88)); // the latest RAM read 5..11 steps back
-		xv = r[124];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(8, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x05f: // word 0x7fff
-		// the aux window's unit 2 difference, r[32], and the read of slot 23
-		// the delay RAM read of this step: slot 23, pushed on the capture history
-		c.push_hist(95, c.ram[c.addr(23, 0, false)]);
-		xv = r[32];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x060: // word 0x0000
-		// the running value passes on; m[56] takes the latest RAM read
-		c.queue_d(56, c.captured(m[56], 96)); // the latest RAM read 5..11 steps back
-		xv = r[121];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x061: // word 0x0000
-		// r[7] = 16 * the word here times r[123]
-		xv = r[123];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(7, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-
-		// ---- the master EQ: three order-2 bands on the first channel ----
-	case 0x066: // word 0x0000
-		// the low band's -a1 (0x66) times the output delay r[24]
-		xv = r[24];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x067: // word 0xe05c
-		// the low band's b1 (0x67) times r[23] joins it; m[11] takes the LFO of page 3
-		// the delay RAM read of this step: slot 25, pushed on the capture history
-		c.push_hist(103, c.ram[c.addr(25, 0, false)]);
-		c.queue_d(11, c.lfo[3]); // the LFO of this step's page
-		xv = r[23];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x068: // word 0x1f6d
-		// the low band's b2 (0x68) times r[25] joins it, and r[24] takes the rcopy
-		xv = r[25];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		c.queue_r(24, c.haspx ? c.px : xv); // the z^-1 copy, not this step's result
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x069: // word 0x0000
-		// the low band's -a2 (0x69) times r[26] joins it, and r[26] takes the rcopy
-		xv = r[26];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		c.queue_r(26, c.haspx ? c.px : xv); // the z^-1 copy, not this step's result
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x06a: // word 0x1fc9
-		// the low band's b0 (0x6a) times r[9] by the route's 4, into r[25]: the new input
-		xv = r[9];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[2]; // route 2
-		c.queue_r(25, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x06b: // word 0x1727
-		// the mid band's -a1 (0x6b) times r[26], and r[23] takes the rcopy; the read of slot 26
-		// the delay RAM read of this step: slot 26, pushed on the capture history
-		c.push_hist(107, c.ram[c.addr(26, 0, false)]);
-		xv = r[26];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(23, c.haspx ? c.px : xv); // the z^-1 copy, not this step's result
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x06c: // word 0xce25
-		// the mid band's b1 (0x6c) times r[25] joins it; m[56] takes the latest RAM read
-		c.queue_d(56, c.captured(m[56], 108)); // the latest RAM read 5..11 steps back
-		xv = r[25];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x06d: // word 0x31db
-		// the mid band's b2 (0x6d) times r[27] joins it
-		xv = r[27];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x06e: // word 0xee24
-		// the mid band's -a2 (0x6e) times r[28] joins it, and r[28] takes the rcopy
-		xv = r[28];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		c.queue_r(28, c.haspx ? c.px : xv); // the z^-1 copy, not this step's result
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x06f: // word 0x1ab5
-		// the mid band's b0 (0x6f) times r[25] by the route's 4 into r[27], and the read of slot 27
-		// the delay RAM read of this step: slot 27, pushed on the capture history
-		c.push_hist(111, c.ram[c.addr(27, 0, false)]);
-		xv = r[25];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[2]; // route 2
-		c.queue_r(27, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x070: // word 0x01ce
-		// the high band's -a1 (0x70) times r[28]; m[57] captures the latest RAM read
-		c.queue_d(57, c.captured(m[57], 112)); // the latest RAM read 5..11 steps back
-		xv = r[28];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x071: // word 0xfc20
-		// the high band's b1 (0x71) times r[27] joins it
-		xv = r[27];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x072: // word 0x0f70
-		// the high band's b2 (0x72) times r[29] joins it
-		xv = r[29];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x073: // word 0xf88d
-		// the high band's -a2 (0x73) times r[30] joins it, and r[30] takes the rcopy; the read of slot 28
-		// the delay RAM read of this step: slot 28, pushed on the capture history
-		c.push_hist(115, c.ram[c.addr(28, 0, false)]);
-		xv = r[30];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		c.queue_r(30, c.haspx ? c.px : xv); // the z^-1 copy, not this step's result
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x074: // word 0x0215
-		// the high band's b0 (0x74) times r[27] by the route's 16 into r[29]
-		c.queue_d(58, c.captured(m[58], 116)); // the latest RAM read 5..11 steps back
-		xv = r[27];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(29, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-
-		// ---- the low-mid and high-mid bands' word steps: nothing but the latch, a delay RAM read and a move ----
-	case 0x075: // word 0x1ce8
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x076: // word 0xc340
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x077: // word 0x3cc0
-		// the delay RAM read of this step: slot 29, pushed on the capture history
-		c.push_hist(119, c.ram[c.addr(29, 0, false)]);
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x078: // word 0xe318
-		c.queue_d(59, c.captured(m[59], 120)); // the latest RAM read 5..11 steps back
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x079: // word 0x2000
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x07a: // word 0x0e32
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x07b: // word 0xd91b
-		// the delay RAM read of this step: slot 30, pushed on the capture history
-		c.push_hist(123, c.ram[c.addr(30, 0, false)]);
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x07c: // word 0x26e5
-		c.queue_d(60, c.captured(m[60], 124)); // the latest RAM read 5..11 steps back
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x07d: // word 0xf1ce
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x07e: // word 0x2000
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-
-		// ---- the aux window's eight differences, the remaining runs ----
-	case 0x089: // word 0x7fff
-		// the aux window's unit 5 difference, r[45]
-		xv = r[45];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x08a: // word 0x0000
-		// the running value passes on
-		xv = r[14];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x08b: // word 0x0000
-		// the running value passes on, and the read of slot 34
-		// the delay RAM read of this step: slot 34, pushed on the capture history
-		c.push_hist(139, c.ram[c.addr(34, 0, false)]);
-		xv = r[18];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x08c: // word 0x0000
-		// the running value passes on; m[57] takes the latest RAM read
-		c.queue_d(57, c.captured(m[57], 140)); // the latest RAM read 5..11 steps back
-		xv = r[122];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x08d: // word 0x0000
-		// r[6] = 16 * the word here times r[124]
-		xv = r[124];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(6, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x092: // word 0x7fff
-		// the aux window's unit 4 difference, r[33]
-		xv = r[33];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x093: // word 0x0000
-		// the running value passes on, and the read of slot 36
-		// the delay RAM read of this step: slot 36, pushed on the capture history
-		c.push_hist(147, c.ram[c.addr(36, 0, false)]);
-		xv = r[13];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x094: // word 0x0000
-		// the running value passes on
-		xv = r[17];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x095: // word 0x0000
-		// the running value passes on
-		xv = r[121];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x096: // word 0x0000
-		// r[5] = 16 * the word here times r[123]
-		xv = r[123];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(5, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-
-		// ---- the DC blocker, one order-1 section per channel ----
-	case 0x09b: // word 0x2000
-		// the DC blocker's first channel: 16 * 4 * the word here times m[58], into r[21] and the write of slot 38
-		xv = 0.0; // no register
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[58];
-		m2 = c.src; // the multiplier's second input is the cell
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(21, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		outv = yss236_core::clip(y, yss236_core::SAT);
-		if (c.haswl) { outv = c.wlatch; c.haswl = false; } // wdata made another step's output the data
-		c.ram[c.addr(38, 0, false)] = outv; // the delay RAM write of this step
-		break;
-
-	case 0x09c: // word 0x7fa3
-		// its -a1 (0x9c) times r[22]; m[58] takes the latest RAM read
-		c.queue_d(58, c.captured(m[58], 156)); // the latest RAM read 5..11 steps back
-		xv = r[22];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x09d: // word 0x802f
-		// its b1 (0x9d) times r[21] joins it
-		xv = r[21];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x09e: // word 0x7fd1
-		// its b0 (0x9e) times r[21] joins it, into r[22]
-		xv = r[21];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		c.queue_r(22, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x09f: // word 0x2000
-		// the copy's input: 16 * 4 * the word here times m[7], into r[19], and the read of slot 39
-		// the delay RAM read of this step: slot 39, pushed on the capture history
-		c.push_hist(159, c.ram[c.addr(39, 0, false)]);
-		xv = 0.0; // no register
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = xv;
-		c.psrc = c.src; c.src = m[7];
-		m2 = c.src; // the multiplier's second input is the cell
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(19, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x0a0: // word 0x7fa3
-		// the copy's -a1 (0xa0) times r[20]
-		xv = r[20];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0a1: // word 0x802f
-		// the copy's b1 (0xa1) times r[19] joins it
-		xv = r[19];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0a2: // word 0x7fd1
-		// the copy's b0 (0xa2) times r[19] joins it, into r[20]
-		xv = r[19];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		c.queue_r(20, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-
-		// ---- the master EQ: the same three bands on the second channel, on the copied words ----
-	case 0x0b6: // word 0x0000
-		// the low band's -a1 on the second channel, the copied word 0xb6, times r[36]
-		xv = r[36];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0b7: // word 0xe05c
-		// the low band's b1 (0xb7) times r[35] joins it
-		xv = r[35];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0b8: // word 0x1f6d
-		// the low band's b2 (0xb8) times r[37] joins it, and r[36] takes the rcopy
-		xv = r[37];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		c.queue_r(36, c.haspx ? c.px : xv); // the z^-1 copy, not this step's result
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0b9: // word 0x0000
-		// the low band's -a2 (0xb9) times r[38], and r[38] takes the rcopy; the read of slot 46
-		// the delay RAM read of this step: slot 46, pushed on the capture history
-		c.push_hist(185, c.ram[c.addr(46, 0, false)]);
-		xv = r[38];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		c.queue_r(38, c.haspx ? c.px : xv); // the z^-1 copy, not this step's result
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0ba: // word 0x1fc9
-		// the low band's b0 (0xba) times r[10] by the route's 4 into r[37]
-		xv = r[10];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[2]; // route 2
-		c.queue_r(37, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x0bb: // word 0x1727
-		// the mid band's -a1 on the second channel, the copied word 0xbb, times r[38; r[35] takes the rcopy
-		xv = r[38];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		c.queue_r(35, c.haspx ? c.px : xv); // the z^-1 copy, not this step's result
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0bc: // word 0xce25
-		// the mid band's -a1 (0xbc) times r[37]
-		xv = r[37];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0bd: // word 0x31db
-		// the mid band's b1 (0xbd) times r[39] joins it, and the read of slot 47
-		// the delay RAM read of this step: slot 47, pushed on the capture history
-		c.push_hist(189, c.ram[c.addr(47, 0, false)]);
-		xv = r[39];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0be: // word 0xee24
-		// the mid band's -a2 on the second channel, the copied word 0xbe, times r[40] joins it, r[40] takes the rcopy; m[18] takes the latest RAM read
-		c.queue_d(18, c.captured(m[18], 190)); // the latest RAM read 5..11 steps back
-		xv = r[40];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		c.queue_r(40, c.haspx ? c.px : xv); // the z^-1 copy, not this step's result
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0bf: // word 0x1ab5
-		// the mid band's b0 (0xbf) times r[37] by the route's 4 into r[39]
-		xv = r[37];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[2]; // route 2
-		c.queue_r(39, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x0c0: // word 0x01ce
-		// the high band's -a1 (0xc0) times r[40]; m[41] takes the second serial bank of page 6
-		c.queue_d(41, c.in[0][6]); // the serial input into the cell
-		xv = r[40];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0c1: // word 0xfc20
-		// the high band's b1 (0xc1) times r[39] joins it, and the read of slot 48
-		// the delay RAM read of this step: slot 48, pushed on the capture history
-		c.push_hist(193, c.ram[c.addr(48, 0, false)]);
-		xv = r[39];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0c2: // word 0x0f70
-		// the high band's b2 (0xc2) times r[41] joins it; m[19] takes the latest RAM read
-		c.queue_d(19, c.captured(m[19], 194)); // the latest RAM read 5..11 steps back
-		xv = r[41];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0c3: // word 0xf88d
-		// the high band's -a2 (0xc3) times r[42], and r[42] takes the rcopy
-		xv = r[42];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		c.queue_r(42, c.haspx ? c.px : xv); // the z^-1 copy, not this step's result
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0c4: // word 0x0215
-		// the high band's b0 (0xc4) times r[39] by the route's 16 into r[41]
-		xv = r[39];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		c.queue_r(41, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-
-		// ---- the copied low-mid and high-mid bands' word steps ----
-	case 0x0c5: // word 0x1ce8
-		// the delay RAM read of this step: slot 49, pushed on the capture history
-		c.push_hist(197, c.ram[c.addr(49, 0, false)]);
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x0c6: // word 0xc340
-		c.queue_d(20, c.captured(m[20], 198)); // the latest RAM read 5..11 steps back
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x0c7: // word 0x3cc0
-		c.queue_d(14, c.lfo[6]); // the LFO of this step's page
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x0c8: // word 0xe318
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x0c9: // word 0x2000
-		// the delay RAM read of this step: slot 50, pushed on the capture history
-		c.push_hist(201, c.ram[c.addr(50, 0, false)]);
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x0ca: // word 0x0e32
-		c.queue_d(21, c.captured(m[21], 202)); // the latest RAM read 5..11 steps back
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x0cb: // word 0xd91b
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x0cc: // word 0x26e5
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x0cd: // word 0xf1ce
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-	case 0x0ce: // word 0x2000
-		c.queue_d(56, c.captured(m[56], 206)); // the latest RAM read 5..11 steps back
-		c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-		break;
-
-
-		// ---- the master volume, into the two output cells ----
-	case 0x0cf: // word 0x0000
-		// the master volume (MIXER_B[14]) times r[29] by the route's 16 into m[16]: the left output
-		xv = r[29];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		y = c.acc = yss236_core::accmode(y, 1);
-		c.queue_d(16, yss236_core::clip(y, yss236_core::DSAT)); // this step's own result
-		break;
-
-	case 0x0d0: // word 0x0000
-		// the master volume (MIXER_B[15]) times r[41] by the route's 16 into m[17]: the right output
-		xv = r[41];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a) * yss236_core::RSCALE[3]; // route 3
-		y = c.acc = yss236_core::accmode(y, 1);
-		c.queue_d(17, yss236_core::clip(y, yss236_core::DSAT)); // this step's own result
-		break;
-
-	case 0x0d8: // word 0x5a30
-		// the aux window's unit 1 difference, r[43]
-		xv = r[43];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0d9: // word 0x0000
-		// the running value passes on
-		xv = r[10];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0da: // word 0x0000
-		// the running value passes on
-		xv = r[14];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0db: // word 0x0000
-		// the running value passes on
-		xv = r[16];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0dc: // word 0x0000
-		// the running value passes on
-		xv = r[12];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0dd: // word 0x0000
-		// the running value passes on
-		xv = r[18];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0de: // word 0x0000
-		// the running value passes on
-		xv = r[122];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0df: // word 0x0000
-		// r[10] = 4 * the word here times r[124], the sum
-		xv = r[124];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[2]; // route 2
-		c.queue_r(10, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-
-	case 0x0e0: // word 0x5a30
-		// the aux window's unit 0 difference, r[31]
-		xv = r[31];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = 0.0;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0e1: // word 0x0000
-		// the running value passes on
-		xv = r[9];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0e2: // word 0x0000
-		// the running value passes on
-		xv = r[13];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0e3: // word 0x0000
-		// the running value passes on
-		xv = r[15];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0e4: // word 0x0000
-		// the running value passes on
-		xv = r[11];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0e5: // word 0x0000
-		// the running value passes on
-		xv = r[17];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0e6: // word 0x0000
-		// the running value passes on; m[15] takes the LFO of page 7
-		c.queue_d(15, c.lfo[7]); // the LFO of this step's page
-		xv = r[121];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a);
-		y = c.acc = yss236_core::accmode(y, 0);
-		break;
-
-	case 0x0e7: // word 0x0000
-		// r[9] = 4 * the word here times r[123], the sum
-		xv = r[123];
-		c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-		c.psrc = c.src; c.src = m[0];
-		m2 = xv;
-		prod = yss236_core::s16(c.coef[st]) * m2;
-		a = c.acc;
-		y = (prod + a) * yss236_core::RSCALE[2]; // route 2
-		c.queue_r(9, yss236_core::mode(y, 1));
-		y = c.acc = yss236_core::accmode(y, 1);
-		break;
-		default: break;
+			if (st < 0x008)
+			{
+				Pan const& p = PANS[st];
+				decor(c, st, p.decor);
+				// r[reg] = the pan word on r[reg]: the send, panned, left in the register for the
+				// send sums below and for the window that reads it back
+				run(c, {st, p.reg, p.cell, p.cell ? M2_CELL : M2_REG, false, 0, ADD_OFF, false,
+				        ROUTE_1, CLAMP_SAT, p.reg});
+			}
+			else if (st < 0x00c)
+				term_step(c, st, WEIGHTS[0].term[st - 0x008]);
+			else
+				term_step(c, st, SENDS[0].term[st - 0x00c]);
+			continue;
 		}
+
+		// ---- the ten accumulators: the aux differences and the DC blocker ----
+		bool covered = false;
+		for (TermRun const& r : ACC)
+			if (st >= r.base && st < r.base + r.n)
+			{
+				term_step(c, st, r.term[st - r.base]);
+				covered = true;
+				break;
+			}
+		if (covered) continue;
+
+		// ---- the master EQ's six sections ----
+		for (Section const& s : EQ)
+			if (st >= s.base && st < s.base + 5)
+			{
+				eq_step(c, st, s, st - s.base);
+				covered = true;
+				break;
+			}
+		if (covered) continue;
+
+		// ---- the two runs of class-0 word steps ----
+		for (WordRun const& w : WORDS)
+			if (st >= w.base && st < w.base + 10)
+			{
+				decor(c, st, w.decor[st - w.base]);
+				idle(c);
+				covered = true;
+				break;
+			}
+		if (covered) continue;
+
+		// ---- the master volume ----
+		if (st == 0x0cf || st == 0x0d0) master_volume(c, st);
 	}
 }
 
-// The eleven runs of steps the base program owns, in step order.
+#undef T
+
+// The eleven runs of steps the base program owns, in step order. They are the base program's steps
+// less the five windows', and they do not line up with the groups above, which is why the loop inside
+// base_steps() looks a step up rather than splitting the range.
 const int RANGES[][2] = {
 	{0x000, 0x01a}, {0x03a, 0x03e}, {0x042, 0x04c}, {0x050, 0x059},
 	{0x05f, 0x062}, {0x066, 0x07f}, {0x089, 0x08e}, {0x092, 0x097},
