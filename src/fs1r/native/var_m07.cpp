@@ -24,7 +24,7 @@
 //   y[n] = b0 x[n] + b1 x[n-1] + b2 x[n-2] + (-a1) y[n-1] + (-a2) y[n-2]
 //
 // one order-2 section per band, each on the previous band's output: three cascaded sections per channel,
-// and nothing else in the program.
+// and nothing else in the program. BANDS below is those six sections, one row each.
 //
 // The type's own preset holds all three gains at 0 dB, and then each band's numerator word pair is the
 // same polynomial as its denominator pair: the left low band 1.0000, -1.949341, +0.950012 against the
@@ -51,40 +51,30 @@
 // preset holds the mono words (QUARTER, QUARTER, HALF at 0x158, 0x159, 0x169, and zero at 0x17B), which
 // is what the checker runs it under.
 //
-// The 72 steps, in the groups the comments in the switch open:
+// The 72 steps, in the five groups the loop below splits them into:
 //
 //   0x158-0x159  EQ3_A. m[2] and m[6] take the serial inputs for the base program, and the two words
 //                sum the left input into r[103]: the first into the running value, the second doubling
 //                that plus a quarter of the right one. 0x158 has no adder input and no route, so it is
 //                the left input alone into the accumulator.
-//   0x15a-0x15e  the left low band. 0x15a is b1 on the input a pass back, 0x15b b2 on the copy of that
-//                input one pass older still and the read of the slot 0x56 the base program published,
-//                0x15c and 0x15d -a1 and -a2 on the band's own output a pass and two passes back, and
-//                0x15e b0 on the current input, doubled and saturating, into r[105]. The copy the b2
-//                step needs is r[104]: 0x15b is an rcopy step, so it takes the value 0x15a latched.
-//   0x15f-0x163  the left middle band, the same five steps on EQ3_PEAK: b1 on the low band's output a
-//                pass back, b2 on r[106] (the copy 0x160's rcopy leaves, which is that same value one
-//                pass older when 0x160 reads it) and the read of the slot 0x57, -a1 and -a2 on the
-//                middle band's own output in r[107] and r[108], and b0 into r[107]. m[28] takes up the
-//                read of 0x15b, the slot 0x56.
-//   0x164-0x168  the left high band on EQ3_HIGH_SHELF2, five steps on r[109], r[110] and the input
-//                register of the middle band. m[29] takes up the read of 0x15f and m[30] that of 0x163,
-//                the slot 0x58. 0x166 also publishes the LFO of its page into m[11].
-//   0x169-0x16e  the right channel: EQ3_A[2] takes the right input into r[111] with no adder input, so
-//                it is the right input doubled, and EQ3_LOW_SHELF2_COPY is the left low band again on
-//                r[112], r[113] and r[114].
-//   0x16f-0x173  the right middle band on EQ3_PEAK_COPY, into r[115], with the copy 0x170 leaves in
-//                r[114] for its b2 step.
-//   0x174-0x178  the right high band on EQ3_HIGH_SHELF2_COPY, into r[117], with the copy 0x175 leaves
-//                in r[116] and 0x177's in r[118].
+//   0x15a-0x168  the left channel's three bands, one after the other, each on the last band's output.
+//   0x169        EQ3_A[2]: the right input into r[111] doubled, with no adder input.
+//   0x16a-0x178  the right channel's three bands, the same six steps on the copy.
 //   0x179-0x17b  EQ3_B. 0x179 quadruples its word on r[109] into the left output r[15] with no adder
 //                input, 0x17a leaves the same word on r[109] in the accumulator without a route, and
 //                0x17b adds its own word on r[117] to that and quadruples the sum into r[16].
 //   0x17c-0x19f  the tail, class 0 throughout and idle but for the three reads and the four published
-//                cells: the slots 0x63, 0x64 and 0x65 on 0x18f, 0x193 and 0x197, and the captures at
-//                0x194, 0x198 and 0x19c that take them into m[31], m[32] and m[33], each five steps
-//                later, which is captured()'s lower bound. 0x186 publishes the LFO of its page into
-//                m[12].
+//                cells: the slots 0x63, 0x64 and 0x65 read at 0x18f, 0x193 and 0x197, the captures at
+//                0x194, 0x198 and 0x19c that take them into m[31], m[32] and m[33] five steps later,
+//                which is captured()'s lower bound, and the LFO of page 12 at 0x186 into m[12].
+//
+// Each band's five steps, which band_step() runs in this order:
+//
+//   b1  the word on the band's input, with no adder, which opens the sum
+//   b2  the word on the z^-1 copy of that input, which the same step writes (w1[7]), added to the sum
+//   -a1 the word on the band's own output a pass back
+//   -a2 the word on its second output delay, the copy the next band writes
+//   b0  the word on the band's input again, closing the sum into the output with the band's route
 //
 // The registers: r[5] and r[6] the two inputs the base program leaves this window (0x096 and 0x08d
 // write them) and r[15] and r[16] the two outputs it reads back (0x004 and 0x005). r[103] the summed
@@ -114,500 +104,156 @@
 // order yss236_core::step() runs its own.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
 //
 // vop3_native_check var-m07: identical, 1 type, 9600 native passes.
 
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
+
+using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
+
+// What a band's step carries besides its term. The three left bands publish the base program's delay
+// reads and the window's LFOs on the way past, and the right bands carry nothing, because the base
+// program reads them once and the channels' coefficients are all it needs from them.
+enum decor_t { DEC_NONE, DEC_READ, DEC_CAPTURE, DEC_LFO };
+
+// One band's five steps. `cell` is the slot a DEC_READ step reads (which is its own step over four) or
+// the cell a DEC_CAPTURE or DEC_LFO step publishes into.
+struct Decor { decor_t kind; int cell; };
+
+// One band, in direct form I. `in` is the register its input is in, which b1 and b0 read a pass later
+// than the step before the band wrote it; `x1` holds that input a pass older, which is what b2 reads and
+// what the same step writes; `y1` is the band's output a pass back, which -a1 reads and b0 overwrites;
+// `y2` is its output two passes back, which -a2 reads.
+struct Band
+{
+	int base;                  // the first of the five steps
+	int in, x1, y1, y2;
+	step::route_t route;       // the closing step's route, which restores the designer's scale
+	bool own_y2;               // the -a2 step is also the z^-1 that keeps y[-2] itself
+	Decor decor[5];
+};
+
+// The six bands: three per channel, each one on the last band's output. The left high band and the
+// right high band are the two designFilter(2, 4, ...) sections, so their closing steps carry the x16
+// route the other four do not, and those two are the bands whose own -a2 step keeps their y[-2]: the
+// four lower bands read that delay out of the register the next band up writes.
+const Band BANDS[6] = {
+    //  base   in  x1   y1   y2  route        b1               b2                 -a1            -a2             b0
+    {  0x15a, 103, 104, 105, 106, ROUTE_2,  false, { {DEC_NONE, 0},    {DEC_READ, 0x56},    {DEC_NONE, 0},  {DEC_NONE, 0},    {DEC_NONE, 0}    } },
+    {  0x15f, 105, 106, 107, 108, ROUTE_2,  false, { {DEC_READ, 0x57}, {DEC_CAPTURE, 28},   {DEC_NONE, 0},  {DEC_NONE, 0},    {DEC_READ, 0x58} } },
+    {  0x164, 107, 108, 109, 110, ROUTE_16, true,  { {DEC_CAPTURE, 29},{DEC_NONE, 0},       {DEC_LFO, 11},  {DEC_NONE, 0},    {DEC_CAPTURE, 30} } },
+    {  0x16a, 111, 112, 113, 114, ROUTE_2,  false, { {DEC_NONE, 0},    {DEC_NONE, 0},       {DEC_NONE, 0},  {DEC_NONE, 0},    {DEC_NONE, 0}    } },
+    {  0x16f, 113, 114, 115, 116, ROUTE_2,  false, { {DEC_NONE, 0},    {DEC_NONE, 0},       {DEC_NONE, 0},  {DEC_NONE, 0},    {DEC_NONE, 0}    } },
+    {  0x174, 115, 116, 117, 118, ROUTE_16, true,  { {DEC_NONE, 0},    {DEC_NONE, 0},       {DEC_NONE, 0},  {DEC_NONE, 0},    {DEC_NONE, 0}    } },
+};
+
+// One band's five steps. The decor the step's words carry comes first, because step() moves a cell or
+// reads the delay RAM before it does any arithmetic, and then the band's term for this step.
+void band(yss236_core& c, int st, Band const& b, int k)
+{
+	switch (b.decor[k].kind)
+	{
+		case DEC_READ:    read_delay(c, st); break;
+		case DEC_CAPTURE: take_capture(c, b.decor[k].cell, st); break;
+		case DEC_LFO:     take_lfo(c, b.decor[k].cell, st); break;
+		case DEC_NONE: break;
+	}
+	switch (k)
+	{
+	case 0:  term(c, st, b.in); break;                                   // b1 on x[n]
+	case 1:  copy_z(c, st, b.x1, b.x1, ADD_ACC, CLAMP_WRAP); break;      // b2 on x[n-1], and x[n-1] copied
+	case 2:  sum(c, st, b.y1); break;                                    // -a1 on y[n-1]
+	case 3:
+		// -a2 on the output two passes back. Where that delay is a register of the band's own, this step
+		// keeps it as well, by its own z^-1; the four lower bands read the one the band above writes.
+		if (b.own_y2) copy_z(c, st, b.y2, b.y2, ADD_ACC, CLAMP_WRAP);
+		else          sum(c, st, b.y2);
+		break;
+	default: close(c, st, b.in, b.y1, b.route); break;                  // b0 on x[n], into y[n]
+	}
+}
 
 // The run of steps 0x158 to 0x19f, the whole of the window's program. The loop is one iteration per
 // step and carries the m_skip guard step() opens with, so a gate in the base program's 0x1xx half skips
 // these steps as it would the interpreter's.
 void block_0x158(yss236_core& c)
 {
-    double* const r = c.r;                 // the 128 registers
-    double* const m = c.m;                 // the 64 cells
-    double xv, k, prod, a, y;
+	for (int st = 0x158; st < 0x1a0; st++)
+	{
+		c.begin_step();
+		if (st < c.m_skip) continue;
 
-    // The step's x operand: the register r[sr] into the latch every step but a class-2/3 one moves, and
-    // xv alongside it for the multiplier.
-    auto fetch = [&](int sr) { xv = sr ? r[sr] : 0.0; c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = sr != 0; };
+		if (st < 0x15a)
+		{
+			// ---- EQ3_A: the two serial inputs this window publishes for the base program ----
+			if (st == 0x158)
+			{
+				take_serial(c, 2, st, 0);
+				term(c, st, 5);                       // acc = k * r[5], the left input alone
+			}
+			else
+			{
+				take_serial(c, 6, st, 1);
+				// r[103] = (k * r[6] + acc) * 2: the left and right inputs summed for the bands
+				close(c, st, 6, 103, ROUTE_2);
+			}
+			continue;
+		}
 
-    for (int st = 0x158; st < 0x1a0; st++)
-    {
-        c.begin_step();
-        if (st < c.m_skip) continue;
-        switch (st)
-        {
-// ---- 0x158 to 0x159, EQ3_A: the serial inputs and the summed left one ------------------------
-// m[2] takes the left serial input; acc = k * r[5], the left input into the running value alone
-        case 0x158:
-            c.queue_d(2, c.in[0][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(5);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[6] takes the right serial input; r[103] = saturate(2 * (k * r[6] + acc)), the summed left input
-        case 0x159:
-            c.queue_d(6, c.in[1][10]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(103, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x15a to 0x15e, the left low band on EQ3_LOW_SHELF2 -------------------------------------
-// b1 on the summed input a pass back
-        case 0x15a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// a read of the slot 0x56; b2 on r[104], which is this step's own copy of the value 0x15a latched, the
-// summed input two passes back, and the running value, so the b1 term comes along
-        case 0x15b:
-            c.push_hist(st, c.ram[c.addr(0x56, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(104);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(104, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// -a1 on the band's own output a pass back, r[105]
-        case 0x15c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// -a2 on that output two passes back, r[106]
-        case 0x15d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// b0 on the summed input itself, doubled and saturating, into r[105]: the band's output
-        case 0x15e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(103);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(105, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x15f to 0x163, the left middle band on EQ3_PEAK ----------------------------------------
-// b1 on the low band's output a pass back
-        case 0x15f:
-            c.push_hist(st, c.ram[c.addr(0x57, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[28] takes up the read of 0x15b; b2 on r[106], the low band's output two passes back, and this
-// step's own copy of the value 0x15f latched, which is that output a pass back. Both 0x15d and this
-// step read r[106] on the next pass, as that band's -a2 and this one's b2.
-        case 0x160:
-            c.queue_d(28, c.captured(m[28], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(106);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(106, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// -a1 on the middle band's output a pass back, r[107]
-        case 0x161:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// -a2 on that output two passes back, r[108]
-        case 0x162:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// b0 on the low band's output itself, doubled and saturating, into r[107]
-        case 0x163:
-            c.push_hist(st, c.ram[c.addr(0x58, 0, false)]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(105);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(107, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x164 to 0x168, the left high band on EQ3_HIGH_SHELF2 ------------------------------------
-// m[29] takes up the read of 0x15f; b1 on the middle band's output a pass back
-        case 0x164:
-            c.queue_d(29, c.captured(m[29], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// b2 on r[108], the middle band's output two passes back, and this step's own copy of the value 0x164
-// latched, which is that output a pass back, into r[108]
-        case 0x165:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(108);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(108, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[11] takes the LFO of this step's page; -a1 on the high band's output a pass back, r[109]
-        case 0x166:
-            c.queue_d(11, c.lfo[11]);
-            k = yss236_core::s16(c.coef[st]);
-            fetch(109);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// b2 on r[110], the high band's output two passes back, and this step's copy of the value 0x166
-// latched, which is that output a pass back, into r[110]
-        case 0x167:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(110);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(110, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// m[30] takes up the read of 0x163; b0 on the middle band's output itself, sixteened and
-// saturating, into r[109]: the left channel's output of the whole EQ
-        case 0x168:
-            c.queue_d(30, c.captured(m[30], st));
-            k = yss236_core::s16(c.coef[st]);
-            fetch(107);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 16.0;
-            c.queue_r(109, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x169 to 0x16e, the right channel's input and low band on EQ3_LOW_SHELF2_COPY -------------
-// EQ3_A[2]: r[111] = saturate(2 * k * r[6]), the right input doubled with no adder input
-        case 0x169:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(6);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 2.0;
-            c.queue_r(111, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// b1 on the right input a pass back
-        case 0x16a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// b2 on r[112], the copy of the right input, and the running value; the copy goes into r[112]
-        case 0x16b:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(112);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(112, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// -a1 on the right low band's output a pass back, r[113]
-        case 0x16c:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// -a2 on that output two passes back, r[114]
-        case 0x16d:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// b0 on the right input itself, doubled and saturating, into r[113]
-        case 0x16e:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(111);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(113, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x16f to 0x173, the right middle band on EQ3_PEAK_COPY -------------------------------------
-// b1 on the right low band's output a pass back
-        case 0x16f:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// b2 on r[114], the right low band's output two passes back, and this step's copy of the value 0x16f
-// latched, which is that output a pass back, into r[114]
-        case 0x170:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(114);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(114, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// -a1 on the right middle band's output a pass back, r[115]
-        case 0x171:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// -a2 on that output two passes back, r[116]
-        case 0x172:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(116);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// b0 on the right low band's output itself, doubled and saturating, into r[115]
-        case 0x173:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(113);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 2.0;
-            c.queue_r(115, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x174 to 0x178, the right high band on EQ3_HIGH_SHELF2_COPY ------------------------------
-// b1 on the right middle band's output a pass back
-        case 0x174:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// b2 on r[116], the right middle band's output two passes back, and this step's copy of the value
-// 0x174 latched, which is that output a pass back, into r[116]
-        case 0x175:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(116);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(116, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// -a1 on the right high band's output a pass back, r[117]
-        case 0x176:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(117);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// b2 on r[118], the right high band's output two passes back, and this step's copy of the value 0x176
-// latched, which is that output a pass back, into r[118]
-        case 0x177:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(118);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 1.0;
-            c.queue_r(118, c.haspx ? c.px : xv);
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// b0 on the right middle band's output itself, sixteened and saturating, into r[117]: the right
-// channel's output of the whole EQ
-        case 0x178:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(115);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 16.0;
-            c.queue_r(117, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x179 to 0x17b, EQ3_B: the two outputs ---------------------------------------------------
-// r[15] = saturate(4 * k * r[109]), the left channel's high band alone, no adder input
-        case 0x179:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(109);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 4.0;
-            c.queue_r(15, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// acc = k * r[109], the same word with no route and no register: what 0x17b adds its own word to
-        case 0x17a:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(109);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = 0.0;
-            y = (prod + a) * 1.0;
-            y = c.acc = yss236_core::accmode(y, 0);
-            break;
-// r[16] = saturate(4 * (k * r[117] + acc)), so the right output is that word on the right high band
-// plus whatever 0x17a left: the left one in mono, nothing in stereo
-        case 0x17b:
-            k = yss236_core::s16(c.coef[st]);
-            fetch(117);
-            c.psrc = c.src; c.src = m[0];
-            prod = k * xv;
-            a = c.acc;
-            y = (prod + a) * 4.0;
-            c.queue_r(16, yss236_core::mode(y, 1));
-            y = c.acc = yss236_core::accmode(y, 1);
-            break;
-// ---- 0x17c to 0x19f, the tail: three published reads, four published cells, the rest idle -------
-// the idle steps: class 0, no RAM mark and no ALU, so only the x latch
-        case 0x17c: case 0x17d: case 0x17e: case 0x17f: case 0x180: case 0x181: case 0x182:
-        case 0x183: case 0x184: case 0x185:
-            fetch(0);
-            break;
-// m[12] takes the LFO of this step's page
-        case 0x186:
-            c.queue_d(12, c.lfo[12]);
-            fetch(0);
-            break;
-        case 0x187: case 0x188: case 0x189: case 0x18a: case 0x18b: case 0x18c: case 0x18d:
-        case 0x18e:
-            fetch(0);
-            break;
-// a read of the slot 0x63, five steps before the capture at 0x194 that takes it
-        case 0x18f:
-            c.push_hist(st, c.ram[c.addr(0x63, 0, false)]);
-            fetch(0);
-            break;
-        case 0x190: case 0x191: case 0x192:
-            fetch(0);
-            break;
-// a read of the slot 0x64, five steps before 0x198
-        case 0x193:
-            c.push_hist(st, c.ram[c.addr(0x64, 0, false)]);
-            fetch(0);
-            break;
-// m[31] takes up the read of 0x18f
-        case 0x194:
-            c.queue_d(31, c.captured(m[31], st));
-            fetch(0);
-            break;
-        case 0x195: case 0x196:
-            fetch(0);
-            break;
-// a read of the slot 0x65, five steps before 0x19c
-        case 0x197:
-            c.push_hist(st, c.ram[c.addr(0x65, 0, false)]);
-            fetch(0);
-            break;
-// m[32] takes up the read of 0x193
-        case 0x198:
-            c.queue_d(32, c.captured(m[32], st));
-            fetch(0);
-            break;
-        case 0x199: case 0x19a: case 0x19b:
-            fetch(0);
-            break;
-// m[33] takes up the read of 0x197
-        case 0x19c:
-            c.queue_d(33, c.captured(m[33], st));
-            fetch(0);
-            break;
-        case 0x19d: case 0x19e: case 0x19f:
-            fetch(0);
-            break;
-        }
-    }
+		if (st < 0x169)
+		{
+			// ---- the left channel's three bands, cascaded ----
+			Band const& b = BANDS[(st - 0x15a) / 5];
+			band(c, st, b, st - b.base);
+			continue;
+		}
+
+		if (st == 0x169)
+		{
+			// EQ3_A[2]: the right input doubled on its own, with no adder input
+			gain(c, st, 6, 111, ROUTE_2);
+			continue;
+		}
+
+		if (st < 0x179)
+		{
+			// ---- the right channel's three bands, the same six steps on the copy ----
+			Band const& b = BANDS[3 + (st - 0x16a) / 5];
+			band(c, st, b, st - b.base);
+			continue;
+		}
+
+		if (st < 0x17c)
+		{
+			// ---- EQ3_B: the two outputs, and the word between them that carries the channel ----
+			switch (st)
+			{
+			case 0x179: gain(c, st, 109, 15, ROUTE_4); break;      // r[15] = 4 k r[109]: the left chain
+			case 0x17a: term(c, st, 109); break;                    // the same word with no route and no register
+			default:    close(c, st, 117, 16, ROUTE_4); break;      // r[16] = 4 (k r[117] + acc): the right chain
+			}
+			continue;
+		}
+
+		// ---- the tail: three published reads, the captures that take them up, and the second LFO ----
+		// The reads are at 0x18f, 0x193 and 0x197 and each capture follows five steps later, which is
+		// captured()'s lower bound, so the tail is idle between them but for the x latch.
+		int const k = st - 0x18f;
+		if (k == 0 || k == 4 || k == 8)
+			read_delay(c, st);
+		else if (k == 5 || k == 9 || k == 13)
+			take_capture(c, 31 + (k - 5) / 4, st);
+		else if (st == 0x186)
+			take_lfo(c, 12, st);
+		idle(c);
+	}
 }
 
 }  // namespace
@@ -616,8 +262,8 @@ void block_0x158(yss236_core& c)
 // one run; a range no host builds falls back to the interpreter.
 void var_m07(yss236_core& c, int from, int to)
 {
-    if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
-    for (int st = from; st < to; st++) c.step(st);
+	if (from == 0x158 && to == 0x1a0) { block_0x158(c); return; }
+	for (int st = from; st < to; st++) c.step(st);
 }
 
 }  // namespace fs1r::native
