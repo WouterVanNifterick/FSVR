@@ -33,14 +33,18 @@
 //                release words left. 0x1b6, 0x1be and 0x1c0 are ins::DYN_RELEASE.
 //   0x1c2-0x1cb  the shaper's sum and the drive's gain. 0x1c2 to 0x1c8 are ins::DIST_BAND[5] to
 //                [11], the polynomial the shaper adds to its chain: 0x1c2 finishes the monomial and
-//                0x1c3 to 0x1c8 weigh the chain's registers and add them into r[1]. 0x1c9 and 0x1ca
-//                multiply the level by t[9] and pass each on in t[10] and t[11], and 0x1cb is
-//                ins::DIST_DRIVE[3], the gain storeDrive() derives from the drive and the output level.
+//                0x1c3 to 0x1c8 weigh the chain's registers and add them into r[1]. Only 0x1c3 has the
+//                adder off; the other five add to the running value, and 0x1c8 closes it into r[1].
+//                0x1c9 and 0x1ca multiply the level by t[9] and pass each on in t[10] and t[11], and
+//                0x1cb is ins::DIST_DRIVE[3], the gain storeDrive() derives from the drive and the
+//                output level.
 //   0x1cc-0x1db  the threshold and the three tone filters. 0x1cc is ins::DYN_THRESHOLD, over r[76]
 //                into r[123]. 0x1cd to 0x1d1 are ins::DIST_PRE and 0x1d2 to 0x1d6 ins::DIST_PRE_C, the
 //                same five-word filter twice over r[79], and 0x1d7 to 0x1db ins::DIST_EQ over r[83]
-//                into r[85]. designFilter() writes b0, b1, b2, -a1, -a2 in that order, and the two
-//                z^-1 words of each section are the steps that carry rcopy.
+//                into r[85]. designFilter() writes b0, b1, b2, -a1, -a2 in that order, and the schedule
+//                runs them the other way round with the z^-1 copies on the b2 steps and, in three of
+//                the five sections, on the -a2 step as well: 0x1d0 and 0x1d5 read r[82] and r[84]
+//                without writing them back, so those two carry only one copy.
 //   0x1dc-0x1ec  the output level and the output mix. 0x1dc and 0x1e6 are the ROM's own pair: they
 //                multiply r[119] and r[120] by the gains t[10] and t[11] into r[126] and r[127]. 0x1dd
 //                and 0x1de are ins::DIST_MODE, and 0x1df to 0x1e2 ins::DIST_OUTPUT, the filter over
@@ -69,1078 +73,572 @@
 // two tone filters' outputs and r[85] the third's; r[119] to r[121] the detector's input scale; r[123]
 // the thresholded level; r[124], r[125] the level times the smoother, and then the curve's last two
 // breakpoints; r[126], r[127] the output's input scale. The cells: m[3], m[7] the serial inputs this
-// block takes for the base program and m[13] the page's LFO; m[42], m[43] the curve's output and that
-// one pass old; m[44] the smoother's state; m[45] the left output filter's state; m[46] the right
-// one's; m[47], m[48] the two channels' dry signals; m[49] the level.
+// block takes for the base program, m[4] from page 14 and m[13] the page 13's LFO; m[42], m[43] the
+// curve's output and that one pass old; m[44] the smoother's state; m[45] the left output filter's
+// state; m[46] the right one's; m[47], m[48] the two channels' dry signals; m[49] the level.
 //
 // The three t registers the program uses are t[9], written at 0x1ba, read at 0x1c9 and 0x1ca, the
 // smoother's gain; and t[10] and t[11], written at 0x1c9 and 0x1ca and read at 0x1dc and 0x1e6, that
 // same gain squared onto the two channels.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled
+// out by name rather than a step at a time.
+//
+// vop3_native_check ins-m05: identical, 7 types, 67200 native passes.
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
+using namespace step;   // the step vocabulary: term, sum, close, gain, load and the rest
+
+// ---------------------------------------------------------------------------------------------
+// The registers and cells the header names, so the tables below can say what they read
+// ---------------------------------------------------------------------------------------------
+
+// The two signals the base program leaves this window and the two outputs it reads back; the head of
+// the shaper's chain, whose five links the BIQUADS table names; the two input filters and the three
+// tone filters; the detector's two states and the levels off them; and the four registers each output
+// channel's half works through. The cells are the four this window takes for the base program and the
+// seven it keeps for itself: the level, the smoother, the two output filter states, the two dry
+// signals, and the gain curve with its one-pass-old copy.
+enum
+{
+	CHAIN = 1,        // r[1] to r[6]: the shaper's chain, then the gain curve's breakpoints
+	SIG_L = 7,        // r[7] and r[8], the panned sends the base program leaves the window
+	SIG_R = 8,
+	OUT_L = 17,       // r[17] and r[18], the two outputs the base program reads back
+	OUT_R = 18,
+	IN_L = 67,        // r[67] to r[70]: the left channel's input filter, its input, x[-1], output and
+	FILT_L = 69,      // y[-2], the second of them being the filtered signal the detector works from
+	IN_R = 71,        // r[71] to r[74]: the right channel's, the same four registers
+	FILT_R = 73,
+	PEAK = 75,        // r[75] and r[76], the detector's two states: the level plus a decaying term each
+	PEAK2 = 76,
+	OUT_L_IN = 77,    // r[77] and r[78], the two output filters' inputs
+	OUT_R_IN = 78,
+	SHAPED = 79,      // r[79], the polynomial at the drive's gain, which the tone filters work from
+	PRE = 81,         // r[81] and r[83], the first two tone filters' outputs and so the next filters'
+	PRE_C = 83,       // inputs; r[85] is the third's and the signal both output mixes weight
+	EQ = 85,
+	DET_L = 119,      // r[119] and r[120], the two channels at ins::HM_DRIVE's gain
+	DET_R = 120,
+	REL = 121,        // r[121], the release ramp 0x1b6 leaves for the detector's first state
+	THRESH = 123,     // r[123], the second state past the threshold, which the gain curve hangs off
+	LEV_L = 124,      // r[124] and r[125], the level times the smoother, and then the curve's last
+	LEV_R = 125,      // two breakpoints, reused after the output stage has read them
+	SCALE_L = 126,    // r[126] and r[127], the same level at the output stage's gain
+	SCALE_R = 127,
+	SERIAL_L = 3,     // m[3] and m[7], the serial inputs of page 13, which the base program reads
+	SERIAL_R = 7,
+	SERIAL_A = 4,     // m[4], page 14's left input, which nothing in this window reads back
+	LFO_CELL = 13,    // m[13], page 13's LFO
+	CURVE_OUT = 42,   // m[42], the gain curve's output, and m[43] that one pass old
+	CURVE_OLD = 43,
+	SMOOTH = 44,      // m[44], the smoother's state
+	STATE_L = 45,     // m[45] and m[46], the two output filters' states, which the shaper reads back
+	STATE_R = 46,
+	DRY_L = 47,       // m[47] and m[48], the two channels' dry signals, for the output mixes
+	DRY_R = 48,
+	LEVEL = 49,       // m[49], the level: the two channels summed and rectified
+};
+
+// ---------------------------------------------------------------------------------------------
+// What a step moves into a cell before it does any arithmetic
+// ---------------------------------------------------------------------------------------------
+
+// Four of the 96 steps take a value from the hardware side, and three of those publish a cell for the
+// base program rather than for this window: the two serial inputs of page 13 and that page's LFO. The
+// fourth takes page 14's left input into m[4], which nothing here reads. All four happen before the
+// step's own arithmetic, because step() moves a cell before it multiplies or adds anything, so the
+// step loop reads this table before it hands the step to a block.
+enum decor_t { DEC_NONE, DEC_SERIAL_L, DEC_SERIAL_R, DEC_LFO };
+
+struct Decor { int st; decor_t kind; int cell; };
+
+const Decor DECORS[4] = {
+    //  the step  the decor                    the cell
+    {   0x1a5,   DEC_SERIAL_L, SERIAL_L   },   // on the right channel's -a2 word
+    {   0x1a6,   DEC_SERIAL_R, SERIAL_R   },   // on that section's b0
+    {   0x1a7,   DEC_LFO,      LFO_CELL   },   // on ins::DIST_DRIVE[1]
+    {   0x1c3,   DEC_SERIAL_L, SERIAL_A   },   // on ins::DIST_BAND[6], the polynomial's first word
+};
+
+// The decor a step carries, or null for the 92 that carry none.
+Decor const* decor_for(int st)
+{
+	for (Decor const& d : DECORS)
+		if (d.st == st) return &d;
+	return nullptr;
+}
+
+void decor(yss236_core& c, int st, Decor const& d)
+{
+	switch (d.kind)
+	{
+		case DEC_SERIAL_L: take_serial(c, d.cell, st, 0); break;
+		case DEC_SERIAL_R: take_serial(c, d.cell, st, 1); break;
+		case DEC_LFO:      take_lfo(c, d.cell, st); break;
+		case DEC_NONE: break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The shaper's chain, r[1] to r[6]
+// ---------------------------------------------------------------------------------------------
+
+// One word of the chain: a register scaled by its word and by a route of 16, saturating into `out`.
+// `cell` says the word scales a cell instead of a register, which only the first of them does: its
+// source is m[45], the left output filter's state from the pass before, so the whole chain carries one
+// pass of that filter in it, and that is what the seven types' shapes are cut against.
+void shape_word(yss236_core& c, int st, int in, int out, int cell = 0)
+{
+	run(c, {st, in, cell, cell ? M2_CELL : M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT, out});
+}
+
+// The one word of the chain that publishes on its way out: m[43] takes the step before's own cell,
+// which is m[42], the gain curve's output. The smoother at 0x1b8 reads it, so the curve reaches the
+// shaper one pass late, which is what makes the dynamics a feedback path round the whole block.
+void shape_word_published(yss236_core& c, int st, int in, int out)
+{
+	run(c, {st, in, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_16, CLAMP_SAT, out, false, CURVE_OLD, true});
+}
+
+// ---------------------------------------------------------------------------------------------
+// The five order-2 sections: the two input filters and the three tone filters
+// ---------------------------------------------------------------------------------------------
+
+// One section in direct form I, five steps: b1 on the input, b2 on x[-1], -a1 on y[-1], -a2 on y[-2],
+// and b0 closing the sum into the output. designFilter() writes b0, b1, b2, -a1, -a2 in that order,
+// and the schedule runs them the other way round with the z^-1 copies riding on the b2 and -a2 words,
+// so `x1` holds the input a pass back and `y2` the output two passes back. All five sections carry the
+// b2 copy; only three carry the -a2 one, `y2_copy` says which, and the two that do not read y[-2] out
+// of a register nothing then advances. The closing step's route is the designer's own (16 >> scale)
+// put back, which is why it is the only one of the five that has a route or saturates.
+struct Biquad
+{
+	int base;          // the first of the section's five steps
+	int in, x1, out, y2;
+	route_t route;
+	bool y2_copy;
+};
+
+const Biquad BIQUADS[5] = {
+    //  base  in  x1  out  y2  route   the -a2 copy
+    { 0x1a2, IN_R, IN_R + 1, FILT_R, FILT_R + 1, ROUTE_2,  true  },   // ins::DIST_INPUT_C, right channel
+    { 0x1ab, IN_L, IN_L + 1, FILT_L, FILT_L + 1, ROUTE_2,  true  },   // ins::DIST_INPUT, left channel
+    { 0x1cd, SHAPED, SHAPED + 1, PRE, PRE + 1, ROUTE_2,  false },   // ins::DIST_PRE, the first tone filter
+    { 0x1d2, PRE, PRE + 1, PRE_C, PRE_C + 1, ROUTE_2,  false },   // ins::DIST_PRE_C, over the first's
+    { 0x1d7, PRE_C, PRE_C + 1, EQ, EQ + 1, ROUTE_16,     true  },   // ins::DIST_EQ, over the second's
+};
+
+// The section a step belongs to, or null for the steps between the sections.
+Biquad const* biquad_for(int st)
+{
+	for (Biquad const& b : BIQUADS)
+		if (st >= b.base && st < b.base + 5) return &b;
+	return nullptr;
+}
+
+// One section's step k of five. Only the closing step saturates and routes: the other four are terms
+// of a sum, which is what a direct form I section is.
+void biquad_step(yss236_core& c, int st, Biquad const& b, int k)
+{
+	switch (k)
+	{
+	case 0: term(c, st, b.in); break;                                        // b1 on the input
+	case 1: copy_z(c, st, b.x1, b.x1, ADD_ACC, CLAMP_WRAP); break;          // b2 on x[-1], and x[-1] kept
+	case 2: sum(c, st, b.out); break;                                        // -a1 on y[-1]
+	case 3:                                                             // -a2 on y[-2], where it is kept
+		if (b.y2_copy) copy_z(c, st, b.y2, b.y2, ADD_ACC, CLAMP_WRAP);
+		else          sum(c, st, b.y2);
+		break;
+	default: close(c, st, b.in, b.out, b.route); break;                      // b0, closing the section
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x1a0 to 0x1af: the shaper's input and the two channels' input filters
+// ---------------------------------------------------------------------------------------------
+
+// The three drive words and the two channels' inputs. The schedule interleaves them rather than
+// finishing one before the next, because the shaper's input is three words deep by the time the left
+// filter has run: a word of the drive chain, then a channel in and its section, then the next word.
+void inputs(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x1a0:
+		// ins::DIST_DRIVE[0]: the signal into the shaper, which is the left output filter's state
+		shape_word(c, st, 0, CHAIN, STATE_L);
+		break;
+	case 0x1a1:
+		// the ROM's own word: the right channel's input into r[71] at a half
+		gain(c, st, SIG_R, IN_R, ROUTE_2);
+		break;
+	case 0x1a7:
+		// ins::DIST_DRIVE[1]
+		shape_word(c, st, CHAIN, CHAIN);
+		break;
+	case 0x1a8:
+		// the ROM's own word on r[7], which the step after adds r[8] to
+		term(c, st, SIG_L);
+		break;
+	case 0x1a9:
+		// and the left channel's input, which is the two signals the base program leaves summed
+		close(c, st, SIG_R, IN_L, ROUTE_2);
+		break;
+	case 0x1aa:
+		// ins::DIST_DRIVE[2]
+		shape_word(c, st, CHAIN, CHAIN);
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x1b0 to 0x1c1: the rest of the chain, the level, the smoother and the detector
+// ---------------------------------------------------------------------------------------------
+
+// One of the two release words, ins::DYN_RELEASE[0] and [2]: the detector's first state decayed by its
+// word, less whatever the running value is, with the negatives held at zero. `dr` is the register
+// that takes it, and only 0x1b6 has one: 0x1c0's result is the ramp itself, which 0x1c1 adds to the
+// level to make the detector's second state.
+void release(yss236_core& c, int st, int dr)
+{
+	run(c, {st, PEAK, 0, M2_REG, false, 0, ADD_ACC, true, ROUTE_1, CLAMP_ZERO, dr});
+}
+
+// 0x1b0 to 0x1bb: four more words down the chain, with the level and the smoother between them. The
+// level is what the detector and so the whole gain curve work from, so it is rectified and put in a
+// cell, and the smoother is the one recurrence in the program: three words that average the curve's
+// output against the state the pass before left, at ins::DYN_ATTACK's attack rate.
+void shaper_chain(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x1b0:
+		shape_word(c, st, CHAIN, CHAIN + 1); break;          // ins::DIST_BAND[1]
+	case 0x1b3:
+		shape_word(c, st, CHAIN + 1, CHAIN + 2); break;      // ins::DIST_BAND[2]
+	case 0x1b7:
+		shape_word(c, st, CHAIN + 2, CHAIN + 3); break;      // ins::DIST_BAND[3]
+	case 0x1bb:
+		shape_word_published(c, st, CHAIN + 3, CHAIN + 4); break;   // ins::DIST_BAND[4]
+	case 0x1b1:
+		// ins::HM_DRIVE[0]: the right channel at the detector's gain
+		gain(c, st, FILT_R, DET_R, ROUTE_2);
+		break;
+	case 0x1b2:
+		// ins::HM_DRIVE[1]: and the left channel's
+		gain(c, st, FILT_L, DET_L, ROUTE_2);
+		break;
+	case 0x1b4:
+		// ins::DIST_LEVEL[1]: the level's own word on the right channel
+		term(c, st, DET_R);
+		break;
+	case 0x1b5:
+		// ins::DIST_LEVEL[0]: the left channel added on top and the sum taken at its absolute value,
+		// so m[49] is the peak of the two channels and not their total
+		run(c, {st, DET_L, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_16, CLAMP_ABS, 0, false, LEVEL});
+		break;
+	case 0x1b6:
+		release(c, st, REL);                                 // ins::DYN_RELEASE[0]
+		break;
+	case 0x1b8:
+		term_cell(c, st, CURVE_OLD);                         // ins::DYN_ATTACK[1], on the curve a pass old
+		break;
+	case 0x1b9:
+		sum_cell(c, st, SMOOTH);                             // ins::DYN_ATTACK[2], plus the state
+		break;
+	default:
+		// ins::DYN_ATTACK[0]: the curve's own word on top, into the state cell and out to t[9], which
+		// is the gain the two channel scales at 0x1c9 and 0x1ca multiply by
+		t_put(c, 9, run(c, {st, 0, CURVE_OUT, M2_CELL, false, 0, ADD_ACC, false,
+		                     ROUTE_1, CLAMP_SAT, 0, false, SMOOTH}));
+		break;
+	}
+}
+
+// 0x1bc to 0x1c1: the detector's two states and the release between them. Both states are the level
+// plus a term that decays, so the pair is the peak the gain curve measures the level against: the level
+// reaches both at once through the class-3 steps and falls only as fast as the release words allow.
+// The three class-3 steps take m[49] at unity gain, their word being 1.0 rather than a coefficient.
+void detector(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x1bc:
+		// r[75] = m[49] + r[121], the level plus the ramp 0x1b6 left
+		run(c, {st, REL, LEVEL, M2_CELL, true, 0, ADD_REG, false, ROUTE_1, CLAMP_SAT, PEAK});
+		break;
+	case 0x1bd:
+		// the ROM's own word on the second state, ins::DYN_RELEASE[1]'s first half
+		term(c, st, PEAK2);
+		break;
+	case 0x1be:
+		// and the same word again with the running value added at 1/32768, which is the decay term in
+		// register units: the second state is its own decay plus a little of what it was
+		run(c, {st, PEAK2, 0, M2_REG, false, 0, ADD_CELL, false, ROUTE_1, CLAMP_WRAP});
+		break;
+	case 0x1bf:
+		// class 3: acc = m[49] - acc, how far the level has fallen below its own decay
+		run(c, {st, 0, LEVEL, M2_CELL, true, 0, ADD_ACC, true, ROUTE_1, CLAMP_WRAP});
+		break;
+	case 0x1c0:
+		// ins::DYN_RELEASE[2]: the ramp, the first state's decay less that, and never negative
+		release(c, st, 0);
+		break;
+	default:
+		// class 3: r[76] = m[49] + acc, the second state
+		run(c, {st, 0, LEVEL, M2_CELL, true, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, PEAK2});
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x1c2 to 0x1cb: the shape's polynomial, and the two channel scales out of the t file
+// ---------------------------------------------------------------------------------------------
+
+// One word of the shaper's polynomial, ins::DIST_BAND[6] to [11]: the chain's registers weighed and
+// added into r[1]. Only the first word stands alone, with the adder off; the four in between add to
+// the running value and the last closes the sum, which is also the only one that saturates. So the
+// polynomial is the shape the drive's five multiplies reach the shaper with.
+struct PolyTerm { int reg; bool closes; };
+
+const PolyTerm POLY[6] = {
+	{ CHAIN,     false },     // ins::DIST_BAND[6], the only word with the adder off
+	{ CHAIN + 1, false },     // ins::DIST_BAND[7]
+	{ CHAIN + 2, false },     // ins::DIST_BAND[8]
+	{ CHAIN + 3, false },     // ins::DIST_BAND[9]
+	{ CHAIN + 4, false },     // ins::DIST_BAND[10]
+	{ CHAIN,     true  },     // ins::DIST_BAND[11], closing the sum back into r[1]
+};
+
+void polynomial(yss236_core& c, int st, int k)
+{
+	PolyTerm const& p = POLY[k];
+	run(c, {st, p.reg, 0, M2_REG, false, 0, k ? ADD_ACC : ADD_OFF, false,
+	         ROUTE_1, p.closes ? CLAMP_SAT : CLAMP_WRAP, p.closes ? CHAIN : 0});
+}
+
+// The four steps that multiply by a t register, which is how the smoother's gain becomes a pole both
+// the detector and the output stage read. The first pair scales the two channels by t[9] and passes
+// each on squared in t[10] and t[11]; the second pair, on the output side of the block, applies those
+// two to the same two channels. `tn` is the t register the result also lands in, zero for the two
+// steps that write none.
+struct TGain { int base; int src, dst; int treg, tn; };
+
+const TGain T_GAIN[4] = {
+    //  base  src  dst  treg  tn
+    { 0x1c9, DET_L, LEV_L,   9, 10 },     // the smoothed level of each channel, squared into its t register
+    { 0x1ca, DET_R, LEV_R,   9, 11 },
+    { 0x1dc, DET_L, SCALE_L, 10,  0 },     // and the output scale, which reads what those two left
+    { 0x1e6, DET_R, SCALE_R, 11,  0 },
+};
+
+TGain const* t_gain_for(int st)
+{
+	for (TGain const& g : T_GAIN)
+		if (st == g.base) return &g;
+	return nullptr;
+}
+
+void t_gain(yss236_core& c, int st, TGain const& g)
+{
+	double const y = run(c, {st, g.src, 0, M2_REG, false, g.treg, ADD_OFF, false, ROUTE_1, CLAMP_SAT, g.dst});
+	if (g.tn) t_put(c, g.tn, y);
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x1dc to 0x1ec: the output stage
+// ---------------------------------------------------------------------------------------------
+
+// One channel's six steps from the mode mix to the end of its output filter. ins::DIST_MODE's two
+// words add the smoothed level to the channel's own scale, the ROM's own word closes that sum at a
+// sixteen, and the three steps after are the output filter ins::DIST_OUTPUT or ins::DIST_OUTPUT_C:
+// b1 on its input, -a1 on the state, and b0 closing into that state. The state is a cell rather than
+// a register because 0x1a0 reads it back into the shaper's chain, one pass behind.
+struct ChannelOut { int base; int mode_reg, scale_src, scale_reg, in, state; };
+
+const ChannelOut CHANNELS[2] = {
+    //  base  mode  src  scale  in  state
+    { 0x1dd, LEV_L, DET_L, SCALE_L, OUT_L_IN, STATE_L },   // the left, off DIST_MODE and DIST_OUTPUT
+    { 0x1e7, LEV_R, DET_R, SCALE_R, OUT_R_IN, STATE_R },   // and the right, off DIST_OUTPUT_C
+};
+
+ChannelOut const* channel_for(int st)
+{
+	for (ChannelOut const& p : CHANNELS)
+		if (st >= p.base && st < p.base + 6) return &p;
+	return nullptr;
+}
+
+void channel_step(yss236_core& c, int st, ChannelOut const& p, int k)
+{
+	switch (k)
+	{
+	case 0:
+		term(c, st, p.mode_reg); break;                  // ins::DIST_MODE[0], on the smoothed level
+	case 1:
+		sum(c, st, p.scale_src); break;                  // ins::DIST_MODE[1], plus the channel's own scale
+	case 2:
+		close(c, st, p.scale_reg, p.in, ROUTE_16); break;   // the two together, the ROM's word at a sixteen
+	case 3:
+		term(c, st, p.in); break;                        // ins::DIST_OUTPUT[1], b1
+	case 4:
+		sum_cell(c, st, p.state); break;                 // ins::DIST_OUTPUT[2], -a1 on y[-1]
+	default:
+		// ins::DIST_OUTPUT[0], b0: the filter's output into the cell its own -a1 reads, at a half
+		run(c, {st, p.in, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, 0, false, p.state});
+		break;
+	}
+}
+
+// The two output mixes, ins::DIST_WET, three steps between the two channels' halves. The left one
+// takes the wet share and its dry share in the same step and closes into r[17]; the right one's dry
+// share is the running value a step before it multiplies its own wet share by, so the pair sums the
+// two channels' dry signals into both outputs with one step of the pipeline in common.
+struct MixStep { int st; m2_t m2; int src; int cell; add_t add; route_t route; int dr; };
+
+const MixStep MIXES[3] = {
+    //  the step  what the word scales  its register  the adder's cell  the adder  route  out
+    {   0x1e3,  M2_REG,                 EQ,      DRY_L,     ADD_CELL, ROUTE_4, OUT_L  },
+    {   0x1e4,  M2_REG,                 EQ,      DRY_R,     ADD_CELL, ROUTE_1, 0      },
+    {   0x1e5,  M2_CELL,                0, STATE_R,     ADD_ACC,  ROUTE_4, OUT_R  },
+};
+
+void mix_step(yss236_core& c, MixStep const& p)
+{
+	run(c, {p.st, p.src, p.cell, p.m2, false, 0, p.add, false, p.route,
+	         p.dr ? CLAMP_SAT : CLAMP_WRAP, p.dr});
+}
+
+// ---------------------------------------------------------------------------------------------
+// 0x1ed to 0x1ff: the gain curve and the two dry signals
+// ---------------------------------------------------------------------------------------------
+
+// One segment of the gain curve. The eight breakpoints are eight class-1 steps off the thresholded
+// level, each its own ROM word added to the level and held at zero, so r[123] is measured against a
+// staircase of thresholds: a quarter, a half, one, two, four, eight, sixteen and sixty-four. The
+// weights are ins::DYN_RATIO, one per segment between two breakpoints, and the eight are summed into
+// m[42], which is the curve the smoother reads. `bp` is the register a breakpoint lands in and `w`
+// the one its own segment's weight reads, so the table holds both halves of one segment: the two
+// channels' breakpoints are the smoothed level's own registers, reused after the output stage has
+// read them.
+struct Segment { int bp, w; route_t route; };
+
+const Segment CURVE[8] = {
+    //   bp   w  route      the breakpoint lands in r[bp] and its own weight reads r[w]
+    { CHAIN,     CHAIN,     ROUTE_2 },      // ins::DYN_RATIO[0]
+    { CHAIN + 1, CHAIN + 2, ROUTE_2 },      // ins::DYN_RATIO[2]
+    { CHAIN + 2, CHAIN + 3, ROUTE_2 },      // ins::DYN_RATIO[3]
+    { CHAIN + 3, CHAIN + 1, ROUTE_2 },      // ins::DYN_RATIO[1]
+    { CHAIN + 4, CHAIN + 4, ROUTE_2 },      // ins::DYN_RATIO[4]
+    { CHAIN + 5, CHAIN + 5, ROUTE_4 },      // ins::DYN_RATIO[5]
+    { LEV_L,     LEV_L,     ROUTE_1 },      // ins::DYN_RATIO[6]
+    { LEV_R,     LEV_R,     ROUTE_1 },      // ins::DYN_RATIO[7]
+};
+
+void gain_curve(yss236_core& c, int st)
+{
+	if (st < 0x1f5)
+	{
+		// one of the eight breakpoints: r[n] = max(0, 128 * k + r[123]), the level less that step
+		load(c, st, THRESH, 0, ADD_REG, false, ROUTE_1, CLAMP_ZERO, CURVE[st - 0x1ed].bp);
+		return;
+	}
+	if (st < 0x1fd)
+	{
+		// and the weight of one segment, the first on its own and the rest added to the running value.
+		// The routes differ step by step, which is the ratio law's own shape and not a table's.
+		Segment const& g = CURVE[st - 0x1f5];
+		run(c, {st, g.w, 0, M2_REG, false, 0, st == 0x1f5 ? ADD_OFF : ADD_ACC, false, g.route, CLAMP_WRAP});
+		return;
+	}
+	switch (st)
+	{
+	case 0x1fd:
+		// m[42] = max(0, 128 * k + acc): the eight weights summed, biased by the ROM's own word and
+		// held at zero, which is the curve the smoother and so the shaper will read next pass
+		load(c, st, 0, 0, ADD_ACC, false, ROUTE_1, CLAMP_ZERO, 0, CURVE_OUT);
+		break;
+	case 0x1fe:
+		// ins::DIST_WET[0]: m[47] = k * r[7], the left channel's dry signal
+		run(c, {st, SIG_L, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0, false, DRY_L});
+		break;
+	default:
+		// ins::DIST_WET[2]: m[48] = k * r[8], the right channel's
+		run(c, {st, SIG_R, 0, M2_REG, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0, false, DRY_R});
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The 96 steps
+// ---------------------------------------------------------------------------------------------
+
 // The run of steps 0x1a0 to 0x1ff, the whole of the window's program. The loop is one iteration per
 // step and carries the m_skip guard step() opens with, so a gate in the base program skips these steps
-// as it would the interpreter's.
+// as it would the interpreter's. There is no gate in this program and none of its steps is a control
+// step, so no cskip of this block's own either: the guard is the only one a skip can open here.
 void block_0x1a0(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers
-	double* const m = c.m;                 // the 64 cells, which carry the values between the steps
-	double xv, k, g, m2, prod, a, y, v;    // the step's operands and its result
-
-	// The step's x operand: the register r[sr] into the latch every step but a class-2/3 one moves, and
-	// xv alongside it for the multiplier.
-	auto fetch = [&](int sr) { xv = sr ? r[sr] : 0.0; c.px = c.x; c.haspx = c.hasx; c.x = xv; c.hasx = sr != 0; };
-	// The t file write of a step whose result is y; every write here takes the register form.
-	auto twr = [&](double yy, int tn) {
-		double const w = yy * 256.0;
-		c.queue_t(tn, (w < -32768.0 ? -32768.0 : 32767.0 < w ? 32767.0 : w) / 32768.0);
-	};
-
 	for (int st = 0x1a0; st < 0x200; st++)
 	{
 		c.begin_step();
 		if (st < c.m_skip) continue;
-		switch (st)
+
+		// the four cells this window takes from the hardware side, before the step's own arithmetic
+		if (Decor const* d = decor_for(st)) decor(c, st, *d);
+
+		// ---- 0x1a0 to 0x1af: the drive chain, the two channels' inputs and their filters ----
+		if (st < 0x1b0)
 		{
+			if (Biquad const* b = biquad_for(st)) { biquad_step(c, st, *b, st - b->base); continue; }
+			inputs(c, st);
+			continue;
+		}
 
-		// ---- 0x1a0 to 0x1af, the inputs, the two input filters and the drive's first words ----
-		// ins::DIST_DRIVE[0]: r[1] = saturate(16 * k * m[45]), the signal into the shaper
-		case 0x1a0:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[45];
-			m2 = c.src; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			c.queue_r(1, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// the ROM's own word: r[71] = saturate(2 * k * r[8]), the right input
-		case 0x1a1:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(8);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 2.0;
-			c.queue_r(71, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_INPUT_C[1], b1: acc = k * r[71]
-		case 0x1a2:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(71);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_INPUT_C[2], b2: acc = k * r[72] + acc, and r[72] takes the step before's x
-		case 0x1a3:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(72);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(72, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_INPUT_C[3], -a1: acc = k * r[73] + acc
-		case 0x1a4:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(73);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// m[3] takes the left serial input of page 13; ins::DIST_INPUT_C[4], -a2: acc = k * r[74] + acc,
-		// and r[74] takes the step before's x
-		case 0x1a5:
-			c.queue_d(3, c.in[0][13]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(74);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(74, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// m[7] takes the right serial input of page 13; ins::DIST_INPUT_C[0], b0:
-		// r[73] = saturate(2 * (k * r[71] + acc)), the right channel's filtered input
-		case 0x1a6:
-			c.queue_d(7, c.in[1][13]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(71);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(73, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// m[13] takes the page's LFO; ins::DIST_DRIVE[1]: r[1] = saturate(16 * k * r[1])
-		case 0x1a7:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(1);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			c.queue_r(1, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// the ROM's own word: acc = k * r[7]
-		case 0x1a8:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(7);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the ROM's own word: r[67] = saturate(2 * (k * r[8] + acc)), the left input
-		case 0x1a9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(8);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(67, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_DRIVE[2], which is also ins::DIST_BAND[0]: r[1] = saturate(16 * k * r[1])
-		case 0x1aa:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(1);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			c.queue_r(1, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_INPUT[1], b1: acc = k * r[67]
-		case 0x1ab:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(67);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_INPUT[2], b2: acc = k * r[68] + acc, and r[68] takes the step before's x
-		case 0x1ac:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(68);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(68, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_INPUT[3], -a1: acc = k * r[69] + acc
-		case 0x1ad:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(69);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_INPUT[4], -a2: acc = k * r[70] + acc, and r[70] takes the step before's x
-		case 0x1ae:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(70);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(70, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_INPUT[0], b0: r[69] = saturate(2 * (k * r[67] + acc)), the left channel's filtered input
-		case 0x1af:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(67);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(69, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
+		// ---- 0x1b0 to 0x1bb: the rest of the chain, the level and the smoother ----
+		if (st < 0x1bc) { shaper_chain(c, st); continue; }
 
-		// ---- 0x1b0 to 0x1bb, the shape's chain and the level detector ----
-		// ins::DIST_BAND[1], the gain word storeEdge() derives: r[2] = saturate(16 * k * r[1])
-		case 0x1b0:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(1);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			c.queue_r(2, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::HM_DRIVE[0]: r[120] = saturate(2 * k * r[73])
-		case 0x1b1:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(73);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 2.0;
-			c.queue_r(120, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::HM_DRIVE[1]: r[119] = saturate(2 * k * r[69])
-		case 0x1b2:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(69);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 2.0;
-			c.queue_r(119, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_BAND[2], the first shape word: r[3] = saturate(16 * k * r[2])
-		case 0x1b3:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(2);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			c.queue_r(3, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_LEVEL[1], b1: acc = k * r[120]
-		case 0x1b4:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(120);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_LEVEL[0], b0: m[49] = clip(16 * (k * r[119] + acc), +-128),
-		// the level: the two channels summed and rectified
-		case 0x1b5:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(119);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 16.0;
-			y = c.acc = yss236_core::accmode(y, 3);
-			c.queue_d(49, yss236_core::clip(y, yss236_core::DSAT));
-			break;
-		// ins::DYN_RELEASE[0]: r[121] = max(0, k * r[75] - acc)
-		case 0x1b6:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(75);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			c.queue_r(121, yss236_core::mode(y, 2));
-			y = c.acc = yss236_core::accmode(y, 2);
-			break;
-		// ins::DIST_BAND[3], the second shape word: r[4] = saturate(16 * k * r[3])
-		case 0x1b7:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(3);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			c.queue_r(4, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DYN_ATTACK[1]: acc = k * m[43]
-		case 0x1b8:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[43];
-			m2 = c.src; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DYN_ATTACK[2]: acc = k * m[44] + acc
-		case 0x1b9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[44];
-			m2 = c.src; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DYN_ATTACK[0]: m[44] = clip(k * m[42] + acc, +-128) and t[9] takes it, the smoother's state
-		case 0x1ba:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[42];
-			m2 = c.src; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.queue_d(44, yss236_core::clip(y, yss236_core::DSAT));
-			twr(y, 9);
-			break;
-		// ins::DIST_BAND[4], the third shape word: r[5] = saturate(16 * k * r[4]),
-		// and m[43] takes the step before's operand m[42]
-		case 0x1bb:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(4);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			c.queue_r(5, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.queue_d(43, c.psrc);
-			break;
+		// ---- 0x1bc to 0x1c1: the detector's two states and the release between them ----
+		if (st < 0x1c2) { detector(c, st); continue; }
 
-		// ---- 0x1bc to 0x1c1, the detector's two states and the release ----
-		// class 3, which multiplies by one: r[75] = saturate(m[49] + r[121]), the detector's first state
-		case 0x1bc:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(121);
-			c.psrc = c.src; c.src = m[49];
-			m2 = c.src; prod = m2;
-			a = xv;
-			y = (prod + a) * 1.0;
-			c.queue_r(75, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// the ROM's own word: acc = k * r[76]
-		case 0x1bd:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(76);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DYN_RELEASE[1]: acc = k * r[76] + acc / 32768
-		case 0x1be:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(76);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc / 32768.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// class 3, unity gain: acc = m[49] - acc
-		case 0x1bf:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[49];
-			m2 = c.src; prod = m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DYN_RELEASE[2]: acc = max(0, k * r[75] - acc)
-		case 0x1c0:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(75);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod - a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 2);
-			break;
-		// class 3, unity gain: r[76] = saturate(m[49] + acc), the detector's second state
-		case 0x1c1:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[49];
-			m2 = c.src; prod = m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(76, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
+		// ---- 0x1c2 to 0x1cb: the polynomial, the two smoothed levels and the drive's last word ----
+		if (st < 0x1cc)
+		{
+			if (st == 0x1c2) { shape_word(c, st, CHAIN + 4, CHAIN); continue; }   // ins::DIST_BAND[5]
+			if (st < 0x1c9) { polynomial(c, st, st - 0x1c3); continue; }
+			if (st < 0x1cb) { t_gain(c, st, *t_gain_for(st)); continue; }
+			// ins::DIST_DRIVE[3]: the polynomial at the drive's own gain, into the tone filters' input
+			gain(c, st, CHAIN, SHAPED, ROUTE_1);
+			continue;
+		}
 
-		// ---- 0x1c2 to 0x1cb, the shape's sum, the level times the smoother and the drive's gain ----
-		// ins::DIST_BAND[5], the fourth shape word: r[1] = saturate(16 * k * r[5])
-		case 0x1c2:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(5);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 16.0;
-			c.queue_r(1, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_BAND[6]: acc = k * r[1]
-		case 0x1c3:
-			c.queue_d(4, c.in[0][14]);
-			k = yss236_core::s16(c.coef[st]);
-			fetch(1);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_BAND[7]: acc = k * r[2] + acc
-		case 0x1c4:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(2);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_BAND[8]: acc = k * r[3] + acc
-		case 0x1c5:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(3);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_BAND[9]: acc = k * r[4] + acc
-		case 0x1c6:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(4);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_BAND[10]: acc = k * r[5] + acc
-		case 0x1c7:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(5);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_BAND[11]: r[1] = saturate(k * r[1] + acc), the shaper's output
-		case 0x1c8:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(1);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(1, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// r[124] = saturate(t[9] * r[119]) and t[10] takes it
-		case 0x1c9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(119);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = c.t[9] * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(124, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			twr(y, 10);
-			break;
-		// r[125] = saturate(t[9] * r[120]) and t[11] takes it
-		case 0x1ca:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(120);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = c.t[9] * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(125, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			twr(y, 11);
-			break;
-		// ins::DIST_DRIVE[3]: r[79] = saturate(k * r[1]), the shaper's output at the drive's gain
-		case 0x1cb:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(1);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(79, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
+		// ---- 0x1cc to 0x1db: the threshold and the three tone filters ----
+		if (st < 0x1dc)
+		{
+			if (Biquad const* b = biquad_for(st)) { biquad_step(c, st, *b, st - b->base); continue; }
+			// ins::DYN_THRESHOLD: the second state past the threshold, which the curve measures against
+			gain(c, st, PEAK2, THRESH, ROUTE_1);
+			continue;
+		}
 
-		// ---- 0x1cc to 0x1db, the threshold and the three tone filters ----
-		// ins::DYN_THRESHOLD: r[123] = saturate(k * r[76]), the level past the threshold
-		case 0x1cc:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(76);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(123, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_PRE[1], b1: acc = k * r[79]
-		case 0x1cd:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(79);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_PRE[2], b2: acc = k * r[80] + acc, and r[80] takes the step before's x
-		case 0x1ce:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(80);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(80, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_PRE[3], -a1: acc = k * r[81] + acc
-		case 0x1cf:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(81);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_PRE[4], -a2: acc = k * r[82] + acc
-		case 0x1d0:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(82);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_PRE[0], b0: r[81] = saturate(2 * (k * r[79] + acc))
-		case 0x1d1:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(79);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(81, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_PRE_C[1], b1: acc = k * r[81]
-		case 0x1d2:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(81);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_PRE_C[2], b2: acc = k * r[82] + acc, and r[82] takes the step before's x
-		case 0x1d3:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(82);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(82, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_PRE_C[3], -a1: acc = k * r[83] + acc
-		case 0x1d4:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(83);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_PRE_C[4], -a2: acc = k * r[84] + acc
-		case 0x1d5:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(84);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_PRE_C[0], b0: r[83] = saturate(2 * (k * r[81] + acc))
-		case 0x1d6:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(81);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(83, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_EQ[1], b1: acc = k * r[83]
-		case 0x1d7:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(83);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_EQ[2], b2: acc = k * r[84] + acc, and r[84] takes the step before's x
-		case 0x1d8:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(84);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(84, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_EQ[3], -a1: acc = k * r[85] + acc
-		case 0x1d9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(85);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_EQ[4], -a2: acc = k * r[86] + acc, and r[86] takes the step before's x
-		case 0x1da:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(86);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(86, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_EQ[0], b0: r[85] = saturate(16 * (k * r[83] + acc)), the third filter's output
-		case 0x1db:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(83);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 16.0;
-			c.queue_r(85, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
+		// ---- 0x1dc to 0x1ec: the two output scales, the two channels' halves and the two mixes ----
+		if (st < 0x1ed)
+		{
+			if (TGain const* g = t_gain_for(st)) { t_gain(c, st, *g); continue; }
+			if (ChannelOut const* p = channel_for(st)) { channel_step(c, st, *p, st - p->base); continue; }
+			mix_step(c, MIXES[st - 0x1e3]);
+			continue;
+		}
 
-		// ---- 0x1dc to 0x1ec, the output level, the output filters and the dry and wet mix ----
-		// the ROM's own word: r[126] = saturate(t[10] * r[119])
-		case 0x1dc:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(119);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = c.t[10] * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(126, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_MODE[0]: acc = k * r[124]
-		case 0x1dd:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(124);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_MODE[1]: acc = k * r[119] + acc
-		case 0x1de:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(119);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the ROM's own word: r[77] = saturate(16 * (k * r[126] + acc))
-		case 0x1df:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(126);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 16.0;
-			c.queue_r(77, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_OUTPUT[1], b1: acc = k * r[77]
-		case 0x1e0:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(77);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_OUTPUT[2], -a1: acc = k * m[45] + acc
-		case 0x1e1:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[45];
-			m2 = c.src; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_OUTPUT[0], b0: m[45] = clip(2 * (k * r[77] + acc), +-128), the left output filter's state
-		case 0x1e2:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(77);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.queue_d(45, yss236_core::clip(y, yss236_core::DSAT));
-			break;
-		// ins::DIST_WET[1]: r[17] = saturate(4 * (k * r[85] + m[47])), the left output
-		case 0x1e3:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(85);
-			c.psrc = c.src; c.src = m[47];
-			m2 = xv; prod = k * m2;
-			a = c.src;
-			y = (prod + a) * 4.0;
-			c.queue_r(17, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_WET[4]: acc = k * r[85] + m[48]
-		case 0x1e4:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(85);
-			c.psrc = c.src; c.src = m[48];
-			m2 = xv; prod = k * m2;
-			a = c.src;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_WET[3]: r[18] = saturate(4 * (k * m[46] + acc)), the right output
-		case 0x1e5:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[46];
-			m2 = c.src; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(18, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// the ROM's own word: r[127] = saturate(t[11] * r[120])
-		case 0x1e6:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(120);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = c.t[11] * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			c.queue_r(127, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// the ROM's own word: acc = k * r[125]
-		case 0x1e7:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(125);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the ROM's own word: acc = k * r[120] + acc
-		case 0x1e8:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(120);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the ROM's own word: r[78] = saturate(16 * (k * r[127] + acc))
-		case 0x1e9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(127);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 16.0;
-			c.queue_r(78, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		// ins::DIST_OUTPUT_C[1], b1: acc = k * r[78]
-		case 0x1ea:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(78);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_OUTPUT_C[2], -a1: acc = k * m[46] + acc
-		case 0x1eb:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[46];
-			m2 = c.src; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DIST_OUTPUT_C[0], b0: m[46] = clip(2 * (k * r[78] + acc), +-128), the right output filter's state
-		case 0x1ec:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(78);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.queue_d(46, yss236_core::clip(y, yss236_core::DSAT));
-			break;
-
-		// ---- 0x1ed to 0x1ff, the gain curve's breakpoints, its weights and the dry signals ----
-		// the ROM's own word: r[1] = max(0, 128 * k + r[123]), the curve's first breakpoint
-		case 0x1ed:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(123);
-			c.psrc = c.src; c.src = m[0];
-			a = xv;
-			v = 128.0 * k + a;
-			c.queue_r(1, yss236_core::mode(v, 2));
-			y = c.acc = yss236_core::accmode(v, 2);
-			break;
-		// the ROM's own word: r[2] = max(0, 128 * k + r[123])
-		case 0x1ee:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(123);
-			c.psrc = c.src; c.src = m[0];
-			a = xv;
-			v = 128.0 * k + a;
-			c.queue_r(2, yss236_core::mode(v, 2));
-			y = c.acc = yss236_core::accmode(v, 2);
-			break;
-		// the ROM's own word: r[3] = max(0, 128 * k + r[123])
-		case 0x1ef:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(123);
-			c.psrc = c.src; c.src = m[0];
-			a = xv;
-			v = 128.0 * k + a;
-			c.queue_r(3, yss236_core::mode(v, 2));
-			y = c.acc = yss236_core::accmode(v, 2);
-			break;
-		// the ROM's own word: r[4] = max(0, 128 * k + r[123])
-		case 0x1f0:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(123);
-			c.psrc = c.src; c.src = m[0];
-			a = xv;
-			v = 128.0 * k + a;
-			c.queue_r(4, yss236_core::mode(v, 2));
-			y = c.acc = yss236_core::accmode(v, 2);
-			break;
-		// the ROM's own word: r[5] = max(0, 128 * k + r[123])
-		case 0x1f1:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(123);
-			c.psrc = c.src; c.src = m[0];
-			a = xv;
-			v = 128.0 * k + a;
-			c.queue_r(5, yss236_core::mode(v, 2));
-			y = c.acc = yss236_core::accmode(v, 2);
-			break;
-		// the ROM's own word: r[6] = max(0, 128 * k + r[123])
-		case 0x1f2:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(123);
-			c.psrc = c.src; c.src = m[0];
-			a = xv;
-			v = 128.0 * k + a;
-			c.queue_r(6, yss236_core::mode(v, 2));
-			y = c.acc = yss236_core::accmode(v, 2);
-			break;
-		// the ROM's own word: r[124] = max(0, 128 * k + r[123])
-		case 0x1f3:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(123);
-			c.psrc = c.src; c.src = m[0];
-			a = xv;
-			v = 128.0 * k + a;
-			c.queue_r(124, yss236_core::mode(v, 2));
-			y = c.acc = yss236_core::accmode(v, 2);
-			break;
-		// the ROM's own word: r[125] = max(0, 128 * k + r[123])
-		case 0x1f4:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(123);
-			c.psrc = c.src; c.src = m[0];
-			a = xv;
-			v = 128.0 * k + a;
-			c.queue_r(125, yss236_core::mode(v, 2));
-			y = c.acc = yss236_core::accmode(v, 2);
-			break;
-		// ins::DYN_RATIO[0]: acc = 2 * k * r[1]
-		case 0x1f5:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(1);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 2.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DYN_RATIO[2]: acc = 2 * (k * r[3] + acc)
-		case 0x1f6:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(3);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DYN_RATIO[3]: acc = 2 * (k * r[4] + acc)
-		case 0x1f7:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(4);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DYN_RATIO[1]: acc = 2 * (k * r[2] + acc)
-		case 0x1f8:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(2);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DYN_RATIO[4]: acc = 2 * (k * r[5] + acc)
-		case 0x1f9:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(5);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DYN_RATIO[5]: acc = 4 * (k * r[6] + acc)
-		case 0x1fa:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(6);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DYN_RATIO[6]: acc = k * r[124] + acc
-		case 0x1fb:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(124);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// ins::DYN_RATIO[7]: acc = k * r[125] + acc
-		case 0x1fc:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(125);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		// the ROM's own word: m[42] = clip(128 * k + acc, +-128), the curve's output, biased and
-		// clamped at zero
-		case 0x1fd:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(0);
-			c.psrc = c.src; c.src = m[0];
-			a = c.acc;
-			v = 128.0 * k + a;
-			y = c.acc = yss236_core::accmode(v, 2);
-			c.queue_d(42, yss236_core::clip(y, yss236_core::DSAT));
-			break;
-		// ins::DIST_WET[0]: m[47] = clip(k * r[7], +-128), the left dry signal
-		case 0x1fe:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(7);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.queue_d(47, yss236_core::clip(y, yss236_core::DSAT));
-			break;
-		// ins::DIST_WET[2]: m[48] = clip(k * r[8], +-128), the right dry signal
-		case 0x1ff:
-			k = yss236_core::s16(c.coef[st]);
-			fetch(8);
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv; prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			c.queue_d(48, yss236_core::clip(y, yss236_core::DSAT));
-			break;
-}
+		// ---- 0x1ed to 0x1ff: the eight breakpoints, the eight weights and the two dry signals ----
+		gain_curve(c, st);
 	}
 }
 

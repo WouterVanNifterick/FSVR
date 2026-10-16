@@ -68,941 +68,501 @@
 // delay line's input; r[119] the two first diffusion rows' output; r[120] the right sum, r[121] the
 // left; r[17] and r[18] the two outputs.
 //
+// TAPS below is the program's whole contact with the delay RAM read side: thirteen reads and the
+// thirteen steps that take them up into a cell, every one exactly five steps later, which is CAPMIN,
+// the nearest the hardware allows a capture to its transfer. No step of this program carries both a
+// read and a capture, so the table's two halves never land on the same step and the order between them
+// never matters. The rest of the program is five tables, one for each shape the steps repeat: the two
+// biquads' coefficient words, the four diffusion rows, the twenty tap gains, the two sums and the two
+// output mixes. The ranges between them are the padding the schedule spends, and every step of those
+// is idle(), which is what carries its x latch and nothing else.
+//
 // The old model in vop3_effects.h has a case for these four types and is a loop of twelve taps off one
 // line with a hand-picked gain envelope per tap, rising for Reverse Gate and decaying for Gate Reverb.
 // It has no delay line's worth of slots, no diffusion rows, no feedback word and no High Damp filter,
 // and where the two differ the program above is what runs. It is no reference for any number here.
 //
 // docs/vop3_native/README.md is the brief and what a native owes the core; yss236_core::step() is the
-// definition of a step, which is why every case below follows its order exactly.
+// definition of a step, and fs1r/native/steps.h is those shapes, so the arithmetic below is spelled out
+// by name rather than a step at a time.
 //
-// vop3_native_check ins-m03: identical, 4 types, 19200 native passes.
+// vop3_native_check ins-m03: identical, 4 types, 38400 native passes.
 #include "fs1r/native/native.h"
+#include "fs1r/native/steps.h"
 
 namespace fs1r::native {
 
 namespace {
 
+using namespace step;   // the step vocabulary: term, sum, close, copy_z and the rest
+
+// ---------------------------------------------------------------------------------------------
+// The registers and cells the header names, so the arithmetic below can say what it reads
+// ---------------------------------------------------------------------------------------------
+
+enum
+{
+	SIG_L = 7,        // the two signals the base program leaves this window, and the two outputs it
+	SIG_R = 8,        // reads back
+	OUT_L = 17,
+	OUT_R = 18,
+	MIX = 67,        // the mono mix both filters run on, and the high pass's own x[-1]
+	MIX_X2 = 68,     // the high pass's x[-2]
+	HPF_OUT = 69,    // the high pass's output, its own y[-1], and the low pass's input
+	HPF_Y2 = 70,     // the high pass's y[-2]
+	LPF_X1 = 71,     // the low pass's input delay, its own x[-1]
+	LPF_X2 = 72,     // its x[-2]
+	LPF_OUT = 73,    // its output, its own y[-1], and the first diffusion row's input
+	LPF_Y2 = 74,     // its y[-2]
+	DAMP = 75,       // the High Damp filter's output, which is also the delay line's input
+	DIFF = 119,      // the first two diffusion rows' output
+	SUM_R = 120,     // the right channel's sum, and
+	SUM_L = 121,     // the left's: the two sums the mixes close into the outputs
+	TAP20 = 32,      // m[32], the twentieth tap, which the base program's step 0x198 captured out of
+	TAP20_Y = 42,    // the slot 0x64, and m[42], where 0x1b2 keeps the m[32] of a pass earlier
+	LEFT_TOTAL = 43, // m[43] and m[44], where the two channels' twenty-gain sums land
+	RIGHT_TOTAL = 44,
+	CROSS_R = 33,    // m[33] and m[56], the cell each of the two sums picks the other one's up
+	DIFF_L = 56,     // through: m[56] is also the first right-channel tap's cell
+};
+
+// ---------------------------------------------------------------------------------------------
+// The delay RAM read side: the thirteen reads and the cells that take them up
+// ---------------------------------------------------------------------------------------------
+
+// One read of the line and the cell that takes it up. The cell takes the read at `read_st + 5`,
+// because a capture walks back to the latest transfer of the pass made CAPMIN to 11 steps earlier and
+// five is the nearest the hardware allows (s40c), so no read and its capture are ever adjacent. Every
+// read below is exactly five steps ahead of the capture that lands it, which is what lets a cell be
+// reused three taps later without one tap landing in the cell of the one before it.
+struct Tap { int read_st, cell; };
+
+// The ten right-channel taps of ins::ER_SLOTS' odd entries, the allpass point earlyReflections()'
+// DIFFUSION case puts beside the left sum, and the two slots the last two diffusion rows write. The
+// cells are m[56] to m[63] and back again, eight cells for thirteen reads, and every block below that
+// scales one of them reads its tap from this table and not from a delay read of its own.
+const Tap TAPS[13] = {
+    //  the read  the cell   and what that slot holds
+    {  0x1a3, 56 },   // ins::ER_SLOTS[1], the first right tap, read on the high pass's b1 step
+    {  0x1a7, 57 },   // and [3], the second, on the first of the two zero words after the high pass
+    {  0x1ab, 58 },   // and [5], the third, on the low pass's input step
+    {  0x1af, 59 },   // and [7], the fourth, on the low pass's -a2 step
+    {  0x1b3, 60 },   // and [9], the fifth, on the High Damp filter's closing step
+    {  0x1bf, 61 },   // and [11], the sixth, on the fourth of the left gains
+    {  0x1c3, 62 },   // and [13], the seventh, on the eighth of the left gains
+    {  0x1cb, 63 },   // and [15], the eighth, in the padding after the left sum's write
+    {  0x1cf, 56 },   // and [17], the ninth, in that padding too, so m[56] takes a second tap
+    {  0x1d3, 57 },   // and [19], the tenth, on the second of the right gains
+    {  0x1d7, 56 },   // ins::ER_DIFF_SLOTS[3], the slot 0x75, the left sum a Diffusion delay back
+    {  0x1df, 57 },   // ins::ER_ROW_SLOTS[7], the slot 0x77, the right sum's allpass point
+    {  0x1e3, 58 },   // and [5], the slot 0x78, the left sum's allpass point
+};
+
+// The three serial inputs the window publishes and reads nothing of: the two banks of page 13 and the
+// left bank of page 14. Each take is on a step that computes something else, and each comes before
+// that step's arithmetic, because step() moves a cell before it does anything else.
+enum serial_t { SERIAL_L, SERIAL_R };
+
+struct Serial { int st, cell; serial_t bank; };
+
+const Serial SERIALS[3] = {
+	{ 0x1a4, 3, SERIAL_L },    // page 13's left input, on the high pass's -a1 step
+	{ 0x1a5, 7, SERIAL_R },    // and its right, on the high pass's -a2 step
+	{ 0x1c2, 4, SERIAL_L },    // page 14's left input, on the seventh of the left gains
+};
+
+// ---------------------------------------------------------------------------------------------
+// The two biquads: ins::ER_HPF and ins::ER_LPF_2
+// ---------------------------------------------------------------------------------------------
+
+// What one step of a section computes, named after the coefficient designFilter() wrote for it: b0,
+// b1 and b2 are the numerator's and -a1 and -a2 the denominator's. The two parts whose name ends in
+// the register they carry are the steps that close a coefficient and shift a section's z^-1 with it,
+// which is how a section holds x[-2] and y[-2] in a register apiece without a cell of its own. The
+// last three are not coefficients at all: they are the steps the schedule spends moving the input
+// delay along and writing the section's input register.
+enum part_t
+{
+	B2,        // b2 on x[-2], the adder off: the step that opens the section's sum
+	B1,        // b1 on x[-1]
+	A1,        // -a1 on y[-1]
+	A1_X2,     // -a1 on y[-1], and the copy that shifts x[-2] along behind it
+	A2_Y2,     // -a2 on y[-2], and the copy that keeps y[-2] itself a pass along
+	B0,        // b0 on x[0], closing the section into its output with the section's route
+	X2_FETCH,  // the input delay register's own fetch, which is what the next step copies from
+	X2_COPY,   // the copy that shifts x[-2] along, on a step of its own
+	IN,        // the section's input step, which writes the input delay register
+	ZERO_Y2,   // a zero word on the section's y[-2], which opens nothing
+	ZERO_OUT,  // and a zero word on its output, which leaves the running value as it stands
+};
+
+// One order-2 section in direct form I. `base` is its first step and `n` how many steps it runs; the
+// five coefficient steps are always in the order b2, b1, -a1, -a2, b0, and the steps either side of
+// them are the ones this section's own registers need. `x1` and `x2` are the input's two delays, `y1`
+// and `y2` the output's, `in` the register the section's input arrives in, and `out` the one b0 writes,
+// which is what the next stage reads. The output register is the section's own y1 in both cases, which
+// is why y1 and out are named apart: one is what -a1 reads and the other is what b0 writes, and the
+// program has them as the same register.
+struct Section
+{
+	int base, n;
+	int x1, x2, y1, y2, in, out;
+	step::route_t route;
+	part_t part[8];
+};
+
+// ins::ER_HPF's input register is the mono mix itself, and the write to it is 0x1a1, three steps
+// before the section's own words. The register therefore holds x[-1] for the whole of b1 and x[0] for
+// b0 with nothing to copy, so only x[-2] needs a register of its own and its shift rides on the -a1
+// step. ins::ER_LPF_2's input comes out of the high pass and is written by a step of its own, so both
+// of its input delays need registers and both shifts sit in front of the five words.
+const Section SECTIONS[2] = {
+	//  base  n  x1      x2      y1      y2      in       out      route      and the section's steps
+	{ 0x1a2, 7, MIX,    MIX_X2, HPF_OUT, HPF_Y2, MIX,    HPF_OUT, ROUTE_2,
+	  { B2, B1, A1_X2, A2_Y2, B0, ZERO_Y2, ZERO_OUT } },
+	{ 0x1a9, 8, LPF_X1, LPF_X2, LPF_OUT, LPF_Y2, HPF_OUT, LPF_OUT, ROUTE_4,
+	  { X2_FETCH, X2_COPY, IN, B2, B1, A1, A2_Y2, B0 } },
+};
+
+// The section a step belongs to, or null when it belongs to none.
+Section const* section_for(int st)
+{
+	for (Section const& s : SECTIONS)
+		if (st >= s.base && st < s.base + s.n) return &s;
+	return nullptr;
+}
+
+// One section's step k. Five of the parts are the coefficients designFilter wrote and the rest are
+// the section's plumbing, which is why they come out of the part list rather than off a fixed shape:
+// the schedule interleaves the two biquads' z^-1 copies among their five words, and where a copy
+// lands is what separates the two of them.
+void section_step(yss236_core& c, int st, Section const& s, int k)
+{
+	switch (s.part[k])
+	{
+	case B2:       term(c, st, s.x2); break;                            // b2 on x[-2]
+	case B1:       sum(c, st, s.x1); break;                             // b1 on x[-1]
+	case A1:       sum(c, st, s.y1); break;                             // -a1 on y[-1]
+	case A1_X2:    copy_z(c, st, s.y1, s.x2, ADD_ACC, CLAMP_WRAP); break;
+	case A2_Y2:    copy_z(c, st, s.y2, s.y2, ADD_ACC, CLAMP_WRAP); break;
+	case B0:       close(c, st, s.x1, s.out, s.route); break;           // b0, closing the section
+	case X2_FETCH: sum(c, st, s.x1); break;                             // x[-1]'s own fetch
+	case X2_COPY:  copy_z(c, st, s.x1, s.x2, ADD_ACC, CLAMP_WRAP); break;
+	case IN:       close(c, st, s.in, s.x1, ROUTE_2); break;            // the section's input step
+	case ZERO_Y2:  term(c, st, s.y2); break;                            // a zero word on y[-2]
+	case ZERO_OUT: sum(c, st, s.out); break;                            // and one on the output
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The four diffusion rows: ins::ER_ROW_STEPS
+// ---------------------------------------------------------------------------------------------
+
+// Where in a row's four steps the line write falls. The first two rows close their allpass point
+// before they write the line, so the slot holds the row's own output, and the last two write first,
+// so the slot they write is the one the allpass point then reads back a Diffusion delay later.
+enum row_shape_t { WRITE_LAST, WRITE_SECOND };
+
+// One diffusion row, ins::ER_ROW_STEPS' four words: the gain on its input, its own allpass point and
+// the write of its line. `in` is the register the row reads and `out` the one its allpass point closes
+// into, which are the same register for the last three rows and not for the first: the first reads the
+// low pass's output and closes into the diffusion output the second row reads. `cell` is the cell the
+// allpass point comes off, which the base program's steps 0x0be and 0x0c2 fill by capturing the row's
+// output back out of the slot this very row writes.
+struct Row { int base, in, cell, out; row_shape_t shape; };
+
+// The first two rows run off the low pass's output and cascade: the second reads the register the
+// first closed into, which is why both end at r[119] and the second overwrites the first three steps
+// later. The last two run off the two sums, each closing back into its own register.
+const Row ROWS[4] = {
+	//  base   in        cell  out      shape
+	{ 0x1b4, LPF_OUT,   18, DIFF,    WRITE_LAST },     // ins::ER_ROW_STEPS[0] to [3], into the slot 0x6d
+	{ 0x1b8, DIFF,      19, DIFF,    WRITE_LAST },     // and [4] to [7], into the slot 0x6e
+	{ 0x1e6, SUM_R,     57, SUM_R,   WRITE_SECOND },   // and [8] to [11], into the slot 0x79, for r[120]
+	{ 0x1ea, SUM_L,     58, SUM_L,   WRITE_SECOND },   // and [12] to [15], into the slot 0x7a, for r[121]
+};
+
+// The row a step belongs to, or null when it belongs to none. The first two sit in the middle of the
+// program and the last two after the two sums, so the block is not contiguous.
+Row const* row_for(int st)
+{
+	for (Row const& r : ROWS)
+		if (st >= r.base && st < r.base + 4) return &r;
+	return nullptr;
+}
+
+// One row's step k. k = 0 and k = 2 are both the gain on the row's input: the word at k = 2 is zero on
+// the first two rows, which leaves the running value as k = 0 left it, and ins::ER_ROW_STEPS' own
+// allpass feedback on the last two, which the allpass point a step later adds to. The other two are the
+// allpass point and the line write, and which of the two comes first is the whole difference between
+// the two pairs of rows.
+void row_step(yss236_core& c, int st, Row const& r, int k)
+{
+	if (k == (r.shape == WRITE_LAST ? 3 : 1))
+	{
+		// the line write: the row's allpass point added to the running value, which is the row's own
+		// output, into the row's slot. It carries the wdata flag and is the writer itself, so it clears
+		// any latched data and writes its own result.
+		run(c, {st, 0, r.cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, 0,
+		        false, 0, false, false, true, true});
+		return;
+	}
+	if (k == (r.shape == WRITE_LAST ? 1 : 3))
+	{
+		// the allpass point: the row's cell scaled and added to the running value, closed into the
+		// row's output register with the x2 route. That register is where the next row reads from and,
+		// for the last two rows, where the mix below reads the wet signal back out of.
+		run(c, {st, 0, r.cell, M2_CELL, false, 0, ADD_ACC, false, ROUTE_2, CLAMP_SAT, r.out});
+		return;
+	}
+	term(c, st, r.in);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The twenty tap gains: ins::ER_STEPS[0] to [19]
+// ---------------------------------------------------------------------------------------------
+
+// What the closing step of a bank of ten does with the delay line. On the left it latches the sum as
+// the data of the write two steps along, and that write, 0x1c7, is a class-0 step. On the right the
+// closing step is the write itself.
+enum gain_write_t { SET_LATCH, WRITE_OWN };
+
+// One channel's ten tap gains, ins::ER_STEPS[0] to [9] on the left and [10] to [19] on the right, one
+// word each on the cell that holds the tap. The first opens the sum with its own word and the adder
+// off and the other nine add to the running value. The tenth closes the bank: it publishes the whole
+// sum into `sum_cell` from its own result and, with it, either latches that result as the data of the
+// line write or is the write itself.
+struct GainBank
+{
+	int base;
+	int sum_cell;
+	gain_write_t write;
+	int cell[10];     // the ten taps, in the order ins::ER_STEPS numbers them
+};
+
+// The left taps are m[22] to m[31], which the base program's steps 0x118 to 0x194 captured out of
+// ins::ER_SLOTS' even entries; the right taps are the cells TAPS filled, so the two banks differ in
+// where their taps came from and not in the arithmetic that scales them. ins::ER_STEPS[19] is the zero
+// word erPattern() leaves, so the tenth right tap contributes nothing to the sum it closes.
+const GainBank GAINS[2] = {
+	{ 0x1bc, LEFT_TOTAL,  SET_LATCH, { 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 } },
+	{ 0x1d2, RIGHT_TOTAL, WRITE_OWN,  { 56, 57, 58, 59, 60, 61, 62, 63, 56, 57 } },
+};
+
+// The bank a step belongs to, or null when it belongs to none.
+GainBank const* gain_for(int st)
+{
+	for (GainBank const& g : GAINS)
+		if (st >= g.base && st < g.base + 10) return &g;
+	return nullptr;
+}
+
+// One tap gain. Only the closing step saturates, writes a cell or touches the delay line; the nine
+// before it scale their cell and leave the running value to move.
+void tap_gain(yss236_core& c, int st, GainBank const& g, int k)
+{
+	alu a;
+	a.st = st;
+	a.sm = g.cell[k];
+	a.m2 = M2_CELL;
+	a.add = k ? ADD_ACC : ADD_OFF;
+	if (k == 9)
+	{
+		a.clamp = CLAMP_SAT;
+		a.dm = g.sum_cell;
+		a.wdata = true;                                        // s34: the result is the next write's data
+		a.write = g.write != SET_LATCH;                        // and on the right this step is that write
+	}
+	run(c, a);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two sums, ins::ER_DIFF_SLOTS
+// ---------------------------------------------------------------------------------------------
+
+// One channel's sum and the other channel's, a Diffusion delay back, added to it. `sum` is the cell
+// the channel's ten gains added into and `cross` the cell carrying the other channel's sum out of
+// its allpass slot, which is ins::ER_DIFF_SLOTS' allpass point: earlyReflections() puts the slot 0x75
+// at delay[0x71] + d + 1 and the slot 0x65 at delay[0x76] + d + 1, so each register is its own
+// channel with the other one's d + 1 samples behind it.
+struct SumPair { int base, sum, cross, out; };
+
+const SumPair SUMS[2] = {
+	{ 0x1dc, LEFT_TOTAL,  CROSS_R, SUM_L },   // m[43] and m[33], the left sum with the right one behind
+	{ 0x1de, RIGHT_TOTAL, DIFF_L, SUM_R },   // and m[44] with m[56], the other way round
+};
+
+// The pair a step belongs to, or null when it belongs to none.
+SumPair const* sum_for(int st)
+{
+	for (SumPair const& s : SUMS)
+		if (st >= s.base && st < s.base + 2) return &s;
+	return nullptr;
+}
+
+// One sum and the other one behind it. The first step scales the channel's own sum by the ROM word
+// 0x7fff with the adder off, and the second adds the delayed one to it and closes the two into the
+// register the mix reads back. steps.h's close() takes a register as its source and this step's source
+// is a cell, so this is the general form and not close().
+void sum_pair(yss236_core& c, int st, SumPair const& s)
+{
+	if (st == s.base) term_cell(c, st, s.sum);
+	else               run(c, {st, 0, s.cross, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT, s.out});
+}
+
+// ---------------------------------------------------------------------------------------------
+// The two output mixes, ins::ER_WET
+// ---------------------------------------------------------------------------------------------
+
+// One channel's dry and wet mix, ins::ER_WET's two words and the line write that sits beside them.
+// `dry` is the signal the base program leaves the window, `wet` that channel's sum, `out` the output
+// register the base program reads back, and `spare` the cell the third step writes a slot from.
+struct Mix { int base, dry, wet, out, spare; };
+
+const Mix MIXES[2] = {
+	{ 0x1f1, SIG_L, SUM_L, OUT_L, 20 },   // ins::ER_WET[0] and [1], into r[17], and the slot 0x7c
+	{ 0x1f5, SIG_R, SUM_R, OUT_R, 21 },   // ins::ER_WET[2] and [3], into r[18], and the slot 0x7d
+};
+
+// The mix a step belongs to, or null when it belongs to none. Each is three steps and the two are
+// four apart, with a padding step between them.
+Mix const* mix_for(int st)
+{
+	for (Mix const& m : MIXES)
+		if (st >= m.base && st < m.base + 3) return &m;
+	return nullptr;
+}
+
+// One mix's three steps: the dry word with the adder off, the wet word closing the sum into the output
+// register with the x4 both channels carry, and the write of the slot beside the mix. That third step
+// has no mixer word behind it at all: no parameter writes its coefficient, its word is the ROM's own
+// 0x7fff or zero, and no step of this program or the base program's reads either slot.
+void output_mix(yss236_core& c, int st, Mix const& m)
+{
+	switch (st - m.base)
+	{
+	case 0:
+		term(c, st, m.dry);
+		break;
+	case 1:
+		close(c, st, m.wet, m.out, ROUTE_4);
+		break;
+	default:
+		run(c, {st, 0, m.spare, M2_CELL, false, 0, ADD_OFF, false, ROUTE_1, CLAMP_SAT, 0,
+		        false, 0, false, false, true, true});
+		break;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------
+// The blocks of steps that are not a table of anything
+// ---------------------------------------------------------------------------------------------
+
+// The mono mix, 0x1a0 and 0x1a1: the two signals the base program leaves the window, each scaled by
+// the ROM word 0x2000, the second doubled by its route so both halves land at unity. That is the one
+// signal both filters run on, which is why the two channels are told apart by their dry side and by
+// their own tap lines rather than by a filter each.
+void mono_mix(yss236_core& c, int st)
+{
+	if (st == 0x1a0) term(c, st, SIG_L);
+	else               close(c, st, SIG_R, MIX, ROUTE_2);
+}
+
+// The High Damp filter, ins::ER_LPF's three words over the twentieth tap: an order-1 section whose
+// input delay lives in two cells rather than in a register, because the tap the base program captured
+// into m[32] is the only copy of it there is. 0x1b1 applies b0 to m[32], 0x1b2 applies b1 to m[42] and
+// hands the m[32] it latched on to m[42] (msrc 7, the previous operand), and 0x1b3 closes the section
+// with -a1 on r[75], the register b0's own output went to a pass earlier.
+void high_damp(yss236_core& c, int st)
+{
+	switch (st)
+	{
+	case 0x1b1:
+		term_cell(c, st, TAP20);                 // ins::ER_LPF[0], b0 on the twentieth tap
+		break;
+	case 0x1b2:
+		// ins::ER_LPF[1], b1 on m[42], and the write that leaves m[42] as the m[32] of a pass earlier
+		run(c, {st, 0, TAP20_Y, M2_CELL, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_WRAP,
+		        0, false, TAP20_Y, true});
+		break;
+	default:
+		// ins::ER_LPF[2], -a1 on the filter's own output register, the delay line's input
+		close(c, st, DAMP, DAMP, ROUTE_1);
+		break;
+	}
+}
+
+// The delay line's input, 0x1ee and 0x1ef: the first two diffusion rows' output at the ROM word 0x7fff,
+// and ins::ER_FEEDBACK[0] scaling the High Damp filter's output on top of it. The second step is the
+// write of the slot 0x7b, ins::ER_SLOTS[21], which is where erPattern() measures every tap's position
+// from: the ten right taps sit the initial delay plus the room size past it, so this is the tail they
+// are read back out of.
+void line_input(yss236_core& c, int st)
+{
+	if (st == 0x1ee) term(c, st, DIFF);
+	else
+		run(c, {st, DAMP, 0, M2_REG, false, 0, ADD_ACC, false, ROUTE_1, CLAMP_SAT,
+		        0, false, 0, false, false, true, true});
+}
+
+// ---------------------------------------------------------------------------------------------
+// The 96 steps
+// ---------------------------------------------------------------------------------------------
+
 // The run of steps 0x1a0 to 0x1ff, the whole of the window's program. The loop is one iteration per
 // step and carries the m_skip guard step() opens with, so a gate in the base program skips these steps
-// as it would the interpreter's.
+// as it would the interpreter's. There is no gate and no conditional skip in this program, so the
+// guard never fires here; it is the base program's steps around these that set m_skip.
 void block_0x1a0(yss236_core& c)
 {
-	double* const r = c.r;                 // the 128 registers
-	double* const m = c.m;                 // the 64 cells, which carry the values between the steps
-	double xv, k, m2, prod, a, y, outv;     // the step's operands and its result
-
 	for (int st = 0x1a0; st < 0x200; st++)
 	{
 		c.begin_step();
 		if (st < c.m_skip) continue;
-		switch (st)
+
+		// The delay RAM reads and the cells that take them up, and the three serial inputs. Both come
+		// before the step's own arithmetic, because step() reads the delay RAM and moves a cell before
+		// it does anything else.
+		for (Tap const& t : TAPS)
 		{
-		// ---- 0x1a0 to 0x1b3, the two signals in, the high pass, the low pass and the first five right-channel taps ----
-		case 0x1a0:  // acc = k * r[7]: the left signal's share of the mono mix, the ROM word 0x2000
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[7];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a1:  // r[67] = saturate(2 * (k * r[8] + acc)): both signals at the ROM word 0x2000 each, doubled, the filters' input
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[8];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(67, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1a2:  // ins::ER_HPF[2], b2 on r[68], the mix as 0x1a4 leaves it
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[68];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a3:  // the read of the slot 0x68, ins::ER_SLOTS[1], the first right-channel tap, which m[56] takes up at 0x1a8; ins::ER_HPF[1], b1 on r[67]
-			c.push_hist(st, c.ram[c.addr(0x68, 0, false)]);
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[67];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a4:  // m[3] takes the left serial input of page 13, which no step of this program reads; ins::ER_HPF[3], -a1 on r[69]; r[68] takes the mix r[67] as it stood at 0x1a3
-			c.queue_d(3, c.in[0][13]);
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[69];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(68, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a5:  // m[7] takes the right serial input of page 13, read by no step here either; ins::ER_HPF[4], -a2 on r[70]
-			c.queue_d(7, c.in[1][13]);
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[70];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(70, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a6:  // ins::ER_HPF[0], b0 on r[67]: r[69] = saturate(2 * (k * r[67] + acc)), the high pass's output
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[67];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(69, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1a7:  // the read of the slot 0x69, ins::ER_SLOTS[3], the second right tap; acc = 0
-			c.push_hist(st, c.ram[c.addr(0x69, 0, false)]);
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[70];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a8:  // m[56] takes that tap; the word here is zero, so the accumulator keeps the zero 0x1a7 left
-			c.queue_d(56, c.captured(m[56], st));
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[69];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1a9:  // acc = 0 * r[71]: a second of the three zero words this block carries
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[71];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1aa:  // r[72] takes r[71] as it stood at 0x1a9; acc = 0 * r[72]
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[72];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(72, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ab:  // the read of the slot 0x6a, ins::ER_SLOTS[5], the third right tap; r[71] = saturate(2 * (0.5 * r[69] + acc)), the high pass's output into the low pass at unity
-			c.push_hist(st, c.ram[c.addr(0x6a, 0, false)]);
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[69];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(71, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1ac:  // m[57] takes the third tap; ins::ER_LPF_2[2], b2 on r[72]
-			c.queue_d(57, c.captured(m[57], st));
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[72];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ad:  // ins::ER_LPF_2[1], b1 on r[71]
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[71];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ae:  // ins::ER_LPF_2[3], -a1 on r[73]
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[73];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1af:  // the read of the slot 0x6b, ins::ER_SLOTS[7], the fourth right tap; ins::ER_LPF_2[4], -a2 on r[74]; r[74] takes r[73] as it stood at 0x1ae
-			c.push_hist(st, c.ram[c.addr(0x6b, 0, false)]);
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[74];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(74, c.haspx ? c.px : xv);
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1b0:  // m[58] takes the fourth tap; ins::ER_LPF_2[0], b0 on r[71]: r[73] = saturate(4 * (k * r[71] + acc)), the low pass's output
-			c.queue_d(58, c.captured(m[58], st));
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[71];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(73, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1b1:  // ins::ER_LPF[0], b0 on m[32], the twentieth tap, which the base program's step 0x198 captured from the slot 0x64
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[32];
-			m2 = c.src;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1b2:  // ins::ER_LPF[1], b1 on m[42], which this step's own cell write leaves as the m[32] of a pass earlier; m[42] takes the m[32] of this pass
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[42];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			c.queue_d(42, c.psrc);
-			break;
-		case 0x1b3:  // the read of the slot 0x6c, ins::ER_SLOTS[9], the fifth right tap; ins::ER_LPF[2], -a1 on r[75]: r[75] = saturate(k * r[75] + acc), the High Damp filter's output
-			c.push_hist(st, c.ram[c.addr(0x6c, 0, false)]);
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[75];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(75, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-
-		// ---- 0x1b4 to 0x1bb, the first two diffusion rows: r[73] and the cells m[18] and m[19] into the slots 0x6d and 0x6e ----
-		case 0x1b4:  // m[59] takes the fourth tap, read at 0x1af; ins::ER_ROW_STEPS[0]: acc = k * r[73], the filtered signal into the first row
-			c.queue_d(59, c.captured(m[59], st));
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[73];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1b5:  // ins::ER_ROW_STEPS[1]: r[119] = saturate(2 * (k * m[18] + acc)), the row's output with its own allpass point
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[18];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(119, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1b6:  // ins::ER_ROW_STEPS[2]: acc = k * r[73], the second row's input
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[73];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1b7:  // ins::ER_ROW_STEPS[3]: the write of the slot 0x6d, ins::ER_ROW_SLOTS[0], k * m[18] + acc
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[18];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.haswl = false;
-			if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-			c.ram[c.addr(0x6d, 0, false)] = outv;
-			break;
-		case 0x1b8:  // m[60] takes the fifth tap, read at 0x1b3; ins::ER_ROW_STEPS[4]: acc = k * r[119], the first row's output into the second
-			c.queue_d(60, c.captured(m[60], st));
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[119];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1b9:  // ins::ER_ROW_STEPS[5]: r[119] = saturate(2 * (k * m[19] + acc)) over the first row's output, so the two rows are cascaded
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[19];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(119, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1ba:  // ins::ER_ROW_STEPS[6]: acc = 0 * r[119]
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[119];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1bb:  // ins::ER_ROW_STEPS[7]: the write of the slot 0x6e, ins::ER_ROW_SLOTS[1], k * m[19] + acc
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[19];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.haswl = false;
-			if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-			c.ram[c.addr(0x6e, 0, false)] = outv;
-			break;
-
-		// ---- 0x1bc to 0x1c5, the ten left-channel gains, ins::ER_STEPS[0] to [9], and their sum into the cell m[43] ----
-		case 0x1bc:  // ins::ER_STEPS[0] on m[22], the first left tap, which the base program's step 0x118 captured from the slot 0x44; the read of the slot 0x6f, ins::ER_SLOTS[11], the sixth right tap
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[22];
-			m2 = c.src;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1bd:  // ins::ER_STEPS[2] on m[23], the second left tap
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[23];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1be:  // ins::ER_STEPS[4] on m[24], the third
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[24];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1bf:  // ins::ER_STEPS[6] on m[25], the fourth; the read of the slot 0x70, ins::ER_SLOTS[13], the seventh right tap
-			c.push_hist(st, c.ram[c.addr(0x6f, 0, false)]);
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[25];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c0:  // ins::ER_STEPS[8] on m[26], the fifth
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[26];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c1:  // ins::ER_STEPS[10] on m[27], the sixth
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[27];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c2:  // m[4] takes the left serial input of page 14, which no step of this program reads; ins::ER_STEPS[12] on m[28], the seventh
-			c.queue_d(4, c.in[0][14]);
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[28];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c3:  // ins::ER_STEPS[14] on m[29], the eighth; the read of the slot 0x72, ins::ER_SLOTS[15], the eighth right tap
-			c.push_hist(st, c.ram[c.addr(0x70, 0, false)]);
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[29];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c4:  // m[61] takes the seventh right tap, read at 0x1bf; ins::ER_STEPS[16] on m[30], the ninth
-			c.queue_d(61, c.captured(m[61], st));
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[30];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1c5:  // ins::ER_STEPS[18] on m[31], the tenth left tap, the slot 0x64 by then; m[43] takes the whole sum, and the step latches it for 0x1c7
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[31];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.queue_d(43, yss236_core::clip(y, yss236_core::DSAT));
-			c.wlatch = outv; c.haswl = true;
-			break;
-
-		// ---- 0x1c6 to 0x1d1, the write of that sum into the slot 0x71, and the eighth, ninth and tenth right taps ----
-		case 0x1c6:  // class 0 with no memory op and no ALU: the step counts and nothing else
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1c7:  // the write of the latched left sum into the slot 0x71, ins::ER_DIFF_SLOTS[1], which the DIFFUSION case allots its allpass point 0x75 beside
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			if (c.haswl) { c.ram[c.addr(0x71, 0, false)] = c.wlatch; c.haswl = false; }
-			break;
-		case 0x1c8:  // m[62] takes the eighth right tap, read at 0x1c3
-			c.queue_d(62, c.captured(m[62], st));
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1c9:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1ca:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1cb:  // the read of the slot 0x73, ins::ER_SLOTS[17], the ninth right tap
-			c.push_hist(st, c.ram[c.addr(0x72, 0, false)]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1cc:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1cd:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1ce:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1cf:  // the read of the slot 0x74, ins::ER_SLOTS[19], the tenth right tap
-			c.push_hist(st, c.ram[c.addr(0x73, 0, false)]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1d0:  // m[63] takes the ninth right tap, read at 0x1cb
-			c.queue_d(63, c.captured(m[63], st));
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1d1:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-
-		// ---- 0x1d2 to 0x1db, the ten right-channel gains, ins::ER_STEPS[10] to [19], and their sum into the cell m[44] ----
-		case 0x1d2:  // ins::ER_STEPS[10] on m[56], the first right tap, which 0x1a8 captured from the slot 0x68
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[56];
-			m2 = c.src;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d3:  // ins::ER_STEPS[11] on m[57], the second; the read of the slot 0x75, ins::ER_DIFF_SLOTS[3], the allpass point of the slot 0x71, which holds the left sum
-			c.push_hist(st, c.ram[c.addr(0x74, 0, false)]);
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[57];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d4:  // m[56] takes the ninth right tap, read at 0x1cf; ins::ER_STEPS[12] on m[58], the third
-			c.queue_d(56, c.captured(m[56], st));
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[58];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d5:  // ins::ER_STEPS[13] on m[59], the fourth
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[59];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d6:  // ins::ER_STEPS[14] on m[60], the fifth
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[60];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d7:  // ins::ER_STEPS[15] on m[61], the sixth; the read of the slot 0x65, ins::ER_DIFF_SLOTS[2], the allpass point of the slot 0x76
-			c.push_hist(st, c.ram[c.addr(0x75, 0, false)]);
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[61];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d8:  // m[57] takes the tenth right tap, read at 0x1d3; ins::ER_STEPS[16] on m[62], the seventh
-			c.queue_d(57, c.captured(m[57], st));
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[62];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1d9:  // ins::ER_STEPS[17] on m[63], the eighth
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[63];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1da:  // ins::ER_STEPS[18] on m[56], the ninth by now: 0x1dc has not replaced it yet
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[56];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1db:  // ins::ER_STEPS[19] on m[57], the tenth, which erPattern() leaves at zero; m[44] takes the sum and this step writes it into the slot 0x76, ins::ER_DIFF_SLOTS[0]
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[57];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.queue_d(44, yss236_core::clip(y, yss236_core::DSAT));
-			c.haswl = false;
-			if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-			c.ram[c.addr(0x76, 0, false)] = outv;
-			break;
-
-		// ---- 0x1dc to 0x1df, the two sums through their allpass points, ins::ER_DIFF_SLOTS, into r[120] and r[121] ----
-		case 0x1dc:  // m[56] takes the slot 0x75's value, the left sum a Diffusion delay back; the ROM word 0x7fff on m[43]: acc = 0.999969 * the left sum
-			c.queue_d(56, c.captured(m[56], st));
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[43];
-			m2 = c.src;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1dd:  // r[121] = saturate(0.999969 * m[33] + acc): the left sum with m[33], which the base program's step 0x19c captured from the slot 0x65, added
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[33];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(121, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1de:  // the ROM word 0x7fff on m[44]: acc = 0.999969 * the right sum
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[44];
-			m2 = c.src;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1df:  // the read of the slot 0x77, ins::ER_ROW_SLOTS[7]; r[120] = saturate(0.999969 * m[56] + acc): the right sum with itself a Diffusion delay back
-			c.push_hist(st, c.ram[c.addr(0x77, 0, false)]);
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[56];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			c.queue_r(120, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-
-		// ---- 0x1e0 to 0x1e5, the reads of the two allpass points of the last two rows ----
-		case 0x1e0:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e1:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e2:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e3:  // the read of the slot 0x78, ins::ER_ROW_SLOTS[5], the allpass point of the slot 0x7a
-			c.push_hist(st, c.ram[c.addr(0x78, 0, false)]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e4:  // m[57] takes that read
-			c.queue_d(57, c.captured(m[57], st));
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1e5:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-
-		// ---- 0x1e6 to 0x1e9, the right sum's allpass and line: the slots 0x77 and 0x79 ----
-		case 0x1e6:  // ins::ER_ROW_STEPS[14]: acc = k * r[120], the right sum's input
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[120];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1e7:  // ins::ER_ROW_STEPS[15]: the write of the slot 0x79, ins::ER_ROW_SLOTS[6], k * m[57] + acc
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[57];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.haswl = false;
-			if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-			c.ram[c.addr(0x79, 0, false)] = outv;
-			break;
-		case 0x1e8:  // m[58] takes the slot 0x78's value, which no earlier step has read into a cell; ins::ER_ROW_STEPS[12]: acc = k * r[120], the allpass's feedback
-			c.queue_d(58, c.captured(m[58], st));
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[120];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1e9:  // ins::ER_ROW_STEPS[13]: r[120] = saturate(2 * (k * m[57] + acc)), the right sum through the allpass
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[57];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(120, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-
-		// ---- 0x1ea to 0x1ed, the left sum's allpass and line: the slots 0x78 and 0x7a ----
-		case 0x1ea:  // ins::ER_ROW_STEPS[10]: acc = k * r[121], the left sum's input
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1eb:  // ins::ER_ROW_STEPS[11]: the write of the slot 0x7a, ins::ER_ROW_SLOTS[4], k * m[58] + acc
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[58];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.haswl = false;
-			if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-			c.ram[c.addr(0x7a, 0, false)] = outv;
-			break;
-		case 0x1ec:  // ins::ER_ROW_STEPS[8]: acc = k * r[121], the allpass's feedback
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ed:  // ins::ER_ROW_STEPS[9]: r[121] = saturate(2 * (k * m[58] + acc)), the left sum through the allpass
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[58];
-			m2 = c.src;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 2.0;
-			c.queue_r(121, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-
-		// ---- 0x1ee to 0x1ef, the delay line's input, r[119] and the FB Level word on r[75] ----
-		case 0x1ee:  // the ROM word 0x7fff: acc = 0.999969 * r[119], the two diffusion rows' output
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[119];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1ef:  // ins::ER_FEEDBACK[0], the FB Level word: the write of the slot 0x7b, ins::ER_SLOTS[21], k * r[75] + acc, which is the delay line the ten right taps are read from
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[75];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.haswl = false;
-			if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-			c.ram[c.addr(0x7b, 0, false)] = outv;
-			break;
-
-		// ---- 0x1f0 to 0x1f7, the dry and wet mix, ins::ER_WET, and two writes of zero ----
-		case 0x1f0:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f1:  // ins::ER_WET[0]: acc = k * r[7], the left dry share
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[7];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1f2:  // ins::ER_WET[1]: r[17] = saturate(4 * (k * r[121] + acc)), the window's left output
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[121];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(17, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1f3:  // the write of the slot 0x7c, ins::ER_DIFF_SLOTS' area's neighbour: k * m[20], and the word here is zero, so the slot takes zero every pass
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[20];
-			m2 = c.src;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.haswl = false;
-			if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-			c.ram[c.addr(0x7c, 0, false)] = outv;
-			break;
-		case 0x1f4:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f5:  // ins::ER_WET[2]: acc = k * r[8], the right dry share
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[8];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 0);
-			break;
-		case 0x1f6:  // ins::ER_WET[3]: r[18] = saturate(4 * (k * r[120] + acc)), the right output
-			k = yss236_core::s16(c.coef[st]);
-			xv = r[120];
-			c.px = c.x; c.haspx = c.hasx; c.hasx = true; c.x = xv;
-			c.psrc = c.src; c.src = m[0];
-			m2 = xv;
-			prod = k * m2;
-			a = c.acc;
-			y = (prod + a) * 4.0;
-			c.queue_r(18, yss236_core::mode(y, 1));
-			y = c.acc = yss236_core::accmode(y, 1);
-			break;
-		case 0x1f7:  // the write of the slot 0x7d: k * m[21], zero like 0x1f3 and read by no step of this program
-			k = yss236_core::s16(c.coef[st]);
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			c.psrc = c.src; c.src = m[21];
-			m2 = c.src;
-			prod = k * m2;
-			a = 0.0;
-			y = (prod + a) * 1.0;
-			y = c.acc = yss236_core::accmode(y, 1);
-			outv = yss236_core::clip(y, yss236_core::SAT);
-			c.haswl = false;
-			if (c.haswl) { outv = c.wlatch; c.haswl = false; }
-			c.ram[c.addr(0x7d, 0, false)] = outv;
-			break;
-
-		// ---- 0x1f8 to 0x1ff, eight steps that count and nothing else ----
-		case 0x1f8:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1f9:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1fa:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1fb:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1fc:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1fd:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1fe:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-		case 0x1ff:  // class 0, nothing but the count
-			c.px = c.x; c.haspx = c.hasx; c.hasx = false; c.x = 0.0;
-			break;
-
+			if (st == t.read_st) read_delay(c, st);
+			else if (st == t.read_st + 5) take_capture(c, t.cell, st);
 		}
+		for (Serial const& s : SERIALS)
+			if (st == s.st) take_serial(c, s.cell, st, s.bank == SERIAL_R);
+
+		// ---- 0x1a0 and 0x1a1: the two signals in, mixed to mono for both filters ----
+		if (st < 0x1a2) { mono_mix(c, st); continue; }
+
+		// ---- 0x1a2 to 0x1b0: the two biquads, ins::ER_HPF and ins::ER_LPF_2 ----
+		if (Section const* s = section_for(st)) { section_step(c, st, *s, st - s->base); continue; }
+
+		// ---- 0x1b1 to 0x1b3: the High Damp filter, ins::ER_LPF over the twentieth tap ----
+		if (st < 0x1b4) { high_damp(c, st); continue; }
+
+		// ---- 0x1b4 to 0x1bb and 0x1e6 to 0x1ed: the four diffusion rows ----
+		if (Row const* r = row_for(st)) { row_step(c, st, *r, st - r->base); continue; }
+
+		// ---- 0x1bc to 0x1c5 and 0x1d2 to 0x1db: the twenty tap gains, ten a channel ----
+		if (GainBank const* g = gain_for(st)) { tap_gain(c, st, *g, st - g->base); continue; }
+
+		// ---- 0x1c6 to 0x1d1: the left sum's write into the slot 0x71 and eleven steps of padding ----
+		if (st < 0x1d2) { if (st == 0x1c7) write_delay_latched(c, st); else idle(c); continue; }
+
+		// ---- 0x1dc to 0x1df: the two sums, each with the other channel's a Diffusion delay back ----
+		if (SumPair const* s = sum_for(st)) { sum_pair(c, st, *s); continue; }
+
+		// ---- 0x1e0 to 0x1e5: the padding round the read of the last two rows' allpass point ----
+		if (st < 0x1e6) { idle(c); continue; }
+
+		// ---- 0x1ee and 0x1ef: the delay line's input ----
+		if (st < 0x1f0) { line_input(c, st); continue; }
+
+		// ---- 0x1f0 to 0x1f7: the dry and wet mix, ins::ER_WET, and the two writes nothing reads ----
+		if (Mix const* m = mix_for(st)) { output_mix(c, st, *m); continue; }
+
+		// ---- 0x1f8 to 0x1ff: eight steps that count and nothing else ----
+		idle(c);
 	}
 }
 
