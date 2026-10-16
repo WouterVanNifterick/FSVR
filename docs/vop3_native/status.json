@@ -1,7 +1,7 @@
 {
  "about": "FSVR's VOP3 programs ported from microcode to C++, one row per chip program the FS1R loads. A row is done when tools/vop3_native_check <key> reports identical: bit for bit against the interpreter, on every type that runs it. docs/vop3_native/README.md is the brief.",
  "paused": false,
- "updated": "2026-10-16T00:28:46Z",
+ "updated": "2026-10-16T00:30:12Z",
  "programs": [
   {
    "key": "flt",
@@ -591,13 +591,13 @@
    "types": [
     "every performance: the mixer, sends, returns, pans and the master EQ"
    ],
-   "stage": "writing",
-   "check": null,
-   "passes": 0,
+   "stage": "done",
+   "check": "identical",
+   "passes": 835200,
    "commit": null,
    "start_from": "git show 29f589c^:src/fs1r/chips/vop3_effects.h: the mixer and the master EQ",
    "note": "Straight transcription of all 138 steps in one switch, built and identical on the first check: 87 types, 835,200 native passes. Next: read the cases over for names and comments, then run check and ctest again.",
-   "updated": "2026-10-16T00:28:46Z",
+   "updated": "2026-10-16T00:30:12Z",
    "claimed": "2026-10-16T00:22:01Z",
    "nudges": 0,
    "sessions": 1
