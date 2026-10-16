@@ -477,6 +477,23 @@ int selftest(Synth& S) {
       C->perf.part[1].p[7] = 1; C->render(l2.data(), r2.data(), 16);
       ck("engine: changing a filter switch stops every note", C->active_chans() == 0); }
 
+    // Note and velocity limits: low above high plays everything but the gap between them, as Drum Kit 9o9's
+    // part 3 has its notes at 67/55.
+    { enum { NOTE_LIMIT = 0x0F, VEL_LIMIT = 0x2A };   // low, then high in the byte after
+      auto plays = [](int at, int lo, int hi, int note, int vel) {
+          auto T = std::make_unique<Synth>();
+          T->perf.part[0].p[at] = (uint8_t)lo; T->perf.part[0].p[at + 1] = (uint8_t)hi;
+          T->note_on(0, note, vel);
+          return T->active_chans() > 0; };
+      ck("limits: a note in an inverted range's gap is silent", !plays(NOTE_LIMIT, 67, 55, 60, 100));
+      ck("limits: notes either side of the gap sound, its ends too",
+         plays(NOTE_LIMIT, 67, 55, 50, 100) && plays(NOTE_LIMIT, 67, 55, 55, 100) && plays(NOTE_LIMIT, 67, 55, 67, 100) && plays(NOTE_LIMIT, 67, 55, 80, 100));
+      ck("limits: a velocity in an inverted range's gap is silent", !plays(VEL_LIMIT, 100, 40, 60, 70));
+      ck("limits: velocities either side of the gap sound, its ends too",
+         plays(VEL_LIMIT, 100, 40, 60, 30) && plays(VEL_LIMIT, 100, 40, 60, 40) && plays(VEL_LIMIT, 100, 40, 60, 100) && plays(VEL_LIMIT, 100, 40, 60, 120));
+      ck("limits: a range the right way round keeps out what is outside it",
+         !plays(NOTE_LIMIT, 40, 80, 30, 100) && plays(NOTE_LIMIT, 40, 80, 60, 100)); }
+
     // A part whose voice bank is off receives nothing even with a receive channel (A011 Sho, parts 3 and 4).
     { S.perf.part[1].p[1] = 0; S.perf.part[1].p[4] = 0x10; ck("bank off silences the part", !S.part_listens(1, 0)); S.perf.part[1].p[1] = 2; ck("bank on hears it again", S.part_listens(1, 0)); }
 

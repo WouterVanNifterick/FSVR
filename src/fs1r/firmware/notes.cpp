@@ -37,7 +37,7 @@ void Synth::filter_sync(int part) {
 void Synth::note_on(int part, int note, int vel) {
     filter_latch();
     Part& pt = perf.part[part]; const Voice& V = pt.voice;
-    int lo = pt.p[0x0F], hi = pt.p[0x10];
+    int lo = pt.p[0x0F], hi = pt.p[0x10];   // FUN_00010B48: high below low plays all but the gap
     if (hi < lo ? (note > hi && note < lo) : (note > hi || note < lo)) return;
     lo = pt.p[0x2A]; hi = pt.p[0x2B];
     if (hi < lo ? (vel > hi && vel < lo) : (vel > hi || vel < lo)) return;

@@ -700,6 +700,31 @@ int main() {
             const double depth = u.get("part.vel_depth.p1");
             if (u.rect("pages/velocity_1", r)) u.drag(r.x + r.w - 7, r.y + 7, 0, 20);
             CHECK(u.get("part.vel_depth.p1") < depth, "dragging the velocity curve's right end down left the depth at %g", u.get("part.vel_depth.p1"));
+            // either end dragged past the other inverts the range: all but the gap between them plays, and is lit
+            u.set("part.note_low.p1", 40);
+            u.set("part.note_high.p1", 80);
+            if (u.rect("pages/keys_1", r)) {
+                auto keyX = [&](int n) {   // white key n's middle, along the 75 white keys
+                    int i = 0;
+                    for (int m = 0; m < n; ++m) i += !(0x54a >> (m % 12) & 1);   // 0x54a: the black keys in an octave
+                    return r.x + (int)((i + 0.4) * r.w / 75);
+                };
+                u.drag(keyX(40), r.y + r.h - 3, keyX(100) - keyX(40), 0);
+                auto keyLit = [&](int n) { return (u.gui.pixels()[(size_t)(r.y + r.h - 3) * u.gui.width() + keyX(n)] & 0xffffff) == 0x82ca9c; };
+                CHECK(u.get("part.note_low.p1") > 90 && u.get("part.note_high.p1") == 80, "dragging the low key past the high one gave %g to %g",
+                      u.get("part.note_low.p1"), u.get("part.note_high.p1"));
+                CHECK(keyLit(21) && keyLit(77) && !keyLit(84) && keyLit(120), "an inverted range lit keys 21 %d, 77 %d, 84 (in the gap) %d, 120 %d",
+                      keyLit(21), keyLit(77), keyLit(84), keyLit(120));
+            }
+            u.set("part.vel_high.p1", 64);
+            if (u.rect("pages/velocity_1", r)) u.drag(r.x + 7, r.y + r.h - 7, r.w - 14, 0);
+            CHECK(u.get("part.vel_low.p1") > 100 && u.get("part.vel_high.p1") == 64, "dragging the velocity's low end past its high one gave %g to %g",
+                  u.get("part.vel_low.p1"), u.get("part.vel_high.p1"));
+            u.shot("parts_inverted");
+            u.set("part.note_low.p1", 0);
+            u.set("part.note_high.p1", 127);
+            u.set("part.vel_low.p1", 1);
+            u.set("part.vel_high.p1", 127);
             // Poly and Mono are radio buttons; the priorities show with Mono only
             u.click("pages/poly_1");
             CHECK(u.get("part.poly.p1") == 1 && !u.shows("pages/prio_top_1"), "Poly left the part at %g, its priorities showing", u.get("part.poly.p1"));
