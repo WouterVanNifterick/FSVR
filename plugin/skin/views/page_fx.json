@@ -46,7 +46,7 @@
    "rect": [
     24,
     83,
-    150,
+    154,
     18
    ],
    "fill": {
@@ -69,7 +69,7 @@
    ],
    "items": [
     {
-     "label": "Thru",
+     "label": "No Effect",
      "value": 0
     },
     {
@@ -89,27 +89,27 @@
      "value": 4
     },
     {
-     "label": "Phaser1",
+     "label": "Phaser 1",
      "value": 5
     },
     {
-     "label": "Phaser2",
+     "label": "Phaser 2",
      "value": 6
     },
     {
-     "label": "Pitch Chng",
+     "label": "Pitch Change",
      "value": 7
     },
     {
-     "label": "Ens Detune",
+     "label": "Ensemble Detune",
      "value": 8
     },
     {
-     "label": "Rotary SP",
+     "label": "Rotary Speaker",
      "value": 9
     },
     {
-     "label": "2WayRotary",
+     "label": "2-Way Rotary",
      "value": 10
     },
     {
@@ -125,28 +125,28 @@
      "value": 13
     },
     {
-     "label": "A-Wah+Dist",
+     "label": "Auto Wah + Dist",
      "value": 14,
      "columnBreak": true
     },
     {
-     "label": "A-Wah+Odrv",
+     "label": "Auto Wah + OD",
      "value": 15
     },
     {
-     "label": "T-Wah+Dist",
+     "label": "Touch Wah + Dist",
      "value": 16
     },
     {
-     "label": "T-Wah+Odrv",
+     "label": "Touch Wah + OD",
      "value": 17
     },
     {
-     "label": "Wah+DS+Dly",
+     "label": "Wah + Dist + Delay",
      "value": 18
     },
     {
-     "label": "Wah+OD+Dly",
+     "label": "Wah + OD + Delay",
      "value": 19
     },
     {
@@ -158,7 +158,7 @@
      "value": 21
     },
     {
-     "label": "HM Enhncer",
+     "label": "Harmonic Enhancer",
      "value": 22
     },
     {
@@ -170,15 +170,15 @@
      "value": 24
     },
     {
-     "label": "Comp+Dist",
+     "label": "Comp + Distortion",
      "value": 25
     },
     {
-     "label": "Cmp+DS+Dly",
+     "label": "Comp + Dist + Delay",
      "value": 26
     },
     {
-     "label": "Cmp+OD+Dly",
+     "label": "Comp + OD + Delay",
      "value": 27
     },
     {
@@ -187,7 +187,7 @@
      "columnBreak": true
     },
     {
-     "label": "Dist+Delay",
+     "label": "Distortion + Delay",
      "value": 29
     },
     {
@@ -195,11 +195,11 @@
      "value": 30
     },
     {
-     "label": "Odrv+Delay",
+     "label": "Overdrive + Delay",
      "value": 31
     },
     {
-     "label": "Amp Sim",
+     "label": "Amp Simulator",
      "value": 32
     },
     {
@@ -207,7 +207,7 @@
      "value": 33
     },
     {
-     "label": "Delay L,R",
+     "label": "Delay LR",
      "value": 34
     },
     {
@@ -215,23 +215,23 @@
      "value": 35
     },
     {
-     "label": "CrossDelay",
+     "label": "Cross Delay",
      "value": 36
     },
     {
-     "label": "ER 1",
+     "label": "Early Reflection 1",
      "value": 37
     },
     {
-     "label": "ER 2",
+     "label": "Early Reflection 2",
      "value": 38
     },
     {
-     "label": "Gate Rev",
+     "label": "Gate Reverb",
      "value": 39
     },
     {
-     "label": "Revrs Gate",
+     "label": "Reverse Gate",
      "value": 40
     }
    ],
@@ -325,7 +325,7 @@
    ],
    "layer": 1,
    "text": {
-    "text": "To Rev",
+    "text": "To Reverb",
     "font": "caption_grey_12",
     "align": "center"
    },
@@ -30864,7 +30864,7 @@
    "rect": [
     24,
     211,
-    150,
+    154,
     18
    ],
    "fill": {
@@ -30907,19 +30907,19 @@
      "value": 4
     },
     {
-     "label": "Phaser1",
+     "label": "Phaser 1",
      "value": 5
     },
     {
-     "label": "Phaser2",
+     "label": "Phaser 2",
      "value": 6
     },
     {
-     "label": "Ens Detune",
+     "label": "Ensemble Detune",
      "value": 7
     },
     {
-     "label": "Rotary SP",
+     "label": "Rotary Speaker",
      "value": 8
     },
     {
@@ -30943,13 +30943,13 @@
      "value": 13
     },
     {
-     "label": "HM Enhncer",
-     "value": 14,
-     "columnBreak": true
+     "label": "Harmonic Enhncer",
+     "value": 14
     },
     {
      "label": "Noise Gate",
-     "value": 15
+     "value": 15,
+     "columnBreak": true
     },
     {
      "label": "Compressor",
@@ -30964,7 +30964,7 @@
      "value": 18
     },
     {
-     "label": "Amp Sim",
+     "label": "Amp Simulator",
      "value": 19
     },
     {
@@ -30972,7 +30972,7 @@
      "value": 20
     },
     {
-     "label": "Delay L,R",
+     "label": "Delay LR",
      "value": 21
     },
     {
@@ -30980,7 +30980,7 @@
      "value": 22
     },
     {
-     "label": "CrossDelay",
+     "label": "Cross Delay",
      "value": 23
     },
     {
@@ -31001,8 +31001,7 @@
     },
     {
      "label": "Plate",
-     "value": 28,
-     "columnBreak": true
+     "value": 28
     }
    ],
    "captionFromItem": true,
@@ -31095,7 +31094,7 @@
    ],
    "layer": 1,
    "text": {
-    "text": "To Rev",
+    "text": "To Reverb",
     "font": "caption_grey_12",
     "align": "center"
    },
@@ -47278,7 +47277,7 @@
    "rect": [
     24,
     339,
-    150,
+    154,
     18
    ],
    "fill": {
@@ -47305,31 +47304,31 @@
      "value": 0
     },
     {
-     "label": "Hall1",
+     "label": "Hall 1",
      "value": 1
     },
     {
-     "label": "Hall2",
+     "label": "Hall 2",
      "value": 2
     },
     {
-     "label": "Room1",
+     "label": "Room 1",
      "value": 3
     },
     {
-     "label": "Room2",
+     "label": "Room 2",
      "value": 4
     },
     {
-     "label": "Room3",
+     "label": "Room 3",
      "value": 5
     },
     {
-     "label": "Stage1",
+     "label": "Stage 1",
      "value": 6
     },
     {
-     "label": "Stage2",
+     "label": "Stage 2",
      "value": 7
     },
     {
@@ -47338,7 +47337,8 @@
     },
     {
      "label": "White Room",
-     "value": 9
+     "value": 9,
+     "columnBreak": true
     },
     {
      "label": "Tunnel",
@@ -47357,16 +47357,15 @@
      "value": 13
     },
     {
-     "label": "Delay L,R",
-     "value": 14,
-     "columnBreak": true
+     "label": "Delay LR",
+     "value": 14
     },
     {
      "label": "Echo",
      "value": 15
     },
     {
-     "label": "CrossDelay",
+     "label": "Cross Delay",
      "value": 16
     }
    ],

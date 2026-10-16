@@ -11,16 +11,18 @@ OLD_W = 1422                     # the old window's width: the top bar's right-h
 
 # the page tabs across the top of the content well, each a raised plate with square ends until chosen, when it
 # is cut into the chrome with the well and opens into it; the first starts at the well's left edge, so sunk, its
-# wall runs straight down into the well's (whose corner there is square)
+# wall runs straight down into the well's (whose corner there is square). The art is named by slot
+# (buttons/tab_1 to tab_8), since each tile is cut from the chrome where the tab stands and carries that spot's
+# shading, so reordering this list moves the captions and pages over art that stays put.
 TAB_Y, TAB_H, TAB_W, TAB_SLANT, TAB_GAP, TAB_X = 138, 34, 150, 0, 4, 8
 TABS = [   # name, caption, the page it shows
     ('browser', 'Browser', 'page_library'),
-    ('parts', 'Parts', 'page_parts'),
-    ('operators', 'Operators', 'page_operator'),   # and the six other expert pages, its sub-tabs
     ('performance', 'Performance', 'page_master'),
-    ('effects', 'Effects', 'page_fx'),
-    ('fseq', 'Fseq', 'page_fseq'),
+    ('parts', 'Parts', 'page_parts'),
     ('quick', 'Quick Control', 'page_quick'),
+    ('operators', 'Operators', 'page_operator'),   # and the six other expert pages, its sub-tabs
+    ('fseq', 'Fseq', 'page_fseq'),
+    ('effects', 'Effects', 'page_fx'),
     ('options', 'Options', 'page_options'),
 ]
 CONTENT = (8, TAB_Y + TAB_H, 1235, 566)          # the pages embed, and the well around it

@@ -54,7 +54,7 @@
    ],
    "layer": 0,
    "fill": {
-    "image": "panels/group_box_light_tab"
+    "image": "panels/group_box_tab"
    }
   },
   {
@@ -182,7 +182,7 @@
     0
    ],
    "fill": {
-    "image": "panels/group_tab_light"
+    "image": "panels/group_tab"
    }
   },
   {
@@ -246,58 +246,6 @@
    "fill": {
     "image": "buttons/op_key",
     "tint": "@op{op}"
-   }
-  },
-  {
-   "type": "plate",
-   "name": "op_layer_v",
-   "rect": [
-    20,
-    96,
-    22,
-    19
-   ],
-   "layer": 1,
-   "text": {
-    "text": "V",
-    "font": "caption_grey_12",
-    "align": "center"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "showIf": {
-    "var": "layer",
-    "equals": "v"
-   }
-  },
-  {
-   "type": "plate",
-   "name": "op_layer_u",
-   "rect": [
-    20,
-    96,
-    22,
-    19
-   ],
-   "layer": 1,
-   "text": {
-    "text": "N",
-    "font": "caption_grey_12",
-    "align": "center"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "showIf": {
-    "var": "layer",
-    "equals": "u"
    }
   },
   {
@@ -750,7 +698,7 @@
    "rect": [
     337,
     74,
-    150,
+    136,
     18
    ],
    "fill": {
@@ -817,9 +765,9 @@
    "type": "button",
    "name": "mode_ratio",
    "rect": [
-    493,
+    477,
     72,
-    59,
+    66,
     22
    ],
    "fill": {
@@ -857,9 +805,9 @@
    "type": "button",
    "name": "mode_fixed",
    "rect": [
-    554,
+    547,
     72,
-    59,
+    66,
     22
    ],
    "fill": {
@@ -899,7 +847,7 @@
    "rect": [
     337,
     74,
-    150,
+    136,
     18
    ],
    "fill": {
@@ -946,9 +894,9 @@
    "type": "plate",
    "name": "osc_skirt_label",
    "rect": [
-    335,
+    337,
     96,
-    70,
+    66,
     18
    ],
    "fill": {
@@ -970,9 +918,9 @@
    "type": "number",
    "name": "osc_skirt",
    "rect": [
-    335,
+    337,
     116,
-    70,
+    66,
     20
    ],
    "fill": {
@@ -999,9 +947,9 @@
    "type": "plate",
    "name": "osc_transpose_label",
    "rect": [
-    479,
+    477,
     96,
-    70,
+    66,
     18
    ],
    "fill": {
@@ -1023,9 +971,9 @@
    "type": "number",
    "name": "osc_transpose",
    "rect": [
-    479,
+    477,
     116,
-    70,
+    66,
     20
    ],
    "fill": {
@@ -1055,7 +1003,7 @@
    "rect": [
     407,
     96,
-    70,
+    66,
     18
    ],
    "fill": {
@@ -1083,7 +1031,7 @@
    "rect": [
     407,
     116,
-    70,
+    66,
     20
    ],
    "fill": {
@@ -1114,9 +1062,9 @@
    "type": "plate",
    "name": "osc_detune_label",
    "rect": [
-    551,
+    547,
     96,
-    70,
+    66,
     18
    ],
    "fill": {
@@ -1142,9 +1090,9 @@
    "type": "number",
    "name": "osc_detune",
    "rect": [
-    551,
+    547,
     116,
-    70,
+    66,
     20
    ],
    "fill": {
@@ -1177,14 +1125,14 @@
    "rect": [
     407,
     96,
-    70,
+    66,
     18
    ],
    "fill": {
     "image": "panels/label_plate"
    },
    "text": {
-    "text": "Bandwidth",
+    "text": "Band",
     "font": "caption_grey_12",
     "align": "center"
    },
@@ -1205,7 +1153,7 @@
    "rect": [
     407,
     116,
-    70,
+    66,
     20
    ],
    "fill": {
@@ -1236,16 +1184,16 @@
    "type": "plate",
    "name": "osc_resonance_label",
    "rect": [
-    551,
+    547,
     96,
-    70,
+    66,
     18
    ],
    "fill": {
     "image": "panels/label_plate"
    },
    "text": {
-    "text": "Resonance",
+    "text": "Reson",
     "font": "caption_grey_12",
     "align": "center"
    },
@@ -1264,9 +1212,9 @@
    "type": "number",
    "name": "osc_resonance",
    "rect": [
-    551,
+    547,
     116,
-    70,
+    66,
     20
    ],
    "fill": {
@@ -1299,7 +1247,7 @@
    "rect": [
     337,
     142,
-    136,
+    66,
     18
    ],
    "fill": {
@@ -1327,6 +1275,44 @@
     "equals": "v"
    },
    "tip": "Restart the oscillator at each note"
+  },
+  {
+   "type": "number",
+   "name": "osc_phase",
+   "rect": [
+    405,
+    141,
+    68,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.v.phase.{part}",
+   "valueText": {
+    "scale": 2.8125,
+    "format": "%.1f"
+   },
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   },
+   "tip": "Initial phase in degrees with Key Sync on (0 to 127 steps of 360/128); moves a sounding note too"
   },
   {
    "type": "button",
@@ -1372,7 +1358,7 @@
     "image": "buttons/nav_small"
    },
    "text": {
-    "text": "V",
+    "text": "Voiced",
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
@@ -1409,7 +1395,7 @@
     "image": "buttons/nav_small"
    },
    "text": {
-    "text": "N",
+    "text": "Noise",
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
@@ -2926,7 +2912,7 @@
    ],
    "text": {
     "text": "Time",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center",
     "valign": "middle"
    },
@@ -2937,7 +2923,7 @@
     2
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "showIf": {
     "param": "gui.eg_modern",
@@ -2955,7 +2941,7 @@
    ],
    "text": {
     "text": "Level",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center",
     "valign": "middle"
    },
@@ -2966,7 +2952,7 @@
     2
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "showIf": {
     "param": "gui.eg_modern",
@@ -3180,11 +3166,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "Hold",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -3208,11 +3194,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T1",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -3236,11 +3222,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L1",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -3264,11 +3250,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T2",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -3292,11 +3278,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L2",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -3320,11 +3306,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T3",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -3348,11 +3334,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L3",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -3376,11 +3362,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "T4",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [
@@ -3404,11 +3390,11 @@
     18
    ],
    "fill": {
-    "image": "panels/label_plate_inv"
+    "image": "panels/label_plate"
    },
    "text": {
     "text": "L4",
-    "font": "caption_white_12",
+    "font": "caption_grey_12",
     "align": "center"
    },
    "pad": [

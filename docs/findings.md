@@ -8,6 +8,24 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-16, pitch bend keeps the LSB's top bits, and source PB is -128..127
+
+Found by WouterVanNifterick in PR #43 (closed): source PB is a raw signed byte, -128..127, where the engine fed
+it `msb - 64`, and the bend word drops the LSB. Re-read here off the Pitch Bend handler at 0x15B80 (no Ghidra
+function; `tools/ghidra_disasm_sh2.py 0x15b80-0x15c48`), which agrees on both:
+
+- the bend word at DAT_010293F4 is `((msb - 64) << 8 | lsb << 1) >> 4`, `(msb - 64) * 16 + (lsb >> 3)`. The
+  engine's "the firmware keeps the MSB only" was wrong; `FUN_0002022C`'s `bend >> 3` gives the pitch the
+  LSB's top bit, 256 steps.
+- that `>> 3` goes back into the data byte with 0xE0 as the controller number and the handler jumps to
+  `FUN_00014AD0`, where PB is in the raw mask 0x17C0: source PB is `(msb - 64) * 2 + (lsb >> 6)`, -128..127.
+  At `msb - 64` a set on PB reached half its depth.
+- with the LSB dropped `bend >> 3` topped out at 126, so `bend_word` never reached the firmware's 0x7F -> 0x80
+  and an upward bend stopped at 126/128 of its range.
+
+Both are fixed in `midi.cpp`; the engine self check covers them.
+
+---
 ## 2026-10-16, the sum bus is cleared by t1 bit 1 of the algorithm word, not by a read: 65 and 80 fan out
 
 `render_chan` cleared the sum bus whenever an operator read it, a guess from the first commit. On two algorithms that cut the routing short. 65 has operators 3 and 4 adding to the bus and 5, 6, 7 and 8 all reading it with nothing in between, and 80 has 1 and 2 adding and 3 to 8 reading; with a clearing read only the first reader was modulated, so 65 played 3 and 4 into 5 alone and 80 played 1 and 2 into 3 alone. The FS1R Algorithm Sheet (p.2), the MONTAGE Data List's Algorithm Chart (pp.172-173) and the Montage plugin's own table all draw 3 and 4 into each of 5 to 8 and 1 and 2 into each of 3 to 8.

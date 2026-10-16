@@ -166,7 +166,7 @@ void Synth::refresh_ctl(Chan& C) {
         // harmonics 33..48 cents, the same as its pms 2 sine carriers, where a window on C.f0 gave 541.
         // The transpose word rides that pitch. The width stays the same number of Hz, so the window
         // length in periods follows the grain rate.
-        int base = C.regPitch + 0x1243 + pmw - C.vcFreq[o][0];
+        double base = C.regPitch + 0x1243 + pmw - C.vcFreq[o][0];
         int trans = v.form == 7 ? C.frmtWord[o] - 0x1243 - C.detW[o] : 0;
         s.fw = word_hz(base + trans);
         s.bw = clampi(C.bwReg[o] + C.vcBw[o][0], 0, 99);                 // register 0x218, the formant's
@@ -260,7 +260,7 @@ double Synth::render_chan(Chan& C) {
             // Formant operators are NOT covered either way by any capture, so they keep the EG here
             // rather than being changed on a guess.
             if (!v.fixed && s.feg.stage < 2) fop *= fm::exp2(s.feg.tick() / 12.0);
-            y = op_sample(s, v, s.fw, fop, s.ratio, in * FM_INDEX, gain);
+            y = op_sample(s, v, s.fw, fop, s.ratio, in * FM_INDEX + C.phOff[o], gain);
         }
         // A read leaves the sum bus as it is; t1 bit 1 starts it over, after this operator's read and
         // before its add. INFERRED from the table, not measured: the bit is set wherever a second sum
@@ -331,17 +331,17 @@ void Synth::render(float* outL, float* outR, int frames) {
         tickAcc += TICK_HZ / SR; while (tickAcc >= 1) { tickAcc -= 1; tick(); }
         // The channels, each panned onto its part's pair. While a part has its filter on the first sixteen
         // pass through the filter chip first, sounding or not, so that a filter rings out after its note.
-        double pl[4] = {}, pr[4] = {}, v[FILTER_CHANNELS] = {};
+        // With fltWide the second chip takes the other sixteen, and a channel of an unfiltered part goes straight on.
+        const int nf = flt_chips() * FILTER_CHANNELS;
+        double pl[4] = {}, pr[4] = {}, v[NCHAN] = {};
         for (int n = 0; n < NCHAN; n++) {
             Chan& c = ch[n];
             if (!c.active) continue;
             const double m = render_chan(c);
-            if (fltSw && n < FILTER_CHANNELS) v[n] = m; else { pl[c.part] += m * c.panL; pr[c.part] += m * c.panR; }
+            if (n < nf && (c.filtered || !fltWide)) v[n] = m; else { pl[c.part] += m * c.panL; pr[c.part] += m * c.panR; }
         }
-        if (fltSw) {
-            flt.run(v);
-            for (int n = 0; n < FILTER_CHANNELS; n++) { pl[ch[n].part] += v[n] * ch[n].panL; pr[ch[n].part] += v[n] * ch[n].panR; }
-        }
+        for (int k = 0; k < flt_chips(); k++) flt[k].run(v + k * FILTER_CHANNELS);
+        for (int n = 0; n < nf; n++) { pl[ch[n].part] += v[n] * ch[n].panL; pr[ch[n].part] += v[n] * ch[n].panR; }
         // Four stereo buses into the effect chip: dry, insertion, variation send, reverb send. The rest is the chip's.
         double bus[8] = {}, l, r;
         for (int p = 0; p < 4; p++) {

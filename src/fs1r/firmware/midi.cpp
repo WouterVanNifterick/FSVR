@@ -45,7 +45,9 @@ void Synth::midi_in(int st, int d1, int d2) {
         case 0x80: note_off(p, d1); fseq_keys(); break;
         case 0xA0: set_source(pt, SRC_PAT, d2); break;
         case 0xD0: set_source(pt, SRC_CAT, d1); break;
-        case 0xE0: pt.bend = (d2 - 64) * 16; set_source(pt, SRC_PB, d2 - 64); break;
+        // 0x15B80: the bend word keeps the LSB's top four bits, and the source gets it >> 3, -128..127, raw
+        // (FUN_00014AD0 with controller 0xE0).
+        case 0xE0: pt.bend = (d2 - 64) * 16 + (d1 >> 3); pt.bendLsb = bend14 ? d1 : 0; set_source(pt, SRC_PB, pt.bend >> 3); break;
         case 0xC0: if (rom_ready(rom) && sys[0x13] && pt.p[1] && sys[8]) { pt.p[2] = (uint8_t)d1; rom_voice(*rom, bank_voice_index(pt.p[1], d1), pt.voice); } break;
         case 0xB0: control_change(p, d1, d2); break;
         }

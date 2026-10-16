@@ -30,7 +30,7 @@
    ],
    "layer": 4,
    "fill": {
-    "image": "buttons/tab_browser"
+    "image": "buttons/tab_1"
    },
    "text": {
     "text": "Browser",
@@ -57,7 +57,7 @@
   },
   {
    "type": "button",
-   "name": "tab_parts",
+   "name": "tab_performance",
    "rect": [
     160,
     136,
@@ -66,7 +66,43 @@
    ],
    "layer": 4,
    "fill": {
-    "image": "buttons/tab_parts"
+    "image": "buttons/tab_2"
+   },
+   "text": {
+    "text": "Performance",
+    "font": "tab_caption",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    4,
+    2,
+    4,
+    10
+   ],
+   "hoverTiles": true,
+   "action": {
+    "goto": "page_master",
+    "stack": "pages"
+   },
+   "showIf": {
+    "param": "gui.hide_editor",
+    "equals": 0
+   },
+   "tip": "The performance's global settings"
+  },
+  {
+   "type": "button",
+   "name": "tab_parts",
+   "rect": [
+    314,
+    136,
+    154,
+    44
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/tab_3"
    },
    "text": {
     "text": "Parts",
@@ -93,16 +129,52 @@
   },
   {
    "type": "button",
-   "name": "tab_operators",
+   "name": "tab_quick",
    "rect": [
-    314,
+    468,
     136,
     154,
     44
    ],
    "layer": 4,
    "fill": {
-    "image": "buttons/tab_operators"
+    "image": "buttons/tab_4"
+   },
+   "text": {
+    "text": "Quick Control",
+    "font": "tab_caption",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    4,
+    2,
+    4,
+    10
+   ],
+   "hoverTiles": true,
+   "action": {
+    "goto": "page_quick",
+    "stack": "pages"
+   },
+   "showIf": {
+    "param": "gui.hide_editor",
+    "equals": 0
+   },
+   "tip": "Quick edits"
+  },
+  {
+   "type": "button",
+   "name": "tab_operators",
+   "rect": [
+    622,
+    136,
+    154,
+    44
+   ],
+   "layer": 4,
+   "fill": {
+    "image": "buttons/tab_5"
    },
    "text": {
     "text": "Operators",
@@ -161,78 +233,6 @@
   },
   {
    "type": "button",
-   "name": "tab_performance",
-   "rect": [
-    468,
-    136,
-    154,
-    44
-   ],
-   "layer": 4,
-   "fill": {
-    "image": "buttons/tab_performance"
-   },
-   "text": {
-    "text": "Performance",
-    "font": "tab_caption",
-    "align": "center",
-    "valign": "middle"
-   },
-   "pad": [
-    4,
-    2,
-    4,
-    10
-   ],
-   "hoverTiles": true,
-   "action": {
-    "goto": "page_master",
-    "stack": "pages"
-   },
-   "showIf": {
-    "param": "gui.hide_editor",
-    "equals": 0
-   },
-   "tip": "The performance's global settings"
-  },
-  {
-   "type": "button",
-   "name": "tab_effects",
-   "rect": [
-    622,
-    136,
-    154,
-    44
-   ],
-   "layer": 4,
-   "fill": {
-    "image": "buttons/tab_effects"
-   },
-   "text": {
-    "text": "Effects",
-    "font": "tab_caption",
-    "align": "center",
-    "valign": "middle"
-   },
-   "pad": [
-    4,
-    2,
-    4,
-    10
-   ],
-   "hoverTiles": true,
-   "action": {
-    "goto": "page_fx",
-    "stack": "pages"
-   },
-   "showIf": {
-    "param": "gui.hide_editor",
-    "equals": 0
-   },
-   "tip": "Insertion, variation, reverb and EQ"
-  },
-  {
-   "type": "button",
    "name": "tab_fseq",
    "rect": [
     776,
@@ -242,7 +242,7 @@
    ],
    "layer": 4,
    "fill": {
-    "image": "buttons/tab_fseq"
+    "image": "buttons/tab_6"
    },
    "text": {
     "text": "Fseq",
@@ -269,7 +269,7 @@
   },
   {
    "type": "button",
-   "name": "tab_quick",
+   "name": "tab_effects",
    "rect": [
     930,
     136,
@@ -278,10 +278,10 @@
    ],
    "layer": 4,
    "fill": {
-    "image": "buttons/tab_quick"
+    "image": "buttons/tab_7"
    },
    "text": {
-    "text": "Quick Control",
+    "text": "Effects",
     "font": "tab_caption",
     "align": "center",
     "valign": "middle"
@@ -294,14 +294,14 @@
    ],
    "hoverTiles": true,
    "action": {
-    "goto": "page_quick",
+    "goto": "page_fx",
     "stack": "pages"
    },
    "showIf": {
     "param": "gui.hide_editor",
     "equals": 0
    },
-   "tip": "Quick edits"
+   "tip": "Insertion, variation, reverb and EQ"
   },
   {
    "type": "button",
@@ -314,7 +314,7 @@
    ],
    "layer": 4,
    "fill": {
-    "image": "buttons/tab_options"
+    "image": "buttons/tab_8"
    },
    "text": {
     "text": "Options",

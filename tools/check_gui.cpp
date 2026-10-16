@@ -379,6 +379,11 @@ int main() {
             CHECK(peak > 1e-4f, "at Fastest the engine made no sound (peak %g)", peak);
             CHECK(u.until([&] { return has("\"speed\": 3"); }), "Settings.json did not follow Quality / Speed");
             u.set("opt.speed", 0);
+            // 32 Filtered Voices is on by default and its toggle reaches Settings.json
+            CHECK(u.get("opt.filter32") == 1, "32 Filtered Voices was not on by default");
+            u.click("pages/list/special/filter32");
+            CHECK(u.until([&] { return u.get("opt.filter32") == 0 && has("\"filter32\": 0"); }), "Settings.json did not follow 32 Filtered Voices");
+            u.click("pages/list/special/filter32");
             u.shot("options");
         }
 
@@ -681,10 +686,15 @@ int main() {
             CHECK(u.get("part.note_reserve.p1") == rsv + 1, "the reserve's up stepper left it at %g, from %g", u.get("part.note_reserve.p1"), rsv);
             if (u.rect("pages/reserve_1", r)) u.clickAt(r.x + 3, r.y + r.h / 2);
             CHECK(u.get("part.note_reserve.p1") == rsv, "the reserve's down stepper left it at %g", u.get("part.note_reserve.p1"));
-            const double ch = u.get("part.rcv_ch.p1");
-            if (u.rect("pages/rcv_1", r)) u.clickAt(r.x + r.w - 3, r.y + r.h / 2);
-            CHECK(u.get("part.rcv_ch.p1") == ch + 1, "the MIDI channel's up stepper gave %g, from %g", u.get("part.rcv_ch.p1"), ch);
-            if (u.rect("pages/rcv_1", r)) u.clickAt(r.x + 3, r.y + r.h / 2);
+            const double ch = u.get("part.rcv_ch.p1");   // the MIDI channel is a menu: 1 to 16, the performance channel and off
+            u.click("pages/rcv_1");
+            u.choose("5");
+            CHECK(u.get("part.rcv_ch.p1") == 4, "the MIDI channel menu's 5 gave %g", u.get("part.rcv_ch.p1"));
+            u.click("pages/rcv_1");
+            u.choose("Pfm");
+            CHECK(u.get("part.rcv_ch.p1") == 16, "the MIDI channel menu's Pfm gave %g", u.get("part.rcv_ch.p1"));
+            u.set("part.rcv_ch.p1", ch);
+            u.settle();
             // the keyboard: a key three quarters up moves the range's top down to it; the slider over the keys shifts
             if (u.rect("pages/keys_1", r)) u.clickAt(r.x + r.w * 3 / 4, r.y + r.h - 3);
             CHECK(u.get("part.note_high.p1") < 127 && u.get("part.note_high.p1") > 64, "a key three quarters up made the top %g", u.get("part.note_high.p1"));

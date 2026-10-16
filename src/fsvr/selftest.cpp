@@ -200,6 +200,22 @@ int selftest(Synth& S) {
     S.perf.part[0].p[4] = 0; S.forceChannel = 0;
     S.midi_in(0xB0, 101, 0); S.midi_in(0xB0, 100, 0); S.midi_in(0xB0, 6, 12);
     ck("RPN bend range", S.perf.part[0].p[0x26] == 0x4C && S.perf.part[0].p[0x27] == 0x34);
+    // Pitch bend (0x15B80): the bend word is (msb - 64) * 16 + (lsb >> 3), the pitch takes it >> 3, 256 steps,
+    // and source PB gets the same >> 3 raw, -128..127. Ours: bend14 puts the LSB's low six bits between those steps.
+    { Part& pt = S.perf.part[0];
+      auto bw = [&](int lsb, int msb) { S.midi_in(0xE0, lsb, msb); return S.bend_word(pt); };
+      S.bend14 = false;
+      const double w0 = bw(0, 96), w1 = bw(64, 96);
+      ck("bend: the unit's pitch keeps the LSB's top bit", w0 == 512 && w1 == 520 && bw(63, 96) == w0);
+      bw(0, 0); const int lo = pt.src[S.SRC_PB]; bw(127, 127); const int hi = pt.src[S.SRC_PB]; bw(64, 64);
+      ck("bend: source PB spans -128..127, the LSB's top bit included", lo == -128 && hi == 127 && pt.src[S.SRC_PB] == 1);
+      S.bend14 = true;
+      ck("bend: an LSB whose low six bits are 0 is the unit's word", bw(0, 96) == w0 && bw(64, 96) == w1);
+      ck("bend: 32 lands halfway between two of the unit's steps", bw(32, 96) == (w0 + w1) / 2);
+      bool up = true; double last = -1e9;
+      for (int v = 0; v < 16384; v += 37) { double w = bw(v & 127, v >> 7); up = up && w >= last; last = w; }
+      ck("bend: the 14-bit sweep never steps back", up);
+      bw(0, 64); }
     S.midi_in(0xB0, 100, 2); S.midi_in(0xB0, 6, 0x28 + 12);
     ck("RPN note shift", S.perf.part[0].p[8] == 12);
     S.midi_in(0xB0, 99, 1); S.midi_in(0xB0, 98, 0x20); S.midi_in(0xB0, 6, 90);
@@ -462,10 +478,11 @@ int selftest(Synth& S) {
       auto A = std::make_unique<Synth>(), B = std::make_unique<Synth>(), C = std::make_unique<Synth>();
       open(*A); open(*B); open(*C);
       B->perf.part[0].p[7] = 1; C->perf.part[0].p[7] = 1;
+      C->filter32 = false;                                 // the unit's split, which the next checks are about
       note(*A, 0, 96, l0, r0);                             // no filter anywhere
       note(*B, 0, 96, l1, r1);                             // the same note with part 1's filter on, cutoff 40
       int at = -1; for (int i = 0; i < NCHAN; i++) if (B->ch[i].active) at = i;
-      ck("engine: a part with its filter on plays on the filter's channels", at >= 0 && at < 16 && B->flt.host.slotPart[at] == 0);
+      ck("engine: a part with its filter on plays on the filter's channels", at >= 0 && at < 16 && B->flt[0].host.slotPart[at] == 0);
       ck("engine: a filtered note loses its top", energy(l1) < 0.1 * energy(l0) && energy(l1) > 0);
       auto D = std::make_unique<Synth>();
       note(*D, 1, 60, l0, r0);                             // part 2 alone, no filter anywhere
@@ -475,7 +492,17 @@ int selftest(Synth& S) {
       ck("engine: and sounds exactly as it does with no filter anywhere", l2 == l0 && r2 == r0 && energy(l0) > 0);
       // a switch that changes stops every channel, as on the unit
       C->perf.part[1].p[7] = 1; C->render(l2.data(), r2.data(), 16);
-      ck("engine: changing a filter switch stops every note", C->active_chans() == 0); }
+      ck("engine: changing a filter switch stops every note", C->active_chans() == 0);
+      // Ours: two filter chips, so a filtered part plays 32 voices, filtered on both; the unit's 16 with filter32 off.
+      for (int wide = 0; wide < 2; wide++) {
+          auto E = std::make_unique<Synth>(); open(*E); E->perf.part[0].p[7] = 1; E->perf.part[0].p[0] = 32; E->filter32 = wide;
+          for (int n = 0; n < 32; n++) E->note_on(0, 40 + n, 100);
+          std::vector<float> l(4800), r(4800); E->render(l.data(), r.data(), (int)l.size());
+          int busy = 0, onChip1 = 0; for (int s = 0; s < 16; s++) onChip1 += E->flt[1].host.slotPart[s] == 0;
+          for (auto& c : E->ch) busy += c.active && c.filtered;
+          if (wide) ck("engine: 32 filtered voices on two filter chips", busy == 32 && onChip1 == 16 && energy(l) > 0);
+          else ck("engine: 16 filtered voices on the unit's one chip", busy == 16 && onChip1 == 0);
+      } }
 
     // A part whose voice bank is off receives nothing even with a receive channel (A011 Sho, parts 3 and 4).
     { S.perf.part[1].p[1] = 0; S.perf.part[1].p[4] = 0x10; ck("bank off silences the part", !S.part_listens(1, 0)); S.perf.part[1].p[1] = 2; ck("bank on hears it again", S.part_listens(1, 0)); }
@@ -654,6 +681,26 @@ int selftest(Synth& S) {
       }
       S.all_off(); init_perf(S.perf); }
 
+    // Ours: op byte 0x1C is a key-synced oscillator's initial phase, value / 128 of a turn. 64 is half a turn,
+    // which negates a lone sine carrier at the channel's output; with key sync off the byte does nothing.
+    { auto run = [](int sync, int ph, std::vector<double>& y) {
+          auto T = std::make_unique<Synth>(); init_perf(T->perf); Voice& V = T->perf.part[0].voice;
+          T->perf.part[0].p[1] = 2; T->perf.part[0].p[4] = 0x10;
+          for (int o = 1; o < 8; o++) V.v[o].level = 0, V.u[o].level = 0;
+          V.v[0].form = 0; V.v[0].level = 99; V.v[0].fixed = 0; V.v[0].coarse = 1; V.v[0].keysync = sync; V.u[0].level = 0;
+          for (int i = 0; i < 4; i++) { V.v[0].L[i] = i == 3 ? 0 : 99; V.v[0].T[i] = i == 3 ? 99 : 0; }
+          V.raw[112 + 0x1C] = (uint8_t)ph;
+          srand(3); T->midi_in(0x90, 60, 100);
+          Chan* c = nullptr; for (auto& x : T->ch) if (x.active) c = &x;
+          float l, r; for (auto& v : y) { T->render(&l, &r, 1); v = c ? c->last : 0; }
+          if (c && sync) { V.raw[112 + 0x1C] = 32; for (int k = 0; k < 512; k++) T->render(&l, &r, 1); y[0] = c->phOff[0]; } };   // a sounding note follows an edit
+      std::vector<double> a(2400), b(2400), c(2400), d(2400);
+      run(1, 0, a); run(1, 64, b); run(0, 0, c); run(0, 64, d);
+      double ab = 0, aa = 0; for (size_t i = 1; i < a.size(); i++) ab += a[i] * b[i], aa += a[i] * a[i];
+      ck("phase: 64 is half a turn on a key-synced operator", aa > 0 && ab / aa < -0.99);
+      ck("phase: and nothing without key sync", c == d);
+      ck("phase: refresh_regs carries an edit to a sounding note", a[0] == 0.25 && b[0] == 0.25); }
+
     // The allocator, against the unit itself (FS1R.unlock captures/2026-09-25-7, session6 alloc).
     // Filling an empty machine with notes 36..67 on part 1 put them on channels 1..31 then 0, and a
     // 33rd note of 100 arriving on the full part took channel 2 (which held note 37). Both are
@@ -754,16 +801,16 @@ int selftest(Synth& S) {
               in.egKind = egview::FILTER; in.velSens = 3; in.timeScale = 2; in.part[0] = 70; in.part[1] = 58; in.part[2] = 64;
               for (int i = 0; i < 4; i++) in.L[i] = fL[i], in.T[i] = fT[i] - 22;
               const egview::EgCurve g = egview::curve(in);
-              const Vop3::Eg& eg = S.flt.chip.eg[(slot + 2) & 15];
+              const Vop3::Eg& eg = S.flt[0].chip.eg[(slot + 2) & 15];
               float l[1], r[1]; std::vector<double> at;
               for (int k = 1, st = 1; k < SR * 2 && at.size() < 2; k++) {
                   S.render(l, r, 1);
-                  if (S.flt.host.stage[slot] != st) st = S.flt.host.stage[slot], at.push_back(k / (double)SR);
+                  if (S.flt[0].host.stage[slot] != st) st = S.flt[0].host.stage[slot], at.push_back(k / (double)SR);
               }
               bool ok = at.size() == 2;
               for (size_t i = 0; ok && i < 2; i++) ok = fabs(g.t[(size_t)g.corner[i]] / at[i] - 1) < 0.05;
               ck("egview: the filter EG ends its first two segments where the chip does", ok);
-              ck("filter EG: the host's stage follows the chip's reports", S.flt.host.stage[slot] == 3);
+              ck("filter EG: the host's stage follows the chip's reports", S.flt[0].host.stage[slot] == 3);
               // the view draws the release from level 3 to within a unit of level 4, which gives its segment's time
               const double from = eg.level, to = (fL[3] - 50) * 256 / 50, T4 = g.t.back() * log(3.0) / log(fabs((fL[2] - fL[3]) * 256 / 50.0));
               S.midi_in(0x80, 72, 0);

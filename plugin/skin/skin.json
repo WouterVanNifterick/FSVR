@@ -392,9 +392,9 @@
    "tiles": 2,
    "slice": [
     0,
-    21,
+    2,
     0,
-    2
+    21
    ],
    "surface": false
   },
@@ -474,35 +474,35 @@
    "surface": false,
    "tiles": 4
   },
-  "buttons/tab_browser": {
+  "buttons/tab_1": {
    "tiles": 4,
    "surface": false
   },
-  "buttons/tab_effects": {
+  "buttons/tab_2": {
    "tiles": 4,
    "surface": false
   },
-  "buttons/tab_fseq": {
+  "buttons/tab_3": {
    "tiles": 4,
    "surface": false
   },
-  "buttons/tab_operators": {
+  "buttons/tab_4": {
    "tiles": 4,
    "surface": false
   },
-  "buttons/tab_options": {
+  "buttons/tab_5": {
    "tiles": 4,
    "surface": false
   },
-  "buttons/tab_parts": {
+  "buttons/tab_6": {
    "tiles": 4,
    "surface": false
   },
-  "buttons/tab_performance": {
+  "buttons/tab_7": {
    "tiles": 4,
    "surface": false
   },
-  "buttons/tab_quick": {
+  "buttons/tab_8": {
    "tiles": 4,
    "surface": false
   },

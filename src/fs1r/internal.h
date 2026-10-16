@@ -119,7 +119,7 @@ const double DAMP_K = exp(-1.0 / (cal::DAMP_MS * 0.001 * SR));
 // 1024 units per octave, and the word is a 16 bit register that saturates rather than wrapping.
 // MEASURED 2026-09-21 off 12_fseqlevel: a ratio operator driven by an Fseq lands past the ceiling at
 // every note and the unit answers with one line at 23982 Hz, which is word 32767 to a tenth.
-static inline double word_hz(int w) { return 440.0 * fm::exp2((std::clamp(w, 0, 0x7FFF) - 26861) / 1024.0); }
+static inline double word_hz(double w) { return 440.0 * fm::exp2((std::clamp(w, 0.0, 32767.0) - 26861) / 1024.0); }   // fractional for the bend LSB
 
 // ------------------------------------------------------------------------------------------ tables (chip side)
 extern float g_win[2][8][1025];
@@ -200,7 +200,8 @@ bool rom_ready(const Rom* R);
 struct Part {
     uint8_t p[52]; Voice voice;
     // controller state (MIDI)
-    int bend = 0;            // (msb - 64) * 16, the firmware keeps the MSB only
+    int bend = 0;            // (msb - 64) * 16 + (lsb >> 3), the handler at 0x15B80 (DAT_010293F4)
+    int bendLsb = 0;         // ours: the whole LSB, for a 14-bit bend (bend_word)
     int expr = 254;          // DAT_010297fa
     // FUN_0000edf0, the per-part controller reset: expression back to 0xFE, bend and every controller
     // source to zero. Reset All Controllers runs it, and so does loading a performance, which walks the
@@ -332,11 +333,13 @@ struct Chan {
     int panBase = 63; double panL = 1, panR = 1;
     int vcLvl[8][2] = {}, vcFreq[8][2] = {}, vcBw[8][2] = {};   // voice Formant/FM control offsets, [op][voiced=0]
     // registers refreshed each tick
-    int regPitch = 0, regPM = 0, regFM = 0, regAM = 0, regLevel[8], regULevel[8], regC0 = 73;
+    double regPitch = 0; int regPM = 0, regFM = 0, regAM = 0, regLevel[8], regULevel[8], regC0 = 73;
     int fqWord[8] = {}, fquWord[8] = {}; double partV = 1, partU = 1;
     OpState op[8]; double fbBus = 0, fbPrev = 0;
     double f0 = 0, fbGain = 0; int ctlLeft = 0;                    // control-rate cache, see refresh_ctl
     bool fseqOp[8] = {}, fseqUOp[8] = {};
+    bool filtered = false;     // its note went through a filter slot: flt[n >> 4], slot n & 15
+    double phOff[8] = {};      // ours: each voiced operator's initial phase in turns, op byte 0x1C (refresh_regs)
 };
 
 struct Synth {
@@ -349,7 +352,11 @@ struct Synth {
     int nextChan[3] = {0, 0, FILTER_CHANNELS}, partChan[4] = {0, 0, 0, 0};
     Effects fx;
     // The voice filters, on their own chip. fltSw is the parts' filter switches as last latched, a bit a part.
-    Filter flt; int fltSw = 0;
+    // Ours (docs/Differences.md): filter32 runs a second VOP3-1 on channels 16 to 31, so a part with its
+    // filter on plays all 32 voices instead of the unit's 16. fltWide is it as last latched.
+    Filter flt[2]; int fltSw = 0; bool filter32 = true, fltWide = false;
+    bool bend14 = true;                        // ours: keep the pitch bend LSB the unit drops (bend_word)
+    int flt_chips() const { return fltSw ? (fltWide ? 2 : 1) : 0; }
     void filter_latch();                       // FUN_0002087e: a switch that changed stops every channel
     void filter_sync(int part);                // the part's voice, record and controllers, into the filter host
     // FUN_0002c36c: LFO1 into a slot's cutoff. The fade takes twice the controller's offset, destination 42.
@@ -409,7 +416,7 @@ struct Synth {
     // Destination 35 writes one per-part value that event 0x205 then scales by each operator's own EG
     // bias sense: ~((|scaled| + table[|depth|]) * 2), the table being flash 0x3DDC4 (ctrlDest_35).
     int ctrl_eg_bias(int part) const;
-    int bend_word(const Part& pt) const;
+    double bend_word(const Part& pt) const;
     void part_levels(int part, int& vAtt, int& uAtt) const;
 
     // ---------------------------------------------------------------- note on (FUN_00010b48 / FUN_000112c0 / FUN_000125f8)
@@ -452,7 +459,7 @@ struct Synth {
         for (auto& c : ch) c.active = false;
         for (auto& p : perf.part) { p.nheld = 0; }
         fseqRun = false; fseqHeld = false;
-        if (fltSw) for (int s = 0; s < FILTER_CHANNELS; s++) flt.host.kill(s);   // FUN_00010384
+        for (int k = 0; k < flt_chips(); k++) for (int s = 0; s < FILTER_CHANNELS; s++) flt[k].host.kill(s);   // FUN_00010384
     }
     void all_release() { for (auto& c : ch) if (c.active && (c.held || c.sustained)) { c.held = c.sustained = false; release(c); } for (auto& p : perf.part) p.nheld = 0; }
 

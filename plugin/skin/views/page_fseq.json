@@ -937,12 +937,12 @@
    "rect": [
     902,
     31,
-    75,
+    100,
     20
    ],
    "layer": 0,
    "text": {
-    "text": "Loop",
+    "text": "Playback",
     "font": "caption_grey_12",
     "align": "left"
    },
@@ -1061,7 +1061,7 @@
    "name": "seq_1_scratch",
    "rect": [
     484,
-    85,
+    84,
     51,
     22
    ],
@@ -1096,7 +1096,7 @@
    "name": "seq_1_fseq",
    "rect": [
     537,
-    85,
+    84,
     51,
     22
    ],
@@ -1155,7 +1155,7 @@
    "name": "seq_2_first",
    "rect": [
     484,
-    113,
+    112,
     51,
     22
    ],
@@ -1190,7 +1190,7 @@
    "name": "seq_2_all",
    "rect": [
     537,
-    113,
+    112,
     51,
     22
    ],
@@ -1249,7 +1249,7 @@
    "name": "seq_3_fseq",
    "rect": [
     484,
-    141,
+    140,
     51,
     22
    ],
@@ -1284,7 +1284,7 @@
    "name": "seq_3_fixed",
    "rect": [
     537,
-    141,
+    140,
     51,
     22
    ],
@@ -1373,7 +1373,7 @@
    "type": "plate",
    "name": "speed_vel_label",
    "rect": [
-    690,
+    696,
     60,
     80,
     21
@@ -1395,7 +1395,7 @@
    "type": "dial",
    "name": "speed_vel",
    "rect": [
-    708,
+    714,
     81,
     44,
     44
@@ -1411,7 +1411,7 @@
    "type": "number",
    "name": "speed_vel_value",
    "rect": [
-    700,
+    706,
     126,
     60,
     22
@@ -1437,7 +1437,7 @@
    "type": "plate",
    "name": "level_vel_label",
    "rect": [
-    756,
+    758,
     60,
     80,
     21
@@ -1459,7 +1459,7 @@
    "type": "dial",
    "name": "level_vel",
    "rect": [
-    774,
+    776,
     81,
     44,
     44
@@ -1475,7 +1475,7 @@
    "type": "number",
    "name": "level_vel_value",
    "rect": [
-    766,
+    768,
     126,
     60,
     22
@@ -1501,7 +1501,7 @@
    "type": "plate",
    "name": "delay_label",
    "rect": [
-    822,
+    818,
     60,
     80,
     21
@@ -1523,7 +1523,7 @@
    "type": "dial",
    "name": "delay",
    "rect": [
-    840,
+    836,
     81,
     44,
     44
@@ -1539,7 +1539,7 @@
    "type": "number",
    "name": "delay_value",
    "rect": [
-    832,
+    828,
     126,
     60,
     22
@@ -1643,15 +1643,15 @@
    "name": "loop_1_one_way",
    "rect": [
     1064,
-    85,
-    60,
+    84,
+    54,
     22
    ],
    "fill": {
     "image": "buttons/nav_small"
    },
    "text": {
-    "text": "One Way",
+    "text": ">>",
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
@@ -1677,16 +1677,16 @@
    "type": "button",
    "name": "loop_1_round",
    "rect": [
-    1126,
-    85,
-    60,
+    1120,
+    84,
+    54,
     22
    ],
    "fill": {
     "image": "buttons/nav_small"
    },
    "text": {
-    "text": "Round",
+    "text": ">> <<",
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
@@ -2032,7 +2032,7 @@
     "image": "panels/label_plate"
    },
    "text": {
-    "text": "Trk",
+    "text": "Track",
     "font": "caption_grey_12",
     "align": "center"
    },
@@ -2173,7 +2173,7 @@
     "image": "panels/label_plate"
    },
    "text": {
-    "text": "Trk",
+    "text": "Track",
     "font": "caption_grey_12",
     "align": "center"
    },
@@ -2314,7 +2314,7 @@
     "image": "panels/label_plate"
    },
    "text": {
-    "text": "Trk",
+    "text": "Track",
     "font": "caption_grey_12",
     "align": "center"
    },
@@ -2455,7 +2455,7 @@
     "image": "panels/label_plate"
    },
    "text": {
-    "text": "Trk",
+    "text": "Track",
     "font": "caption_grey_12",
     "align": "center"
    },
@@ -2596,7 +2596,7 @@
     "image": "panels/label_plate"
    },
    "text": {
-    "text": "Trk",
+    "text": "Track",
     "font": "caption_grey_12",
     "align": "center"
    },
@@ -2737,7 +2737,7 @@
     "image": "panels/label_plate"
    },
    "text": {
-    "text": "Trk",
+    "text": "Track",
     "font": "caption_grey_12",
     "align": "center"
    },
@@ -2878,7 +2878,7 @@
     "image": "panels/label_plate"
    },
    "text": {
-    "text": "Trk",
+    "text": "Track",
     "font": "caption_grey_12",
     "align": "center"
    },
@@ -3019,7 +3019,7 @@
     "image": "panels/label_plate"
    },
    "text": {
-    "text": "Trk",
+    "text": "Track",
     "font": "caption_grey_12",
     "align": "center"
    },

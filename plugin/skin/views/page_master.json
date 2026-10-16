@@ -443,8 +443,7 @@
     },
     {
      "label": "Synth Pad",
-     "value": 12,
-     "columnBreak": true
+     "value": 12
     },
     {
      "label": "Synth FX",
@@ -600,11 +599,11 @@
      "value": 0
     },
     {
-     "label": "Pre Ins",
+     "label": "Pre Insertion FX",
      "value": 1
     },
     {
-     "label": "Post Ins",
+     "label": "Post Insertion FX",
      "value": 2
     }
    ],
@@ -770,14 +769,14 @@
    "rect": [
     519,
     91,
-    86,
+    65,
     22
    ],
    "fill": {
     "image": "buttons/nav_small"
    },
    "text": {
-    "text": "Performance",
+    "text": "Perform",
     "font": "caption_grey_12",
     "align": "center",
     "valign": "middle",
@@ -803,9 +802,9 @@
    "type": "button",
    "name": "midi_1_multi",
    "rect": [
-    607,
+    584,
     91,
-    64,
+    65,
     22
    ],
    "fill": {

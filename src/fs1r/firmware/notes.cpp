@@ -15,12 +15,12 @@ void Synth::init_system() {
 void Synth::filter_latch() {
     int sw = 0;
     for (int p = 0; p < 4; p++) sw |= (perf.part[p].p[7] & 1) << p;
-    if (sw == fltSw) return;
+    if (sw == fltSw && filter32 == fltWide) return;
     all_off();
-    fltSw = sw;
-    flt.reset();
+    fltSw = sw; fltWide = filter32;
+    flt[0].reset(); flt[1].reset();
     nextChan[0] = nextChan[1] = 0; nextChan[2] = FILTER_CHANNELS;
-    for (int p = 0; p < 4; p++) partChan[p] = sw && !(sw >> p & 1) ? FILTER_CHANNELS : 0;
+    for (int p = 0; p < 4; p++) partChan[p] = sw && !fltWide && !(sw >> p & 1) ? FILTER_CHANNELS : 0;
 }
 
 // The filter host reads the voice and the part record. Destinations 21 to 26 edit the record, as the firmware
@@ -31,7 +31,7 @@ void Synth::filter_sync(int part) {
     static const int BYTE[6] = {PART_CUTOFF, PART_RESONANCE, PART_EG_DEPTH, PART_ATTACK, PART_DECAY, PART_RELEASE};
     uint8_t rec[fs1r::vop3host::FilterHost::PART_BYTES]; memcpy(rec, pt.p, sizeof rec);
     for (int d = 0; d < 6; d++) rec[BYTE[d]] = (uint8_t)ctrl_part(part, 21 + d, pt.p[BYTE[d]]);
-    flt.sync(part, pt.voice.raw, rec, ctrl_offset(part, 42), ctrl_offset(part, 44), ctrl_offset(part, 45));
+    for (int k = 0; k < flt_chips(); k++) flt[k].sync(part, pt.voice.raw, rec, ctrl_offset(part, 42), ctrl_offset(part, 44), ctrl_offset(part, 45));
 }
 
 void Synth::note_on(int part, int note, int vel) {
@@ -71,9 +71,10 @@ void Synth::note_on(int part, int note, int vel) {
     // While a part has its filter on, FUN_000112c0 walks half the channels instead: 0 to 15 for a part with
     // a filter (FUN_0000fa5c), 16 to 31 for one without (FUN_0000fcfa), each with a cursor of its own.
     // OPEN: the two halves' walks are taken to follow the whole walk's three rules; only that one was measured.
-    const bool filtered = fltSw >> part & 1;
-    const int first = fltSw && !filtered ? FILTER_CHANNELS : 0, count = !fltSw ? NCHAN : filtered ? FILTER_CHANNELS : NCHAN - FILTER_CHANNELS;
-    int& cursor = nextChan[!fltSw ? 0 : filtered ? 1 : 2];
+    // With fltWide (ours) every channel has a filter slot, so there are no halves: the whole walk, as with no filter.
+    const bool filtered = fltSw >> part & 1, split = fltSw && !fltWide;
+    const int first = split && !filtered ? FILTER_CHANNELS : 0, count = !split ? NCHAN : filtered ? FILTER_CHANNELS : NCHAN - FILTER_CHANNELS;
+    int& cursor = nextChan[!split ? 0 : filtered ? 1 : 2];
     auto at = [&](int from, int k) { return first + ((from - first + k) % count + count) % count; };
     Chan* c = nullptr;
     for (int k = 1; k <= count; k++) { Chan& x = ch[at(cursor, k)]; if (!x.active) { c = &x; break; } }
@@ -81,7 +82,7 @@ void Synth::note_on(int part, int note, int vel) {
         int best = part, excess = -1;
         for (int k = 0; k < 4; k++) {
             int p = (part + k) & 3, others = 0, n = 0;
-            if (fltSw && (fltSw >> p & 1) != (int)filtered) continue;   // its notes are in the other half
+            if (split && (fltSw >> p & 1) != (int)filtered) continue;   // its notes are in the other half
             for (int q = 0; q < 4; q++) if (q != p) others += perf.part[q].p[0x00];
             int res = clampi(perf.part[p].p[0x00], 0, std::max(0, NCHAN - others));
             for (auto& x : ch) if (x.active && x.part == p) n++;
@@ -99,7 +100,9 @@ void Synth::note_on(int part, int note, int vel) {
     }
     const int slot = int(c - ch);
     cursor = slot; partChan[part] = slot;
-    if (filtered) flt.host.kill(slot);          // FUN_000112c0: the filter slot is silenced before the note takes it
+    // FUN_000112c0: the filter slot is silenced before the note takes it. With fltWide an unfiltered note can
+    // take a channel a filtered one rang out on, so its slot is silenced too.
+    if (filtered || (fltSw && fltWide)) flt[slot >> 4].host.kill(slot & 15);
     Chan& C = *c; bool sync = V.lfo1sync != 0; uint32_t keepPhase = C.lfoPhase;
     // FUN_00023000: the firmware damps the channel it is about to take, it does not silence it. The mask
     // it is called with comes out of the one-hot table at 0x35B260 indexed by the allocated channel, and
@@ -109,7 +112,7 @@ void Synth::note_on(int part, int note, int vel) {
     // samples, which is a click the unit does not make.
     double damp = C.active ? C.last + C.damp : 0.0;
     C = Chan(); C.active = true; C.part = part; C.note = note; C.vel = vel; C.held = true; C.age = ++clock;
-    C.damp = damp;
+    C.damp = damp; C.filtered = filtered;
     C.lfoPhase = sync ? 0 : keepPhase;
     C.panBase = pt.p[0x0E] ? pt.p[0x0E] : (rand() % 128);       // part pan 0 = random per note; the rest is the table index
     compute_pitch(C, pt, note);
@@ -124,7 +127,7 @@ void Synth::note_on(int part, int note, int vel) {
     if (fseq.valid && fseqPart == part && ((perf.c[0x24] & 1) || !anyOther(C))) fseq_start(vel);
     // The filter slot starts before the tone generator's registers are written: its modulation word
     // (FUN_0002a47c), then the note (FUN_0000b0e8), which takes the note after its shifts and the curved velocity.
-    if (filtered) { filter_sync(part); flt.host.setSlotCutoffMod(slot, filter_mod(C)); flt.host.noteOn(slot, part, C.noteP, vel); }
+    if (filtered) { filter_sync(part); auto& h = flt[slot >> 4].host; h.setSlotCutoffMod(slot & 15, filter_mod(C)); h.noteOn(slot & 15, part, C.noteP, vel); }
     refresh_regs(C, pt);
     if (getenv("FS1R_DEBUG")) {
         printf("note %d vel %d -> note' %d pitch %d keyfact %d C0 %d\n", note, vel, C.noteP, C.pitchNote, C.keyfact, C.regC0);
@@ -277,7 +280,7 @@ void Synth::note_off(int part, int note) {
 void Synth::release(Chan& C) {
     for (auto& s : C.op) { s.eg.release(); s.ueg.release(); }
     const int slot = int(&C - ch);
-    if (slot < FILTER_CHANNELS && (fltSw >> C.part & 1)) flt.host.noteOff(slot);   // FUN_00010a52
+    if (C.filtered) flt[slot >> 4].host.noteOff(slot & 15);   // FUN_00010a52
     C.pegStage = 4; C.pegTarget = C.pegLvl[4]; C.pegRate = C.pegRt[4];
     fseq_keys();
 }
@@ -358,6 +361,9 @@ void Synth::refresh_regs(Chan& C, const Part& pt) {
             if (C.fseqUOp[o]) { ul = f[0x2A + t] << 1; if (lvVel != 0x80) ul = (~(((~ul) & 0xFF) * lvVel >> 8)) & 0xFF; C.fquWord[o] = f[0x1A + t] * 256 + f[0x22 + t] * 2 + C.ufbW[o]; }
         }
         C.regLevel[o] = clampi(l + C.egbias[o] + C.vcLvl[o][0], 0, 255);
+        // Ours (docs/Differences.md): op byte 0x1C, reserved on the unit, is a key-synced oscillator's initial
+        // phase, 0 to 127 for 0 to 360 * 127 / 128 degrees. Read here, so an edit moves a sounding note too.
+        C.phOff[o] = V.v[o].keysync ? V.raw[112 + o * 62 + 0x1C] / 128.0 : 0.0;
         C.regULevel[o] = clampi(ul + C.uegbias[o] + C.vcLvl[o][1], 0, 255);
     }
     int vAtt, uAtt; part_levels(part, vAtt, uAtt);
@@ -405,7 +411,7 @@ void Synth::tick() {
         if (!C.active) continue;
         const Part& pt = perf.part[C.part];
         lfo_tick(C, pt); peg_tick(C); porta_tick(C); refresh_regs(C, pt);
-        if (n < FILTER_CHANNELS && (fltSw >> C.part & 1)) flt.host.setSlotCutoffMod(n, filter_mod(C));   // FUN_0002c998
+        if (C.filtered) flt[n >> 4].host.setSlotCutoffMod(n & 15, filter_mod(C));   // FUN_0002c998
     }
-    if (fltSw) flt.host.flush();
+    for (int k = 0; k < flt_chips(); k++) flt[k].host.flush();
 }

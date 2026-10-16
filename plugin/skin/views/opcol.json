@@ -1167,8 +1167,9 @@
     16
    ],
    "text": {
-    "text": "Frequency ratio",
+    "text": "Frequency",
     "font": "caption_grey_12",
+    "align": "center",
     "valign": "middle"
    },
    "pad": [
@@ -1589,7 +1590,7 @@
     16
    ],
    "text": {
-    "text": "Amplitude EG",
+    "text": "Envelope",
     "font": "caption_grey_12",
     "align": "left",
     "valign": "middle"
