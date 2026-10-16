@@ -620,6 +620,26 @@ int selftest(Synth& S) {
       }
       S.all_off(); init_perf(S.perf); }
 
+    // Ours: op byte 0x1C is a key-synced oscillator's initial phase, value / 128 of a turn. 64 is half a turn,
+    // which negates a lone sine carrier at the channel's output; with key sync off the byte does nothing.
+    { auto run = [](int sync, int ph, std::vector<double>& y) {
+          auto T = std::make_unique<Synth>(); init_perf(T->perf); Voice& V = T->perf.part[0].voice;
+          T->perf.part[0].p[1] = 2; T->perf.part[0].p[4] = 0x10;
+          for (int o = 1; o < 8; o++) V.v[o].level = 0, V.u[o].level = 0;
+          V.v[0].form = 0; V.v[0].level = 99; V.v[0].fixed = 0; V.v[0].coarse = 1; V.v[0].keysync = sync; V.u[0].level = 0;
+          for (int i = 0; i < 4; i++) { V.v[0].L[i] = i == 3 ? 0 : 99; V.v[0].T[i] = i == 3 ? 99 : 0; }
+          V.raw[112 + 0x1C] = (uint8_t)ph;
+          srand(3); T->midi_in(0x90, 60, 100);
+          Chan* c = nullptr; for (auto& x : T->ch) if (x.active) c = &x;
+          float l, r; for (auto& v : y) { T->render(&l, &r, 1); v = c ? c->last : 0; }
+          if (c && sync) { V.raw[112 + 0x1C] = 32; for (int k = 0; k < 512; k++) T->render(&l, &r, 1); y[0] = c->phOff[0]; } };   // a sounding note follows an edit
+      std::vector<double> a(2400), b(2400), c(2400), d(2400);
+      run(1, 0, a); run(1, 64, b); run(0, 0, c); run(0, 64, d);
+      double ab = 0, aa = 0; for (size_t i = 1; i < a.size(); i++) ab += a[i] * b[i], aa += a[i] * a[i];
+      ck("phase: 64 is half a turn on a key-synced operator", aa > 0 && ab / aa < -0.99);
+      ck("phase: and nothing without key sync", c == d);
+      ck("phase: refresh_regs carries an edit to a sounding note", a[0] == 0.25 && b[0] == 0.25); }
+
     // The allocator, against the unit itself (FS1R.unlock captures/2026-09-25-7, session6 alloc).
     // Filling an empty machine with notes 36..67 on part 1 put them on channels 1..31 then 0, and a
     // 33rd note of 100 arriving on the full part took channel 2 (which held note 37). Both are

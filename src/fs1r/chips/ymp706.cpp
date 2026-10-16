@@ -261,7 +261,7 @@ double Synth::render_chan(Chan& C) {
             // Formant operators are NOT covered either way by any capture, so they keep the EG here
             // rather than being changed on a guess.
             if (!v.fixed && s.feg.stage < 2) fop *= fm::exp2(s.feg.tick() / 12.0);
-            y = op_sample(s, v, s.fw, fop, s.ratio, in * FM_INDEX, gain);
+            y = op_sample(s, v, s.fw, fop, s.ratio, in * FM_INDEX + C.phOff[o], gain);
         }
         Cb = y; if (t0 & 2) H = y; if (t1 & 4) S += y; if (t0 & 4) fbNew = y;
         if (t1 & 1) mix += y * partV;

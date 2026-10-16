@@ -36747,5 +36747,261 @@
   ],
   "default": 1,
   "host": false
+ },
+ {
+  "id": "op.1.v.phase.p1",
+  "name": "P1 Op1 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.2.v.phase.p1",
+  "name": "P1 Op2 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.3.v.phase.p1",
+  "name": "P1 Op3 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.4.v.phase.p1",
+  "name": "P1 Op4 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.5.v.phase.p1",
+  "name": "P1 Op5 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.6.v.phase.p1",
+  "name": "P1 Op6 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.7.v.phase.p1",
+  "name": "P1 Op7 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.8.v.phase.p1",
+  "name": "P1 Op8 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.1.v.phase.p2",
+  "name": "P2 Op1 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.2.v.phase.p2",
+  "name": "P2 Op2 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.3.v.phase.p2",
+  "name": "P2 Op3 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.4.v.phase.p2",
+  "name": "P2 Op4 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.5.v.phase.p2",
+  "name": "P2 Op5 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.6.v.phase.p2",
+  "name": "P2 Op6 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.7.v.phase.p2",
+  "name": "P2 Op7 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.8.v.phase.p2",
+  "name": "P2 Op8 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.1.v.phase.p3",
+  "name": "P3 Op1 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.2.v.phase.p3",
+  "name": "P3 Op2 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.3.v.phase.p3",
+  "name": "P3 Op3 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.4.v.phase.p3",
+  "name": "P3 Op4 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.5.v.phase.p3",
+  "name": "P3 Op5 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.6.v.phase.p3",
+  "name": "P3 Op6 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.7.v.phase.p3",
+  "name": "P3 Op7 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.8.v.phase.p3",
+  "name": "P3 Op8 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.1.v.phase.p4",
+  "name": "P4 Op1 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.2.v.phase.p4",
+  "name": "P4 Op2 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.3.v.phase.p4",
+  "name": "P4 Op3 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.4.v.phase.p4",
+  "name": "P4 Op4 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.5.v.phase.p4",
+  "name": "P4 Op5 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.6.v.phase.p4",
+  "name": "P4 Op6 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.7.v.phase.p4",
+  "name": "P4 Op7 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
+ },
+ {
+  "id": "op.8.v.phase.p4",
+  "name": "P4 Op8 Phase",
+  "min": 0,
+  "max": 127,
+  "default": 0,
+  "steps": 127
  }
 ]

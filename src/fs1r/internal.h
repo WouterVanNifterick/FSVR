@@ -338,6 +338,7 @@ struct Chan {
     double f0 = 0, fbGain = 0; int ctlLeft = 0;                    // control-rate cache, see refresh_ctl
     bool fseqOp[8] = {}, fseqUOp[8] = {};
     bool filtered = false;     // its note went through a filter slot: flt[n >> 4], slot n & 15
+    double phOff[8] = {};      // ours: each voiced operator's initial phase in turns, op byte 0x1C (refresh_regs)
 };
 
 struct Synth {

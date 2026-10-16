@@ -6,7 +6,7 @@ does something the hardware does not, because the hardware's behaviour is an art
 to its chips rather than a musical decision. Each entry says what the unit does, what FSVR does, and where
 the firmware says so.
 
-The engine has one entry, and it is a choice you can turn off. The last forced one, a filter switch that reached
+The engine has two entries: one is a choice you can turn off, the other a byte the unit ignores. The last forced one, a filter switch that reached
 notes already sounding, went on 2026-10-14 when the filter moved onto its chip: on the unit a change of part byte
 0x07 runs `FUN_0002087E`, which stops every channel before it latches the four switches, and FSVR now does the same.
 
@@ -23,6 +23,17 @@ on; a channel of a part without a filter goes straight to its bus. This is the d
 Changing it stops every note, as a filter switch does. Nothing about the second chip can be measured, since the
 unit has none, so `tools/render_capture`, which renders what a capture is compared against, keeps the unit's
 16 unless given `-flt32`.
+
+## Oscillator initial phase
+
+**The unit.** Voiced operator byte 0x1C is reserved (Data List, Voice Voiced Parameter) and every factory voice
+holds 0 there. A key-synced oscillator starts each note at phase 0.
+
+**FSVR.** Byte 0x1C, 0 to 127, is a key-synced operator's initial phase, value / 128 of a turn, so 64 is 180
+degrees and 127 is 357.2 (0 and 360 are the same phase). It is added to the operator's phase input on every
+form, so the sine and all1/all2 rotate and the grain forms shift their carrier inside each grain. `refresh_regs`
+reads it each tick, so an edit moves a sounding note too. With key sync off it does nothing. A voice that leaves
+it at 0 sounds as on the unit; one that sets it plays at 0 on the unit.
 
 # What the plug-in adds
 

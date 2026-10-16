@@ -361,6 +361,9 @@ void Synth::refresh_regs(Chan& C, const Part& pt) {
             if (C.fseqUOp[o]) { ul = f[0x2A + t] << 1; if (lvVel != 0x80) ul = (~(((~ul) & 0xFF) * lvVel >> 8)) & 0xFF; C.fquWord[o] = f[0x1A + t] * 256 + f[0x22 + t] * 2 + C.ufbW[o]; }
         }
         C.regLevel[o] = clampi(l + C.egbias[o] + C.vcLvl[o][0], 0, 255);
+        // Ours (docs/Differences.md): op byte 0x1C, reserved on the unit, is a key-synced oscillator's initial
+        // phase, 0 to 127 for 0 to 360 * 127 / 128 degrees. Read here, so an edit moves a sounding note too.
+        C.phOff[o] = V.v[o].keysync ? V.raw[112 + o * 62 + 0x1C] / 128.0 : 0.0;
         C.regULevel[o] = clampi(ul + C.uegbias[o] + C.vcLvl[o][1], 0, 255);
     }
     int vAtt, uAtt; part_levels(part, vAtt, uAtt);

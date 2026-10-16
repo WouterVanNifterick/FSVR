@@ -1299,7 +1299,7 @@
    "rect": [
     337,
     142,
-    136,
+    66,
     18
    ],
    "fill": {
@@ -1327,6 +1327,44 @@
     "equals": "v"
    },
    "tip": "Restart the oscillator at each note"
+  },
+  {
+   "type": "number",
+   "name": "osc_phase",
+   "rect": [
+    405,
+    141,
+    68,
+    20
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.v.phase.{part}",
+   "valueText": {
+    "scale": 2.8125,
+    "format": "%.1f"
+   },
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   },
+   "tip": "Initial phase in degrees with Key Sync on (0 to 127 steps of 360/128); moves a sounding note too"
   },
   {
    "type": "button",
