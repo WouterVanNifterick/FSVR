@@ -114,7 +114,7 @@ static const double WIN_SKIRT_STEP = 2.0;   // what the skirt multiplies p by, p
                                             // coefficients: p = 2, 4, 8, 16, 32, 64, 128 reproduces them
                                             // to 0.01 dB at skirt 1 and 0.7 dB at skirt 6. The "1" forms
                                             // and the formant take the same p on the window's rising half
-                                            // only, with the fall held at sin^2 (ymp706.cpp, init_tables);
+                                            // only, with the fall held at sin^2 (tonegen/operator.cpp, init_tables);
                                             // MEASURED 2026-09-24, all six harmonic forms inside 0.5 to
                                             // 1.8 dB per skirt and 04_formant_2's sixteen skirt segments
                                             // inside 0.4 to 2.4, where the sqrt(2)-per-step symmetric fit

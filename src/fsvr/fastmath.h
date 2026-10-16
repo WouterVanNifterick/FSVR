@@ -22,7 +22,7 @@
 // more than two loads and a multiply however the loop is written, so the hybrid is kept for a target
 // without a fast FPU rather than for this one.
 //
-// The grain windows (g_win in chips/ymp706.cpp) are not here: they are a modelled waveform, not a
+// The grain windows (g_win in tonegen/operator.cpp) are not here: they are a modelled waveform, not a
 // function anyone would compute another way. The control-rate maths (refresh_ctl, the EG rates, the
 // effect coefficients) keeps libm on every backend; it runs once per tuning::CTL_DECIMATION samples
 // or less and is not where the time goes.
@@ -94,3 +94,7 @@ static inline double db2lin(double db) { return hybrid_exp2(db * 0.1660964047443
 #endif
 
 }  // namespace fm
+
+// The engine-wide integer clamp, and 10^(dB/20) with -150 dB and below as silence.
+static inline int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
+static inline double db2lin(double db) { return db <= -150 ? 0.0 : fm::db2lin(db); }

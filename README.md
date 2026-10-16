@@ -187,6 +187,8 @@ python tools/regress.py                 # the whole fixed preset list against th
 **Engine.** No Windows, no host, no GUI. This is what the plugin links. The tree says where a claim comes from, which is the thing to know before changing anything in it.
 
 - `src/fs1r.h` the public header, `fs1r::Device`. The only one the plugin includes
+Each `src/` folder has a `README.md` with its files and rules; the summary:
+
 `src/fs1r/` is the hardware's values and nothing else: what presets and the engine read, never code.
 
 - `hardware.h` the FS1R's own numbers, read off the board. Facts, never tuned
@@ -199,7 +201,8 @@ The engine, one folder a part. **KNOWN** parts are rewritten from the disassembl
 
 - `src/engine/` **KNOWN**: `synth.h` the engine's shared declarations, including `struct Synth`; `notes.cpp` note on and off, operator setup, pitch, portamento, and the 192.3 Hz tick; `controllers.cpp` the eight controller sets, the three scalers and the 48 destinations; `fseq.cpp` formant sequence playback; `midi.cpp` MIDI in and sysex in and out
 - `src/presets/` **KNOWN**: `patch.cpp` voice, performance and part data as the firmware decodes it, with the DX7 conversion; `rom.cpp` EPROM and sysex loading
-- `src/tonegen/` **INFERRED**: `ymp706.cpp` the tone generator: operators, envelopes, the formant window, and the render path
+- `src/tonegen/` **INFERRED**: the tone generator. `operator.h` one operator's waveforms and grains, `envelope.h` its EGs, `noise.h` the unvoiced band, `channel.h` eight of them on an algorithm
+- `src/engine/render.cpp` the sample loop: channels, filter voices, part buses, effects
 - `src/modulators/` **INFERRED**: the EG generators and LFOs the filter and effect hosts program
 - `src/filters/` the voice filter: `voice_filter.h` one voice, `filter.h` 32 of them, `filter_host.*` the firmware's filter host
 - `src/effects/` the effects: `programs.h` their shared state and one file a program, `effects.h` the section, `host/` the firmware's effect host

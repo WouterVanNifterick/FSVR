@@ -24,7 +24,7 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 | `src/fs1r/cal.h` | **INFERRED**, the calibration surface | this is the file you edit to calibrate |
 | `src/engine/`, `src/presets/`, `src/effects/host/`, `src/filters/filter_host.*` | **KNOWN**, rewritten from the disassembly | you have a bug. Go read the firmware |
 | `src/tonegen/`, `src/modulators/` | **INFERRED**, modelled; constants in `cal.h` | it needs calibrating against a recording |
-| `src/filters/`, `src/effects/` (the DSP) | **KNOWN**, bit for bit what the firmware's DSP programs compute | you changed the sound; `dsp_check` says so |
+| `src/filters/`, `src/effects/`, `src/dsp/` (the DSP) | **KNOWN**, bit for bit what the firmware's DSP programs compute | you changed the sound; `dsp_check` says so |
 | `src/fsvr/` | **ours**, no hardware counterpart | nothing. The hardware has no opinion |
 | `src/fsvr/tuning.h` | our cost knobs | nothing, and changing one must not alter the output |
 | `plugin/` | the plug-in: processor, bank manager, Import Audio | it never models synthesis, see below |
@@ -32,6 +32,8 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 | `hollow/` | the plug-in framework, Hollow's `framework/` | nothing. Keep it in step with Hollow's copy |
 
 ## The rules
+
+**Every `src/` folder has a `README.md`: read it first, keep it true.** It says what the folder is, its status (KNOWN, INFERRED, ours), each file's job and the folder's rules. Before changing a folder, read its README; it is faster than reading the code to find where something lives. In the same commit as any change that adds, removes, renames or moves a file, or changes what a file does, update that folder's README (and the path table above if a folder's status changes). A new folder under `src/` gets a README in the commit that creates it. A README that disagrees with the code is a bug.
 
 **Never invent a constant.** If a number is not read from the firmware or measured off hardware, it does not go in. Every modelled constant lives in `src/fs1r/cal.h` and names the document that measured it.
 

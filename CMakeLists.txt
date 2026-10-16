@@ -39,7 +39,9 @@ foreach(t vop3host)
 endforeach()
 
 add_library(fs1rLib STATIC
-    src/tonegen/ymp706.cpp
+    src/tonegen/operator.cpp
+    src/tonegen/channel.cpp
+    src/engine/render.cpp
     src/engine/controllers.cpp
     src/engine/fseq.cpp
     src/engine/midi.cpp

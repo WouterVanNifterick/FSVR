@@ -394,15 +394,15 @@ int selftest(Synth& S) {
         OpV w{};
         w.form = 7; w.bw = 40; w.skirt = 2;
         float wa[32], wb[32];
-        T.op_wave(w, wa, 32);
+        op_wave(w, wa, 32);
         w.transpose = 12;
-        T.op_wave(w, wb, 32);
+        op_wave(w, wb, 32);
         double d = 0; for (int i = 0; i < 32; i++) d += fabs(wa[i] - wb[i]);
         ck("the formant waveform follows transpose", d > 0.5);
         w.form = 0; w.transpose = 0;
-        T.op_wave(w, wa, 32);
+        op_wave(w, wa, 32);
         w.transpose = 12;
-        T.op_wave(w, wb, 32);
+        op_wave(w, wb, 32);
         d = 0; for (int i = 0; i < 32; i++) d += fabs(wa[i] - wb[i]);
         ck("a sine waveform ignores transpose", d < 1e-6);
     }

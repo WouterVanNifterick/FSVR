@@ -45,7 +45,7 @@ goto :done
 rem The console.
 :console
 call :vop3host || exit /b 1
-cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src src\tonegen\ymp706.cpp src\engine\controllers.cpp src\engine\fseq.cpp src\engine\midi.cpp src\engine\notes.cpp src\presets\patch.cpp src\presets\rom.cpp src\fsvr\device.cpp src\fsvr\fastmath.cpp src\fsvr\selftest.cpp %VOP3OBJ% src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
+cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src src\tonegen\*.cpp src\engine\render.cpp src\engine\controllers.cpp src\engine\fseq.cpp src\engine\midi.cpp src\engine\notes.cpp src\presets\patch.cpp src\presets\rom.cpp src\fsvr\device.cpp src\fsvr\fastmath.cpp src\fsvr\selftest.cpp %VOP3OBJ% src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
 exit /b %ERRORLEVEL%
 
 :vop3host

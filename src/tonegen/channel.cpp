@@ -1,133 +1,9 @@
-// tonegen/ymp706.cpp - the tone generator, modelled. INFERRED: the constants are in fs1r/cal.h.
-#include "engine/synth.h"
+// tonegen/channel.cpp - a channel's control-rate refresh and its sample. INFERRED: the constants are in fs1r/cal.h.
+#include "tonegen/channel.h"
+#include "fs1r/algorithms.h"
 
-float g_win[2][8][1025];       // [asymmetric?][skirt]: the two window families
-float g_winDC[2][8];           // each window's mean, which a grain under a DC carrier does not carry
-
-void init_tables() {
-    fm::init();
-    // MEASURED 2026-09-19 (FS1R.unlock's skirt sweep, all sixty partials) and 2026-09-24 (the same take
-    // read again, plus 04_formant_2): the grain window is sin^p with p = 2 * 2^skirt on every form, and
-    // there are two families. The "2" forms (all2, odd2, res2) are the symmetric window, whose line
-    // amplitudes are the binomial row C(p, p/2 - k) to 0.4 to 0.7 dB over eight skirts. The "1" forms
-    // (all1, odd1, res1) and the formant are the SAME exponent on the rising half only; the falling
-    // half stays sin^2 whatever the skirt. That is what the period-averaged waveform shows directly
-    // (a rise that sharpens with the skirt on a fall that never moves) and it puts all1, odd1 and res1
-    // within 0.4 to 1.3 dB over every skirt where a sin^p at any exponent left 6 to 17. The formant is
-    // that same asymmetric window stretched over its bandwidth: 04_formant_2's sixteen skirt segments
-    // land inside 0.4 to 1.8 dB where the sqrt(2)-per-step symmetric fit could not get under 2.5.
-    // docs/skirt.md, docs/formant.md.
-    for (int f = 0; f < 2; f++)
-        for (int s = 0; s < 8; s++) {
-            double p = cal::WIN_SKIRT * pow(cal::WIN_SKIRT_STEP, s);
-            double acc = 0;
-            for (int i = 0; i <= 1024; i++) {
-                double x = sin(PI * i / 1024.0);
-                g_win[f][s][i] = (float)pow(x, f && i > 512 ? cal::WIN_SKIRT : p);
-                if (i < 1024) acc += g_win[f][s][i];
-            }
-            g_winDC[f][s] = (float)(acc / 1024.0);
-        }
-}
-
-double Synth::op_sample(OpState& s, const OpV& v, double f0, double fop, int ratio, double pm, double gain) {
-    if (v.form <= 2) {
-        s.phase += fop / SR; if (s.phase >= 1) s.phase -= 1;
-        if (v.form == 0) return gain * fsin(s.phase + pm);
-        // all1 and all2 are a stored waveform read by phase, the same way the sine is: one period of
-        // the skirt's window with its mean taken out, so a modulator reaches it as phase like any other
-        // form. MEASURED 2026-09-24 off the skirt sweep's sixty partials: all2's lines are the symmetric
-        // window's own Fourier row C(p, p/2 - k) to 0.4 to 0.7 dB at every skirt, and all1's the
-        // asymmetric window's to 0.4 to 1.3, where the two-period grain under a carrier at fop that this
-        // replaces was 36 to 66 dB out by skirt 7. At skirt 0 the DC-free sin^2 is -cos / 2, the single
-        // partial the unit gives, and the mean is gone because the unit's is: every all1/all2 take reads
-        // mean / rms under 0.03 where a raw sin^2 pulse train sits at 0.7. docs/skirt.md.
-        double x = s.phase + pm; x -= floor(x);
-        return gain * cal::FORM_LEVEL * 2.0 * (fwin(v.form == 1, v.skirt, x) - g_winDC[v.form == 1][v.skirt]);
-    }
-    double fw, fc, wl;
-    if (v.form == 7) { fw = f0; fc = fop; wl = s.wl7; }                                                          // formant: window at the fundamental (INFERRED bw curve)
-    // odd1/odd2 are a group that starts at the operator's own frequency, so they are the same windowed
-    // carrier the formant is, with the carrier at fop. MEASURED: the unit gives partials 1 and 3 on odd1
-    // and odd2, where the fixed quarter-period window at DC this replaces gave a full harmonic series.
-    // Retriggering at twice fop is what leaves the odd partials: a grain train at that spacing under a
-    // carrier at fop puts its lines at fop, 3 fop, 5 fop and nowhere else.
-    //
-    // The window is FIXED, and the bandwidth has nothing to do with it. MEASURED on 2026-09-19 by
-    // sweeping register 0x218 through all hundred values on each form in turn: the formant's window
-    // opens and every one of the other six is flat to the byte, width and peak both. Voice byte 6 does
-    // reach those forms, but as register 0x230, which the Data List calls the "freq. ratio of band
-    // spectrum" and which the voice image confirms carries the raw byte for them and the formant
-    // transpose word for the formant. What it does there is unmeasured: the sweep meant to settle it
-    // wrote 0x218. INFERRED, FS1R.unlock/docs/unknowns.md experiment 9.
-    // res1 and res2 put a three-partial group on harmonic ratio + 1 and are otherwise identical.
-    // MEASURED on 2026-09-19 by sweeping register 0x230 through all hundred values on each: the peak
-    // lands on partial ratio + 1 at every one of the hundred, on both forms, with the two partials
-    // either side 6 dB down and everything else at the noise floor, and the peak level flat across
-    // the whole range. The 1 + ratio * 31 / 99 this replaces topped out at 32 times the fundamental
-    // where the unit reaches 100. docs/formant.md.
-    // The window is one grain period for the odd and resonant forms; the "1" and "2" of each pair
-    // differ in the window's shape (g_win), not its length. MEASURED off the sideband ratios, which a
-    // sin^2 window fixes exactly: a grain exactly one period long makes the two partials either side
-    // of the peak 6.02 dB down and kills everything beyond them, which is what the unit gives res1
-    // and res2 at every one of a hundred settings.
-    else if (v.form == 5 || v.form == 6) { fw = fop; fc = fop * (ratio + 1); wl = 1.0; }
-    else { fw = 2 * fop; fc = fop; wl = 1.0; }
-    wl = std::min(wl, 2.0);
-    s.fphase += fw / SR;
-    if (s.fphase >= 1) {
-        s.fphase -= 1; WinGen& g = s.g[s.nextGen]; g.on = true; g.w = 0; g.fc = fc;
-        // The formant restarts its carrier every grain, which is what holds its peak still while the
-        // fundamental moves. The odd forms retrigger twice a period, so restarting there would put
-        // half a cycle of alternation into the grain train and land the group on the even partials;
-        // half a cycle back is the same carrier running on.
-        g.c = (v.form == 3 || v.form == 4) && (s.halfCount & 1) ? 0.5 : 0.0;
-        s.nextGen ^= 1; s.halfCount++;
-    }
-    double winc = fw / (wl * SR), y = 0;
-    // The "1" forms and the formant take the asymmetric window, the "2" forms the symmetric one.
-    int fam = v.form == 3 || v.form == 5 || v.form == 7;
-    for (int k = 0; k < 2; k++) {
-        WinGen& g = s.g[k]; if (!g.on) continue;
-        g.w += winc; if (g.w >= 1) { g.on = false; continue; }
-        y += gain * fwin(fam, v.skirt, g.w) * fsin(g.c + pm); g.c += g.fc / SR;
-    }
-    if (v.form == 7) { if (cal::FRMT_NORM != 0.0) y *= pow(1.0 / wl, cal::FRMT_NORM); }
-    else y *= cal::FORM_LEVEL * 2.0 / wl;    // every form but sine and frmt; a shorter grain carries less
-    return y;
-}
-
-// Ours, for a display only: the unit has no such readout. Voiced operator v alone, from the same op_sample
-// the channels play, at a nominal 100 Hz with no modulation: n points over two periods, scaled to a peak of
-// 1. The grain forms open their first window a period in, so a period runs first and is dropped. The
-// formant's carrier is put four harmonics up so that its grains show, and its window and the res forms'
-// ratio come from byte 6 as notes.cpp hands them to a channel.
-void Synth::op_wave(const OpV& v, float* out, int n) {
-    OpState s;
-    const double f0 = 100.0;
-    double pitch = f0, fop = v.form == 7 ? 4.0 * f0 : f0;
-    if (v.form == 7) {
-        int tw = TRANS[clampi(v.transpose + 24, 0, 48)];
-        if (tw) pitch *= fm::exp2(tw / 1024.0);
-    }
-    s.wl7 = std::min(cal::FRMT_WL_MAX, pitch / (cal::FRMT_BW_HZ0 * fm::exp2(v.bw / cal::FRMT_BW_DB)));
-    const int period = (int)(SR / f0);
-    for (int i = 0; i < period; i++) op_sample(s, v, pitch, fop, v.bw, 0, 1);
-    std::vector<double> y(2 * (size_t)period);
-    double peak = 1e-9;
-    for (auto& x : y) peak = std::max(peak, std::fabs(x = op_sample(s, v, pitch, fop, v.bw, 0, 1)));
-    for (int i = 0; i < n; i++) {   // each point the largest sample of its share, so a narrow pulse still shows
-        size_t a = (size_t)i * y.size() / std::max(n, 1), b = std::max(a + 1, (size_t)(i + 1) * y.size() / std::max(n, 1));
-        double m = y[a];
-        for (size_t k = a; k < b; k++)
-            if (std::fabs(y[k]) > std::fabs(m)) m = y[k];
-        out[i] = (float)(m / peak);   // the shape, full height
-    }
-}
-
-void Synth::refresh_ctl(Chan& C) {
-    const Part& pt = perf.part[C.part]; const Voice& V = pt.voice; const unsigned char* alg = FS1R_ALG[V.alg];
-    bool fs = fseq_on(C.part);
+void refresh_ctl(Chan& C, const Voice& V, bool fs) {
+    const unsigned char* alg = FS1R_ALG[V.alg];
     C.f0 = word_hz(C.regPitch + 0x1243 + C.regPM);                 // channel fundamental incl. LFO pitch mod (pms 7)
     C.fbGain = V.fb ? cal::FEEDBACK * pow(2.0, V.fb - 7) : 0.0;    // INFERRED feedback scale
     for (int o = 0; o < 8; o++) {
@@ -206,7 +82,7 @@ void Synth::refresh_ctl(Chan& C) {
     }
 }
 
-double Synth::render_chan(Chan& C) {
+double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation) {
     if (C.silent) {
         // Ours. The carriers and the noise are over, so the channel's output
         // is zero from here to its end; what is left is when the allocator may treat it as free, which
@@ -233,8 +109,8 @@ double Synth::render_chan(Chan& C) {
         C.last = 0.0;
         return 0.0;
     }
-    if (C.ctlLeft-- <= 0) { C.ctlLeft = ctlDecimation - 1; refresh_ctl(C); }
-    const Voice& V = perf.part[C.part].voice; const unsigned char* alg = FS1R_ALG[V.alg];
+    if (C.ctlLeft-- <= 0) { C.ctlLeft = ctlDecimation - 1; refresh_ctl(C, V, fseq); }
+    const unsigned char* alg = FS1R_ALG[V.alg];
     double partV = C.partV, partU = C.partU;
     double Cb = 0, H = 0, S = 0, fbNew = 0, mix = 0;
     for (int o = 0; o < 8; o++) {
@@ -269,7 +145,6 @@ double Synth::render_chan(Chan& C) {
         Cb = y; if (t0 & 2) H = y; if (t1 & 2) S = 0; if (t1 & 4) S += y; if (t0 & 4) fbNew = y;
         if (t1 & 1) mix += y * partV;
         // unvoiced (noise formant) operator
-        const OpU& u = V.u[o];
         double uegdb = s.ueg.tick();
         if (uegdb - s.uatt > gateDb) {
             double nf = s.nf;
@@ -310,50 +185,4 @@ double Synth::render_chan(Chan& C) {
         else C.active = true;                      // a damp still sounding keeps the channel rendering
     }
     return mix;
-}
-
-void Synth::render(float* outL, float* outR, int frames) {
-    std::lock_guard<std::mutex> lk(mtx);
-    const tuning::NoDenormals flush;
-    fx.sync((uint8_t*)&perf);
-    filter_latch();
-    for (int p = 0; p < 4; p++) if (fltSw >> p & 1) filter_sync(p);
-    // Part routing: a part with its insertion switch on feeds the insertion bus only, any other the dry bus and both sends.
-    double dry[4], varS[4], revS[4]; bool insSw[4];
-    for (int p = 0; p < 4; p++) {
-        const uint8_t* q = perf.part[p].p;
-        insSw[p] = (q[0x14] & 1) != 0;
-        dry[p] = sendlvl(q[0x11]);
-        varS[p] = sendlvl(ctrl_part(p, 20, q[0x12])); revS[p] = sendlvl(ctrl_part(p, 19, q[0x13]));
-    }
-    sense_tick(frames / (double)SR);
-    for (int i = 0; i < frames; i++) {
-        tickAcc += TICK_HZ / SR; while (tickAcc >= 1) { tickAcc -= 1; tick(); }
-        // The channels, each panned onto its part's pair. While a part has its filter on the first sixteen
-        // pass through the filter chip first, sounding or not, so that a filter rings out after its note.
-        // With fltWide the other sixteen have filter voices too, and a channel of an unfiltered part goes straight on.
-        const int nf = flt_banks() * FILTER_CHANNELS;
-        double pl[4] = {}, pr[4] = {}, v[NCHAN] = {};
-        for (int n = 0; n < NCHAN; n++) {
-            Chan& c = ch[n];
-            if (!c.active) continue;
-            const double m = render_chan(c);
-            if (n < nf && (c.filtered || !fltWide)) v[n] = m; else { pl[c.part] += m * c.panL; pr[c.part] += m * c.panR; }
-        }
-        flt.run(flt_banks(), v);
-        for (int n = 0; n < nf; n++) { pl[ch[n].part] += v[n] * ch[n].panL; pr[ch[n].part] += v[n] * ch[n].panR; }
-        // Four stereo buses into the effects: dry, insertion, variation send, reverb send.
-        double bus[8] = {}, l, r;
-        for (int p = 0; p < 4; p++) {
-            if (insSw[p]) { bus[2] += pl[p]; bus[3] += pr[p]; continue; }
-            bus[0] += pl[p] * dry[p]; bus[1] += pr[p] * dry[p];
-            bus[4] += pl[p] * varS[p]; bus[5] += pr[p] * varS[p];
-            bus[6] += pl[p] * revS[p]; bus[7] += pr[p] * revS[p];
-        }
-        fx.run(bus, l, r);
-        // Ours: whatever happens upstream, the host never gets a NaN. gain stands in for the analogue volume
-        // pot, after the DAC.
-        if (!std::isfinite(l) || !std::isfinite(r)) l = r = 0.0;
-        outL[i] = (float)(l * gain); outR[i] = (float)(r * gain);
-    }
 }
