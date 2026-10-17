@@ -4,45 +4,79 @@
 // ------------------------------------------------------------------------------------------ fsvr::Device
 namespace fsvr {
 
+// The engine runs at 48 kHz whatever the host's rate, and reaches any other rate through a Kaiser-windowed sinc,
+// TAPS engine samples wide, cut at half the lower of the two rates: about 90 dB down by 24.2 kHz at a 44.1 kHz
+// host, so nothing folds into the audible band, and flat to 19.9 kHz. It is tabulated at PHASES fractional
+// positions and read between two of them. Its delay is TAPS / 2 engine samples, 0.67 ms.
+//
+// It replaced a four-point cubic whose end slopes were twice the central difference (Paul Bourke's form), which
+// is worse than a straight line on anything smooth: at 44.1 kHz a lone sine came out with a line at 3900 Hz - f
+// (48000 - 44100) at -63 dBc on C2, -51 on C4 and -25 on C8, and the linear interpolator the Fast steps used
+// sat 22 to 35 dB under it. Either way the artefact belonged to the host rate rather than to the slider, which
+// read it as Full being the worst setting (docs/performance.md, 2026-10-17). This costs under 1 % of a core.
 struct Device::Impl {
+    static constexpr int TAPS = 64, PHASES = 512;
     Synth s;
     Rom rom;
     double hostRate = ENGINE_RATE;
     double pos = 0;                          // fractional read position between engine samples
-    float h[2][4] = {};                      // four-point history per channel for the interpolator
     float eng[2][256]; int engFill = 0, engRead = 0;
-    bool echo = false, linear = false;      // linear: Speed Fast or Fastest, the cheaper interpolator
-    // ponytail: cubic interpolation between engine samples. Audible aliasing above ~15 kHz when the host
-    // runs at 44.1; swap in a polyphase FIR if a spectrum measurement ever shows it matters.
+    float hist[2][2 * TAPS] = {}; int at = 0;   // the last TAPS engine samples, each written twice so a window is contiguous
+    std::vector<float> kern = std::vector<float>((PHASES + 1) * TAPS);   // phase-major, built by setSampleRate
+    bool echo = false;
     inline void pull() {
         if (engRead >= engFill) {
             engFill = 256; engRead = 0;
             s.render(eng[0], eng[1], engFill);
         }
-        for (int c = 0; c < 2; c++) { h[c][0] = h[c][1]; h[c][1] = h[c][2]; h[c][2] = h[c][3]; h[c][3] = eng[c][engRead]; }
+        for (int c = 0; c < 2; c++) hist[c][at] = hist[c][at + TAPS] = eng[c][engRead];
+        at = (at + 1) % TAPS;
         engRead++;
     }
-    static inline float cubic(const float* v, double t) {
-        double a = v[3] - v[2] - v[0] + v[1], b = v[0] - v[1] - a, c = v[2] - v[0];
-        return (float)(((a * t + b) * t + c) * t + v[1]);
+    // The output between the window's two middle samples, frac of the way from the earlier.
+    inline void read(double frac, float& l, float& r) const {
+        const double x = frac * PHASES; const int ph = std::min((int)x, PHASES - 1); const float w = (float)(x - ph);
+        const float* k0 = &kern[ph * TAPS]; const float* k1 = k0 + TAPS;
+        const float* a = hist[0] + at; const float* b = hist[1] + at;
+        float yl = 0, yr = 0;
+        for (int k = 0; k < TAPS; k++) { const float c = k0[k] + w * (k1[k] - k0[k]); yl += c * a[k]; yr += c * b[k]; }
+        l = yl; r = yr;
+    }
+    void design() {
+        const double cut = std::min(1.0, hostRate / ENGINE_RATE), beta = 9.0;   // cut against the engine's Nyquist
+        auto i0 = [](double x) { double s = 1, t = 1; for (int k = 1; k < 40; k++) { t *= x * x / (4.0 * k * k); s += t; } return s; };
+        for (int p = 0; p <= PHASES; p++) {
+            double sum = 0; float* k = &kern[p * TAPS];
+            for (int j = 0; j < TAPS; j++) {
+                const double t = j - (TAPS / 2 - 1) - (double)p / PHASES, u = t / (TAPS / 2);   // t: engine samples from the output
+                const double sinc = t == 0 ? 1.0 : sin(PI * cut * t) / (PI * cut * t);
+                const double win = std::fabs(u) >= 1 ? 0.0 : i0(beta * sqrt(1 - u * u)) / i0(beta);
+                k[j] = (float)(cut * sinc * win); sum += k[j];
+            }
+            for (int j = 0; j < TAPS; j++) k[j] = (float)(k[j] / sum);                  // unity at DC at every phase
+        }
     }
 };
 
 Device::Device() : p(new Impl) { init_tables(); }
 Device::~Device() = default;
 
-void Device::setSampleRate(double hostRate) { if (hostRate > 1000) p->hostRate = hostRate; }
+void Device::setSampleRate(double hostRate) { if (hostRate > 1000 && hostRate != p->hostRate) { p->hostRate = hostRate; p->design(); } }
 double Device::sampleRate() const { return p->hostRate; }
 void Device::setGain(double g) { p->s.gain = g; }
 void Device::setEchoParameters(bool on) { p->echo = on; }
 
 // Ours, a user's choice, so unlike engine/tuning.h's knobs every step but Full changes the output. Full gates at
-// -100 dB, under the 16-bit floor after OUT_GAIN; -90 dB was measured at 53 % to 46 % of a core on Vox Morph's
-// 8 notes (docs/performance.md), and the gates below it start to cut the tails of quiet modulators.
+// -100 dB, under the 16-bit floor after OUT_GAIN, and runs the control maths every 16 samples and the EGs every
+// sample. Good gates at -90 dB, which takes out the operators parked at output level 0 (-96 dB), and halves the
+// control rate. Fast and Fastest gate at -80 and -72 dB, which also lets a release tail under the gate end its
+// channel sooner, and advance the amplitude EGs 4 and 8 samples at a time (render_chan). Measured over 8-note
+// chords struck twice a second, Fastest is 32 % under Full on A020 Vox Morph, 30 % on B014 Full Tines and 8 % on
+// A001 Zap!, whose cost is the filter and the effects, which no step touches (docs/performance.md, 2026-10-17).
 void Device::setSpeed(int s) {
-    static const struct { double gateDb; int ctl; bool linear; } kS[4] = {{-100, tuning::CTL_DECIMATION, false}, {-90, 32, false}, {-80, 48, true}, {-72, 64, true}};
+    static const struct { double gateDb; int ctl, eg; } kS[4] = {{-100, tuning::CTL_DECIMATION, 1}, {-90, 32, 1}, {-80, 48, 4}, {-72, 64, 8}};
     const auto& k = kS[s < 0 ? 0 : s > 3 ? 3 : s];
-    p->s.gateDb = k.gateDb, p->s.ctlDecimation = k.ctl, p->linear = k.linear;
+    p->s.gateDb = k.gateDb, p->s.ctlDecimation = k.ctl, p->s.egDecimation = k.eg;
 }
 void Device::setFilterPoly32(bool on) { p->s.filter32 = on; }   // render latches it
 void Device::setBend14(bool on) { p->s.bend14 = on; }
@@ -57,13 +91,7 @@ void Device::process(float* outL, float* outR, int n) {
     for (int i = 0; i < n; i++) {
         p->pos += step;
         while (p->pos >= 1.0) { p->pos -= 1.0; p->pull(); }
-        if (p->linear) {
-            outL[i] = (float)(p->h[0][1] + (p->h[0][2] - p->h[0][1]) * p->pos);
-            outR[i] = (float)(p->h[1][1] + (p->h[1][2] - p->h[1][1]) * p->pos);
-            continue;
-        }
-        outL[i] = Impl::cubic(p->h[0], p->pos);
-        outR[i] = Impl::cubic(p->h[1], p->pos);
+        p->read(p->pos, outL[i], outR[i]);
     }
 }
 

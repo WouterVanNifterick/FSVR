@@ -101,6 +101,21 @@ entry above names the insertion types under R.P.M. and Mouth Pop: 24 is the Comp
 
 ---
 
+## 2026-10-17, the Quality / Speed slider: Full was the worst step at 44.1 kHz
+
+gentleclockdivider reported more aliasing on a lone sine with the slider at Full than at its low settings. It was
+the resampler, not the slider: Full and Good resampled the engine's 48 kHz to the host with a cubic whose end
+slopes are twice the central difference, Fast and Fastest with a straight line, and at 44.1 kHz both left a line
+at 3900 Hz - f, the cubic's 22 to 35 dB above the straight line's: -63 dBc on C2, -51 on C4, -25 on C8. A 64-tap
+Kaiser-windowed sinc at every step puts it under the measurement floor and costs nothing measurable. The steps
+under Full saved little (Vox Morph's eight held notes 52.8 % of a core at Full, 47.9 at Fastest), and an idle
+instance cost 12 % of a core on the effect programs and the filter chip running through silence. The engine now
+sleeps while nothing sounds, a gated release tail ends its channel, and Fast and Fastest advance the amplitude
+EGs 4 and 8 samples at a time: Fastest is 23 to 32 % under Full on played chords. Tables, and what was tried
+and dropped, in [performance.md](performance.md).
+
+---
+
 ## 2026-10-16, pitch bend keeps the LSB's top bits, and source PB is -128..127
 
 Found by WouterVanNifterick in PR #43 (merged): source PB is a raw signed byte, -128..127, where the engine fed

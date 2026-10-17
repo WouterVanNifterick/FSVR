@@ -117,6 +117,22 @@ form, so the sine and all1/all2 rotate and the grain forms shift their carrier i
 reads it each tick, so an edit moves a sounding note too. With key sync off it does nothing. A voice that leaves
 it at 0 sounds as on the unit; one that sets it plays at 0 on the unit.
 
+## Quality / Speed, the host rate and an idle engine
+
+**The unit.** Every slot of every channel, both effect DSPs and the filter chip run at 48 kHz all the time,
+sounding or not, into a 48 kHz DAC.
+
+**FSVR.** The engine runs at 48 kHz too and reaches any other host rate through a 64-tap Kaiser-windowed sinc,
+flat to 19.9 kHz and about 90 dB down by 24.2 kHz at 44.1 kHz, with 0.67 ms of delay (`src/device/device.cpp`).
+The Options page's Quality / Speed trades accuracy for CPU from its second step on: Good gates operators under
+-90 dB rather than -100 and runs the control maths half as often, Fast and Fastest gate at -80 and -72 dB and
+advance the amplitude EGs 4 and 8 samples at a time with the gain ramped across the block. At every step a
+channel whose carriers are falling in their release under the gate counts as finished, and once nothing has
+sounded for a second the engine sleeps: each block computes one sample and repeats it, until that sample moves
+or a note starts (`src/engine/render.cpp`). What the sleep changes is the phase the effect and filter LFOs come
+back at. Full at a 48 kHz host is the unit's arithmetic; nothing restores the chips running through silence,
+and there is nothing to hear in it.
+
 ## User libraries without the unit's memory limits
 
 **The unit.** 128 internal performances, and 128 internal voices with no Fseqs or 64 voices with six, in battery-backed RAM.

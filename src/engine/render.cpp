@@ -16,7 +16,20 @@ void Synth::render(float* outL, float* outR, int frames) {
         varS[p] = sendlvl(ctrl_part(p, 20, q[0x12])); revS[p] = sendlvl(ctrl_part(p, 19, q[0x13]));
     }
     sense_tick(frames / (double)SR);
+    // Ours: an engine with nothing to play sleeps. Once no channel has been active and the output has held one
+    // value for a second, which is every reverb tail and filter ring-down gone under the DAC's last step, each
+    // block computes its first sample in full and repeats it for the rest, and wakes the moment that sample
+    // moves or a channel starts. An idle instance was 12 % of a desktop core (A001 Zap!, A020 Vox Morph), the
+    // effect section and the filter chip running on silence; asleep it is 1/256 of that. The unit runs its
+    // chips regardless. What sleeping changes is invisible at the output: the effect LFOs and the filter's
+    // modulators advance one sample a block rather than a block, so they come back at another phase.
     for (int i = 0; i < frames; i++) {
+        if (asleep && i > 0) {
+            // A silent channel's last envelopes still count down to the sample the allocator frees it on.
+            if (i == 1) for (auto& c : ch) if (c.active && c.silent && (c.freezeLeft -= frames - 1) <= 0) c.active = false;
+            outL[i] = outL[0]; outR[i] = outR[0]; continue;
+        }
+        bool any = false;
         tickAcc += TICK_HZ / SR; while (tickAcc >= 1) { tickAcc -= 1; tick(); }
         // The channels, each panned onto its part's pair. While a part has its filter on the first sixteen
         // pass through the filter chip first, sounding or not, so that a filter rings out after its note.
@@ -26,7 +39,8 @@ void Synth::render(float* outL, float* outR, int frames) {
         for (int n = 0; n < NCHAN; n++) {
             Chan& c = ch[n];
             if (!c.active) continue;
-            const double m = render_chan(c, perf.part[c.part].voice, fseq_on(c.part), gateDb, ctlDecimation);
+            if (!c.silent || c.freezeLeft < 0) any = true;   // a silent channel counting down plays nothing more
+            const double m = render_chan(c, perf.part[c.part].voice, fseq_on(c.part), gateDb, ctlDecimation, egDecimation);
             if (n < nf && (c.filtered || !fltWide)) v[n] = m; else { pl[c.part] += m * c.panL; pr[c.part] += m * c.panR; }
         }
         flt.run(flt_banks(), v);
@@ -44,5 +58,8 @@ void Synth::render(float* outL, float* outR, int frames) {
         // pot, after the DAC.
         if (!std::isfinite(l) || !std::isfinite(r)) l = r = 0.0;
         outL[i] = (float)(l * gain); outR[i] = (float)(r * gain);
+        const bool held = outL[i] == lastL && outR[i] == lastR;
+        lastL = outL[i]; lastR = outR[i];
+        if (any || !held) { quiet = 0; asleep = false; } else if (++quiet >= SR) asleep = true;
     }
 }

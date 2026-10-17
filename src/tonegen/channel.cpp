@@ -82,7 +82,10 @@ void refresh_ctl(Chan& C, const Voice& V, bool fs) {
     }
 }
 
-double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation) {
+// The level slew over n samples at once, for the Fast steps' blocks.
+static double slew_n(int n) { static double k[65] = {}; n = std::clamp(n, 1, 64); if (k[n] == 0) k[n] = 1.0 - pow(1.0 - LEVEL_SLEW_K, n); return k[n]; }
+
+double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation, int egDecimation) {
     if (C.silent) {
         // Ours. The carriers and the noise are over, so the channel's output
         // is zero from here to its end; what is left is when the allocator may treat it as free, which
@@ -110,6 +113,11 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
         return 0.0;
     }
     if (C.ctlLeft-- <= 0) { C.ctlLeft = ctlDecimation - 1; refresh_ctl(C, V, fseq); }
+    // Ours, the Fast steps (Device::setSpeed): with egDecimation n the amplitude EGs and the level slew advance n
+    // samples at a block's start and each gain ramps linearly to where they land, which takes the EG tick and the
+    // dB-to-gain conversion out of every sample but one in n. Full and Good, at 1, run them every sample.
+    const bool decim = egDecimation > 1, block = decim && C.egLeft-- <= 0;
+    if (block) C.egLeft = egDecimation - 1;
     const unsigned char* alg = FS1R_ALG[V.alg];
     double partV = C.partV, partU = C.partU;
     double Cb = 0, H = 0, S = 0, fbNew = 0, mix = 0;
@@ -117,13 +125,23 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
         OpState& s = C.op[o]; const OpV& v = V.v[o];
         unsigned char t0 = alg[2 * o], t1 = alg[2 * o + 1]; int F = (t0 >> 3) & 7;
         double in = F == 3 ? C.fbBus * C.fbGain : F == 4 ? Cb : F == 5 ? H : F == 6 ? S : 0.0;
-        double egdb = s.eg.tick();
-        double y = 0;
+        double y = 0, gain;
         // The level register glides rather than stepping, so a frame write reaches the output over
         // about a millisecond instead of cutting the waveform. A silenced operator still runs while a
         // grain it already fired is in flight, so the last one fades out under its own window.
-        if (s.attS < -1e8) s.attS = s.att; else s.attS += (s.att - s.attS) * LEVEL_SLEW_K;
-        double gain = egdb - s.attS > gateDb ? db2lin_fast(egdb - s.attS) : 0.0;
+        if (!decim) {
+            double egdb = s.eg.tick();
+            if (s.attS < -1e8) s.attS = s.att; else s.attS += (s.att - s.attS) * LEVEL_SLEW_K;
+            gain = egdb - s.attS > gateDb ? db2lin_fast(egdb - s.attS) : 0.0;
+        } else {
+            if (block) {
+                const double egdb = s.eg.advance(egDecimation);
+                if (s.attS < -1e8) s.attS = s.att; else s.attS += (s.att - s.attS) * slew_n(egDecimation);
+                s.gain = s.gto; s.gto = egdb - s.attS > gateDb ? db2lin_fast(egdb - s.attS) : 0.0;
+                s.dg = (s.gto - s.gain) / egDecimation;
+            }
+            gain = s.dg == 0.0 ? s.gain : (s.gain += s.dg);
+        }
         if (gain != 0.0 || s.g[0].on || s.g[1].on) {
             double fop = s.fop;
             // A FIXED-frequency operator gets no frequency EG. MEASURED 2026-09-25 off 24_onset's
@@ -145,8 +163,13 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
         Cb = y; if (t0 & 2) H = y; if (t1 & 2) S = 0; if (t1 & 4) S += y; if (t0 & 4) fbNew = y;
         if (t1 & 1) mix += y * partV;
         // unvoiced (noise formant) operator
-        double uegdb = s.ueg.tick();
-        if (uegdb - s.uatt > gateDb) {
+        double ugain;
+        if (!decim) { const double uegdb = s.ueg.tick(); ugain = uegdb - s.uatt > gateDb ? db2lin_fast(uegdb - s.uatt) : 0.0; }
+        else {
+            if (block) { const double uegdb = s.ueg.advance(egDecimation); s.ugain = s.ugto; s.ugto = uegdb - s.uatt > gateDb ? db2lin_fast(uegdb - s.uatt) : 0.0; s.dug = (s.ugto - s.ugain) / egDecimation; }
+            ugain = s.dug == 0.0 ? s.ugain : (s.ugain += s.dug);
+        }
+        if (ugain != 0.0) {
             double nf = s.nf;
             if (s.ufeg.stage < 2) nf *= fm::exp2(s.ufeg.tick() / 12.0);
             s.rng ^= s.rng << 13; s.rng ^= s.rng >> 17; s.rng ^= s.rng << 5;
@@ -158,7 +181,7 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
             // The unvoiced output is the mean of this sample and the last, see cal.h: the unit's noise
             // falls off above 8 kHz on a cos^2 that no voiced operator shows, whichever centre it is at.
             double u1 = nz * fsin(s.nphase);
-            mix += 0.5 * (u1 + s.uprev) * db2lin_fast(uegdb - s.uatt) * partU;
+            mix += 0.5 * (u1 + s.uprev) * ugain * partU;
             s.uprev = u1;
         }
     }
@@ -167,9 +190,13 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
     for (auto& s : C.op) if (!s.eg.done() || !s.ueg.done()) { alive = true; break; }
     if (!alive) C.active = false;
     // The channel goes silent once every carrier's EG is over with no grain in flight and every noise EG
-    // is over: 64 samples of nothing, with no damp left from the note before.
+    // is over: 64 samples of nothing, with no damp left from the note before. An EG falling in its release
+    // under the gate is over too, since nothing it does from there is computed: a release time of 99 on an
+    // operator at output level 0 kept A020 Vox Morph's channels computing silence for minutes, and with them
+    // the engine awake (render.cpp). Only a level raised by a controller mid-release could bring one back.
+    auto over = [&](const EG& e, double att) { return e.done() || (e.stage == 4 && !e.rising && e.cur - att <= gateDb); };
     bool carriersDone = true;
-    for (int o = 0; o < 8; o++) { const OpState& s = C.op[o]; if (((alg[2 * o + 1] & 1) && (!s.eg.done() || s.g[0].on || s.g[1].on)) || !s.ueg.done()) { carriersDone = false; break; } }
+    for (int o = 0; o < 8; o++) { const OpState& s = C.op[o]; if (((alg[2 * o + 1] & 1) && (!over(s.eg, s.attS) || s.g[0].on || s.g[1].on)) || !over(s.ueg, s.uatt)) { carriersDone = false; break; } }
     if (carriersDone && fabs(mix) < 1e-9 && C.damp == 0.0) { if (++C.quiet >= 64) C.silent = true; } else C.quiet = 0;
     // The channel accumulator saturates before the filter loop, which is where the capture puts it:
     // eight carriers stacked in one channel clip flat, while the filter's own output on ingain-12 rides

@@ -11,7 +11,7 @@
 | `fseq.cpp` | formant sequence playback and MIDI clock |
 | `midi.cpp` | MIDI in, controllers, RPN/NRPN, sysex replies and dumps |
 | `tuning.h` | our cost knobs: control-rate decimation, queue caps. Ours, and changing one must not change the output |
-| `render.cpp` | the sample loop: tick, channels (`tonegen/`), filter voices (`filters/`), part buses, effects (`effects/`) |
+| `render.cpp` | the sample loop: tick, channels (`tonegen/`), filter voices (`filters/`), part buses, effects (`effects/`); ours: it sleeps while nothing sounds |
 
 ## Structure
 `Synth` owns state and sequencing; the parts it drives are in their own folders and do not know about `Synth`:

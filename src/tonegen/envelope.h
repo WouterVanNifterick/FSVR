@@ -29,6 +29,7 @@ static inline double rate_secs(int q) { q = clampi(q, 0, 63); return pow(2.0, 26
 struct EG {                      // amplitude EG on the chip: hold, 4 segments. INFERRED shape/timing, DX7 style
     int stage = 5; double cur = -200, target = -200, rate = 0, holdLeft = 0; bool rising = false;
     int L[4] = {}, R[4] = {}; int hold = 0; int rs = 0;
+    int nN = 0; double rateN = 0;   // advance's: the block it last ran and the segment's step over it
     static double lvl_db(int a) { return a >= 63 ? -200.0 : -cal::EG_LEVEL_DB * a; }   // 6-bit attenuation (LEVTAB >> 1), 1.5 dB per step INFERRED
     void start(const int* lv, const int* rt, int h, int rateScale) {
         for (int i = 0; i < 4; i++) { L[i] = lv[i]; R[i] = rt[i]; } hold = h; rs = rateScale; cur = lvl_db(L[3]); stage = 0;
@@ -39,7 +40,7 @@ struct EG {                      // amplitude EG on the chip: hold, 4 segments. 
         if (holdLeft < 1) next(1);
     }
     void next(int s) {
-        stage = s; if (s > 4) { target = -200; return; }
+        stage = s; nN = 0; if (s > 4) { target = -200; return; }
         target = lvl_db(L[s - 1]);
         double secs = rate_secs(R[s - 1] + rs);
         rising = target > cur;
@@ -54,6 +55,16 @@ struct EG {                      // amplitude EG on the chip: hold, 4 segments. 
         if (stage > 4) return cur;
         if (rising) { cur += (cal::EG_OVERSHOOT - cur) * rate; if (cur >= target) { cur = target; if (stage < 3) next(stage + 1); else if (stage == 4) stage = 5; } }
         else { cur -= rate; if (cur <= target) { cur = target; if (stage < 3) next(stage + 1); else if (stage == 4) stage = 5; } }
+        return cur;
+    }
+    // Ours, for the Fast steps (Device::setSpeed): n samples at once, the segment's own law across the block and
+    // a segment's end at the block's end, which moves a boundary by at most n - 1 samples.
+    inline double advance(int n) {
+        if (stage == 0) { if ((holdLeft -= n) <= 0) next(1); return cur; }
+        if (stage > 4) return cur;
+        if (nN != n) { nN = n; rateN = rising ? 1.0 - pow(1.0 - rate, n) : rate * n; }
+        if (rising) { cur += (cal::EG_OVERSHOOT - cur) * rateN; if (cur >= target) { cur = target; if (stage < 3) next(stage + 1); else if (stage == 4) stage = 5; } }
+        else { cur -= rateN; if (cur <= target) { cur = target; if (stage < 3) next(stage + 1); else if (stage == 4) stage = 5; } }
         return cur;
     }
     bool done() const { return stage == 5 || (stage == 4 && cur <= -120); }

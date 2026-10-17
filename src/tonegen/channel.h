@@ -44,7 +44,7 @@ struct Chan {
     double regPitch = 0; int regPM = 0, regFM = 0, regAM = 0, regLevel[8], regULevel[8], regC0 = 73;
     int fqWord[8] = {}, fquWord[8] = {}; double partV = 1, partU = 1;
     OpState op[8]; double fbBus = 0, fbPrev = 0;
-    double f0 = 0, fbGain = 0; int ctlLeft = 0;                    // control-rate cache, see refresh_ctl
+    double f0 = 0, fbGain = 0; int ctlLeft = 0, egLeft = 0;        // control-rate cache, see refresh_ctl; egLeft, render_chan
     bool fseqOp[8] = {}, fseqUOp[8] = {};
     bool filtered = false;     // its note goes through its filter voice, flt channel n
     double phOff[8] = {};      // ours: each voiced operator's initial phase in turns, op byte 0x1C (refresh_regs)
@@ -57,5 +57,6 @@ struct Chan {
 // the phase. The rate itself is ours, not the hardware's, so it lives in engine/tuning.h.
 // fseq: the part's Fseq is driving the operators this tick (Synth::fseq_on).
 void refresh_ctl(Chan& C, const Voice& V, bool fseq);
-// The channel's own word, before the filter and the pan. gateDb and ctlDecimation are Synth's cost knobs.
-double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation);
+// The channel's own word, before the filter and the pan. gateDb, ctlDecimation and egDecimation are Synth's cost
+// knobs: at an egDecimation of n the amplitude EGs advance n samples at a time and the gains ramp across the block.
+double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation, int egDecimation);

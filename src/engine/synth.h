@@ -62,6 +62,8 @@ struct Synth {
     Fseq fseq; bool fseqRun = false; double fseqAcc = 0, fseqPeriod = 0.01; int fseqStep = 0, fseqDir = 1; int fseqVel = 100; int fseqPart = -1;
     bool fseqHeld = false, fseqClock = false; double fseqDelay = 0, fseqClockAcc = 0;
     double tickAcc = 0;
+    // Ours: the engine sleeps while nothing sounds (render.cpp). The output's last sample, and how long it has held.
+    float lastL = 0, lastR = 0; int quiet = 0; bool asleep = false;
 
     Synth() { init_perf(perf); init_system(); fx.load((uint8_t*)&perf); }
     void init_system();
@@ -205,8 +207,9 @@ struct Synth {
     // console does. Sysex goes through midi_sysex(); replies land in outQ.
     int forceChannel = -1;                       // console -c: every part listens on this channel
     // Ours: the Options page's Quality / Speed (Device::setSpeed). At Full these are the engine as measured: an operator
-    // under gateDb is not computed, and the control maths runs every ctlDecimation samples.
-    double gateDb = -100; int ctlDecimation = tuning::CTL_DECIMATION;
+    // under gateDb is not computed, the control maths runs every ctlDecimation samples and the amplitude EGs every
+    // egDecimation (render_chan).
+    double gateDb = -100; int ctlDecimation = tuning::CTL_DECIMATION, egDecimation = 1;
     double senseTimer = 0;                       // active sensing: mute if 0xFE stops arriving
     int bankMsb = 0x3F, perfBank = -1;
     // FUN_000191C0 fills the source table from the system control numbers, in this order. The four knob

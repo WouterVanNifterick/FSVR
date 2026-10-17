@@ -76,3 +76,37 @@ jameshansen: the Fat Line demo sits at about 50 % of a core. Measured with a cou
 The nineteen regression cases match a fingerprint of the tree before the change, and the demo ledger reads the same to the digit before and after (`tools/demo_scores.txt`, the two rows of 2026-09-28). Vox Morph's one-note render goes from 1.86 s to 1.54 s on the same rules.
 
 **What is left** is real work: fourteen sounding channels of carrier release tails between -60 and -120 dB, and the unit computes those too. The -90 dB gate above is 5 % on this song (5.3 operators per sample sit between -100 and -90), doubling `CTL_DECIMATION` another 6 %, and beyond that it is the operator loop itself.
+
+## The Quality / Speed slider (2026-10-17)
+
+gentleclockdivider: with the slider at Full, a single sine operator shows more aliasing than at the low settings. Their analyser screenshot (Renoise at 44.1 kHz) has two lines either side of 3.9 kHz around a fundamental near 330 Hz. Measured here through `fsvr::Device` at each step and host rate, and timed on one core of the Ryzen 9 3900X, MSVC `/O2`. The scratch harnesses render a lone sine (operator 1 of a blank voice) and time held and played chords; they are not committed.
+
+**The artefact was the host rate, not the slider.** The engine runs at 48 kHz and `Device` resampled to the host. Full and Good used a four-point cubic whose end slopes are twice the central difference (Paul Bourke's form), which is worse than a straight line on any smooth signal; Fast and Fastest used linear interpolation. Either leaves images of the signal around 48 kHz, and at a 44.1 kHz host they fold to 3900 Hz ± f. The worst line against the fundamental, at 44.1 kHz:
+
+| note | f0 | Full, Good (cubic) | Fast, Fastest (linear) | now, every step |
+|---|---|---|---|---|
+| 36 | 66 Hz | -63.1 dBc at 3834 Hz | -89.7 | -89.6 |
+| 60 | 262 Hz | -50.8 at 3638 | -85.8 at 3638 | -93.0 |
+| 84 | 1046 Hz | -38.3 at 2854 | -61.5 at 2854 | -91.2 |
+| 96 | 2094 Hz | -32.4 at 1806 | -49.7 at 1806 | -88.0 |
+| 108 | 4186 Hz | -25.1 at 286 | -36.0 at 286 | -101.4 at 286 |
+| 120 | 8372 Hz | | | -103.6 |
+
+The -88 to -93 dBc next to the fundamental in the last column is the analysis window's own floor, and reads the same at a 48 kHz host, where nothing is resampled. At 48 and 96 kHz every step always measured clean. The resampler is now a 64-tap Kaiser-windowed sinc at every step (`Device::Impl`), cut at half the lower of the two rates, flat to 19.9 kHz and about 90 dB down by 24.2 kHz at 44.1 kHz, with 0.67 ms of delay. A001 Zap! costs 15.0 % of a core at 44.1 kHz and 48 kHz alike, so it is not a cost worth trading, and Fast no longer swaps it for linear.
+
+**The steps under Full bought little.** Good gated at -90 dB, Fast and Fastest at -80 and -72 with the control maths every 48 and 64 samples. Eight held notes: A020 Vox Morph 52.8, 50.0, 47.8 and 47.9 % of a core from Full to Fastest; A088 Fat Line 39.0, 29.8, 29.5 and 28.4. Good takes out the operators parked at output level 0 (-96 dB) and nothing under it gates anything more. Split by section, one held note of A001 Zap! is 14.2 % of a core, of which the filter chip is 6.2 and the effect section 5.3, and those run whatever the step.
+
+**An idle instance cost 12 % of a core**, 12.2 on Zap! and 12.5 on Vox Morph with nothing playing: the effect programs and the filter chip running on silence, which the unit does too and which costs it nothing. Neither settles to exact zero (filter states sit at 1e-12 and 3e-308 in limit cycles, a reverb's cells keep moving), so skipping a section whose state is zero never fires. The engine now sleeps once no channel has been active and its output has held one value for a second: each block computes its first sample and repeats it, and wakes the moment that sample moves or a note starts (`Synth::render`). Asleep it is 0.1 % of a core. Two things kept channels alive that played nothing: a silent channel counting down to the sample the allocator frees it on, which no longer holds the engine awake and keeps counting while it sleeps, and a carrier in a release of 99 at output level 0, 138 dB down and minutes from done, which now counts as finished once it falls under the gate (`render_chan`). Fat Line stays awake at Full: its unvoiced operators hold at level 0 with the EG at full, 95.6 dB down and inside the -100 dB gate. From Good on it sleeps.
+
+**What the lower steps do now.** Fast and Fastest also advance the amplitude EGs 4 and 8 samples at a time and ramp each gain linearly across the block (`EG::advance`, `render_chan`), which takes the EG tick and the dB-to-gain conversion out of all but one sample in the block. Eight-note chords struck every half second and released after a quarter, ten seconds, % of a core (runs differ by about 3 %):
+
+| | Full | Good | Fast | Fastest | Fast, EGs every sample | Fastest, EGs every sample |
+|---|---|---|---|---|---|---|
+| A020 Vox Morph | 108.8 | 95.3 | 80.5 | 74.2 | 91.5 | 82.2 |
+| A088 Fat Line | 52.6 | 48.5 | 44.4 | 40.7 | 45.0 | 44.2 |
+| B014 Full Tines | 40.3 | 37.8 | 30.3 | 28.1 | 32.0 | 30.8 |
+| A001 Zap! | 25.8 | 24.8 | 23.8 | 23.7 | 23.7 | 24.1 |
+
+Fastest is 32 % under Full on Vox Morph, 23 % on Fat Line and 30 % on Full Tines. Zap! moves 8 %, because 11 points of its 26 are the filter and the effects. Against Full, the loudest third-octave band of the held chord and of the release moves by at most 0.6 and 0.4 dB at Good on Vox Morph, Fat Line, Full Tines and Bassline 2, 0.6 and 1.5 at Fast and 0.8 and 2.4 at Fastest; Zap!'s release moves 4.5 to 4.8 dB at every step under Full, from the gate on its quiet modulators. No step sharpens an attack: the largest sample-to-sample step of the first 10 ms is 0.8 to 1.06 times Full's.
+
+**Tried and dropped.** The filter's coefficients made at most once in 4 or 8 samples while its cutoff moves: Zap! read 23.2 % against 23.0 without, inside the noise. The filter's cost is its sixteen slots' arithmetic every sample, not its coefficients. What is left for a slow machine is that arithmetic and the effect programs whenever anything sounds, about 11 % of this core between them, and the operator loop (item 4 above).
