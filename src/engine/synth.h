@@ -138,10 +138,21 @@ struct Synth {
     void fseq_keys();
     void release(Chan& C);
     void set_sustain(int part, bool on) { Part& pt = perf.part[part]; pt.sustain = on; if (!on) for (auto& c : ch) if (c.active && c.part == part && c.sustained) { c.sustained = false; release(c); } }
-    // What the polyphony readout shows. A channel is a voice for exactly as long as the allocator owns
-    // it, which is the free-channel test note_on itself reads, so a released note keeps counting until
-    // its release is over rather than until the key comes up.
-    int active_chans() const { int n = 0; for (auto& c : ch) n += c.active; return n; }
+    // What the POLY readout counts: a key down or sustained, or a released note still audible. The allocator's
+    // active flag is not it: a release can sit at a -91 dB L4 floor, or crawl through -70 dB for tens of
+    // seconds, with the channel still owned, and that pinned the readout at 32 on Zap ! and Nightmare.
+    // ponytail: the loudest carrier EG against a fixed floor; the channel's output level if this misreads a patch.
+    static constexpr double POLY_AUDIBLE_DB = -60;
+    bool audible(const Chan& c) const {
+        const unsigned char* alg = FS1R_ALG[perf.part[c.part].voice.alg];
+        for (int o = 0; o < 8; o++) {
+            const OpState& s = c.op[o];
+            if ((alg[2 * o + 1] & 1) && s.eg.cur - s.attS > POLY_AUDIBLE_DB) return true;
+            if (s.ueg.cur - s.uatt > POLY_AUDIBLE_DB) return true;
+        }
+        return false;
+    }
+    int active_chans() const { int n = 0; for (auto& c : ch) n += c.active && (c.held || c.sustained || audible(c)); return n; }
     void all_off() {
         for (auto& c : ch) c.active = false;
         for (auto& p : perf.part) { p.nheld = 0; }

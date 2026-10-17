@@ -768,6 +768,11 @@ int selftest(Synth& S) {
       ck("a released note goes on counting while its release runs", S.active_chans() == 1);
       int blocks = 0; while (S.active_chans() && ++blocks < 200) S.render(l.data(), r.data(), 1024);
       ck("and stops counting once the release is over", S.active_chans() == 0);
+      // A release that ends on a floor (L4 > 0, Nightmare's -91 dB) keeps the channel owned for good, and once
+      // it is below hearing it stops counting: that pinned the readout at 32.
+      V.v[0].L[3] = 10; S.midi_in(0x90, 60, 100); S.render(l.data(), r.data(), 1024); S.midi_in(0x80, 60, 0);
+      blocks = 0; while (S.active_chans() && ++blocks < 200) S.render(l.data(), r.data(), 1024);
+      ck("a release parked on an inaudible floor stops counting", S.active_chans() == 0 && std::any_of(std::begin(S.ch), std::end(S.ch), [](const Chan& c) { return c.active; }));
       S.all_off(); init_perf(S.perf); }
 
     // display/egview.h calculates the editor's EG curves without stepping the engine, so check it against the engine.
