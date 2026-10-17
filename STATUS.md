@@ -64,6 +64,7 @@ Grouped by what blocks each item rather than by subsystem. This file is the list
 - The unvoiced resonance carrier's level against the bandwidth register, 2 to 3 dB between the two takes (`21_ures.mid`, in the `record` stage)
 - Whether the chip latches per grain or slews the level register on a 3 to 5 ms constant. The lever is the grain rate
 - The per-channel arrays at 0x0103B384 and 0x01044C, which the voice image does not carry
+- Whether an EG hold delays the operator's key-on, its phase reset and frequency EG with it. The engine holds both still through the hold, which A043 To Warp's staggered holds over full-range sweeps argue for (`docs/findings.md` 2026-10-17). Two key-synced sines at 1:1, one with a hold of 40, at C2 and C4: a wave that changes between the notes means the reset waits for the hold, as here; the same wave at both means it runs from key-on
 - A formant operator's Transpose (#31, v0.5.2): it now moves the operator's pitch, the grain rate, and leaves the formant's centre where Coarse and Fine put it. Checked by WouterVanNifterick against his own unit, not yet against a capture here. It moved `tools/regress.py`'s `ctrl-multi` (performance 28: centroid 171.2 to 167.5 Hz, peak count 4 to 5) against a v0.5.1 fingerprint; the other eighteen cases render as v0.5.1 does. A take of a formant operator swept through Transpose settles it
 
 **Open research**

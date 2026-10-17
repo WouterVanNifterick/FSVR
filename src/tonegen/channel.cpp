@@ -160,6 +160,7 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
         // before its add. INFERRED from the table, not measured: the bit is set wherever a second sum
         // starts and never over an add no operator has read yet, and so 65 and 80 fan out to every
         // reader as the Algorithm Sheet draws them (docs/ymp706_registers.md, the algorithm word).
+        s.out = y;
         Cb = y; if (t0 & 2) H = y; if (t1 & 2) S = 0; if (t1 & 4) S += y; if (t0 & 4) fbNew = y;
         if (t1 & 1) mix += y * partV;
         // unvoiced (noise formant) operator

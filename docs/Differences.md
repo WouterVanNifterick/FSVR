@@ -117,6 +117,11 @@ form, so the sine and all1/all2 rotate and the grain forms shift their carrier i
 reads it each tick, so an edit moves a sounding note too. With key sync off it does nothing. A voice that leaves
 it at 0 sounds as on the unit; one that sets it plays at 0 on the unit.
 
+It sets where the operator starts at key-on, not a relation it keeps. An operator with a frequency EG of its own
+sweeps away from its partners by a share of a turn that doubles with each octave, on the unit as here: B042
+Bassline 2's operator 7 (Freq EG Init 30) ends its sweep 0.22 of a turn ahead of operator 8 at C2 and 0.43 at C3
+(`docs/findings.md`, 2026-10-17). Freq EG Init and Attack Level at 0 keep the phase where this byte puts it.
+
 ## Quality / Speed, the host rate and an idle engine
 
 **The unit.** Every slot of every channel, both effect DSPs and the filter chip run at 48 kHz all the time,

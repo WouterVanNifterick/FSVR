@@ -7,6 +7,7 @@ rem   build.bat plugin               -> every plug-in format through CMake into 
 rem                                     standalone (64-bit, build\x64), then the 32-bit VST2 with the DXi in it (build\x86),
 rem                                     then the plug-in's own checks (check_plugin, check_gui)
 rem   build.bat bench                -> bin\dsp_bench.exe, the filter and effects' cost and bit-exact output (tools\dsp_bench.cpp)
+rem   build.bat trace                -> bin\wavetrace.exe, a voice's operators sample by sample (tools\wavetrace.cpp)
 rem   build.bat file.cpp [cl args]   -> compiles whatever you pass (paths relative to this folder)
 rem   set FSVR_MATH=0..3           -> the sample loop's maths backend (src\math\fastmath.h): 0 raw libm, 1 LUT (unset), 2 CORDIC, 3 hybrid
 rem CMakeLists.txt builds the same targets for anything that is not MSVC-on-Windows.
@@ -19,6 +20,7 @@ rem The two hosts and the filters and effects are bit-exact only without FMA con
 rem VS 2022 does not contract under /fp:precise (tools\dsp_bench.cpp writes the same bytes as under /fp:strict).
 set VOP3FLAGS=/nologo /O2 /EHsc /W3 /std:c++20 /fp:precise /I src
 set VOP3OBJ=build\vop3host\*.obj
+set ENGINE=src\tonegen\*.cpp src\engine\render.cpp src\engine\controllers.cpp src\engine\fseq.cpp src\engine\midi.cpp src\engine\notes.cpp src\presets\patch.cpp src\presets\rom.cpp src\math\fastmath.cpp
 if defined FSVR_MATH set MATHDEF=/DFSVR_MATH=%FSVR_MATH%
 if "%~1"=="" (
   call :console
@@ -37,6 +39,9 @@ if "%~1"=="" (
 ) else if "%~1"=="bench" (
   call :vop3host || goto :done
   cl %VOP3FLAGS% tools\dsp_bench.cpp %VOP3OBJ% /Fe:bin\dsp_bench.exe /Fobuild\
+) else if "%~1"=="trace" (
+  call :vop3host || goto :done
+  cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src %ENGINE% tools\wavetrace.cpp %VOP3OBJ% /Fe:bin\wavetrace.exe /Fobuild\
 ) else (
   cl /nologo /O2 /EHsc /W3 /std:c++17 %* /Fobuild\
 )
@@ -45,7 +50,7 @@ goto :done
 rem The console.
 :console
 call :vop3host || exit /b 1
-cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src src\tonegen\*.cpp src\engine\render.cpp src\engine\controllers.cpp src\engine\fseq.cpp src\engine\midi.cpp src\engine\notes.cpp src\presets\patch.cpp src\presets\rom.cpp src\device\device.cpp src\math\fastmath.cpp src\selftest\selftest.cpp %VOP3OBJ% src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
+cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src %ENGINE% src\device\device.cpp src\selftest\selftest.cpp %VOP3OBJ% src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
 exit /b %ERRORLEVEL%
 
 :vop3host

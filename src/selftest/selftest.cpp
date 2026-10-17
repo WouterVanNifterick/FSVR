@@ -724,6 +724,28 @@ int selftest(Synth& S) {
       ck("phase: and nothing without key sync", c == d);
       ck("phase: refresh_regs carries an edit to a sounding note", a[0] == 0.25 && b[0] == 0.25); }
 
+    // Key sync holds the operators' relation at every note: two key-synced operators at 1:1 agree half a second
+    // on at C2 to C5. A frequency EG on one of them alone is a sweep only it makes, and leaves it ahead by a share
+    // of a turn that doubles each octave, which is what the 2026-10-17 report on Bassline 2 (Freq EG Init 30 on
+    // operator 7) heard (docs/findings.md). An EG hold is left out: the operator's phase and frequency EG wait
+    // through it, and whether the unit's do is not measured.
+    { auto lead = [](int note, int feg) {
+          auto T = std::make_unique<Synth>(); init_perf(T->perf); Part& pt = T->perf.part[0]; Voice& V = pt.voice;
+          pt.p[1] = 2; pt.p[4] = 0x10;
+          init_blank_voice(V.raw);
+          for (int o = 0; o < 2; o++) { V.raw[112 + o * 62] = 0x40 | 24; V.raw[112 + o * 62 + 22] = 99; }   // key sync, level 99
+          V.raw[112 + 8] = (uint8_t)(50 + feg); V.raw[112 + 10] = 6;
+          decode_voice(V);
+          T->midi_in(0x90, note, 100);
+          Chan* c = nullptr; for (auto& x : T->ch) if (x.active) c = &x;
+          float l, r; for (int k = 0; k < SR / 2; k++) T->render(&l, &r, 1);
+          double d = c ? c->op[0].phase - c->op[1].phase : 0.5; return d - floor(d + 0.5); };   // turns, -0.5..0.5
+      bool held = true, doubles = true; double fe[4];
+      for (int k = 0; k < 4; k++) { held = held && fabs(lead(36 + 12 * k, 0)) < 1e-6; fe[k] = lead(36 + 12 * k, 30); }
+      for (int k = 0; k < 3; k++) { double e = 2 * fe[k] - fe[k + 1]; doubles = doubles && fabs(e - floor(e + 0.5)) < 1e-3; }
+      ck("key sync: two operators in step at every note", held);
+      ck("key sync: a frequency EG on one alone leads it by a share that doubles each octave", doubles && fabs(fe[0]) > 0.05); }
+
     // The allocator, against the unit itself (FS1R.unlock captures/2026-09-25-7, session6 alloc).
     // Filling an empty machine with notes 36..67 on part 1 put them on channels 1..31 then 0, and a
     // 33rd note of 100 arriving on the full part took channel 2 (which held note 37). Both are

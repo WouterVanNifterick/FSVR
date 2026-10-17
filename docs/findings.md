@@ -116,6 +116,28 @@ and dropped, in [performance.md](performance.md).
 
 ---
 
+## 2026-10-17, key sync holds, and a frequency EG on one operator is what moves the phase
+
+gentleclockdivider: with a modulator put out of phase, playing lower octaves changes the phase, and at 1:1 key
+sync seems not to hold at all; their GIF is B042 Bassline 2 with operator 7 (feedback 7) into operator 8.
+`tools/wavetrace` at C2 to C5, operators 7 and 8 at 1:1, half a second in: operator 8's lead, its phase less
+frequency times time, is 0 at every note, and operator 7's is 0.216, 0.431, 0.862 and 1.725 turns, doubling
+each octave. Bassline 2's operator 7 has Freq EG Init 30 and attack time 6, a pitch sweep that operator alone
+makes, and the phase it gains over the sweep is the extra frequency integrated, which is in proportion to the
+note. With Init at 0 both leads are 0 at every note and the four notes draw the same wave. The frequency EG is
+the unit's own pitch ramp (2026-09-25), so the unit does the same; the Yamaha synths with an operator phase
+setting have no per-operator pitch EG to do it with. Self check: two key-synced operators agree at every
+note, and a frequency EG on one leads it by a share that doubles each octave.
+
+**An EG hold is left open.** Below the -100 dB gate an operator is not computed, and that stops its phase and
+its frequency EG too; an operator in its hold is there. Running both from key-on instead moved `regress.py`'s
+perf-towarp, and A043 To Warp is the reason it was taken back out: it staggers holds of 55, 50, 30 and 20 over
+operators that each carry a full-range frequency sweep, which is a design only if a sweep starts when its hold
+ends. If the unit's hold delays the operator's key-on, the phase reset waits for it too and the relation between
+a held operator and the others moves with the note on the unit as here. STATUS.md has the test.
+
+---
+
 ## 2026-10-16, pitch bend keeps the LSB's top bits, and source PB is -128..127
 
 Found by WouterVanNifterick in PR #43 (merged): source PB is a raw signed byte, -128..127, where the engine fed
