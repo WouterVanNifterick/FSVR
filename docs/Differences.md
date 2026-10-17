@@ -69,6 +69,15 @@ Clearing it costs the wet paths the time they take to refill, measured at about 
 reverb-heavy performance and nothing on the dry path, which reads as the effects fading in rather than as a
 click.
 
+**The unit's own sequence does not stand in for this.** The unit cuts the sound before it takes a
+performance, all sound off rather than all notes off (mkruselj, on his own FS1R), and the engine does that
+too now, in `perf_from_bytes`. Cutting the sound and then waiting - the unit is slow at performance changes,
+so the state had a chance to decay before the new programs ran - was measured out to 800 ms and changes
+neither carried-state case by a digit: A073 into A072 and A071 into A072 both still clip at full scale. The
+delay memory does not flush while waiting either, because the reverb tail goes on writing its own output
+into it. The wait fixes only the mixer step, and only by removing the audio there was to step. See
+[findings.md](findings.md), 2026-10-17.
+
 **And a fade, for the step the clearing cannot reach.** A load also writes every mixer gain, return, pan and
 EQ word of the new performance between one sample and the next, and a gain step on audio that is still
 sounding is a click of its own whatever state sits behind it. So the section fades in over 8 ms

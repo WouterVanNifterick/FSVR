@@ -999,6 +999,19 @@ int selftest(Synth& S) {
         ck("engine: a part on the insertion is heard through it", inserted > direct * 0.1f);
         ck("engine: a part on the insertion has no dry path", silent < direct * 0.001f);
         init_perf(S.perf); }
+      // 6b. taking a performance cuts the sound first, as the unit does: all sound off, so the channels go
+      // where they are rather than releasing. Before this only the plug-in's preset browser did it and a
+      // performance bulk from a host or the MIDI in left notes playing on through the new voices.
+      { std::vector<float> a(256), b(256);
+        uint8_t bulk[400];                                       // the performance as its own bulk
+        memcpy(bulk, (const uint8_t*)&S.perf, 192);
+        for (int p = 0; p < 4; p++) memcpy(bulk + 192 + 52 * p, S.perf.part[p].p, 52);
+        S.midi_in(0x90, 60, 100);
+        for (int k = 0; k < 8; k++) S.render(a.data(), b.data(), 256);
+        const int sounding = S.active_chans();
+        perf_from_bytes(S, nullptr, bulk);
+        ck("engine: a performance cuts the sound before it loads", sounding > 0 && S.active_chans() == 0);
+        init_perf(S.perf); }
       // 7. the host's register writes, pinned: its start and a load, every type with each parameter at both ends,
       //    the mixer and EQ bytes, the controller offsets, and a load of every byte.
       { namespace H = fsvr::vop3host;
