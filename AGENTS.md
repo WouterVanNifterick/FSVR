@@ -47,6 +47,17 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 
 **Scale is not fidelity.** `src/engine/tuning.h` holds knobs that trade CPU for nothing else. If changing one moves a measurement, the value is wrong, not the hardware's.
 
+## The editor's layout
+
+The skin is placed by the pixel, so check it by the pixel. Render the page with `hollow-render` and look at it enlarged before a layout change is done; `build/x64/hollow/Release/hollow-render.exe plugin/skin page_operator out.png` draws one view.
+
+- **Nothing is cut off.** A caption never runs under its widget's lamp, arrow or steppers, nor past the widget's edge. Key Sync was 66 px and its caption ran under the lamp, so it is 94. Widen the widget or shorten the caption rather than shrinking the font. `python ../Hollow/tools/overflow.py plugin/skin` measures every caption, every choice a dropdown can show and the widest value of every number field with the skin's own fonts, and it must report none.
+- **What a widget draws stays inside its rect.** The widget clips, so a ring, glow or shadow drawn past the rect loses that side. The selected matrix box's ring lost its right side, and a column of its left and top, until it was drawn inside the box.
+- **A value is centred on its control by its pixels.** A glyph's advance carries spacing after it, so text centred in a rect lands about a pixel left of a knob or fader centred on the same rect. Level's 99 sat 1 px left of the fader until its box moved 1 px right. Measure the render.
+- **A section's controls share rows and columns.** Captions stand on one line (Amp Vel's with Level's), values on one line (Level's with OP Att's). A column under a button or tab is centred on it, its caption taking the button's width and its knob or fader centred on the same line: Level and its fader stand under Noise, and Amp Vel, EG Bias and OP Att under Voiced. They sat 6 and 7 px off until they were measured.
+- **A number edited by step carries the steppers, as its neighbours do.** The `panels/label_plate` fill brings them (`"steppers"` in `skin.json`).
+- **A parameter sits with the controls it acts on, under its panel name.** OP Att trims an operator's output, so it is in Amplitude beside Level, not in the Freq EG row. It reads OP Att, the owner's manual's name, rather than the Data List's "carrier level correction", and shows the unit's dB through the param's `labels`.
+
 ## Releases
 
 Every release tag carries release notes: an annotated tag (`git tag -a vX.Y.Z -F notes.md`) whose body says what was measured, what changed and the numbers, and which collaborator reports it answers. The Actions job's `generate_release_notes` alone leaves only a compare link, which is not release notes. Skip them only when told to for that release.

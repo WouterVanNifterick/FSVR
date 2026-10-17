@@ -1425,7 +1425,7 @@
    "rect": [
     718,
     95,
-    80,
+    68,
     21
    ],
    "layer": 1,
@@ -1445,7 +1445,7 @@
    "type": "plate",
    "name": "level_track",
    "rect": [
-    748,
+    742,
     116,
     20,
     149
@@ -1458,7 +1458,7 @@
    "type": "dial",
    "name": "level",
    "rect": [
-    737,
+    731,
     116,
     42,
     149
@@ -1475,10 +1475,10 @@
    "type": "number",
    "name": "level_value",
    "rect": [
-    728,
-    267,
+    723,
+    271,
     60,
-    22
+    20
    ],
    "text": {
     "text": "",
@@ -1501,9 +1501,9 @@
    "type": "plate",
    "name": "amp_vel_label",
    "rect": [
-    633,
-    97,
-    80,
+    646,
+    95,
+    68,
     21
    ],
    "layer": 1,
@@ -1523,8 +1523,8 @@
    "type": "dial",
    "name": "amp_vel",
    "rect": [
-    651,
-    118,
+    658,
+    114,
     44,
     44
    ],
@@ -1539,10 +1539,10 @@
    "type": "number",
    "name": "amp_vel_value",
    "rect": [
-    643,
-    163,
+    650,
+    157,
     60,
-    22
+    20
    ],
    "text": {
     "text": "",
@@ -1565,9 +1565,9 @@
    "type": "plate",
    "name": "eg_bias_label",
    "rect": [
-    633,
-    181,
-    80,
+    646,
+    171,
+    68,
     21
    ],
    "layer": 1,
@@ -1587,8 +1587,8 @@
    "type": "dial",
    "name": "eg_bias",
    "rect": [
-    651,
-    202,
+    658,
+    189,
     44,
     44
    ],
@@ -1603,10 +1603,10 @@
    "type": "number",
    "name": "eg_bias_value",
    "rect": [
-    643,
-    247,
+    650,
+    232,
     60,
-    22
+    20
    ],
    "text": {
     "text": "",
@@ -1624,6 +1624,126 @@
    "reset": false,
    "editable": true,
    "param": "op.{op}.{layer}.eg_bias.{part}"
+  },
+  {
+   "type": "plate",
+   "name": "amp_v_label",
+   "rect": [
+    646,
+    253,
+    68,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "OP Att",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "amp_v_value",
+   "rect": [
+    650,
+    271,
+    60,
+    20
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.v.carrier_corr.{part}",
+   "tip": "Attenuates this operator's output, 0 to -22.5 dB in 1.5 dB steps",
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "amp_u_label",
+   "rect": [
+    646,
+    253,
+    68,
+    18
+   ],
+   "layer": 1,
+   "text": {
+    "text": "Lvl Key",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
+   "type": "number",
+   "name": "amp_u_value",
+   "rect": [
+    650,
+    271,
+    60,
+    20
+   ],
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.{op}.u.level_key_scale.{part}",
+   "tip": "Raises the noise level right of C3 and lowers it left of it, or the reverse",
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
   },
   {
    "type": "plate",
@@ -2337,131 +2457,9 @@
   },
   {
    "type": "plate",
-   "name": "sens_carrier_corr_label",
-   "rect": [
-    318,
-    246,
-    60,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "text": "Carrier",
-    "font": "caption_grey_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ],
-   "showIf": {
-    "var": "layer",
-    "equals": "v"
-   }
-  },
-  {
-   "type": "number",
-   "name": "sens_carrier_corr",
-   "rect": [
-    318,
-    268,
-    60,
-    20
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "text": "",
-    "font": "value_dark_12",
-    "align": "center",
-    "valign": "middle"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
-   "param": "op.{op}.v.carrier_corr.{part}",
-   "showIf": {
-    "var": "layer",
-    "equals": "v"
-   }
-  },
-  {
-   "type": "plate",
-   "name": "sens_level_key_scale_label",
-   "rect": [
-    318,
-    246,
-    60,
-    18
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "text": "Lvl Key",
-    "font": "caption_grey_12",
-    "align": "center"
-   },
-   "pad": [
-    1,
-    2,
-    1,
-    2
-   ],
-   "showIf": {
-    "var": "layer",
-    "equals": "u"
-   }
-  },
-  {
-   "type": "number",
-   "name": "sens_level_key_scale",
-   "rect": [
-    318,
-    268,
-    60,
-    20
-   ],
-   "fill": {
-    "image": "panels/label_plate"
-   },
-   "text": {
-    "text": "",
-    "font": "value_dark_12",
-    "align": "center",
-    "valign": "middle"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "fine": 0.2,
-   "reset": false,
-   "editable": true,
-   "param": "op.{op}.u.level_key_scale.{part}",
-   "showIf": {
-    "var": "layer",
-    "equals": "u"
-   }
-  },
-  {
-   "type": "plate",
    "name": "sens_fseq_track_label",
    "rect": [
-    382,
+    318,
     246,
     60,
     18
@@ -2489,7 +2487,7 @@
    "type": "number",
    "name": "sens_fseq_track",
    "rect": [
-    382,
+    318,
     268,
     60,
     20

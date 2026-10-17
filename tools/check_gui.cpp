@@ -408,6 +408,18 @@ int main() {
                 CHECK(p == 0xe8f3ef, "the selected matrix box's ring has no right side (%06x)", p);
             }
         }
+        {   // OP Att reads the unit's dB under Voiced, its value on Level's row; Level's fader stands under Noise
+            const std::string db = u.st->text((size_t)u.at("op.6.v.carrier_corr.p1"), 15);
+            CHECK(db == "-22.5", "OP Att's last step reads \"%s\", not -22.5 dB", db.c_str());
+            Rect att, lvl, fader, vb, nb;
+            if (u.rect("pages/amp_v_value", att) && u.rect("pages/level_value", lvl) && u.rect("pages/level", fader) &&
+                u.rect("pages/voiced", vb) && u.rect("pages/unvoiced", nb)) {
+                auto mid2 = [](const Rect& r) { return 2 * r.x + r.w; };   // twice the centre, so a half pixel counts
+                CHECK(att.y == lvl.y && att.h == lvl.h, "OP Att's value and Level's are not on one row");
+                CHECK(std::abs(mid2(att) - mid2(vb)) <= 2, "OP Att is not under Voiced");
+                CHECK(std::abs(mid2(fader) - mid2(nb)) <= 2, "Level's fader is not under Noise");
+            }
+        }
         CHECK(u.until([&] { return u.data("live.wave.p1.6").size() > 128; }), "the engine drew no wave for operator 6 (\"%s\")",
               u.data("live.wave.p1.6").substr(0, 40).c_str());
         CHECK(u.st->save().find("live.wave") == std::string::npos, "the panel's wave went into the saved session");

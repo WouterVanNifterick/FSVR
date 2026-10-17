@@ -174,7 +174,7 @@
    "type": "plate",
    "name": "head_mode",
    "rect": [
-    293,
+    290,
     45,
     90,
     21
@@ -196,7 +196,7 @@
    "type": "plate",
    "name": "head_form",
    "rect": [
-    395,
+    382,
     45,
     90,
     21
@@ -222,7 +222,7 @@
    "type": "plate",
    "name": "head_bandwidth",
    "rect": [
-    395,
+    382,
     45,
     90,
     21
@@ -248,7 +248,7 @@
    "type": "plate",
    "name": "head_skirt",
    "rect": [
-    467,
+    448,
     45,
     90,
     21
@@ -270,7 +270,7 @@
    "type": "plate",
    "name": "head_detune",
    "rect": [
-    521,
+    495,
     45,
     90,
     21
@@ -296,7 +296,7 @@
    "type": "plate",
    "name": "head_resonance",
    "rect": [
-    521,
+    507,
     45,
     90,
     21
@@ -322,7 +322,7 @@
    "type": "plate",
    "name": "head_key_sync",
    "rect": [
-    586,
+    556,
     45,
     90,
     21
@@ -348,7 +348,7 @@
    "type": "plate",
    "name": "head_fseq",
    "rect": [
-    649,
+    610,
     45,
     90,
     21
@@ -368,9 +368,61 @@
   },
   {
    "type": "plate",
+   "name": "head_op_att",
+   "rect": [
+    655,
+    45,
+    90,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "OP Att",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "head_lvl_key",
+   "rect": [
+    655,
+    45,
+    90,
+    21
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Lvl Key",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
+   "type": "plate",
    "name": "head_level",
    "rect": [
-    712,
+    721,
     45,
     90,
     21
@@ -749,7 +801,7 @@
    "rect": [
     283,
     71,
-    440,
+    452,
     43
    ],
    "layer": 1,
@@ -763,7 +815,7 @@
    "rect": [
     291,
     81,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -800,9 +852,9 @@
    "type": "button",
    "name": "mode_1_fixed",
    "rect": [
-    339,
+    335,
     81,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -841,7 +893,7 @@
    "rect": [
     291,
     83,
-    94,
+    86,
     18
    ],
    "fill": {
@@ -887,9 +939,9 @@
    "type": "dropdown",
    "name": "form_1",
    "rect": [
-    391,
+    384,
     83,
-    98,
+    84,
     18
    ],
    "fill": {
@@ -955,7 +1007,7 @@
    "type": "number",
    "name": "bandwidth_1",
    "rect": [
-    405,
+    391,
     83,
     70,
     18
@@ -988,7 +1040,7 @@
    "type": "number",
    "name": "skirt_1",
    "rect": [
-    495,
+    475,
     83,
     34,
     18
@@ -1017,7 +1069,7 @@
    "type": "number",
    "name": "detune_1",
    "rect": [
-    546,
+    519,
     83,
     40,
     18
@@ -1050,7 +1102,7 @@
    "type": "number",
    "name": "resonance_1",
    "rect": [
-    546,
+    531,
     83,
     40,
     18
@@ -1083,9 +1135,9 @@
    "type": "button",
    "name": "key_sync_1",
    "rect": [
-    596,
+    566,
     83,
-    62,
+    48,
     18
    ],
    "fill": {
@@ -1106,9 +1158,9 @@
    "type": "button",
    "name": "fseq_1",
    "rect": [
-    658,
+    619,
     83,
-    54,
+    50,
     18
    ],
    "fill": {
@@ -1122,10 +1174,76 @@
    "param": "op.1.{layer}.fseq_sw.{part}"
   },
   {
+   "type": "number",
+   "name": "op_att_1",
+   "rect": [
+    671,
+    83,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.1.v.carrier_corr.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "lvl_key_1",
+   "rect": [
+    671,
+    83,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.1.u.level_key_scale.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
    "type": "dial",
    "name": "level_1",
    "rect": [
-    735,
+    743,
     71,
     44,
     43
@@ -1500,7 +1618,7 @@
    "rect": [
     283,
     130,
-    440,
+    452,
     43
    ],
    "layer": 1,
@@ -1514,7 +1632,7 @@
    "rect": [
     291,
     140,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -1551,9 +1669,9 @@
    "type": "button",
    "name": "mode_2_fixed",
    "rect": [
-    339,
+    335,
     140,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -1592,7 +1710,7 @@
    "rect": [
     291,
     142,
-    94,
+    86,
     18
    ],
    "fill": {
@@ -1638,9 +1756,9 @@
    "type": "dropdown",
    "name": "form_2",
    "rect": [
-    391,
+    384,
     142,
-    98,
+    84,
     18
    ],
    "fill": {
@@ -1706,7 +1824,7 @@
    "type": "number",
    "name": "bandwidth_2",
    "rect": [
-    405,
+    391,
     142,
     70,
     18
@@ -1739,7 +1857,7 @@
    "type": "number",
    "name": "skirt_2",
    "rect": [
-    495,
+    475,
     142,
     34,
     18
@@ -1768,7 +1886,7 @@
    "type": "number",
    "name": "detune_2",
    "rect": [
-    546,
+    519,
     142,
     40,
     18
@@ -1801,7 +1919,7 @@
    "type": "number",
    "name": "resonance_2",
    "rect": [
-    546,
+    531,
     142,
     40,
     18
@@ -1834,9 +1952,9 @@
    "type": "button",
    "name": "key_sync_2",
    "rect": [
-    596,
+    566,
     142,
-    62,
+    48,
     18
    ],
    "fill": {
@@ -1857,9 +1975,9 @@
    "type": "button",
    "name": "fseq_2",
    "rect": [
-    658,
+    619,
     142,
-    54,
+    50,
     18
    ],
    "fill": {
@@ -1873,10 +1991,76 @@
    "param": "op.2.{layer}.fseq_sw.{part}"
   },
   {
+   "type": "number",
+   "name": "op_att_2",
+   "rect": [
+    671,
+    142,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.2.v.carrier_corr.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "lvl_key_2",
+   "rect": [
+    671,
+    142,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.2.u.level_key_scale.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
    "type": "dial",
    "name": "level_2",
    "rect": [
-    735,
+    743,
     130,
     44,
     43
@@ -2251,7 +2435,7 @@
    "rect": [
     283,
     188,
-    440,
+    452,
     43
    ],
    "layer": 1,
@@ -2265,7 +2449,7 @@
    "rect": [
     291,
     198,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -2302,9 +2486,9 @@
    "type": "button",
    "name": "mode_3_fixed",
    "rect": [
-    339,
+    335,
     198,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -2343,7 +2527,7 @@
    "rect": [
     291,
     200,
-    94,
+    86,
     18
    ],
    "fill": {
@@ -2389,9 +2573,9 @@
    "type": "dropdown",
    "name": "form_3",
    "rect": [
-    391,
+    384,
     200,
-    98,
+    84,
     18
    ],
    "fill": {
@@ -2457,7 +2641,7 @@
    "type": "number",
    "name": "bandwidth_3",
    "rect": [
-    405,
+    391,
     200,
     70,
     18
@@ -2490,7 +2674,7 @@
    "type": "number",
    "name": "skirt_3",
    "rect": [
-    495,
+    475,
     200,
     34,
     18
@@ -2519,7 +2703,7 @@
    "type": "number",
    "name": "detune_3",
    "rect": [
-    546,
+    519,
     200,
     40,
     18
@@ -2552,7 +2736,7 @@
    "type": "number",
    "name": "resonance_3",
    "rect": [
-    546,
+    531,
     200,
     40,
     18
@@ -2585,9 +2769,9 @@
    "type": "button",
    "name": "key_sync_3",
    "rect": [
-    596,
+    566,
     200,
-    62,
+    48,
     18
    ],
    "fill": {
@@ -2608,9 +2792,9 @@
    "type": "button",
    "name": "fseq_3",
    "rect": [
-    658,
+    619,
     200,
-    54,
+    50,
     18
    ],
    "fill": {
@@ -2624,10 +2808,76 @@
    "param": "op.3.{layer}.fseq_sw.{part}"
   },
   {
+   "type": "number",
+   "name": "op_att_3",
+   "rect": [
+    671,
+    200,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.3.v.carrier_corr.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "lvl_key_3",
+   "rect": [
+    671,
+    200,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.3.u.level_key_scale.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
    "type": "dial",
    "name": "level_3",
    "rect": [
-    735,
+    743,
     188,
     44,
     43
@@ -3002,7 +3252,7 @@
    "rect": [
     283,
     247,
-    440,
+    452,
     43
    ],
    "layer": 1,
@@ -3016,7 +3266,7 @@
    "rect": [
     291,
     257,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -3053,9 +3303,9 @@
    "type": "button",
    "name": "mode_4_fixed",
    "rect": [
-    339,
+    335,
     257,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -3094,7 +3344,7 @@
    "rect": [
     291,
     259,
-    94,
+    86,
     18
    ],
    "fill": {
@@ -3140,9 +3390,9 @@
    "type": "dropdown",
    "name": "form_4",
    "rect": [
-    391,
+    384,
     259,
-    98,
+    84,
     18
    ],
    "fill": {
@@ -3208,7 +3458,7 @@
    "type": "number",
    "name": "bandwidth_4",
    "rect": [
-    405,
+    391,
     259,
     70,
     18
@@ -3241,7 +3491,7 @@
    "type": "number",
    "name": "skirt_4",
    "rect": [
-    495,
+    475,
     259,
     34,
     18
@@ -3270,7 +3520,7 @@
    "type": "number",
    "name": "detune_4",
    "rect": [
-    546,
+    519,
     259,
     40,
     18
@@ -3303,7 +3553,7 @@
    "type": "number",
    "name": "resonance_4",
    "rect": [
-    546,
+    531,
     259,
     40,
     18
@@ -3336,9 +3586,9 @@
    "type": "button",
    "name": "key_sync_4",
    "rect": [
-    596,
+    566,
     259,
-    62,
+    48,
     18
    ],
    "fill": {
@@ -3359,9 +3609,9 @@
    "type": "button",
    "name": "fseq_4",
    "rect": [
-    658,
+    619,
     259,
-    54,
+    50,
     18
    ],
    "fill": {
@@ -3375,10 +3625,76 @@
    "param": "op.4.{layer}.fseq_sw.{part}"
   },
   {
+   "type": "number",
+   "name": "op_att_4",
+   "rect": [
+    671,
+    259,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.4.v.carrier_corr.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "lvl_key_4",
+   "rect": [
+    671,
+    259,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.4.u.level_key_scale.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
    "type": "dial",
    "name": "level_4",
    "rect": [
-    735,
+    743,
     247,
     44,
     43
@@ -3753,7 +4069,7 @@
    "rect": [
     283,
     305,
-    440,
+    452,
     43
    ],
    "layer": 1,
@@ -3767,7 +4083,7 @@
    "rect": [
     291,
     315,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -3804,9 +4120,9 @@
    "type": "button",
    "name": "mode_5_fixed",
    "rect": [
-    339,
+    335,
     315,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -3845,7 +4161,7 @@
    "rect": [
     291,
     317,
-    94,
+    86,
     18
    ],
    "fill": {
@@ -3891,9 +4207,9 @@
    "type": "dropdown",
    "name": "form_5",
    "rect": [
-    391,
+    384,
     317,
-    98,
+    84,
     18
    ],
    "fill": {
@@ -3959,7 +4275,7 @@
    "type": "number",
    "name": "bandwidth_5",
    "rect": [
-    405,
+    391,
     317,
     70,
     18
@@ -3992,7 +4308,7 @@
    "type": "number",
    "name": "skirt_5",
    "rect": [
-    495,
+    475,
     317,
     34,
     18
@@ -4021,7 +4337,7 @@
    "type": "number",
    "name": "detune_5",
    "rect": [
-    546,
+    519,
     317,
     40,
     18
@@ -4054,7 +4370,7 @@
    "type": "number",
    "name": "resonance_5",
    "rect": [
-    546,
+    531,
     317,
     40,
     18
@@ -4087,9 +4403,9 @@
    "type": "button",
    "name": "key_sync_5",
    "rect": [
-    596,
+    566,
     317,
-    62,
+    48,
     18
    ],
    "fill": {
@@ -4110,9 +4426,9 @@
    "type": "button",
    "name": "fseq_5",
    "rect": [
-    658,
+    619,
     317,
-    54,
+    50,
     18
    ],
    "fill": {
@@ -4126,10 +4442,76 @@
    "param": "op.5.{layer}.fseq_sw.{part}"
   },
   {
+   "type": "number",
+   "name": "op_att_5",
+   "rect": [
+    671,
+    317,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.5.v.carrier_corr.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "lvl_key_5",
+   "rect": [
+    671,
+    317,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.5.u.level_key_scale.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
    "type": "dial",
    "name": "level_5",
    "rect": [
-    735,
+    743,
     305,
     44,
     43
@@ -4504,7 +4886,7 @@
    "rect": [
     283,
     364,
-    440,
+    452,
     43
    ],
    "layer": 1,
@@ -4518,7 +4900,7 @@
    "rect": [
     291,
     374,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -4555,9 +4937,9 @@
    "type": "button",
    "name": "mode_6_fixed",
    "rect": [
-    339,
+    335,
     374,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -4596,7 +4978,7 @@
    "rect": [
     291,
     376,
-    94,
+    86,
     18
    ],
    "fill": {
@@ -4642,9 +5024,9 @@
    "type": "dropdown",
    "name": "form_6",
    "rect": [
-    391,
+    384,
     376,
-    98,
+    84,
     18
    ],
    "fill": {
@@ -4710,7 +5092,7 @@
    "type": "number",
    "name": "bandwidth_6",
    "rect": [
-    405,
+    391,
     376,
     70,
     18
@@ -4743,7 +5125,7 @@
    "type": "number",
    "name": "skirt_6",
    "rect": [
-    495,
+    475,
     376,
     34,
     18
@@ -4772,7 +5154,7 @@
    "type": "number",
    "name": "detune_6",
    "rect": [
-    546,
+    519,
     376,
     40,
     18
@@ -4805,7 +5187,7 @@
    "type": "number",
    "name": "resonance_6",
    "rect": [
-    546,
+    531,
     376,
     40,
     18
@@ -4838,9 +5220,9 @@
    "type": "button",
    "name": "key_sync_6",
    "rect": [
-    596,
+    566,
     376,
-    62,
+    48,
     18
    ],
    "fill": {
@@ -4861,9 +5243,9 @@
    "type": "button",
    "name": "fseq_6",
    "rect": [
-    658,
+    619,
     376,
-    54,
+    50,
     18
    ],
    "fill": {
@@ -4877,10 +5259,76 @@
    "param": "op.6.{layer}.fseq_sw.{part}"
   },
   {
+   "type": "number",
+   "name": "op_att_6",
+   "rect": [
+    671,
+    376,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.6.v.carrier_corr.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "lvl_key_6",
+   "rect": [
+    671,
+    376,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.6.u.level_key_scale.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
    "type": "dial",
    "name": "level_6",
    "rect": [
-    735,
+    743,
     364,
     44,
     43
@@ -5255,7 +5703,7 @@
    "rect": [
     283,
     423,
-    440,
+    452,
     43
    ],
    "layer": 1,
@@ -5269,7 +5717,7 @@
    "rect": [
     291,
     433,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -5306,9 +5754,9 @@
    "type": "button",
    "name": "mode_7_fixed",
    "rect": [
-    339,
+    335,
     433,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -5347,7 +5795,7 @@
    "rect": [
     291,
     435,
-    94,
+    86,
     18
    ],
    "fill": {
@@ -5393,9 +5841,9 @@
    "type": "dropdown",
    "name": "form_7",
    "rect": [
-    391,
+    384,
     435,
-    98,
+    84,
     18
    ],
    "fill": {
@@ -5461,7 +5909,7 @@
    "type": "number",
    "name": "bandwidth_7",
    "rect": [
-    405,
+    391,
     435,
     70,
     18
@@ -5494,7 +5942,7 @@
    "type": "number",
    "name": "skirt_7",
    "rect": [
-    495,
+    475,
     435,
     34,
     18
@@ -5523,7 +5971,7 @@
    "type": "number",
    "name": "detune_7",
    "rect": [
-    546,
+    519,
     435,
     40,
     18
@@ -5556,7 +6004,7 @@
    "type": "number",
    "name": "resonance_7",
    "rect": [
-    546,
+    531,
     435,
     40,
     18
@@ -5589,9 +6037,9 @@
    "type": "button",
    "name": "key_sync_7",
    "rect": [
-    596,
+    566,
     435,
-    62,
+    48,
     18
    ],
    "fill": {
@@ -5612,9 +6060,9 @@
    "type": "button",
    "name": "fseq_7",
    "rect": [
-    658,
+    619,
     435,
-    54,
+    50,
     18
    ],
    "fill": {
@@ -5628,10 +6076,76 @@
    "param": "op.7.{layer}.fseq_sw.{part}"
   },
   {
+   "type": "number",
+   "name": "op_att_7",
+   "rect": [
+    671,
+    435,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.7.v.carrier_corr.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "lvl_key_7",
+   "rect": [
+    671,
+    435,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.7.u.level_key_scale.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
    "type": "dial",
    "name": "level_7",
    "rect": [
-    735,
+    743,
     423,
     44,
     43
@@ -6006,7 +6520,7 @@
    "rect": [
     283,
     482,
-    440,
+    452,
     43
    ],
    "layer": 1,
@@ -6020,7 +6534,7 @@
    "rect": [
     291,
     492,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -6057,9 +6571,9 @@
    "type": "button",
    "name": "mode_8_fixed",
    "rect": [
-    339,
+    335,
     492,
-    46,
+    42,
     22
    ],
    "fill": {
@@ -6098,7 +6612,7 @@
    "rect": [
     291,
     494,
-    94,
+    86,
     18
    ],
    "fill": {
@@ -6144,9 +6658,9 @@
    "type": "dropdown",
    "name": "form_8",
    "rect": [
-    391,
+    384,
     494,
-    98,
+    84,
     18
    ],
    "fill": {
@@ -6212,7 +6726,7 @@
    "type": "number",
    "name": "bandwidth_8",
    "rect": [
-    405,
+    391,
     494,
     70,
     18
@@ -6245,7 +6759,7 @@
    "type": "number",
    "name": "skirt_8",
    "rect": [
-    495,
+    475,
     494,
     34,
     18
@@ -6274,7 +6788,7 @@
    "type": "number",
    "name": "detune_8",
    "rect": [
-    546,
+    519,
     494,
     40,
     18
@@ -6307,7 +6821,7 @@
    "type": "number",
    "name": "resonance_8",
    "rect": [
-    546,
+    531,
     494,
     40,
     18
@@ -6340,9 +6854,9 @@
    "type": "button",
    "name": "key_sync_8",
    "rect": [
-    596,
+    566,
     494,
-    62,
+    48,
     18
    ],
    "fill": {
@@ -6363,9 +6877,9 @@
    "type": "button",
    "name": "fseq_8",
    "rect": [
-    658,
+    619,
     494,
-    54,
+    50,
     18
    ],
    "fill": {
@@ -6379,10 +6893,76 @@
    "param": "op.8.{layer}.fseq_sw.{part}"
   },
   {
+   "type": "number",
+   "name": "op_att_8",
+   "rect": [
+    671,
+    494,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.8.v.carrier_corr.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "v"
+   }
+  },
+  {
+   "type": "number",
+   "name": "lvl_key_8",
+   "rect": [
+    671,
+    494,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate_inv"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12_inv",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "op.8.u.level_key_scale.{part}",
+   "showIf": {
+    "var": "layer",
+    "equals": "u"
+   }
+  },
+  {
    "type": "dial",
    "name": "level_8",
    "rect": [
-    735,
+    743,
     482,
     44,
     43

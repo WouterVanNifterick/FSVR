@@ -200,10 +200,12 @@ Hollow's `tools/overflow.py` measures text against its widget with the skin's ow
 - **Filter page.** Key and Velocity fields are 70 px, so "Key Depth" fits; the Part row's fields are 64 px for "EG Depth".
 - **Key Scaling page.** The curve dropdowns are 70 px, so "+Exp" and "-Exp" fit, with the row's fields spread evenly.
 - **Fseq page.** The length column is wider for "512 frames", and the Loop box is one column of four rows, since two columns couldn't fit both the labels and "One Way".
-- **Parts page.** Rebuilt; see The Parts page below.
+- **Parts page.** Rebuilt; see The Parts page below. Its V/N Balance tags have the label plates' 1 px pad, so the caption's 75 px fit the 78 px tag.
+- **Overview.** The Waveform dropdown is 84 px, so "Formant" fits beside the arrow.
 
 ### Elements that didn't make sense
 
+- **OP Att.** The owner's manual's OP Att (voice bytes 0x2D to 0x34, the Data List's carrier level correction) read "Carrier", a raw 0 to 15 in the operator page's Freq EG row. It reads OP Att in the unit's 0.0 to -22.5 dB (the param's labels, 1.5 dB a step), under EG Bias in Amplitude beside Level, with steppers, and the Overview has a column of it beside Level. On N the same places hold Lvl Key, the unvoiced level scaling, and the Freq EG row is its four EG settings and Fseq Trk. Amplitude's two columns stand centred under Voiced and Noise, Amp Vel's caption on Level's row and Level's value on OP Att's, centred on the fader.
 - **Mod page.** Row VC8 of the controller sets ran past its box; the rows are 26 px apart. LFO2's phase dropdown had no caption and read as a stray "0"; it is captioned Phase. LFO1's filter knob had its caption beside it, unlike every other knob; it has one above and sits under the wave and Key Sync controls. The Formant and FM routes were five unlabelled rows of dropdowns and numbers; each column is captioned Dest, V/U, Op and Depth.
 - **Pitch page.** The Pitch EG's range dropdown ("8 oct") had no caption; it is captioned Range.
 - **Effects page.** The page heading read "Insertion" while Variation and Reverb were titled inside their boxes. The heading is "Effects" and all three blocks are titled the same way. The Data List's run-together parameter names are spaced ("OutputLevel" reads "Output Level", "LPFCutoff" reads "LPF Cutoff").
@@ -230,8 +232,8 @@ The voice's category is gone from the page: it belongs to the voice, which the p
 
 The FS1R's noise generator is its eight unvoiced operators. Each is noise shaped into a formant: a band with a centre frequency, a bandwidth, a skirt and a resonance, its own amplitude and frequency envelopes and a level. The owner's manual says they give speech its fricatives and serve as noise generators for percussion and effects; with a narrow enough band they act as extra oscillators. The unit's display marks them N (N:OP1 to N:OP8) against V for voiced, so FSVR's buttons and labels say N too, while the param ids keep `u` (`op.3.u.bandwidth.p1`).
 
-- **Operator page (1 to 8).** V and N switch the page between voiced operator n and unvoiced operator n. For N the oscillator box shows the frequency mode (Normal, Link FO following the fundamental, Link FF following voiced operator n's formant) and Skirt, Bandwidth, Transpose and Resonance; the voiced row is Skirt, Band, Transpose and Detune. Form, Band ratio, Detune and Key Sync hide on N. Coarse and fine, the sensitivities, the frequency EG, the amplitude EG and the level are shared.
-- **Ops and Env.** Their V and N switches show all eight voiced or all eight unvoiced operators at once.
+- **Operator page (1 to 8).** V and N switch the page between voiced operator n and unvoiced operator n. For N the oscillator box shows the frequency mode (Normal, Link FO following the fundamental, Link FF following voiced operator n's formant) and Skirt, Bandwidth, Transpose and Resonance; the voiced row is Skirt, Band, Transpose and Detune. Form, Band ratio, Detune and Key Sync hide on N. Coarse and fine, the sensitivities, the frequency EG, the amplitude EG and the level are shared. Amplitude's third control is OP Att on V and Lvl Key on N.
+- **Ops and Env.** Their V and N switches show all eight voiced or all eight unvoiced operators at once. The Overview's column beside Level is OP Att on V and Lvl Key on N, and on N Resonance takes Key Sync's room.
 - **KeySc.** Level scaling curves are voiced-only on the unit; an unvoiced operator has one level key scaling amount, the Noise column.
 - **Fseq.** Each unvoiced operator has its own switch (the N row) to follow the Fseq's unvoiced tracks.
 - **Mod.** The Formant and FM routes pick V or N and an operator number.
