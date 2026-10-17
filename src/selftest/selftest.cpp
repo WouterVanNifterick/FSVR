@@ -944,16 +944,16 @@ int selftest(Synth& S) {
         ck("effect chip: the variation Rotary SP has no noise above 4 kHz", 10 * log10(high / all + 1e-30) < -70); }
       // 5b. a type change leaves the window it reloads with no state of its own. The host silences the window with
       // its clear program (EffectHost::clearWindow), and that program's whole job is to zero the window's registers,
-      // so the type that follows starts from zero rather than inheriting what the old one held. Gate Reverb into
-      // Distortion is the pair a performance change hit hardest: the distortion took the old registers for its
-      // own, and a tone the window had been playing at 0.02 came back out of it at full scale.
+      // so the type that follows starts from zero rather than inheriting what the old one held. Cmp+DS+Dly into
+      // 3-Band EQ: the EQ took the old registers for its own, and a tone the window had been playing at 0.02
+      // came back out of it at full scale.
       { auto t = fresh({{176, 64}, {179, 127}});               // insertion pan centre, level 127
-        fx::setType(t->host, fx::INSERTION, 26);               // Gate Reverb
+        fx::setType(t->host, fx::INSERTION, 26);               // Cmp+DS+Dly
         drive(*t, 1, tone(1000, SR / 2, SR / 2), l, r);
         double driven = 0, held = 0, after = 0;
         for (size_t i = 0; i < l.size(); i++) driven = std::max(driven, std::max(fabs(l[i]), fabs(r[i])));
         for (int i = 67; i < 87; i++) held = std::max(held, fabs(t->state.r[i]));   // the insertion window's registers
-        fx::setType(t->host, fx::INSERTION, 21);               // Distortion
+        fx::setType(t->host, fx::INSERTION, 21);               // 3-Band EQ
         for (int i = 67; i < 87; i++) after = std::max(after, fabs(t->state.r[i]));
         ck("effect chip: an insertion type change zeroes the window's registers", held > 1 && after == 0);
         drive(*t, 1, std::vector<double>(SR / 10, 0.0), l, r);
@@ -984,6 +984,27 @@ int selftest(Synth& S) {
         auto q = fresh({});                                    // nothing has ever played through this one
         q->load(c);
         ck("effect chip: a load into silence does not fade", q->fade == 0); }
+      // 5d. a type change empties the window's own delay block, which its slots address from the ring pointer
+      // (State::at), not from word 0. Echo into Delay LCR 0.3 s after a burst, the change landing a quarter of
+      // the way round the ring, where words 0x30000 on are the reverb's block: the Echo's repeats stop but for the
+      // two samples already in the return, and Hall 1's tail on the reverb send rings on through the change.
+      // Cleared from word 0, the Delay LCR replayed the Echo louder than it had been (energy 29.2 against 18.5)
+      // and the Hall's tail fell from 24.6 to 0.006.
+      { auto after = [&](bool change, int revReturn, int varReturn) {   // the output's energy over the 0.2 s after
+            auto t = fresh({{169, 64}, {170, revReturn}, {172, 64}, {173, varReturn}});
+            fx::setType(t->host, fx::REVERB, 1); fx::setType(t->host, fx::VARIATION, 22);   // Hall 1 and Echo, their defaults
+            const int at = fsvr::effects::State::RAM_WORDS / 4, burst = at - SR * 3 / 10;
+            double e = 0;
+            for (int i = 0; i < at + SR / 5; i++) {
+                if (change && i == at) fx::setType(t->host, fx::VARIATION, 20);
+                const double x = i >= burst && i < burst + SR / 10 ? 0.5 * sin(2 * PI * 1000.0 * i / SR) : 0.0;
+                double b[8] = {0, 0, 0, 0, x, x, x, x}, L, R;
+                t->run(b, L, R);
+                if (i >= at) e += L * L + R * R; }
+            return e; };
+        const double echo = after(false, 0, 100), hall = after(false, 100, 0);
+        ck("effect chip: a variation type change empties the variation's own delay block", echo > 1 && after(true, 0, 100) < 1e-2 * echo);
+        ck("effect chip: and leaves the reverb's alone", hall > 1 && after(true, 100, 0) > 0.99 * hall); }
       // 6. through the engine: a part with its insertion switch on is heard through the insertion and has no dry path
       { auto peak = [&] { std::vector<float> a(256), b(256); float m = 0;
             for (int k = 0; k < 10; k++) S.render(a.data(), b.data(), 256);   // the chip rings down what the last run left, some 15 ms

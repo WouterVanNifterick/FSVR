@@ -67,7 +67,7 @@ own leftovers with it.
 
 Carried over, that state is what the new programs take for their own, and it was measured loud. `m[44]` is the
 second integrator of the wah's state-variable filter, whose first is `r[74]`, so a window reload zeroes half
-of each integrator pair; coming from Early Reflections `m[44]` started life holding a delay tap, which opened
+of each integrator pair; coming from the Compressor (R.P.M.'s insertion) `m[44]` started life holding the compressor's own cell, which opened
 the filter into the overdrive behind it: A073 R.P.M. into A072 Mouth Pop clipped at full scale from a
 signal of 0.037. A new echo in the variation window read a second of the previous performance's audio out of
 the delay memory: A071 Relaxxx into A072 rang on at 0.30 for a second. Over all 766 switches between

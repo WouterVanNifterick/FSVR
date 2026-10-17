@@ -36,15 +36,17 @@ const Loadable INSERTION[] = {
 // all a chip program can do: it has no way to write the rest of the cell file, and no way at all to write
 // delay memory, which the chip addresses by slot. So a type change used to hand the next program the last
 // one's cells and the last one's delay memory as its own state. Both were measured to be loud: m[44] is the
-// touch wah's envelope follower, and coming from Early Reflections it started life holding a delay tap,
-// which opened the filter into the overdrive behind it and clipped (A073 R.P.M. into A072 Mouth Pop); the
-// reverb delay's block fed a new echo a second of the performance before it (A071 Relaxxx into A072).
+// second integrator of the wah's state-variable filter, and coming from the Compressor it started life
+// holding the compressor's own cell, which opened the filter into the overdrive behind it and clipped
+// (A073 R.P.M. into A072 Mouth Pop, insertion 24 into 15); the reverb delay's block fed a new echo a second
+// of the performance before it (A071 Relaxxx into A072).
 //
 // The cells are the ones the window's programs write and its clear program does not, less those every
 // window writes each sample (56-63, which are shared and always refreshed). The delay block is the span
 // EffectHost::clearWindow spreads the window's slots over, which is the firmware's own statement of which
-// block belongs to which window. The reverb window has no clear program and so no entry: its state lives
-// in the base program, which every performance runs.
+// block belongs to which window. It is a span of slot offsets, and a slot reads the ring from its pointer
+// (State::at), so the block's words are ptr + ram .. ptr + ramEnd. The reverb window has no clear program
+// and so no entry: its state lives in the base program, which every performance runs.
 struct Leftover { int cell, cells; uint32_t ram, ramEnd; };
 const Leftover LEFTOVER[5] = {
     {0, 0, 0, 0},                                                        // reverb: no clear program
@@ -94,13 +96,14 @@ void Effects::load(int window, int msb) {
     // The window is being reprogrammed, and the host has loaded the program that clears it
     // (EffectHost::clearWindow). The clear program zeroes the window's registers and nothing else
     // (ins_m14.cpp and the two others); the unit's chip runs it for as long as the upload takes, which is
-    // where the window loses them, but an upload costs no samples here, so run it once. Then take the rest
-    // of the window's state, which no chip program can reach (LEFTOVER). Together these are what make the
-    // new program start from silence instead of from the old one's state.
-    if (stage[at]) stage[at](state);
+    // where the window loses them, but an upload costs no samples here, so run it once. The rest of the
+    // window's state, which no chip program can reach (LEFTOVER), goes first, since the clear program also reads
+    // its taps into the window's tap cells and should read them off an empty block. Together these are what
+    // make the new program start from silence instead of from the old one's state.
     const Leftover& left = LEFTOVER[window];
     std::fill_n(state.m + left.cell, left.cells, 0.0);
-    std::fill(state.ram.begin() + left.ram, state.ram.begin() + left.ramEnd, 0.0);
+    for (uint32_t o = left.ram; o < left.ramEnd; o++) state.ram[(state.ptr + o) & (effects::State::RAM_WORDS - 1)] = 0.0;
+    if (stage[at]) stage[at](state);
 }
 
 // A whole performance. Ours: the effect section starts it from silence.

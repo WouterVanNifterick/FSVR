@@ -23,10 +23,11 @@ signal in the section.
   `ins_m14.cpp` does `r[67]` to `r[86]`, `dly_m11.cpp` `r[87]` to `r[102]`, `var_m11.cpp` `r[103]` to
   `r[118]`. On the unit the chip runs it for as long as the upload takes; here `clearWindow` and
   `uploadWindow` are one synchronous call, so it never got a sample to run in and the next type took the old
-  one's registers. Gate Reverb into Distortion returned a tone the window had been playing at 0.02 at full
+  one's registers. Cmp+DS+Dly into 3-Band EQ (insertion 26 into 21) returned a tone the window had been playing at 0.02 at full
   scale. Running it once, as the chip does, is the firmware's own behaviour and fixes that.
-- The **cells**. `ins_m04`'s `m[44]` is the touch wah's envelope follower, and `ins_m03` (Early Reflections)
-  leaves a delay tap there, which opens the wah into the overdrive behind it. The clear program refreshes
+- The **cells**. `ins_m04`'s `m[44]` holds the wah's state (below), and the Compressor before it (`ins_m05`,
+  R.P.M.'s insertion type 24; Mouth Pop's is 15, A-Wah+Odrv) leaves its own cell there, which opens the wah
+  into the overdrive behind it. The clear program refreshes
   only the window's input and LFO cells, so `m[42]` to `m[51]` came across. Zeroing exactly `m[42..44]` took
   A073 into A072 from 1.00 to 0.088.
 - The **delay memory**. A new echo in the variation window read a second of the previous performance out of
@@ -82,6 +83,21 @@ performances with a note held, sixty stepped more than twice above the level eit
 more than four times; with the state cleared, twenty-one and six; with the fade as well, none. The fade is
 not made redundant by all sound off: with the engine cutting the sound and the fade cancelled it is
 twenty-one and six again, because the effect tails are still live when the mixer words land.
+
+**A single type change cleared the wrong block.** The same three
+mechanisms were found independently the same day, down to the cells `m[42]` to `m[49]` and `m[54]`, `m[55]` and
+the AREA blocks. One thing differed. A window's slots read the ring from its pointer (`State::at`, `ptr +
+offset`), so a window's delay block is `ptr + AREA[w]` onwards, and `Effects::load` zeroed `AREA[w]` onwards from
+word 0. With the change landing where the pointer puts word 0x30000 on the reverb's block, Echo into Delay LCR
+(variation 22 into 20) 0.3 s after a burst replayed the Echo louder than it had been, energy 29.2 against 18.5
+with no change at all, and Hall 1's tail on the reverb send fell from 24.6 to 0.006. Taken from the pointer, the
+block is also emptied before the clear program runs, since that program reads its taps into the window's tap
+cells. The Echo now stops but for the two samples already in the
+return (0.068) and the Hall rings on at 24.6. Self check 5d pins both; `dsp_check`'s effects hash moved again,
+to `c382b50e6a7adbc9`. Without a note held, every neighbouring pair of the 384 factory performances switched in
+both builds: seventeen stepped over four times the level before them, three of them to full scale (A071 Relaxxx
+into A070 Venus, A073 R.P.M. into A072 Mouth Pop, A125 TechBeat into A124 Drum Kit 9o9), and none does now. The
+entry above names the insertion types under R.P.M. and Mouth Pop: 24 is the Compressor and 15 A-Wah+Odrv.
 
 ---
 
