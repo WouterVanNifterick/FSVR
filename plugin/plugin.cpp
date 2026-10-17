@@ -767,6 +767,7 @@ private:
         const bool reopened = standalone && !restoredOnce && std::chrono::steady_clock::now() - created < std::chrono::seconds(3);
         restoredOnce = true;
         for (auto& v : voiceShown) v.assign(1, '\0');   // the session brought back the names it saved, maybe stale: publish ours again
+        lcdShown.assign(1, '\0');                       // State::load cleared live.lcd.perf: publish it again
         const std::vector<uint8_t> eng = unb64(st.data("fsvr.engine"));
         // const std::vector<uint8_t> mor = unb64(st.data("fsvr.morph"));
         for (size_t i = 0; i < st.size(); ++i) sel[i] = st.get(i);

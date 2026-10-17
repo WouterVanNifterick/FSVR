@@ -226,6 +226,17 @@ int main() {
             u.proc->midi(0, z, 10);
             CHECK(u.until([&] { return u.data("live.lcd.perf") == "A001 Zap !"; }), "the LCD did not come back to A001 (\"%s\")", u.data("live.lcd.perf").c_str());
         }
+        {   // a restored session publishes the LCD again: State::load clears the live data it was cached against
+            u.st->load(u.st->save());
+            CHECK(u.until([&] { return u.data("live.lcd.perf") == "A001 Zap !"; }), "a restored session left the LCD at \"%s\"", u.data("live.lcd.perf").c_str());
+        }
+        {   // a note played on the editor's own keyboard lights the MIDI lamp, as a host's note does
+            const unsigned was = u.st->midiInCount();
+            const uint8_t on[3] = {0x90, 60, 1}, off[3] = {0x80, 60, 0};
+            u.st->pushMidi(on, 3);
+            u.st->pushMidi(off, 3);
+            CHECK(u.st->midiInCount() == was + 2, "a note from the editor did not count as MIDI in");
+        }
 
         // ---- the top bar ------------------------------------------------------------------------------
         if (u.click("topbar/save_menu"))
