@@ -66,6 +66,16 @@ model: if a cell on the chip is a latch the hardware reloads rather than a store
 exist. **The test on hardware:** hold a note under A073 R.P.M., switch to A072 Mouth Pop, and listen for a
 clipped burst. Clean means the cell model is wrong and `ins_m04` is where to look.
 
+**Answered the same day: mkruselj ran it on his own FS1R and it is clean.** So the cells do not survive a
+window's reload on the unit and the model is wrong, by one of two routes: the chip clears its cell file when a
+window is uploaded, or the real clear program zeroes more than the one here does. `m[44]` is in any case not
+an envelope follower but the second integrator of the wah's state-variable filter, whose first is `r[74]` -
+`v22` is the difference node, `r[74] += v29 * v22`, `m[44] += v29 * v31`, both integrators sharing the
+frequency multiplier `v29` that `t[9]` also carries. The window's clear program zeroes `r[74]` and not
+`m[44]`, which is half of each integrator pair and not a thing hardware would do, so this is a bug in
+`src/effects/` rather than a divergence. It cannot be settled without the EPROM or the VOP3 interpreter,
+neither of which is on this machine. The delay memory and the mixer step have not been tried on the unit.
+
 FSVR clears all of it on a performance load and fades the section in over 8 ms for the mixer step, which is
 recorded as ours in [Differences.md](Differences.md). Across all 766 switches between neighbouring factory
 performances with a note held, sixty stepped more than twice above the level either side of them and nine

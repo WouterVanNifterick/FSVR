@@ -50,7 +50,15 @@ re-spreading its delay slots and loading the window's clear program, and that pr
 writes that zero the window's registers: `effects/ins_m14.cpp` zeroes `r[67]` to `r[86]`, `dly_m11.cpp`
 `r[87]` to `r[102]`, `var_m11.cpp` `r[103]` to `r[118]`. It can do no more than that. The window's remaining
 cells it does not name, and delay memory no chip program can write at all, because the chip addresses that
-memory by slot. So on the unit the next effect type inherits both.
+memory by slot. So as the chip is modelled here, the next effect type inherits both.
+
+**For the cells that is wrong, and the unit says so.** mkruselj switched A073 R.P.M. to A072 Mouth Pop on his
+own FS1R with a note held and it is clean, where this model clipped at full scale and the burst was carried by
+cells `m[42]` to `m[44]`. So the cells do not survive a window's reload on the unit, by some route the model
+does not have: the chip clearing its cell file when a window is uploaded would do it, and so would a clear
+program that zeroes more than the one here. Which of those it is is open. The clearing below is therefore
+standing in for chip behaviour not yet pinned rather than diverging from it, and `src/effects/` is where the
+bug is. The delay memory and the mixer step have not been tried on the unit.
 
 **FSVR.** `Effects::load` zeroes the registers, the cells, the multiplier registers and all 256K words of
 delay memory, and then lets the host program the windows for the new performance. A single type change
@@ -58,8 +66,9 @@ delay memory, and then lets the host program the windows for the new performance
 own leftovers with it.
 
 Carried over, that state is what the new programs take for their own, and it was measured loud. `m[44]` is the
-touch wah's envelope follower, and coming from Early Reflections it started life holding a delay tap, which
-opened the filter into the overdrive behind it: A073 R.P.M. into A072 Mouth Pop clipped at full scale from a
+second integrator of the wah's state-variable filter, whose first is `r[74]`, so a window reload zeroes half
+of each integrator pair; coming from Early Reflections `m[44]` started life holding a delay tap, which opened
+the filter into the overdrive behind it: A073 R.P.M. into A072 Mouth Pop clipped at full scale from a
 signal of 0.037. A new echo in the variation window read a second of the previous performance's audio out of
 the delay memory: A071 Relaxxx into A072 rang on at 0.30 for a second. Over all 766 switches between
 neighbouring factory performances with a note held, sixty stepped more than twice above the level either side
