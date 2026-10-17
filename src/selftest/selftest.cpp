@@ -774,6 +774,23 @@ int selftest(Synth& S) {
       ck("the 33rd note steals the channel the unit stole (ch 2)", took == 2 && before == 2);
       S.all_off(); init_perf(S.perf); }
 
+    // Ours: the engine sleeps while nothing sounds (render.cpp), and a host cannot tell. A note and its release
+    // rendered as one long block, which falls asleep part way in, and a sample at a time, which never skips one,
+    // come out the same to the bit and own the same channels. A block that fell asleep part way used to repeat
+    // its own first sample for the rest of it, a step to wherever the block began.
+    { auto run = [](bool oneBlock, std::vector<float>& l, int& owned) {
+          auto T = std::make_unique<Synth>(); init_perf(T->perf); init_default_voice(T->perf.part[0].voice);
+          T->perf.part[0].p[1] = 2; T->perf.part[0].p[4] = 0x10;
+          const int held = SR / 4, all = SR * 5; l.assign(all, 0.f); std::vector<float> r(all);
+          srand(5); T->midi_in(0x90, 60, 100);                // the same random phases and pan in both
+          for (int i = 0; i < held; i++) T->render(&l[i], &r[i], 1);
+          T->midi_in(0x80, 60, 0);
+          if (oneBlock) T->render(&l[held], &r[held], all - held);
+          else for (int i = held; i < all; i++) T->render(&l[i], &r[i], 1);
+          owned = T->active_chans(); return T->asleep; };
+      std::vector<float> a, b; int oa = -1, ob = -2;
+      const bool slept = run(true, a, oa); run(false, b, ob);      ck("sleep: a block that falls asleep part way repeats the held sample and counts the channels down", slept && a == b && oa == ob); }
+
     // The polyphony readout counts channels, not keys. It used to count notes held or sustained, so a
     // voice with a long release left the display the moment the key came up while the channel was still
     // sounding and still unavailable to the allocator.

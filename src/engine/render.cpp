@@ -23,11 +23,13 @@ void Synth::render(float* outL, float* outR, int frames) {
     // effect section and the filter chip running on silence; asleep it is 1/256 of that. The unit runs its
     // chips regardless. What sleeping changes is invisible at the output: the effect LFOs and the filter's
     // modulators advance one sample a block rather than a block, so they come back at another phase.
+    bool skipping = false;
     for (int i = 0; i < frames; i++) {
         if (asleep && i > 0) {
-            // A silent channel's last envelopes still count down to the sample the allocator frees it on.
-            if (i == 1) for (auto& c : ch) if (c.active && c.silent && (c.freezeLeft -= frames - 1) <= 0) c.active = false;
-            outL[i] = outL[0]; outR[i] = outR[0]; continue;
+            // The rest of the block repeats the held sample, from wherever in it the engine fell asleep. A silent
+            // channel's last envelopes still count down over those samples to the one the allocator frees it on.
+            if (!skipping) { skipping = true; for (auto& c : ch) if (c.active && c.silent && (c.freezeLeft -= frames - i) <= 0) c.active = false; }
+            outL[i] = lastL; outR[i] = lastR; continue;
         }
         bool any = false;
         tickAcc += TICK_HZ / SR; while (tickAcc >= 1) { tickAcc -= 1; tick(); }
