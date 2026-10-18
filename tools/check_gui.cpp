@@ -889,6 +889,15 @@ int main() {
         u.row("pages/library/banks", bankRow);
         CHECK(u.until([&] { return u.get("browse.category") == 0 && u.lines("browse.perf.list") == 1; }), "back on the bank: category %g, %d rows",
               u.get("browse.category"), u.lines("browse.perf.list"));
+        // A selected row keeps the keys that act on a selection and no others: Space and the letters are still
+        // the host's transport and computer keyboard, and the chords still work.
+        CHECK(u.gui.wantsKeys(), "a selected browser row did not take the keyboard");
+        CHECK(!u.gui.keyDown(KeyNone, false, false), "a selected browser row took Space from the host");
+        CHECK(!u.chord('A', false, false), "a selected browser row took A from the host's computer keyboard");
+        CHECK(u.gui.keyDown(KeyDown, false, false), "a selected browser row left Down to the host");
+        CHECK(u.gui.keyDown(KeyEscape, false, false) && !u.gui.wantsKeys(), "Escape did not let go of the selected browser row");
+        u.row("pages/library/banks", bankRow);
+        CHECK(u.altKey('B') && u.shows("pages/library"), "Alt+B did nothing while a browser row was selected");
 
         // ---- a factory preset's right-click menu: read only, its attributes copy ----------------------
         u.row("pages/library/banks", 0);
