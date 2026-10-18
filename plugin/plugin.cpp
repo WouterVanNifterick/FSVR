@@ -104,11 +104,11 @@ static int factoryVoice(int bank, int program) {
 
 // ---- the engine's bytes, and where each param lives in them ----------------------------------------
 
-enum Area { System, Performance, Voice };
+enum Area { System, Performance, Voice, FseqHeader };
 
 struct Model {
-    uint8_t sys[76] = {}, perf[400] = {}, voice[4][608] = {};
-    uint8_t* area(int a, int part) { return a == System ? sys : a == Performance ? perf : voice[part]; }
+    uint8_t sys[76] = {}, perf[400] = {}, voice[4][608] = {}, fseqHead[32] = {};   // fseqHead: the loaded Fseq's header
+    uint8_t* area(int a, int part) { return a == System ? sys : a == Performance ? perf : a == FseqHeader ? fseqHead : voice[part]; }
     // The engine's bulk dumps (Device::getState) into these; false if one was missing.
     bool parse(const std::vector<uint8_t>& s, std::vector<uint8_t>* fseq = nullptr) {
         int seen = 0;
@@ -123,6 +123,7 @@ struct Model {
             if (ah == 0x00 && n >= 76) { std::memcpy(sys, d, 76); seen |= 1; }
             if (ah == 0x10 && n >= 400) { std::memcpy(perf, d, 400); seen |= 2; }
             if (ah >= 0x40 && ah <= 0x43 && n >= 608) { std::memcpy(voice[ah - 0x40], d, 608); seen |= 4 << (ah - 0x40); }
+            if (ah == 0x60 && n >= 32) std::memcpy(fseqHead, d, 32);
             if (ah == 0x60 && fseq) fseq->assign(d, d + n);
             i = j + 1;
         }
@@ -175,8 +176,9 @@ struct Field {
         else if (h >= 0x30 && h <= 0x33 && m == 0) { area = Performance; off = 192 + 52 * (h - 0x30) + l; }
         else if (h >= 0x40 && h <= 0x43 && m == 0) { area = Voice; part = h - 0x40; off = l; }
         else if (h >= 0x60 && h <= 0x63 && m < 8) { area = Voice; part = h - 0x60; off = 112 + 62 * m + l; }
+        else if (h == 0x70 && m == 0) { area = FseqHeader; off = l; }
         else return false;
-        return off + (wide ? 1 : 0) < (area == System ? 76 : area == Performance ? 400 : 608);
+        return off + (wide ? 1 : 0) < (area == System ? 76 : area == Performance ? 400 : area == FseqHeader ? 32 : 608);
     }
 };
 
@@ -228,14 +230,17 @@ public:
         lib.builtin = builtinBanks();
         dev.setSampleRate(fsvr::ENGINE_RATE);
         // A fresh instance is what its params say (FSVR's init performance and voice): the engine takes
-        // them as whole bulks, over its own init images for the bytes no param names.
+        // them as whole bulks, over its own init images for the bytes no param names. The Fseq header is
+        // the loaded Fseq's, so its params follow the first Fseq that loads instead.
         std::vector<uint8_t> dump;
         dev.getState(dump);
         model.parse(dump);
         for (size_t i = 0; i < st.size(); ++i) {
             base[i] = sel[i] = st.get(i);
-            if (fields[i].area >= 0) fields[i].set(model.area(fields[i].area, fields[i].part), fields[i].toRaw(base[i]));
+            if (fields[i].area >= 0 && fields[i].area != FseqHeader)
+                fields[i].set(model.area(fields[i].area, fields[i].part), fields[i].toRaw(base[i]));
         }
+        followFseqHeader();
         for (int p = 0; p < 4; ++p)
             for (auto& c : corners[p]) std::memcpy(c.data(), model.voice[p], 608);
         pushModel();
@@ -547,6 +552,7 @@ private:
                 const int heard = model.sys[0x49];
                 f.set(b, raw);
                 send(f, b, heard);
+                if (f.area == FseqHeader) adoptWanted = true;   // the Fseq page's display redraws to the new end
                 continue;
             }
             const int p = f.part, e = edit(p);
@@ -807,6 +813,7 @@ private:
         } else {
             for (double& b : base) b = std::nan("");   // an older session: send every param again
         }
+        followFseqHeader();   // an older session has no values for them, and they must not overwrite the Fseq's
         for (int p = 0; p < 4; ++p)
             for (int c = 0; c < 4; ++c)
                 // the morph square is off: a session's saved corners give way to the voice it plays
@@ -850,6 +857,7 @@ private:
         }
         std::memcpy(model.sys, now.sys, 76);
         std::memcpy(model.perf, now.perf, 400);
+        std::memcpy(model.fseqHead, now.fseqHead, 32);
         bool loaded = false;
         for (int p = 0; p < 4; ++p) {
             if (!bare[p]) continue;
@@ -877,6 +885,12 @@ private:
             remorph(p);
             show(p);
         }
+    }
+
+    // The Fseq header's params read what the loaded Fseq holds.
+    void followFseqHeader() {
+        for (int i : fieldParams)
+            if (fields[(size_t)i].area == FseqHeader) put(i, fields[(size_t)i].toPlain(fields[(size_t)i].word(model.fseqHead)));
     }
 
     // The Fseq page's display draws the loaded Fseq from text data fseq.display, an entry in the form of

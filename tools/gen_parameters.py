@@ -6,7 +6,8 @@
 Every entry carries the sysex parameter address, so the plugin never needs to know anything about the
 engine: it writes F0 43 1n 5E <address> vh vl F7 and reads the engine's echo back.
 
-Tables 1 to 4 of docs/FS1R_DataList_text.txt are parsed directly. Three things the text extraction
+Tables 1 to 4 of docs/FS1R_DataList_text.txt are parsed directly, Table 3 for the Fseq header only (its
+frame parameters are the sequence's data, not settings). Three things the text extraction
 cannot carry are supplied here instead: the runs the printed tables abbreviate with flow marks
 (controller sets 2-7, formant and FM control destinations 2-4), the bit layouts of the bytes that pack
 two fields ([-stttttt] and friends), and which addresses are 14-bit pairs.
@@ -21,16 +22,17 @@ OUT = ROOT / "plugin/generated/parameterDescriptions_fs1r.json"
 RANGE = r"[0-9A-F]{2}(?:-[0-9A-F]{2})?"
 ROW = re.compile(r"^([0-9A-F]{2})\s+(" + RANGE + r"(?:[,/]\s*" + RANGE + r")*)\s+(.+?)\s*$")
 
-PERF, PART, VOICE, OPV, OPU, SYS = "perf", "part", "voice", "opv", "opu", "sys"
+PERF, PART, VOICE, OPV, OPU, FSEQ, SYS = "perf", "part", "voice", "opv", "opu", "fseq", "sys"
 SECTION_HEADER = {
     PERF:  "Performance Common Parameter (Byte Count: 80 bytes)",
     PART:  "Performance Part Parameter (Byte Count : 52 x 4 = 208 bytes )",
     VOICE: "Voice Common Parameter (Byte Count: 112 bytes)",
     OPV:   "Voice Voiced Parameter (Byte Count : 35 bytes / op )",
     OPU:   "Voice Unvoiced Parameter (Byte Count : 27 bytes / op )",
+    FSEQ:  "Header Parameter",
     SYS:   "<Table 4> System Parameter (Byte Count: 76 bytes )",
 }
-SECTION_LAST = {PERF: 0x4F, PART: 0x2F, VOICE: 0x6F, OPV: 0x22, OPU: 0x3D, SYS: 0x4B}
+SECTION_LAST = {PERF: 0x4F, PART: 0x2F, VOICE: 0x6F, OPV: 0x22, OPU: 0x3D, FSEQ: 0x1F, SYS: 0x4B}
 
 # Bytes that carry two or three fields. The plugin reads the current byte back from the engine and
 # merges, the way a hardware editor does. (shift, width, name, bipolar offset, value list)
@@ -81,9 +83,11 @@ RUNS = {
 WIDE = {
     PERF: [(0x18, "Fseq Speed Ratio", 0, 5000), (0x1A, "Fseq Start Step Offset", 0, 511),
            (0x1C, "Fseq Loop Start", 0, 511), (0x1E, "Fseq Loop End", 0, 511)],
+    FSEQ: [(0x10, "Fseq Header Loop Start", 0, 511), (0x12, "Fseq Header Loop End", 0, 511),
+           (0x1E, "Fseq End Step", 0, 511)],
 }
 WIDE_RUNS = {PERF: [(0x30, 8, 2, "Controller {n} Source Switch", 0, 16383)]}
-SKIP = {(PERF, ll) for ll in range(0x0C)} | {(VOICE, ll) for ll in range(0x0A)}
+SKIP = {(PERF, ll) for ll in range(0x0C)} | {(VOICE, ll) for ll in range(0x0A)} | {(FSEQ, ll) for ll in range(0x08)}
 
 EFFECT_TAIL = [
     (0x128, "Reverb Type", 0, 16, "revType"), (0x129, "Reverb Pan", 1, 127, "pan"),
@@ -115,7 +119,7 @@ ENUMS = {"revType": REVERB_TYPES, "varType": VARIATION_TYPES, "insType": INSERTI
          "shelfPeak": ["shelving", "peaking"]}
 INLINE_ENUM = re.compile(r"(\d)\s*:\s*([A-Za-z0-9/+\-. ]+?)\s*(?=,\s*\d\s*:|$)")
 TRAILING = re.compile(r"\s*(?:[-+]?\d+\s*~\s*[-+]?\d+.*|0~\d+.*|off/on|on/off|\d\s*:\s*.*|"
-                      r"L63.*|C-2~G8|\[.*\]|\(.*\))\s*$")
+                      r"L63.*|C-2~G8|\[.*\]|\(.*\)|\*\d)\s*$")
 
 
 def clean(t):
@@ -130,6 +134,7 @@ def tidy(name):
             break
         n = n2
     n = re.sub(r"^(COMMON|VOICED|UNVOICED)\s+", "", n)
+    n = re.sub(r"^Fseq - ", "Fseq ", n)
     n = n.strip(" -")
     return n or name.strip()
 
@@ -254,6 +259,7 @@ def main():
     for op in range(8):
         add(OPV, f"Op {op + 1}", lambda ll, op=op: 0x600000 | op << 8 | ll, part_relative=True)
         add(OPU, f"Op {op + 1} Unvoiced", lambda ll, op=op: 0x600000 | op << 8 | ll, part_relative=True)
+    add(FSEQ, "Fseq", lambda ll: 0x700000 | ll)
     add(SYS, "System", lambda ll: ll)
 
     for addr, name, lo, hi, kind in EFFECT_TAIL:
@@ -291,7 +297,7 @@ def main():
     for p in params:
         groups[p["group"]] = groups.get(p["group"], 0) + 1
     print(f"wrote {OUT} with {len(params)} parameters")
-    for g in ("Performance", "Part", "Voice", "Op 1", "Op 1 Unvoiced", "Effects", "System"):
+    for g in ("Performance", "Part", "Voice", "Op 1", "Op 1 Unvoiced", "Fseq", "Effects", "System"):
         print(f"  {g}: {groups.get(g, 0)}")
 
 

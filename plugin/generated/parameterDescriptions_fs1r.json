@@ -11668,6 +11668,143 @@
    "partRelative": true
   },
   {
+   "name": "Fseq Header Loop Start",
+   "group": "Fseq",
+   "address": [
+    112,
+    0,
+    16
+   ],
+   "min": 0,
+   "max": 511,
+   "default": 0,
+   "wide": true
+  },
+  {
+   "name": "Fseq Header Loop End",
+   "group": "Fseq",
+   "address": [
+    112,
+    0,
+    18
+   ],
+   "min": 0,
+   "max": 511,
+   "default": 0,
+   "wide": true
+  },
+  {
+   "name": "Fseq End Step",
+   "group": "Fseq",
+   "address": [
+    112,
+    0,
+    30
+   ],
+   "min": 0,
+   "max": 511,
+   "default": 0,
+   "wide": true
+  },
+  {
+   "name": "Fseq loop mode",
+   "group": "Fseq",
+   "address": [
+    112,
+    0,
+    20
+   ],
+   "min": 0,
+   "max": 1,
+   "default": 0
+  },
+  {
+   "name": "Fseq speed adjust",
+   "group": "Fseq",
+   "address": [
+    112,
+    0,
+    21
+   ],
+   "min": 0,
+   "max": 127,
+   "default": 0
+  },
+  {
+   "name": "Fseq velocity sensitivity for tempo",
+   "group": "Fseq",
+   "address": [
+    112,
+    0,
+    22
+   ],
+   "min": 0,
+   "max": 7,
+   "default": 0
+  },
+  {
+   "name": "Fseq formant pitch mode",
+   "group": "Fseq",
+   "address": [
+    112,
+    0,
+    23
+   ],
+   "min": 0,
+   "max": 1,
+   "default": 0
+  },
+  {
+   "name": "Fseq formant note assign",
+   "group": "Fseq",
+   "address": [
+    112,
+    0,
+    24
+   ],
+   "min": 0,
+   "max": 127,
+   "default": 0
+  },
+  {
+   "name": "Fseq formant pitch tuning",
+   "group": "Fseq",
+   "address": [
+    112,
+    0,
+    25
+   ],
+   "min": 0,
+   "max": 126,
+   "default": 63,
+   "bipolar": true,
+   "displayOffset": -63
+  },
+  {
+   "name": "Fseq formant seqence delay",
+   "group": "Fseq",
+   "address": [
+    112,
+    0,
+    26
+   ],
+   "min": 0,
+   "max": 99,
+   "default": 0
+  },
+  {
+   "name": "Fseq frame data format",
+   "group": "Fseq",
+   "address": [
+    112,
+    0,
+    27
+   ],
+   "min": 0,
+   "max": 3,
+   "default": 0
+  },
+  {
    "name": "master tuning",
    "group": "System",
    "address": [

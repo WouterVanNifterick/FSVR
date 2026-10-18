@@ -1834,7 +1834,7 @@
     402,
     199,
     809,
-    176
+    146
    ],
    "fill": {
     "colour": "#384243ff"
@@ -1848,7 +1848,7 @@
     402,
     199,
     809,
-    176
+    146
    ],
    "kind": "fseq",
    "surface": false,
@@ -1875,7 +1875,7 @@
     402,
     199,
     809,
-    176
+    146
    ],
    "kind": "fseq",
    "surface": false,
@@ -1894,6 +1894,354 @@
     "equals": 0
    },
    "tip": "Your Fseq's eight voiced formant tracks, each in its operator's colour and lighter where louder, and its pitch"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_title",
+   "rect": [
+    402,
+    357,
+    96,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "In the Fseq",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "hdr_note_label",
+   "rect": [
+    508,
+    357,
+    44,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Note",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "hdr_note",
+   "rect": [
+    556,
+    357,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.note",
+   "tip": "The key that plays the Fseq at its own pitch (its formant note assign), saved with the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_tuning_label",
+   "rect": [
+    626,
+    357,
+    44,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Tune",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "hdr_tuning",
+   "rect": [
+    674,
+    357,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.tuning",
+   "tip": "Fine tuning of the Fseq's pitch, -63 to +63, saved with the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_speed_label",
+   "rect": [
+    740,
+    357,
+    72,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Speed Adj",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "hdr_speed",
+   "rect": [
+    816,
+    357,
+    56,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.speed",
+   "tip": "The Fseq's own speed adjustment, saved with it; the performance's Speed % applies on top"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_end_label",
+   "rect": [
+    882,
+    357,
+    40,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "End",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "hdr_end",
+   "rect": [
+    926,
+    357,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.end",
+   "tip": "The last frame of the Fseq that plays (its end of valid data)"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_loop_label",
+   "rect": [
+    996,
+    357,
+    44,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "Loop",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "hdr_loop_start",
+   "rect": [
+    1044,
+    357,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.loop_start",
+   "tip": "The loop the Fseq brings with it: choosing the Fseq copies it into the performance's Loop Start and End"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_loop_to",
+   "rect": [
+    1108,
+    357,
+    26,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "to",
+    "font": "caption_grey_12",
+    "align": "center"
+   },
+   "pad": [
+    1,
+    2,
+    1,
+    2
+   ]
+  },
+  {
+   "type": "number",
+   "name": "hdr_loop_end",
+   "rect": [
+    1138,
+    357,
+    60,
+    18
+   ],
+   "fill": {
+    "image": "panels/label_plate"
+   },
+   "text": {
+    "text": "",
+    "font": "value_dark_12",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.loop_end",
+   "tip": "The loop the Fseq brings with it: choosing the Fseq copies it into the performance's Loop Start and End"
   },
   {
    "type": "plate",

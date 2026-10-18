@@ -405,6 +405,25 @@ int main() {
         CHECK(std::abs(hi - 0x62) <= 1, "the pitch word's high byte is %02x, 150 Hz is 62", hi);
     }
 
+    // The Fseq's own header reads back into its params (150 Hz is note 50), and an edit to them reaches
+    // the Fseq the engine holds, which is what Export writes.
+    CHECK(a.until([&] { return a.is("fseq.hdr.note", 50); }) && a.is("fseq.hdr.tuning", 0) && a.get("fseq.hdr.end") > 0,
+          "the imported Fseq's header read back as note %g, tuning %g, end %g", a.get("fseq.hdr.note"), a.get("fseq.hdr.tuning"), a.get("fseq.hdr.end"));
+    const int lastFrame = (int)a.get("fseq.hdr.end") - 1;
+    a.set("fseq.hdr.note", 62);
+    a.set("fseq.hdr.tuning", -5);
+    a.set("fseq.hdr.end", lastFrame);
+    a.run(2);
+    a.st->setData("fseq.export", (tmp / "header.syx").u8string());
+    CHECK(a.until([&] { return fs::exists(tmp / "header.syx") && fs::file_size(tmp / "header.syx") > 9 + 32; }), "Export Fseq wrote nothing");
+    if (fs::exists(tmp / "header.syx") && fs::file_size(tmp / "header.syx") > 9 + 32) {
+        std::ifstream f(tmp / "header.syx", std::ios::binary);
+        const std::vector<uint8_t> x((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        const uint8_t* h = x.data() + 9;   // F0 43 0n 5E, the byte count, 60 00 00, then the header
+        CHECK(h[0x18] == 62 && h[0x19] == 63 - 5 && (h[0x1E] << 7 | h[0x1F]) == lastFrame,
+              "the exported header has note %d, tuning %d, end %d", h[0x18], h[0x19], h[0x1E] << 7 | h[0x1F]);
+    }
+
     // The Fseq plays from a note on its part, and the page's playback line follows it.
     a.set("fseq.part", 1);
     a.set("fseq.play_mode", 1);   // Fseq, not Scratch

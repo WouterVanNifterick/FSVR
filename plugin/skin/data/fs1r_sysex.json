@@ -2088,6 +2088,52 @@
   ],
   "k": 64
  },
+ "fseq.hdr.loop_start": {
+  "a": [
+   112,
+   0,
+   16
+  ],
+  "wide": 1
+ },
+ "fseq.hdr.loop_end": {
+  "a": [
+   112,
+   0,
+   18
+  ],
+  "wide": 1
+ },
+ "fseq.hdr.speed": {
+  "a": [
+   112,
+   0,
+   21
+  ]
+ },
+ "fseq.hdr.note": {
+  "a": [
+   112,
+   0,
+   24
+  ]
+ },
+ "fseq.hdr.tuning": {
+  "a": [
+   112,
+   0,
+   25
+  ],
+  "k": 63
+ },
+ "fseq.hdr.end": {
+  "a": [
+   112,
+   0,
+   30
+  ],
+  "wide": 1
+ },
  "fx.rev.type": {
   "a": [
    16,

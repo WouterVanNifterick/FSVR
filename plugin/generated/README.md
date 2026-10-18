@@ -6,7 +6,7 @@ They are committed rather than built, so the plugin needs no Python at build tim
 
 | File | Generator | Source |
 |---|---|---|
-| `parameterDescriptions_fs1r.json` | `tools/gen_parameters.py` | the Data List MIDI tables. 893 parameters with sysex addresses and bit layouts |
+| `parameterDescriptions_fs1r.json` | `tools/gen_parameters.py` | the Data List MIDI tables. 904 parameters with sysex addresses and bit layouts |
 | `fs1r_presets.syx` and `fs1r_presets.csv` | `tools/make_presets_blob.py` | `presets/`, the 1408 factory voices |
 | `fs1r_performances.syx` | `tools/make_presets_blob.py` | `presets/performances`, the 384 factory performances |
 | `fs1r_fseqs.syx` | `tools/make_presets_blob.py` | `presets/fseq`, the 90 preset formant sequences |
