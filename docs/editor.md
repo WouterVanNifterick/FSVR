@@ -241,7 +241,7 @@ Each part is a column, top to bottom:
 - **The switches**: Insertion, Filter, Sustain and Porta.
 - **Volume**, a fader as long as its travel, and nine dials: Pan, Reverb, Variation, Dry, V/N Balance, Detune, Pan LFO, Expression Low and Pan Scaling, each with its value in the dark value font.
 
-The voice's category is gone from the page: it belongs to the voice, which the page names, and the Browser shows and edits it. Its param stays.
+The voice's category is gone from the page: it belongs to the voice, which the page names, and the Browser shows it and edits a saved voice's (Edit Attributes). Nothing edits the part's own voice's category; its param stays.
 
 ## Operators and the noise generator
 
@@ -256,7 +256,7 @@ The FS1R's noise generator is its eight unvoiced operators. Each is noise shaped
 
 ## Everything fitted
 
-Of the FS1R's params, every one is on a page except these, all on purpose: the unit-only settings (above); the reverb's and variation's tenth parameter slot, which no effect type in the Data List uses; and a receive channel range for parts 3 and 4, since the manual gives Rcv Max to parts 1 and 2 only, though the sysex has the byte for all four.
+Of the FS1R's params, every one is on a page except these, all on purpose: the unit-only settings (above); the reverb's and variation's tenth parameter slot, which no effect type in the Data List uses; and a receive channel range for parts 3 and 4, since the manual gives Rcv Max to parts 1 and 2 only, though the sysex has the byte for all four. One more has no control, never decided: the part's voice category (The Parts page, above). Of the Fseq header (the Data List's Table 3, `70 00 ll`), the settings the player reads are on the Fseq page (below); the four it never reads, because it takes the performance's instead (loop mode, tempo velocity, pitch mode and delay), have no param. [parameters_ui.md](parameters_ui.md) lists every parameter and where it is.
 
 ## Readouts
 
@@ -308,6 +308,8 @@ The skin asks through params and the instance's text data; the processor (`plugi
 | `fsvr.engine`, `fsvr.morph` | text data | processor | The engine's bulk dumps and the morph corners, saved with the instance |
 
 Choosing an Fseq (the browser, the Fseq page, Import, Import Audio) copies its header's loop start and end into the performance, as the unit's panel does: the player reads the performance's pair and nothing else (FUN_0000FFFA, `docs/ymp706_registers.md`), so without the copy a new Fseq would play the loop the performance had, and hold one frame when that was 0 to 0. Loading a performance keeps its own pair.
+
+The Fseq's own header is the row under the Fseq page's display, In the Fseq: Note, the key that plays it at its own pitch, and Tune (the fundamental follows `framePitch - (NOTETAB[note] + 0x1243) + (tuning - 63)`, FUN_000127FC); Speed Adj, which the frame timer scales by the performance's Speed % (FUN_0001A59E); End, the last frame of valid data; and Loop ... to, the pair a choice copies into the performance. They are params (`fseq.hdr.*`) sent as the Data List's Fseq parameter changes (`70 00 ll`) into the Fseq the engine holds, so Export and Save to Bank write them. They read whatever the loaded Fseq holds: a fresh instance or a session, an older one with no values for them included, never writes its own over the Fseq's. The header's loop mode, tempo velocity, pitch mode and delay have no params, since the player reads the performance's; nor has the frame format, which is the Fseq's size.
 
 Program change reaches the same params the unit's way: on the performance channel in Performance mode a performance of the bank selected (bank select 3F then 40 for the user's, 41 to 43 for Preset A to C), in Multi mode a voice for each part on the channel.
 
