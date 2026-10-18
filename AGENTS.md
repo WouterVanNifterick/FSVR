@@ -146,6 +146,6 @@ The EPROM image itself is not in this repo either. It is rgwan's dump, kept outs
 - `captures/` is measurement data with two pipelines and a rule, stated in `captures/README.md`. Recordings and analysis are gitignored; only inputs are tracked
 - The engine always runs at 48 kHz whatever the host rate. `fsvr::Device` resamples on the way out, so patch timing is identical everywhere
 - `TICK_HZ` is 192.3 Hz. Only `render`, `render_chan` and `refresh_ctl` run per sample; everything `tick()` reaches is control rate
-- Three tables are filled once by `init_tables()` and have external linkage on purpose. Making them file-static again would give every translation unit its own zeroed copy and the engine would render silence
+- The tables `init_tables()` fills once (the grain windows, their means and the phase generator's mantissas) have external linkage on purpose. Making them file-static again would give every translation unit its own zeroed copy and the engine would render silence
 - The plug-in's processor runs on two threads: the audio thread sends param changes and MIDI and renders, a worker loads patches and files and reads the engine back into the params. `ctl` guards what both touch, and the audio thread only ever try-locks it. `saving()` finishes whatever the worker has not reached before the host saves
 - Commits here never carry a `Co-Authored-By` line for Claude or any tool; the one co-author line is the other collaborator's, on the commit a release tag points at (Releases, above)

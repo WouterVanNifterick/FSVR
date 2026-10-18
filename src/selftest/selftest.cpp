@@ -317,30 +317,32 @@ int selftest(Synth& S) {
 
         // And that it reaches the operator. Earlier sections leave note shifts scribbled, so the band
         // is read back off the channel rather than assumed: what is under test here is that the word
-        // reaches the frequency at all, the table itself being checked above.
+        // reaches the frequency at all, the table itself being checked above. The detuned word goes through
+        // the phase generator like any other, so the operator steps by that word's increment exactly.
         Synth& T = S;
         Voice& V = T.perf.part[0].voice;
         init_default_voice(V);
         std::vector<float> a(64), b(64);
+        struct Op { double word; uint32_t inc; int band; };
         auto play = [&](int det) {
             V.v[0].detune = det;
             T.midi_in(0x90, 60, 100);
             T.render(a.data(), b.data(), 64);
             Chan* c = nullptr;
             for (auto& ch : T.ch) if (ch.active && ch.note == 60) { c = &ch; break; }
-            double f = c ? c->op[0].fop : 0.0;
             int bnd = c ? (c->pitchNote >> 8) + 10 : 0;
             bnd = bnd < 0x50 ? 0 : bnd < 0x70 ? ((bnd ^ 0x10) & 0x1F) : 0x1F;
+            Op r = {c ? c->op[0].word : 0.0, c ? c->op[0].inc : 0u, bnd};
             T.midi_in(0x80, 60, 0); T.midi_in(0xB0, 120, 0);
-            return std::make_pair(f, bnd);
+            return r;
         };
-        auto centred = play(15), up = play(22), down = play(8);
-        ck("a centred operator has a frequency at all", centred.first > 1.0);
-        double want = detw(22, up.second) * 1200.0 / 1024.0;
+        Op centred = play(15), up = play(22), down = play(8);
+        ck("a centred operator has a frequency at all", centred.inc > 0);
+        const int want = detw(22, up.band);
         ck("detune +7 moves the operator by its table entry",
-           fabs(1200.0 * log2(up.first / centred.first) - want) < 0.01 && want > 0.0);
+           want > 0 && up.word == centred.word + want && up.inc == op_increment(centred.word + want));
         ck("detune -7 moves it the other way by the same",
-           fabs(1200.0 * log2(down.first / centred.first) + want) < 0.01);
+           down.word == centred.word - want && down.inc == op_increment(centred.word - want));
         init_default_voice(V);
     }
 
@@ -739,12 +741,34 @@ int selftest(Synth& S) {
           T->midi_in(0x90, note, 100);
           Chan* c = nullptr; for (auto& x : T->ch) if (x.active) c = &x;
           float l, r; for (int k = 0; k < SR / 2; k++) T->render(&l, &r, 1);
-          double d = c ? c->op[0].phase - c->op[1].phase : 0.5; return d - floor(d + 0.5); };   // turns, -0.5..0.5
+          return c ? (int32_t)(c->op[0].phase - c->op[1].phase) / 4294967296.0 : 0.5; };   // turns, -0.5..0.5
       bool held = true, doubles = true; double fe[4];
-      for (int k = 0; k < 4; k++) { held = held && fabs(lead(36 + 12 * k, 0)) < 1e-6; fe[k] = lead(36 + 12 * k, 30); }
+      for (int k = 0; k < 4; k++) { held = held && lead(36 + 12 * k, 0) == 0.0; fe[k] = lead(36 + 12 * k, 30); }
       for (int k = 0; k < 3; k++) { double e = 2 * fe[k] - fe[k + 1]; doubles = doubles && fabs(e - floor(e + 0.5)) < 1e-3; }
       ck("key sync: two operators in step at every note", held);
       ck("key sync: a frequency EG on one alone leads it by a share that doubles each octave", doubles && fabs(fe[0]) > 0.05); }
+
+    // The phase generator, as measured on the unit (cal.h): the increments take 3 predicted and then read off it,
+    // carriers and modulators, fixed and ratio-mode, every floor-or-round choice a floor; the saturated word's
+    // 23982 Hz line; and a fixed operator at coarse 17, fine 3 stepping by exactly that increment in a channel.
+    { const struct { int w; uint32_t k; } take3[] = {{27909, 156352}, {27949, 160640}, {28181, 187968}, {28245, 196288},
+          {28549, 241152}, {28781, 282112}, {28621, 253248}, {28077, 175232}, {15621, 38}, {15661, 39}, {15893, 45},
+          {15957, 47}, {16261, 58}, {16493, 68}, {16333, 61}, {15789, 42}, {24045, 11436}, {26093, 45744},
+          {26179, 48480}, {28141, 182976}};
+      bool all = true; for (auto& t : take3) all = all && op_increment(t.w) == t.k;
+      ck("phase generator: take 3's twenty increments", all);
+      ck("phase generator: word 32767 is 4093 << 10, 23982.42 Hz", op_increment(32767) == 4191232u && fabs(op_hz(op_increment(32767)) - 23982.421875) < 1e-9);
+      ck("phase generator: the lowest word steps by nothing, the lowest fixed setting by one", op_increment(0) == 0 && op_increment(8 * 0 + 0x28ED) == 1);
+      auto T = std::make_unique<Synth>(); init_perf(T->perf); Part& pt = T->perf.part[0]; Voice& V = pt.voice;
+      pt.p[1] = 2; pt.p[4] = 0x10;
+      init_blank_voice(V.raw); V.raw[112] = 0x40 | 24; V.raw[112 + 1] = 17; V.raw[112 + 2] = 3; V.raw[112 + 5] = 0x40; V.raw[112 + 22] = 99;
+      decode_voice(V);
+      T->midi_in(0x90, 60, 100);
+      Chan* c = nullptr; for (auto& x : T->ch) if (x.active) c = &x;
+      float l, r; for (int k = 0; k < 100; k++) T->render(&l, &r, 1);
+      bool whole = false;                                  // a whole number of steps, the first few under the attack's gate
+      for (uint32_t n = 90; n <= 100; n++) whole = whole || (c && c->op[0].phase == op_inc32(156352) * n);
+      ck("phase generator: a fixed coarse 17 fine 3 steps by exactly 156352", c && c->op[0].inc == 156352u && whole); }
 
     // The allocator, against the unit itself (FS1R.unlock captures/2026-09-25-7, session6 alloc).
     // Filling an empty machine with notes 36..67 on part 1 put them on channels 1..31 then 0, and a

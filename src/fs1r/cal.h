@@ -35,6 +35,17 @@ static const double FM_INDEX     = 3.369;   // cycles of phase deviation at full
                                             // The error is exactly one step of the sweep, 10^(4*LEVEL_DB/20) =
                                             // 1.1887, and 25.116/1.1887 is 21.13. FS1R.unlock's sweep_check.py
                                             // anchors on the ladder's first step now and both takes agree.
+// The operator phase generator. MEASURED 2026-10-18 on rgwan's unit, off the S/PDIF tap (docs/findings.md):
+// an operator's phase increment is an integer in units of 2^-OP_PHASE_BITS of a cycle a sample, and a
+// frequency word w (1024 to the octave) becomes M[w & 1023] shifted left by (w >> 10) - OP_OCTAVE0, or right
+// with the bits below dropped, where M[i] = floor(OP_MANT_ONE * 2^(i / 1024)) (tonegen/operator.cpp). One take
+// fitted it; a second predicted twelve increments before it was recorded, fixed and ratio-mode, and hit all
+// twelve to 0.001 of a step, every floor-or-round choice a floor. A saturated word's 23982 Hz line off
+// 12_fseqlevel (2026-09-21) agrees, 4093 << 10 steps. Yamaha's US5744741 gives the same shape: a pitch
+// frequency number in log form, a log/linear converter and a shifter, accumulated into the phase.
+static const int    OP_PHASE_BITS = 23;
+static const int    OP_MANT_ONE   = 2048;  // M[0]: the table runs 2048..4093, twelve bits
+static const int    OP_OCTAVE0    = 21;    // the octave whose increment is M itself
 static const double LEVEL_DB     = 0.376287;// dB per step of the 8-bit level registers (LEVTAB doubled). MEASURED:
                                             // the same sweep's sideband ladder reads 0.3761 with a 0.005 dB residual
                                             // over 36 dB, and its own level ladder reads 0.3767 over the top 21 dB.

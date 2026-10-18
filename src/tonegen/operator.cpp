@@ -5,9 +5,13 @@
 
 float g_win[2][8][1025];       // [asymmetric?][skirt]: the two window families
 float g_winDC[2][8];           // each window's mean, which a grain under a DC carrier does not carry
+uint16_t g_opMant[1024];       // the phase generator's mantissas (cal.h, op_increment)
 
 void init_tables() {
     fm::init();
+    // floor(2048 * 2^(i / 1024)), MEASURED (cal.h). The nearest entry to a whole number past i = 0 is 6.8e-4
+    // away (i = 905), so libm's exp2 floors every one the same on every platform.
+    for (int i = 0; i < 1024; i++) g_opMant[i] = (uint16_t)std::floor(cal::OP_MANT_ONE * std::exp2(i / 1024.0));
     // MEASURED 2026-09-19 (FS1R.unlock's skirt sweep, all sixty partials) and 2026-09-24 (the same take
     // read again, plus 04_formant_2): the grain window is sin^p with p = 2 * 2^skirt on every form, and
     // there are two families. The "2" forms (all2, odd2, res2) are the symmetric window, whose line
@@ -47,10 +51,11 @@ void op_wave(const OpV& v, float* out, int n) {
     }
     s.wl7 = std::min(cal::FRMT_WL_MAX, pitch / (cal::FRMT_BW_HZ0 * fm::exp2(v.bw / cal::FRMT_BW_DB)));
     const int period = (int)(SR / f0);
-    for (int i = 0; i < period; i++) op_sample(s, v, pitch, fop, v.bw, 0, 1);
+    const uint32_t inc = (uint32_t)std::lround(fop / SR * (1u << cal::OP_PHASE_BITS));
+    for (int i = 0; i < period; i++) op_sample(s, v, pitch, fop, inc, v.bw, 0, 1);
     std::vector<double> y(2 * (size_t)period);
     double peak = 1e-9;
-    for (auto& x : y) peak = std::max(peak, std::fabs(x = op_sample(s, v, pitch, fop, v.bw, 0, 1)));
+    for (auto& x : y) peak = std::max(peak, std::fabs(x = op_sample(s, v, pitch, fop, inc, v.bw, 0, 1)));
     for (int i = 0; i < n; i++) {   // each point the largest sample of its share, so a narrow pulse still shows
         size_t a = (size_t)i * y.size() / std::max(n, 1), b = std::max(a + 1, (size_t)(i + 1) * y.size() / std::max(n, 1));
         double m = y[a];

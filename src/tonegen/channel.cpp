@@ -21,7 +21,7 @@ void refresh_ctl(Chan& C, const Voice& V, bool fs) {
         // The detune word goes into the frequency word rather than onto the result: it is a pitch
         // word offset on the chip, and the formant branch already carries it inside frmtWord.
         int det = v.form == 7 ? 0 : C.detW[o];
-        double fop;
+        double w;
         // A frame's frequency word goes into the operator's own frequency register, it does not stand
         // in for the whole register chain. A ratio operator still has the channel pitch added on top,
         // which is what the format means for one: the word is an absolute formant centre, so a ratio
@@ -32,11 +32,13 @@ void refresh_ctl(Chan& C, const Voice& V, bool fs) {
         // Transpose is the formant operator's pitch, the grain rate, not this centre. Detune is the
         // other half of the 0x230 word (FUN_00013bc6) and stays on the centre the coarse and fine set.
         // A frame replaces that centre and does not take the word.
-        if (fs && C.fseqOp[o]) fop = word_hz(C.fqWord[o] + pmw + det + (v.form != 7 && !v.fixed ? C.regPitch : 0));
-        else if (v.form == 7) fop = word_hz(C.freqWord[o] + C.fbW[o] + C.detW[o] + pmw + (C.regFM * v.fms) / 7);
-        else if (!v.fixed) fop = word_hz(C.freqWord[o] + C.regPitch + pmw + det);
-        else fop = word_hz(C.freqWord[o] + C.fbW[o] + pmw + det + (C.regFM * v.fms) / 7);
-        s.fop = fop;
+        if (fs && C.fseqOp[o]) w = C.fqWord[o] + pmw + det + (v.form != 7 && !v.fixed ? C.regPitch : 0);
+        else if (v.form == 7) w = C.freqWord[o] + C.fbW[o] + C.detW[o] + pmw + (C.regFM * v.fms) / 7;
+        else if (!v.fixed) w = C.freqWord[o] + C.regPitch + pmw + det;
+        else w = C.freqWord[o] + C.fbW[o] + pmw + det + (C.regFM * v.fms) / 7;
+        // The word through the phase generator (cal.h): the increment the chip steps the phase by, and in hertz
+        // the frequency the grain forms run their carriers at.
+        s.word = w; s.inc = op_increment(w); s.fop = op_hz(s.inc);
         // The formant's window runs at the channel pitch through the operator's own pitch mod sense, not
         // through the full LFO word: rgwan's demo take of 15_Human (pms 1..4, pmd 12) wobbles its formant
         // harmonics 33..48 cents, the same as its pms 2 sine carriers, where a window on C.f0 gave 541.
@@ -143,7 +145,7 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
             gain = s.dg == 0.0 ? s.gain : (s.gain += s.dg);
         }
         if (gain != 0.0 || s.g[0].on || s.g[1].on) {
-            double fop = s.fop;
+            double fop = s.fop; uint32_t inc = s.inc;
             // A FIXED-frequency operator gets no frequency EG. MEASURED 2026-09-25 off 24_onset's
             // onset-feg segment: init +25 with attack time 20 on a fixed carrier holds 1007.6 Hz flat
             // on the unit through the whole sweep, while the engine started 939 cents sharp and took
@@ -152,9 +154,10 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
             // 1 to 5 cents), which used sine() carriers: the FEG rides the note's pitch word, and a
             // fixed operator does not take that word at all, it takes its own coarse/fine bytes.
             // Formant operators are NOT covered either way by any capture, so they keep the EG here
-            // rather than being changed on a guess.
-            if (!v.fixed && s.feg.stage < 2) fop *= fm::exp2(s.feg.tick() / 12.0);
-            y = op_sample(s, v, s.fw, fop, s.ratio, in * FM_INDEX + C.phOff[o], gain);
+            // rather than being changed on a guess. The EG moves the word, so the phase generator takes the
+            // moved word every sample of the ramp.
+            if (!v.fixed && s.feg.stage < 2) { inc = op_increment(s.word + s.feg.tick() * (1024.0 / 12.0)); fop = op_hz(inc); }
+            y = op_sample(s, v, s.fw, fop, inc, s.ratio, in * FM_INDEX + C.phOff[o], gain);
         }
         // A read leaves the sum bus as it is; t1 bit 1 starts it over, after this operator's read and
         // before its add. INFERRED from the table, not measured: the bit is set wherever a second sum

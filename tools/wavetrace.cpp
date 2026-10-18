@@ -5,7 +5,8 @@
 //             [-vel 100] [-t 0.5] [-c 4] [-png trace.png]
 //
 // Each note plays on a fresh engine, part 1 alone, through the tone generator only: no filter, no pan, no
-// effects. At -t seconds after key-on it prints every sounding operator's frequency, its ratio to the channel's
+// effects. At -t seconds after key-on it prints every sounding operator's frequency, its phase increment (in
+// 2^-23 of a cycle a sample, the phase generator's own unit, fs1r/cal.h), its ratio to the channel's
 // fundamental, its phase and its lead, the phase less frequency x time: what the operator gained or lost against
 // an oscillator started at key-on and left alone. A key-synced operator at a steady pitch leads by 0 at every
 // note; a frequency EG, an LFO or a note-dependent anything shows as a lead that moves with the note.
@@ -106,8 +107,8 @@ int main(int argc, char** argv) {
         float l, r; for (long k = 0; k < start; k++) S->render(&l, &r, 1);
         Row row; row.note = note; row.f0 = c->f0;
         const double cycles = c->f0 * start / SR; row.off = (ceil(cycles) - cycles) * SR / c->f0;   // to the next cycle of f0
-        double phase[8], fop[8];
-        for (int o = 0; o < 8; o++) phase[o] = c->op[o].phase, fop[o] = c->op[o].fop;
+        double phase[8], fop[8], word[8]; uint32_t inc[8];
+        for (int o = 0; o < 8; o++) phase[o] = c->op[o].phase / 4294967296.0, fop[o] = c->op[o].fop, inc[o] = c->op[o].inc, word[o] = c->op[o].word;
         const long len = (long)((periods + 1) * SR / c->f0) + 2;
         for (long k = 0; k < len; k++) {
             S->render(&l, &r, 1);
@@ -118,11 +119,11 @@ int main(int argc, char** argv) {
         double peak[9] = {}, loudest = 0;
         for (int j = 0; j < 9; j++) { for (double v : row.t[j]) peak[j] = std::max(peak[j], fabs(v)); if (j) loudest = std::max(loudest, peak[j]); }
         for (int j = 0; j < 9; j++) row.sounds[j] = j == 0 || (peak[j] > 0 && peak[j] > loudest * 1e-3);
-        printf("\nnote %d  f0 %.3f Hz\n  op  form  freq Hz     ratio   phase   lead\n", note, c->f0);
+        printf("\nnote %d  f0 %.3f Hz\n  op  form  word        freq Hz     increment  ratio   phase   lead\n", note, c->f0);
         for (int o = 0; o < 8; o++) {
             if (!row.sounds[o + 1]) continue;
             double lead = phase[o] - fop[o] * start / SR; lead -= floor(lead + 0.5);   // -0.5 .. 0.5 of a turn
-            printf("  %d   %d     %10.3f  %7.4f  %.4f  %+.4f%s\n", o + 1, voice.v[o].form, fop[o], fop[o] / c->f0, phase[o], lead, voice.v[o].keysync ? "" : "   (key sync off)");
+            printf("  %d   %d     %10.3f  %10.3f  %9u  %7.4f  %.4f  %+.4f%s\n", o + 1, voice.v[o].form, word[o], fop[o], inc[o], fop[o] / c->f0, phase[o], lead, voice.v[o].keysync ? "" : "   (key sync off)");
         }
         rows.push_back(std::move(row));
     }

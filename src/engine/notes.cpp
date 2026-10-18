@@ -141,7 +141,7 @@ void Synth::note_on(int part, int note, int vel) {
         OpState& s = C.op[o]; const OpV& v = V.v[o]; const OpU& u = V.u[o];
         s.eg.start(C.egL[o], C.egR[o], C.egHold[o], eg_ratescale(v.tscale, C.regC0));
         s.feg.start(v.fegInit, v.fegAtt, v.fegAttT, v.fegDecT);
-        s.phase = v.keysync ? 0.0 : (double)rand() / RAND_MAX;
+        s.phase = v.keysync ? 0u : (uint32_t)((double)rand() / RAND_MAX * 4294967295.0);   // 2^32 to a cycle
         s.ueg.start(C.uegL[o], C.uegR[o], C.uegHold[o], eg_ratescale(u.tscale, C.regC0));
         s.ufeg.start(u.fegInit, u.fegAtt, u.fegAttT, u.fegDecT);
         s.rng = 0x9E3779B9u * (o + 1) ^ clock; if (!s.rng) s.rng = 1;

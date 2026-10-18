@@ -5,8 +5,8 @@ The FS1R's tone generator chip, modelled: 32 channels of eight voiced and eight 
 | File | What |
 |---|---|
 | `envelope.h` | `EG` (the amplitude EG: hold and four segments) and `FreqEG` (the frequency EG ramp), the rate ladder `rate_secs` and key rate scaling; `EG::advance`, n samples at once for the Fast steps |
-| `operator.h` | one voiced operator: `op_sample` (sine, the stored all1/all2 waves, the odd/res/formant grains), the grain windows, `OpState` (with each sample's output, for `tools/wavetrace`) |
-| `operator.cpp` | `init_tables` (the grain windows), `op_wave` (an operator alone, for displays) |
+| `operator.h` | one voiced operator: the phase generator (`op_increment`, a frequency word to the chip's integer phase increment, measured), `op_sample` (sine, the stored all1/all2 waves, the odd/res/formant grains), the grain windows, `OpState` (its integer phase, and each sample's output for `tools/wavetrace`) |
+| `operator.cpp` | `init_tables` (the grain windows and the phase generator's mantissa table), `op_wave` (an operator alone, for displays) |
 | `noise.h` | the unvoiced operator: its noise band (`noise_band`) and resonance carrier (`ures`) |
 | `channel.h`, `.cpp` | `Chan`: eight operator pairs on the algorithm, the feedback bus, the level slew, the note-on damp, when a channel goes silent; `refresh_ctl` (control rate) and `render_chan` (one sample, its EGs a block at a time on the Fast steps) |
 

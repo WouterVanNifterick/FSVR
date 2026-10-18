@@ -8,6 +8,33 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-18, the YMP706's operator phase generator: an integer increment, a 12-bit floor table and a shift
+
+rgwan, on the 2026-10-17 key sync report: the oscillators should run on integer accumulators. FSVR's ran on a double, with the frequency from `word_hz`'s smooth `440 * 2^((w - 26861) / 1024)`. The YMP706 is write-only on the bus, so the width had to come off the audio: three takes on rgwan's unit through the rig, MIDI only, into the edit buffers.
+
+**Take 1, tones alone.** Ten fixed-frequency sines from 0.43 Hz to 8 kHz. It showed the S/PDIF tap is not sample-locked: every tone carries the same timing wander, 60 to 80 us peak to peak, its phase error in proportion to frequency (sidebands at -66 dBc around 440 Hz, -31 dBc around 7 kHz), and the recorder runs 44 ppm off the unit's clock. That caps a lone tone's frequency at about 3e-5, enough only to exclude widths of 21 bits or fewer.
+
+**Take 2, ratios.** Algorithm 8, a fixed modulator m octaves under a fixed carrier (words 1024 m apart) with an unmodulated reference carrier beside them. The carrier's phase less the reference's residual, scaled by their ratio, is free of the wander, and the modulator's frequency against the carrier's is free of the recorder's clock. The ideal ratio is exactly 2^-m. The unit's fell short in steps: 0 at 8 octaves, -0.24 % at 10 and 12, -2.1 % at 13 and 14, -9.6 % at 15. Every modulator and every carrier is a whole number of one step, 48000 / 2^23 Hz, to 0.003 of a step: 850, 212, 53, 26, 13, 6, 9 and 16 steps under carriers of 217600, 153856 and 265856. On FSVR's own render of the same events every ratio read within 1e-8 of 2^-m, so the shortfall is the chip's.
+
+**The model.** An operator's phase increment is an integer in units of 2^-23 of a cycle a sample, and a frequency word w becomes
+
+    increment = M[w & 1023] << ((w >> 10) - 21)     right shifts dropping the bits below
+    M[i]      = floor(2048 * 2^(i / 1024))           twelve bits, 2048..4093
+
+so a word plays 48000 * 2^(w / 1024 - 33) Hz less the floor: word 26861 is 440.186 Hz, +0.67 cents on `word_hz` before the floor takes back up to 0.85, and the lowest fixed settings snap to whole steps (coarse 0, 1 and 2 at fine 0 play 1, 2 and 4 steps, 0.0057, 0.0114 and 0.0229 Hz, against nominal 0.0067, 0.0134 and 0.0269).
+
+**Take 3, blind.** Twenty increments predicted from the model before the take, read against the reference so the wander and the clock drop out: eight fixed carriers at coarse 17 and their modulators twelve octaves down, then ratio-mode carriers at notes 36, 60, 61 and 84 through FSVR's own note words. Every one hit to 0.001 of a step. Six fines were chosen where a floor table and a rounded one disagree, by 64 or 128 steps on the carrier and by 16 on note 61, and every one is the floor.
+
+**Two more things agree.** The 2026-09-21 entry's saturated word on 12_fseqlevel, a take recorded a month before the model, folds about Nyquist to one line 17.58 Hz under it in all three sine segments, notes 36, 60 and 84, which is 23982.42 Hz. The model puts word 32767 at 4093 << 10 steps, 23982.42 Hz, where `word_hz` reads 23969.92 and the engine played 30.08 Hz under Nyquist. And Yamaha's US5744741 (filed 1996, granted 1998; WouterVanNifterick pointed to it) describes the same structure for an FM and formant tone generator on a DSP: a pitch frequency number in log form, a log/linear converter and a shifter, its output accumulated into the phase, the modulator's output added to the carrier's phase and the feedback to the first operator's. It gives no widths; the takes do.
+
+**What FSVR does now.** The voiced operators' phase is an unsigned integer at 2^32 to a cycle, stepped by the measured increment (`op_increment`, constants in `cal.h`, the table filled by `init_tables`). The word that reaches it is the one the engine already computed; only its conversion changed. Every operator moves by under a cent, so a stack detuned by a few words beats at a slightly different rate: Ballad EP's detuned pairs beat 1.465 Hz apart where they beat 1.417, and the render regression's spectral peaks and envelopes move on six of nineteen cases against a fingerprint of the tree before (rom-voice0, perf-everybody, perf-spacypad, perf-manhattan, fseq-shoobydo, fseq-high). The plumbing alone moves none of them: the old smooth law put through the new integer phase matched that fingerprint on eighteen cases and on the nineteenth to 1 dB at -75 dB in an eight-second tail. Key sync is exact by construction, and two key-synced operators at 1:1 read the same phase to the bit at every note.
+
+**Against the hardware set.** `tools/bench_captures.py` over the forty takes, before and after. Spectrum shape falls wherever a tone's pitch is most of the measurement, 0.20 to 0.04 dB on 01_reference_1, 0.19 to 0.01 on 03_fm_1, 0.16 and 0.15 to 0.01 on the two 06_filter takes, 0.23 to 0.01 on 11_detune_2, 1.68 to 1.44 on 08_panlevel_1. The one shape that rises is 04_formant_3's, 0.75 to 0.80. Level and envelope move by under 0.1 dB everywhere but 12_fseqlevel, whose median level goes from 1.03 to 2.02 dB and envelope from 11.66 to 11.94, since its sine segments now beat against Nyquist at 35.2 Hz as the unit's do, and a segment's level is one 100 ms window, which lands on a different part of that beat.
+
+**Not covered.** A word with a fraction, which the unit's own words never have (FSVR's 14-bit bend, the frequency EG's ramp between steps), takes the same law at its fractional place: INFERRED. Whether the accumulator carries bits below 2^-23 that no increment reaches, which no frequency can show. How many of its top bits address the waveform. The grain forms' carriers take the same increment, in hertz, though only sine operators were measured. The formant window's rate and the noise centre still run on `word_hz` and were not part of these takes.
+
+---
+
 ## 2026-10-17, the unit cuts the sound before a performance, and that is not what keeps it from popping
 
 mkruselj reported loud pops switching performances in the plug-in, A032 against A033 and A071 against A072

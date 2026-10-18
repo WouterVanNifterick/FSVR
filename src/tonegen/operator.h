@@ -17,13 +17,31 @@ static inline double am_att(int regAM, int ams) { return std::min(regAM, 127) * 
 const double LEVEL_SLEW_K = 1.0 - exp(-1.0 / (cal::LEVEL_SLEW_MS * 0.001 * SR));
 // 1024 units per octave, and the word is a 16 bit register that saturates rather than wrapping.
 // MEASURED 2026-09-21 off 12_fseqlevel: a ratio operator driven by an Fseq lands past the ceiling at
-// every note and the unit answers with one line at 23982 Hz, which is word 32767 to a tenth.
+// every note and the unit answers with one line at 23982 Hz, which is word 32767 through the phase
+// generator below (op_increment), 23982.42 Hz. This smooth law reads 23969.9 there and plays the
+// channel's own rates, the formant window and the noise centre, which nothing has measured that way.
 static inline double word_hz(double w) { return 440.0 * fm::exp2((std::clamp(w, 0.0, 32767.0) - 26861) / 1024.0); }   // fractional for the bend LSB
 
 // ------------------------------------------------------------------------------------------ tables (chip side)
 extern float g_win[2][8][1025];
 extern float g_winDC[2][8];
+extern uint16_t g_opMant[1024];   // the phase generator's mantissas, floor(2048 * 2^(i / 1024)) (cal.h)
 void init_tables();
+
+// An operator's phase increment for a frequency word, in units of 2^-cal::OP_PHASE_BITS of a cycle a sample
+// (MEASURED, cal.h). A word with a fraction, which the unit's never has (FSVR's 14-bit bend, the frequency
+// EG's ramp), takes the same law at its fractional place. INFERRED: between two words there is nothing to
+// measure on the unit.
+static inline uint32_t op_increment(double w) {
+    w = std::clamp(w, 0.0, 32767.0);
+    const int wi = (int)w, i = wi & 1023; const double fr = w - wi;
+    const uint32_t M = fr == 0.0 ? g_opMant[i] : (uint32_t)(cal::OP_MANT_ONE * fm::exp2((i + fr) / 1024.0));
+    const int s = (wi >> 10) - cal::OP_OCTAVE0;
+    return s >= 0 ? M << s : M >> -s;
+}
+// Ours: the phase is held at 2^32 to a cycle so that it wraps by itself; an increment in those units, and in hertz.
+static inline uint32_t op_inc32(uint32_t inc) { return inc << (32 - cal::OP_PHASE_BITS); }
+static inline double op_hz(uint32_t inc) { return inc * (double)SR / (double)(1u << cal::OP_PHASE_BITS); }
 // The sine and the level path go through math/fastmath.h, which is where the backend is chosen.
 static inline double fsin(double ph) { return fm::sin_turns(ph); }
 static inline float fwin(int fam, int s, double x) { double y = x * 1024.0; int i = (int)y; if (i >= 1024) return 0.f; float f = (float)(y - i); const float* w = g_win[fam][s]; return w[i] + (w[i + 1] - w[i]) * f; }
@@ -35,7 +53,9 @@ static inline double db2lin_fast(double db) { return db <= -128 ? 0.0 : fm::db2l
 // and 2026-09-21, see op_sample.
 struct WinGen { double w = 1.0, c = 0.0, fc = 0.0; bool on = false; };
 struct OpState {
-    double phase = 0; WinGen g[2]; int nextGen = 0; double fphase = 0; int halfCount = 0;
+    uint32_t phase = 0;           // 2^32 to a cycle, stepped by op_inc32(inc): the phase generator (cal.h)
+    WinGen g[2]; int nextGen = 0; double fphase = 0; int halfCount = 0;
+    double word = 0; uint32_t inc = 0;   // the operator's frequency word and its increment (refresh_ctl)
     EG eg; FreqEG feg;
     EG ueg; FreqEG ufeg; double nphase = 0; double lp[8] = {}; uint32_t rng = 0x12345678;
     double att = 0, attS = 0, fop = 0, fw = 0, wl7 = 1, uatt = 0, nf = 0, na = 1, na2 = 1, nscale = 0, nres = 0, uprev = 0; int bw = 0, ratio = 0;   // refresh_ctl
@@ -61,10 +81,14 @@ struct OpState {
 // The unvoiced operator's level is left stepping. Its own segments in the same file sit 15 to 26 dB
 // dark above 640 Hz before any smoothing is applied, which is the noise formant's bandwidth law and
 // not this, so they cannot judge a glide; slewing it there only makes them darker.
-inline double op_sample(OpState& s, const OpV& v, double f0, double fop, int ratio, double pm, double gain) {
+//
+// The sine and the stored waves read the phase generator's own integer phase, stepped by `inc` (cal.h); the
+// grain forms run their carriers at `fop`, the same increment in hertz.
+inline double op_sample(OpState& s, const OpV& v, double f0, double fop, uint32_t inc, int ratio, double pm, double gain) {
     if (v.form <= 2) {
-        s.phase += fop / SR; if (s.phase >= 1) s.phase -= 1;
-        if (v.form == 0) return gain * fsin(s.phase + pm);
+        s.phase += op_inc32(inc);
+        const double ph = s.phase * (1.0 / 4294967296.0);
+        if (v.form == 0) return gain * fsin(ph + pm);
         // all1 and all2 are a stored waveform read by phase, the same way the sine is: one period of
         // the skirt's window with its mean taken out, so a modulator reaches it as phase like any other
         // form. MEASURED 2026-09-24 off the skirt sweep's sixty partials: all2's lines are the symmetric
@@ -73,7 +97,7 @@ inline double op_sample(OpState& s, const OpV& v, double f0, double fop, int rat
         // replaces was 36 to 66 dB out by skirt 7. At skirt 0 the DC-free sin^2 is -cos / 2, the single
         // partial the unit gives, and the mean is gone because the unit's is: every all1/all2 take reads
         // mean / rms under 0.03 where a raw sin^2 pulse train sits at 0.7. docs/skirt.md.
-        double x = s.phase + pm; x -= floor(x);
+        double x = ph + pm; x -= floor(x);
         return gain * cal::FORM_LEVEL * 2.0 * (fwin(v.form == 1, v.skirt, x) - g_winDC[v.form == 1][v.skirt]);
     }
     double fw, fc, wl;
