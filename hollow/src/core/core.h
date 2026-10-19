@@ -131,15 +131,6 @@ struct Action {
     std::string title;           // File: the dialog's title (target: open / save, key: the text data key, nameKey:
                                  // a save's file name, vars: file types, name to extensions)
 };
-// skin.json "keys": a chord and what it does. `ch` is the physical key as an uppercase ASCII letter
-// or a digit, 0 when the chord names one of the Key commands instead. The action is any a button can
-// carry, so a binding reaches a page, a var or a modal without the skin repeating itself.
-struct Binding {
-    Key key = KeyNone;
-    unsigned ch = 0;
-    bool shift = false, ctrl = false, alt = false;
-    Action action;
-};
 struct Item {                    // dropdown and context menu entries
     std::string label, shortLabel;
     double value = 0;
@@ -156,6 +147,16 @@ struct Cond {                    // showIf / enableIf
     std::string stack, view;     // Shows: the embed `stack` shows `view` (and vars)
     Vars vars;
     std::vector<Cond> parts;     // All, Any
+};
+// skin.json "keys": a chord and what it does. `ch` is the physical key as an uppercase ASCII letter
+// or a digit, 0 when the chord names one of the Key commands instead. The action is any a button can
+// carry, so a binding reaches a page, a var or a modal without the skin repeating itself.
+struct Binding {
+    Key key = KeyNone;
+    unsigned ch = 0;
+    bool shift = false, ctrl = false, alt = false;
+    Action action;
+    Cond when;                   // the binding fires only while this holds; otherwise the key is the host's
 };
 struct Scroll {
     int track = -1, thumb = -1;  // images
@@ -227,6 +228,7 @@ struct Widget {
     Action action;
     std::vector<Item> items, context;
     std::string itemsData;       // dropdown "itemsData": its items are this text data's lines (with {vars})
+    int perColumn = 0;           // itemsData "perColumn": every n-th item starts a menu column (0: one column)
     std::string menuStyle;       // a skin.json menu style name, "native", or "" for the default
     bool hasMenuAt = false;      // "menuAt": the menu opens with its top-left at this point of the view
     int menuAt[2] = {0, 0};

@@ -1967,6 +1967,9 @@ bool Gui::runKey(Key k, unsigned ch, bool shift, bool ctrl, bool alt, bool fromH
     for (const Binding& b : skin_->keys) {
         if (b.shift != shift || b.ctrl != ctrl || b.alt != alt) continue;
         if (b.ch ? b.ch != ch : b.key != k) continue;
+        // A binding with a "when" is passed over while it does not hold: it neither records the chord nor
+        // claims it, a later binding of the same chord may still match, and with none the host gets the key.
+        if (!test(root_, b.when, b.when.param.empty() ? -1 : state_.indexOf(subst(root_, b.when.param)))) continue;
         // The same chord by the other route, this close behind, is the host sending one press two ways
         // (seen with Shift+digit): it was acted on already, so this copy is ours and does nothing.
         // The memory is then spent, so the next press acts whichever route it comes by; a repeat along one
@@ -2409,6 +2412,7 @@ void Gui::itemMenu(const Hit& h, const std::vector<Item>& items, Rect at, const 
 void Gui::dropdown(const Hit& h) { itemMenu(h, itemsOf(*h.node, h.i), menuAnchor(h), wid(h).menuStyle, true); }
 
 // "itemsData": one item per line of that text data, valued by its index, for choices only the product knows.
+// With "perColumn" every n-th item starts a new column, as a presets menu lays its slots out.
 std::vector<Item> Gui::itemsOf(const Node& n, int i) const {
     const Widget& w = n.view->widgets[i];
     if (w.itemsData.empty()) return w.items;
@@ -2419,6 +2423,7 @@ std::vector<Item> Gui::itemsOf(const Node& n, int i) const {
         Item it;
         it.label = it.shortLabel = d.substr(p, e - p);
         it.value = (double)out.size();
+        it.columnBreak = w.perColumn > 0 && !out.empty() && out.size() % (size_t)w.perColumn == 0;
         out.push_back(std::move(it));
         p = e + 1;
     }

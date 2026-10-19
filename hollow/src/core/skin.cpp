@@ -833,6 +833,7 @@ struct Loader {
         w.items = items(j["items"]);
         w.context = items(j["context"]);
         w.itemsData = j["itemsData"].str();
+        w.perColumn = std::max(0, j["perColumn"].integer());
         w.menuStyle = j["menuStyle"].str();
         w.hasMenuAt = j.has("menuAt");
         w.menuAt[0] = px(j["menuAt"][0].num());
@@ -1089,6 +1090,7 @@ std::shared_ptr<Skin> loadFiles(std::shared_ptr<const Files> all, std::string* e
         Binding b;
         if (!Loader::chord(kj["chord"].str(), b)) continue;   // an unreadable chord is dropped, not fatal
         b.action = Loader::action(kj);
+        b.when = Loader::cond(kj["when"]);                    // none: the chord fires on every page
         if (b.action.type != Action::None) skin->keys.push_back(std::move(b));
     }
     if (auto root = skin->views.find(skin->root); root != skin->views.end()) {
