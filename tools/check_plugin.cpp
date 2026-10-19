@@ -672,6 +672,33 @@ int main() {
     request("bank.request", "delete");
     CHECK(a.until([&] { return !lineOf("bank.list", "Kept"); }) && fs::exists(tmp / "Library" / "Deleted" / "Kept.syx"), "Delete Bank did not move \"Kept\" to Deleted");
 
+    // Choosing an Fseq does what the panel's FUN_00032A38 does: the start offset goes to 0 and the header's
+    // loop, loop mode, tempo velocity, pitch mode and delay go into the performance. A performance load
+    // keeps its own: B014 "Full Tines" loops 0 to 0 on an Int Fseq, 43 "ChuckRtm" brings 0 to 115.
+    {
+        a.set("perf.bank", 0);
+        a.set("perf.program", 141);
+        CHECK(a.until([&] { return a.data("perf.name") == "Full Tines" && a.is("gui.edited", 0); }), "B014 did not load (\"%s\")", a.data("perf.name").c_str());
+        a.set("fseq.start", 7);
+        a.set("fseq.bank", 1);
+        a.set("fseq.number", 42);
+        CHECK(a.until([&] { return a.is("fseq.loop_end", 115); }), "choosing ChuckRtm did not copy its loop (end %g)", a.get("fseq.loop_end"));
+        std::vector<uint8_t> h;
+        for (auto& b : engine())
+            if (b.first == 0x60) h = b.second;
+        CHECK(h.size() >= 32, "the engine holds no Fseq after choosing one");
+        if (h.size() >= 32)
+            CHECK(a.is("fseq.start", 0) && a.is("fseq.loop_start", h[0x10] << 7 | h[0x11]) && a.is("fseq.loop_end", h[0x12] << 7 | h[0x13]) &&
+                      a.is("fseq.loop_mode", h[0x14] & 1) && a.is("fseq.speed_vel", h[0x16] & 7) && a.is("fseq.pitch_mode", h[0x17] & 1) && a.is("fseq.delay", h[0x1A]),
+                  "choosing an Fseq left start %g, loop %g to %g, mode %g, tempo vel %g, pitch %g, delay %g against its header",
+                  a.get("fseq.start"), a.get("fseq.loop_start"), a.get("fseq.loop_end"), a.get("fseq.loop_mode"), a.get("fseq.speed_vel"), a.get("fseq.pitch_mode"), a.get("fseq.delay"));
+        a.set("perf.program", 0);
+        CHECK(a.until([&] { return a.data("perf.name") == "Zap !"; }), "A001 did not load (\"%s\")", a.data("perf.name").c_str());
+        a.set("perf.program", 141);
+        CHECK(a.until([&] { return a.data("perf.name") == "Full Tines"; }), "B014 did not load again (\"%s\")", a.data("perf.name").c_str());
+        CHECK(a.is("fseq.loop_start", 0) && a.is("fseq.loop_end", 0), "a performance load took the Fseq's loop (%g to %g)", a.get("fseq.loop_start"), a.get("fseq.loop_end"));
+    }
+
     // A performance with no Fseq part, saved while the unit held an Fseq, plays at its own pitch when its
     // copy is picked after a close and reopen. The preset carries that Fseq, and the engine's Fseq loader
     // gives a performance without a part the first one, so the copy once played every part 1 note at the

@@ -319,8 +319,10 @@ at 23982 Hz in all three, the saturated word to a tenth. The word saturates, it 
 to the constant. Nothing shifts the frame's own formant frequencies, which is the point of the format:
 the formants stay where the sequence put them while the fundamental follows the key. Loop start/end and start offset come from the
 performance, the end of valid data from the Fseq header. **From the performance and nowhere else**: FUN_0000FFFA reads
-0x1C-0x1F into DAT_010291CE and DAT_010291D0 at every trigger, and the Fseq header's own pair is the default the panel
-copies in when you select the Fseq, not a fallback the player reaches for. A performance whose two loop points are the
+0x1C-0x1F into DAT_010291CE and DAT_010291D0 at every trigger, and the Fseq header's settings are the defaults the panel
+copies in when you select the Fseq (FUN_00032A38: the start offset 0x1A to 0, then loop start, loop end, loop mode, tempo
+velocity, pitch mode and delay from header bytes 0x10, 0x12, 0x14, 0x16, 0x17 and 0x1A into performance bytes 0x1C,
+0x1E, 0x20, 0x22, 0x23 and 0x26; `docs/findings.md` 2026-10-20), not a fallback the player reaches for. A performance whose two loop points are the
 same step does not play: FUN_0001A894 and FUN_0001A8E0 wrap to the far point and clear the run flags when the two are
 equal, so the sequence advances once and holds that frame for the rest of the note. Eight factory performances do this
 on purpose, "Zap !" at 127 and "Replicant" at 94, which is how an Fseq is made to hold one frame. Preset Fseqs live in the EPROM at 0x300A00 (1-10, 512 frames,

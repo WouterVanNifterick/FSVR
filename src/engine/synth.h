@@ -188,8 +188,9 @@ struct Synth {
     // ---------------------------------------------------------------- Fseq (FUN_0000fffa / FUN_0001a59e)
     // The loop points are the performance's own bytes and nothing else. FUN_0000fffa reads 0x1C-0x1F
     // straight into DAT_010291CE and DAT_010291D0 at every trigger; the Fseq header's own pair is the
-    // default the panel copies into a performance when you select the Fseq, not a fallback the player
-    // reaches for. This used to fall back when the two were equal, which turned a performance that the
+    // default the panel copies into a performance when you select the Fseq (FUN_00032A38: it zeroes the
+    // start offset and copies the loop pair, loop mode, tempo velocity, pitch mode and delay), not a
+    // fallback the player reaches for. This used to fall back when the two were equal, which turned a performance that the
     // unit freezes on its first frame into one that plays. Eight factory performances set them equal on
     // purpose, "Zap !" at 127 and "Replicant" at 94, and so did the first draft of 12_fseqlevel, which
     // is how it was found: the unit recorded digital silence where the engine played.

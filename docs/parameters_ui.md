@@ -12,7 +12,7 @@ Every parameter in the FS1R's Data List, and where the editor puts it, or that i
 | Reverb and Variation Param 10 | `fx.rev.p10`, `fx.var.p10` | No reverb or variation type in the Data List uses the slot | Yes |
 | Rcv Channel Max for parts 3 and 4 | `part.rcv_max.p3`, `part.rcv_max.p4` | The manual gives a receive range to parts 1 and 2 only, though the byte exists for all four | Yes |
 | Voice Category | `voice.category.p1` to `.p4` | No control edits the part's voice. Edit Attributes in the Browser changes a *saved* preset's category in its bank (`item.category`), and a voice saved with Save Current Preset keeps whatever the edit buffer held | Not written down until now |
-| Fseq header (Table 3, `70 00 ll`): loop mode, tempo velocity sense, formant pitch mode, sequence delay, frame format | none | The player reads the performance's loop mode, tempo velocity, pitch mode and delay, not the header's (Fseq header, below); the frame format is the Fseq's size. The header's note, tuning, speed adjustment, end and loop are on the Fseq page | Yes |
+| Fseq header (Table 3, `70 00 ll`): loop mode, tempo velocity sense, formant pitch mode, sequence delay, frame format | none | The player reads the performance's loop mode, tempo velocity, pitch mode and delay, not the header's; choosing the Fseq copies the header's into the performance, as the unit's panel does (Fseq header, below); the frame format is the Fseq's size. The header's note, tuning, speed adjustment, end and loop are on the Fseq page | Yes |
 | Fseq frames: pitch, and eight voiced and eight unvoiced formant frequencies and levels per frame | not params | Data, not settings. Import Audio makes them out of a sound file, and the Fseq page draws them | Yes |
 | Names: performance (12 characters), voice (10, one per part), Fseq (8) | not params | Only saved items have names you can edit: Save Current Preset names the performance it saves, and Rename on a row in a user bank renames a performance, voice or Fseq there. The edit buffer's names cannot be edited ([editor.md](editor.md), Open) | Open |
 | Fseq init command (`00 00 46`) | none | A command, not a setting; the engine ignores it as a parameter change | Yes |
@@ -332,19 +332,19 @@ Every row is `op.K.u.<name>.pN`. N on the Op column, the Operator page and the A
 
 ## Fseq header (`70 00 ll`)
 
-The loaded Fseq's own settings, sent as the Data List's Fseq parameter changes. The player reads the note, the tuning and the speed adjustment (FUN_000127FC, FUN_0001A59E) and the end of valid data; the loop is the pair choosing the Fseq copies into the performance. The params read whatever the loaded Fseq holds. The other four settings have no param: the player reads the performance's instead (Performance Common, above).
+The loaded Fseq's own settings, sent as the Data List's Fseq parameter changes. The player reads the note, the tuning and the speed adjustment (FUN_000127FC, FUN_0001A59E) and the end of valid data; the loop, loop mode, tempo velocity, pitch mode and delay are the defaults choosing the Fseq copies into the performance, which also sets the performance's start offset to 0 (FUN_00032A38, [findings.md](findings.md) 2026-10-20). The params read whatever the loaded Fseq holds. The other four settings have no param yet: the player reads the performance's copies (Performance Common, above).
 
 | Address | Data List | Param | Where | Notes |
 |---|---|---|---|---|
 | 00 to 07 | NAME | none | Rename on a user Fseq; Import Audio names it after the file | see Names |
 | 10 to 11 | start step of loop point | `fseq.hdr.loop_start` | Fseq › In the Fseq › Loop | copied into the performance's Loop Start when the Fseq is chosen |
 | 12 to 13 | end step of loop point | `fseq.hdr.loop_end` | Fseq › In the Fseq › Loop ... to | copied into the performance's Loop End |
-| 14 | loop mode | none | | the player reads the performance's Loop Mode |
+| 14 | loop mode | none | | copied into the performance's Loop Mode, which the player reads |
 | 15 | speed adjust | `fseq.hdr.speed` | Fseq › In the Fseq › Speed Adj | the performance's Speed % scales it |
-| 16 | velocity sensitivity for tempo | none | | the player reads the performance's Speed Vel |
-| 17 | formant pitch mode | none | | the player reads the performance's Pitch |
+| 16 | velocity sensitivity for tempo | none | | copied into the performance's Speed Vel, which the player reads |
+| 17 | formant pitch mode | none | | copied into the performance's Pitch, which the player reads |
 | 18 | formant note assign | `fseq.hdr.note` | Fseq › In the Fseq › Note | |
 | 19 | formant pitch tuning | `fseq.hdr.tuning` | Fseq › In the Fseq › Tune | |
-| 1A | formant sequence delay | none | | the player reads the performance's Delay |
+| 1A | formant sequence delay | none | | copied into the performance's Delay, which the player reads |
 | 1B | frame data format (128 to 512 frames) | none | | the Fseq's size, not a setting; Import Audio picks the smallest that holds the sound |
 | 1E to 1F | end step of valid data | `fseq.hdr.end` | Fseq › In the Fseq › End | the Browser's Fseq list shows the length |

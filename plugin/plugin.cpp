@@ -1162,15 +1162,22 @@ private:
         syncBrowse();
     }
 
-    // Choosing an Fseq, as the unit's panel does, copies its header's loop points into the performance:
-    // the player reads the performance's pair and nothing else (FUN_0000FFFA, docs/ymp706_registers.md),
-    // so without the copy a new Fseq plays the loop the performance had, one frame when that was 0 to 0.
-    // A performance's own load keeps its pair (followPerf loads its Fseq without this).
+    // Choosing an Fseq does what the unit's panel does after an Fseq change (FUN_00032A38, docs/findings.md
+    // 2026-10-20): the start offset goes to 0, and the header's loop start and end, loop mode, tempo velocity,
+    // pitch mode and delay are copied into the performance. The player reads the performance's bytes and
+    // nothing else (FUN_0000FFFA), so without the copy a new Fseq would play the loop the performance had,
+    // one frame when that was 0 to 0. A performance's own load keeps its values (followPerf loads its Fseq
+    // without this).
     void chooseFseq(const Item& f) {
         dev.loadSyx(f.syx.data(), f.syx.size(), 0, 0);
         const uint8_t* h = f.data();
+        choose(P("fseq.start"), 0);
         choose(P("fseq.loop_start"), h[0x10] << 7 | h[0x11]);
         choose(P("fseq.loop_end"), h[0x12] << 7 | h[0x13]);
+        choose(P("fseq.loop_mode"), h[0x14] & 1);
+        choose(P("fseq.speed_vel"), h[0x16] & 7);
+        choose(P("fseq.pitch_mode"), h[0x17] & 1);
+        choose(P("fseq.delay"), h[0x1A]);
         adopt();
         syncBrowse();
     }
