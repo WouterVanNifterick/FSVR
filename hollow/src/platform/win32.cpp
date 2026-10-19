@@ -24,7 +24,7 @@ struct PlatformWindow {
     Gui* gui = nullptr;
     bool tracking = false;
     wchar_t high = 0;           // WM_CHAR: the first half of a surrogate pair
-    bool ateKey = false;        // the last key down was ours, so its WM_CHAR / WM_SYSCHAR is ours too
+    bool dropChar = false;      // the last key down was used or passed on, so its WM_CHAR / WM_SYSCHAR goes no further
     bool sentDown[256] = {};    // keys whose press went on to the host, by virtual key: their release goes too
     HWND root = nullptr;        // the standalone's window, while its close asks the GUI first
     WNDPROC rootProc = nullptr; // and its own procedure
@@ -288,12 +288,13 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         // A key text entry is typing with is ours too, but its character is the whole of what the entry
         // wants, so that one is left to arrive (charPending) rather than taken along with its key.
         const bool used = offerKey(g, wp);
-        w->ateKey = used && !g.charPending();
+        w->dropChar = used && !g.charPending();
         keyLog("key msg=%04x wp=%02x used=%d pending=%d focus=%p", (unsigned)msg, (unsigned)wp, (int)used, (int)g.charPending(),
                (void*)GetFocus());
         if (used) return 0;
         if (forwardKey(w, msg, wp, lp)) {
             if (wp < 256) w->sentDown[wp] = true;   // so its release follows it there
+            w->dropChar = true;                     // and the host types its character from the press
             return 0;
         }
         break;   // not ours and nowhere to send it: DefWindowProc, so Alt+F4 and the system menu still work
@@ -301,9 +302,12 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CHAR:
     case WM_SYSCHAR: {
         // The character of a key we used is used too: forwarding it is what beeps and flashes the title bar,
-        // and it would type Shift+1's "!" into the host as well.
-        if (w->ateKey) {
-            w->ateKey = false;
+        // and it would type Shift+1's "!" into the host as well. That of a key we passed on is the host's to
+        // make: the posted press goes through its message loop, whose TranslateMessage types it there, so
+        // forwarding this one too types it twice, and a host that acts on the character acts twice: Space
+        // starts the transport and stops it again.
+        if (w->dropChar) {
+            w->dropChar = false;
             return 0;
         }
         if (!g.wantsKeys()) {   // no text entry: the character is the host's

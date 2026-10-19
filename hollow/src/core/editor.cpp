@@ -2068,15 +2068,18 @@ bool Gui::keyDown(Key k, bool shift, bool ctrl, bool alt, unsigned ch, bool from
         return true;
     }
     if (!editing_on_) {
-        if (!live(listFocus_)) {
-            // Nothing in the editor owns the keyboard, so the skin's shortcuts get the key; a modal keeps
-            // them to itself, since its own controls are what the keyboard is for while it is up.
-            if (modalShown_.empty() && !isPopup_) return runKey(k, ch, shift, ctrl, alt, fromHost);
-            if (k == KeyEscape) dismiss();   // Escape closes a modal, as its Cancel would
+        // A list with a selected row keeps the named keys, the ones that act on a selection, though only
+        // Escape (which lets go) and a MIDI map's Delete do anything yet. A key that types is no use to it and
+        // goes on as if no list had the keyboard, so Space still reaches the host's transport.
+        if (live(listFocus_) && k != KeyNone) {
+            if (k == KeyEscape) listFocus_ = {};
+            else if (k == KeyDelete && wid(listFocus_).source == Widget::MidiMap) listAction(listFocus_, Action{Action::MidiMap, "remove"});
             return true;
         }
-        if (k == KeyEscape) listFocus_ = {};
-        else if (k == KeyDelete && wid(listFocus_).source == Widget::MidiMap) listAction(listFocus_, Action{Action::MidiMap, "remove"});
+        // The skin's shortcuts get the key; a modal keeps them to itself, since its own controls are what the
+        // keyboard is for while it is up.
+        if (modalShown_.empty() && !isPopup_) return runKey(k, ch, shift, ctrl, alt, fromHost);
+        if (k == KeyEscape) dismiss();   // Escape closes a modal, as its Cancel would
         return true;
     }
     Edit& e = edit_;
