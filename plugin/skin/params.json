@@ -37768,5 +37768,45 @@
   "max": 511,
   "default": 0,
   "steps": 511
+ },
+ {
+  "id": "fseq.hdr.loop_mode",
+  "name": "Fseq Header Loop Mode",
+  "min": 0,
+  "max": 1,
+  "default": 0,
+  "steps": 1,
+  "labels": [
+   "One Way",
+   "Round"
+  ]
+ },
+ {
+  "id": "fseq.hdr.tempo_vel",
+  "name": "Fseq Header Tempo Velocity",
+  "min": 0,
+  "max": 7,
+  "default": 0,
+  "steps": 7
+ },
+ {
+  "id": "fseq.hdr.pitch_mode",
+  "name": "Fseq Header Pitch Mode",
+  "min": 0,
+  "max": 1,
+  "default": 0,
+  "steps": 1,
+  "labels": [
+   "Fseq",
+   "Fixed"
+  ]
+ },
+ {
+  "id": "fseq.hdr.delay",
+  "name": "Fseq Header Delay",
+  "min": 0,
+  "max": 99,
+  "default": 0,
+  "steps": 99
  }
 ]

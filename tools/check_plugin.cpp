@@ -413,6 +413,10 @@ int main() {
     a.set("fseq.hdr.note", 62);
     a.set("fseq.hdr.tuning", -5);
     a.set("fseq.hdr.end", lastFrame);
+    a.set("fseq.hdr.loop_mode", 1);
+    a.set("fseq.hdr.tempo_vel", 3);
+    a.set("fseq.hdr.pitch_mode", 1);
+    a.set("fseq.hdr.delay", 12);
     a.run(2);
     a.st->setData("fseq.export", (tmp / "header.syx").u8string());
     CHECK(a.until([&] { return fs::exists(tmp / "header.syx") && fs::file_size(tmp / "header.syx") > 9 + 32; }), "Export Fseq wrote nothing");
@@ -420,8 +424,9 @@ int main() {
         std::ifstream f(tmp / "header.syx", std::ios::binary);
         const std::vector<uint8_t> x((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
         const uint8_t* h = x.data() + 9;   // F0 43 0n 5E, the byte count, 60 00 00, then the header
-        CHECK(h[0x18] == 62 && h[0x19] == 63 - 5 && (h[0x1E] << 7 | h[0x1F]) == lastFrame,
-              "the exported header has note %d, tuning %d, end %d", h[0x18], h[0x19], h[0x1E] << 7 | h[0x1F]);
+        CHECK(h[0x18] == 62 && h[0x19] == 63 - 5 && (h[0x1E] << 7 | h[0x1F]) == lastFrame && h[0x14] == 1 && h[0x16] == 3 && h[0x17] == 1 && h[0x1A] == 12,
+              "the exported header has note %d, tuning %d, end %d, loop mode %d, tempo vel %d, pitch mode %d, delay %d",
+              h[0x18], h[0x19], h[0x1E] << 7 | h[0x1F], h[0x14], h[0x16], h[0x17], h[0x1A]);
     }
 
     // The Fseq plays from a note on its part, and the page's playback line follows it.

@@ -2134,6 +2134,34 @@
   ],
   "wide": 1
  },
+ "fseq.hdr.loop_mode": {
+  "a": [
+   112,
+   0,
+   20
+  ]
+ },
+ "fseq.hdr.tempo_vel": {
+  "a": [
+   112,
+   0,
+   22
+  ]
+ },
+ "fseq.hdr.pitch_mode": {
+  "a": [
+   112,
+   0,
+   23
+  ]
+ },
+ "fseq.hdr.delay": {
+  "a": [
+   112,
+   0,
+   26
+  ]
+ },
  "fx.rev.type": {
   "a": [
    16,
