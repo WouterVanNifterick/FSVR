@@ -917,7 +917,9 @@ private:
     }
 
     // The Parts page's lamp turns a part off and on: off is voice bank off, as the unit has it, and the bank is
-    // kept with the session for on to bring back, with the voice it held.
+    // kept with the session for on to bring back, with the voice it held. Bank off changes only the part's bank
+    // byte, so the engine still holds that voice, edits and all: on puts the byte back and nothing else. A part
+    // the lamp did not turn off (a performance or the host did) has no record, and on loads the bank's voice.
     void lamp(int p) {
         const std::string key = "part.bank_was.p" + std::to_string(p + 1);
         const int b = (int)get(partBank[p]);
@@ -927,8 +929,9 @@ private:
             choose(partBank[p], 0);
         } else if (b == 0) {
             const int was = std::atoi(st.data(key).c_str());
-            choose(partBank[p], was >= 1 && was <= 12 ? was : 2);
-            loadPartVoice(p);
+            const bool kept = was >= 1 && was <= 12;
+            choose(partBank[p], kept ? was : 2);
+            if (!kept) loadPartVoice(p);
         }
     }
 
@@ -1016,6 +1019,7 @@ private:
         const uint8_t* d = perf.data();
         const int k = bank && bank >= lib.banks.data() && bank < lib.banks.data() + lib.banks.size() ? (int)(bank - lib.banks.data()) : -1;
         for (int p = 0; p < 4; ++p) {
+            st.setData("part.bank_was.p" + std::to_string(p + 1), "");   // the lamp's record is of the voice this load replaces
             const int vb = d[192 + 52 * p + 1], prog = d[192 + 52 * p + 2];
             auto from = [&](const Item* v) {   // a voice of the performance's own bank
                 loadVoiceItem(*v, p);

@@ -654,6 +654,30 @@ int main() {
         CHECK(b.get("fseq.position") == step, "the Fseq ran on Tines Copy, which has no Fseq part (step %g, was %g)", b.get("fseq.position"), step);
     }
 
+    // The Parts page's lamp brings back the voice its part held, edits and all. It once reloaded the factory
+    // voice the part's bank and number name, so an edited part came back as the stock voice.
+    {
+        a.set("perf.bank", 0);
+        a.set("perf.program", 12);   // A013 Dirt Vocoder, parts 1 and 2 on
+        CHECK(a.until([&] { return a.data("perf.name") == "Dirt Vocoder" && a.is("gui.edited", 0); }), "A013 did not load for the lamp (\"%s\", edited %g)",
+              a.data("perf.name").c_str(), a.get("gui.edited"));
+        a.set("op.1.v.level.p1", 42);
+        a.run(4);
+        auto voiceOf = [&](int bulk) {
+            for (auto& b : engine())
+                if (b.first == bulk) return b.second;
+            return std::vector<uint8_t>();
+        };
+        const auto held = voiceOf(0x40);
+        CHECK(!held.empty(), "part 1 has no voice bulk");
+        a.set("part.on.p1", 0);
+        CHECK(a.until([&] { return a.is("part.bank.p1", 0); }), "the lamp did not turn part 1 off");
+        a.set("part.on.p1", 1);
+        CHECK(a.until([&] { return !a.is("part.bank.p1", 0); }), "the lamp did not turn part 1 back on");
+        CHECK(voiceOf(0x40) == held, "part 1 came back with another voice than the one it held");
+        CHECK(a.is("op.1.v.level.p1", 42), "part 1's edit did not come back (level %g)", a.get("op.1.v.level.p1"));
+    }
+
     a.proc.reset();
     // Options: a new instance plays the Init Patch. The standalone's app brings back the state it closed with, as a
     // session, as it starts: Load Last Patch keeps it, and otherwise the Init Patch plays over it. A host's session stays.
