@@ -122,6 +122,8 @@ Every push to `main` builds the same set through [GitHub Actions](https://github
 - **installer**, on Linux. Checks out [musicastudio/Installer](https://github.com/musicastudio/Installer), packs the plug-in artifacts into it and builds `FSVR-Windows-Installer.exe`, `FSVR-MacOS-Installer.zip`, `FSVR-Linux-Installer` and `FSVR-MacOS-Update` (the bare binary the macOS updater runs), at the version in `CMakeLists.txt`.
 - **release**, on a `v*` tag only. Splits the plug-in artifacts into one zip per format, named as FM8.plus names its own (`FSVR-Windows-VST2-64.zip`, `FSVR-Windows-VST2-32-DXi.zip`, `FSVR-MacOS-AU.zip` and so on), adds the installers, the console and `SHA256SUMS.txt`, and attaches them to a GitHub release. The installers' updater never reads GitHub: musica.studio mirrors each release and serves the update from there.
 
+Each night `.github/workflows/nightly.yml` takes the newest build of `main` that passed every check, without rebuilding it, and publishes its installers and plug-in zips as the [nightly](https://github.com/musicastudio/FSVR/releases/tag/nightly) pre-release, which the updater never offers. A night when `main` has not moved publishes nothing. New nightlies and releases are posted to the Discord channel with their download links, as are new issues and pull requests.
+
 ### Building it
 
 CMake 3.24 or later everywhere, C++17. The engine, the console and the self checks need no dependencies:
