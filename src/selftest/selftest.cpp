@@ -785,6 +785,17 @@ int selftest(Synth& S) {
       ck("key sync: two operators in step at every note", held);
       ck("key sync: a frequency EG on one alone leads it by a share that doubles each octave", doubles && fabs(fe[0]) > 0.05); }
 
+    // odd and res read their window and carrier by phase with the modulation added to both (US5610354, FIG. 11), so a
+    // fixed operator at 0 Hz shapes whatever modulates it, as the sine does. As grains fired by an accumulator of their
+    // own they passed nothing at 0 Hz: a modulator into odd1 at 0 Hz was silence (reported on the 2026-10-20 nightly).
+    { double quiet = 1;
+      for (int form : {0, 3, 4, 5, 6}) {
+          OpV v{}; v.form = form; v.skirt = 0; OpState s{}; double peak = 0;
+          for (int i = 0; i < 4800; i++) peak = std::max(peak, std::fabs(op_sample(s, v, 0, 0, 0, 1, 0.3 * std::sin(2 * 3.14159265358979 * 100.0 * i / SR), 1)));
+          quiet = std::min(quiet, peak);
+      }
+      ck("a 0 Hz operator shapes its modulator on sine, odd1, odd2, res1 and res2", quiet > 0.01); }
+
     // The phase generator, as measured on the unit (cal.h): the increments take 3 predicted and then read off it,
     // carriers and modulators, fixed and ratio-mode, every floor-or-round choice a floor; the saturated word's
     // 23982 Hz line; and a fixed operator at coarse 17, fine 3 stepping by exactly that increment in a channel.

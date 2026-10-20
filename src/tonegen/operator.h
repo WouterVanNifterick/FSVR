@@ -54,7 +54,7 @@ static inline double db2lin_fast(double db) { return db <= -128 ? 0.0 : fm::db2l
 struct WinGen { double w = 1.0, c = 0.0, fc = 0.0; bool on = false; };
 struct OpState {
     uint32_t phase = 0;           // 2^32 to a cycle, stepped by op_inc32(inc): the phase generator (cal.h)
-    WinGen g[2]; int nextGen = 0; double fphase = 0; int halfCount = 0;
+    WinGen g[2]; int nextGen = 0; double fphase = 0;   // the formant's grains
     double word = 0; uint32_t inc = 0;   // the operator's frequency word and its increment (refresh_ctl)
     EG eg; FreqEG feg;
     EG ueg; FreqEG ufeg; double nphase = 0; double lp[8] = {}; uint32_t rng = 0x12345678;
@@ -82,12 +82,14 @@ struct OpState {
 // dark above 640 Hz before any smoothing is applied, which is the noise formant's bandwidth law and
 // not this, so they cannot judge a glide; slewing it there only makes them darker.
 //
-// The sine and the stored waves read the phase generator's own integer phase, stepped by `inc` (cal.h); the
-// grain forms run their carriers at `fop`, the same increment in hertz.
-inline double op_sample(OpState& s, const OpV& v, double f0, double fop, uint32_t inc, int ratio, double pm, double gain) {
-    if (v.form <= 2) {
+// The sine, the stored waves and the odd and res forms read the phase generator's own integer phase, stepped
+// by `inc` (cal.h); the formant runs its grains' carriers at `fop`, the same increment in hertz. ph0 is ours,
+// op byte 0x1C's initial phase in turns (docs/Differences.md): it turns the operator's own phase, where pm is
+// what the modulators send.
+inline double op_sample(OpState& s, const OpV& v, double f0, double fop, uint32_t inc, int ratio, double pm, double gain, double ph0 = 0) {
+    if (v.form <= 6) {
         s.phase += op_inc32(inc);
-        const double ph = s.phase * (1.0 / 4294967296.0);
+        const double ph = s.phase * (1.0 / 4294967296.0) + ph0;
         if (v.form == 0) return gain * fsin(ph + pm);
         // all1 and all2 are a stored waveform read by phase, the same way the sine is: one period of
         // the skirt's window with its mean taken out, so a modulator reaches it as phase like any other
@@ -97,58 +99,55 @@ inline double op_sample(OpState& s, const OpV& v, double f0, double fop, uint32_
         // replaces was 36 to 66 dB out by skirt 7. At skirt 0 the DC-free sin^2 is -cos / 2, the single
         // partial the unit gives, and the mean is gone because the unit's is: every all1/all2 take reads
         // mean / rms under 0.03 where a raw sin^2 pulse train sits at 0.7. docs/skirt.md.
-        double x = ph + pm; x -= floor(x);
-        return gain * cal::FORM_LEVEL * 2.0 * (fwin(v.form == 1, v.skirt, x) - g_winDC[v.form == 1][v.skirt]);
+        if (v.form <= 2) {
+            double x = ph + pm; x -= floor(x);
+            return gain * cal::FORM_LEVEL * 2.0 * (fwin(v.form == 1, v.skirt, x) - g_winDC[v.form == 1][v.skirt]);
+        }
+        // odd and res: a window times a carrier, each addressed by its own phase word with the modulation added to
+        // both, which is how Yamaha's patent for the chip's forms builds its windowed carrier (US5610354, FIG. 11:
+        // adders 42a/42b put the modulation into the window's address, 45a/45b into the carrier's, and the
+        // carrier restarts with the window). The window's and the carrier's phases are the operator's own, so
+        // with no modulator this is the windowed grain train measured below, line for line. They used to be
+        // grains fired by an accumulator of their own with the modulation on the carrier alone, so a fixed
+        // operator at 0 Hz fired none and passed nothing, where a sine shapes whatever modulates it.
+        // INFERRED from the patent; no take yet drives these forms with a modulator or at 0 Hz.
+        //
+        // odd1/odd2 are a group that starts at the operator's own frequency. MEASURED: the unit gives partials 1
+        // and 3 on odd1 and odd2, where the fixed quarter-period window at DC this once was gave a full harmonic
+        // series. A window twice a period under a carrier at the operator's frequency puts its lines at fop,
+        // 3 fop, 5 fop and nowhere else.
+        // res1 and res2 put a three-partial group on harmonic ratio + 1 and are otherwise identical. MEASURED on
+        // 2026-09-19 by sweeping register 0x230 through all hundred values on each: the peak lands on partial
+        // ratio + 1 at every one of the hundred, on both forms, with the two partials either side 6 dB down and
+        // everything else at the noise floor, and the peak level flat across the whole range. docs/formant.md.
+        // The window is one period, FIXED, and the bandwidth has nothing to do with it. MEASURED on 2026-09-19
+        // by sweeping register 0x218 through all hundred values on each form: the formant's window opens and
+        // every one of the other six is flat to the byte. Voice byte 6 reaches these forms as register 0x230,
+        // the ratio above. The "1" and "2" of each pair differ in the window's shape (g_win), not its length:
+        // a sin^2 window exactly one period long makes the two partials either side of res's peak 6.02 dB down
+        // and kills everything beyond them, which is what the unit gives at every one of a hundred settings.
+        double w, c;
+        if (v.form <= 4) { w = 2 * ph + pm; c = ph + pm; }                                   // odd: the window twice a period
+        else { const double f = ph - floor(ph); w = f + pm; c = (ratio + 1) * f + pm; }       // res: on partial ratio + 1
+        w -= floor(w);
+        return gain * cal::FORM_LEVEL * 2.0 * fwin(v.form == 3 || v.form == 5, v.skirt, w) * fsin(c);
     }
-    double fw, fc, wl;
-    if (v.form == 7) { fw = f0; fc = fop; wl = s.wl7; }                                                          // formant: window at the fundamental (INFERRED bw curve)
-    // odd1/odd2 are a group that starts at the operator's own frequency, so they are the same windowed
-    // carrier the formant is, with the carrier at fop. MEASURED: the unit gives partials 1 and 3 on odd1
-    // and odd2, where the fixed quarter-period window at DC this replaces gave a full harmonic series.
-    // Retriggering at twice fop is what leaves the odd partials: a grain train at that spacing under a
-    // carrier at fop puts its lines at fop, 3 fop, 5 fop and nowhere else.
-    //
-    // The window is FIXED, and the bandwidth has nothing to do with it. MEASURED on 2026-09-19 by
-    // sweeping register 0x218 through all hundred values on each form in turn: the formant's window
-    // opens and every one of the other six is flat to the byte, width and peak both. Voice byte 6 does
-    // reach those forms, but as register 0x230, which the Data List calls the "freq. ratio of band
-    // spectrum" and which the voice image confirms carries the raw byte for them and the formant
-    // transpose word for the formant. What it does there is unmeasured: the sweep meant to settle it
-    // wrote 0x218. INFERRED, FS1R.unlock/docs/unknowns.md experiment 9.
-    // res1 and res2 put a three-partial group on harmonic ratio + 1 and are otherwise identical.
-    // MEASURED on 2026-09-19 by sweeping register 0x230 through all hundred values on each: the peak
-    // lands on partial ratio + 1 at every one of the hundred, on both forms, with the two partials
-    // either side 6 dB down and everything else at the noise floor, and the peak level flat across
-    // the whole range. The 1 + ratio * 31 / 99 this replaces topped out at 32 times the fundamental
-    // where the unit reaches 100. docs/formant.md.
-    // The window is one grain period for the odd and resonant forms; the "1" and "2" of each pair
-    // differ in the window's shape (g_win), not its length. MEASURED off the sideband ratios, which a
-    // sin^2 window fixes exactly: a grain exactly one period long makes the two partials either side
-    // of the peak 6.02 dB down and kills everything beyond them, which is what the unit gives res1
-    // and res2 at every one of a hundred settings.
-    else if (v.form == 5 || v.form == 6) { fw = fop; fc = fop * (ratio + 1); wl = 1.0; }
-    else { fw = 2 * fop; fc = fop; wl = 1.0; }
-    wl = std::min(wl, 2.0);
-    s.fphase += fw / SR;
+    // The formant: grains under a window at the fundamental (INFERRED bw curve), the asymmetric window, each
+    // restarting its carrier, which is what holds its peak still while the fundamental moves.
+    pm += ph0;
+    const double wl = std::min(s.wl7, 2.0);
+    s.fphase += f0 / SR;
     if (s.fphase >= 1) {
-        s.fphase -= 1; WinGen& g = s.g[s.nextGen]; g.on = true; g.w = 0; g.fc = fc;
-        // The formant restarts its carrier every grain, which is what holds its peak still while the
-        // fundamental moves. The odd forms retrigger twice a period, so restarting there would put
-        // half a cycle of alternation into the grain train and land the group on the even partials;
-        // half a cycle back is the same carrier running on.
-        g.c = (v.form == 3 || v.form == 4) && (s.halfCount & 1) ? 0.5 : 0.0;
-        s.nextGen ^= 1; s.halfCount++;
+        s.fphase -= 1; WinGen& g = s.g[s.nextGen]; g.on = true; g.w = 0; g.fc = fop; g.c = 0.0;
+        s.nextGen ^= 1;
     }
-    double winc = fw / (wl * SR), y = 0;
-    // The "1" forms and the formant take the asymmetric window, the "2" forms the symmetric one.
-    int fam = v.form == 3 || v.form == 5 || v.form == 7;
+    double winc = f0 / (wl * SR), y = 0;
     for (int k = 0; k < 2; k++) {
         WinGen& g = s.g[k]; if (!g.on) continue;
         g.w += winc; if (g.w >= 1) { g.on = false; continue; }
-        y += gain * fwin(fam, v.skirt, g.w) * fsin(g.c + pm); g.c += g.fc / SR;
+        y += gain * fwin(1, v.skirt, g.w) * fsin(g.c + pm); g.c += g.fc / SR;
     }
-    if (v.form == 7) { if (cal::FRMT_NORM != 0.0) y *= pow(1.0 / wl, cal::FRMT_NORM); }
-    else y *= cal::FORM_LEVEL * 2.0 / wl;    // every form but sine and frmt; a shorter grain carries less
+    if (cal::FRMT_NORM != 0.0) y *= pow(1.0 / wl, cal::FRMT_NORM);
     return y;
 }
 

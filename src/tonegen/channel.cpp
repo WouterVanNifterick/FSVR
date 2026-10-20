@@ -157,7 +157,7 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
             // rather than being changed on a guess. The EG moves the word, so the phase generator takes the
             // moved word every sample of the ramp.
             if (!v.fixed && s.feg.stage < 2) { inc = op_increment(s.word + s.feg.tick() * (1024.0 / 12.0)); fop = op_hz(inc); }
-            y = op_sample(s, v, s.fw, fop, inc, s.ratio, in * FM_INDEX + C.phOff[o], gain);
+            y = op_sample(s, v, s.fw, fop, inc, s.ratio, in * FM_INDEX, gain, C.phOff[o]);
         }
         // A read leaves the sum bus as it is; t1 bit 1 starts it over, after this operator's read and
         // before its add. INFERRED from the table, not measured: the bit is set wherever a second sum
