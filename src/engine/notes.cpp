@@ -60,7 +60,8 @@ void Synth::note_on(int part, int note, int vel) {
     // FUN_0000f7dc, measured against the unit (FS1R.unlock 2026-09-25-7). Three things, none of which
     // the old "first free, else oldest" did:
     //  1. allocation is ROUND ROBIN from the last channel allocated, not the lowest free one. Filling an
-    //     empty machine with 32 notes puts them on channels 1..31 then 0, which is what the unit did.
+    //     empty machine with 32 notes puts them on channels 1..31 then 0, which is what the unit did. Free
+    //     is a channel no key holds (owned, synth.h): a release still sounding does not keep it.
     //  2. when nothing is free, the part to take from is the one furthest over its own note reserve.
     //     The reserves cannot oversubscribe the 32 channels: writing 32 to part 2 with parts 3 and 4
     //     holding 8 each read back as 16, i.e. 32 - (0 + 8 + 8), so a part's effective reserve is what
@@ -77,7 +78,7 @@ void Synth::note_on(int part, int note, int vel) {
     int& cursor = nextChan[!split ? 0 : filtered ? 1 : 2];
     auto at = [&](int from, int k) { return first + ((from - first + k) % count + count) % count; };
     Chan* c = nullptr;
-    for (int k = 1; k <= count; k++) { Chan& x = ch[at(cursor, k)]; if (!x.active) { c = &x; break; } }
+    for (int k = 1; k <= count; k++) { Chan& x = ch[at(cursor, k)]; if (!owned(x)) { c = &x; break; } }
     if (!c) {
         int best = part, excess = -1;
         for (int k = 0; k < 4; k++) {
@@ -85,13 +86,13 @@ void Synth::note_on(int part, int note, int vel) {
             if (split && (fltSw >> p & 1) != (int)filtered) continue;   // its notes are in the other half
             for (int q = 0; q < 4; q++) if (q != p) others += perf.part[q].p[0x00];
             int res = clampi(perf.part[p].p[0x00], 0, std::max(0, NCHAN - others));
-            for (auto& x : ch) if (x.active && x.part == p) n++;
+            for (auto& x : ch) if (owned(x) && x.part == p) n++;
             if (n > res && n - res > excess) { excess = n - res; best = p; }
         }
         int thr = note, fb = -1;
         for (int k = 1; k <= count; k++) {
             int i = at(partChan[best], k);
-            if (!ch[i].active || ch[i].part != best) continue;
+            if (!owned(ch[i]) || ch[i].part != best) continue;
             if (thr < ch[i].note) { c = &ch[i]; break; }
             if (fb >= 0) { c = &ch[fb]; break; }
             fb = i; thr = ch[i].note;

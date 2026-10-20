@@ -796,6 +796,22 @@ int selftest(Synth& S) {
       int took = -1;
       for (int i = 0; i < NCHAN; i++) if (S.ch[i].active && S.ch[i].note == 100) took = i;
       ck("the 33rd note steals the channel the unit stole (ch 2)", took == 2 && before == 2);
+      // The take then let note 100 go and played 24, below everything held, and the unit put it on channel 2:
+      // the note off freed that channel (FUN_00011E40) while its release still sounded.
+      S.midi_in(0x80, 100, 0); S.render(l, r, 4);
+      S.midi_in(0x90, 24, 100); S.render(l, r, 4);
+      int low = -1;
+      for (int i = 0; i < NCHAN; i++) if (S.ch[i].active && S.ch[i].note == 24) low = i;
+      ck("a note off frees its channel: the next note takes it, as the unit did (ch 2)", low == 2);
+      // #54: a machine full of released notes, their releases still sounding, takes 32 new notes and keeps every
+      // one of them. Releases kept their channels until the EGs ran out, and new notes stole each other instead.
+      S.all_off(); S.nextChan[0] = 0; for (int i = 0; i < 4; i++) S.partChan[i] = 0;
+      for (int note = 36; note < 36 + NCHAN; note++) { S.midi_in(0x90, note, 100); S.render(l, r, 4); }
+      for (int note = 36; note < 36 + NCHAN; note++) { S.midi_in(0x80, note, 0); S.render(l, r, 4); }
+      for (int note = 70; note < 70 + NCHAN; note++) { S.midi_in(0x90, note, 100); S.render(l, r, 4); }
+      int kept = 0;
+      for (auto& c : S.ch) kept += c.active && c.held && c.note >= 70;
+      ck("released notes give their channels up: 32 notes played over 32 releases all stay held (#54)", kept == NCHAN);
       S.all_off(); init_perf(S.perf); }
 
     // Ours: the engine sleeps while nothing sounds (render.cpp), and a host cannot tell. A note and its release

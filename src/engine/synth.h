@@ -140,9 +140,15 @@ struct Synth {
     void fseq_keys();
     void release(Chan& C);
     void set_sustain(int part, bool on) { Part& pt = perf.part[part]; pt.sustain = on; if (!on) for (auto& c : ch) if (c.active && c.part == part && c.sustained) { c.sustained = false; release(c); } }
-    // What the POLY readout counts: a key down or sustained, or a released note still audible. The allocator's
-    // active flag is not it: a release can sit at a -91 dB L4 floor, or crawl through -70 dB for tens of
-    // seconds, with the channel still owned, and that pinned the readout at 32 on Zap ! and Nightmare.
+    // What the allocator counts as taken: a key down, or one the sustain pedal holds. FUN_00011E40, the poly
+    // note off, clears a channel's in-use word (0x010287DE) and its part (0x010289BC) the moment its key comes
+    // up with no sustain, so a channel whose release is still sounding is free to the next note, which damps
+    // it (note_on). A channel used to stay taken until all sixteen of its EGs passed -120 dB, which is up to
+    // 73 s after the key on A020 Vox Morph, and a full machine stole held notes in its place (#54).
+    static bool owned(const Chan& c) { return c.active && (c.held || c.sustained); }
+    // What the POLY readout counts: a key down or sustained, or a released note still audible. The active flag
+    // is not it: a release can sit at a -91 dB L4 floor, or crawl through -70 dB for tens of seconds, and that
+    // pinned the readout at 32 on Zap ! and Nightmare.
     // ponytail: the loudest carrier EG against a fixed floor; the channel's output level if this misreads a patch.
     static constexpr double POLY_AUDIBLE_DB = -60;
     bool audible(const Chan& c) const {

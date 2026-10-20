@@ -8,6 +8,14 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-20, a note off frees its channel at once: the release does not keep it (#54)
+
+**The allocator's "free" is a key up, not a release run out.** `FUN_00011E40`, the poly note off, finds the channel holding the part's note and, with the part's sustain off, writes 0 to its in-use word (0x010287DE) and its priority word (0x010287DC), 0xFF to its part (0x010289BC), and keys it off (`FUN_000121FA`). Under sustain it sets only bit 0 of the in-use word. Phase 1 of `FUN_0000f7dc` takes the first channel past the cursor whose in-use word is 0, so a channel whose release is still sounding is the next note's, and phases 2 and 3 count and walk only the channels a key or the pedal holds. The engine kept a channel until all sixteen of its EGs passed -120 dB, which is 7 s after the key on B031 Clavmann, 29 to 51 s on B029 CP Hard, 73 s on A020 Vox Morph and 293 s on A003 Nightmare. A full machine of releases then stole held notes: #54's B029 capped at 19 to 25 keyed channels with sustained notes dropping out.
+
+**Session 6 measured it, and the 2026-09-25 entry read it as something else.** That entry says the note of 24 "took the same channel 2 by the fallback path". `fs1r_capture_session6.py` sends `note_off(100)` before the 24, and phase 3 by the code above would have put 24 on channel 1, whose note 36 is above it. Channel 2 is where 24 lands when note 100's key up has freed it, which is the note off above.
+
+The engine now counts a channel taken while its key is down or the pedal holds it (`Synth::owned`). A note landing on a channel still sounding damps it, as before (`FUN_00023000`). In a harness over the factory performances B029 keeps 32 keys down through two chords, B031 16 of 16, and A020's held note keeps its channels; every steal is of a released channel. The selftest pins both measured points and #54's case. POLY still counts keys and audible releases, so it reads 32 exactly when the machine is full of keys.
+
 ## 2026-10-18, the YMP706's operator phase generator: an integer increment, a 12-bit floor table and a shift
 
 rgwan, on the 2026-10-17 key sync report: the oscillators should run on integer accumulators. FSVR's ran on a double, with the frequency from `word_hz`'s smooth `440 * 2^((w - 26861) / 1024)`. The YMP706 is write-only on the bus, so the width had to come off the audio: three takes on rgwan's unit through the rig, MIDI only, into the edit buffers.
