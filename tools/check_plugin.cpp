@@ -703,6 +703,34 @@ int main() {
         CHECK(a.is("op.1.v.level.p1", 42), "part 1's edit did not come back (level %g)", a.get("op.1.v.level.p1"));
     }
 
+    // A bank past 16,384 voices: every row loads. A merged DX7 .syx can hold 40,000, and the browser's row
+    // params stopped at 16,384, so every row past it loaded row 16,384.
+    {
+        std::vector<uint8_t> big;
+        for (int k = 0; k < 520; ++k) {
+            std::vector<uint8_t> b = dx7Bank();
+            for (int v = 0; v < 32; ++v) {
+                char name[11];
+                std::snprintf(name, sizeof name, "B%03dV%02d   ", k, v + 1);
+                std::memcpy(b.data() + 6 + v * 128 + 118, name, 10);
+            }
+            int sum = 0;
+            for (size_t i = 6; i + 2 < b.size(); ++i) sum += b[i];
+            b[b.size() - 2] = (uint8_t)(-sum & 0x7F);
+            big.insert(big.end(), b.begin(), b.end());
+        }
+        const fs::path bigSyx = tmp / "Zz Big.syx";
+        writeBytes(bigSyx, big);
+        a.st->setData("sysex.import", bigSyx.u8string());
+        CHECK(a.until([&] { return lineOf("bank.list", "Zz Big") > 0; }, 30000), "the big bank did not import (%s)", a.data("live.message").c_str());
+        a.set("browse.category", 0);
+        a.set("browse.bank", lineOf("bank.list", "Zz Big"));
+        CHECK(a.until([&] { return a.lines("browse.voice.list") == 520 * 32; }, 30000), "the big bank lists %d voices", a.lines("browse.voice.list"));
+        a.set("browse.voice.p1", 16500);
+        CHECK(a.is("browse.voice.p1", 16500), "row 16500 became %g", a.get("browse.voice.p1"));
+        CHECK(a.until([&] { return a.data("morph.p1.bl") == "B515V20"; }), "row 16500 loaded \"%s\"", a.data("morph.p1.bl").c_str());
+    }
+
     a.proc.reset();
     // Options: a new instance plays the Init Patch. The standalone's app brings back the state it closed with, as a
     // session, as it starts: Load Last Patch keeps it, and otherwise the Init Patch plays over it. A host's session stays.
@@ -774,6 +802,6 @@ int main() {
     }
 
     fs::remove_all(tmp, ec);
-    if (!fails) std::printf("check_plugin: factory banks, sessions, Import SysEx, the bank browser, morph (off), Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, a preset's Fseq after a reopen, and the Init and last patches all pass\n");
+    if (!fails) std::printf("check_plugin: factory banks, sessions, Import SysEx, the bank browser, morph (off), Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, a preset's Fseq after a reopen, a host's performance bulk, the part lamp, the Init and last patches, and an unreadable library all pass\n");
     return fails ? 1 : 0;
 }
