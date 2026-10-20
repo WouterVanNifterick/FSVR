@@ -45,7 +45,7 @@ endif()
 # The processor's own check: banks, the sysex round trip, morph, Import Audio (tools/check_plugin.cpp).
 add_executable(check_plugin "${PROJECT_SOURCE_DIR}/tools/check_plugin.cpp")
 target_link_libraries(check_plugin PRIVATE fsvr_lib)
-target_include_directories(check_plugin PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(check_plugin PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/src")   # fs1r.h: the device's frame period
 set_target_properties(check_plugin PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_BINARY_DIR}>")
 add_test(NAME plugin COMMAND check_plugin)
 

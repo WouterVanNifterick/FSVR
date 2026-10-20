@@ -5,6 +5,7 @@
 // browser's right-click menus. Exits non-zero on any failure.
 //   build/<dir>/Release/check_plugin      (ctest runs it as "plugin")
 #include <hollow/hollow.h>
+#include "fs1r.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -448,6 +449,12 @@ int main() {
     a.run(2);
     a.midi({0x90, 60, 100});
     CHECK(a.until([&] { return a.get("fseq.position") > 5; }), "the Fseq playback position stayed at %g (speed %g, delay %g, part %g, mode %g, voices %d)", a.get("fseq.position"), a.get("fseq.speed"), a.get("fseq.delay"), a.get("fseq.part"), a.get("fseq.play_mode"), a.st->voices());
+    {   // and the editor's playhead runs on the frame period the worker publishes, the header's own at 100 %
+        int us = 0, dir = 0, running = 0;
+        auto rate = [&] { return std::sscanf(a.data("live.fseq.rate").c_str(), "%d %d %d", &us, &dir, &running) == 3 && running == 1; };
+        const double want = fsvr::Device::fseqFrameSeconds((int)a.get("fseq.hdr.speed"));
+        CHECK(a.until(rate, 2000) && dir == 1 && std::fabs(us / 1e6 - want) < 1e-4, "live.fseq.rate reads \"%s\" while the Fseq runs at %.6f s a frame", a.data("live.fseq.rate").c_str(), want);
+    }
     a.midi({0x80, 60, 0});
 
     // Export writes a hardware-shaped dump.
@@ -689,6 +696,50 @@ int main() {
     settle();
     request("bank.request", "delete");
     CHECK(a.until([&] { return !lineOf("bank.list", "Kept"); }) && fs::exists(tmp / "Library" / "Deleted" / "Kept.syx"), "Delete Bank did not move \"Kept\" to Deleted");
+
+    // The editor's document is the whole Fseq as base64 under live.fseq.doc, and its edits come back through
+    // live.fseq.edit: a frame range written as it is, or a whole Fseq as a bulk, which changes the frame count
+    // and leaves the Fseq part alone. A session brings the document back.
+    {
+        auto enc = [](const std::vector<uint8_t>& d) {
+            static const char* k = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+            std::string s;
+            for (size_t i = 0; i < d.size(); i += 3) {
+                const unsigned v = (unsigned)d[i] << 16 | (i + 1 < d.size() ? (unsigned)d[i + 1] << 8 : 0) | (i + 2 < d.size() ? d[i + 2] : 0);
+                s += k[v >> 18 & 63];
+                s += k[v >> 12 & 63];
+                s += i + 1 < d.size() ? k[v >> 6 & 63] : '=';
+                s += i + 2 < d.size() ? k[v & 63] : '=';
+            }
+            return s;
+        };
+        const std::vector<uint8_t> doc = unb64(a.data("live.fseq.doc"));
+        CHECK(doc.size() > 32 && (doc.size() - 32) % 50 == 0 && (doc.size() - 32) / 50 % 128 == 0, "live.fseq.doc holds %zu bytes", doc.size());
+        std::vector<uint8_t> two(100, 0);
+        two[0] = 0x40; two[1] = 0x11; two[50] = 0x41; two[51] = 0x22;
+        a.set("gui.edited", 0);
+        a.st->setData("live.fseq.edit", "frames 10 2 " + enc(two));
+        CHECK(a.until([&] { return a.data("live.fseq.edit").empty() && a.is("gui.edited", 1); }), "the frame edit was not taken");
+        std::vector<uint8_t> held;
+        for (auto& b : engine())
+            if (b.first == 0x60) held = b.second;
+        CHECK(held.size() >= 32 + 12 * 50 && held[32 + 10 * 50] == 0x40 && held[32 + 11 * 50] == 0x41 && held[32 + 11 * 50 + 1] == 0x22,
+              "the engine's frames 10 and 11 read %02x and %02x after the edit", held.size() > 32 + 10 * 50 ? held[32 + 10 * 50] : 0, held.size() > 32 + 11 * 50 ? held[32 + 11 * 50] : 0);
+        std::vector<uint8_t> grown(32 + 256 * 50, 0);
+        std::memcpy(grown.data(), doc.data(), 32);
+        grown[0x1B] = 1;   // 256 frames
+        grown[0x1E] = 1; grown[0x1F] = 127;   // end step 255
+        std::memcpy(grown.data() + 32, doc.data() + 32, std::min(doc.size() - 32, (size_t)256 * 50));
+        const double part = a.get("fseq.part");
+        a.st->setData("live.fseq.edit", "doc " + enc(grown));
+        CHECK(a.until([&] { return unb64(a.data("live.fseq.doc")).size() == 32 + 256 * 50; }), "the whole-document edit left %zu bytes", unb64(a.data("live.fseq.doc")).size());
+        CHECK(a.is("fseq.part", part) && a.is("fseq.hdr.end", 255), "the document edit moved the Fseq part to %g, end %g", a.get("fseq.part"), a.get("fseq.hdr.end"));
+        a.proc->saving();
+        const std::string session = a.st->save();
+        Rig b;
+        b.st->load(session);
+        CHECK(b.until([&] { return b.data("live.fseq.doc") == a.data("live.fseq.doc"); }), "the session did not bring the document back");
+    }
 
     // Choosing an Fseq does what the panel's FUN_00032A38 does: the start offset goes to 0 and the header's
     // loop, loop mode, tempo velocity, pitch mode and delay go into the performance. A performance load

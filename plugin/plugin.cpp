@@ -29,6 +29,7 @@
 #include <filesystem>
 #include <map>
 #include <mutex>
+#include <sstream>
 #include <thread>
 
 namespace hollow {   // the factory banks, embedded by plugin/CMakeLists.txt
@@ -303,6 +304,7 @@ public:
         used = 0;
         if (at < frames) dev.process(out[0] + at, out[1] + at, frames - at);
         lk = {};
+        if (const int f = dev.fseqPosition(); fseqPos >= 0 && f != fseqPosSent) st.set((size_t)fseqPos, fseqPosSent = f);   // the page's playback line, per block
         const size_t r = ringAt;
         for (int i = 0; i < frames; ++i) ring[(r + (size_t)i) % ring.size()] = 0.5f * (out[0][i] + out[1][i]);
         ringAt = (r + (size_t)frames) % ring.size();
@@ -394,8 +396,10 @@ private:
     bool notify = false;               // the worker changed params; the host re-reads them
     std::vector<int> browsed[3];       // the browsed bank's rows as U numbers: performances, voices, Fseqs
     std::map<std::pair<int, int>, int> listed;   // factory voices by bank and number: their category in the browser
-    std::vector<uint8_t> fseqShown;    // the Fseq the page's display last had
+    std::vector<uint8_t> fseqShown;    // the Fseq the page last had (live.fseq.doc and fseq.display)
     std::string fseqNameShown;         // its name as text data fseq.name
+    std::string rateShown;             // live.fseq.rate as last published
+    int fseqPosSent = -1;              // fseq.position as the audio thread last set it
     int messageTicks = 0;              // worker ticks until the status line clears
     std::string libError;              // the library's read error the status line last showed
     uint8_t waveVoice[4][608] = {};    // each part's voice as the operator panel's waves were last drawn from it
@@ -705,6 +709,7 @@ private:
                 step();
             }
             requests();
+            rateTick();            
             if (fseqPos >= 0) st.set((size_t)fseqPos, dev.fseqPosition());   // the Fseq page's playback line
             if (++n % 30 == 0) {   // under ctl: a rescan rebuilds the banks a host's save reads
                 std::lock_guard<std::mutex> g(ctl);
@@ -722,6 +727,17 @@ private:
         }
     }
 
+    // The frame period the editor runs its playhead on between the position's updates: live.fseq.rate, the
+    // period in microseconds (whole, so a host's locale has no say), the direction and whether the sequence
+    // is stepping on its own timer; 0 while it is stopped, scratched, on MIDI clock or in its start delay.
+    void rateTick() {
+        int dir = 1;
+        bool running = false;
+        const double period = dev.fseqFramePeriod(&dir, &running);
+        const std::string s = std::to_string((long)std::lround(period * 1e6)) + " " + std::to_string(dir) + (running ? " 1" : " 0");
+        if (s != rateShown) st.setData("live.fseq.rate", rateShown = s);
+    }
+
     void step() {   // under ctl: a session that arrived, what the engine did, what the params ask for
         const unsigned loads = st.loads();
         if (!(loads & 1) && loads != loadsSeen) restore(loads);
@@ -735,6 +751,7 @@ private:
             startup.clear();
         }
         if (adoptWanted.exchange(false)) adopt(true);
+        fseqEdits();
         renameFseq();
         selectors();
         voiceNames();
@@ -803,6 +820,7 @@ private:
         restoredOnce = true;
         for (auto& v : voiceShown) v.assign(1, '\0');   // the session brought back the names it saved, maybe stale: publish ours again
         lcdShown.assign(1, '\0');                       // State::load cleared live.lcd.perf: publish it again
+        fseqShown.clear();                              // and live.fseq.doc: the Fseq goes out again whatever it is
         const std::vector<uint8_t> eng = unb64(st.data("fsvr.engine"));
         // const std::vector<uint8_t> mor = unb64(st.data("fsvr.morph"));
         for (size_t i = 0; i < st.size(); ++i) sel[i] = st.get(i);
@@ -815,6 +833,7 @@ private:
             for (size_t i = 0; i < st.size(); ++i) base[i] = st.get(i);
         } else {
             for (double& b : base) b = std::nan("");   // an older session: send every param again
+            adoptWanted = true;                        // and the Fseq the engine holds goes out as the doc
         }
         followFseqHeader();   // an older session has no values for them, and they must not overwrite the Fseq's
         fseqNameShown.assign(1, '\0');   // State::load cleared fseq.name: publish it again
@@ -907,6 +926,39 @@ private:
         if (n != fseqNameShown) st.setData("fseq.name", fseqNameShown = n);
     }
 
+    // The Fseq editor's edits, text data live.fseq.edit taken under ctl so a save sees them: "frames <first>
+    // <count> <base64 of count frames>" goes straight into the loaded Fseq's frames (Device::setFseqFrames,
+    // docs/Differences.md), as a bulk would put them but without reloading it on every move of a drag; "doc
+    // <base64 of the whole Fseq>" is a bulk dump, the way its frame count changes, and the loader's gift of
+    // part 1 to a performance without an Fseq part is taken back as followPerf takes it back.
+    void fseqEdits() {
+        const std::string e = take("live.fseq.edit");
+        if (e.empty()) return;
+        std::istringstream in(e);
+        std::string kind, b;
+        in >> kind;
+        if (kind == "frames") {
+            int first = -1, count = 0;
+            in >> first >> count >> b;
+            const std::vector<uint8_t> bytes = unb64(b);
+            const int n = fseqShown.size() >= 32 ? (int)(fseqShown.size() - 32) / 50 : 0;
+            if (first < 0 || count <= 0 || first + count > n || bytes.size() != (size_t)count * 50) return;
+            if (!dev.setFseqFrames(first, count, bytes.data())) return;
+            std::memcpy(fseqShown.data() + 32 + (size_t)first * 50, bytes.data(), bytes.size());
+            st.setData("live.fseq.doc", b64(fseqShown.data(), fseqShown.size()));   // so an editor opened later starts from these frames
+            put(edited, 1);
+        } else if (kind == "doc") {
+            in >> b;
+            const std::vector<uint8_t> doc = unb64(b);
+            if (doc.size() < 32 + 50 || (doc.size() - 32) % 50) return;
+            const std::vector<uint8_t> m = bulk(0x60, 0, 0, doc.data(), doc.size());
+            dev.loadSyx(m.data(), m.size(), 0, 0);
+            if (fseqPart >= 0) send(fields[(size_t)fseqPart], model.perf);
+            put(edited, 1);
+            adopt();   // publishes the Fseq as the engine took it
+        }
+    }
+
     // A name typed on the page goes into the loaded Fseq's header as the Data List's eight name bytes, each a
     // parameter change (70 00 0k), so Export and Save to Bank write it; the name comes back as the Fseq holds it.
     void renameFseq() {
@@ -927,12 +979,14 @@ private:
         showFseqName();
     }
 
-    // The Fseq page's display draws the loaded Fseq from text data fseq.display, an entry in the form of
-    // the skin's data/fseqs.json: per frame the pitch and each track's frequency (the word's high byte) and
-    // level, as hex strings of one byte a frame.
+    // The loaded Fseq for the page: the whole bulk, header and frames, as base64 under live.fseq.doc for the
+    // editor, and for the display of a user Fseq text data fseq.display, an entry in the form of the skin's
+    // data/fseqs.json: per frame the pitch and each track's frequency (the word's high byte) and level, as
+    // hex strings of one byte a frame.
     void showFseq(const std::vector<uint8_t>& d) {
         if (d == fseqShown) return;
         fseqShown = d;
+        st.setData("live.fseq.doc", d.size() < 32 + 50 ? "" : b64(d.data(), d.size()));
         if (d.size() < 32 + 50) { st.setData("fseq.display", ""); return; }
         const int total = (int)(d.size() - 32) / 50, end = d[0x1E] << 7 | d[0x1F];
         const int n = end ? std::min(total, end + 1) : total;

@@ -296,7 +296,10 @@ The skin asks through params and the instance's text data; the processor (`plugi
 | `live.message` | text data | processor | What the last import, export or analysis did, in the browser's header |
 | `fseq.display` | text data | processor | The loaded Fseq's tracks, for the Fseq page's display of a user Fseq |
 | `fseq.name` | text data | both | The loaded Fseq's name, its eight header bytes trimmed; a name set here goes into the Fseq's header as the Data List's name bytes, so Export and Save to Bank write it |
-| `fseq.position` | param (not the host's) | processor | The frame playback is at, the display's gold line |
+| `fseq.position` | param (not the host's) | processor | The frame playback is at, the display's gold line, set by the audio thread every block it changes |
+| `live.fseq.doc` | text data | processor | The loaded Fseq, header and frames, as base64 of its bulk data: the editor's document, published whenever the engine's Fseq changes and again after a session comes back; `""` with no Fseq |
+| `live.fseq.edit` | text data | GUI | The editor's edits: `frames <first> <count> <base64>` writes those frames into the loaded Fseq as they are (`Device::setFseqFrames`), `doc <base64>` loads a whole Fseq as a bulk dump, the way its frame count changes. The worker takes it under `ctl`, so a save sees it |
+| `live.fseq.rate` | text data | processor | The frame period in microseconds, the direction and whether the sequence steps on its own timer (`7897 1 1`), for the editor's playhead between position updates; the period is 0 while it is stopped, scratched, on MIDI clock or in its start delay |
 | `perf.bank`, `perf.user`, `perf.program` | params | GUI or host | The performance to load |
 | `part.bank.pN`, `part.program.pN`, `part.user.pN` | params | GUI or host | A part's voice |
 | `fseq.bank`, `fseq.number`, `fseq.user` | params | GUI or host | The Fseq |
