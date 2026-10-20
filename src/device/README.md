@@ -4,4 +4,4 @@
 
 | File | What |
 |---|---|
-| `device.cpp` | `fsvr::Device`: host-rate resampling (a 64-tap windowed sinc), state as bulk dumps, MIDI in and sysex out, the Quality/Speed option, display helpers (`op_wave`, frequencies) |
+| `device.cpp` | `fsvr::Device`: host-rate resampling (a 64-tap windowed sinc), state as bulk dumps, MIDI in and sysex out, the Quality/Speed option, display helpers (`op_wave`, frequencies), and for the plug-in's Fseq editor a range of frames written straight into the loaded Fseq (`setFseqFrames`) and the frame period (`fseqFramePeriod`), both ours (`docs/Differences.md`) |

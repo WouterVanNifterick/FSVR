@@ -189,6 +189,21 @@ bool Device::fseqFrame(int step, uint8_t out[50]) const {
     return true;
 }
 int Device::fseqPosition() const { return p->s.fseq.valid ? p->s.fseqStep : 0; }
+bool Device::setFseqFrames(int first, int count, const uint8_t* frames) {
+    std::lock_guard<std::mutex> lk(p->s.mtx);
+    Synth& S = p->s;
+    if (!S.fseq.valid || first < 0 || count <= 0 || first + count > S.fseq.nframes) return false;
+    memcpy(S.fseq.frame[first], frames, (size_t)count * 50);
+    return true;
+}
+double Device::fseqFramePeriod(int* dir, bool* running) const {
+    std::lock_guard<std::mutex> lk(p->s.mtx);
+    const Synth& S = p->s;
+    const bool on = S.fseq.valid && S.fseqRun && !S.fseqClock && S.fseqDelay <= 0 && (S.perf.c[0x21] & 3) == 2;
+    if (dir) *dir = S.fseqDir;
+    if (running) *running = on;
+    return on ? S.fseqPeriod : 0;
+}
 void Device::operatorWave(int part, int op, float* out, int n) const {
     OpV v;
     {
@@ -223,6 +238,19 @@ int Device::selfTest() {
     a.getState(state);
     b.setState(state.data(), state.size());
     if (a.fseqPart() != -1 || b.fseqPart() != -1) { printf("  FAIL state restore enables the Fseq (part %d)\n", b.fseqPart()); fails++; }
+    // Frames written straight into the loaded Fseq read back, through fseqFrame and the state dump; a range
+    // past the end is refused; a device at rest reports no frame period.
+    uint8_t two[100] = {}, out[50] = {};
+    two[0] = 0x55; two[1] = 0x11; two[50] = 0x66; two[51] = 0x22;
+    if (!a.setFseqFrames(10, 2, two) || !a.fseqFrame(11, out) || out[0] != 0x66 || out[1] != 0x22) { printf("  FAIL setFseqFrames did not write frame 11\n"); fails++; }
+    a.getState(state);
+    bool dumped = false;
+    for (size_t i = 0; i + 9 + 32 + 11 * 50 < state.size(); i++)
+        if (state[i] == 0xF0 && state[i + 6] == 0x60) { dumped = state[i + 9 + 32 + 10 * 50] == 0x55 && state[i + 9 + 32 + 10 * 50 + 1] == 0x11; break; }
+    if (!dumped) { printf("  FAIL the state dump does not carry a frame written with setFseqFrames\n"); fails++; }
+    if (a.setFseqFrames(127, 2, two)) { printf("  FAIL setFseqFrames took a range past the end\n"); fails++; }
+    int dir = 0; bool running = true;
+    if (b.fseqFramePeriod(&dir, &running) != 0 || running) { printf("  FAIL a device at rest reports a frame period\n"); fails++; }
     return fails;
 }
 

@@ -168,3 +168,11 @@ and there is nothing to hear in it.
 **The unit.** It plays the 90 preset Fseqs and the six its internal memory can hold, which arrive as bulk dumps; it cannot make one from a sound itself.
 
 **FSVR.** The Fseq page's Import Audio analyses a WAV, AIFF, MP3, Ogg Vorbis or MP4 file into an Fseq of your own, after fseq-flash's method, with the frame bytes on the engine's own scales. The result is an ordinary Fseq: it exports as a bulk dump the unit takes.
+
+## Fseq frames written straight into the engine
+
+**The unit.** Frames reach it only as a whole Fseq bulk dump (Data List 3.2.1): the header and every frame at once, 25.6 KB for 512 frames. The Fseq parameter changes (`70 00 ll`) reach the header's 32 bytes alone, and the frame parameter table names no frame. The engine's loader is `load_sysex` in `src/presets/rom.cpp`, which also hands a performance with no Fseq part the first one.
+
+**FSVR.** The plug-in keeps the bulk route for everything the Data List can express, the header, the name and the frame count included, and adds `fsvr::Device::setFseqFrames` (`src/fs1r.h`) for its Fseq editor: a dragged range of frames written into the loaded Fseq up to thirty times a second, the same bytes a bulk would bring, without re-loading 25.6 KB under the engine's lock on every move and without the loader's part side effect. It writes bytes and models nothing, and it does not run in the render path, so the engine's output is unchanged by it.
+
+**The unit's way back.** A whole Fseq through `loadSyx` is still what a frame-count change does, and what a host sending a bulk dump does; an editor driving FSVR over sysex sees no difference.

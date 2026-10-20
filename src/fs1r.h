@@ -74,6 +74,13 @@ public:
     // One Fseq frame as its 50 raw bytes, and where playback currently is. For a display only.
     bool fseqFrame(int step, uint8_t out[50]) const;
     int fseqPosition() const;
+    // Ours, for the plug-in's Fseq editor. setFseqFrames writes count frames of 50 raw bytes into the loaded
+    // Fseq at frame first, the bytes a bulk dump would bring and nothing else: false, writing nothing, unless an
+    // Fseq is loaded and the range fits. The frame count changes only through a bulk dump (docs/Differences.md).
+    bool setFseqFrames(int first, int count, const uint8_t* frames);
+    // How long one frame lasts while the sequence steps on its own timer, and its direction (+1 or -1): 0, and
+    // running false, while playback is stopped, in scratch mode, on MIDI clock or in the start delay.
+    double fseqFramePeriod(int* dir = nullptr, bool* running = nullptr) const;
     // Voiced operator op (0..7) of a part's voice alone, as the engine's own model makes it: n points over two
     // periods, -1..1, scaled to fill. For the operator panel's display only.
     void operatorWave(int part, int op, float* out, int n) const;
