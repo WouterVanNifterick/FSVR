@@ -749,6 +749,26 @@ int main() {
         }
     }
 
+    // A library the instance cannot read says so on the status line, rather than every bank just vanishing:
+    // macOS refuses ~/Documents to an app it has no grant for, and the import then wrote a file nobody saw.
+    {
+        const fs::path notFolder = tmp / "Not a folder";
+        writeBytes(notFolder, {0});
+        auto library = [](const fs::path& p) {
+#ifdef _WIN32
+            _putenv_s("FSVR_LIBRARY", p.u8string().c_str());
+#else
+            setenv("FSVR_LIBRARY", p.u8string().c_str(), 1);
+#endif
+        };
+        library(notFolder);
+        {
+            Rig s;
+            CHECK(s.data("live.message").rfind("Cannot read", 0) == 0, "an unreadable library said \"%s\"", s.data("live.message").c_str());
+        }
+        library(tmp / "Library");
+    }
+
     fs::remove_all(tmp, ec);
     if (!fails) std::printf("check_plugin: factory banks, sessions, Import SysEx, the bank browser, morph (off), Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, a preset's Fseq after a reopen, and the Init and last patches all pass\n");
     return fails ? 1 : 0;

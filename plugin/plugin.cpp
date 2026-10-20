@@ -240,6 +240,7 @@ public:
         pushModel();
         loadsSeen = st.loads();
         lib.rescan(true);
+        libraryError();
         readOptions();
         // What the LCD and the browser name is what plays: the worker's first look loads the Init Patch (Options), else
         // that factory performance (A001), unless a session arrives first. The standalone's app brings back the state
@@ -388,6 +389,7 @@ private:
     std::map<std::pair<int, int>, int> listed;   // factory voices by bank and number: their category in the browser
     std::vector<uint8_t> fseqShown;    // the Fseq the page's display last had
     int messageTicks = 0;              // worker ticks until the status line clears
+    std::string libError;              // the library's read error the status line last showed
 
     // ---- setup -----------------------------------------------------------------------------------
 
@@ -689,6 +691,7 @@ private:
             if (++n % 30 == 0 && lib.rescan()) {
                 std::lock_guard<std::mutex> g(ctl);
                 writeLists();
+                libraryError();
             }
             if (n % 10 == 0) watchOptions();
             if (n % 2 == 0) harmonics();
@@ -1246,6 +1249,13 @@ private:
     void message(const std::string& s) {
         st.setData("live.message", s);
         messageTicks = 150;
+    }
+
+    // The library's read error on the status line, once each time it changes.
+    void libraryError() {
+        if (lib.error == libError) return;
+        libError = lib.error;
+        if (!libError.empty()) message(libError);
     }
 
     int selectedPart() const {   // the GUI's {part} var, out of its saved state

@@ -54,6 +54,8 @@ public:
     std::vector<Ref> perfs, voices, fseqs;   // every user item, bank after bank: U1, U2 ...
     // Reads the folder again when a file came, went or changed since the last look; true if it did.
     bool rescan(bool force = false);
+    // Why the last look could not read the folder or one of its files, for the status line; empty when it could.
+    std::string error;
     // Copies a .syx into the folder as a new bank named after the file ("Name", "Name 2" ...) and rescans.
     // The new bank's index, or -1 (err says why).
     int import(const std::string& path, std::string& err);

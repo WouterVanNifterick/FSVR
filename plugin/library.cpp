@@ -233,14 +233,27 @@ Library::Library() {
     dir = (docs / "FSVR" / "Library").u8string();
 }
 
+// A folder the system will not let the app read lists as empty, and the banks just vanish. macOS does that to
+// ~/Documents for an app it has no grant for, and a new version of an unsigned app is a new app to it.
+static std::string unreadable(const std::string& what, const std::error_code& ec) {
+    std::string s = "Cannot read " + what + ": " + ec.message();
+#ifdef __APPLE__
+    if (ec == std::errc::operation_not_permitted)
+        s += ". Allow FSVR under System Settings, Privacy & Security, Files & Folders";
+#endif
+    return s;
+}
+
 bool Library::rescan(bool force) {
     std::vector<fs::path> files;
     std::string stamp;
     std::error_code ec;
+    error.clear();
     for (fs::directory_iterator it(fs::u8path(dir), ec), end; !ec && it != end; it.increment(ec)) {
         if (!it->is_regular_file(ec) || lower(it->path().extension().u8string()) != ".syx") continue;
         files.push_back(it->path());
     }
+    if (ec && ec != std::errc::no_such_file_or_directory) error = unreadable(dir, ec);   // no folder yet is an empty library
     std::sort(files.begin(), files.end(), [](const fs::path& a, const fs::path& b) { return lower(a.stem().u8string()) < lower(b.stem().u8string()); });
     for (auto& f : files) {
         auto t = fs::last_write_time(f, ec).time_since_epoch().count();
@@ -251,7 +264,10 @@ bool Library::rescan(bool force) {
     banks.clear();
     for (auto& f : files) {
         std::vector<uint8_t> bytes;
-        if (!readFile(f.u8string(), bytes)) continue;
+        if (!readFile(f.u8string(), bytes)) {
+            if (error.empty()) error = "Cannot read " + f.u8string();
+            continue;
+        }
         Bank b = parseSyx(bytes, f.stem().u8string());
         if (b.empty()) continue;
         b.path = f.u8string();
@@ -292,7 +308,9 @@ int Library::add(const std::string& name, const std::vector<uint8_t>& bytes, std
         return -1;
     }
     rescan(true);
-    return bankOf(path);
+    const int k = bankOf(path);
+    if (k < 0) err = error.empty() ? "cannot find " + path + " after writing it" : error;   // written, but the folder cannot be read back
+    return k;
 }
 
 int Library::import(const std::string& path, std::string& err) {
