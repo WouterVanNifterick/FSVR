@@ -191,6 +191,10 @@ int main() {
     CHECK(a.st->size() > 3000, "the skin's params did not load (%zu)", a.st->size());
     CHECK(!a.data("library.dir").empty(), "no library.dir");
     CHECK(!a.data("fsvr.version").empty(), "no fsvr.version for the About box");
+    // The CPU readout is busy time over audio time, steady while blocks alternate light and heavy: each block's
+    // own ratio, as it was, swung between the two at the GUI's 30 Hz.
+    for (int k = 0; k < 64; ++k) a.st->addLoad(k % 2 ? 0.75 / 64 : 0.25 / 64, 1.0 / 64);
+    CHECK(a.st->load() == 0.5, "the CPU readout is %g over alternating 25 %% and 75 %% blocks, not 0.5", a.st->load());
 
     // A fresh instance plays what its LCD names: A001 "Zap !", B021 on part 1, a Sound FX.
     CHECK(a.until([&] { return a.is("part.bank.p1", 3) && a.is("part.program.p1", 21); }), "A001 did not load its part 1 voice B021 (bank %g, program %g)",
