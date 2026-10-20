@@ -46,6 +46,24 @@ int Synth::ctrl_part(int part, int dest, int stored) const {
     return clampi(stored, 0, 127);
 }
 
+// FUN_00014DDC's destinations 17 to 33, when one of the part's sources moves: each handler writes its part
+// byte as the base copy plus the scaled controller (ctrlDest_17 .. ctrlDest_33, Part::CTL_BYTE), and the
+// highest set on a destination is the one left standing. A destination no set names is not touched. The pan
+// handler leaves a random pan (0) alone and keeps 0 out of a result, which would turn the part random.
+// Everything that plays reads the bytes, so a controller is heard where the editor shows it and a dump
+// carries it, as the unit's edit buffer does.
+void Synth::ctrl_write(int part) {
+    Part& pt = perf.part[part];
+    for (int k = 0; k < 17; k++) {
+        const int d = 17 + k, at = Part::CTL_BYTE[k];
+        bool named = false;
+        for (int s = 0; s < 8; s++) named = named || ctrl_set_active(part, s, d);
+        if (!named || (d == 18 && pt.p[0x0E] == 0)) continue;
+        const int v = ctrl_part(part, d, pt.ctlBase[k]);
+        pt.p[at] = (uint8_t)(d == 18 && v == 0 ? 1 : v);
+    }
+}
+
 int Synth::ctrl_pitch_bias(int part) const {
     int w = 0;
     for (int s = 0; s < 8; s++) {
@@ -95,9 +113,9 @@ double Synth::bend_word(const Part& pt, int chn) const {
 void Synth::part_levels(int part, int& vAtt, int& uAtt) const {
     const Part& pt = perf.part[part];
     int expr = clampi(pt.expr, 0, 254);
-    int vol = ctrl_part(part, 17, pt.p[0x0B]);
+    int vol = pt.p[0x0B];
     int u1 = ((vol + 1) * expr) >> 8; int iu = u1 + 1, iv = u1 + 1;
-    int bal = ctrl_part(part, 31, pt.p[0x0A]);
+    int bal = pt.p[0x0A];
     if (bal < 0x40) iu = ((u1 + 2) * bal) >> 6; else if (bal > 0x40) iv = ((u1 + 2) * ((bal ^ 0x7F) + 1)) >> 6;
     vAtt = VNBAL[clampi(iv, 0, 127)]; uAtt = VNBAL[clampi(iu, 0, 127)];
 }

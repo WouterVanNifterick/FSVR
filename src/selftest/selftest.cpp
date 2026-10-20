@@ -291,6 +291,20 @@ int selftest(Synth& S) {
         T.perf.c[0x28] = 0x0F; T.perf.c[0x40] = 21;                   // filter cutoff edits the part byte
         ck("a part-byte destination lands on the byte",
            T.ctrl_part(0, 21, 64) == Synth::scale_f58(127, 32, 64));
+        // ctrlDest_21 writes the cutoff byte itself, from a copy of the byte (Part::ctlBase) plus the controller,
+        // so the byte reads as the unit's edit buffer does, the same source again does not compound, and an
+        // ordinary edit (CC74 here, FUN_00030796's normal path) moves the base the controller adds to.
+        { Part& pt = T.perf.part[0];
+          pt.p[0x18] = 50; pt.fill_ctl_base();
+          T.set_source(pt, Synth::SRC_KN1, 127);
+          const int up = pt.p[0x18];
+          T.set_source(pt, Synth::SRC_KN1, 127);
+          ck("a controller writes the cutoff byte as base plus offset, once", up == Synth::scale_f58(127, 32, 50) && pt.p[0x18] == up && pt.ctlBase[4] == 50);
+          T.set_source(pt, Synth::SRC_KN1, 64);
+          ck("and the byte is back at its base when the source rests", pt.p[0x18] == 50);
+          T.control_change(0, 74, 30);
+          T.set_source(pt, Synth::SRC_KN1, 127);
+          ck("an edit moves the base the controller adds to", pt.ctlBase[4] == 30 && pt.p[0x18] == Synth::scale_f58(127, 32, 30)); }
         // Two sets on one destination do not compose: each handler stores a per-part byte, so the
         // highest-numbered one wins (FUN_00014DDC walks 0 to 7, ctrlDest_37 writes DAT_01029758).
         T.perf.c[0x40] = 37; T.perf.c[0x29] = 0x0F;

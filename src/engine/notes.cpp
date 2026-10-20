@@ -24,13 +24,11 @@ void Synth::filter_latch() {
 }
 
 // The filter host reads the voice and the part record. Destinations 21 to 26 edit the record, as the firmware
-// has them do (FUN_00017192 and the five after it); 42, 44 and 45 are offsets the host keeps itself.
+// has them do (FUN_00017192 and the five after it), by writing the part's bytes (ctrl_write); 42, 44 and 45
+// are offsets the host keeps itself.
 void Synth::filter_sync(int part) {
     const Part& pt = perf.part[part];
-    using namespace fsvr::vop3host::filter;
-    static const int BYTE[6] = {PART_CUTOFF, PART_RESONANCE, PART_EG_DEPTH, PART_ATTACK, PART_DECAY, PART_RELEASE};
     uint8_t rec[fsvr::vop3host::FilterHost::PART_BYTES]; memcpy(rec, pt.p, sizeof rec);
-    for (int d = 0; d < 6; d++) rec[BYTE[d]] = (uint8_t)ctrl_part(part, 21 + d, pt.p[BYTE[d]]);
     flt.sync(flt_banks(), part, pt.voice.raw, rec, ctrl_offset(part, 42), ctrl_offset(part, 44), ctrl_offset(part, 45));
 }
 
@@ -223,7 +221,7 @@ void Synth::setup_ops(Chan& C, const Part& pt, int vel) {
         // EG registers: levels LEVTAB >> 1, rates ((99-T)*0xA4)>>8, part EG offsets on attack/decay/release (assumed T1/T2/T4)
         // FUN_00019414 walks the part's EG bytes 0x1A, 0x1B, 0x1B, 0x1C against voice times T1-T4,
         // so the decay offset reaches both T2 and T3, not T2 alone.
-        int atk = ctrl_part(part, 24, pt.p[0x1A]), dec = ctrl_part(part, 25, pt.p[0x1B]), rel = ctrl_part(part, 26, pt.p[0x1C]);
+        int atk = pt.p[0x1A], dec = pt.p[0x1B], rel = pt.p[0x1C];
         int offs[4] = {atk - 64, dec - 64, dec - 64, rel - 64};
         for (int i = 0; i < 4; i++) {
             C.egL[o][i] = LEVTAB[std::min(99, v.L[i])] >> 1; C.egR[o][i] = egrate(v.T[i] + offs[i]);
@@ -238,11 +236,11 @@ void Synth::setup_peg(Chan& C, const Part& pt, int vel) {
     C.velP = V.pegVel ? vel + 1 : 128;        // firmware overrides the graded PEGVEL table with this (see docs)
     int Lp[5], Tp[5];
     for (int i = 0; i < 5; i++) Lp[i] = V.pegL[i];
-    Lp[0] = clampi(Lp[0] + ctrl_part(C.part, 27, pt.p[0x20]) - 64, 0, 100);
-    Lp[4] = clampi(Lp[4] + ctrl_part(C.part, 29, pt.p[0x22]) - 64, 0, 100);
+    Lp[0] = clampi(Lp[0] + pt.p[0x20] - 64, 0, 100);
+    Lp[4] = clampi(Lp[4] + pt.p[0x22] - 64, 0, 100);
     Tp[0] = 255; for (int i = 0; i < 4; i++) Tp[i + 1] = V.pegT[i];
-    Tp[1] = clampi(Tp[1] + ctrl_part(C.part, 28, pt.p[0x21]) - 64, 0, 99);
-    Tp[4] = clampi(Tp[4] + ctrl_part(C.part, 30, pt.p[0x23]) - 64, 0, 99);
+    Tp[1] = clampi(Tp[1] + pt.p[0x21] - 64, 0, 99);
+    Tp[4] = clampi(Tp[4] + pt.p[0x23] - 64, 0, 99);
     for (int i = 0; i < 5; i++) {
         int w = ((int)PEGLVL[clampi(Lp[i], 0, 100)] - 128) << 7;
         w = (w * C.velP) >> 7; if (V.pegRange) w >>= V.pegRange + 1;
@@ -382,7 +380,7 @@ void Synth::voice_ctrl(Chan& C, const Part& pt) {
     // and a quarter of those, and a cal constant for a scale that is a shift in the flash.
     memset(C.vcLvl, 0, sizeof C.vcLvl); memset(C.vcFreq, 0, sizeof C.vcFreq); memset(C.vcBw, 0, sizeof C.vcBw);
     const uint8_t* b = pt.voice.raw;
-    int src[2] = {clampi((ctrl_part(C.part, 32, pt.p[0x1D]) - 64) * 2, -128, 127), clampi((ctrl_part(C.part, 33, pt.p[0x1E]) - 64) * 2, -128, 127)};
+    int src[2] = {clampi((pt.p[0x1D] - 64) * 2, -128, 127), clampi((pt.p[0x1E] - 64) * 2, -128, 127)};
     for (int k = 0; k < 10; k++) {
         int d = b[k < 5 ? 0x40 + k : 0x4A + (k - 5)];
         int dep = (int)b[k < 5 ? 0x45 + k : 0x4F + (k - 5)] - 64;
@@ -396,7 +394,7 @@ void Synth::voice_ctrl(Chan& C, const Part& pt) {
 }
 
 void Synth::refresh_pan(Chan& C, const Part& pt) {
-    int base = pt.p[0x0E] ? ctrl_part(C.part, 18, pt.p[0x0E]) : C.panBase;             // Panpot edits the part byte
+    int base = pt.p[0x0E] ? pt.p[0x0E] : C.panBase;             // Panpot edits the part byte
     int idx = pan_index(base, pt.p[0x28], C.noteP);
     idx += ((C.lfoVal * std::max(1, eb86(clampi(pt.p[0x29], 0, 99))) * (int)(C.lfoFade >> 8)) >> 16) / 2; // pan LFO depth: image +0x1F is eb86(byte), 1 at 0 (FUN_00019362 case 0x29)
     if (perf.c[0x11]) idx += (perf.c[0x11] - 64) / 2;                              // performance pan

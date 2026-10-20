@@ -703,6 +703,20 @@ int main() {
         CHECK(a.is("op.1.v.level.p1", 42), "part 1's edit did not come back (level %g)", a.get("op.1.v.level.p1"));
     }
 
+    // A controller set on a part byte moves that byte, and the editor with it: A088 Fat Line sends KN1 and the
+    // wheel to part 1's cutoff at +16 (ctrlDest_21 writes the byte, Synth::ctrl_write), and it once swept the
+    // filter with the Cutoff shown standing still.
+    {
+        a.set("perf.bank", 0);
+        a.set("perf.program", 87);
+        CHECK(a.until([&] { return a.data("perf.name") == "Fat Line"; }), "A088 did not load (\"%s\")", a.data("perf.name").c_str());
+        const double rest = a.get("part.cutoff.p1");
+        a.midi({0xB0, 1, 127});
+        CHECK(a.until([&] { return a.get("part.cutoff.p1") > rest; }), "the wheel left the Cutoff at %g", a.get("part.cutoff.p1"));
+        a.midi({0xB0, 1, 0});
+        CHECK(a.until([&] { return a.get("part.cutoff.p1") == rest; }), "the Cutoff did not come back to %g with the wheel (%g)", rest, a.get("part.cutoff.p1"));
+    }
+
     // A bank past 16,384 voices: every row loads. A merged DX7 .syx can hold 40,000, and the browser's row
     // params stopped at 16,384, so every row past it loaded row 16,384.
     {

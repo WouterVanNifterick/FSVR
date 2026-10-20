@@ -261,9 +261,15 @@ source and clamping to -128..127 after every addition.
 | FUN_00016F58 | `clamp(base + ((v' * d' * 2) >> 7), 0, 127)` | 18, 21-33: edits a part byte |
 | FUN_00017032 | `clamp(base + adj((v' * d' * 2) >> 6), 0, 127)`, adj taking one off a positive result | 17, 19, 20: volume and the two sends |
 
-`base` is the stored part byte, and the handler writes the result back as a parameter change. That is
-exactly the split the owner's manual describes: destinations 17-33 "overwrite the edit buffer" and show
-the edit mark, 1-16 and 34-47 "directly control the tone generator without affecting" it.
+`base` is a copy of the part byte, not the byte itself: 17 bytes a part at 0x01029618, in destination order
+17 to 33, filled from the part at a load (FUN_000302A0) and by every ordinary parameter change, a MIDI CC's
+included (FUN_00030758 calls FUN_00030264). The handler writes `base + controller` into the part byte through
+FUN_00030796 with its last argument 1, the controller path, which sets the edit flag and leaves the copy
+alone, so a controller never compounds and an edit moves the base. That is exactly the split the owner's
+manual describes: destinations 17-33 "overwrite the edit buffer" and show the edit mark, 1-16 and 34-47
+"directly control the tone generator without affecting" it. The bytes are 0B, 0E, 13, 12, 18, 19, 1F, 1A,
+1B, 1C, 20, 21, 22, 23, 0A, 1D and 1E; Panpot (18) skips a part whose pan is random and keeps 0 out of its
+result.
 
 **Part switch.** The table at EPROM 0x35C4C4 flags destinations 17-45 as per-part; only those consult
 the set's part switch. Destinations 1-16 (the insertion parameters and its two sends) and 46-47 (the

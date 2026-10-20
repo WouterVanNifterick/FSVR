@@ -13,7 +13,7 @@ void Synth::render(float* outL, float* outR, int frames) {
         const uint8_t* q = perf.part[p].p;
         insSw[p] = (q[0x14] & 1) != 0;
         dry[p] = sendlvl(q[0x11]);
-        varS[p] = sendlvl(ctrl_part(p, 20, q[0x12])); revS[p] = sendlvl(ctrl_part(p, 19, q[0x13]));
+        varS[p] = sendlvl(q[0x12]); revS[p] = sendlvl(q[0x13]);
     }
     sense_tick(frames / (double)SR);
     // Ours: an engine with nothing to play sleeps. Once no channel has been active and the output has held one

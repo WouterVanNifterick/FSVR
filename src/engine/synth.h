@@ -97,8 +97,10 @@ struct Synth {
     int ctrl_offset(int part, int dest) const;
     void fx_controls(int part);                // destinations 1-16, into the effect host (controllers.cpp)
     // A destination that edits a part byte: the firmware writes the byte, so the last set that selects
-    // it wins rather than the offsets adding up.
+    // it wins rather than the offsets adding up. ctrl_part is the value one would write, stored being the
+    // base copy (Part::ctlBase); ctrl_write writes them all into the part's bytes, which everything reads.
     int ctrl_part(int part, int dest, int stored) const;
+    void ctrl_write(int part);
     // Destination 34 is its own shape: the depth is the bend range in semitones, not a scaler
     // (ctrlDest_34, and the manual: "if Vcn depth is set to +2 the maximum control value is +2
     // semitones"). The summed source drives it like a bend wheel.

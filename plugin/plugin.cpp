@@ -627,8 +627,11 @@ private:
                         if (v <= 0x0B && listens(p, ch)) st.set((size_t)partBank[p], v + 1);
                 }
             }
-            if (cc != 1 && cc != 64 && cc != 11) adoptWanted = true;   // most write a part byte
+            if (cc != 64 && cc != 11) adoptWanted = true;   // most write a part byte; the wheel moves the bytes its sets edit
         }
+        // A controller source moves the part bytes its sets edit (destinations 17 to 33, Synth::ctrl_write), which
+        // the editor then shows: the wheel above, and the bend and aftertouch here.
+        if (st8 == 0xE0 || st8 == 0xD0 || st8 == 0xA0) adoptWanted = true;
         if (st8 == 0xC0 && n >= 2) {
             programChange(ch, b[1]);
             return;                               // the engine loads programs only out of an EPROM

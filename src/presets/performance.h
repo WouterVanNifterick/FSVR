@@ -49,6 +49,16 @@ struct Part {
     int held[32]; int nheld = 0; int lastPitch = -1;   // mono handling and portamento start
     int rpnM = 127, rpnL = 127; bool nrpnSel = false;   // RPN / NRPN selection state
     bool sustain = false;
+    // Controller destinations 17 to 33 edit part bytes, and each handler (pointer table at flash 0x3DC04) writes
+    // its byte as a copy of the byte plus the scaled controller, through FUN_00030796's controller path, which
+    // leaves the copy alone: the copy is 17 bytes a part at 0x01029618, in destination order, filled from the
+    // part at a load (FUN_000302A0) and by every ordinary parameter change, a MIDI CC's included
+    // (FUN_00030264). So the byte reads as the unit's edit buffer does, a controller never compounds on
+    // itself, and an edit moves the base the controller works from.
+    static constexpr uint8_t CTL_BYTE[17] = {0x0B, 0x0E, 0x13, 0x12, 0x18, 0x19, 0x1F, 0x1A, 0x1B, 0x1C, 0x20, 0x21, 0x22, 0x23, 0x0A, 0x1D, 0x1E};
+    uint8_t ctlBase[17] = {};
+    void fill_ctl_base() { for (int k = 0; k < 17; k++) ctlBase[k] = p[CTL_BYTE[k]]; }
+    void ctl_edit(int at) { for (int k = 0; k < 17; k++) if (CTL_BYTE[k] == at) ctlBase[k] = p[at]; }   // an ordinary edit of byte at
     int rcv() const { return p[1] == 0 ? 0x7F : p[4]; }   // Voice Bank "off" (byte 1) receives nothing, whatever the channel (owner's manual p.63)
     // Rcv Max (byte 3), parts 1 and 2 only: the last channel of the range from Rcv Ch, or -1 for none. Off (0x7F),
     // a Max at or below Rcv Ch, and pf all mean the single channel (owner's manual p.25, Data List 2.2.3.2).
