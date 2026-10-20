@@ -295,6 +295,7 @@ The skin asks through params and the instance's text data; the processor (`plugi
 | `live.lcd.perf` | text data | processor | The LCD's performance line: the preset it loaded as ("A001 Zap !", a user one by its name) while the engine still holds that name, else the engine's own, so a performance bulk from the host shows |
 | `live.message` | text data | processor | What the last import, export or analysis did, in the browser's header |
 | `fseq.display` | text data | processor | The loaded Fseq's tracks, for the Fseq page's display of a user Fseq |
+| `fseq.name` | text data | both | The loaded Fseq's name, its eight header bytes trimmed; a name set here goes into the Fseq's header as the Data List's name bytes, so Export and Save to Bank write it |
 | `fseq.position` | param (not the host's) | processor | The frame playback is at, the display's gold line |
 | `perf.bank`, `perf.user`, `perf.program` | params | GUI or host | The performance to load |
 | `part.bank.pN`, `part.program.pN`, `part.user.pN` | params | GUI or host | A part's voice |
@@ -331,7 +332,7 @@ The tables that are the unit's own readouts are `src/display/display.h`, transcr
 
 ## Open
 
-- **Names aren't editable.** The unit's formats hold 12-character performance names, 10-character voice names and 8-character Fseq names; the editor edits none of them yet.
+- **Performance and voice names aren't editable.** The unit's formats hold 12-character performance names, 10-character voice names and 8-character Fseq names; the editor edits the Fseq's (text data `fseq.name`, no box on the page yet) and neither of the others.
 - **Factory items don't list under User banks and the other way round.** The factory bank's lists are static in the skin, a user bank's are the processor's; the Category column filters both.
 - **The LCD's performance menu lists the factory banks only.** User performances are picked in the browser.
 - **Polyphony and note reserve** stay the unit's until the engine allocates more than 32 notes.

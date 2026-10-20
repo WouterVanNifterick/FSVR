@@ -429,6 +429,19 @@ int main() {
               h[0x18], h[0x19], h[0x1E] << 7 | h[0x1F], h[0x14], h[0x16], h[0x17], h[0x1A]);
     }
 
+    // The Fseq's name is text data fseq.name: Import Audio named it after the file, and a name set there goes
+    // into the header as the Data List's eight name bytes, which Export writes, cut and trimmed as the Fseq holds it.
+    CHECK(a.until([&] { return a.data("fseq.name") == "Vowel"; }), "the imported Fseq's name reads \"%s\"", a.data("fseq.name").c_str());
+    a.st->setData("fseq.name", "MyVowelXY");
+    CHECK(a.until([&] { return a.data("fseq.name") == "MyVowelX" && a.is("gui.edited", 1); }), "the typed name came back as \"%s\"", a.data("fseq.name").c_str());
+    a.st->setData("fseq.export", (tmp / "named.syx").u8string());
+    CHECK(a.until([&] { return fs::exists(tmp / "named.syx") && fs::file_size(tmp / "named.syx") > 9 + 32; }), "Export Fseq wrote nothing after the rename");
+    if (fs::exists(tmp / "named.syx") && fs::file_size(tmp / "named.syx") > 9 + 32) {
+        std::ifstream f(tmp / "named.syx", std::ios::binary);
+        const std::vector<uint8_t> x((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        CHECK(std::string((const char*)x.data() + 9, 8) == "MyVowelX", "the exported header is named \"%.8s\"", (const char*)x.data() + 9);
+    }
+
     // The Fseq plays from a note on its part, and the page's playback line follows it.
     a.set("fseq.part", 1);
     a.set("fseq.play_mode", 1);   // Fseq, not Scratch

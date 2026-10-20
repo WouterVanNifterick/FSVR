@@ -241,6 +241,7 @@ public:
                 fields[i].set(model.area(fields[i].area, fields[i].part), fields[i].toRaw(base[i]));
         }
         followFseqHeader();
+        showFseqName();
         for (int p = 0; p < 4; ++p)
             for (auto& c : corners[p]) std::memcpy(c.data(), model.voice[p], 608);
         pushModel();
@@ -394,6 +395,7 @@ private:
     std::vector<int> browsed[3];       // the browsed bank's rows as U numbers: performances, voices, Fseqs
     std::map<std::pair<int, int>, int> listed;   // factory voices by bank and number: their category in the browser
     std::vector<uint8_t> fseqShown;    // the Fseq the page's display last had
+    std::string fseqNameShown;         // its name as text data fseq.name
     int messageTicks = 0;              // worker ticks until the status line clears
     std::string libError;              // the library's read error the status line last showed
     uint8_t waveVoice[4][608] = {};    // each part's voice as the operator panel's waves were last drawn from it
@@ -733,6 +735,7 @@ private:
             startup.clear();
         }
         if (adoptWanted.exchange(false)) adopt(true);
+        renameFseq();
         selectors();
         voiceNames();
         lcdPerf();
@@ -814,6 +817,8 @@ private:
             for (double& b : base) b = std::nan("");   // an older session: send every param again
         }
         followFseqHeader();   // an older session has no values for them, and they must not overwrite the Fseq's
+        fseqNameShown.assign(1, '\0');   // State::load cleared fseq.name: publish it again
+        showFseqName();
         for (int p = 0; p < 4; ++p)
             for (int c = 0; c < 4; ++c)
                 // the morph square is off: a session's saved corners give way to the voice it plays
@@ -858,6 +863,7 @@ private:
         std::memcpy(model.sys, now.sys, 76);
         std::memcpy(model.perf, now.perf, 400);
         std::memcpy(model.fseqHead, now.fseqHead, 32);
+        showFseqName();
         bool loaded = false;
         for (int p = 0; p < 4; ++p) {
             if (!bare[p]) continue;
@@ -891,6 +897,34 @@ private:
     void followFseqHeader() {
         for (int i : fieldParams)
             if (fields[(size_t)i].area == FseqHeader) put(i, fields[(size_t)i].toPlain(fields[(size_t)i].word(model.fseqHead)));
+    }
+
+    // The loaded Fseq's name, its eight header bytes trimmed, as text data fseq.name for the page to show and edit.
+    void showFseqName() {
+        std::string n;
+        for (int k = 0; k < 8; ++k) n += model.fseqHead[k] >= 32 && model.fseqHead[k] < 127 ? (char)model.fseqHead[k] : ' ';
+        while (!n.empty() && n.back() == ' ') n.pop_back();
+        if (n != fseqNameShown) st.setData("fseq.name", fseqNameShown = n);
+    }
+
+    // A name typed on the page goes into the loaded Fseq's header as the Data List's eight name bytes, each a
+    // parameter change (70 00 0k), so Export and Save to Bank write it; the name comes back as the Fseq holds it.
+    void renameFseq() {
+        if (!st.hasData("fseq.name") || fseqShown.size() < 32) return;
+        const std::string want = st.data("fseq.name");
+        if (want == fseqNameShown) return;
+        for (int k = 0; k < 8; ++k) {
+            const char c = k < (int)want.size() ? want[(size_t)k] : ' ';
+            model.fseqHead[k] = (uint8_t)(c >= 32 && c < 127 ? c : ' ');
+            Field f;
+            f.h = 0x70;
+            f.l = k;
+            f.off = k;
+            send(f, model.fseqHead);
+        }
+        std::memcpy(fseqShown.data(), model.fseqHead, 8);
+        put(edited, 1);
+        showFseqName();
     }
 
     // The Fseq page's display draws the loaded Fseq from text data fseq.display, an entry in the form of

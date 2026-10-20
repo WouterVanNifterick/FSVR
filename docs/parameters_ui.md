@@ -14,7 +14,7 @@ Every parameter in the FS1R's Data List, and where the editor puts it, or that i
 | Voice Category | `voice.category.p1` to `.p4` | No control edits the part's voice. Edit Attributes in the Browser changes a *saved* preset's category in its bank (`item.category`), and a voice saved with Save Current Preset keeps whatever the edit buffer held | Not written down until now |
 | Fseq header (Table 3, `70 00 ll`): frame format | none | The Fseq's size, not a setting: Import Audio picks the smallest that holds the sound. Every other header setting has a param (Fseq header, below) | Yes |
 | Fseq frames: pitch, and eight voiced and eight unvoiced formant frequencies and levels per frame | not params | Data, not settings. Import Audio makes them out of a sound file, and the Fseq page draws them | Yes |
-| Names: performance (12 characters), voice (10, one per part), Fseq (8) | not params | Only saved items have names you can edit: Save Current Preset names the performance it saves, and Rename on a row in a user bank renames a performance, voice or Fseq there. The edit buffer's names cannot be edited ([editor.md](editor.md), Open) | Open |
+| Names: performance (12 characters), voice (10, one per part), Fseq (8) | not params | Save Current Preset names the performance it saves, and Rename on a row in a user bank renames a performance, voice or Fseq there. The edit buffer's Fseq name is text data `fseq.name`, sent into the Fseq's header; the performance's and the voices' cannot be edited ([editor.md](editor.md), Open) | Open |
 | Fseq init command (`00 00 46`) | none | A command, not a setting; the engine ignores it as a parameter change | Yes |
 
 Everything else in the Data List has a control.
@@ -336,7 +336,7 @@ The loaded Fseq's own settings, sent as the Data List's Fseq parameter changes. 
 
 | Address | Data List | Param | Where | Notes |
 |---|---|---|---|---|
-| 00 to 07 | NAME | none | Rename on a user Fseq; Import Audio names it after the file | see Names |
+| 00 to 07 | NAME | text data `fseq.name` | no box yet; Rename on a user Fseq; Import Audio names it after the file | a name set in `fseq.name` is sent as eight parameter changes; see Names |
 | 10 to 11 | start step of loop point | `fseq.hdr.loop_start` | Fseq › In the Fseq › Loop | copied into the performance's Loop Start when the Fseq is chosen |
 | 12 to 13 | end step of loop point | `fseq.hdr.loop_end` | Fseq › In the Fseq › Loop ... to | copied into the performance's Loop End |
 | 14 | loop mode | `fseq.hdr.loop_mode` | no control yet | copied into the performance's Loop Mode, which the player reads |
