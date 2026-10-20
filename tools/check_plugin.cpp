@@ -654,10 +654,31 @@ int main() {
         CHECK(b.get("fseq.position") == step, "the Fseq ran on Tines Copy, which has no Fseq part (step %g, was %g)", b.get("fseq.position"), step);
     }
 
+    // A performance bulk from the host with no voices behind it plays the voices its parts name, as the unit
+    // does from its memory: an editor sends A002's performance alone over A013.
+    {
+        a.set("perf.bank", 0);
+        a.set("perf.program", 1);
+        CHECK(a.until([&] { return a.data("perf.name") == "Shaman"; }), "A002 did not load for the bulk");
+        std::vector<uint8_t> shamanPerf;
+        for (auto& b : engine())
+            if (b.first == 0x10) shamanPerf = b.second;
+        const std::string shamanVoice = a.data("morph.p1.bl");
+        a.set("perf.program", 12);
+        CHECK(a.until([&] { return a.data("perf.name") == "Dirt Vocoder" && a.data("morph.p1.bl") != shamanVoice; }), "A013 did not load before the bulk");
+        std::vector<uint8_t> m;
+        addBulk(m, 0x10, 0, shamanPerf);
+        a.proc->midi(0, m.data(), (int)m.size());
+        CHECK(a.until([&] { return a.data("perf.name") == "Shaman" && a.data("morph.p1.bl") == shamanVoice; }),
+              "the host's performance bulk left part 1 on \"%s\", not \"%s\"", a.data("morph.p1.bl").c_str(), shamanVoice.c_str());
+    }
+
     // The Parts page's lamp brings back the voice its part held, edits and all. It once reloaded the factory
     // voice the part's bank and number name, so an edited part came back as the stock voice.
     {
         a.set("perf.bank", 0);
+        a.set("perf.program", 4);   // away first: the bulk above left the param on A013 and the engine on A002
+        CHECK(a.until([&] { return a.data("perf.name") == "Snow Decay"; }), "A005 did not load before the lamp");
         a.set("perf.program", 12);   // A013 Dirt Vocoder, parts 1 and 2 on
         CHECK(a.until([&] { return a.data("perf.name") == "Dirt Vocoder" && a.is("gui.edited", 0); }), "A013 did not load for the lamp (\"%s\", edited %g)",
               a.data("perf.name").c_str(), a.get("gui.edited"));
@@ -698,6 +719,12 @@ int main() {
             Rig s;
             CHECK(s.until([&] { return s.data("perf.user.name") == "Snow Decay" && s.is("perf.bank", 1); }), "a new instance did not play the Init Patch (\"%s\")",
                   s.data("perf.user.name").c_str());
+        }
+        {
+            Rig s;   // a host that picks a performance as the instance starts gets that one, not the Init Patch
+            s.set("perf.program", 2);
+            CHECK(s.until([&] { return s.data("perf.name") == "Nightmare" && s.is("perf.bank", 0); }), "a performance the host picked at the start gave way to \"%s\"",
+                  s.data("perf.name").c_str());
         }
         {
             Rig s(true);

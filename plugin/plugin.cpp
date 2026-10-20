@@ -373,6 +373,7 @@ private:
     int seedSeen[4] = {-1, -1, -1, -1};
     std::atomic<int> lastNote{-1};
     std::atomic<bool> adoptWanted{false};
+    std::atomic<int> hostVoices{0};    // parts whose voice the host sent since the worker last adopted, a bit each
 
     // the output, for the harmonic display
     std::vector<float> ring = std::vector<float>(8192);
@@ -592,6 +593,10 @@ private:
     void handle(const uint8_t* b, int n, bool live) {
         const int st8 = b[0] & 0xF0, ch = b[0] & 0x0F;
         if (b[0] == 0xF0) {                       // a patch or parameter change from an editor
+            if (n >= 9 && b[1] == 0x43 && b[3] == 0x5E) {   // a part's voice, bulk or parameter change, at address high 40..43
+                const int ah = (b[2] & 0xF0) == 0x10 ? b[4] : b[6];
+                if (ah >= 0x40 && ah <= 0x43) hostVoices.fetch_or(1 << (ah - 0x40));
+            }
             dev.sendMidi(b, (size_t)n);
             adoptWanted = true;
             return;
@@ -697,10 +702,15 @@ private:
         const unsigned loads = st.loads();
         if (!(loads & 1) && loads != loadsSeen) restore(loads);
         if (!startup.empty()) {
-            playInit(startup);
+            // A performance the host chose before this first tick is what the instance plays; the Init Patch
+            // would put the user bank under it, and the selectors below would then look for the host's
+            // number among the user's performances.
+            bool chosen = false;
+            for (int i : {perfProgram, perfBank, perfUser}) chosen |= i >= 0 && st.get((size_t)i) != sel[(size_t)i];
+            if (!chosen) playInit(startup);
             startup.clear();
         }
-        if (adoptWanted.exchange(false)) adopt();
+        if (adoptWanted.exchange(false)) adopt(true);
         selectors();
         voiceNames();
         lcdPerf();
@@ -800,12 +810,22 @@ private:
     // What the engine holds, back into the params: every field whose bytes changed under us (a load, a
     // bulk from the host, a controller that writes a part byte). A changed voice goes into the morph
     // corners the part edits (all four with Edit All) and the part plays the blend again.
-    void adopt() {
+    void adopt(bool fromHost = false) {
         std::vector<uint8_t> dump, fseq;
         dev.getState(dump);
         Model now;
         if (!now.parse(dump, &fseq)) return;
         showFseq(fseq);
+        // A part whose bank or number the host changed with no voice behind it: a performance bulk or parameter
+        // change, or a bank select. The unit loads that voice from its memory, and the engine only from an
+        // EPROM, which the plug-in has not got. The plug-in's own loads bring their voices themselves.
+        const int sent = fromHost ? hostVoices.exchange(0) : ~0;
+        bool bare[4] = {};
+        for (int p = 0; p < 4; ++p) {
+            const int at = 192 + 52 * p;
+            bare[p] = !(sent & 1 << p) && (now.perf[at + 1] != model.perf[at + 1] || now.perf[at + 2] != model.perf[at + 2]) &&
+                      std::memcmp(now.voice[p], model.voice[p], 608) == 0;
+        }
         for (int i : fieldParams) {
             const Field& f = fields[(size_t)i];
             if (f.area == Voice) continue;
@@ -814,6 +834,23 @@ private:
         }
         std::memcpy(model.sys, now.sys, 76);
         std::memcpy(model.perf, now.perf, 400);
+        bool loaded = false;
+        for (int p = 0; p < 4; ++p) {
+            if (!bare[p]) continue;
+            const int vb = now.perf[192 + 52 * p + 1], prog = now.perf[192 + 52 * p + 2], fv = factoryVoice(vb, prog);
+            if (fv >= 0 && fv < (int)factory.voices.size()) {
+                loadVoiceItem(factory.voices[(size_t)fv], p);
+                loaded = true;
+            } else if (const Item* u = vb == 1 ? lib.voice(prog + 1) : nullptr) {
+                loadVoiceItem(*u, p);
+                putUser(partUser[p], userVoice[p], prog + 1);
+                loaded = true;
+            }
+        }
+        if (loaded) {   // the voices just loaded, read back as any other change is
+            adopt();
+            return;
+        }
         st.setData("perf.name", perfName());
         for (int p = 0; p < 4; ++p) {
             if (std::memcmp(now.voice[p], model.voice[p], 608) == 0) continue;
