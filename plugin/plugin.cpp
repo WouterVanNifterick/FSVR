@@ -396,7 +396,7 @@ private:
     bool notify = false;               // the worker changed params; the host re-reads them
     std::vector<int> browsed[3];       // the browsed bank's rows as U numbers: performances, voices, Fseqs
     std::map<std::pair<int, int>, int> listed;   // factory voices by bank and number: their category in the browser
-    std::vector<uint8_t> fseqShown;    // the Fseq the page last had (live.fseq.doc and fseq.display)
+    std::vector<uint8_t> fseqShown;    // the Fseq the page last had (live.fseq.doc)
     std::string fseqNameShown;         // its name as text data fseq.name
     std::string rateShown;             // live.fseq.rate as last published
     std::string pickLabelShown;        // fseq.pick.label as last published
@@ -981,30 +981,12 @@ private:
         showFseqName();
     }
 
-    // The loaded Fseq for the page: the whole bulk, header and frames, as base64 under live.fseq.doc for the
-    // editor, and for the display of a user Fseq text data fseq.display, an entry in the form of the skin's
-    // data/fseqs.json: per frame the pitch and each track's frequency (the word's high byte) and level, as
-    // hex strings of one byte a frame.
+    // The loaded Fseq for the page's editor: the whole bulk, header and frames, as base64 under live.fseq.doc,
+    // published whenever it differs from what the page last had; "" with no Fseq.
     void showFseq(const std::vector<uint8_t>& d) {
         if (d == fseqShown) return;
         fseqShown = d;
         st.setData("live.fseq.doc", d.size() < 32 + 50 ? "" : b64(d.data(), d.size()));
-        if (d.size() < 32 + 50) { st.setData("fseq.display", ""); return; }
-        const int total = (int)(d.size() - 32) / 50, end = d[0x1E] << 7 | d[0x1F];
-        const int n = end ? std::min(total, end + 1) : total;
-        auto hex = [&](int at) {
-            std::string h;
-            char b[3];
-            for (int k = 0; k < n; ++k) { std::snprintf(b, sizeof b, "%02x", d[32 + (size_t)k * 50 + (size_t)at]); h += b; }
-            return "\"" + h + "\"";
-        };
-        auto tracks = [&](int at) {
-            std::string t = "[";
-            for (int i = 0; i < 8; ++i) t += (i ? "," : "") + hex(at + i);
-            return t + "]";
-        };
-        st.setData("fseq.display", "{\"frames\":" + std::to_string(n) + ",\"pitch\":" + hex(0) + ",\"vfreq\":" + tracks(2) + ",\"vlevel\":" + tracks(0x12) +
-                                        ",\"ufreq\":" + tracks(0x1A) + ",\"ulevel\":" + tracks(0x2A) + "}");
     }
 
     // The pages show the corner a part edits: the picked one, or with Edit All the last one picked.
@@ -1460,6 +1442,7 @@ private:
         if (std::string r = take("item.request"); !r.empty()) itemRequest(r);
         if (std::string r = take("bank.request"); !r.empty()) bankRequest(r);
         if (std::string path = take("fseq.export"); !path.empty()) exportFseq(path);
+        if (take("fseq.save") == "1") saveFseq();
         if (std::string path = take("fseq.import_audio"); !path.empty()) importAudio(path);
         if (std::string r = take("opt.request"); !r.empty()) optionRequest(r);
         if (std::string r = take("clip.request"); !r.empty()) clipRequest(r);
@@ -2053,6 +2036,40 @@ private:
         if (fseq.empty()) { message("No Fseq is loaded"); return; }
         if (!writeFile(path, bulk(0x60, 0, 0, fseq.data(), fseq.size()))) message("Cannot write " + path);
         else message("Saved " + std::filesystem::u8path(path).filename().u8string());
+    }
+
+    // Save Fseq: the loaded Fseq, edits and all, back into the library. One of the library's own is rewritten
+    // in its bank's file; a preset, or an Fseq from elsewhere, becomes a bank of its own named after it.
+    void saveFseq() {
+        std::lock_guard<std::mutex> g(ctl);
+        std::vector<uint8_t> dump, fseq;
+        dev.getState(dump);
+        Model m;
+        m.parse(dump, &fseq);
+        if (fseq.size() < 32) { message("No Fseq is loaded"); return; }
+        std::string name;
+        for (int k = 0; k < 8; ++k) name += fseq[(size_t)k] >= 32 && fseq[(size_t)k] < 127 ? (char)fseq[(size_t)k] : ' ';
+        name = trimmed(name);
+        std::string err;
+        if (get(fseqBank) == 0 && userFseq >= 1 && userFseq <= (int)lib.fseqs.size()) {
+            const Library::Ref r = lib.fseqs[(size_t)userFseq - 1];
+            const Item& it = lib.banks[(size_t)r.bank].fseqs[(size_t)r.index];
+            const std::string path = lib.banks[(size_t)r.bank].path, bankName = lib.banks[(size_t)r.bank].name;
+            const Loaded was = loaded();
+            const std::vector<uint8_t> bytes = readdress(bulk(0x60, 0, 0, fseq.data(), fseq.size()), it.address, 0, std::max(0, it.number));
+            if (!lib.splice(r.bank, {{it.at, it.len, bytes}}, err)) { message(err); return; }
+            relocate(was, path);
+            writeLists();
+            message("Saved \"" + name + "\" to " + bankName);
+            return;
+        }
+        const int k = lib.add(name.empty() ? "Fseq" : name, bulk(0x60, 0, 0, fseq.data(), fseq.size()), err);
+        if (k < 0) { message(err); return; }
+        writeLists();
+        putUser(fseqUser, userFseq, lib.number(lib.fseqs, k, 0));
+        choose(fseqBank, 0);
+        syncBrowse();
+        message("Saved \"" + name + "\" as a bank of your own");
     }
 
     // Import Audio: the analysis runs here, off the lock; the Fseq it makes is a bank of its own in the

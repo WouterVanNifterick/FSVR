@@ -1055,7 +1055,24 @@
    "set": {
     "part": "p4"
    }
-  }
+  },
+  {"chord": "ctrl+z", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "undo"}},
+  {"chord": "ctrl+y", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "redo"}},
+  {"chord": "ctrl+shift+z", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "redo"}},
+  {"chord": "ctrl+c", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "copy"}},
+  {"chord": "ctrl+x", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "cut"}},
+  {"chord": "ctrl+v", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "paste"}},
+  {"chord": "ctrl+a", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "select_all"}},
+  {"chord": "delete", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "delete"}},
+  {"chord": "escape", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "cancel"}},
+  {"chord": "1", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "solo 1"}},
+  {"chord": "2", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "solo 2"}},
+  {"chord": "3", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "solo 3"}},
+  {"chord": "4", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "solo 4"}},
+  {"chord": "5", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "solo 5"}},
+  {"chord": "6", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "solo 6"}},
+  {"chord": "7", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "solo 7"}},
+  {"chord": "8", "when": {"stack": "pages", "view": "page_fseq"}, "data": {"live.fseq.cmd": "solo 8"}}
  ],
  "steppers": {
   "width": 9,

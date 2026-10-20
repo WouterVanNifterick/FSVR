@@ -394,17 +394,25 @@ int main() {
     // Import Audio: a vowel at 150 Hz becomes a user Fseq, loaded, its pitch the word for 150 Hz.
     const fs::path wav = tmp / "Vowel.wav";
     writeBytes(wav, vowelWav());
-    const std::string shown = a.data("fseq.display");   // the list line comes before the load, the display after it
+    const std::string shown = a.data("live.fseq.doc");   // the list line comes before the load, the document after it
     a.st->setData("fseq.import_audio", wav.u8string());
+    CHECK(a.until([&] { return a.lines("fseq.user.list") == 1 && a.data("live.fseq.doc") != shown && !a.data("live.fseq.doc").empty(); }, 20000),
+          "Import Audio made no Fseq (%s)", a.data("fsvr.message").c_str());
     CHECK(a.until([&] { return a.lines("fseq.user.list") == 1 && a.data("fseq.display") != shown && !a.data("fseq.display").empty(); }, 20000),
           "Import Audio made no Fseq (%s)", a.data("live.message").c_str());
     CHECK(a.is("fseq.bank", 0) && a.is("fseq.user", 1), "the new Fseq is not selected");
     CHECK(a.until([&] { return a.is("fseq.pick", 90) && a.data("fseq.pick.label").rfind("U1 Vowel", 0) == 0; }),
           "the picker reads row %g \"%s\" after Import Audio", a.get("fseq.pick"), a.data("fseq.pick.label").c_str());
-    const std::string disp = a.data("fseq.display");
-    const size_t p = disp.find("\"pitch\":\"");
-    if (p != std::string::npos) {
-        const int hi = std::stoi(disp.substr(p + 9 + 20, 2), nullptr, 16);   // frame 10, well inside the tone
+    auto b64at = [](const std::string& s, size_t i) {   // byte i of a base64 string
+        static const std::string k = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        const size_t q = i / 3 * 4;
+        if (q + 4 > s.size()) return -1;
+        unsigned v = 0;
+        for (size_t j = 0; j < 4; ++j) v = v << 6 | (unsigned)std::max(0, (int)k.find(s[q + j]));
+        return (int)(v >> (16 - 8 * (i % 3)) & 255);
+    };
+    {
+        const int hi = b64at(a.data("live.fseq.doc"), 32 + 10 * 50);   // frame 10's pitch, well inside the tone
         CHECK(std::abs(hi - 0x62) <= 1, "the pitch word's high byte is %02x, 150 Hz is 62", hi);
     }
 
@@ -741,6 +749,29 @@ int main() {
         Rig b;
         b.st->load(session);
         CHECK(b.until([&] { return b.data("live.fseq.doc") == a.data("live.fseq.doc"); }), "the session did not bring the document back");
+
+        // Save Fseq keeps the edits: one of the library's own is rewritten in its bank and comes back with them;
+        // a preset becomes one of your own.
+        const int users = a.lines("fseq.user.list");
+        a.set("fseq.pick", 90);   // U1, the vowel Import Audio made
+        CHECK(a.until([&] { return a.is("fseq.bank", 0) && a.is("fseq.user", 1); }), "the picker did not load U1");
+        std::vector<uint8_t> one(50, 0);
+        one[0] = 0x45; one[1] = 0x33;
+        a.st->setData("live.fseq.edit", "frames 5 1 " + enc(one));
+        CHECK(a.until([&] { return a.data("live.fseq.edit").empty(); }), "the edit before the save was not taken");
+        a.st->setData("fseq.save", "1");
+        CHECK(a.until([&] { return a.data("fsvr.message").rfind("Saved", 0) == 0; }), "Save Fseq said \"%s\"", a.data("fsvr.message").c_str());
+        a.set("fseq.pick", 10);
+        CHECK(a.until([&] { return a.is("fseq.number", 10); }), "preset 11 did not load");
+        a.set("fseq.pick", 90);
+        CHECK(a.until([&] { const std::vector<uint8_t> d = unb64(a.data("live.fseq.doc")); return a.is("fseq.user", 1) && d.size() > 32 + 6 * 50 && d[32 + 5 * 50] == 0x45; }),
+              "the saved Fseq came back without its edit");
+        a.set("fseq.pick", 42);   // a preset: saving it makes a new user Fseq
+        CHECK(a.until([&] { return a.is("fseq.number", 42); }), "preset 43 did not load");
+        a.st->setData("fseq.save", "1");
+        CHECK(a.until([&] { return a.lines("fseq.user.list") == users + 1 && a.is("fseq.bank", 0) && a.data("fseq.pick.label").rfind("U", 0) == 0 &&
+                                   a.data("fseq.pick.label").find("ChuckRtm") != std::string::npos; }),
+              "saving a preset left %d user Fseqs, row %g \"%s\"", a.lines("fseq.user.list"), a.get("fseq.pick"), a.data("fseq.pick.label").c_str());
     }
 
     // Choosing an Fseq does what the panel's FUN_00032A38 does: the start offset goes to 0 and the header's
@@ -785,10 +816,10 @@ int main() {
         a.set("perf.bank", 0);
         a.set("perf.program", 141);
         CHECK(a.until([&] { return a.data("perf.name") == "Full Tines" && a.is("gui.edited", 0); }), "B014 did not load (\"%s\")", a.data("perf.name").c_str());
-        const std::string vowel = a.data("fseq.display");
+        const std::string vowel = a.data("live.fseq.doc");
         a.set("fseq.bank", 1);
         a.set("fseq.number", 42);
-        CHECK(a.until([&] { return a.data("fseq.display") != vowel; }), "the factory Fseq did not load");
+        CHECK(a.until([&] { return a.data("live.fseq.doc") != vowel; }), "the factory Fseq did not load");
         std::vector<uint8_t> unit;
         for (auto& b : engine()) {
             if (b.first >= 0x40 && b.first <= 0x43) addBulk(unit, 0x51, 20 + b.first - 0x40, b.second);

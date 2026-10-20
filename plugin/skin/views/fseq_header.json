@@ -1,0 +1,264 @@
+{
+ "size": [
+  1187,
+  70
+ ],
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "hdr_name_label",
+   "rect": [6, 4, 90, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Name", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "textbox",
+   "name": "hdr_name",
+   "rect": [6, 26, 90, 20],
+   "fill": {"colour": "#1e2728ff"},
+   "key": "fseq.name",
+   "editable": true,
+   "editOn": "click",
+   "text": {"text": "", "font": "library_field_white_12", "align": "left", "valign": "middle"},
+   "pad": [5, 2, 5, 0],
+   "tip": "The Fseq's name, 8 characters at most, saved with it"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_note_label",
+   "rect": [110, 4, 60, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Note", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "hdr_note",
+   "rect": [110, 26, 60, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.note",
+   "tip": "The key that plays the Fseq at its own pitch (its formant note assign), saved with the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_tuning_label",
+   "rect": [184, 4, 56, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Tune", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "hdr_tuning",
+   "rect": [184, 26, 56, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.tuning",
+   "tip": "Fine tuning of the Fseq's pitch, -63 to +63, saved with the Fseq"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_speed_label",
+   "rect": [254, 4, 72, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Speed Adj", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "hdr_speed",
+   "rect": [254, 26, 72, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.speed",
+   "tip": "The Fseq's own speed adjustment, saved with it; the performance's Speed % applies on top"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_end_label",
+   "rect": [340, 4, 60, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "End", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "hdr_end",
+   "rect": [340, 26, 60, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.end",
+   "tip": "The last frame of the Fseq that plays (its end of valid data), the red marker in the lanes"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_loop_label",
+   "rect": [414, 4, 154, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Loop", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "hdr_loop_start",
+   "rect": [414, 26, 60, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.loop_start",
+   "tip": "The loop the Fseq brings with it: choosing the Fseq copies it, with its loop mode, tempo velocity, pitch mode and delay, into the performance"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_loop_to",
+   "rect": [478, 26, 26, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "to", "font": "caption_grey_12", "align": "center", "valign": "middle"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "hdr_loop_end",
+   "rect": [508, 26, 60, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.loop_end",
+   "tip": "The loop the Fseq brings with it: choosing the Fseq copies it, with its loop mode, tempo velocity, pitch mode and delay, into the performance"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_loop_mode_label",
+   "rect": [582, 4, 108, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Loop Mode", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "button",
+   "name": "hdr_loop_mode_one_way",
+   "rect": [582, 26, 53, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": ">>", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.hdr.loop_mode",
+   "action": {"value": 0},
+   "tip": "The loop mode the Fseq brings with it, one way; choosing the Fseq copies it into the performance"
+  },
+  {
+   "type": "button",
+   "name": "hdr_loop_mode_round",
+   "rect": [637, 26, 53, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": ">> <<", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.hdr.loop_mode",
+   "action": {"value": 1},
+   "tip": "The loop mode the Fseq brings with it, round; choosing the Fseq copies it into the performance"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_tempo_vel_label",
+   "rect": [704, 4, 64, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Tempo Vel", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "hdr_tempo_vel",
+   "rect": [704, 26, 64, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.tempo_vel",
+   "tip": "The tempo velocity the Fseq brings with it; choosing the Fseq copies it into the performance's Speed Vel"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_pitch_mode_label",
+   "rect": [782, 4, 104, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Pitch Mode", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "button",
+   "name": "hdr_pitch_fseq",
+   "rect": [782, 26, 51, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": "Fseq", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.hdr.pitch_mode",
+   "action": {"value": 0},
+   "tip": "The pitch mode the Fseq brings with it: its pitch track shifts the notes; choosing the Fseq copies it into the performance"
+  },
+  {
+   "type": "button",
+   "name": "hdr_pitch_fixed",
+   "rect": [835, 26, 51, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": "Fixed", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.hdr.pitch_mode",
+   "action": {"value": 1},
+   "tip": "The pitch mode the Fseq brings with it: the notes keep their pitch; choosing the Fseq copies it into the performance"
+  },
+  {
+   "type": "plate",
+   "name": "hdr_delay_label",
+   "rect": [900, 4, 60, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Delay", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "hdr_delay",
+   "rect": [900, 26, 60, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.hdr.delay",
+   "tip": "The start delay the Fseq brings with it; choosing the Fseq copies it into the performance's Delay"
+  }
+ ]
+}

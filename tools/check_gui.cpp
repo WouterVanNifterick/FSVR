@@ -896,14 +896,15 @@ int main() {
         // ---- the Fseq speed skips 0.5 to 9.9, where nothing plays: the steppers step across, a value there lands on its nearer end
         {
             u.click("tab_fseq");
+            u.click("pages/tab_playback");
             const double speed = u.get("fseq.speed");
             u.set("fseq.speed", 10);
             u.run();
             Rect r;
-            if (u.rect("pages/speed", r)) u.clickAt(r.x + 3, r.y + r.h / 2);
+            if (u.rect("pages/fseq_bottom/speed", r)) u.clickAt(r.x + 3, r.y + r.h / 2);
             const std::string t = u.st->text((size_t)u.at("fseq.speed"), u.get("fseq.speed"));
             CHECK(u.get("fseq.speed") == 0.4 && t == "MIDI 4/1", "the speed's down stepper from 10.0 gave %g (\"%s\")", u.get("fseq.speed"), t.c_str());
-            if (u.rect("pages/speed", r)) u.clickAt(r.x + r.w - 3, r.y + r.h / 2);
+            if (u.rect("pages/fseq_bottom/speed", r)) u.clickAt(r.x + r.w - 3, r.y + r.h / 2);
             CHECK(u.get("fseq.speed") == 10, "the speed's up stepper from MIDI 4/1 gave %g", u.get("fseq.speed"));
             u.set("fseq.speed", 5);
             CHECK(u.get("fseq.speed") == 0.4, "a speed of 5.0 became %g, not MIDI 4/1", u.get("fseq.speed"));
@@ -1077,6 +1078,185 @@ int main() {
         u.click(M + "delete");
         CHECK(u.until([&] { return u.lineOf("bank.list", "Renamed Bank") == 0; }) && fs::exists(tmp / "Library" / "Deleted" / "Renamed Bank.syx"),
               "Delete Bank did not move the bank to Deleted");
+
+        // ---- the Fseq page's editor --------------------------------------------
+        {
+            u.click("tab_fseq");
+            CHECK(u.until([&] { return !u.data("live.fseq.doc").empty(); }), "the Fseq page has no document");
+            u.settle();
+            u.shot("fseq_editor");
+            auto b64 = [](const std::string& s) {
+                static const std::string k = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+                std::vector<uint8_t> out;
+                unsigned v = 0;
+                int bits = 0;
+                for (char ch : s) {
+                    const size_t i = k.find(ch);
+                    if (i == std::string::npos) continue;
+                    v = v << 6 | (unsigned)i;
+                    bits += 6;
+                    if (bits >= 8) { bits -= 8; out.push_back((uint8_t)(v >> bits & 255)); }
+                }
+                return out;
+            };
+            auto pixel = [&](int x, int y) { return u.gui.pixels()[(size_t)y * u.gui.width() + x] & 0xffffff; };
+            auto near = [](uint32_t a, uint32_t b, int tol) {
+                for (int s = 0; s < 24; s += 8)
+                    if (std::abs((int)(a >> s & 255) - (int)(b >> s & 255)) > tol) return false;
+                return true;
+            };
+            auto countNear = [&](Rect r, uint32_t col, int tol) {
+                int n = 0;
+                for (int y = r.y; y < r.y + r.h; ++y)
+                    for (int x = r.x; x < r.x + r.w; ++x) n += near(pixel(x, y), col, tol);
+                return n;
+            };
+            auto picture = [&](Rect r) {
+                const auto& px = u.gui.pixels();
+                uint64_t h = 1469598103934665603ull;
+                for (int y = r.y; y < r.y + r.h; ++y)
+                    for (int x = r.x; x < r.x + r.w; ++x) h = (h ^ px[(size_t)y * u.gui.width() + x]) * 1099511628211ull;
+                return h;
+            };
+            auto ctrlKey = [&](char ch) {
+                const bool used = u.gui.keyDown(KeyNone, false, true, false, (unsigned char)ch);
+                u.run(2);
+                return used;
+            };
+            const uint32_t op1 = parseColour(paletteColour(u.skin->colours, "@op1_line"), 0) & 0xffffff;
+            Rect lanes;
+            if (u.rect("pages/lanes", lanes)) {
+                const int gutter = u.skin->dp(28), plotX = lanes.x + gutter, plotW = lanes.w - gutter;
+                const std::string docText0 = u.data("live.fseq.doc");
+                const std::vector<uint8_t> doc0 = b64(docText0);
+                const int n = (int)((doc0.size() - 32) / 50);
+                const double ppf = (double)plotW / std::max(1, n);
+                u.gui.mouseLeave();
+                u.run(1);
+                CHECK(n >= 128 && countNear(lanes, op1, 48) > 20, "the lanes draw %d frames with %d pixels of operator 1's colour", n, countNear(lanes, op1, 48));
+                // The wheel zooms about the pointer, Shift+wheel pans, a double-click fits again.
+                const int cx = plotX + plotW / 2, cy = lanes.y + 60;
+                const uint64_t p0 = picture(lanes);
+                u.gui.wheel(cx, cy, 3, false);
+                u.gui.mouseLeave();
+                u.settle();
+                const uint64_t p1 = picture(lanes);
+                CHECK(p1 != p0, "the wheel did not zoom the lanes");
+                u.gui.wheel(cx, cy, 2, true);
+                u.gui.mouseLeave();
+                u.settle();
+                CHECK(picture(lanes) != p1, "Shift+wheel did not pan the lanes");
+                u.clickAt(cx, cy, true);
+                u.gui.mouseLeave();
+                u.settle();
+                CHECK(picture(lanes) == p0, "a double-click did not fit the lanes again");
+                // Select: a drag marks frames, written to the selection params; a click clears them.
+                u.set("gui.fseq.tool", 0);
+                u.run(2);
+                const int x1 = plotX + (int)std::lround(10 * ppf);
+                u.drag(x1, cy, (int)std::lround(20 * ppf), 0);
+                CHECK(std::fabs(u.get("gui.fseq.sel_from") - 10) <= 1 && std::fabs(u.get("gui.fseq.sel_len") - 21) <= 2, "the select drag left frames %g for %g",
+                      u.get("gui.fseq.sel_from"), u.get("gui.fseq.sel_len"));
+                u.clickAt(x1 + 40, cy);
+                CHECK(u.get("gui.fseq.sel_len") == 0, "a click left %g frames selected", u.get("gui.fseq.sel_len"));
+                // Draw: a drag on operator 1's ribbon rewrites its frames, heard as it goes and kept on release;
+                // Ctrl+Z takes it back, a page switch keeps the history, Ctrl+Y puts it back, and off the page
+                // the chord is the host's.
+                u.set("gui.fseq.tool", 2);
+                u.run(2);
+                int px = -1, py = -1;
+                for (int y = lanes.y + 4; y < lanes.y + lanes.h * 6 / 10 && px < 0; ++y)
+                    for (int x = plotX + 20; x < plotX + plotW - 20; ++x)
+                        if (near(pixel(x, y), op1, 32)) { px = x, py = y; break; }
+                CHECK(px >= 0, "no pixel of operator 1's colour in the frequency lane");
+                if (px >= 0) {
+                    u.set("gui.edited", 0);
+                    u.drag(px, py, 0, -20);
+                    CHECK(u.until([&] { return u.data("live.fseq.doc") != docText0; }), "the draw drag did not reach the engine");
+                    CHECK(u.get("gui.edited") == 1, "the draw drag did not mark the performance edited");
+                    const std::string drawn = u.data("live.fseq.doc");
+                    CHECK(ctrlKey('Z'), "Ctrl+Z is not the editor's on the Fseq page");
+                    CHECK(u.until([&] { return u.data("live.fseq.doc") == docText0; }), "Ctrl+Z did not undo the drawing");
+                    u.click("tab_quick");
+                    u.click("tab_fseq");
+                    CHECK(ctrlKey('Y'), "Ctrl+Y is not the editor's on the Fseq page");
+                    CHECK(u.until([&] { return u.data("live.fseq.doc") == drawn; }), "Ctrl+Y did not redo the drawing after a page switch");
+                    u.click("tab_quick");
+                    CHECK(!u.gui.keyDown(KeyNone, false, true, false, 'Z'), "Ctrl+Z is taken from the host off the Fseq page");
+                    u.run(1);
+                    u.click("tab_fseq");
+                }
+                // Loop: the loop start marker drags its param, and pushes the loop end ahead of it.
+                u.set("gui.fseq.tool", 1);
+                u.set("fseq.loop_start", 20);
+                u.set("fseq.loop_end", 40);
+                u.run(2);
+                u.drag(plotX + (int)std::lround(20 * ppf), cy, (int)std::lround(10 * ppf), 0);
+                CHECK(std::fabs(u.get("fseq.loop_start") - 30) <= 1, "the loop start marker moved to %g, not 30", u.get("fseq.loop_start"));
+                u.drag(plotX + (int)std::lround(u.get("fseq.loop_start") * ppf), cy, (int)std::lround(20 * ppf), 0);
+                CHECK(std::fabs(u.get("fseq.loop_start") - 50) <= 1 && u.get("fseq.loop_end") >= u.get("fseq.loop_start"),
+                      "dragging the loop start past the end left %g to %g", u.get("fseq.loop_start"), u.get("fseq.loop_end"));
+                // Commands: a range operation through the command key silences the shown operators' levels over the
+                // selection, and copy and paste move frames 0 to 9 onto 30.
+                u.set("gui.fseq.tool", 0);
+                u.set("gui.fseq.sel_from", 10);
+                u.set("gui.fseq.sel_len", 11);
+                u.run(2);
+                const std::string beforeSilence = u.data("live.fseq.doc");
+                u.st->setData("live.fseq.cmd", "op silence");
+                u.run(2);
+                CHECK(u.until([&] { return u.data("live.fseq.doc") != beforeSilence; }), "op silence changed nothing");
+                const std::vector<uint8_t> silenced = b64(u.data("live.fseq.doc"));
+                bool quiet = silenced.size() == doc0.size();
+                for (int i = 10; i <= 20 && quiet; ++i)
+                    for (int k = 0; k < 8; ++k) quiet &= silenced[(size_t)(32 + i * 50 + 0x12 + k)] == 127 && silenced[(size_t)(32 + i * 50 + 0x2A + k)] == 127;
+                CHECK(quiet, "op silence left levels in frames 10 to 20");
+                u.set("gui.fseq.sel_from", 0);
+                u.set("gui.fseq.sel_len", 10);
+                u.run(2);
+                u.st->setData("live.fseq.cmd", "copy");
+                u.run(2);
+                u.set("gui.fseq.sel_from", 30);
+                u.set("gui.fseq.sel_len", 1);
+                u.run(2);
+                u.st->setData("live.fseq.cmd", "paste");
+                u.settle();
+                const std::vector<uint8_t> pasted = b64(u.data("live.fseq.doc"));
+                CHECK(pasted.size() == doc0.size() && std::memcmp(pasted.data() + 32 + 30 * 50, pasted.data() + 32, 10 * 50) == 0, "frames 30 to 39 are not a copy of 0 to 9");
+                // The playhead follows the position, a gold column.
+                auto cursorAt = [&](double frame) { return near(pixel(plotX + (int)std::lround((frame + 0.5) * ppf), lanes.y + 3), 0xe8b84b, 24); };
+                u.set("fseq.position", 100);
+                u.run(2);
+                CHECK(cursorAt(100), "no playhead at frame 100");
+                u.set("fseq.position", 101);
+                u.run(2);
+                CHECK(cursorAt(101) && !cursorAt(100), "the playhead did not move to frame 101");
+                // Hiding an operator takes its ribbon out.
+                u.set("gui.fseq.op1", 0);
+                u.gui.mouseLeave();
+                u.settle();
+                CHECK(countNear(lanes, op1, 24) < 5, "operator 1's ribbon is still drawn while hidden (%d pixels)", countNear(lanes, op1, 24));
+                u.set("gui.fseq.op1", 1);
+                u.run(2);
+            }
+            // The picker lists the presets, then yours; the bottom tabs switch their views; the name box types
+            // through; the toolbar names its chords.
+            u.click("pages/fseq_pick");
+            const auto labels = u.gui.menuLabels();
+            CHECK(labels.size() >= 90 && labels[0].rfind("01 ShoobyDo", 0) == 0, "the picker lists %zu Fseqs, the first \"%s\"", labels.size(), labels.empty() ? "" : labels[0].c_str());
+            if (labels.size() > 42) u.choose(labels[42]);
+            CHECK(u.until([&] { return u.get("fseq.bank") == 1 && u.get("fseq.number") == 42; }), "picking row 43 gave bank %g, number %g", u.get("fseq.bank"), u.get("fseq.number"));
+            u.click("pages/tab_header");
+            CHECK(u.shows("pages/fseq_bottom/hdr_name"), "In the Fseq did not show its view");
+            u.click("pages/fseq_bottom/hdr_name");
+            u.type("NEWNAME");
+            CHECK(u.until([&] { return u.data("fseq.name") == "NEWNAME"; }), "the name box typed \"%s\"", u.data("fseq.name").c_str());
+            u.click("pages/tab_ops");
+            CHECK(u.shows("pages/fseq_bottom/op_1_v"), "Operators did not show its view");
+            u.click("pages/tab_playback");
+            CHECK(u.shows("pages/fseq_bottom/part"), "Playback did not show its view");
+            CHECK(u.gui.tipOf("pages/undo").find("(Ctrl+Z)") != std::string::npos, "Undo's tip reads \"%s\"", u.gui.tipOf("pages/undo").c_str());
+        }
 
         // ---- every page's controls: each dial and fader drags, each dropdown opens a menu, each toggle flips
         int dials = 0, drops = 0, toggles = 0;

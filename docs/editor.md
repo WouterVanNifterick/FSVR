@@ -71,7 +71,7 @@ The unit holds 128 internal performances, 128 voices (or 64 and six Fseqs). FSVR
 - **Numbers.** Every user item has a U number, the banks' items one after another: U1, U2 and so on, as many as there are. A user performance is Performance Bank User with `perf.user`; a user voice is a part's bank Int with `part.user.pN`; a user Fseq is Fseq Bank Int with `fseq.user`. Those params stop at 16,384, a host param's fixed range (exact through a host's 32-bit normalized value), but nothing else does: the browser loads a row by its number directly and the processor keeps the number of what it loaded, so a library past that loads and lights its rows the same, and only host automation and program change reach no further than the params. The FS1R's own `fseq.number` byte stops at 89 and keeps meaning a preset.
 - **A part shows its voice, not a code.** The Parts page's Voice and the LCD read the voice's own name out of the engine (text data `part.voice.pN`, "off" for a part with no voice bank, the bank and number for a voice with no name, such as an empty internal slot's "Int 14"; published again after a session comes back, since a session saved by an older build can carry a stale one), so a part names what it plays wherever it came from, and the session stores the voice itself in the engine's dump. A click on the Voice field opens the Browser's voices on the part's voice: the bank that holds it, and the category the Browser had while the voice is in it, else All (the processor does it when the field sets `browse.focus` to the part).
 - **Int inside a bank.** A performance names its voices and Fseq by bank and number. When it comes from a bank that holds its own internal voices (a dump of a whole unit, voices at 51 00 nn), Int voice N is that bank's voice N; when voice bulks for its parts follow it in the file (what Save to Bank writes), those are its voices; otherwise Int N is user voice N. Fseqs follow the same rule.
-- **Banks hold their own.** Yamaha FS1R lists the factory's presets only; a user preset is found in its own bank, since the same name can be in two banks. The Fseq page's bank still lists the 90 presets with a lock and then every user Fseq.
+- **Banks hold their own.** Yamaha FS1R lists the factory's presets only; a user preset is found in its own bank, since the same name can be in two banks. The Fseq page's picker still lists the 90 presets and then every user Fseq, in one menu.
 - **Another bank opens on All.** Choosing a bank sets the Category column back to All, so a category picked in one bank never hides another bank's presets.
 - **A part plays the voice it shows.** A user performance's parts playing its bank's voices (the ones saved after it, or its bank's Int voices) take those voices' U numbers, so the browser lights them.
 - **The lit row is what plays.** A user bank's lists light the loaded performance, each part's voice and the Fseq when they come from that bank, and nothing when they come from elsewhere.
@@ -168,6 +168,7 @@ The unit has no keyboard, so these are ours (issue #11): a way to reach any page
 | Alt+B, Alt+Z, Alt+T, Alt+R | Browser, Quick Control, Parts, Performance |
 | Alt+N | Voiced and unvoiced, back and forth (the V and N switches) |
 | Shift+1 to Shift+4 | The part the edit pages show |
+| Ctrl+Z, Ctrl+Y (Ctrl+Shift+Z), Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+A, Delete, Escape, 1 to 8 | The Fseq page's editor, while that page is up: undo, redo, cut, copy, paste, select all, delete, deselect, solo an operator; elsewhere these go to the host |
 
 - **The editor holds the keyboard while its window is up** and consumes only these chords; every other key goes on to the host, so a DAW keeps its own. A click in the editor takes the keyboard back after the host has had it.
 - **A dialog, or a field being typed into, takes every key**, space included, and no chord fires until it is done. That is what lets a preset be named "Hall 1 Pad" without a letter or a space going astray.
@@ -214,7 +215,7 @@ Hollow's `tools/overflow.py` measures text against its widget with the skin's ow
 - **Pitch page.** The Pitch box is wider and Portamento narrower, so "Note Shift" and "Bend Down" fit.
 - **Filter page.** Key and Velocity fields are 70 px, so "Key Depth" fits; the Part row's fields are 64 px for "EG Depth".
 - **Key Scaling page.** The curve dropdowns are 70 px, so "+Exp" and "-Exp" fit, with the row's fields spread evenly.
-- **Fseq page.** The length column is wider for "512 frames", and the Loop box is one column of four rows, since two columns couldn't fit both the labels and "One Way".
+- **Fseq page.** Rebuilt as an editor; see The Fseq page below.
 - **Parts page.** Rebuilt; see The Parts page below. Its V/N Balance tags have the label plates' 1 px pad, so the caption's 75 px fit the 78 px tag.
 - **Operators (all eight).** The Waveform dropdown is 84 px, so "Formant" fits beside the arrow.
 
@@ -256,7 +257,7 @@ The FS1R's noise generator is its eight unvoiced operators. Each is noise shaped
 
 ## Everything fitted
 
-Of the FS1R's params, every one is on a page except these, all on purpose: the unit-only settings (above); the reverb's and variation's tenth parameter slot, which no effect type in the Data List uses; and a receive channel range for parts 3 and 4, since the manual gives Rcv Max to parts 1 and 2 only, though the sysex has the byte for all four. One more has no control, never decided: the part's voice category (The Parts page, above). Of the Fseq header (the Data List's Table 3, `70 00 ll`), the settings the player reads are on the Fseq page (below); the four it never reads, because it takes the performance's copies instead (loop mode, tempo velocity, pitch mode and delay), are params without a control yet. [parameters_ui.md](parameters_ui.md) lists every parameter and where it is.
+Of the FS1R's params, every one is on a page except these, all on purpose: the unit-only settings (above); the reverb's and variation's tenth parameter slot, which no effect type in the Data List uses; and a receive channel range for parts 3 and 4, since the manual gives Rcv Max to parts 1 and 2 only, though the sysex has the byte for all four. One more has no control, never decided: the part's voice category (The Parts page, above). Of the Fseq header (the Data List's Table 3, `70 00 ll`), every setting but the frame format is on the Fseq page's In the Fseq tab (below), the four the player never reads included, since choosing the Fseq copies them into the performance. [parameters_ui.md](parameters_ui.md) lists every parameter and where it is.
 
 ## Readouts
 
@@ -272,7 +273,7 @@ The skin asks through params and the instance's text data; the processor (`plugi
 
 | Key or param | Kind | Written by | Meaning |
 |---|---|---|---|
-| `sysex.import`, `fseq.import` | text data | GUI | A .syx to import as a bank (the Import menu; the Fseq bank's Import) |
+| `sysex.import`, `fseq.import` | text data | GUI | A .syx to import as a bank (the Import menu; the Fseq page's Import) |
 | `sysex.export`, `fseq.export` | text data | GUI | Where to write the unit, the Fseq |
 | `fsvr.export`, `fsvr.import` | text data | GUI | A .fsvr preset to write, or to load and save |
 | `save.open`, `save.request`, `save.then_close` | text data | GUI | Save to Bank opened (the processor fills it in), confirmed, and whether the standalone closes after it |
@@ -285,6 +286,7 @@ The skin asks through params and the instance's text data; the processor (`plugi
 | `gui.edited` | param (not the host's) | processor | The performance changed since it was loaded or saved |
 | `hollow.modal`, `hollow.close` | text data | either | The modal shown; "1" closes the standalone without asking (Hollow's) |
 | `fseq.import_audio` | text data | GUI | A sound file to make an Fseq of |
+| `fseq.save` | text data | GUI | Save Fseq: the loaded Fseq, edits and all, back into the library, rewritten in its bank when it is one of the library's, else as a new bank named after it |
 | `library.dir` | text data | processor | The library folder |
 | `bank.list` | text data | processor | The library's banks, a name a line |
 | `perf.user.list`, `voice.user.list`, `fseq.user.list` | text data | processor | Every user item, a line each, tab-separated fields |
@@ -293,6 +295,7 @@ The skin asks through params and the instance's text data; the processor (`plugi
 | `browse.perf`, `browse.voice.pN`, `browse.fseq` | params (not the host's) | GUI | A row picked in a user bank's list |
 | `perf.user.name` | text data | processor | The loaded user performance's name |
 | `live.lcd.perf` | text data | processor | The LCD's performance line: the preset it loaded as ("A001 Zap !", a user one by its name) while the engine still holds that name, else the engine's own, so a performance bulk from the host shows |
+| `fsvr.message` | text data | processor | What the last import, export or analysis did, in the browser's header |
 | `live.message` | text data | processor | What the last import, export or analysis did, in the browser's header |
 | `fseq.display` | text data | processor | The loaded Fseq's tracks, for the Fseq page's display of a user Fseq |
 | `fseq.name` | text data | both | The loaded Fseq's name, its eight header bytes trimmed; a name set here goes into the Fseq's header as the Data List's name bytes, so Export and Save to Bank write it |
@@ -314,7 +317,11 @@ The skin asks through params and the instance's text data; the processor (`plugi
 
 Choosing an Fseq (the browser, the Fseq page, Import, Import Audio) does what the unit's panel does after an Fseq change (FUN_00032A38, `docs/findings.md` 2026-10-20): the start offset goes to 0, and the header's loop start and end, loop mode, tempo velocity, pitch mode and delay are copied into the performance. The player reads the performance's bytes and nothing else (FUN_0000FFFA, `docs/ymp706_registers.md`), so without the copy a new Fseq would play the loop the performance had, and hold one frame when that was 0 to 0. Loading a performance keeps its own values.
 
-The Fseq's own header is the row under the Fseq page's display, In the Fseq: Note, the key that plays it at its own pitch, and Tune (the fundamental follows `framePitch - (NOTETAB[note] + 0x1243) + (tuning - 63)`, FUN_000127FC); Speed Adj, which the frame timer scales by the performance's Speed % (FUN_0001A59E); End, the last frame of valid data; and Loop ... to, the loop a choice copies into the performance. They are params (`fseq.hdr.*`) sent as the Data List's Fseq parameter changes (`70 00 ll`) into the Fseq the engine holds, so Export and Save to Bank write them. They read whatever the loaded Fseq holds: a fresh instance or a session, an older one with no values for them included, never writes its own over the Fseq's. The header's loop mode, tempo velocity, pitch mode and delay are params too (`fseq.hdr.loop_mode`, `fseq.hdr.tempo_vel`, `fseq.hdr.pitch_mode`, `fseq.hdr.delay`), without a control on the page yet; a choice copies them into the performance, which is what the player reads. The frame format has none, being the Fseq's size.
+The Fseq's own header is the Fseq page's In the Fseq tab: Name (text data `fseq.name`, eight characters sent as the Data List's name bytes); Note, the key that plays it at its own pitch, and Tune (the fundamental follows `framePitch - (NOTETAB[note] + 0x1243) + (tuning - 63)`, FUN_000127FC); Speed Adj, which the frame timer scales by the performance's Speed % (FUN_0001A59E); End, the last frame of valid data; and the loop, loop mode, tempo velocity, pitch mode and delay a choice copies into the performance, which is what the player reads. They are params (`fseq.hdr.*`) sent as the Data List's Fseq parameter changes (`70 00 ll`) into the Fseq the engine holds, so Export, Save Fseq and Save to Bank write them. They read whatever the loaded Fseq holds: a fresh instance or a session, an older one with no values for them included, never writes its own over the Fseq's. The frame format has no param, being the Fseq's size.
+
+### The Fseq page
+
+An editor for the loaded Fseq, after the Montage project's: the picker and its file buttons, the Edit menu, Undo and Redo, Fit and the lane, scale and track choices on one row, the ten tools and the V, N, Pitch and 1 to 8 track switches with the selection's frames on the next, the lanes taking the page's height, and under them three tabs, Playback (the performance's Fseq settings), In the Fseq (the header, above) and Operators (which of the selected part's operators follow the Fseq, and their tracks). The lanes are Hollow's `fseq_edit` kind ([skin-format.md](../hollow/docs/skin-format.md)): the document is the whole Fseq the processor publishes as `live.fseq.doc`, edits go back as `live.fseq.edit` (a drag's preview once a tick, so it is heard, and the result on release), commands as `live.fseq.cmd` from the toolbar's `data` actions and the page's key bindings (`skin.json` `"keys"` with a `"when"` of the Fseq page, so Ctrl+Z and the rest go to the host on every other page), the playhead runs on `live.fseq.rate` between `fseq.position` updates, and the loop, start and end markers drag the same params the Playback and In the Fseq tabs edit. The view's own settings (`gui.fseq.*`: tool, layout, scales, tracks shown, the selection) are params the host never sees, saved with the session. The document, the undo history and the clipboard live with the editor window, so a page switch keeps them and closing the window drops them.
 
 Program change reaches the same params the unit's way: on the performance channel in Performance mode a performance of the bank selected (bank select 3F then 40 for the user's, 41 to 43 for Preset A to C), in Multi mode a voice for each part on the channel.
 
@@ -336,7 +343,7 @@ The tables that are the unit's own readouts are `src/display/display.h`, transcr
 
 ## Open
 
-- **Performance and voice names aren't editable.** The unit's formats hold 12-character performance names, 10-character voice names and 8-character Fseq names; the editor edits the Fseq's (text data `fseq.name`, no box on the page yet) and neither of the others.
+- **Performance and voice names aren't editable.** The unit's formats hold 12-character performance names, 10-character voice names and 8-character Fseq names; the editor edits the Fseq's (the Fseq page's Name box, text data `fseq.name`) and neither of the others.
 - **Factory items don't list under User banks and the other way round.** The factory bank's lists are static in the skin, a user bank's are the processor's; the Category column filters both.
 - **The LCD's performance menu lists the factory banks only.** User performances are picked in the browser.
 - **Polyphony and note reserve** stay the unit's until the engine allocates more than 32 notes.

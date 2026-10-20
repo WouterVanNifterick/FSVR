@@ -1,0 +1,318 @@
+{
+ "size": [
+  1187,
+  70
+ ],
+ "widgets": [
+  {
+   "type": "plate",
+   "name": "part_label",
+   "rect": [6, 4, 60, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Part", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "dropdown",
+   "name": "part",
+   "rect": [6, 26, 60, 20],
+   "fill": {"image": "buttons/dropdown_small"},
+   "text": {"text": "...", "font": "value_dark_12", "valign": "middle"},
+   "pad": [11, 2, 21, 2],
+   "pressOffset": [2, 2],
+   "items": [
+    {"label": "Off", "value": 0},
+    {"label": "1", "value": 1},
+    {"label": "2", "value": 2},
+    {"label": "3", "value": 3},
+    {"label": "4", "value": 4}
+   ],
+   "captionFromItem": true,
+   "param": "fseq.part",
+   "tip": "The part the Fseq plays on"
+  },
+  {
+   "type": "plate",
+   "name": "play_mode_label",
+   "rect": [80, 4, 104, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Play Mode", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "button",
+   "name": "play_mode_scratch",
+   "rect": [80, 26, 51, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": "Scratch", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.play_mode",
+   "action": {"value": 0},
+   "tip": "A controller routed to Formant Scratch plays the sequence by hand"
+  },
+  {
+   "type": "button",
+   "name": "play_mode_fseq",
+   "rect": [133, 26, 51, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": "Fseq", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.play_mode",
+   "action": {"value": 1},
+   "tip": "The sequence plays at its speed"
+  },
+  {
+   "type": "plate",
+   "name": "trigger_label",
+   "rect": [198, 4, 104, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Trigger", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "button",
+   "name": "trigger_first",
+   "rect": [198, 26, 51, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": "First", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.trigger",
+   "action": {"value": 0},
+   "tip": "The first note held starts the sequence"
+  },
+  {
+   "type": "button",
+   "name": "trigger_all",
+   "rect": [251, 26, 51, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": "All", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.trigger",
+   "action": {"value": 1},
+   "tip": "Every note starts the sequence again"
+  },
+  {
+   "type": "plate",
+   "name": "pitch_label",
+   "rect": [316, 4, 104, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Pitch", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "button",
+   "name": "pitch_fseq",
+   "rect": [316, 26, 51, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": "Fseq", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.pitch_mode",
+   "action": {"value": 0},
+   "tip": "The sequence's pitch track shifts the notes"
+  },
+  {
+   "type": "button",
+   "name": "pitch_fixed",
+   "rect": [369, 26, 51, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": "Fixed", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.pitch_mode",
+   "action": {"value": 1},
+   "tip": "The notes keep their pitch"
+  },
+  {
+   "type": "plate",
+   "name": "speed_label",
+   "rect": [434, 4, 70, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Speed %", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "speed",
+   "rect": [434, 26, 70, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.speed",
+   "tip": "Speed in percent of the original, 10.0 to 500.0, or below 10.0 following MIDI clock"
+  },
+  {
+   "type": "plate",
+   "name": "speed_vel_label",
+   "rect": [518, 4, 64, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Speed Vel", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "speed_vel",
+   "rect": [518, 26, 64, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.speed_vel",
+   "tip": "How much a note's velocity speeds the sequence up"
+  },
+  {
+   "type": "plate",
+   "name": "level_vel_label",
+   "rect": [596, 4, 64, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Level Vel", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "level_vel",
+   "rect": [596, 26, 64, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.level_vel",
+   "tip": "How much a note's velocity raises or lowers the sequence's levels"
+  },
+  {
+   "type": "plate",
+   "name": "delay_label",
+   "rect": [674, 4, 60, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Delay", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "delay",
+   "rect": [674, 26, 60, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.delay",
+   "tip": "The wait before the sequence starts after a note"
+  },
+  {
+   "type": "plate",
+   "name": "start_label",
+   "rect": [748, 4, 60, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Start", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "start",
+   "rect": [748, 26, 60, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.start",
+   "tip": "The frame the sequence starts from, the grey marker in the lanes"
+  },
+  {
+   "type": "plate",
+   "name": "loop_mode_label",
+   "rect": [822, 4, 108, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Loop Mode", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "button",
+   "name": "loop_mode_one_way",
+   "rect": [822, 26, 53, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": ">>", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.loop_mode",
+   "action": {"value": 0},
+   "tip": "One way: the loop repeats while a key is held, then the rest plays"
+  },
+  {
+   "type": "button",
+   "name": "loop_mode_round",
+   "rect": [877, 26, 53, 22],
+   "fill": {"image": "buttons/nav_small"},
+   "text": {"text": ">> <<", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
+   "pad": [1, 1, 1, 1],
+   "hoverTiles": true,
+   "pressOffset": [1, 1],
+   "param": "fseq.loop_mode",
+   "action": {"value": 1},
+   "tip": "Round: the loop plays back and forth while a key is held"
+  },
+  {
+   "type": "plate",
+   "name": "loop_start_label",
+   "rect": [944, 4, 76, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Loop Start", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "loop_start",
+   "rect": [944, 26, 76, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.loop_start",
+   "tip": "The loop's first frame, the green marker in the lanes"
+  },
+  {
+   "type": "plate",
+   "name": "loop_end_label",
+   "rect": [1034, 4, 76, 18],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "Loop End", "font": "caption_grey_12", "align": "center"},
+   "pad": [1, 2, 1, 2]
+  },
+  {
+   "type": "number",
+   "name": "loop_end",
+   "rect": [1034, 26, 76, 20],
+   "fill": {"image": "panels/label_plate"},
+   "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
+   "pad": [2, 2, 2, 2],
+   "fine": 0.2,
+   "reset": false,
+   "editable": true,
+   "param": "fseq.loop_end",
+   "tip": "The loop's last frame, the amber marker in the lanes; below Loop Start the sequence plays backwards"
+  }
+ ]
+}

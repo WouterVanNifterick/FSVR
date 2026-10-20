@@ -37816,5 +37816,186 @@
   "max": 99,
   "default": 0,
   "steps": 99
+ },
+ {
+  "id": "gui.fseq.tool",
+  "name": "Fseq Tool",
+  "min": 0,
+  "max": 9,
+  "default": 0,
+  "steps": 9,
+  "labels": [
+   "Select",
+   "Loop",
+   "Draw",
+   "Line",
+   "Move",
+   "Scale",
+   "Amplify",
+   "Silence",
+   "Warp",
+   "Stretch"
+  ],
+  "host": false
+ },
+ {
+  "id": "gui.fseq.layout",
+  "name": "Fseq Lanes",
+  "min": 0,
+  "max": 2,
+  "default": 1,
+  "steps": 2,
+  "labels": [
+   "Combined",
+   "Freq + Level",
+   "Voiced / Unvoiced"
+  ],
+  "host": false
+ },
+ {
+  "id": "gui.fseq.freq_scale",
+  "name": "Fseq Frequency Scale",
+  "min": 0,
+  "max": 3,
+  "default": 0,
+  "steps": 3,
+  "labels": [
+   "Log Hz",
+   "Hz",
+   "Note",
+   "Raw"
+  ],
+  "host": false
+ },
+ {
+  "id": "gui.fseq.level_scale",
+  "name": "Fseq Level Scale",
+  "min": 0,
+  "max": 2,
+  "default": 0,
+  "steps": 2,
+  "labels": [
+   "dB",
+   "Amplitude",
+   "Raw"
+  ],
+  "host": false
+ },
+ {
+  "id": "gui.fseq.show_v",
+  "name": "Fseq Show Voiced",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.show_u",
+  "name": "Fseq Show Unvoiced",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.show_pitch",
+  "name": "Fseq Show Pitch",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.op1",
+  "name": "Fseq Show Op 1",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.op2",
+  "name": "Fseq Show Op 2",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.op3",
+  "name": "Fseq Show Op 3",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.op4",
+  "name": "Fseq Show Op 4",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.op5",
+  "name": "Fseq Show Op 5",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.op6",
+  "name": "Fseq Show Op 6",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.op7",
+  "name": "Fseq Show Op 7",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.op8",
+  "name": "Fseq Show Op 8",
+  "min": 0,
+  "max": 1,
+  "default": 1,
+  "steps": 1,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.sel_from",
+  "name": "Fseq Selection Start",
+  "min": 0,
+  "max": 511,
+  "default": 0,
+  "steps": 511,
+  "host": false
+ },
+ {
+  "id": "gui.fseq.sel_len",
+  "name": "Fseq Selection Length",
+  "min": 0,
+  "max": 512,
+  "default": 0,
+  "steps": 512,
+  "host": false
  }
 ]

@@ -332,19 +332,19 @@ Every row is `op.K.u.<name>.pN`. N on the Op column, the Operator page and the A
 
 ## Fseq header (`70 00 ll`)
 
-The loaded Fseq's own settings, sent as the Data List's Fseq parameter changes. The player reads the note, the tuning and the speed adjustment (FUN_000127FC, FUN_0001A59E) and the end of valid data; the loop, loop mode, tempo velocity, pitch mode and delay are the defaults choosing the Fseq copies into the performance, which also sets the performance's start offset to 0 (FUN_00032A38, [findings.md](findings.md) 2026-10-20). The params read whatever the loaded Fseq holds. The loop mode, tempo velocity, pitch mode and delay are params without a control yet: the player reads the performance's copies (Performance Common, above).
+The loaded Fseq's own settings, sent as the Data List's Fseq parameter changes. The player reads the note, the tuning and the speed adjustment (FUN_000127FC, FUN_0001A59E) and the end of valid data; the loop, loop mode, tempo velocity, pitch mode and delay are the defaults choosing the Fseq copies into the performance, which also sets the performance's start offset to 0 (FUN_00032A38, [findings.md](findings.md) 2026-10-20). The params read whatever the loaded Fseq holds; the player reads the performance's copies of the loop mode, tempo velocity, pitch mode and delay (Performance Common, above). All of them are on the Fseq page's In the Fseq tab.
 
 | Address | Data List | Param | Where | Notes |
 |---|---|---|---|---|
-| 00 to 07 | NAME | text data `fseq.name` | no box yet; Rename on a user Fseq; Import Audio names it after the file | a name set in `fseq.name` is sent as eight parameter changes; see Names |
+| 00 to 07 | NAME | text data `fseq.name` | Fseq › In the Fseq › Name; Rename on a user Fseq; Import Audio names it after the file | a name set in `fseq.name` is sent as eight parameter changes; see Names |
 | 10 to 11 | start step of loop point | `fseq.hdr.loop_start` | Fseq › In the Fseq › Loop | copied into the performance's Loop Start when the Fseq is chosen |
 | 12 to 13 | end step of loop point | `fseq.hdr.loop_end` | Fseq › In the Fseq › Loop ... to | copied into the performance's Loop End |
-| 14 | loop mode | `fseq.hdr.loop_mode` | no control yet | copied into the performance's Loop Mode, which the player reads |
+| 14 | loop mode | `fseq.hdr.loop_mode` | Fseq › In the Fseq › Loop Mode | copied into the performance's Loop Mode, which the player reads |
 | 15 | speed adjust | `fseq.hdr.speed` | Fseq › In the Fseq › Speed Adj | the performance's Speed % scales it |
-| 16 | velocity sensitivity for tempo | `fseq.hdr.tempo_vel` | no control yet | copied into the performance's Speed Vel, which the player reads |
-| 17 | formant pitch mode | `fseq.hdr.pitch_mode` | no control yet | copied into the performance's Pitch, which the player reads |
+| 16 | velocity sensitivity for tempo | `fseq.hdr.tempo_vel` | Fseq › In the Fseq › Tempo Vel | copied into the performance's Speed Vel, which the player reads |
+| 17 | formant pitch mode | `fseq.hdr.pitch_mode` | Fseq › In the Fseq › Pitch Mode | copied into the performance's Pitch, which the player reads |
 | 18 | formant note assign | `fseq.hdr.note` | Fseq › In the Fseq › Note | |
 | 19 | formant pitch tuning | `fseq.hdr.tuning` | Fseq › In the Fseq › Tune | |
-| 1A | formant sequence delay | `fseq.hdr.delay` | no control yet | copied into the performance's Delay, which the player reads |
+| 1A | formant sequence delay | `fseq.hdr.delay` | Fseq › In the Fseq › Delay | copied into the performance's Delay, which the player reads |
 | 1B | frame data format (128 to 512 frames) | none | | the Fseq's size, not a setting; Import Audio picks the smallest that holds the sound |
 | 1E to 1F | end step of valid data | `fseq.hdr.end` | Fseq › In the Fseq › End | the Browser's Fseq list shows the length |
