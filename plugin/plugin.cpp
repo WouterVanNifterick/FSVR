@@ -390,6 +390,10 @@ private:
     std::vector<uint8_t> fseqShown;    // the Fseq the page's display last had
     int messageTicks = 0;              // worker ticks until the status line clears
     std::string libError;              // the library's read error the status line last showed
+    uint8_t waveVoice[4][608] = {};    // each part's voice as the operator panel's waves were last drawn from it
+    bool waveDrawn[4] = {};
+    float scopeShown[32] = {};         // the harmonics the monitor last published
+    bool scopeDrawn = false;
     std::atomic<int> userPerfs{0};     // lib.perfs.size() for the audio thread, which never touches the library itself
 
     // ---- setup -----------------------------------------------------------------------------------
@@ -1842,7 +1846,15 @@ private:
             const int k = (int)std::lround(std::clamp(v, 0.0, 1.0) * 1000);
             s += k >= 1000 ? "1 " : "0." + std::string(k < 100 ? "0" : "") + std::string(k < 10 ? "0" : "") + std::to_string(k) + " ";
         };
-        for (int p = 0; p < 4; ++p)
+        uint8_t now[4][608];   // the waves follow the part's voice alone (Device::operatorWave), so an unchanged voice is drawn already
+        {
+            std::lock_guard<std::mutex> g(ctl);
+            std::memcpy(now, model.voice, sizeof now);
+        }
+        for (int p = 0; p < 4; ++p) {
+            if (waveDrawn[p] && std::memcmp(now[p], waveVoice[p], 608) == 0) continue;
+            std::memcpy(waveVoice[p], now[p], 608);
+            waveDrawn[p] = true;
             for (int o = 0; o < 8; ++o) {
                 dev.operatorWave(p, o, y.data(), kN);
                 std::string wave, harm;
@@ -1866,24 +1878,33 @@ private:
                 st.setData("live.wave." + at, wave);
                 st.setData("live.harmonics." + at, harm);
             }
+        }
     }
 
     // The 32 harmonics of the last note played, their level in the output (-60..0 dB as 0..1), for the
-    // monitor's harmonic display.
+    // monitor's harmonic display. Published when they change, so a silent instance repaints nothing.
     void harmonics() {
+        static constexpr size_t N = 4096;
+        static const std::vector<double> hann = [] {
+            std::vector<double> w(N);
+            for (size_t i = 0; i < N; ++i) w[i] = 0.5 - 0.5 * std::cos(2 * 3.14159265358979323846 * (double)i / N);
+            return w;
+        }();
         float out[32] = {};
         const int note = lastNote;
-        if (note >= 0) {
+        const size_t at = ringAt;
+        auto x = [&](size_t i) { return ring[(at + ring.size() - N + i) % ring.size()]; };
+        double peak = 0;
+        for (size_t i = 0; note >= 0 && i < N; ++i) peak = std::max(peak, (double)std::fabs(x(i)));
+        if (peak > 1e-6) {   // below it every harmonic reads 0 anyway
             const double f0 = 440.0 * std::pow(2.0, (note - 69) / 12.0);
-            const size_t N = 4096, at = ringAt;
             for (int h = 0; h < 32; ++h) {
                 const double f = f0 * (h + 1);
                 if (f >= hostRate / 2) break;
                 const double w = 2 * std::cos(2 * 3.14159265358979323846 * f / hostRate);
                 double s1 = 0, s2 = 0;
                 for (size_t i = 0; i < N; ++i) {   // Goertzel under a Hann window
-                    const double x = ring[(at + ring.size() - N + i) % ring.size()] * (0.5 - 0.5 * std::cos(2 * 3.14159265358979323846 * i / N));
-                    const double s = x + w * s1 - s2;
+                    const double s = x(i) * hann[i] + w * s1 - s2;
                     s2 = s1;
                     s1 = s;
                 }
@@ -1891,6 +1912,9 @@ private:
                 out[h] = mag > 1e-6 ? (float)std::clamp((20 * std::log10(mag) + 60) / 60, 0.0, 1.0) : 0.0f;
             }
         }
+        if (scopeDrawn && std::memcmp(out, scopeShown, sizeof out) == 0) return;
+        std::memcpy(scopeShown, out, sizeof out);
+        scopeDrawn = true;
         st.setScope(out, 32);
     }
 };
