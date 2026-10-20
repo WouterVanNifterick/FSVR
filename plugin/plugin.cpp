@@ -390,6 +390,7 @@ private:
     std::vector<uint8_t> fseqShown;    // the Fseq the page's display last had
     int messageTicks = 0;              // worker ticks until the status line clears
     std::string libError;              // the library's read error the status line last showed
+    std::atomic<int> userPerfs{0};     // lib.perfs.size() for the audio thread, which never touches the library itself
 
     // ---- setup -----------------------------------------------------------------------------------
 
@@ -641,7 +642,7 @@ private:
             int bank = perfBankSel;
             if (bank < 0x40) bank = get(perfBank) == 1 ? 0x40 : 0x41 + (int)get(perfProgram) / 128;
             if (bank == 0x40) {
-                if (lib.perf(prog + 1)) { st.set((size_t)perfUser, prog + 1); st.set((size_t)perfBank, 1); }
+                if (prog + 1 <= userPerfs.load()) { st.set((size_t)perfUser, prog + 1); st.set((size_t)perfBank, 1); }
             } else {
                 st.set((size_t)perfProgram, (bank - 0x41) * 128 + prog);
                 st.set((size_t)perfBank, 0);
@@ -688,9 +689,9 @@ private:
             }
             requests();
             if (fseqPos >= 0) st.set((size_t)fseqPos, dev.fseqPosition());   // the Fseq page's playback line
-            if (++n % 30 == 0 && lib.rescan()) {
+            if (++n % 30 == 0) {   // under ctl: a rescan rebuilds the banks a host's save reads
                 std::lock_guard<std::mutex> g(ctl);
-                writeLists();
+                if (lib.rescan()) writeLists();
                 libraryError();
             }
             if (n % 10 == 0) watchOptions();
@@ -1178,7 +1179,8 @@ private:
         return it.name + "\t" + kCategories[std::clamp(it.category, 0, 22)] + "\t" + voices + "\t" + chans;
     }
 
-    void writeLists() {
+    void writeLists() {   // after every change to the library
+        userPerfs = (int)lib.perfs.size();
         std::string perfs, voices, fseqs, banks;
         for (auto& r : lib.perfs) perfs += perfRow(lib.banks[(size_t)r.bank].perfs[(size_t)r.index]) + "\n";
         for (auto& r : lib.voices) {
