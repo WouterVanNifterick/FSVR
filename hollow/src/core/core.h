@@ -197,6 +197,12 @@ const KindOps* findKind(const std::string& kind);   // null: an unknown kind, dr
 struct KindState {                                   // what one custom widget keeps between events
     virtual ~KindState() = default;
 };
+const KindOps* fseqEditKind();                       // kinds_fseq.cpp: the formant sequence editor
+// Colours a kind reads from its fields (kinds.cpp): "#rrggbbaa" or "@name" from the palette, and with {n}
+// in the field the number given, so "@op{n}_line" is a colour per operator; and a per-channel mix.
+uint32_t colourField(Gui& g, const Hit& h, const char* key, uint32_t def);
+uint32_t numberedColour(Gui& g, const Hit& h, const char* key, int n, uint32_t def);
+uint32_t mixColour(uint32_t a, uint32_t b, double t);
 void kindsLoaded(Gui& g);                            // the host loaded a state (kinds that refit)
 void presetMenu(Gui& g, const Hit& h, const Action& a); // the "presets" action (kinds.cpp)
 // Scope buffers (plot and the scope kinds): one height per column from the bottom, -1 = a gap.
@@ -564,6 +570,9 @@ public:
     Rect menuAnchor(const Hit& h) const;         // where the widget's menu opens (its rect, or "menuAt")
     int held = -1;                               // what the current press holds (the piano's key)
     std::map<std::string, double> kindData;      // values kinds share across widgets and pages (a selection by data key)
+    // State a kind keeps across pages, scales and live reloads, by a key of its own (a document and its undo
+    // history), where Inst::ks goes with the page; it goes with the editor window. sharedState<T> below.
+    std::map<std::string, std::shared_ptr<KindState>> kindShared;
     bool loaded = false;                         // during the tick in which the host loaded a state
 
 private:
@@ -768,5 +777,18 @@ private:
 extern const char* const kModalKey;              // text data naming the open modal view
 extern const char* const kModalVeil;             // the root's synthesized modal widgets
 extern const char* const kModalBox;
+
+// A custom widget's own state, created on first use; it goes with the page.
+template <class T> T& kindState(Gui& g, const Hit& h) {
+    std::unique_ptr<KindState>& ks = g.inst(h).ks;
+    if (!ks || !dynamic_cast<T*>(ks.get())) ks.reset(new T);
+    return *static_cast<T*>(ks.get());
+}
+// State kept under a key of the kind's own for as long as the editor window lives (Gui::kindShared).
+template <class T> T& sharedState(Gui& g, const std::string& key) {
+    std::shared_ptr<KindState>& ks = g.kindShared[key];
+    if (!ks || !dynamic_cast<T*>(ks.get())) ks = std::make_shared<T>();
+    return *static_cast<T*>(ks.get());
+}
 
 } // namespace hollow

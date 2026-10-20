@@ -11,12 +11,7 @@
 
 namespace hollow {
 
-// The widget's own state, created on first use.
-template <class T> static T& kindState(Gui& g, const Hit& h) {
-    std::unique_ptr<KindState>& ks = g.inst(h).ks;
-    if (!ks || !dynamic_cast<T*>(ks.get())) ks.reset(new T);
-    return *static_cast<T*>(ks.get());
-}
+// The widget's own state is kindState<T>(g, h) (core.h), created on first use.
 
 static void pixel(Canvas& c, int x, int y, uint32_t col) { fillRect(c, {x, y, 1, 1}, col); }
 static void hline(Canvas& c, int x, int y, int n, uint32_t col) { if (n > 0) fillRect(c, {x, y, n, 1}, col); }
@@ -29,11 +24,11 @@ static void frame(Canvas& c, int x, int y, int w, int h, uint32_t col, int k = 1
 }
 // A square dot k px wide centred on (x, y): a pixel at density 1.
 static void dot(Canvas& c, int x, int y, uint32_t col, int k) { fillRect(c, {x - (k - 1) / 2, y - (k - 1) / 2, k, k}, col); }
-static uint32_t colourField(Gui& g, const Hit& h, const char* key, uint32_t def) { return g.colour(*h.node, g.wid(h).json[key].str(), def); }
+uint32_t colourField(Gui& g, const Hit& h, const char* key, uint32_t def) { return g.colour(*h.node, g.wid(h).json[key].str(), def); }
 
 // A colour field a kind draws once per operator (a box, a track): {n} in it is the operator's number, 1..8,
 // so "@op{n}" gives each its own colour from the palette.
-static uint32_t numberedColour(Gui& g, const Hit& h, const char* key, int n, uint32_t def) {
+uint32_t numberedColour(Gui& g, const Hit& h, const char* key, int n, uint32_t def) {
     std::string s = g.wid(h).json[key].str();
     for (size_t at; (at = s.find("{n}")) != std::string::npos;) s.replace(at, 3, std::to_string(n));
     return g.colour(*h.node, s, def);
@@ -116,7 +111,7 @@ static void handleDot(Gui& g, Canvas& c, double x, double y, uint32_t fill, uint
     disc(c, x, y, 2 * d, fill);
 }
 
-static uint32_t mixColour(uint32_t a, uint32_t b, double t) {   // per channel, ARGB
+uint32_t mixColour(uint32_t a, uint32_t b, double t) {   // per channel, ARGB
     uint32_t out = 0;
     for (int s = 0; s < 32; s += 8)
         out |= (uint32_t)std::lround((a >> s & 255) + ((int)(b >> s & 255) - (int)(a >> s & 255)) * t) << s;
@@ -2945,6 +2940,7 @@ const KindOps* findKind(const std::string& kind) {
     if (kind == "level_scale") return &levelScale;
     if (kind == "key_range") return &keyRange;
     if (kind == "velocity") return &velocity;
+    if (kind == "fseq_edit") return fseqEditKind();   // kinds_fseq.cpp
     return nullptr;   // "fx_chain" and unknown kinds: the fill only
 }
 

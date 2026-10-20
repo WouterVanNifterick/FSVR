@@ -12,7 +12,8 @@ set(HOLLOW_CORE_SOURCES
     "${_core}/draw.cpp"
     "${_core}/state.cpp"
     "${_core}/editor.cpp"
-    "${_core}/kinds.cpp")
+    "${_core}/kinds.cpp"
+    "${_core}/kinds_fseq.cpp")
 set(HOLLOW_CORE_INCLUDES
     "${HOLLOW_FRAMEWORK_DIR}/include"
     "${HOLLOW_FRAMEWORK_DIR}/src"
