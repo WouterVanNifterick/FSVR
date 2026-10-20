@@ -465,8 +465,10 @@ private:
 
     // ---- to the engine ------------------------------------------------------------------------------
 
-    void send(const Field& f, const uint8_t* bytes) {
-        const int dev_ = model.sys[0x49];   // the unit's device number: its own, or 16 for all
+    // dev_ is the unit's device number, its own or 16 for all: the one the engine has, which for a change of
+    // the device number itself is the old one, since the engine refuses a message addressed to the new.
+    void send(const Field& f, const uint8_t* bytes) { send(f, bytes, model.sys[0x49]); }
+    void send(const Field& f, const uint8_t* bytes, int dev_) {
         const int v = f.wide ? bytes[f.off] << 7 | bytes[f.off + 1] : bytes[f.off];
         const uint8_t m[10] = {0xF0, 0x43, (uint8_t)(0x10 | (dev_ < 16 ? dev_ : 0)), 0x5E, (uint8_t)f.h, (uint8_t)f.m, (uint8_t)f.l,
                                (uint8_t)(v >> 7 & 0x7F), (uint8_t)(v & 0x7F), 0xF7};
@@ -534,8 +536,9 @@ private:
             const int raw = f.toRaw(v);
             if (f.area != Voice) {
                 uint8_t* b = model.area(f.area, 0);
+                const int heard = model.sys[0x49];
                 f.set(b, raw);
-                send(f, b);
+                send(f, b, heard);
                 continue;
             }
             const int p = f.part, e = edit(p);
@@ -1062,8 +1065,9 @@ private:
                 loadVoiceItem(*v, p);
                 if (k >= 0) putUser(partUser[p], userVoice[p], lib.number(lib.voices, k, (int)(v - bank->voices.data())));
             };
+            const int fv = factoryVoice(vb, prog);   // -1 for bank bytes past PrK, which a hand-made performance may carry
             if (bank && perf.partVoice[p] >= 0) from(&bank->voices[(size_t)perf.partVoice[p]]);
-            else if (vb >= 2 && factoryVoice(vb, prog) < (int)factory.voices.size()) loadVoiceItem(factory.voices[(size_t)factoryVoice(vb, prog)], p);
+            else if (fv >= 0 && fv < (int)factory.voices.size()) loadVoiceItem(factory.voices[(size_t)fv], p);
             else if (vb == 1) {
                 if (const Item* v = internal(bank, &Bank::voices, prog)) from(v);
                 else if (const Item* u = lib.voice(prog + 1)) { loadVoiceItem(*u, p); putUser(partUser[p], userVoice[p], prog + 1); }
