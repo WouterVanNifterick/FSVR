@@ -277,7 +277,7 @@ The skin asks through params and the instance's text data; the processor (`plugi
 | `browse.perf`, `browse.voice.pN`, `browse.fseq` | params (not the host's) | GUI | A row picked in a user bank's list |
 | `perf.user.name` | text data | processor | The loaded user performance's name |
 | `live.lcd.perf` | text data | processor | The LCD's performance line: the preset it loaded as ("A001 Zap !", a user one by its name) while the engine still holds that name, else the engine's own, so a performance bulk from the host shows |
-| `fsvr.message` | text data | processor | What the last import, export or analysis did, in the browser's header |
+| `live.message` | text data | processor | What the last import, export or analysis did, in the browser's header |
 | `fseq.display` | text data | processor | The loaded Fseq's tracks, for the Fseq page's display of a user Fseq |
 | `fseq.position` | param (not the host's) | processor | The frame playback is at, the display's gold line |
 | `perf.bank`, `perf.user`, `perf.program` | params | GUI or host | The performance to load |

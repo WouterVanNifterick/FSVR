@@ -238,6 +238,25 @@ int main() {
     a.st->setData("part.voice.p4", "");   // as a session saved before the names were published has it
     const std::string blob = a.st->save();
     a.st->setData("part.voice.p4", named);
+    // A session that has just come back is not an edit: the format layer tells the host the instance is
+    // modified whenever State says so, and a project would then read as changed the moment it opened.
+    {
+        const std::string whole = a.st->save();
+        Rig c;
+        c.st->load(whole);
+        c.until([] { return false; }, 600);
+        if (c.st->modified()) {   // name what moved: the lines of the session that are not as it came
+            const std::string now = c.st->save();
+            std::string moved;
+            for (size_t p = 0; p < now.size();) {
+                const size_t e = std::min(now.find('\n', p), now.size());
+                const std::string line = now.substr(p, e - p);
+                if (whole.find(line + "\n") == std::string::npos && moved.size() < 600) moved += "\n    " + line.substr(0, 160);
+                p = e + 1;
+            }
+            CHECK(false, "the session came back modified:%s", moved.c_str());
+        }
+    }
     {
         Rig b;
         CHECK(b.until([&] { return b.data("part.voice.p4") == "off"; }), "a fresh instance's part 4 reads \"%s\"", b.data("part.voice.p4").c_str());
@@ -266,14 +285,21 @@ int main() {
     a.st->setData("sysex.import", syx.u8string());
     CHECK(a.until([&] { return a.data("bank.list") == "Test Bank\nTest Bank 2\n"; }), "a second import did not make \"Test Bank 2\"");
     CHECK(a.lines("voice.user.list") == 64, "%d user voices, not 64", a.lines("voice.user.list"));
-    CHECK(a.data("fsvr.message").rfind("Imported", 0) == 0, "no import message (\"%s\")", a.data("fsvr.message").c_str());
-    CHECK(a.until([&] { return a.data("fsvr.message").empty(); }), "the import message stayed up");
+    CHECK(a.data("live.message").rfind("Imported", 0) == 0, "no import message (\"%s\")", a.data("live.message").c_str());
+    CHECK(a.until([&] { return a.data("live.message").empty(); }), "the import message stayed up");
 
     // A pick from the browsed user bank: its third voice into part 2.
     a.set("browse.bank", 1);
     CHECK(a.until([&] { return a.lines("browse.voice.list") == 32; }), "the browsed bank lists %d voices", a.lines("browse.voice.list"));
     a.set("browse.voice.p2", 3);
     CHECK(a.until([&] { return a.is("part.bank.p2", 1) && a.is("part.user.p2", 3) && a.data("morph.p2.bl") == "TEST03"; }), "the pick did not load TEST03");
+    // A pick is the processor's own change, made where the host cannot see it, and still marks the instance
+    // modified, so the host saves it with the project.
+    a.proc->saving();
+    a.st->save();
+    a.set("browse.voice.p2", 4);
+    CHECK(a.until([&] { return a.data("morph.p2.bl") == "TEST04"; }), "the pick did not load TEST04");
+    CHECK(a.st->modified(), "a pick from the browser left the instance unmodified");
 
     // Morph is off until it works: a voice picked with corner A chosen reaches every corner, and moving the
     // square changes nothing.
@@ -310,7 +336,7 @@ int main() {
     const std::string shown = a.data("fseq.display");   // the list line comes before the load, the display after it
     a.st->setData("fseq.import_audio", wav.u8string());
     CHECK(a.until([&] { return a.lines("fseq.user.list") == 1 && a.data("fseq.display") != shown && !a.data("fseq.display").empty(); }, 20000),
-          "Import Audio made no Fseq (%s)", a.data("fsvr.message").c_str());
+          "Import Audio made no Fseq (%s)", a.data("live.message").c_str());
     CHECK(a.is("fseq.bank", 0) && a.is("fseq.user", 1), "the new Fseq is not selected");
     const std::string disp = a.data("fseq.display");
     const size_t p = disp.find("\"pitch\":\"");
@@ -334,7 +360,7 @@ int main() {
     // Save to Bank, as the Save modal asks for it: an edit marks the performance edited, the modal opens
     // on its name, and the save makes a new bank holding it as a user performance.
     auto lineOf = [&](const char* key, const std::string& first) { return rowOf(a, key, first); };   // 1 + the line whose first field is first, 0 if none
-    auto request = [&](const char* key, const std::string& v) { a.st->setData("fsvr.message", ""); a.st->setData(key, v); };
+    auto request = [&](const char* key, const std::string& v) { a.st->setData("live.message", ""); a.st->setData(key, v); };
     auto settle = [&] { a.until([] { return false; }, 400); };   // a right-click's row reaches the worker before its modal opens
     a.set("perf.program", 1);
     CHECK(a.until([&] { return a.is("perf.category", 19) && a.is("gui.edited", 0); }), "A002 did not load clean");
@@ -347,18 +373,18 @@ int main() {
     a.st->setData("save.name", "My Shaman");
     request("save.request", "1");
     CHECK(a.until([&] { return lineOf("bank.list", "Saved") && a.is("perf.bank", 1) && a.data("perf.user.name") == "My Shaman"; }),
-          "Save to a new bank did not make \"Saved\" (%s)", a.data("fsvr.message").c_str());
+          "Save to a new bank did not make \"Saved\" (%s)", a.data("live.message").c_str());
     CHECK(a.is("gui.edited", 0), "the saved performance still reads as edited");
     const int saved = lineOf("bank.list", "Saved");
     a.set("browse.bank", saved);
     CHECK(a.until([&] { return a.lines("browse.perf.list") == 1; }), "the new bank lists %d performances", a.lines("browse.perf.list"));
     a.set("save.bank", saved);
     request("save.request", "1");   // the same name again replaces it
-    CHECK(a.until([&] { return !a.data("fsvr.message").empty(); }) && a.lines("browse.perf.list") == 1, "saving \"My Shaman\" again left %d performances (%s)",
-          a.lines("browse.perf.list"), a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return !a.data("live.message").empty(); }) && a.lines("browse.perf.list") == 1, "saving \"My Shaman\" again left %d performances (%s)",
+          a.lines("browse.perf.list"), a.data("live.message").c_str());
     a.st->setData("save.name", "Second");
     request("save.request", "1");
-    CHECK(a.until([&] { return a.lines("browse.perf.list") == 2; }), "a second name did not add a performance (%s)", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return a.lines("browse.perf.list") == 2; }), "a second name did not add a performance (%s)", a.data("live.message").c_str());
 
     // A saved preset loads back as it was saved: its performance, its four voices and its Fseq, byte for
     // byte but the name, after another performance in between.
@@ -393,7 +419,7 @@ int main() {
         a.set("save.bank", bank);
         a.st->setData("save.name", name);
         request("save.request", "1");
-        CHECK(a.until([&] { return a.data("perf.user.name") == name && a.is("gui.edited", 0); }), "\"%s\" did not save (%s)", name.c_str(), a.data("fsvr.message").c_str());
+        CHECK(a.until([&] { return a.data("perf.user.name") == name && a.is("gui.edited", 0); }), "\"%s\" did not save (%s)", name.c_str(), a.data("live.message").c_str());
     };
     auto sound = [&] {   // a note's RMS in dB over three seconds, long enough to average out the free-running effect LFOs
         a.set("gui.panic", 1);
@@ -524,7 +550,7 @@ int main() {
     a.st->setData("hollow.modal", "");
     request("fsvr.import", preset.u8string());
     CHECK(a.until([&] { return a.data("hollow.modal") == "dialog_save" && a.data("save.name") == "Int Perf"; }), "Import FSVR Preset did not open the Save modal (%s)",
-          a.data("fsvr.message").c_str());
+          a.data("live.message").c_str());
 
     // The right-click menu on a user performance: Rename, Edit Attributes, Paste Attributes, Delete.
     const std::string second = "0\tU" + std::to_string(lineOf("perf.user.list", "Second")) + "\tSecond";
@@ -532,19 +558,19 @@ int main() {
     CHECK(a.until([&] { return a.data("item.name") == "Second" && a.is("item.readonly", 0); }), "the row did not describe itself (\"%s\")", a.data("item.name").c_str());
     a.st->setData("item.new_name", "Renamed");
     request("item.request", "rename");
-    CHECK(a.until([&] { return lineOf("perf.user.list", "Renamed") > 0; }), "Rename did not rename (%s)", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return lineOf("perf.user.list", "Renamed") > 0; }), "Rename did not rename (%s)", a.data("live.message").c_str());
     const std::string renamed = "0\tU" + std::to_string(lineOf("perf.user.list", "Renamed")) + "\tRenamed";
     a.st->setData("item.context", renamed);
     settle();
     a.set("item.category", 5);
     request("item.request", "attributes");
-    CHECK(a.until([&] { return a.data("perf.user.list").find("Renamed\tBass") != std::string::npos; }), "Edit Attributes did not set Bass (%s)", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return a.data("perf.user.list").find("Renamed\tBass") != std::string::npos; }), "Edit Attributes did not set Bass (%s)", a.data("live.message").c_str());
     a.st->setData("item.context", "0\tA001\tZap !");   // a factory row: read only, but its attributes copy
     CHECK(a.until([&] { return a.data("item.name") == "Zap !" && a.is("item.readonly", 1) && a.is("item.category", 16); }), "A001 did not describe itself read only");
     request("item.request", "delete");
-    CHECK(a.until([&] { return a.data("fsvr.message").find("read only") != std::string::npos; }), "deleting a factory preset said \"%s\"", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return a.data("live.message").find("read only") != std::string::npos; }), "deleting a factory preset said \"%s\"", a.data("live.message").c_str());
     request("item.request", "copy");
-    CHECK(a.until([&] { return a.data("fsvr.message").rfind("Copied", 0) == 0; }), "Copy Attributes said \"%s\"", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return a.data("live.message").rfind("Copied", 0) == 0; }), "Copy Attributes said \"%s\"", a.data("live.message").c_str());
     a.st->setData("item.context", renamed);
     CHECK(a.until([&] { return a.data("item.name") == "Renamed"; }), "back on the user row");
     request("item.request", "paste");
@@ -557,11 +583,11 @@ int main() {
     settle();
     a.st->setData("bank.new_name", "Kept");
     request("bank.request", "rename");
-    CHECK(a.until([&] { return lineOf("bank.list", "Kept") && !lineOf("bank.list", "Saved"); }), "Rename Bank did not rename (%s)", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return lineOf("bank.list", "Kept") && !lineOf("bank.list", "Saved"); }), "Rename Bank did not rename (%s)", a.data("live.message").c_str());
     a.st->setData("bank.context", "0\tYamaha FS1R");
     settle();
     request("bank.request", "delete");
-    CHECK(a.until([&] { return a.data("fsvr.message").find("read only") != std::string::npos; }), "deleting the factory bank said \"%s\"", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return a.data("live.message").find("read only") != std::string::npos; }), "deleting the factory bank said \"%s\"", a.data("live.message").c_str());
     a.st->setData("bank.context", std::to_string(lineOf("bank.list", "Kept")) + "\tKept");
     settle();
     request("bank.request", "delete");

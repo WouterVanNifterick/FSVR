@@ -685,7 +685,7 @@ private:
             if (n % 10 == 0) watchOptions();
             if (n % 2 == 0) harmonics();
             if (n % 3 == 1) waves();
-            if (messageTicks && --messageTicks == 0) st.setData("fsvr.message", "");
+            if (messageTicks && --messageTicks == 0) st.setData("live.message", "");
             if (notify && n % 8 == 0) {   // at most four times a second: a rescan of 3,000 params is not free for a host
                 notify = false;
                 if (paramsChanged) paramsChanged();
@@ -787,7 +787,7 @@ private:
                 // if (mor.size() == 4 * 4 * 608) std::memcpy(corners[p][c].data(), mor.data() + (size_t)(p * 4 + c) * 608, 608);
                 // else
                 std::memcpy(corners[p][c].data(), model.voice[p], 608);
-        st.setData("fsvr.message", "");
+        st.setData("live.message", "");
         st.setData("fsvr.version", FSVR_VERSION);   // a session saved by another version carries its number
         st.setData("fsvr.contributors", contributors());
         followParams();
@@ -1199,7 +1199,7 @@ private:
 
     // A status line for the library page: it clears itself after five seconds, and a session never brings one back.
     void message(const std::string& s) {
-        st.setData("fsvr.message", s);
+        st.setData("live.message", s);
         messageTicks = 150;
     }
 

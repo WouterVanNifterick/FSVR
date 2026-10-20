@@ -876,7 +876,7 @@ int main() {
         u.click(M + "save");
         CHECK(u.gui.modal().empty(), "Save did not close the modal");
         CHECK(u.until([&] { return u.lineOf("bank.list", "GUI Bank") > 0 && u.data("perf.user.name") == "Zap Edit" && u.get("gui.edited") == 0; }),
-              "the save made no \"GUI Bank\" (%s)", u.data("fsvr.message").c_str());
+              "the save made no \"GUI Bank\" (%s)", u.data("live.message").c_str());
         CHECK(u.gui.closeRequested(), "closing asked though the performance is saved");
 
         // The browser shows the new bank, the saved row lit; clicking off it and back keeps its rows.
@@ -914,7 +914,7 @@ int main() {
         CHECK(u.until([&] { return u.gui.modal() == "dialog_attributes" && u.data("item.name") == "Shaman"; }) && !u.shows(M + "ok"),
               "a factory preset's attributes opened writable (\"%s\")", u.data("item.name").c_str());
         u.click(M + "copy");
-        CHECK(u.until([&] { return u.data("fsvr.message").rfind("Copied", 0) == 0; }), "Copy Attributes said \"%s\"", u.data("fsvr.message").c_str());
+        CHECK(u.until([&] { return u.data("live.message").rfind("Copied", 0) == 0; }), "Copy Attributes said \"%s\"", u.data("live.message").c_str());
         u.click(M + "cancel");
         CHECK(u.gui.modal().empty(), "Cancel did not close Attributes");
         u.row("pages/library/perfs_all", 2);   // a left-click after all that still loads, and lights its row alone
@@ -932,7 +932,7 @@ int main() {
         u.click(M + "name");
         u.type("Zap Two");
         u.click(M + "rename");
-        CHECK(u.until([&] { return u.data("browse.perf.list").find("\tZap Two\t") != std::string::npos; }), "Rename did not rename (%s)", u.data("fsvr.message").c_str());
+        CHECK(u.until([&] { return u.data("browse.perf.list").find("\tZap Two\t") != std::string::npos; }), "Rename did not rename (%s)", u.data("live.message").c_str());
         u.row("pages/library/perfs_bank", 0, true);
         u.choose("Paste Attributes");
         CHECK(u.until([&] { return u.data("browse.perf.list").find("Zap Two\tVocal") != std::string::npos && u.get("item.category") == 19; }),
