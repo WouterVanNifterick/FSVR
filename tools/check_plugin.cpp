@@ -399,6 +399,8 @@ int main() {
     CHECK(a.until([&] { return a.lines("fseq.user.list") == 1 && a.data("fseq.display") != shown && !a.data("fseq.display").empty(); }, 20000),
           "Import Audio made no Fseq (%s)", a.data("live.message").c_str());
     CHECK(a.is("fseq.bank", 0) && a.is("fseq.user", 1), "the new Fseq is not selected");
+    CHECK(a.until([&] { return a.is("fseq.pick", 90) && a.data("fseq.pick.label").rfind("U1 Vowel", 0) == 0; }),
+          "the picker reads row %g \"%s\" after Import Audio", a.get("fseq.pick"), a.data("fseq.pick.label").c_str());
     const std::string disp = a.data("fseq.display");
     const size_t p = disp.find("\"pitch\":\"");
     if (p != std::string::npos) {
@@ -761,6 +763,11 @@ int main() {
                       a.is("fseq.loop_mode", h[0x14] & 1) && a.is("fseq.speed_vel", h[0x16] & 7) && a.is("fseq.pitch_mode", h[0x17] & 1) && a.is("fseq.delay", h[0x1A]),
                   "choosing an Fseq left start %g, loop %g to %g, mode %g, tempo vel %g, pitch %g, delay %g against its header",
                   a.get("fseq.start"), a.get("fseq.loop_start"), a.get("fseq.loop_end"), a.get("fseq.loop_mode"), a.get("fseq.speed_vel"), a.get("fseq.pitch_mode"), a.get("fseq.delay"));
+        CHECK(a.until([&] { return a.is("fseq.pick", 42) && a.data("fseq.pick.label").rfind("43 ChuckRtm", 0) == 0; }),
+              "the picker reads row %g \"%s\" for ChuckRtm", a.get("fseq.pick"), a.data("fseq.pick.label").c_str());
+        a.set("fseq.pick", 10);   // and a row picked loads the Fseq, as the bank and number would
+        CHECK(a.until([&] { return a.is("fseq.bank", 1) && a.is("fseq.number", 10) && a.data("fseq.pick.label").rfind("11 UooLha", 0) == 0; }),
+              "picking row 10 gave bank %g, number %g, \"%s\"", a.get("fseq.bank"), a.get("fseq.number"), a.data("fseq.pick.label").c_str());
         a.set("perf.program", 0);
         CHECK(a.until([&] { return a.data("perf.name") == "Zap !"; }), "A001 did not load (\"%s\")", a.data("perf.name").c_str());
         a.set("perf.program", 141);

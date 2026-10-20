@@ -36950,6 +36950,14 @@
   "host": false
  },
  {
+  "id": "fseq.pick",
+  "name": "Fseq Pick",
+  "min": 0,
+  "max": 16384,
+  "steps": 16384,
+  "host": false
+ },
+ {
   "id": "gui.panic",
   "name": "Panic",
   "min": 0,

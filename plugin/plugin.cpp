@@ -345,7 +345,7 @@ private:
 
     // params by id
     int P(const std::string& id) const { return st.indexOf(id); }
-    int perfProgram = -1, perfBank = -1, perfUser = -1, fseqBank = -1, fseqNumber = -1, fseqUser = -1, fseqPart = -1, fseqPos = -1, panic = -1;
+    int perfProgram = -1, perfBank = -1, perfUser = -1, fseqBank = -1, fseqNumber = -1, fseqUser = -1, fseqPart = -1, fseqPos = -1, fseqPick = -1, panic = -1;
     int partBank[4], partProgram[4], partUser[4], morphX[4], morphY[4], jitterX[4], jitterY[4], morphSeed[4], morphEdit[4];
     int browseBank = -1, browseCategory = -1, browsePerf = -1, browseFseq = -1, browseVoice[4], knob[4];
     int browseFocus = -1, partOn[4];   // the Parts page's voice field (the part, from 1) and its lamps
@@ -399,6 +399,7 @@ private:
     std::vector<uint8_t> fseqShown;    // the Fseq the page last had (live.fseq.doc and fseq.display)
     std::string fseqNameShown;         // its name as text data fseq.name
     std::string rateShown;             // live.fseq.rate as last published
+    std::string pickLabelShown;        // fseq.pick.label as last published
     int fseqPosSent = -1;              // fseq.position as the audio thread last set it
     int messageTicks = 0;              // worker ticks until the status line clears
     std::string libError;              // the library's read error the status line last showed
@@ -444,6 +445,7 @@ private:
         }
         perfProgram = P("perf.program"); perfBank = P("perf.bank"); perfUser = P("perf.user");
         fseqBank = P("fseq.bank"); fseqNumber = P("fseq.number"); fseqUser = P("fseq.user"); fseqPart = P("fseq.part"); fseqPos = P("fseq.position");
+        fseqPick = P("fseq.pick");
         panic = P("gui.panic");
         perfCategory = P("perf.category"); edited = P("gui.edited"); saveBank = P("save.bank");
         loadLast = P("opt.load_last"); speed = P("opt.speed"); filter32 = P("opt.filter32");
@@ -1032,6 +1034,7 @@ private:
         bool perf = false, fseq = false;
         for (int i : {perfProgram, perfBank, perfUser}) perf |= moved(i);
         for (int i : {fseqBank, fseqNumber, fseqUser}) fseq |= moved(i);
+        if (moved(fseqPick)) pickFseq((int)get(fseqPick));   // the page's picker: a row, as a bank and number
         if (perf) {
             if (get(perfBank) == 1) loadUserPerf(userPerf = (int)get(perfUser));
             else loadFactoryPerf((int)get(perfProgram));
@@ -1334,9 +1337,13 @@ private:
         for (auto& b : lib.banks) (b.readonly() ? banks : writable) += b.name + "\n";
         banks += writable;   // the built-in banks lead, as rescan() puts them
         st.setData("save.bank.list", writable);
+        std::string picks;   // the Fseq page's picker: the presets, then the library's Fseqs
+        for (size_t i = 0; i < factory.fseqs.size(); ++i) picks += pickLine((int)i, factory.fseqs[i]) + "\n";
+        for (size_t i = 0; i < lib.fseqs.size(); ++i) picks += pickLine((int)(factory.fseqs.size() + i), *lib.fseq((int)i + 1)) + "\n";
         st.setData("perf.user.list", perfs);
         st.setData("voice.user.list", voices);
         st.setData("fseq.user.list", fseqs);
+        st.setData("fseq.pick.list", picks);
         st.setData("bank.list", banks);
         // The browsed bank's rows, filtered by the category column (0 All, 1 User, then the categories).
         const int b = (int)get(browseBank) - 1, cat = (int)get(browseCategory) - 2;
@@ -1366,6 +1373,29 @@ private:
         syncBrowse();
     }
 
+    // A row of the Fseq page's picker: "01 ShoobyDo · 505 frames" for a preset, "U1 Vowel · 128 frames" for one of the library's.
+    std::string pickLine(int row, const Item& f) const {
+        char code[8];
+        if (row < (int)factory.fseqs.size()) std::snprintf(code, sizeof code, "%02d", row + 1);
+        else std::snprintf(code, sizeof code, "U%d", row - (int)factory.fseqs.size() + 1);
+        return std::string(code) + " " + f.name + " \xC2\xB7 " + std::to_string(f.frames) + " frames";
+    }
+
+    // The picker's row for the Fseq loaded: a preset's, the library's, or one past them all for an Fseq from
+    // nowhere in the list (a performance's own, a dump from the host).
+    void pickFseq(int v) {
+        const int presets = (int)factory.fseqs.size();
+        if (v < presets) {
+            choose(fseqBank, 1);
+            choose(fseqNumber, v);
+            loadFactoryFseq(v);
+        } else if (lib.fseq(v - presets + 1)) {
+            putUser(fseqUser, userFseq, v - presets + 1);
+            choose(fseqBank, 0);
+            loadUserFseq(v - presets + 1);
+        }
+    }
+
     // The browsed bank's lists light what is loaded (nothing when it is from elsewhere), so a click on any
     // other row loads it, and a lit row is never a stale one.
     void syncBrowse() {
@@ -1379,6 +1409,11 @@ private:
         set(browsePerf, get(perfBank) == 1 ? row(0, userPerf) : 0);
         for (int p = 0; p < 4; ++p) set(browseVoice[p], get(partBank[p]) == 1 ? row(1, userVoice[p]) : 0);
         set(browseFseq, get(fseqBank) == 0 ? row(2, userFseq) : 0);
+        const int presets = (int)factory.fseqs.size(), users = (int)lib.fseqs.size();
+        const int pick = get(fseqBank) == 1 ? std::clamp((int)get(fseqNumber), 0, presets - 1) : userFseq >= 1 && userFseq <= users ? presets + userFseq - 1 : presets + users;
+        set(fseqPick, pick);
+        const std::string label = pick < presets ? pickLine(pick, factory.fseqs[(size_t)pick]) : pick < presets + users ? pickLine(pick, *lib.fseq(pick - presets + 1)) : "No Fseq";
+        if (label != pickLabelShown) st.setData("fseq.pick.label", pickLabelShown = label);
     }
 
     // ---- requests from the GUI ---------------------------------------------------------------------
