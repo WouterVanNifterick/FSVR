@@ -17,10 +17,14 @@ The installer (`FSVR-Windows-Installer.exe`, `FSVR-MacOS-Installer.zip`, `FSVR-L
 
 Copy what your host loads into its plug-in folder: on Windows `C:\Program Files\Common Files\CLAP` and `...\VST3`; on macOS `~/Library/Audio/Plug-Ins/CLAP`, `VST3`, `VST` and `Components` (Logic Pro loads only the AU, scans it at launch and validates a new one once); on Linux `~/.clap`, `~/.vst3` and `~/.vst`. The macOS builds are universal, Apple silicon and Intel in one binary. The DXi, for Cakewalk's older hosts, registers with `regsvr32 "FSVR.dll"` from an elevated prompt, the 32-bit DLL from `FSVR-Windows-VST2-32-DXi.zip` (the installer does this for you).
 
-Nothing here is signed by an Apple developer account, so the first launch of the macOS standalone needs **Open** from its right-click menu, or one command to drop the quarantine flag the download put on it:
+Nothing here is signed by an Apple developer account, so macOS stops the first launch of the installer or the standalone. On macOS 15 and later, try to open it once, then click **Open Anyway** under System Settings > Privacy & Security; on earlier versions choose **Open** from its right-click menu. A plug-in copied by hand from a downloaded zip carries the same quarantine flag, and a host then refuses to load it. One command drops the flag from the app, and one from the plug-in folders:
 
 ```bash
 xattr -dr com.apple.quarantine ~/Downloads/FSVR.app
+```
+
+```bash
+xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins
 ```
 
 On Linux the editor is an X11 window (a Wayland desktop runs it under XWayland). The file dialogs are zenity's, or kdialog's where zenity is missing, and Import Audio reads MP4 and AAC through an `ffmpeg` on the PATH; WAV, AIFF, MP3 and Ogg need nothing.

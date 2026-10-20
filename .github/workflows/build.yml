@@ -79,6 +79,24 @@ jobs:
       - name: Test
         if: matrix.name != 'windows-x86' && !inputs.standalone
         run: ctest --test-dir build/plugin -C Release -R "plugin|gui" --output-on-failure --repeat until-pass:3
+      # Every macOS bundle keeps its seal through the copy into bin/ and carries both slices, and the Intel
+      # one runs: check_plugin again under Rosetta, with the same three tries.
+      - name: Bundles
+        if: runner.os == 'macOS'
+        run: |
+          for b in bin/*/*.clap bin/*/*.vst3 bin/*/*.component bin/*/*.app bin/*/*.vst; do
+            [ -e "$b" ] || continue
+            codesign --verify --strict "$b"
+            for f in "$b"/Contents/MacOS/*; do
+              a=" $(lipo -archs "$f") "; echo "$f:$a"
+              [[ $a == *" x86_64 "* && $a == *" arm64 "* ]] || { echo "::error::$f is not universal"; exit 1; }
+            done
+          done
+      - name: Test on Intel
+        if: runner.os == 'macOS' && !inputs.standalone
+        run: |
+          arch -x86_64 /usr/bin/true 2>/dev/null || sudo softwareupdate --install-rosetta --agree-to-license
+          for i in 1 2 3; do arch -x86_64 build/plugin/check_plugin && exit 0; done; exit 1
       # Zipped here rather than in the release job, because an Actions artifact does not carry the
       # executable bit: bin/ uploaded as loose files comes back 644, and a macOS bundle whose
       # Contents/MacOS file is not executable fails to launch with "The application FSVR can't be
@@ -138,6 +156,10 @@ jobs:
           if [ -n "$INSTALLER_FONT" ]; then echo "$INSTALLER_FONT" | base64 -d > installer/payload/font.bin; fi
           cp icon.png installer/product/icon.png   # the setup's own icon and its Linux menu entry's: FSVR's
           VERSION=$v BIN_WINDOWS=$PWD/bin-windows BIN_MACOS=$PWD/bin-macos BIN_LINUX=$PWD/bin-linux installer/build.sh
+          for f in installer/dist/FSVR-MacOS-Update installer/dist/FSVR-MacOS-Installer.app/Contents/MacOS/*; do
+            a=$(file -b "$f"); echo "$f: $a"
+            [[ $a == *x86_64* && $a == *arm64* ]] || { echo "::error::$f is not universal"; exit 1; }
+          done
           cd installer/dist && zip -qry FSVR-MacOS-Installer.zip FSVR-MacOS-Installer.app && rm -r FSVR-MacOS-Installer.app && ls -l
       - uses: actions/upload-artifact@v4
         with:
@@ -170,7 +192,7 @@ jobs:
             echo "| | Installer | |"
             echo "|---|---|---|"
             echo "| **Windows** | [FSVR-Windows-Installer.exe]($url/FSVR-Windows-Installer.exe) | Run it; it asks for admin rights to install into Program Files |"
-            echo "| **macOS** | [FSVR-MacOS-Installer.zip]($url/FSVR-MacOS-Installer.zip) | Unzip and open FSVR-MacOS-Installer; it is not signed, so right-click it and choose Open the first time |"
+            echo "| **macOS** | [FSVR-MacOS-Installer.zip]($url/FSVR-MacOS-Installer.zip) | Unzip and open FSVR-MacOS-Installer; it is not signed, so on macOS 15 and later click Open Anyway under System Settings > Privacy & Security after the first try, and on earlier versions right-click it and choose Open |"
             echo "| **Linux** | [FSVR-Linux-Installer]($url/FSVR-Linux-Installer) | \`chmod +x FSVR-Linux-Installer\`, then run it |"
             echo
             echo "The installer puts every format in place (VST3, CLAP, VST2, the 32-bit VST2 with its DXi, AU and the standalone) and can keep FSVR up to date. To install one format by hand instead, take its own zip from the list below, \`FSVR-<OS>-<format>.zip\`. \`FSVR-MacOS-Update\` is for the updater, not for downloading."
