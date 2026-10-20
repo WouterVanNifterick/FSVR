@@ -43,6 +43,7 @@ struct Synth {
     // filter on plays all 32 voices instead of the unit's 16. fltWide is it as last latched.
     Filter flt; int fltSw = 0; bool filter32 = true, fltWide = false;
     bool bend14 = true;                        // ours: keep the pitch bend LSB the unit drops (bend_word)
+    int noteChn = 0;                           // the MIDI channel of the note on midi_in is handing note_on
     int flt_banks() const { return fltSw ? (fltWide ? 2 : 1) : 0; }   // banks of sixteen filter voices in use
     void filter_latch();                       // FUN_0002087e: a switch that changed stops every channel
     void filter_sync(int part);                // the part's voice, record and controllers, into the filter host
@@ -105,7 +106,7 @@ struct Synth {
     // Destination 35 writes one per-part value that event 0x205 then scales by each operator's own EG
     // bias sense: ~((|scaled| + table[|depth|]) * 2), the table being flash 0x3DDC4 (ctrlDest_35).
     int ctrl_eg_bias(int part) const;
-    double bend_word(const Part& pt) const;
+    double bend_word(const Part& pt, int chn) const;   // chn: the note's MIDI channel, which a ranged part bends by
     void part_levels(int part, int& vAtt, int& uAtt) const;
 
     // ---------------------------------------------------------------- note on (FUN_00010b48 / FUN_000112c0 / FUN_000125f8)

@@ -112,7 +112,7 @@ void Synth::note_on(int part, int note, int vel) {
     // the struct instead put a step the size of the old note's own output into the output between two
     // samples, which is a click the unit does not make.
     double damp = C.active ? C.last + C.damp : 0.0;
-    C = Chan(); C.active = true; C.part = part; C.note = note; C.vel = vel; C.held = true; C.age = ++clock;
+    C = Chan(); C.active = true; C.part = part; C.note = note; C.vel = vel; C.held = true; C.age = ++clock; C.chn = noteChn;
     C.damp = damp; C.filtered = filtered;
     C.lfoPhase = sync ? 0 : keepPhase;
     C.panBase = pt.p[0x0E] ? pt.p[0x0E] : (rand() % 128);       // part pan 0 = random per note; the rest is the table index
@@ -335,7 +335,7 @@ void Synth::refresh_regs(Chan& C, const Part& pt) {
         const uint8_t* f = fseq.frame[fseqStep];
         fseqPitch = (f[0] * 256 + f[1] * 2) - (NOTETAB[fseq.noteAssign & 0x7F] + 0x1243) + (fseq.tuning - 63);
     }
-    C.regPitch = C.portaCur + (C.pegCur >> 2) + bend_word(pt) + fseqPitch;
+    C.regPitch = C.portaCur + (C.pegCur >> 2) + bend_word(pt, C.chn) + fseqPitch;
     C.regC0 = (C.pitchNote >> 8) + 10;
     int fade = C.lfoFade >> 8;
     int pmd = clampi(eb86(clampi(V.pmd + pt.p[0x16] - 64, 0, 99)) + ctrl_offset(part, 39) * 2, 0, 255);   // ctrlDest_39 doubles it

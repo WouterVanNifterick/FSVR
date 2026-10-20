@@ -69,7 +69,7 @@ Grouped by what blocks each item rather than by subsystem. This file is the list
 
 **Open research**
 
-- Whether a part hears more than one MIDI channel. Session 6 sent one note on one channel and the unit sounded it on **two** channels charged to two parts, which a single-channel compare cannot produce. The DataList table (line 3241) has `03 = Rcv CHANNEL MAX A1~A16/off` against `04 = Rcv CHANNEL` and section 2.2.3.2 describes reception "Part Receive Channel to Part Receive Channel Max", so `part_listens` comparing one channel is probably wrong — but both parts in that run had Max written as off, which a range does not explain, so no fix was shipped. Session 6 now reads bytes 0x00/0x01/0x03/0x04 back per part and asserts one note takes one channel; the alternative is that 0x010289BC is not the channel-to-part map. `docs/findings.md` 2026-09-25
+- Why one note took two parts in session 6. The unit sounded one note sent on one channel on **two** channels charged to two parts, with both parts' Rcv Max written as off, which neither a single channel nor a range produces. Parts 1 and 2 now hear Rcv Ch to Rcv Max as the owner's manual (p.25) and the Data List (2.2.3.2, 2.2.4) give it, each note bending by its own channel, so Preset C's guitar performances hear all six; the firmware's receive test itself has not been found. Session 6 now reads bytes 0x00/0x01/0x03/0x04 back per part and asserts one note takes one channel; the alternative is that 0x010289BC is not the channel-to-part map. `docs/findings.md` 2026-09-25
 
 - Run the real firmware on an SH-2 core. `tools/ghidra_ctrl_dests.py` shows the pattern for reaching code Ghidra never turned into functions
 

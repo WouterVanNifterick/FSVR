@@ -79,13 +79,17 @@ int Synth::ctrl_eg_bias(int part) const {
 // the LSB's low six bits, which that drops, go on as a fraction of its step, so a 14-bit bend glides between
 // the unit's positions and gives exactly the unit's word wherever they are 0. Not past the top, where the
 // firmware turns 0x7F into 0x80.
-double Synth::bend_word(const Part& pt) const {
-    int b = pt.bend; int r = (b < 0 ? pt.p[0x27] : pt.p[0x26]) - 0x40; int v;
+// A part on a range of channels bends each note by what its own channel last sent (Data List 2.2.4).
+double Synth::bend_word(const Part& pt, int chn) const {
+    const int part = (int)(&pt - perf.part);
+    const bool own = pt.rcvMax(part) >= 0 && chn >= 0 && chn < 16;
+    const int b = own ? pt.bendAt[chn] : pt.bend, lsb = own ? pt.bendLsbAt[chn] : pt.bendLsb;
+    int r = (b < 0 ? pt.p[0x27] : pt.p[0x26]) - 0x40; int v;
     if (r < 0) { v = BENDTAB[std::min(48, -r)]; if (b >= 0) v = -v; } else { v = BENDTAB[std::min(48, r)]; if (b < 0) v = -v; }
     int k = b >> 3; if (k == 0x7F) k = 0x80;
     int w = (v * k) >> 7;
-    w += ctrl_pitch_bias((int)(&pt - perf.part));
-    return k == 0x80 ? w : w + v * ((pt.bendLsb & 63) / 64.0) / 128.0;
+    w += ctrl_pitch_bias(part);
+    return k == 0x80 ? w : w + v * ((lsb & 63) / 64.0) / 128.0;
 }
 
 void Synth::part_levels(int part, int& vAtt, int& uAtt) const {

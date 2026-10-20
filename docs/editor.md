@@ -317,4 +317,3 @@ The tables that are the unit's own readouts are `src/display/display.h`, transcr
 - **The LCD's performance menu lists the factory banks only.** User performances are picked in the browser.
 - **Polyphony and note reserve** stay the unit's until the engine allocates more than 32 notes.
 - **Insertion destination names.** The Mod page's "Ins Param 1" to "14" stay numbered: the editor's names are misaligned, and the engine doesn't yet implement destinations 1 to 14, so which insertion parameter each drives is still to be read from the firmware.
-- **The engine ignores Rcv Max.** Its `part_listens` matches the receive channel only, so a part set to a range (Preset C's guitar performances use 1 to 6) hears just its first channel. The editor shows and saves the range.

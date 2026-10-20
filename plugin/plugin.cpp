@@ -587,9 +587,10 @@ private:
 
     int perfChannel() const { return model.sys[0x09]; }   // 0..15, 16 all, 127 off
     bool listens(int p, int ch) const {                    // Synth::part_listens
-        const int rc = model.perf[192 + 52 * p + 4], pc = perfChannel();
+        const int rc = model.perf[192 + 52 * p + 4], mx = model.perf[192 + 52 * p + 3], pc = perfChannel();
         if (rc == 0x7F) return false;
         if (rc == 0x10) return pc == 0x10 || (pc != 0x7F && ch == pc);
+        if (p < 2 && rc <= 0x0F && mx <= 0x0F && mx > rc) return ch >= rc && ch <= mx;   // Rcv Max, parts 1 and 2 (Part::rcvMax)
         return rc == ch;
     }
     std::vector<int> listeningChannels() const {

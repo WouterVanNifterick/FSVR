@@ -209,7 +209,7 @@ int selftest(Synth& S) {
     // Pitch bend (0x15B80): the bend word is (msb - 64) * 16 + (lsb >> 3), the pitch takes it >> 3, 256 steps,
     // and source PB gets the same >> 3 raw, -128..127. Ours: bend14 puts the LSB's low six bits between those steps.
     { Part& pt = S.perf.part[0];
-      auto bw = [&](int lsb, int msb) { S.midi_in(0xE0, lsb, msb); return S.bend_word(pt); };
+      auto bw = [&](int lsb, int msb) { S.midi_in(0xE0, lsb, msb); return S.bend_word(pt, 0); };
       S.bend14 = false;
       const double w0 = bw(0, 96), w1 = bw(64, 96);
       ck("bend: the unit's pitch keeps the LSB's top bit", w0 == 512 && w1 == 520 && bw(63, 96) == w0);
@@ -222,6 +222,29 @@ int selftest(Synth& S) {
       for (int v = 0; v < 16384; v += 37) { double w = bw(v & 127, v >> 7); up = up && w >= last; last = w; }
       ck("bend: the 14-bit sweep never steps back", up);
       bw(0, 64); }
+    // Rcv Max (owner's manual p.25, Data List 2.2.3.2): parts 1 and 2 hear every channel from Rcv Ch to Rcv Max, as
+    // Preset C's guitar performances are set (1 to 6, a string to a channel). Parts 3 and 4 have no Max, and pf is
+    // the performance channel alone. A part on a range bends each note by its own channel (Data List 2.2.4).
+    { const int force = S.forceChannel, perfCh = S.sys[9];
+      S.forceChannel = -1;
+      init_perf(S.perf);
+      for (auto& q : S.perf.part) q.p[1] = 0;   // every part off but the two under test
+      Part& a = S.perf.part[0]; a.p[1] = 2; a.p[4] = 0; a.p[3] = 5; init_default_voice(a.voice);
+      Part& c = S.perf.part[2]; c.p[1] = 2; c.p[4] = 9; c.p[3] = 12;
+      ck("Rcv Max: part 1 set to 1..6 hears channel 4 and not 7", S.part_listens(0, 3) && !S.part_listens(0, 6));
+      ck("Rcv Max: part 3 has none and hears its own channel alone", S.part_listens(2, 9) && !S.part_listens(2, 11));
+      a.p[4] = 0x10; S.sys[9] = 2;
+      ck("Rcv Max: a part on pf hears the performance channel alone", S.part_listens(0, 2) && !S.part_listens(0, 3));
+      a.p[4] = 0;
+      S.all_off();
+      std::vector<float> l(512), r(512);
+      S.midi_in(0x90, 60, 100); S.midi_in(0x91, 64, 100); S.render(l.data(), r.data(), 512);
+      auto pitchOf = [&](int note) { for (auto& ch : S.ch) if (ch.active && ch.note == note) return ch.regPitch; return -1.0; };
+      const double at60 = pitchOf(60), at64 = pitchOf(64);
+      S.midi_in(0xE1, 0, 127); S.render(l.data(), r.data(), 512);
+      ck("Rcv Max: a bend on channel 2 moves its own note and leaves channel 1's", at60 > 0 && pitchOf(60) == at60 && pitchOf(64) > at64);
+      S.midi_in(0xE1, 0, 64); S.all_off();
+      init_perf(S.perf); S.forceChannel = force; S.sys[9] = (uint8_t)perfCh; }
     S.midi_in(0xB0, 100, 2); S.midi_in(0xB0, 6, 0x28 + 12);
     ck("RPN note shift", S.perf.part[0].p[8] == 12);
     S.midi_in(0xB0, 99, 1); S.midi_in(0xB0, 98, 0x20); S.midi_in(0xB0, 6, 90);

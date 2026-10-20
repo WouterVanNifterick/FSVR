@@ -31,6 +31,10 @@ struct Part {
     // controller state (MIDI)
     int bend = 0;            // (msb - 64) * 16 + (lsb >> 3), the handler at 0x15B80 (DAT_010293F4)
     int bendLsb = 0;         // ours: the whole LSB, for a 14-bit bend (bend_word)
+    // The same pair as each MIDI channel last sent it. A part that receives a range of channels bends each
+    // note by its own channel's (Data List 2.2.4, "can sound separately according to Pitch Bend Change on
+    // different channels"); bend and bendLsb stay the last received, which the PB source reads.
+    int bendAt[16] = {}, bendLsbAt[16] = {};
     int expr = 254;          // DAT_010297fa
     // FUN_0000edf0, the per-part controller reset: expression back to 0xFE, bend and every controller
     // source to zero. Reset All Controllers runs it, and so does loading a performance, which walks the
@@ -46,6 +50,9 @@ struct Part {
     int rpnM = 127, rpnL = 127; bool nrpnSel = false;   // RPN / NRPN selection state
     bool sustain = false;
     int rcv() const { return p[1] == 0 ? 0x7F : p[4]; }   // Voice Bank "off" (byte 1) receives nothing, whatever the channel (owner's manual p.63)
+    // Rcv Max (byte 3), parts 1 and 2 only: the last channel of the range from Rcv Ch, or -1 for none. Off (0x7F),
+    // a Max at or below Rcv Ch, and pf all mean the single channel (owner's manual p.25, Data List 2.2.3.2).
+    int rcvMax(int part) const { const int rc = rcv(); return part < 2 && rc <= 0x0F && p[3] <= 0x0F && p[3] > rc ? p[3] : -1; }
 };
 struct Perf {
     uint8_t c[80]; uint8_t fx[112]; Part part[4];
