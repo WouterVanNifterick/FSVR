@@ -290,6 +290,12 @@ int main() {
         CHECK(u.gui.zoom() == 0.75 && u.shows("tab_parts"), "75%% did not draw the window");
         u.click("pages/list/display/scale_100");
         CHECK(u.gui.zoom() == 1 && u.gui.width() == wide, "100%% came back %d px wide, not %d", u.gui.width(), wide);
+        // The standalone on a 150% display: 100% is drawn at 1.5x and is still 100%, saved and shown.
+        u.gui.setDisplayScale(1.5);
+        CHECK(u.gui.zoom() == 1.5 && u.gui.picked() == 1 && u.ui().find("\"scale\":1,") != std::string::npos,
+              "100%% on a 150%% display drew at %gx and kept %g", u.gui.zoom(), u.gui.picked());
+        u.gui.setDisplayScale(1);
+        CHECK(u.gui.zoom() == 1 && u.gui.width() == wide, "back on a 100%% display, 100%% drew at %gx", u.gui.zoom());
         {
             Rect a, b;   // the radio pair's lit tile is darker than its raised one, at the same point of each
             auto lum = [&](const Rect& r) { const uint32_t p = u.gui.pixels()[(size_t)(r.y + r.h / 2) * u.gui.width() + r.x + 4];
