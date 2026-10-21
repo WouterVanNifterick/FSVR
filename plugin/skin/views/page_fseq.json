@@ -525,8 +525,14 @@
    "selLen": "gui.fseq.sel_len",
    "levelDb": 0.752574,
    "text": {"font": "plot_tiny"},
+   "opV": "op.{n}.v.fseq_sw.{part}",
+   "opU": "op.{n}.u.fseq_sw.{part}",
+   "opTrack": "op.{n}.v.fseq_track.{part}",
+   "selOp": "{op}",
+   "selLayer": "{layer}",
    "line": "@op{n}_line",
    "lineU": "@op{n}_line",
+   "lineOff": "#4a505bff",
    "line2": "#f2f6f6ff",
    "screen": "#0b0d13ff",
    "gutter": "#161a22ff",
@@ -541,10 +547,11 @@
    "startColour": "#888888ff",
    "endColour": "#f07178ff",
    "cursor": "#e8b84bff",
-   "glow": "#ffffff60",
+   "glow": "#ffffffff",
+   "glowU": "#ffffffff",
    "hover": "#ffffffff",
    "menuStyle": "plain",
-   "tip": "The Fseq's tracks over time, each in its operator's colour and fainter where quieter, the pitch in white: the loop in green and amber, the start offset grey, the end red, playback gold. Wheel zooms, Shift+wheel pans, right-click edits"
+   "tip": "The Fseq's tracks over time, each in the colour of the first operator that follows it (grey when none does) and fainter where quieter, glowing over its bandwidth; the selected operator's track rimmed, which Draw, Line, Move and Scale edit; the pitch in white: the loop in green and amber, the start offset grey, the end red, playback gold. Wheel zooms, Shift+wheel pans, right-click edits"
   },
   {
    "type": "plate",

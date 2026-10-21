@@ -128,7 +128,10 @@ double midiOf(double w) { return 69 + (w - 26861) / kWordsPerSemitone; }
 double wordOfMidi(double m) { return 26861 + (m - 69) * kWordsPerSemitone; }
 double ampOf(double level, double levelDb) { return std::pow(10.0, -level * levelDb / 20); }
 double levelOfAmp(double a, double levelDb) { return a <= 1e-9 ? 127 : std::clamp(-20 * std::log10(a) / levelDb, 0.0, 127.0); }
-double traceAlpha(double amp) { return std::min(1.0, std::clamp(amp * 5 - 0.2, 0.0, 1.0) * 2.2); }
+
+// How opaque a track is drawn at a level (an attenuation, so a high level is a quiet frame): the square
+// root of its amplitude, so it halves every 12 dB down and loud and quiet stay apart all the way.
+double traceAlpha(double level, double levelDb) { return std::sqrt(ampOf(level, levelDb)); }
 
 // ---- what the editor keeps -----------------------------------------------------------------------
 
@@ -165,7 +168,6 @@ struct Shared : KindState {
     int dirtyLo = INT_MAX, dirtyHi = -1, sentLo = INT_MAX, sentHi = -1;   // frames edited since the last flush, and the unconsumed edit's
     std::vector<uint32_t> cache;
     std::string cacheKey;
-    std::vector<float> glowBuf;
     Clock::time_point lastGesture;
     bool fast = false;
     Gesture gest;
@@ -184,30 +186,35 @@ struct Shared : KindState {
 struct Fields {
     int position = -1, loopStart = -1, loopEnd = -1, start = -1, end = -1, tool = -1, layout = -1, freqScale = -1, levelScale = -1;
     int showV = -1, showU = -1, showPitch = -1, showOp[8] = {-1, -1, -1, -1, -1, -1, -1, -1}, selFrom = -1, selLen = -1;
+    int opV[8], opU[8], opTrack[8];   // each operator's Fseq switches and the track it follows, -1 when not given
+    int selOp = -1, selLayer = 0;     // the app's selected operator, 0..7 (-1 none), and layer, 1 unvoiced
     std::string editKey, cmdKey, rateKey;
     double levelDb = 0.752574;
     uint32_t screen = 0, gutter = 0, grid = 0, keyWhite = 0, keyBlack = 0, keyC = 0, selection = 0, selectionEdge = 0;
-    uint32_t colLoopStart = 0, colLoopEnd = 0, colStart = 0, colEnd = 0, cursor = 0, glow = 0, hover = 0, line2 = 0;
+    uint32_t colLoopStart = 0, colLoopEnd = 0, colStart = 0, colEnd = 0, cursor = 0, glow = 0, glowU = 0, hover = 0, line2 = 0, lineOff = 0;
     int font = -1;
 };
+
+std::string numbered(std::string s, int n) {   // a template with {n} as 1..8
+    for (size_t at; (at = s.find("{n}")) != std::string::npos;) s.replace(at, 3, std::to_string(n));
+    return s;
+}
 
 Fields fieldsOf(Gui& g, const Hit& h) {
     const Widget& w = g.wid(h);
     const Json& j = w.json;
     Fields f;
     auto p = [&](const char* key) { return j.has(key) ? g.paramOf(h, j[key].str()) : -1; };
+    auto perOp = [&](const char* key, int (&out)[8]) {
+        for (int n = 1; n <= 8; ++n) out[n - 1] = j.has(key) ? g.paramOf(h, numbered(j[key].str(), n)) : -1;
+    };
     f.position = p("position"), f.start = p("start"), f.end = p("end"), f.tool = p("tool"), f.layout = p("layout");
     f.freqScale = p("freqScale"), f.levelScale = p("levelScale"), f.showV = p("showV"), f.showU = p("showU"), f.showPitch = p("showPitch");
     f.selFrom = p("selFrom"), f.selLen = p("selLen");
     if (j["loop"].items.size() >= 2) f.loopStart = g.paramOf(h, j["loop"].items[0].str()), f.loopEnd = g.paramOf(h, j["loop"].items[1].str());
-    if (j.has("showOp")) {
-        std::string tpl = j["showOp"].str();
-        for (int n = 1; n <= 8; ++n) {
-            std::string s = tpl;
-            for (size_t at; (at = s.find("{n}")) != std::string::npos;) s.replace(at, 3, std::to_string(n));
-            f.showOp[n - 1] = g.paramOf(h, s);
-        }
-    }
+    perOp("showOp", f.showOp), perOp("opV", f.opV), perOp("opU", f.opU), perOp("opTrack", f.opTrack);
+    if (j.has("selOp")) f.selOp = std::clamp(std::atoi(g.subst(*h.node, j["selOp"].str()).c_str()), 0, 8) - 1;
+    f.selLayer = g.subst(*h.node, j["selLayer"].str()) == "u";
     f.editKey = g.subst(*h.node, j["edit"].str()), f.cmdKey = g.subst(*h.node, j["cmd"].str()), f.rateKey = g.subst(*h.node, j["rate"].str());
     f.levelDb = j["levelDb"].num(0.752574);
     f.screen = colourField(g, h, "screen", 0xff0b0d13), f.gutter = colourField(g, h, "gutter", 0xff161a22), f.grid = colourField(g, h, "grid", 0xff2b3346);
@@ -215,14 +222,33 @@ Fields fieldsOf(Gui& g, const Hit& h) {
     f.selection = colourField(g, h, "selection", 0x4062d0ff), f.selectionEdge = colourField(g, h, "selectionEdge", 0xff62d0ff);
     f.colLoopStart = colourField(g, h, "loopStart", 0xff6ee7a8), f.colLoopEnd = colourField(g, h, "loopEnd", 0xfff0b429);
     f.colStart = colourField(g, h, "startColour", 0xff888888), f.colEnd = colourField(g, h, "endColour", 0xfff07178);
-    f.cursor = colourField(g, h, "cursor", 0xffe8b84b), f.glow = colourField(g, h, "glow", 0x60ffffff), f.hover = colourField(g, h, "hover", 0xffffffff);
-    f.line2 = colourField(g, h, "line2", 0xfff2f6f6);
+    f.cursor = colourField(g, h, "cursor", 0xffe8b84b), f.hover = colourField(g, h, "hover", 0xffffffff);
+    f.glow = colourField(g, h, "glow", 0xffffffff), f.glowU = colourField(g, h, "glowU", 0xffffffff);
+    f.line2 = colourField(g, h, "line2", 0xfff2f6f6), f.lineOff = colourField(g, h, "lineOff", 0xff4a505b);
     f.font = w.text.font;
     return f;
 }
 
 double paramOr(Gui& g, int p, double def) { return p >= 0 ? g.state().get((size_t)p) : def; }
 bool flagOr(Gui& g, int p, bool def) { return p >= 0 ? g.state().get((size_t)p) != 0 : def; }
+
+int trackOfOp(Gui& g, const Fields& f, int op) { return f.opTrack[op] >= 0 ? std::clamp((int)paramOr(g, f.opTrack[op], 1) - 1, 0, 7) : op; }
+
+// The first operator whose voiced (or, for an unvoiced track, unvoiced) side follows a track, 0..7, or -1
+// when none does. Without the operators' switches, track n is operator n's.
+int userOf(Gui& g, const Fields& f, int t) {
+    const int (&sw)[8] = layerOf(t) ? f.opU : f.opV;
+    if (sw[0] < 0) return opOf(t);
+    for (int o = 0; o < 8; ++o)
+        if (flagOr(g, sw[o], false) && trackOfOp(g, f, o) == opOf(t)) return o;
+    return -1;
+}
+
+std::string opSig(Gui& g, const Fields& f) {   // what the colours and the selected track hang on
+    std::string s = std::to_string(f.selOp) + std::to_string(f.selLayer);
+    for (int o = 0; o < 8; ++o) s += std::to_string(flagOr(g, f.opV[o], false)) + std::to_string(flagOr(g, f.opU[o], false)) + std::to_string(trackOfOp(g, f, o));
+    return s;
+}
 
 // ---- geometry: lanes, the time axis, the scales --------------------------------------------------
 
@@ -357,6 +383,19 @@ const Lane* laneAt(const Geo& e, int y) {
     for (auto& l : e.lanes)
         if (y >= l.r.y && y < l.r.y + l.r.h) return &l;
     return nullptr;
+}
+
+// The track of the app's selected operator in a lane, the one Draw, Line, Move and Scale edit: of the
+// selected layer where the lane holds both, its frequency or its level as the lane draws; -1 when the lane
+// does not show it.
+int selectedTrack(Gui& g, const Fields& f, const Lane& l) {
+    if (f.selOp < 0) return -1;
+    bool v = false, u = false;
+    for (int t : l.tracks)
+        if (t != kPitch) (layerOf(t) ? u : v) = true;
+    const int layer = v && u ? f.selLayer : u ? 1 : 0;
+    const int t = (layer ? 16 : 0) + (l.freq ? 0 : 8) + trackOfOp(g, f, f.selOp);
+    return std::find(l.tracks.begin(), l.tracks.end(), t) != l.tracks.end() ? t : -1;
 }
 
 // The track nearest the pointer in a lane, within a twelfth of the lane's height; the earlier one on a tie.
@@ -602,18 +641,6 @@ void sync(Gui& g, const Hit& h, Shared& st) {
 
 // ---- rendering -------------------------------------------------------------------------------------
 
-void seg(Canvas& c, int x0, int y0, int x1, int y1, uint32_t col, int k) {   // Bresenham, k px thick, the end drawn
-    const int dx = std::abs(x1 - x0), dy = -std::abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
-    int e = dx + dy;
-    for (;;) {
-        fillRect(c, {x0 - (k - 1) / 2, y0 - (k - 1) / 2, k, k}, col);
-        if (x0 == x1 && y0 == y1) break;
-        const int e2 = 2 * e;
-        if (e2 >= dy) { e += dy; x0 += sx; }
-        if (e2 <= dx) { e += dx; y0 += sy; }
-    }
-}
-
 uint32_t withAlpha(uint32_t col, double a) { return (uint32_t)std::lround((col >> 24) * std::clamp(a, 0.0, 1.0)) << 24 | (col & 0xffffff); }
 
 // A track's points in a lane, one a frame in view, or one pair a column below a pixel a frame, each with
@@ -626,7 +653,7 @@ std::vector<Pt> tracePoints(const Geo& e, const Lane& l, const Doc& d, int t, do
     if (n == 0) return out;
     const int lv = levelOf(t);
     const int i0 = std::max(0, (int)std::floor(e.x0)), i1 = std::min(n - 1, (int)std::ceil(e.x1));
-    auto alpha = [&](int i) { return lv < 0 ? 1.0 : traceAlpha(ampOf(readValue(d.frame(i), lv), levelDb)); };
+    auto alpha = [&](int i) { return lv < 0 ? 1.0 : traceAlpha(readValue(d.frame(i), lv), levelDb); };
     if (e.ppf() >= 1) {
         for (int i = i0; i <= i1; ++i) out.push_back({e.X(i + 0.5), Y(l, curveOf(e, l, t, readValue(d.frame(i), t))), alpha(i)});
         return out;
@@ -646,115 +673,252 @@ std::vector<Pt> tracePoints(const Geo& e, const Lane& l, const Doc& d, int t, do
     return out;
 }
 
-// The ribbon: runs of one opacity bucket as one antialiased polyline each, so the joins never blend twice.
+// The ribbon: one stroke through the points, laid into a mask and put down once, so it never blends over
+// itself where its segments meet. Each pixel takes the most any segment gives it: how much the segment
+// covers it, antialiased, times the opacity between the segment's two frames there. While a drag moves
+// (fast) a segment is square-cut at its mean opacity instead.
 void ribbon(Canvas& c, const std::vector<Pt>& pts, uint32_t col, double width, bool fast) {
     if (pts.size() < 2) return;
-    if (fast) {
-        for (size_t i = 0; i + 1 < pts.size(); ++i) {
-            const double a = (pts[i].a + pts[i + 1].a) / 2;
-            if (a < 1.0 / 16) continue;
-            seg(c, (int)pts[i].x, (int)pts[i].y, (int)pts[i + 1].x, (int)pts[i + 1].y, withAlpha(col, a), std::max(1, (int)std::lround(width)));
-        }
-        return;
-    }
-    std::vector<std::pair<double, double>> run;
-    int bucket = -1;
-    auto emit = [&] {
-        if (run.size() >= 2 && bucket > 0) drawPolyline(c, run, withAlpha(col, bucket / 8.0), width);
-        run.clear();
+    const double half = width / 2;
+    double x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (auto& p : pts) x0 = std::min(x0, p.x), y0 = std::min(y0, p.y), x1 = std::max(x1, p.x), y1 = std::max(y1, p.y);
+    Rect box{(int)std::floor(x0 - half - 1), (int)std::floor(y0 - half - 1), 0, 0};
+    box.w = (int)std::ceil(x1 + half + 1) - box.x + 1, box.h = (int)std::ceil(y1 + half + 1) - box.y + 1;
+    box = box & c.clip;
+    if (box.empty()) return;
+    static thread_local std::vector<float> mask;
+    mask.assign((size_t)box.w * box.h, 0.0f);
+    auto put = [&](int x, int y, float v) {
+        if (x < box.x || y < box.y || x >= box.x + box.w || y >= box.y + box.h) return;
+        float& m = mask[(size_t)(y - box.y) * box.w + (x - box.x)];
+        m = std::max(m, v);
     };
-    for (size_t i = 0; i + 1 < pts.size(); ++i) {
-        const int b = (int)std::ceil((pts[i].a + pts[i + 1].a) / 2 * 8);
-        if (b != bucket) {
-            emit();
-            bucket = b;
-            run.push_back({pts[i].x, pts[i].y});
+    const int k = std::max(1, (int)std::lround(width));
+    for (size_t s = 0; s + 1 < pts.size(); ++s) {
+        const double ax = pts[s].x, ay = pts[s].y, bx = pts[s + 1].x, by = pts[s + 1].y, aa = pts[s].a, ab = pts[s + 1].a;
+        if (aa <= 0 && ab <= 0) continue;
+        if (fast) {   // Bresenham, k px square
+            int px = (int)ax, py = (int)ay;
+            const int qx = (int)bx, qy = (int)by, dx = std::abs(qx - px), dy = -std::abs(qy - py), sx = px < qx ? 1 : -1, sy = py < qy ? 1 : -1;
+            const float a = (float)(aa + ab) / 2;
+            for (int err = dx + dy;;) {
+                for (int j = 0; j < k; ++j)
+                    for (int i = 0; i < k; ++i) put(px - (k - 1) / 2 + i, py - (k - 1) / 2 + j, a);
+                if (px == qx && py == qy) break;
+                const int e2 = 2 * err;
+                if (e2 >= dy) { err += dy; px += sx; }
+                if (e2 <= dx) { err += dx; py += sy; }
+            }
+            continue;
         }
-        run.push_back({pts[i + 1].x, pts[i + 1].y});
+        const double dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+        const int sx0 = std::max(box.x, (int)std::floor(std::min(ax, bx) - half - 1)), sx1 = std::min(box.x + box.w - 1, (int)std::ceil(std::max(ax, bx) + half + 1));
+        const int sy0 = std::max(box.y, (int)std::floor(std::min(ay, by) - half - 1)), sy1 = std::min(box.y + box.h - 1, (int)std::ceil(std::max(ay, by) + half + 1));
+        for (int y = sy0; y <= sy1; ++y)
+            for (int x = sx0; x <= sx1; ++x) {
+                const double px = x + 0.5 - ax, py = y + 0.5 - ay, t = len2 > 0 ? std::clamp((px * dx + py * dy) / len2, 0.0, 1.0) : 0;
+                const double cover = std::clamp(half + 0.5 - std::hypot(px - t * dx, py - t * dy), 0.0, 1.0);
+                if (cover > 0) put(x, y, (float)(cover * (aa + (ab - aa) * t)));
+            }
     }
-    emit();
+    for (int y = 0; y < box.h; ++y)
+        for (int x = 0; x < box.w; ++x)
+            if (const float m = mask[(size_t)y * box.w + x]; m > 0) fillRect(c, {box.x + x, box.y + y, 1, 1}, withAlpha(col, m));
 }
 
+// The fill under a level track: every pixel column from the line, between its frames, down to the lane's
+// foot, so the area reads as one shape at any zoom.
+void levelFill(Canvas& c, const Lane& l, const std::vector<Pt>& pts, uint32_t col) {
+    std::vector<int> top((size_t)l.plot.w, INT_MAX);
+    for (size_t i = 0; i + 1 < pts.size(); ++i) {
+        const double ax = pts[i].x, ay = pts[i].y, bx = pts[i + 1].x, by = pts[i + 1].y;
+        const int from = std::max(0, (int)std::floor(std::min(ax, bx)) - l.plot.x), to = std::min(l.plot.w - 1, (int)std::floor(std::max(ax, bx)) - l.plot.x);
+        for (int x = from; x <= to; ++x) {
+            const double t = bx != ax ? std::clamp((l.plot.x + x + 0.5 - ax) / (bx - ax), 0.0, 1.0) : 0;
+            const int y = (int)std::lround(bx != ax ? ay + (by - ay) * t : std::min(ay, by));
+            top[(size_t)x] = std::min(top[(size_t)x], y);
+        }
+    }
+    const int bottom = l.plot.y + l.plot.h;
+    for (int x = 0; x < l.plot.w; ++x)
+        if (top[(size_t)x] < bottom) fillRect(c, {l.plot.x + x, top[(size_t)x], 1, bottom - top[(size_t)x]}, col);
+}
+
+// A track in the colour of the first operator that follows it, as every page colours its operators; in
+// `lineOff` when none does.
 uint32_t trackColour(Gui& g, const Hit& h, const Fields& f, int t) {
     if (t == kPitch) return f.line2;
-    const uint32_t col = numberedColour(g, h, layerOf(t) ? "lineU" : "line", opOf(t) + 1, 0xffffffff);
-    return layerOf(t) ? mixColour(col, 0xff8fb0d0, 0.5) : col;   // an unvoiced track in the operator's hue, cooled
+    const int o = userOf(g, f, t);
+    return o < 0 ? f.lineOff : numberedColour(g, h, layerOf(t) ? "lineU" : "line", o + 1, 0xffffffff);
 }
 
-// The bloom under the formant ribbons: drawn into a quarter-height buffer, blurred, and stretched back.
-void glowLane(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e, const Lane& l, const Doc& d, std::vector<float>& buf) {
-    const int w = l.plot.w, hq = std::max(1, (l.plot.h + 3) / 4);
-    if (!(f.glow >> 24) || l.plot.h < g.skin().dp(48)) return;
-    buf.assign((size_t)w * hq * 4, 0.0f);
-    const float strength = (f.glow >> 24) / 255.0f;
-    auto plot = [&](int x, int yq, uint32_t col, double a) {
-        if (x < 0 || x >= w || yq < 0 || yq >= hq) return;
-        float* p = &buf[((size_t)yq * w + x) * 4];
-        const float k = (float)a * strength;
-        p[0] = std::min(1.0f, p[0] + (col >> 16 & 255) / 255.0f * k);
-        p[1] = std::min(1.0f, p[1] + (col >> 8 & 255) / 255.0f * k);
-        p[2] = std::min(1.0f, p[2] + (col & 255) / 255.0f * k);
-        p[3] = std::min(1.0f, p[3] + k);
-    };
-    for (int t : l.tracks) {
-        if (t == kPitch || isLevel(t) || layerOf(t)) continue;
-        const uint32_t col = trackColour(g, h, f, t);
-        const std::vector<Pt> pts = tracePoints(e, l, d, t, f.levelDb);
-        for (size_t i = 0; i + 1 < pts.size(); ++i) {
-            const double a = (pts[i].a + pts[i + 1].a) / 2;
-            if (a < 1.0 / 16) continue;
-            int x0 = (int)(pts[i].x - l.plot.x), y0 = (int)((pts[i].y - l.plot.y) / 4), x1 = (int)(pts[i + 1].x - l.plot.x), y1 = (int)((pts[i + 1].y - l.plot.y) / 4);
-            const int dx = std::abs(x1 - x0), dy = -std::abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
-            int err = dx + dy;
-            for (;;) {
-                plot(x0, y0, col, a);
-                if (x0 == x1 && y0 == y1) break;
-                const int e2 = 2 * err;
-                if (e2 >= dy) { err += dy; x0 += sx; }
-                if (e2 <= dx) { err += dx; y0 += sy; }
-            }
+uint32_t tint(uint32_t col, uint32_t by) {   // a colour seen through another, channel by channel; white leaves it
+    uint32_t out = col & 0xff000000;
+    for (int sh = 0; sh < 24; sh += 8) out |= ((col >> sh & 255) * (by >> sh & 255) + 127) / 255 << sh;
+    return out;
+}
+
+// A ribbon's width in a lane: a formant's grows with a frequency lane's height, as fs1r-edit's did, the
+// unvoiced two thirds of it; the pitch and the levels stay thin.
+double ribbonWidth(Gui& g, const Lane& l, int t) {
+    const int k = g.skin().lw();
+    const double formant = l.freq ? std::clamp(l.plot.h / 60.0, 1.5 * k, 4.0 * k) : 1.5 * k;
+    return t == kPitch ? 1.5 * k : layerOf(t) ? formant * 2 / 3 : formant;
+}
+
+// A small rgb buffer the bloom is laid into, sx by sy lane pixels to each of its own.
+struct Bloom {
+    int w, h, sx, sy;
+    std::vector<float> px;
+    Bloom(int laneW, int laneH, int sx_, int sy_)
+        : w(std::max(1, (laneW + sx_ - 1) / sx_)), h(std::max(1, (laneH + sy_ - 1) / sy_)), sx(sx_), sy(sy_), px((size_t)w * h * 3, 0.0f) {}
+
+    void add(int x, int y, uint32_t col, float k) {
+        if (x < 0 || x >= w || y < 0 || y >= h) return;
+        float* p = &px[((size_t)y * w + x) * 3];
+        p[0] += (col >> 16 & 255) / 255.0f * k, p[1] += (col >> 8 & 255) / 255.0f * k, p[2] += (col & 255) / 255.0f * k;
+    }
+
+    // A segment in lane pixels, k to each buffer column a level one crosses whole: its ink goes evenly along
+    // time, and in each column over the rows it crosses there, so a jump between frames lights no more than
+    // a level stretch and leaves no streak.
+    void line(double x0, double y0, double x1, double y1, uint32_t col, float k) {
+        if (x1 < x0) std::swap(x0, x1), std::swap(y0, y1);
+        if (x1 - x0 < 1e-9) return;
+        const double slope = (y1 - y0) / (x1 - x0);
+        for (int cx = (int)std::floor(x0 / sx); cx * sx < x1; ++cx) {
+            const double a = std::max(x0, (double)cx * sx), b = std::min(x1, (double)(cx + 1) * sx);
+            if (b <= a) continue;
+            const double ya = y0 + (a - x0) * slope, yb = y0 + (b - x0) * slope;
+            const int ra = (int)std::floor(std::min(ya, yb) / sy), rb = (int)std::floor(std::max(ya, yb) / sy);
+            const float each = (float)(k * (b - a) / sx / (rb - ra + 1));
+            for (int r = ra; r <= rb; ++r) add(cx, r, col, each);
         }
     }
-    const int rad = std::max(1, (int)std::lround(l.plot.h / 100.0));
-    std::vector<float> tmp(buf.size());
-    for (int pass = 0; pass < 3; ++pass) {   // a separable box blur, three passes
-        for (int y = 0; y < hq; ++y)
-            for (int x = 0; x < w; ++x)
-                for (int ch = 0; ch < 4; ++ch) {
-                    float s = 0;
-                    for (int k = -rad; k <= rad; ++k) s += buf[((size_t)y * w + std::clamp(x + k, 0, w - 1)) * 4 + ch];
-                    tmp[((size_t)y * w + x) * 4 + ch] = s / (2 * rad + 1);
-                }
-        for (int y = 0; y < hq; ++y)
-            for (int x = 0; x < w; ++x)
-                for (int ch = 0; ch < 4; ++ch) {
-                    float s = 0;
-                    for (int k = -rad; k <= rad; ++k) s += tmp[((size_t)std::clamp(y + k, 0, hq - 1) * w + x) * 4 + ch];
-                    buf[((size_t)y * w + x) * 4 + ch] = s / (2 * rad + 1);
-                }
+
+    // One box pass along every row or column, r pixels each side, nothing past the edges: a running sum,
+    // a column's kept for a whole row at once so the pass goes down the buffer in order.
+    void box(bool vertical, int r, std::vector<float>& src) {
+        if (r <= 0) return;
+        src = px;
+        const float inv = 1.0f / (2 * r + 1);
+        const size_t row = (size_t)w * 3;
+        if (!vertical) {
+            for (int y = 0; y < h; ++y) {
+                const float* in = &src[(size_t)y * row];
+                float* out = &px[(size_t)y * row];
+                float s[3] = {};
+                for (int i = 0; i <= std::min(r, w - 1); ++i)
+                    for (int ch = 0; ch < 3; ++ch) s[ch] += in[i * 3 + ch];
+                for (int x = 0; x < w; ++x)
+                    for (int ch = 0; ch < 3; ++ch) {
+                        out[x * 3 + ch] = std::max(0.0f, s[ch] * inv);
+                        if (x + r + 1 < w) s[ch] += in[(x + r + 1) * 3 + ch];
+                        if (x - r >= 0) s[ch] -= in[(x - r) * 3 + ch];
+                    }
+            }
+            return;
+        }
+        std::vector<float> s(row, 0.0f);
+        for (int y = 0; y <= std::min(r, h - 1); ++y)
+            for (size_t k = 0; k < row; ++k) s[k] += src[(size_t)y * row + k];
+        for (int y = 0; y < h; ++y) {
+            float* out = &px[(size_t)y * row];
+            for (size_t k = 0; k < row; ++k) out[k] = std::max(0.0f, s[k] * inv);
+            if (y + r + 1 < h)
+                for (size_t k = 0; k < row; ++k) s[k] += src[(size_t)(y + r + 1) * row + k];
+            if (y - r >= 0)
+                for (size_t k = 0; k < row; ++k) s[k] -= src[(size_t)(y - r) * row + k];
+        }
     }
-    for (int y = 0; y < l.plot.h; ++y) {   // back over the lane, rows interpolated, premultiplied over
-        const double fy = std::clamp((y + 0.5) / 4 - 0.5, 0.0, (double)(hq - 1));
-        const int r0 = (int)fy, r1 = std::min(hq - 1, r0 + 1);
-        const float fr = (float)(fy - r0);
-        uint32_t* row = c.px + (size_t)(l.plot.y + y) * c.w;
-        if (l.plot.y + y < c.clip.y || l.plot.y + y >= c.clip.y + c.clip.h) continue;
-        for (int x = 0; x < w; ++x) {
-            const int px = l.plot.x + x;
-            if (px < c.clip.x || px >= c.clip.x + c.clip.w) continue;
-            const float* p0 = &buf[((size_t)r0 * w + x) * 4];
-            const float* p1 = &buf[((size_t)r1 * w + x) * 4];
-            const float sa = p0[3] * (1 - fr) + p1[3] * fr;
-            if (sa <= 0.002f) continue;
-            uint32_t& dst = row[px];
+
+    // Three box passes each way, near enough a Gaussian of sigma sigX by sigY lane pixels, scaled so a
+    // level line keeps its ink as the peak it blurs to.
+    void blur(double sigX, double sigY) {
+        auto radius = [](double s) { return (int)std::lround((std::sqrt(1 + 4 * s * s) - 1) / 2); };   // three passes of r: sigma^2 = r(r+1)
+        const int rx = radius(sigX / sx), ry = radius(sigY / sy);
+        std::vector<float> tmp;
+        for (int pass = 0; pass < 3; ++pass) box(false, rx, tmp), box(true, ry, tmp);
+        if (ry <= 0) return;
+        const float peak = (float)std::sqrt(ry * (ry + 1) * 2 * 3.14159265358979);
+        for (float& v : px) v *= peak;
+    }
+
+    void saturate(float k) {   // each pixel pushed away from its grey by k, so colours that summed stay apart
+        for (size_t i = 0; i < px.size(); i += 3) {
+            const float m = (px[i] + px[i + 1] + px[i + 2]) / 3;
+            for (int ch = 0; ch < 3; ++ch) px[i + ch] = std::max(0.0f, m + (px[i + ch] - m) * k);
+        }
+    }
+
+    // The pixel either side of a lane pixel's centre along one axis, and the weight of the second.
+    static void tap(int i, int scale, int size, int& a, int& b, float& t) {
+        const double f = std::clamp((i + 0.5) / scale - 0.5, 0.0, size - 1.0);
+        a = (int)f, b = std::min(size - 1, a + 1), t = (float)(f - a);
+    }
+};
+
+// The bloom under the formant ribbons, after fs1r-edit's: each ribbon laid into two small buffers in its
+// own colour, as strong as it is loud. Up and down the light spreads as a formant spreads over its
+// bandwidth, tight in one buffer (the ribbon's halo) and tall in the other (the column of light behind a
+// sound); in time it only bleeds half a frame, since a formant does not spread over time. Both are
+// stretched back over the lane, toned so that a dense patch runs through the colour to white, and
+// screened onto it; the tall one is saturated first, or the operators stacked in a column sum to grey.
+// `glow` (voiced) and `glowU` (unvoiced) tint the light, white leaving it alone, and their alphas are the
+// two layers' strengths.
+void bloomLane(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e, const Lane& l, const Doc& d) {
+    constexpr double kHalo = 0.02, kSmear = 0.065, kBleed = 0.5;   // up and down as fractions of the lane's height, in time of a frame
+    constexpr float kHaloGain = 0.5f, kSmearGain = 0.35f, kSaturate = 3;
+    if (l.plot.h < g.skin().dp(48) || !((f.glow | f.glowU) >> 24)) return;
+    Bloom halo(l.plot.w, l.plot.h, 2, 2), smear(l.plot.w, l.plot.h, 2, 4);
+    for (int t : l.tracks) {
+        if (t == kPitch || isLevel(t)) continue;
+        const uint32_t glow = layerOf(t) ? f.glowU : f.glow, light = tint(trackColour(g, h, f, t), glow);
+        const float strength = (glow >> 24) / 255.0f;
+        if (strength <= 0) continue;
+        const std::vector<Pt> pts = tracePoints(e, l, d, t, f.levelDb);
+        for (size_t i = 0; i + 1 < pts.size(); ++i) {
+            const float o = (float)(pts[i].a + pts[i + 1].a) / 2, a = o * o * strength;   // as bright as its amplitude
+            const double x0 = pts[i].x - l.plot.x, y0 = pts[i].y - l.plot.y, x1 = pts[i + 1].x - l.plot.x, y1 = pts[i + 1].y - l.plot.y;
+            halo.line(x0, y0, x1, y1, light, a * kHaloGain);
+            smear.line(x0, y0, x1, y1, light, a * kSmearGain);
+        }
+    }
+    const double bleed = std::min(kBleed * e.ppf(), l.plot.h * kHalo);
+    halo.blur(bleed, l.plot.h * kHalo);
+    smear.blur(bleed, l.plot.h * kSmear);
+    smear.saturate(kSaturate);
+    // Back over the lane: for each row, the two buffers' rows blended down to it and summed (they share
+    // their columns), then each pixel between two columns, toned and screened on.
+    static const std::vector<float> tone = [] {   // 1 - e^-A for A in [0, 8], 256 steps a unit
+        std::vector<float> v(8 * 256 + 1);
+        for (size_t i = 0; i < v.size(); ++i) v[i] = 1 - std::exp(-(float)i / 256);
+        return v;
+    }();
+    const Rect span = c.clip & l.plot;
+    if (span.w <= 0 || span.h <= 0) return;
+    std::vector<int> col0((size_t)span.w), col1((size_t)span.w);
+    std::vector<float> colT((size_t)span.w), mix((size_t)halo.w * 3);
+    for (int i = 0; i < span.w; ++i) Bloom::tap(span.x - l.plot.x + i, halo.sx, halo.w, col0[(size_t)i], col1[(size_t)i], colT[(size_t)i]);
+    for (int y = span.y; y < span.y + span.h; ++y) {
+        int h0, h1, s0, s1;
+        float ht, st;
+        Bloom::tap(y - l.plot.y, halo.sy, halo.h, h0, h1, ht);
+        Bloom::tap(y - l.plot.y, smear.sy, smear.h, s0, s1, st);
+        const float *ha = &halo.px[(size_t)h0 * halo.w * 3], *hb = &halo.px[(size_t)h1 * halo.w * 3];
+        const float *sa = &smear.px[(size_t)s0 * smear.w * 3], *sb = &smear.px[(size_t)s1 * smear.w * 3];
+        for (size_t k = 0; k < mix.size(); ++k) mix[k] = ha[k] + (hb[k] - ha[k]) * ht + sa[k] + (sb[k] - sa[k]) * st;
+        uint32_t* row = c.px + (size_t)y * c.w + span.x;
+        for (int i = 0; i < span.w; ++i) {
+            const float *m0 = &mix[(size_t)col0[(size_t)i] * 3], *m1 = &mix[(size_t)col1[(size_t)i] * 3], t = colT[(size_t)i];
+            const float lit[3] = {m0[0] + (m1[0] - m0[0]) * t, m0[1] + (m1[1] - m0[1]) * t, m0[2] + (m1[2] - m0[2]) * t};
+            if (lit[0] + lit[1] + lit[2] < 0.004f) continue;
             uint32_t out = 0xff000000;
             for (int ch = 0; ch < 3; ++ch) {
-                const float s = p0[ch] * (1 - fr) + p1[ch] * fr;
-                const float d0 = (dst >> (16 - 8 * ch) & 255) / 255.0f;
-                const float v = std::min(1.0f, s + d0 * (1 - sa));
-                out |= (uint32_t)std::lround(v * 255) << (16 - 8 * ch);
+                const int sh = 16 - 8 * ch, d0 = (int)(row[i] >> sh & 255);
+                out |= (uint32_t)(d0 + (int)(tone[(size_t)std::min(8.0f * 256, lit[ch] * 256)] * (255 - d0) + 0.5f)) << sh;
             }
-            dst = out;
+            row[i] = out;
         }
     }
 }
@@ -827,15 +991,22 @@ void renderLane(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e, 
     }
     Rect saved = c.clip;
     c.clip = c.clip & l.plot;
-    if (!st.fast && l.freq) glowLane(c, g, h, f, e, l, d, st.glowBuf);
-    for (int t : l.tracks) {
+    if (!st.fast && l.freq) bloomLane(c, g, h, f, e, l, d);
+    const int selected = selectedTrack(g, f, l);
+    auto track = [&](int t) {
         const uint32_t col = trackColour(g, h, f, t);
-        const double width = (t == kPitch || !layerOf(t) ? 1.5 : 1.0) * k;
-        const std::vector<Pt> pts = tracePoints(e, l, d, t, f.levelDb);
-        if (!l.freq)   // the fill under a level
-            for (auto& p : pts) fillRect(c, {(int)p.x, (int)p.y, 1, l.plot.y + l.plot.h - (int)p.y}, withAlpha(col, 0.1));
-        ribbon(c, pts, col, width, st.fast);
-    }
+        std::vector<Pt> pts = tracePoints(e, l, d, t, f.levelDb);
+        if (!l.freq) levelFill(c, l, pts, withAlpha(col, 0.04));   // faint: sixteen of them stack
+        if (t == selected) {   // the selected operator's, last: rimmed, and seen through its quiet frames
+            std::vector<std::pair<double, double>> rim;
+            for (auto& p : pts) rim.push_back({p.x, p.y}), p.a = std::max(p.a, 0.5);
+            drawPolyline(c, rim, withAlpha(f.hover, 0.35), ribbonWidth(g, l, t) + 2 * k);
+        }
+        ribbon(c, pts, col, ribbonWidth(g, l, t), st.fast);
+    };
+    for (int t : l.tracks)
+        if (t != selected) track(t);
+    if (selected >= 0) track(selected);
     c.clip = saved;
 }
 
@@ -845,8 +1016,7 @@ std::string cacheKeyOf(Gui& g, const Fields& f, const Geo& e, const Shared& st, 
                     "/" + std::to_string(e.x0) + "-" + std::to_string(e.x1) + "/" + (st.fast ? "f" : "q") + "/";
     for (auto& l : e.lanes)
         for (int t : l.tracks) s += std::to_string(t) + ",";
-    (void)f;
-    return s;
+    return s + "/" + opSig(g, f);
 }
 
 // ---- markers and the overlay --------------------------------------------------------------------
@@ -901,13 +1071,14 @@ void drawOverlay(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e,
         c.clip = c.clip & l.plot;
         std::vector<std::pair<double, double>> pts;
         for (auto& p : tracePoints(e, l, d, st.hoverTrack, f.levelDb)) pts.push_back({p.x, p.y});
-        drawPolyline(c, pts, withAlpha(f.hover, 0.5), 2.2 * k);
+        drawPolyline(c, pts, withAlpha(f.hover, 0.5), ribbonWidth(g, l, st.hoverTrack) + 1.2 * k);
         c.clip = was;
     }
     const double fr = playFrame(g, f, st);
     if (fr >= 0 && e.n > 0) {
         const int x = (int)std::lround(e.X(std::clamp(fr, 0.0, (double)e.n) + 0.5));
-        fillRect(c, {x, stack.y, k, stack.h}, f.cursor);
+        fillRect(c, {x - k, stack.y, 4 * k, stack.h}, withAlpha(f.screen, 0.7));   // edged in the screen's colour, so it shows over a glow
+        fillRect(c, {x, stack.y, 2 * k, stack.h}, f.cursor);
         st.drawnPlayX = x;
     }
     c.clip = saved;
@@ -1055,8 +1226,8 @@ bool down(Gui& g, const Hit& h, Rect r, int x, int y, bool) {
         gestureStart(st);
         return true;
     }
-    if (ge.tool >= Draw && ge.tool <= Scale) {
-        ge.target = trackAt(e, *l, st.doc, ge.f0, ge.c0);
+    if (ge.tool >= Draw && ge.tool <= Scale) {   // the app's selected operator's track, or the nearest without one
+        ge.target = f.selOp >= 0 ? selectedTrack(g, f, *l) : trackAt(e, *l, st.doc, ge.f0, ge.c0);
         if (ge.target < 0 || (ge.tool >= Move && isLevel(ge.target))) ge.tool = Select;
     }
     if (ge.tool == Select) {
@@ -1158,7 +1329,10 @@ void hover(Gui& g, const Hit& h, Rect r, int x, int y) {
     const Geo e = geoOf(g, h, f, st, r);
     const Lane* l = x == INT_MIN / 2 ? nullptr : laneAt(e, y);
     const int lane = l ? (int)(l - e.lanes.data()) : -1;
-    const int track = l && x >= e.plotX && st.doc.frames() ? trackAt(e, *l, st.doc, e.frameAt(x), curveAt(*l, y)) : -1;
+    const int tool = std::clamp((int)paramOr(g, f.tool, Select), 0, 9);
+    int track = -1;
+    if (l && x >= e.plotX && st.doc.frames())   // what a drag edits: the selected operator's track for a single-track tool
+        track = tool >= Draw && tool <= Scale && f.selOp >= 0 ? selectedTrack(g, f, *l) : trackAt(e, *l, st.doc, e.frameAt(x), curveAt(*l, y));
     if (track != st.hoverTrack || lane != st.hoverLane) {
         if (st.hoverLane >= 0 && st.hoverLane < (int)e.lanes.size()) g.invalidate(e.lanes[(size_t)st.hoverLane].r);
         st.hoverTrack = track, st.hoverLane = lane;
@@ -1292,8 +1466,8 @@ void tick(Gui& g, const Hit& h, Rect r) {
         if (fr >= 0 && e.n > 0) {
             const int x = (int)std::lround(e.X(std::clamp(fr, 0.0, (double)e.n) + 0.5)), k = g.skin().lw();
             if (x != st.drawnPlayX) {
-                if (st.drawnPlayX != INT_MIN) g.invalidate({st.drawnPlayX - 1, r.y, k + 2, r.h});
-                g.invalidate({x - 1, r.y, k + 2, r.h});
+                if (st.drawnPlayX != INT_MIN) g.invalidate({st.drawnPlayX - k - 1, r.y, 4 * k + 2, r.h});
+                g.invalidate({x - k - 1, r.y, 4 * k + 2, r.h});
             }
         }
     }
@@ -1303,7 +1477,7 @@ void tick(Gui& g, const Hit& h, Rect r) {
     for (int p : {f.tool, f.layout, f.freqScale, f.levelScale, f.showV, f.showU, f.showPitch, f.loopStart, f.loopEnd, f.start, f.end})
         sig += p >= 0 ? std::to_string(g.state().get((size_t)p)) : "-";
     for (int p : f.showOp) sig += p >= 0 ? std::to_string(g.state().get((size_t)p)) : "-";
-    sig += std::to_string(st.docVersion) + "/" + std::to_string(st.selFrom) + "/" + std::to_string(st.selTo);
+    sig += std::to_string(st.docVersion) + "/" + std::to_string(st.selFrom) + "/" + std::to_string(st.selTo) + "/" + opSig(g, f);
     if (sig != st.paramSig) {
         st.paramSig = sig;
         g.invalidate(r);

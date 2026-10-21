@@ -1083,6 +1083,14 @@ int main() {
         {
             u.click("tab_fseq");
             CHECK(u.until([&] { return !u.data("live.fseq.doc").empty(); }), "the Fseq page has no document");
+            // Each of the part's operators follows the Fseq on its own track, voiced and unvoiced, and operator 1
+            // is the app's selected one, so every track is drawn in its own operator's colour.
+            const std::string ui = u.ui();
+            const size_t partAt = ui.find("\"part\":\"");
+            const std::string part = partAt == std::string::npos ? "p1" : ui.substr(partAt + 8, 2);
+            auto opParam = [&](int n, const char* what) { return "op." + std::to_string(n) + "." + what + "." + part; };
+            for (int n = 1; n <= 8; ++n) u.set(opParam(n, "v.fseq_sw"), 1), u.set(opParam(n, "u.fseq_sw"), 1), u.set(opParam(n, "v.fseq_track"), n);
+            u.click("opcol/op_1");
             u.settle();
             u.shot("fseq_editor");
             auto b64 = [](const std::string& s) {
@@ -1159,17 +1167,13 @@ int main() {
                       u.get("gui.fseq.sel_from"), u.get("gui.fseq.sel_len"));
                 u.clickAt(x1 + 40, cy);
                 CHECK(u.get("gui.fseq.sel_len") == 0, "a click left %g frames selected", u.get("gui.fseq.sel_len"));
-                // Draw: a drag on operator 1's ribbon rewrites its frames, heard as it goes and kept on release;
-                // Ctrl+Z takes it back, a page switch keeps the history, Ctrl+Y puts it back, and off the page
-                // the chord is the host's.
+                // Draw: a drag in the frequency lane rewrites the selected operator's track (operator 1's),
+                // heard as it goes and kept on release; Ctrl+Z takes it back, a page switch keeps the history,
+                // Ctrl+Y puts it back, and off the page the chord is the host's.
                 u.set("gui.fseq.tool", 2);
                 u.run(2);
-                int px = -1, py = -1;
-                for (int y = lanes.y + 4; y < lanes.y + lanes.h * 6 / 10 && px < 0; ++y)
-                    for (int x = plotX + 20; x < plotX + plotW - 20; ++x)
-                        if (near(pixel(x, y), op1, 32)) { px = x, py = y; break; }
-                CHECK(px >= 0, "no pixel of operator 1's colour in the frequency lane");
-                if (px >= 0) {
+                const int px = plotX + plotW / 3, py = lanes.y + lanes.h / 4;
+                {
                     u.set("gui.edited", 0);
                     u.drag(px, py, 0, -20);
                     CHECK(u.until([&] { return u.data("live.fseq.doc") != docText0; }), "the draw drag did not reach the engine");
@@ -1238,6 +1242,43 @@ int main() {
                 CHECK(countNear(lanes, op1, 24) < 5, "operator 1's ribbon is still drawn while hidden (%d pixels)", countNear(lanes, op1, 24));
                 u.set("gui.fseq.op1", 1);
                 u.run(2);
+                // A track takes the colour of the first operator that follows it, grey when none does: operator 1
+                // moved onto track 2 takes that track from operator 2 and leaves track 1 grey. Counted on the
+                // level lane, whose lines are drawn whole.
+                const Rect levels = {lanes.x, lanes.y + lanes.h * 2 / 3, lanes.w, lanes.h / 3};
+                const uint32_t op2 = parseColour(paletteColour(u.skin->colours, "@op2_line"), 0) & 0xffffff, grey = 0x4a505b;
+                u.gui.mouseLeave();
+                u.settle();
+                const int op2Own = countNear(levels, op2, 24), greyOwn = countNear(levels, grey, 12);
+                u.set(opParam(1, "v.fseq_track"), 2);
+                u.settle();
+                const int op2Moved = countNear(levels, op2, 24), op1Moved = countNear(levels, op1, 24), greyMoved = countNear(levels, grey, 12);
+                CHECK(op2Own > 20 && op2Moved < 5 && op1Moved > 20 && greyMoved > greyOwn + 20,
+                      "with operator 1 on track 2, operator 2's colour has %d pixels (%d before), operator 1's %d, grey %d (%d before)", op2Moved, op2Own, op1Moved, greyMoved, greyOwn);
+                u.set(opParam(1, "v.fseq_track"), 1);
+                u.settle();
+                // Draw edits the app's selected operator's track wherever the drag starts: with operator 3
+                // selected, a drag in the frequency lane rewrites track 3's frequencies and leaves track 1's.
+                u.click("opcol/op_3");
+                u.set("gui.fseq.tool", 2);
+                u.st->setData("live.fseq.cmd", "select_none");   // a selection left from above would hold the drawing
+                u.run(2);
+                const std::string beforeDraw = u.data("live.fseq.doc");
+                u.drag(plotX + plotW / 2, lanes.y + lanes.h / 3, (int)std::lround(20 * ppf), 0);
+                CHECK(u.until([&] { return u.data("live.fseq.doc") != beforeDraw; }), "the draw drag with operator 3 selected changed nothing");
+                const std::vector<uint8_t> was = b64(beforeDraw), drawn = b64(u.data("live.fseq.doc"));
+                bool third = false, first = true;
+                for (int i = 0; i < n && drawn.size() == was.size(); ++i) {
+                    const size_t at = 32 + (size_t)i * 50;
+                    third |= drawn[at + 2 + 2] != was[at + 2 + 2] || drawn[at + 0x0A + 2] != was[at + 0x0A + 2];
+                    first &= drawn[at + 2] == was[at + 2] && drawn[at + 0x0A] == was[at + 0x0A];
+                }
+                CHECK(third && first, "the draw drag with operator 3 selected moved track 3: %d, left track 1: %d", (int)third, (int)first);
+                u.st->setData("live.fseq.cmd", "undo");
+                CHECK(u.until([&] { return u.data("live.fseq.doc") == beforeDraw; }), "Undo did not take the operator 3 drawing back");
+                u.set("gui.fseq.tool", 0);
+                u.click("opcol/op_1");
+                u.settle();
             }
             // The picker lists the presets, then yours; the bottom tabs switch their views; the name box types
             // through; the toolbar names its chords.
@@ -1246,6 +1287,35 @@ int main() {
             CHECK(labels.size() >= 90 && labels[0] == "01 ShoobyDo", "the picker lists %zu Fseqs, the first \"%s\"", labels.size(), labels.empty() ? "" : labels[0].c_str());
             if (labels.size() > 42) u.choose(labels[42]);
             CHECK(u.until([&] { return u.get("fseq.bank") == 1 && u.get("fseq.number") == 42; }), "picking row 43 gave bank %g, number %g", u.get("fseq.bank"), u.get("fseq.number"));
+            // An unvoiced track sounds 35 to 70 dB down and is drawn there: ChuckRtm's unvoiced operator 1
+            // alone, 30 dB quieter, still marks the frequency lane. Operator 8 is selected, so track 1 is not
+            // the selected operator's, which shows through its quiet frames.
+            if (lanes.w > 0) {
+                auto command = [&](const char* cmd) { u.st->setData("live.fseq.cmd", cmd); u.run(2); };
+                u.click("opcol/op_8");
+                u.settle();
+                u.set("gui.fseq.show_v", 0);
+                u.set("gui.fseq.show_pitch", 0);
+                command("solo 1");
+                command("select_none");   // the whole sequence
+                const std::string loud = u.data("live.fseq.doc");
+                command("gain -30");
+                CHECK(u.until([&] { return u.data("live.fseq.doc") != loud; }), "gain -30 changed nothing");
+                const Rect freq = {lanes.x, lanes.y, lanes.w, lanes.h / 2};
+                u.gui.mouseLeave();
+                u.settle();
+                const uint64_t quiet = picture(freq);
+                u.set("gui.fseq.op1", 0);
+                u.settle();
+                CHECK(picture(freq) != quiet, "unvoiced operator 1, 30 dB down, is not drawn");
+                command("undo");
+                CHECK(u.until([&] { return u.data("live.fseq.doc") == loud; }), "Undo did not take the gain back");
+                command("show_all");
+                u.set("gui.fseq.show_v", 1);
+                u.set("gui.fseq.show_pitch", 1);
+                u.click("opcol/op_1");
+                u.settle();
+            }
             u.click("pages/tab_header");
             CHECK(u.shows("pages/fseq_bottom/hdr_name"), "In the Fseq did not show its view");
             u.click("pages/fseq_bottom/hdr_name");
