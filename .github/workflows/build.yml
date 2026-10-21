@@ -79,6 +79,10 @@ jobs:
       - name: Test
         if: matrix.name != 'windows-x86' && !inputs.standalone
         run: ctest --test-dir build/plugin -C Release -R "plugin|gui" --output-on-failure --repeat until-pass:3
+      # Windows 7 SP1 can load every Windows binary: each import is one its DLLs export (tools/check_win7.py).
+      - name: Windows 7
+        if: runner.os == 'Windows'
+        run: python tools/check_win7.py bin
       # Every macOS bundle keeps its seal through the copy into bin/ and carries both slices, and the Intel
       # one runs: check_plugin again under Rosetta, with the same three tries.
       - name: Bundles
