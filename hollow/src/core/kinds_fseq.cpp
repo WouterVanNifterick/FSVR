@@ -673,75 +673,125 @@ std::vector<Pt> tracePoints(const Geo& e, const Lane& l, const Doc& d, int t, do
     return out;
 }
 
-// The ribbon: one stroke through the points, laid into a mask and put down once, so it never blends over
-// itself where its segments meet. Each pixel takes the most any segment gives it: how much the segment
-// covers it, antialiased, times the opacity between the segment's two frames there. While a drag moves
-// (fast) a segment is square-cut at its mean opacity instead.
-void ribbon(Canvas& c, const std::vector<Pt>& pts, uint32_t col, double width, bool fast) {
-    if (pts.size() < 2) return;
-    const double half = width / 2;
-    double x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-    for (auto& p : pts) x0 = std::min(x0, p.x), y0 = std::min(y0, p.y), x1 = std::max(x1, p.x), y1 = std::max(y1, p.y);
-    Rect box{(int)std::floor(x0 - half - 1), (int)std::floor(y0 - half - 1), 0, 0};
-    box.w = (int)std::ceil(x1 + half + 1) - box.x + 1, box.h = (int)std::ceil(y1 + half + 1) - box.y + 1;
-    box = box & c.clip;
-    if (box.empty()) return;
-    static thread_local std::vector<float> mask;
-    mask.assign((size_t)box.w * box.h, 0.0f);
-    auto put = [&](int x, int y, float v) {
-        if (x < box.x || y < box.y || x >= box.x + box.w || y >= box.y + box.h) return;
-        float& m = mask[(size_t)(y - box.y) * box.w + (x - box.x)];
-        m = std::max(m, v);
-    };
-    const int k = std::max(1, (int)std::lround(width));
-    for (size_t s = 0; s + 1 < pts.size(); ++s) {
-        const double ax = pts[s].x, ay = pts[s].y, bx = pts[s + 1].x, by = pts[s + 1].y, aa = pts[s].a, ab = pts[s + 1].a;
-        if (aa <= 0 && ab <= 0) continue;
-        if (fast) {   // Bresenham, k px square
-            int px = (int)ax, py = (int)ay;
-            const int qx = (int)bx, qy = (int)by, dx = std::abs(qx - px), dy = -std::abs(qy - py), sx = px < qx ? 1 : -1, sy = py < qy ? 1 : -1;
-            const float a = (float)(aa + ab) / 2;
-            for (int err = dx + dy;;) {
-                for (int j = 0; j < k; ++j)
-                    for (int i = 0; i < k; ++i) put(px - (k - 1) / 2 + i, py - (k - 1) / 2 + j, a);
-                if (px == qx && py == qy) break;
-                const int e2 = 2 * err;
-                if (e2 >= dy) { err += dy; px += sx; }
-                if (e2 <= dx) { err += dx; py += sy; }
-            }
-            continue;
-        }
-        const double dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
-        const int sx0 = std::max(box.x, (int)std::floor(std::min(ax, bx) - half - 1)), sx1 = std::min(box.x + box.w - 1, (int)std::ceil(std::max(ax, bx) + half + 1));
-        const int sy0 = std::max(box.y, (int)std::floor(std::min(ay, by) - half - 1)), sy1 = std::min(box.y + box.h - 1, (int)std::ceil(std::max(ay, by) + half + 1));
-        for (int y = sy0; y <= sy1; ++y)
-            for (int x = sx0; x <= sx1; ++x) {
-                const double px = x + 0.5 - ax, py = y + 0.5 - ay, t = len2 > 0 ? std::clamp((px * dx + py * dy) / len2, 0.0, 1.0) : 0;
-                const double cover = std::clamp(half + 0.5 - std::hypot(px - t * dx, py - t * dy), 0.0, 1.0);
-                if (cover > 0) put(x, y, (float)(cover * (aa + (ab - aa) * t)));
-            }
-    }
-    for (int y = 0; y < box.h; ++y)
-        for (int x = 0; x < box.w; ++x)
-            if (const float m = mask[(size_t)y * box.w + x]; m > 0) fillRect(c, {box.x + x, box.y + y, 1, 1}, withAlpha(col, m));
+// One pixel of col at opacity a (0..1) over the canvas: fillRect's own blend over an opaque pixel, inline.
+inline void over(Canvas& c, uint32_t& d, int x, int y, uint32_t col, float a) {
+    const uint32_t sa = (uint32_t)std::lround((col >> 24) * std::min(a, 1.0f));
+    if (sa == 0) return;
+    if ((d >> 24) != 255) return fillRect(c, {x, y, 1, 1}, sa << 24 | (col & 0xffffff));
+    if (sa == 255) { d = 0xff000000u | (col & 0xffffff); return; }
+    const uint32_t ia = 256 - sa;
+    d = 0xff000000u | ((((col & 0xff00ff) * sa + (d & 0xff00ff) * ia) >> 8) & 0xff00ff) | ((((col & 0xff00) * sa + (d & 0xff00) * ia) >> 8) & 0xff00);
 }
 
-// The fill under a level track: every pixel column from the line, between its frames, down to the lane's
-// foot, so the area reads as one shape at any zoom.
-void levelFill(Canvas& c, const Lane& l, const std::vector<Pt>& pts, uint32_t col) {
-    std::vector<int> top((size_t)l.plot.w, INT_MAX);
-    for (size_t i = 0; i + 1 < pts.size(); ++i) {
-        const double ax = pts[i].x, ay = pts[i].y, bx = pts[i + 1].x, by = pts[i + 1].y;
-        const int from = std::max(0, (int)std::floor(std::min(ax, bx)) - l.plot.x), to = std::min(l.plot.w - 1, (int)std::floor(std::max(ax, bx)) - l.plot.x);
-        for (int x = from; x <= to; ++x) {
-            const double t = bx != ax ? std::clamp((l.plot.x + x + 0.5 - ax) / (bx - ax), 0.0, 1.0) : 0;
-            const int y = (int)std::lround(bx != ax ? ay + (by - ay) * t : std::min(ay, by));
-            top[(size_t)x] = std::min(top[(size_t)x], y);
+// The ribbon: one stroke through the points, put down once, so it never blends over itself where its
+// segments meet. Column by column, each pixel near the line takes the most any segment gives it: how much
+// the segment covers it, antialiased, times the opacity between the segment's two frames there. Only the
+// rows a segment's band can reach in the column are visited (at the column's centre, the line's height
+// there give or take the band's half height, capped at the segment's ends), so the cost follows the
+// stroke's length and not the lane's area. While a drag moves (fast) a column takes the span of each
+// segment over it, whole, with no ends rounded. The points run left to right, as tracePoints makes them.
+void ribbon(Canvas& c, const std::vector<Pt>& pts, uint32_t col, double width, bool fast) {
+    const Rect clip = c.clip;
+    if (pts.size() < 2 || clip.empty()) return;
+    const double half = width / 2, reach = half + 1, edge = half + 0.5;
+    static thread_local std::vector<float> column;   // one column's coverage, all 0 between columns
+    if (column.size() < (size_t)clip.h) column.resize((size_t)clip.h, 0.0f);
+    const int xa = std::max(clip.x, (int)std::floor(pts.front().x - reach)), xb = std::min(clip.x + clip.w - 1, (int)std::ceil(pts.back().x + reach));
+    size_t first = 0;
+    for (int x = xa; x <= xb; ++x) {
+        const double cx = x + 0.5;
+        while (first + 2 < pts.size() && pts[first + 1].x + reach < cx) ++first;   // segments wholly left of the column
+        int lo = INT_MAX, hi = INT_MIN;
+        for (size_t s = first; s + 1 < pts.size() && pts[s].x - reach <= cx; ++s) {
+            const Pt &a = pts[s], &b = pts[s + 1];
+            if (a.a <= 0 && b.a <= 0) continue;
+            const double dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+            const double ylo = std::min(a.y, b.y), yhi = std::max(a.y, b.y);
+            double y0, y1, tc;   // the rows the band can reach at the column's centre, and the line's t there
+            if (dx > 1e-9) {
+                if (cx < a.x - reach || cx > b.x + reach || (fast && (cx < a.x || cx > b.x))) continue;
+                tc = std::clamp((cx - a.x) / dx, 0.0, 1.0);
+                const double yc = a.y + dy * tc, hv = (fast ? half : edge) * std::sqrt(1 + dy * dy / (dx * dx));
+                y0 = std::max(yc - hv, ylo - edge), y1 = std::min(yc + hv, yhi + edge);
+            } else {   // two points in one column: a vertical stroke
+                if (std::fabs(cx - a.x) > (fast ? 0.5 : reach)) continue;
+                tc = 0.5, y0 = ylo - (fast ? half : edge), y1 = yhi + (fast ? half : edge);
+            }
+            const int r0 = std::max(clip.y, (int)std::floor(y0)), r1 = std::min(clip.y + clip.h - 1, (int)std::ceil(y1));
+            if (fast) {   // the span, whole, at the opacity where the column crosses the segment
+                const float v = (float)(a.a + (b.a - a.a) * tc);
+                const int ya = (int)std::lround(y0), yb = std::max(ya, (int)std::lround(y1) - 1);   // a row at least
+                for (int y = std::max(r0, ya); y <= std::min(r1, yb); ++y) {
+                    float& m = column[(size_t)(y - clip.y)];
+                    m = std::max(m, v);
+                    lo = std::min(lo, y), hi = std::max(hi, y);
+                }
+                continue;
+            }
+            for (int y = r0; y <= r1; ++y) {
+                const double px = cx - a.x, py = y + 0.5 - a.y, t = len2 > 0 ? std::clamp((px * dx + py * dy) / len2, 0.0, 1.0) : 0;
+                const double ex = px - t * dx, ey = py - t * dy, d2 = ex * ex + ey * ey;
+                if (d2 >= edge * edge) continue;
+                float& m = column[(size_t)(y - clip.y)];
+                m = std::max(m, (float)(std::min(1.0, edge - std::sqrt(d2)) * (a.a + (b.a - a.a) * t)));
+                lo = std::min(lo, y), hi = std::max(hi, y);
+            }
+        }
+        for (int y = lo; y <= hi; ++y) {   // put the column down and clear it
+            float& m = column[(size_t)(y - clip.y)];
+            if (m > 0) over(c, c.px[(size_t)y * c.w + x], x, y, col, m);
+            m = 0;
         }
     }
-    const int bottom = l.plot.y + l.plot.h;
-    for (int x = 0; x < l.plot.w; ++x)
-        if (top[(size_t)x] < bottom) fillRect(c, {l.plot.x + x, top[(size_t)x], 1, bottom - top[(size_t)x]}, col);
+}
+
+// The fills under the level tracks: each from its line, between its frames, down to the lane's foot, so the
+// area reads as one shape at any zoom, all of them at opacity a. They are composited in one pass: where a
+// run of rows lies under the same tracks, those tracks' fills stacked in drawing order are one colour at
+// one opacity, so each pixel is blended once whatever the number of tracks.
+void levelFills(Canvas& c, const Lane& l, const std::vector<std::pair<const std::vector<Pt>*, uint32_t>>& fills, float a) {
+    const Rect span = c.clip & l.plot;
+    if (span.empty() || fills.empty()) return;
+    const int n = (int)fills.size(), bottom = span.y + span.h;
+    std::vector<int> top((size_t)n * span.w, INT_MAX);   // each track's top row in each column
+    for (int k = 0; k < n; ++k) {
+        const std::vector<Pt>& pts = *fills[(size_t)k].first;
+        int* tk = &top[(size_t)k * span.w];
+        for (size_t i = 0; i + 1 < pts.size(); ++i) {
+            const double ax = pts[i].x, ay = pts[i].y, bx = pts[i + 1].x, by = pts[i + 1].y;
+            const int from = std::max(0, (int)std::floor(std::min(ax, bx)) - span.x), to = std::min(span.w - 1, (int)std::floor(std::max(ax, bx)) - span.x);
+            for (int x = from; x <= to; ++x) {
+                const double t = bx != ax ? std::clamp((span.x + x + 0.5 - ax) / (bx - ax), 0.0, 1.0) : 0;
+                tk[x] = std::min(tk[x], (int)std::lround(bx != ax ? ay + (by - ay) * t : std::min(ay, by)));
+            }
+        }
+    }
+    std::vector<float> ak((size_t)n);   // each fill's opacity, its colour's own alpha included
+    for (int k = 0; k < n; ++k) ak[(size_t)k] = a * (fills[(size_t)k].second >> 24) / 255.0f;
+    std::vector<int> order((size_t)n);
+    for (int x = 0; x < span.w; ++x) {
+        for (int k = 0; k < n; ++k) order[(size_t)k] = k;
+        std::sort(order.begin(), order.end(), [&](int p, int q) { return top[(size_t)p * span.w + x] < top[(size_t)q * span.w + x]; });
+        for (int j = 0; j < n; ++j) {   // rows under the first j + 1 tops: those tracks, composited in drawing order
+            const int y0 = std::max(span.y, top[(size_t)order[(size_t)j] * span.w + x]);
+            const int y1 = j + 1 < n ? std::min(bottom, top[(size_t)order[(size_t)j + 1] * span.w + x]) : bottom;
+            if (y0 >= y1 || y0 >= bottom) continue;
+            float r = 0, g = 0, b = 0, op = 0;   // premultiplied
+            for (int k = 0; k < n; ++k) {
+                if (top[(size_t)k * span.w + x] > y0) continue;
+                const uint32_t col = fills[(size_t)k].second;
+                const float s = ak[(size_t)k], keep = 1 - s;
+                r = (col >> 16 & 255) * s + r * keep, g = (col >> 8 & 255) * s + g * keep, b = (col & 255) * s + b * keep, op = s + op * keep;
+            }
+            if (op <= 0) continue;
+            const uint32_t keep = (uint32_t)std::lround((1 - op) * 256), cr = (uint32_t)std::lround(r * 256), cg = (uint32_t)std::lround(g * 256), cb = (uint32_t)std::lround(b * 256);
+            for (int y = y0; y < y1; ++y) {
+                uint32_t& d = c.px[(size_t)y * c.w + span.x + x];
+                d = 0xff000000u | std::min(255u, (cr + (d >> 16 & 255) * keep) >> 8) << 16 | std::min(255u, (cg + (d >> 8 & 255) * keep) >> 8) << 8 |
+                    std::min(255u, (cb + (d & 255) * keep) >> 8);
+            }
+        }
+    }
 }
 
 // A track in the colour of the first operator that follows it, as every page colours its operators; in
@@ -870,7 +920,10 @@ void bloomLane(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e, c
     constexpr double kHalo = 0.02, kSmear = 0.065, kBleed = 0.5;   // up and down as fractions of the lane's height, in time of a frame
     constexpr float kHaloGain = 0.5f, kSmearGain = 0.35f, kSaturate = 3;
     if (l.plot.h < g.skin().dp(48) || !((f.glow | f.glowU) >> 24)) return;
-    Bloom halo(l.plot.w, l.plot.h, 2, 2), smear(l.plot.w, l.plot.h, 2, 4);
+    // The buffers' cells are 2 by 2 and 2 by 4 lane pixels at 1x and grow with the window's scale, so the light
+    // is the same at every scale, magnified, and costs the same to blur.
+    auto cell = [&](double px) { return std::max(1, (int)std::lround(px * g.zoom())); };
+    Bloom halo(l.plot.w, l.plot.h, cell(2), cell(2)), smear(l.plot.w, l.plot.h, cell(2), cell(4));
     for (int t : l.tracks) {
         if (t == kPitch || isLevel(t)) continue;
         const uint32_t glow = layerOf(t) ? f.glowU : f.glow, light = tint(trackColour(g, h, f, t), glow);
@@ -961,8 +1014,7 @@ std::vector<Tick> ticksOf(const Geo& e, const Lane& l, int t) {
 
 void renderLane(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e, const Lane& l, const Doc& d, Shared& st) {
     const int k = g.skin().lw();
-    fillRect(c, l.r, f.screen);
-    fillRect(c, {l.r.x, l.r.y, e.gutter, l.r.h}, f.gutter);
+    fillRect(c, {l.r.x, l.r.y, e.gutter, l.r.h}, f.gutter);   // the screen itself is the cache's ground
     const std::vector<Tick> ticks = ticksOf(e, l, l.freq ? 0 : 8);
     const Font* font = f.font >= 0 ? &g.skin().fonts[(size_t)f.font] : nullptr;
     if (l.freq && e.freqScale != 3) {   // the piano ruler: a key per semitone, C keys marked
@@ -993,20 +1045,27 @@ void renderLane(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e, 
     c.clip = c.clip & l.plot;
     if (!st.fast && l.freq) bloomLane(c, g, h, f, e, l, d);
     const int selected = selectedTrack(g, f, l);
-    auto track = [&](int t) {
-        const uint32_t col = trackColour(g, h, f, t);
-        std::vector<Pt> pts = tracePoints(e, l, d, t, f.levelDb);
-        if (!l.freq) levelFill(c, l, pts, withAlpha(col, 0.04));   // faint: sixteen of them stack
-        if (t == selected) {   // the selected operator's, last: rimmed, and seen through its quiet frames
-            std::vector<std::pair<double, double>> rim;
-            for (auto& p : pts) rim.push_back({p.x, p.y}), p.a = std::max(p.a, 0.5);
-            drawPolyline(c, rim, withAlpha(f.hover, 0.35), ribbonWidth(g, l, t) + 2 * k);
-        }
-        ribbon(c, pts, col, ribbonWidth(g, l, t), st.fast);
-    };
+    std::vector<int> order;   // the selected operator's track last
     for (int t : l.tracks)
-        if (t != selected) track(t);
-    if (selected >= 0) track(selected);
+        if (t != selected) order.push_back(t);
+    if (selected >= 0) order.push_back(selected);
+    std::vector<std::vector<Pt>> pts(order.size());
+    std::vector<uint32_t> cols(order.size());
+    for (size_t i = 0; i < order.size(); ++i) pts[i] = tracePoints(e, l, d, order[i], f.levelDb), cols[i] = trackColour(g, h, f, order[i]);
+    if (!l.freq) {   // the fills first, under every line; faint, since sixteen of them stack
+        std::vector<std::pair<const std::vector<Pt>*, uint32_t>> fills;
+        for (size_t i = 0; i < order.size(); ++i) fills.push_back({&pts[i], cols[i]});
+        levelFills(c, l, fills, 0.04f);
+    }
+    for (size_t i = 0; i < order.size(); ++i) {
+        const int t = order[i];
+        if (t == selected) {   // the selected operator's: rimmed, and seen through its quiet frames
+            std::vector<Pt> rim = pts[i];
+            for (size_t j = 0; j < rim.size(); ++j) rim[j].a = 1, pts[i][j].a = std::max(pts[i][j].a, 0.5);
+            ribbon(c, rim, withAlpha(f.hover, 0.35), ribbonWidth(g, l, t) + 2 * k, st.fast);
+        }
+        ribbon(c, pts[i], cols[i], ribbonWidth(g, l, t), st.fast);
+    }
     c.clip = saved;
 }
 
@@ -1069,9 +1128,9 @@ void drawOverlay(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e,
         const Lane& l = e.lanes[(size_t)st.hoverLane];
         Rect was = c.clip;
         c.clip = c.clip & l.plot;
-        std::vector<std::pair<double, double>> pts;
-        for (auto& p : tracePoints(e, l, d, st.hoverTrack, f.levelDb)) pts.push_back({p.x, p.y});
-        drawPolyline(c, pts, withAlpha(f.hover, 0.5), ribbonWidth(g, l, st.hoverTrack) + 1.2 * k);
+        std::vector<Pt> pts = tracePoints(e, l, d, st.hoverTrack, f.levelDb);
+        for (auto& p : pts) p.a = 1;
+        ribbon(c, pts, withAlpha(f.hover, 0.5), ribbonWidth(g, l, st.hoverTrack) + 1.2 * k, false);
         c.clip = was;
     }
     const double fr = playFrame(g, f, st);

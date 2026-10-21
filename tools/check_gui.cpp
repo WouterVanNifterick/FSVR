@@ -1244,9 +1244,11 @@ int main() {
                 u.run(2);
                 // A track takes the colour of the first operator that follows it, grey when none does: operator 1
                 // moved onto track 2 takes that track from operator 2 and leaves track 1 grey. Counted on the
-                // level lane, whose lines are drawn whole.
+                // level lane, whose lines are drawn whole, with tracks 1 and 2 alone shown: sixteen faint fills
+                // stacked come out near that grey themselves, and two stay near the screen's colour.
                 const Rect levels = {lanes.x, lanes.y + lanes.h * 2 / 3, lanes.w, lanes.h / 3};
                 const uint32_t op2 = parseColour(paletteColour(u.skin->colours, "@op2_line"), 0) & 0xffffff, grey = 0x4a505b;
+                for (int n = 3; n <= 8; ++n) u.set("gui.fseq.op" + std::to_string(n), 0);
                 u.gui.mouseLeave();
                 u.settle();
                 const int op2Own = countNear(levels, op2, 24), greyOwn = countNear(levels, grey, 12);
@@ -1256,6 +1258,7 @@ int main() {
                 CHECK(op2Own > 20 && op2Moved < 5 && op1Moved > 20 && greyMoved > greyOwn + 20,
                       "with operator 1 on track 2, operator 2's colour has %d pixels (%d before), operator 1's %d, grey %d (%d before)", op2Moved, op2Own, op1Moved, greyMoved, greyOwn);
                 u.set(opParam(1, "v.fseq_track"), 1);
+                for (int n = 3; n <= 8; ++n) u.set("gui.fseq.op" + std::to_string(n), 1);
                 u.settle();
                 // Draw edits the app's selected operator's track wherever the drag starts: with operator 3
                 // selected, a drag in the frequency lane rewrites track 3's frequencies and leaves track 1's.
