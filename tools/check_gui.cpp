@@ -1242,22 +1242,25 @@ int main() {
                 CHECK(countNear(lanes, op1, 24) < 5, "operator 1's ribbon is still drawn while hidden (%d pixels)", countNear(lanes, op1, 24));
                 u.set("gui.fseq.op1", 1);
                 u.run(2);
-                // A track takes the colour of the first operator that follows it, grey when none does: operator 1
-                // moved onto track 2 takes that track from operator 2 and leaves track 1 grey. Counted on the
-                // level lane, whose lines are drawn whole, with tracks 1 and 2 alone shown: sixteen faint fills
-                // stacked come out near that grey themselves, and two stay near the screen's colour.
+                // Track n is in operator n's colour whatever the operators follow: with every Fseq switch of the
+                // part off, as most voices have them, and then with operator 1 moved onto track 2, the level lane
+                // still holds operator 1's and operator 2's colours. Counted with tracks 1 and 2 alone shown,
+                // since sixteen faint fills stacked come out near a grey of their own.
                 const Rect levels = {lanes.x, lanes.y + lanes.h * 2 / 3, lanes.w, lanes.h / 3};
-                const uint32_t op2 = parseColour(paletteColour(u.skin->colours, "@op2_line"), 0) & 0xffffff, grey = 0x4a505b;
+                const uint32_t op2 = parseColour(paletteColour(u.skin->colours, "@op2_line"), 0) & 0xffffff;
                 for (int n = 3; n <= 8; ++n) u.set("gui.fseq.op" + std::to_string(n), 0);
+                for (int n = 1; n <= 8; ++n) u.set(opParam(n, "v.fseq_sw"), 0), u.set(opParam(n, "u.fseq_sw"), 0);
                 u.gui.mouseLeave();
                 u.settle();
-                const int op2Own = countNear(levels, op2, 24), greyOwn = countNear(levels, grey, 12);
+                const int op1Off = countNear(levels, op1, 24), op2Off = countNear(levels, op2, 24);
                 u.set(opParam(1, "v.fseq_track"), 2);
                 u.settle();
-                const int op2Moved = countNear(levels, op2, 24), op1Moved = countNear(levels, op1, 24), greyMoved = countNear(levels, grey, 12);
-                CHECK(op2Own > 20 && op2Moved < 5 && op1Moved > 20 && greyMoved > greyOwn + 20,
-                      "with operator 1 on track 2, operator 2's colour has %d pixels (%d before), operator 1's %d, grey %d (%d before)", op2Moved, op2Own, op1Moved, greyMoved, greyOwn);
+                const int op1Moved = countNear(levels, op1, 24), op2Moved = countNear(levels, op2, 24);
+                CHECK(op1Off > 20 && op2Off > 20 && op1Moved > 20 && op2Moved > 20,
+                      "with the Fseq switches off, operator 1's colour has %d pixels and operator 2's %d; with operator 1 on track 2, %d and %d",
+                      op1Off, op2Off, op1Moved, op2Moved);
                 u.set(opParam(1, "v.fseq_track"), 1);
+                for (int n = 1; n <= 8; ++n) u.set(opParam(n, "v.fseq_sw"), 1), u.set(opParam(n, "u.fseq_sw"), 1);
                 for (int n = 3; n <= 8; ++n) u.set("gui.fseq.op" + std::to_string(n), 1);
                 u.settle();
                 // Draw edits the app's selected operator's track wherever the drag starts: with operator 3
@@ -1290,9 +1293,10 @@ int main() {
             CHECK(labels.size() >= 90 && labels[0] == "01 ShoobyDo", "the picker lists %zu Fseqs, the first \"%s\"", labels.size(), labels.empty() ? "" : labels[0].c_str());
             if (labels.size() > 42) u.choose(labels[42]);
             CHECK(u.until([&] { return u.get("fseq.bank") == 1 && u.get("fseq.number") == 42; }), "picking row 43 gave bank %g, number %g", u.get("fseq.bank"), u.get("fseq.number"));
-            // An unvoiced track sounds 35 to 70 dB down and is drawn there: ChuckRtm's unvoiced operator 1
-            // alone, 30 dB quieter, still marks the frequency lane. Operator 8 is selected, so track 1 is not
-            // the selected operator's, which shows through its quiet frames.
+            // An unvoiced track sounds 30 to 55 dB down and is drawn there: ChuckRtm's unvoiced operator 1
+            // alone, 60 dB quieter, still lights the frequency lane, a frame that sounds never fainter than a
+            // quarter (the square root of its amplitude alone would leave a change of about 5 levels). Operator
+            // 8 is selected, so track 1 is not the selected operator's, which shows through its quiet frames.
             if (lanes.w > 0) {
                 auto command = [&](const char* cmd) { u.st->setData("live.fseq.cmd", cmd); u.run(2); };
                 u.click("opcol/op_8");
@@ -1302,15 +1306,25 @@ int main() {
                 command("solo 1");
                 command("select_none");   // the whole sequence
                 const std::string loud = u.data("live.fseq.doc");
-                command("gain -30");
-                CHECK(u.until([&] { return u.data("live.fseq.doc") != loud; }), "gain -30 changed nothing");
+                command("gain -60");
+                CHECK(u.until([&] { return u.data("live.fseq.doc") != loud; }), "gain -60 changed nothing");
                 const Rect freq = {lanes.x, lanes.y, lanes.w, lanes.h / 2};
+                auto grab = [&] {
+                    std::vector<uint32_t> px;
+                    for (int y = freq.y; y < freq.y + freq.h; ++y)
+                        for (int x = freq.x; x < freq.x + freq.w; ++x) px.push_back(pixel(x, y));
+                    return px;
+                };
                 u.gui.mouseLeave();
                 u.settle();
-                const uint64_t quiet = picture(freq);
+                const std::vector<uint32_t> shownPx = grab();
                 u.set("gui.fseq.op1", 0);
                 u.settle();
-                CHECK(picture(freq) != quiet, "unvoiced operator 1, 30 dB down, is not drawn");
+                const std::vector<uint32_t> hiddenPx = grab();
+                int most = 0;
+                for (size_t i = 0; i < shownPx.size(); ++i)
+                    for (int s = 0; s < 24; s += 8) most = std::max(most, std::abs((int)(shownPx[i] >> s & 255) - (int)(hiddenPx[i] >> s & 255)));
+                CHECK(most >= 30, "unvoiced operator 1, 60 dB down, changes the frequency lane by %d levels at most", most);
                 command("undo");
                 CHECK(u.until([&] { return u.data("live.fseq.doc") == loud; }), "Undo did not take the gain back");
                 command("show_all");

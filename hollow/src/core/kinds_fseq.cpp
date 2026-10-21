@@ -186,12 +186,13 @@ struct Shared : KindState {
 struct Fields {
     int position = -1, loopStart = -1, loopEnd = -1, start = -1, end = -1, tool = -1, layout = -1, freqScale = -1, levelScale = -1;
     int showV = -1, showU = -1, showPitch = -1, showOp[8] = {-1, -1, -1, -1, -1, -1, -1, -1}, selFrom = -1, selLen = -1;
-    int opV[8], opU[8], opTrack[8];   // each operator's Fseq switches and the track it follows, -1 when not given
+    int opTrack[8];                   // the track each operator follows, -1 when not given: what selOp's tools edit
     int selOp = -1, selLayer = 0;     // the app's selected operator, 0..7 (-1 none), and layer, 1 unvoiced
     std::string editKey, cmdKey, rateKey;
     double levelDb = 0.752574;
+    double lightU = 0, floorU = 0, floorUDb = -72;   // unvoiced: lightened toward white, and the least opacity of a frame that sounds
     uint32_t screen = 0, gutter = 0, grid = 0, keyWhite = 0, keyBlack = 0, keyC = 0, selection = 0, selectionEdge = 0;
-    uint32_t colLoopStart = 0, colLoopEnd = 0, colStart = 0, colEnd = 0, cursor = 0, glow = 0, glowU = 0, hover = 0, line2 = 0, lineOff = 0;
+    uint32_t colLoopStart = 0, colLoopEnd = 0, colStart = 0, colEnd = 0, cursor = 0, glow = 0, glowU = 0, hover = 0, line2 = 0;
     int font = -1;
 };
 
@@ -212,11 +213,12 @@ Fields fieldsOf(Gui& g, const Hit& h) {
     f.freqScale = p("freqScale"), f.levelScale = p("levelScale"), f.showV = p("showV"), f.showU = p("showU"), f.showPitch = p("showPitch");
     f.selFrom = p("selFrom"), f.selLen = p("selLen");
     if (j["loop"].items.size() >= 2) f.loopStart = g.paramOf(h, j["loop"].items[0].str()), f.loopEnd = g.paramOf(h, j["loop"].items[1].str());
-    perOp("showOp", f.showOp), perOp("opV", f.opV), perOp("opU", f.opU), perOp("opTrack", f.opTrack);
+    perOp("showOp", f.showOp), perOp("opTrack", f.opTrack);
     if (j.has("selOp")) f.selOp = std::clamp(std::atoi(g.subst(*h.node, j["selOp"].str()).c_str()), 0, 8) - 1;
     f.selLayer = g.subst(*h.node, j["selLayer"].str()) == "u";
     f.editKey = g.subst(*h.node, j["edit"].str()), f.cmdKey = g.subst(*h.node, j["cmd"].str()), f.rateKey = g.subst(*h.node, j["rate"].str());
     f.levelDb = j["levelDb"].num(0.752574);
+    f.lightU = std::clamp(j["lightU"].num(0), 0.0, 1.0), f.floorU = std::clamp(j["floorU"].num(0), 0.0, 1.0), f.floorUDb = j["floorUDb"].num(-72);
     f.screen = colourField(g, h, "screen", 0xff0b0d13), f.gutter = colourField(g, h, "gutter", 0xff161a22), f.grid = colourField(g, h, "grid", 0xff2b3346);
     f.keyWhite = colourField(g, h, "keyWhite", 0xffc8ccd4), f.keyBlack = colourField(g, h, "keyBlack", 0xff15171d), f.keyC = colourField(g, h, "keyC", 0xff6666ff);
     f.selection = colourField(g, h, "selection", 0x4062d0ff), f.selectionEdge = colourField(g, h, "selectionEdge", 0xff62d0ff);
@@ -224,7 +226,7 @@ Fields fieldsOf(Gui& g, const Hit& h) {
     f.colStart = colourField(g, h, "startColour", 0xff888888), f.colEnd = colourField(g, h, "endColour", 0xfff07178);
     f.cursor = colourField(g, h, "cursor", 0xffe8b84b), f.hover = colourField(g, h, "hover", 0xffffffff);
     f.glow = colourField(g, h, "glow", 0xffffffff), f.glowU = colourField(g, h, "glowU", 0xffffffff);
-    f.line2 = colourField(g, h, "line2", 0xfff2f6f6), f.lineOff = colourField(g, h, "lineOff", 0xff4a505b);
+    f.line2 = colourField(g, h, "line2", 0xfff2f6f6);
     f.font = w.text.font;
     return f;
 }
@@ -234,19 +236,9 @@ bool flagOr(Gui& g, int p, bool def) { return p >= 0 ? g.state().get((size_t)p) 
 
 int trackOfOp(Gui& g, const Fields& f, int op) { return f.opTrack[op] >= 0 ? std::clamp((int)paramOr(g, f.opTrack[op], 1) - 1, 0, 7) : op; }
 
-// The first operator whose voiced (or, for an unvoiced track, unvoiced) side follows a track, 0..7, or -1
-// when none does. Without the operators' switches, track n is operator n's.
-int userOf(Gui& g, const Fields& f, int t) {
-    const int (&sw)[8] = layerOf(t) ? f.opU : f.opV;
-    if (sw[0] < 0) return opOf(t);
-    for (int o = 0; o < 8; ++o)
-        if (flagOr(g, sw[o], false) && trackOfOp(g, f, o) == opOf(t)) return o;
-    return -1;
-}
-
-std::string opSig(Gui& g, const Fields& f) {   // what the colours and the selected track hang on
+std::string opSig(Gui& g, const Fields& f) {   // what the selected operator's track hangs on
     std::string s = std::to_string(f.selOp) + std::to_string(f.selLayer);
-    for (int o = 0; o < 8; ++o) s += std::to_string(flagOr(g, f.opV[o], false)) + std::to_string(flagOr(g, f.opU[o], false)) + std::to_string(trackOfOp(g, f, o));
+    for (int o = 0; o < 8; ++o) s += std::to_string(trackOfOp(g, f, o));
     return s;
 }
 
@@ -265,6 +257,7 @@ struct Geo {
     double x0 = 0, x1 = 1;     // frames in view
     double maxWord = 0;        // the highest word in the document, for the Hz scales
     double levelDb = 0.752574;
+    double floorU = 0, floorULevel = 0;   // an unvoiced frame at or under floorULevel (a sounding one) is at least floorU opaque
     int plotX = 0, plotW = 1;
     double X(double f) const { return plotX + (f - x0) * plotW / (x1 - x0); }
     double frameAt(double x) const { return x0 + (x - plotX) * (x1 - x0) / plotW; }
@@ -295,6 +288,7 @@ Geo geoOf(Gui& g, const Hit& h, const Fields& f, const Shared& st, Rect r) {
     e.freqScale = (int)paramOr(g, f.freqScale, 0);
     e.levelScale = (int)paramOr(g, f.levelScale, 0);
     e.levelDb = f.levelDb;
+    e.floorU = f.floorU, e.floorULevel = -f.floorUDb / f.levelDb;
     e.plotX = r.x + e.gutter;
     e.plotW = std::max(1, r.w - e.gutter);
     const double span = std::max(1, e.n);
@@ -653,7 +647,11 @@ std::vector<Pt> tracePoints(const Geo& e, const Lane& l, const Doc& d, int t, do
     if (n == 0) return out;
     const int lv = levelOf(t);
     const int i0 = std::max(0, (int)std::floor(e.x0)), i1 = std::min(n - 1, (int)std::ceil(e.x1));
-    auto alpha = [&](int i) { return lv < 0 ? 1.0 : traceAlpha(readValue(d.frame(i), lv), levelDb); };
+    auto alpha = [&](int i) {
+        if (lv < 0) return 1.0;
+        const double level = readValue(d.frame(i), lv), a = traceAlpha(level, levelDb);
+        return layerOf(t) && level <= e.floorULevel ? std::max(a, e.floorU) : a;   // an unvoiced frame that sounds stays in sight
+    };
     if (e.ppf() >= 1) {
         for (int i = i0; i <= i1; ++i) out.push_back({e.X(i + 0.5), Y(l, curveOf(e, l, t, readValue(d.frame(i), t))), alpha(i)});
         return out;
@@ -794,12 +792,13 @@ void levelFills(Canvas& c, const Lane& l, const std::vector<std::pair<const std:
     }
 }
 
-// A track in the colour of the first operator that follows it, as every page colours its operators; in
-// `lineOff` when none does.
+// Track n in operator n's colour, as every page colours its operators, which operators follow it being the
+// Operators tab's business; an unvoiced track (and its level) in `lineU`, lightened toward white by `lightU`
+// so it reads apart from the voiced one at the same frequency.
 uint32_t trackColour(Gui& g, const Hit& h, const Fields& f, int t) {
     if (t == kPitch) return f.line2;
-    const int o = userOf(g, f, t);
-    return o < 0 ? f.lineOff : numberedColour(g, h, layerOf(t) ? "lineU" : "line", o + 1, 0xffffffff);
+    if (!layerOf(t)) return numberedColour(g, h, "line", opOf(t) + 1, 0xffffffff);
+    return mixColour(numberedColour(g, h, "lineU", opOf(t) + 1, 0xffffffff), 0xffffffff, f.lightU);
 }
 
 uint32_t tint(uint32_t col, uint32_t by) {   // a colour seen through another, channel by channel; white leaves it
