@@ -1355,12 +1355,12 @@ private:
         syncBrowse();
     }
 
-    // A row of the Fseq page's picker: "01 ShoobyDo · 505 frames" for a preset, "U1 Vowel · 128 frames" for one of the library's.
+    // A row of the Fseq page's picker: "01 ShoobyDo" for a preset, "U1 Vowel" for one of the library's.
     std::string pickLine(int row, const Item& f) const {
         char code[8];
         if (row < (int)factory.fseqs.size()) std::snprintf(code, sizeof code, "%02d", row + 1);
         else std::snprintf(code, sizeof code, "U%d", row - (int)factory.fseqs.size() + 1);
-        return std::string(code) + " " + f.name + " \xC2\xB7 " + std::to_string(f.frames) + " frames";
+        return std::string(code) + " " + f.name;
     }
 
     // The picker's row for the Fseq loaded: a preset's, the library's, or one past them all for an Fseq from

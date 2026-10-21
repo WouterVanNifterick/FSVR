@@ -1243,7 +1243,7 @@ int main() {
             // through; the toolbar names its chords.
             u.click("pages/fseq_pick");
             const auto labels = u.gui.menuLabels();
-            CHECK(labels.size() >= 90 && labels[0].rfind("01 ShoobyDo", 0) == 0, "the picker lists %zu Fseqs, the first \"%s\"", labels.size(), labels.empty() ? "" : labels[0].c_str());
+            CHECK(labels.size() >= 90 && labels[0] == "01 ShoobyDo", "the picker lists %zu Fseqs, the first \"%s\"", labels.size(), labels.empty() ? "" : labels[0].c_str());
             if (labels.size() > 42) u.choose(labels[42]);
             CHECK(u.until([&] { return u.get("fseq.bank") == 1 && u.get("fseq.number") == 42; }), "picking row 43 gave bank %g, number %g", u.get("fseq.bank"), u.get("fseq.number"));
             u.click("pages/tab_header");

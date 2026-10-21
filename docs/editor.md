@@ -306,7 +306,7 @@ The skin asks through params and the instance's text data; the processor (`plugi
 | `perf.bank`, `perf.user`, `perf.program` | params | GUI or host | The performance to load |
 | `part.bank.pN`, `part.program.pN`, `part.user.pN` | params | GUI or host | A part's voice |
 | `fseq.bank`, `fseq.number`, `fseq.user` | params | GUI or host | The Fseq |
-| `fseq.pick`, `fseq.pick.list`, `fseq.pick.label` | param (not the host's), text data | both | The Fseq page's picker: a row of the list, the 90 presets then the library's Fseqs (`01 ShoobyDo · 505 frames`, `U1 Vowel · 128 frames`), which the processor loads and keeps in step with whatever route loaded an Fseq; the label is the loaded one's line |
+| `fseq.pick`, `fseq.pick.list`, `fseq.pick.label` | param (not the host's), text data | both | The Fseq page's picker: a row of the list, the 90 presets then the library's Fseqs (`01 ShoobyDo`, `U1 Vowel`), which the processor loads and keeps in step with whatever route loaded an Fseq; the label is the loaded one's line |
 | `knob.1` to `knob.4` | params | GUI or host | KN1 to KN4 |
 | `part.morph_*.pN` | params | GUI or host | Part N's morph |
 | `morph.pN.tl`, `.tr`, `.bl`, `.br` | text data | processor | The names of part N's corner voices |
