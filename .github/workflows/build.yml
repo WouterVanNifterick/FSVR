@@ -68,8 +68,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python tools/contributors.py --check && python tools/contributors.py ${{ github.repository }}
+      # Windows builds with Visual Studio 2022's toolset (v143, MSVC 14.44), which the VS 2026 image carries beside
+      # its own: VS 2026's runtime calls Windows 8's CreateFile2 and GetSystemTimePreciseAsFileTime directly, so
+      # its builds no longer load on Windows 7 (the Windows 7 step below).
       - name: Configure
-        run: cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON ${{ matrix.name == 'windows' && '-A x64' || matrix.name == 'windows-x86' && '-A Win32' || '-DCMAKE_BUILD_TYPE=Release' }}
+        run: cmake -B build/plugin -S . -DFSVR_BUILD_PLUGIN=ON ${{ matrix.name == 'windows' && '-A x64 -T v143' || matrix.name == 'windows-x86' && '-A Win32 -T v143' || '-DCMAKE_BUILD_TYPE=Release' }}
       - name: Build
         run: cmake --build build/plugin --config Release ${{ inputs.standalone && '--target fsvr_standalone' || '' }}
       # check_plugin and check_gui drive the processor and its editor with the worker running on its own
