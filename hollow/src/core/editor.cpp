@@ -774,8 +774,13 @@ const std::vector<uint32_t>& Gui::pixels() {
     if (!dirty_.empty()) {
         Canvas c{canvas_.data(), w_, h_, dirty_};
         dirty_ = {};
-        for (int y = c.clip.y; y < c.clip.y + c.clip.h; ++y) std::fill_n(&canvas_[(size_t)y * w_ + c.clip.x], c.clip.w, 0u);
+        std::vector<Node*> path;
+        occNode_ = nullptr, occAt_ = -1;
+        findOccluder(root_, c.clip, path);
+        if (!occNode_)   // an opaque widget over all of it covers every pixel itself
+            for (int y = c.clip.y; y < c.clip.y + c.clip.h; ++y) std::fill_n(&canvas_[(size_t)y * w_ + c.clip.x], c.clip.w, 0u);
         paint(c, root_);
+        occNode_ = nullptr, occAt_ = -1, occPath_.clear();
         if (learnOn_ && live(learnTarget_)) {   // the MIDI learn target's outline
             Rect saved = c.clip;
             c.clip = c.clip & learnTarget_.node->clip;
@@ -808,14 +813,42 @@ uint32_t Gui::colour(const Node& n, const std::string& s, uint32_t def) const {
     return parseColour(paletteColour(skin_->colours, subst(n, s)), def);
 }
 
+// Walks the shown tree in painting order and keeps the last visible widget marked "opaque" whose rect,
+// inside its view's clip, holds the whole of d, with the nodes down to it: that widget hides everything
+// painted before it there.
+void Gui::findOccluder(Node& n, Rect d, std::vector<Node*>& path) {
+    if (!n.view) return;
+    path.push_back(&n);
+    for (int i : n.view->order) {
+        const Inst& s = n.w[i];
+        if (!visible(s)) continue;
+        const Widget& w = n.view->widgets[i];
+        const Rect r = rectOf(n, i) & n.clip;
+        if (w.kind == Kind::Embed && s.child) {
+            if (!(r & d).empty()) findOccluder(*s.child, d, path);
+        } else if (w.opaque && d.x >= r.x && d.y >= r.y && d.x + d.w <= r.x + r.w && d.y + d.h <= r.y + r.h) {
+            occNode_ = &n, occAt_ = i, occPath_ = path;
+        }
+    }
+    path.pop_back();
+}
+
 void Gui::paint(Canvas& c, Node& n) {
     if (!n.view) return;
     Rect saved = c.clip;
     c.clip = saved & n.clip;
     if (!c.clip.empty()) {
-        drawFill(c, n.view->fill, {n.x, n.y, n.view->w, n.h}, 0);
+        if (!occNode_) drawFill(c, n.view->fill, {n.x, n.y, n.view->w, n.h}, 0);   // under an occluder nothing here shows
         Rect inner = c.clip;
         for (int i : n.view->order) {
+            if (occNode_) {   // under the occluder: only the way down to it, and then it, from which on all as usual
+                if (&n == occNode_ && i == occAt_) {
+                    occNode_ = nullptr, occAt_ = -1;
+                } else {
+                    const Inst& s = n.w[i];
+                    if (!s.child || std::find(occPath_.begin(), occPath_.end(), s.child.get()) == occPath_.end()) continue;
+                }
+            }
             Rect r = rectOf(n, i);
             c.clip = inner & r;
             if (visible(n.w[i]) && !c.clip.empty()) paintWidget(c, n, i, r);

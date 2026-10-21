@@ -98,6 +98,7 @@ The view's name is its file name. `fill` paints the background (see Fill). Widge
 | `layer` | 0..7, default 3 |
 | `hidden` | start invisible (default false) |
 | `surface` | false keeps the skin's `surface` off everything this widget draws, embedded views included (default true) |
+| `opaque` | true promises the widget paints every pixel of its rect itself; a repaint that lies wholly inside the topmost such widget then skips everything drawn before it (the views' fills and the widgets under it), which it hides anyway. For a custom kind that redraws a large area often (FSVR's `fseq_edit`); default false |
 | `disabled` | draws the disabled tile, ignores input (default false) |
 | `onIf` | buttons: a condition (see Conditions) that draws the button lit while it holds, in place of what its action would say; a tab that stands for several pages. Plates: draws the fill's tile 1 and the text's `onFont` while it holds (an icon over a button that lights with it) |
 | `param` | parameter id this widget shows and edits; may contain `{var}` placeholders (see Variables) |

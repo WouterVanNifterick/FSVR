@@ -504,6 +504,7 @@
    "rect": [24, 66, 1187, 378],
    "kind": "fseq_edit",
    "surface": false,
+   "opaque": true,
    "layer": 4,
    "key": "live.fseq.doc",
    "edit": "live.fseq.edit",

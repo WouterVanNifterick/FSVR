@@ -799,6 +799,7 @@ struct Loader {
         w.rect = rect(r);
         w.layer = std::clamp(j["layer"].integer(3), 0, 7);
         w.surface = j["surface"].flag(true);
+        w.opaque = j["opaque"].flag();
         w.hidden = j["hidden"].flag();
         w.disabled = j["disabled"].flag();
         w.showIf = cond(j["showIf"]);

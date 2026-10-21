@@ -279,6 +279,7 @@ struct Widget {
     bool glide = true;           // piano: dragging across keys plays them
     int keyImages[10] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};   // piano: c d e f g a b black top low
     bool surface = true;         // false keeps the skin's surface off all it draws (an embed: its whole view)
+    bool opaque = false;         // "opaque": it paints every pixel of its rect, so a repaint inside it skips what lies under it
     Json json;                   // the whole widget object, for fields only a custom kind reads
 };
 
@@ -679,6 +680,12 @@ private:
     Hit scroller(Node& n, int x, int y);
     const std::string* lookup(const Node& n, const std::string& key) const;
     void paint(Canvas& c, Node& n);
+    // The topmost visible "opaque" widget holding the whole of a repaint, and the nodes down to it: paint
+    // skips everything drawn before it, which it hides, and goes on as usual from it.
+    Node* occNode_ = nullptr;
+    int occAt_ = -1;
+    std::vector<Node*> occPath_;
+    void findOccluder(Node& n, Rect d, std::vector<Node*>& path);
     void paintWidget(Canvas& c, Node& n, int i, Rect r);
     void paintScrollbar(Canvas& c, const Node& n, int i);
     void paintList(Canvas& c, Node& n, int i, Rect r);
