@@ -187,7 +187,7 @@
   {
    "type": "plate",
    "name": "hdr_tempo_vel_label",
-   "rect": [704, 4, 64, 18],
+   "rect": [704, 4, 72, 18],
    "fill": {"image": "panels/label_plate"},
    "text": {"text": "Tempo Vel", "font": "caption_grey_12", "align": "center"},
    "pad": [1, 2, 1, 2]
@@ -195,7 +195,7 @@
   {
    "type": "number",
    "name": "hdr_tempo_vel",
-   "rect": [704, 26, 64, 20],
+   "rect": [704, 26, 72, 20],
    "fill": {"image": "panels/label_plate"},
    "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
    "pad": [2, 2, 2, 2],
@@ -208,7 +208,7 @@
   {
    "type": "plate",
    "name": "hdr_pitch_mode_label",
-   "rect": [782, 4, 104, 18],
+   "rect": [790, 4, 104, 18],
    "fill": {"image": "panels/label_plate"},
    "text": {"text": "Pitch Mode", "font": "caption_grey_12", "align": "center"},
    "pad": [1, 2, 1, 2]
@@ -216,7 +216,7 @@
   {
    "type": "button",
    "name": "hdr_pitch_fseq",
-   "rect": [782, 26, 51, 22],
+   "rect": [790, 26, 51, 22],
    "fill": {"image": "buttons/nav_small"},
    "text": {"text": "Fseq", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
    "pad": [1, 1, 1, 1],
@@ -229,7 +229,7 @@
   {
    "type": "button",
    "name": "hdr_pitch_fixed",
-   "rect": [835, 26, 51, 22],
+   "rect": [843, 26, 51, 22],
    "fill": {"image": "buttons/nav_small"},
    "text": {"text": "Fixed", "font": "caption_grey_12", "align": "center", "valign": "middle", "onFont": "caption_white_12"},
    "pad": [1, 1, 1, 1],
@@ -242,7 +242,7 @@
   {
    "type": "plate",
    "name": "hdr_delay_label",
-   "rect": [900, 4, 60, 18],
+   "rect": [908, 4, 60, 18],
    "fill": {"image": "panels/label_plate"},
    "text": {"text": "Delay", "font": "caption_grey_12", "align": "center"},
    "pad": [1, 2, 1, 2]
@@ -250,7 +250,7 @@
   {
    "type": "number",
    "name": "hdr_delay",
-   "rect": [900, 26, 60, 20],
+   "rect": [908, 26, 60, 20],
    "fill": {"image": "panels/label_plate"},
    "text": {"text": "", "font": "value_dark_12", "align": "center", "valign": "middle"},
    "pad": [2, 2, 2, 2],
