@@ -1292,6 +1292,28 @@ int main() {
                 u.set("fseq.position", 60);
                 CHECK(cursorAt(50), "the playhead the tick put at frame 50 was not drawn there (frame 60: %d)", (int)cursorAt(60));
                 u.run(2);
+                // While the Fseq plays the editor asks for the frame clock, and a frame moves the playhead on between
+                // the ticks; the clock stops once playback does.
+                {
+                    const uint8_t on[3] = {0x90, 60, 100}, off[3] = {0x80, 60, 0};
+                    float* out[2] = {u.l.data(), u.r.data()};
+                    auto goldX = [&] {
+                        for (int x = plotX; x < plotX + plotW; ++x)
+                            if (near(pixel(x, lanes.y + 3), 0xe8b84b, 24)) return x;
+                        return -1;
+                    };
+                    u.proc->midi(0, on, 3);
+                    CHECK(u.until([&] { return u.gui.framing(); }), "playing the Fseq did not start the frame clock");
+                    u.gui.tick();
+                    const int ticked = goldX();
+                    for (int i = 0; i < 3; ++i) u.proc->process(nullptr, out, 512);   // the audio moves on, and no tick comes
+                    u.gui.frame();
+                    const int framed = goldX();
+                    CHECK(ticked >= 0 && framed > ticked, "a frame did not move the playhead on from x %d (to %d)", ticked, framed);
+                    u.proc->midi(0, off, 3);
+                    CHECK(u.until([&] { return !u.gui.framing(); }, 15000), "the frame clock still runs once playback stopped");
+                    u.settle();
+                }
                 // Hiding an operator takes its ribbon out.
                 u.set("gui.fseq.op1", 0);
                 u.gui.mouseLeave();

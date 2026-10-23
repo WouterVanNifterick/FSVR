@@ -42,6 +42,7 @@ struct PlatformWindow {
     Rect dirty;
     int wantW = 0, wantH = 0;          // a size to apply, 0 = none
     std::atomic<bool> quit{false};
+    bool clockOn = false;              // platformFrames: run() calls Gui::frame 60 times a second (this thread's only)
     int wake[2] = {-1, -1};
     Time lastClick = 0;
     int clickX = 0, clickY = 0;
@@ -178,10 +179,12 @@ static void event(PlatformWindow* w, XEvent& e) {
 }
 
 static void run(PlatformWindow* w) {
-    auto next = std::chrono::steady_clock::now();
+    const auto beat = std::chrono::microseconds(16667);   // the frame clock's
+    auto next = std::chrono::steady_clock::now(), nextFrame = next;
     const int xfd = ConnectionNumber(w->dpy);
     while (!w->quit) {
-        const int wait = (int)std::max<long long>(0, std::chrono::duration_cast<std::chrono::milliseconds>(next - std::chrono::steady_clock::now()).count());
+        const auto due = w->clockOn ? std::min(next, nextFrame) : next;
+        const int wait = (int)std::max<long long>(0, std::chrono::duration_cast<std::chrono::milliseconds>(due - std::chrono::steady_clock::now()).count());
         pollfd fds[2] = {{xfd, POLLIN, 0}, {w->wake[0], POLLIN, 0}};
         if (!XPending(w->dpy)) poll(fds, 2, wait);
         if (fds[1].revents & POLLIN) {
@@ -199,6 +202,11 @@ static void run(PlatformWindow* w) {
             next += std::chrono::milliseconds(33);
             if (next < std::chrono::steady_clock::now()) next = std::chrono::steady_clock::now() + std::chrono::milliseconds(33);
             w->gui->tick();
+        }
+        if (w->clockOn && std::chrono::steady_clock::now() >= nextFrame) {
+            nextFrame += beat;
+            if (nextFrame < std::chrono::steady_clock::now()) nextFrame = std::chrono::steady_clock::now() + beat;
+            w->gui->frame();
         }
         Rect r;
         int ww, wh;
@@ -305,6 +313,9 @@ void platformInvalidate(PlatformWindow* w, Rect r) {
     }
     if (std::this_thread::get_id() != w->thread.get_id()) poke(w);
 }
+
+// The frame clock: run() calls Gui::frame on its own beat while it runs. Gui::tick asks, on run()'s thread.
+void platformFrames(PlatformWindow* w, bool on) { w->clockOn = on; }
 
 void platformSize(PlatformWindow* w, int width, int height) {
     {

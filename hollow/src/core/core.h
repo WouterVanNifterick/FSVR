@@ -181,7 +181,9 @@ struct Hit;
 // the second press of a double-click instead of down. hover gets a point outside r when the
 // pointer leaves. right gets right presses and releases over the widget. tick runs about 30
 // times a second while the widget is shown (redraws when what it shows changed). wheel takes the
-// mouse wheel over the widget (notches up positive). Hooks left null do nothing.
+// mouse wheel over the widget (notches up positive). frame runs about 60 times a second, between
+// the ticks too, for as long as some kind's tick asks for it (Gui::wantFrames): for motion
+// smoother than the tick, a playhead. Hooks left null do nothing.
 struct KindOps {
     void (*draw)(Gui&, Canvas&, const Hit&, Rect r);
     bool (*down)(Gui&, const Hit&, Rect r, int x, int y, bool shift);
@@ -192,6 +194,7 @@ struct KindOps {
     void (*right)(Gui&, const Hit&, Rect r, int x, int y, bool shift, bool up);
     void (*tick)(Gui&, const Hit&, Rect r);
     void (*wheel)(Gui&, const Hit&, Rect r, int x, int y, double notches, bool shift);
+    void (*frame)(Gui&, const Hit&, Rect r);
 };
 const KindOps* findKind(const std::string& kind);   // null: an unknown kind, drawn as its fill
 struct KindState {                                   // what one custom widget keeps between events
@@ -409,6 +412,7 @@ void platformClose(PlatformWindow* w);
 // thread of its own, so elsewhere this does nothing.
 void platformHold(PlatformWindow* w, bool hold);
 void platformInvalidate(PlatformWindow* w, Rect r);                 // canvas pixels
+void platformFrames(PlatformWindow* w, bool on);                    // the frame clock: Gui::frame about 60 Hz while on
 void platformSize(PlatformWindow* w, int width, int height);        // window pixels
 // The host did not resize its frame: resize the windows around ours that closely fit it.
 void platformResizeParents(PlatformWindow* w, int width, int height);
@@ -521,6 +525,9 @@ public:
     void releaseKeys();                          // hands the keyboard back, unless the skin has shortcuts
     void focusLost();                            // commits text entry, closes menus, drops list focus
     void tick();                                 // about 30 Hz: automation, repeats, tooltips, caret, animation
+    void frame();                                // the frame clock, about 60 Hz while a kind asks for it: the kinds' frame hooks
+    void wantFrames() { framesAsked_ = true; }   // from a kind's tick: frames until a tick no longer asks
+    bool framing() const { return framesOn_; }
 
     void watch(std::shared_ptr<Skin> skin);     // Editor: keep this skin, reload it when Skin::dir changes
     PlatformWindow* window = nullptr;
@@ -641,6 +648,7 @@ private:
     bool learnOn_ = false;
     unsigned midiSeen_ = 0;
     bool animating_ = false;
+    bool framesAsked_ = false, framesOn_ = false;   // a kind asked in this tick; one asked in the last
     uint32_t taus_[3] = {0, 0, 0};               // the random rows' generator (three-component Tausworthe)
     bool contextLit_ = false;                    // a list row lit by a right-click (Inst::context)
     int modalVeil_ = -1, modalBox_ = -1;         // the root's veil and embed for a modal (skin.cpp adds them)
@@ -765,6 +773,7 @@ private:
     void setLearnTarget(const Hit& h);
     void drag(const Hit& h, int x, int y, bool shift, bool start);
     void checkValues(Node& n);
+    void frameKinds(Node& n);
     void writeEmbeds(const Node& n, std::string& out) const;
     void writeHidden(const Node& n, std::string& out) const;
     void writeScroll(const Node& n, std::string& out) const;

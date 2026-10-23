@@ -10,9 +10,11 @@
 #include <commctrl.h>
 #include <commdlg.h>
 #include <algorithm>
+#include <atomic>
 #include <climits>
 #include <map>
 #include <mutex>
+#include <thread>
 #include <vector>
 #include <cwchar>
 
@@ -30,7 +32,11 @@ struct PlatformWindow {
     WNDPROC rootProc = nullptr; // and its own procedure
     bool closing = false;       // platformCloseApp: it closes without asking
     HWND frame = nullptr;       // platformPopup: the top-level window this one fills
+    std::thread clock;          // platformFrames: the frame clock while it runs
+    std::atomic<bool> clockOn{false}, framePosted{false};
 };
+
+constexpr UINT kFrameMsg = WM_APP + 0x48;   // the frame clock's beat, posted to the window
 
 static int classUsers = 0;
 static wchar_t className[64];
@@ -272,6 +278,10 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_TIMER:
         g.tick();
         return 0;
+    case kFrameMsg:   // the next beat may be posted from now on
+        w->framePosted = false;
+        g.frame();
+        return 0;
     // The editor holds the keyboard while its window is up, so a skin's "keys" shortcuts work without a
     // click first. It consumes only what it has a use for: text entry, a menu, a focused list, a modal, or
     // a chord in the skin's bindings. Anything else goes on to the window focus came from, so the host
@@ -465,6 +475,7 @@ void platformClose(PlatformWindow* w) {
         if ((WNDPROC)GetWindowLongPtrW(w->root, GWLP_WNDPROC) == rootProc) SetWindowLongPtrW(w->root, GWLP_WNDPROC, (LONG_PTR)w->rootProc);
     }
     if (w->tip) DestroyWindow(w->tip);
+    platformFrames(w, false);
     KillTimer(w->hwnd, 1);
     SetWindowLongPtrW(w->hwnd, GWLP_USERDATA, 0);
     DestroyWindow(w->hwnd);
@@ -484,6 +495,35 @@ void platformInvalidate(PlatformWindow* w, Rect r) {
     int s = w->gui->scale();
     RECT rc = {r.x * s, r.y * s, (r.x + r.w) * s, (r.y + r.h) * s};
     InvalidateRect(w->hwnd, &rc, FALSE);
+}
+
+#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
+#endif
+
+// The frame clock: a thread on a high-resolution waitable timer posts a beat to the window every 1/60 s, one
+// at a time (a beat not yet handled is not posted again). A window timer would wait for the system tick,
+// 15.6 ms unless something raised its resolution, and so beat at 32 Hz. Its waits are bounded, so the thread
+// is gone a beat after the clock stops: a plug-in's thread must not outlive its module.
+void platformFrames(PlatformWindow* w, bool on) {
+    if (on == w->clockOn) return;
+    w->clockOn = on;
+    if (!on) {
+        if (w->clock.joinable()) w->clock.join();
+        return;
+    }
+    w->clock = std::thread([w] {
+        HANDLE t = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+        if (!t) t = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);   // before Windows 10 1803: the system tick
+        while (w->clockOn) {
+            LARGE_INTEGER due;
+            due.QuadPart = -166667;   // 1/60 s from now, in 100 ns
+            if (t && SetWaitableTimer(t, &due, 0, nullptr, nullptr, FALSE)) WaitForSingleObject(t, 100);
+            else Sleep(16);
+            if (w->clockOn && !w->framePosted.exchange(true)) PostMessageW(w->hwnd, kFrameMsg, 0, 0);
+        }
+        if (t) CloseHandle(t);
+    });
 }
 
 void platformSize(PlatformWindow* w, int width, int height) {

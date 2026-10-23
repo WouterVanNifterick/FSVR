@@ -1195,7 +1195,15 @@ void publish(Gui& g, const Fields& f, const std::string& s) {   // the readout, 
     if (!f.readoutKey.empty() && g.state().data(f.readoutKey) != s) g.state().setData(f.readoutKey, s);
 }
 
-double playFrame(Gui& g, const Fields& f, Shared& st) {   // where a tick places the playhead, run on between updates
+bool playing(Gui& g, const Fields& f) {   // the sequence steps on its own timer, as the rate says
+    long us = 0;
+    int dir = 1, running = 0;
+    if (!f.rateKey.empty()) std::sscanf(g.state().data(f.rateKey).c_str(), "%ld %d %d", &us, &dir, &running);
+    return running && us > 0;
+}
+
+// Where the playhead is placed (at a tick, or at a frame while playing), run on between position updates.
+double playFrame(Gui& g, const Fields& f, Shared& st) {
     if (f.position < 0) return -1;
     const double pos = g.state().get((size_t)f.position);
     const auto now = Clock::now();
@@ -1210,6 +1218,8 @@ double playFrame(Gui& g, const Fields& f, Shared& st) {   // where a tick places
         const double lo = std::min(g.state().get((size_t)f.loopStart), g.state().get((size_t)f.loopEnd)), hi = std::max(g.state().get((size_t)f.loopStart), g.state().get((size_t)f.loopEnd));
         if (pos >= lo && pos <= hi) fr = std::clamp(fr, lo, hi);
     }
+    // The run-on can pass the next update: a step back of under two frames is that, and holds; a longer one is a loop.
+    if (st.playFr >= 0 && (fr - st.playFr) * dir < 0 && std::fabs(fr - st.playFr) < 2) fr = st.playFr;
     return fr;
 }
 
@@ -1218,6 +1228,17 @@ int placePlayhead(Gui& g, const Fields& f, const Geo& e, Shared& st) {
     st.playFr = playFrame(g, f, st);
     st.placed = true;
     return st.playFr >= 0 && e.n > 0 ? (int)std::lround(e.X(std::clamp(st.playFr, 0.0, (double)e.n) + 0.5)) : INT_MIN;
+}
+
+// Places the playhead and repaints two thin strips, its old column and its new one.
+void movePlayhead(Gui& g, const Hit& h, const Fields& f, Shared& st, Rect r) {
+    if (f.position < 0) return;
+    const Geo e = geoOf(g, h, f, st, r);
+    const int x = placePlayhead(g, f, e, st), k = g.skin().lw();
+    if (x == st.playX) return;
+    if (st.playX != INT_MIN) g.invalidate({st.playX - k - 1, r.y, 4 * k + 2, r.h});
+    if (x != INT_MIN) g.invalidate({x - k - 1, r.y, 4 * k + 2, r.h});
+    st.playX = x;
 }
 
 void drawOverlay(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e, Shared& st, const Doc& d) {
@@ -1618,6 +1639,10 @@ void right(Gui& g, const Hit& h, Rect r, int x, int y, bool, bool up) {
     });
 }
 
+void frame(Gui& g, const Hit& h, Rect r) {   // while it plays: the playhead between the ticks
+    movePlayhead(g, h, fieldsOf(g, h), sharedOf(g, h), r);
+}
+
 void tick(Gui& g, const Hit& h, Rect r) {
     Shared& st = sharedOf(g, h);
     sync(g, h, st);
@@ -1641,15 +1666,8 @@ void tick(Gui& g, const Hit& h, Rect r) {
         st.fast = false;
         g.invalidate(r);
     }
-    if (f.position >= 0) {   // the playhead, placed once a tick: two thin strips, the old column and the new
-        const Geo e = geoOf(g, h, f, st, r);
-        const int x = placePlayhead(g, f, e, st), k = g.skin().lw();
-        if (x != st.playX) {
-            if (st.playX != INT_MIN) g.invalidate({st.playX - k - 1, r.y, 4 * k + 2, r.h});
-            if (x != INT_MIN) g.invalidate({x - k - 1, r.y, 4 * k + 2, r.h});
-            st.playX = x;
-        }
-    }
+    movePlayhead(g, h, f, st, r);
+    if (playing(g, f)) g.wantFrames();   // and between the ticks, at the frame clock's pace, while it plays
     // The view's params moved under the widget (a toolbar toggle, a scale menu): the cache key sees it at the
     // next paint, so a repaint is asked for whenever one of them changed.
     std::string sig;
@@ -1666,7 +1684,7 @@ void tick(Gui& g, const Hit& h, Rect r) {
 } // namespace
 
 const KindOps* fseqEditKind() {
-    static const KindOps ops = {draw, down, drag, up, dbl, hover, right, tick, wheel};
+    static const KindOps ops = {draw, down, drag, up, dbl, hover, right, tick, wheel, frame};
     return &ops;
 }
 

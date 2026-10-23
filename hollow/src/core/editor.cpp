@@ -2873,6 +2873,26 @@ void Gui::checkValues(Node& n) {
     }
 }
 
+// The shown custom widgets' frame hooks, as checkValues reaches their ticks.
+void Gui::frameKinds(Node& n) {
+    if (!n.view) return;
+    for (size_t i = 0; i < n.w.size(); ++i) {
+        const Widget& w = n.view->widgets[i];
+        Inst& s = n.w[i];
+        if (!visible(s)) continue;
+        if (s.child) {
+            frameKinds(*s.child);
+            continue;
+        }
+        const Rect r = rectOf(n, (int)i);
+        if (w.kind == Kind::Custom && w.ops && w.ops->frame && !(r & n.clip).empty()) w.ops->frame(*this, Hit{&n, (int)i, gen_}, r);
+    }
+}
+
+void Gui::frame() {
+    if (framesOn_) frameKinds(root_);
+}
+
 void Gui::tick() {
     ++ticks_;
     auto now = Clock::now();
@@ -2915,7 +2935,10 @@ void Gui::tick() {
         closing_ = true;
         platformCloseApp(window);
     }
+    framesAsked_ = false;   // a kind that still wants frames asks again in its tick
     checkValues(root_);
+    framesOn_ = framesAsked_;
+    if (window) platformFrames(window, framesOn_);   // the window keeps its clock's state, so this costs nothing when it holds
     loaded = false;
     update();
     updateStatus();

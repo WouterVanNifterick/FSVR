@@ -13,6 +13,7 @@ namespace hollow {
 struct PlatformWindow {
     void* view = nullptr;   // NSView*, retained
     void* timer = nullptr;  // NSTimer*, owned by the run loop until invalidated
+    void* clock = nullptr;  // the frame clock's NSTimer* while it runs (platformFrames)
     Gui* gui = nullptr;
     int pick = -1;          // menu choice, set by the menu item action
 };
@@ -219,12 +220,27 @@ PlatformWindow* platformOpen(void* parent, Gui* gui) {
 }
 
 void platformClose(PlatformWindow* w) {
+    platformFrames(w, false);
     [(__bridge NSTimer*)w->timer invalidate];
     NSView* v = (__bridge NSView*)w->view;
     windowOf(v) = nullptr;   // late events find no window
     [v removeFromSuperview];
     (void)CFBridgingRelease(w->view);
     delete w;
+}
+
+// The frame clock: a second run loop timer, at 60 Hz, for as long as it runs.
+void platformFrames(PlatformWindow* w, bool on) {
+    if (on == (w->clock != nullptr)) return;
+    if (!on) {
+        [(__bridge NSTimer*)w->clock invalidate];
+        w->clock = nullptr;
+        return;
+    }
+    Gui* gui = w->gui;
+    NSTimer* t = [NSTimer timerWithTimeInterval:1.0 / 60 repeats:YES block:^(NSTimer* timer) { (void)timer; gui->frame(); }];
+    [[NSRunLoop currentRunLoop] addTimer:t forMode:NSRunLoopCommonModes];
+    w->clock = (__bridge void*)t;
 }
 
 const bool kNativeMenus = true;
