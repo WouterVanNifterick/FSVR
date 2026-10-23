@@ -189,6 +189,14 @@ bool Device::fseqFrame(int step, uint8_t out[50]) const {
     return true;
 }
 int Device::fseqPosition() const { return p->s.fseq.valid ? p->s.fseqStep : 0; }
+double Device::fseqPlace() const {
+    const Synth& S = p->s;
+    if (!S.fseq.valid) return 0;
+    // A period shorter than the control tick steps once a tick and leaves the time it owes in fseqAcc, which is
+    // then no place within the step: that shows the step alone.
+    const bool timed = S.fseqRun && !S.fseqClock && S.fseqDelay <= 0 && (S.perf.c[0x21] & 3) == 2 && S.fseqAcc >= 0 && S.fseqAcc < S.fseqPeriod;
+    return S.fseqStep + (timed ? S.fseqDir * S.fseqAcc / S.fseqPeriod : 0.0);
+}
 bool Device::setFseqFrames(int first, int count, const uint8_t* frames) {
     std::lock_guard<std::mutex> lk(p->s.mtx);
     Synth& S = p->s;

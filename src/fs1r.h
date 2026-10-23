@@ -74,6 +74,9 @@ public:
     // One Fseq frame as its 50 raw bytes, and where playback currently is. For a display only.
     bool fseqFrame(int step, uint8_t out[50]) const;
     int fseqPosition() const;
+    // Ours: fseqPosition with how far playback is through the step while the sequence runs on its own timer,
+    // so a display moves smoothly rather than a step at a time. Call it from the thread that renders.
+    double fseqPlace() const;
     // Ours, for the plug-in's Fseq editor. setFseqFrames writes count frames of 50 raw bytes into the loaded
     // Fseq at frame first, the bytes a bulk dump would bring and nothing else: false, writing nothing, unless an
     // Fseq is loaded and the range fits. The frame count changes only through a bulk dump (docs/Differences.md).

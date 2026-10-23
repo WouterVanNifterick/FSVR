@@ -464,6 +464,21 @@ int main() {
         CHECK(a.until(rate, 2000) && dir == 1 && std::fabs(us / 1e6 - want) < 1e-4, "live.fseq.rate reads \"%s\" while the Fseq runs at %.6f s a frame", a.data("live.fseq.rate").c_str(), want);
     }
     a.midi({0x80, 60, 0});
+    {   // With a frame that outlasts the engine's control tick (header speed 64, 9 ms), the position holds the
+        // place between steps too, so the playhead glides rather than jumping a frame at a time.
+        const double speed = a.get("fseq.hdr.speed"), trigger = a.get("fseq.trigger");
+        a.set("fseq.hdr.speed", 64);
+        a.set("fseq.trigger", 1);   // every note starts it, though the last one still sounds
+        a.until([] { return false; }, 400);   // the worker takes them to the engine
+        a.midi({0x90, 60, 100});
+        double seen = 0;
+        CHECK(a.until([&] { seen = a.get("fseq.position"); return seen != std::floor(seen); }), "the Fseq position only ever held whole steps (%g, rate %s)", seen,
+              a.data("live.fseq.rate").c_str());
+        a.midi({0x80, 60, 0});
+        a.set("fseq.hdr.speed", speed);
+        a.set("fseq.trigger", trigger);
+        a.run(2);
+    }
 
     // Export writes a hardware-shaped dump.
     a.st->setData("sysex.export", (tmp / "out.syx").u8string());

@@ -304,7 +304,7 @@ public:
         used = 0;
         if (at < frames) dev.process(out[0] + at, out[1] + at, frames - at);
         lk = {};
-        if (const int f = dev.fseqPosition(); fseqPos >= 0 && f != fseqPosSent) st.set((size_t)fseqPos, fseqPosSent = f);   // the page's playback line, per block
+        if (const double f = dev.fseqPlace(); fseqPos >= 0 && f != fseqPosSent) st.set((size_t)fseqPos, fseqPosSent = f);   // the page's playback line, per block, between steps too
         const size_t r = ringAt;
         for (int i = 0; i < frames; ++i) ring[(r + (size_t)i) % ring.size()] = 0.5f * (out[0][i] + out[1][i]);
         ringAt = (r + (size_t)frames) % ring.size();
@@ -400,7 +400,7 @@ private:
     std::string fseqNameShown;         // its name as text data fseq.name
     std::string rateShown;             // live.fseq.rate as last published
     std::string pickLabelShown;        // fseq.pick.label as last published
-    int fseqPosSent = -1;              // fseq.position as the audio thread last set it
+    double fseqPosSent = -1;           // fseq.position as the audio thread last set it
     int messageTicks = 0;              // worker ticks until the status line clears
     std::string libError;              // the library's read error the status line last showed
     uint8_t waveVoice[4][608] = {};    // each part's voice as the operator panel's waves were last drawn from it
@@ -711,8 +711,9 @@ private:
                 step();
             }
             requests();
-            rateTick();            
-            if (fseqPos >= 0) st.set((size_t)fseqPos, dev.fseqPosition());   // the Fseq page's playback line
+            // The Fseq page's playback line, for a host that is not rendering; while the sequence runs the audio
+            // thread sets it each block, between steps too, and a step from here would pull it back.
+            if (!rateTick() && fseqPos >= 0) st.set((size_t)fseqPos, dev.fseqPosition());
             if (++n % 30 == 0) {   // under ctl: a rescan rebuilds the banks a host's save reads
                 std::lock_guard<std::mutex> g(ctl);
                 if (lib.rescan()) writeLists();
@@ -732,12 +733,13 @@ private:
     // The frame period the editor runs its playhead on between the position's updates: live.fseq.rate, the
     // period in microseconds (whole, so a host's locale has no say), the direction and whether the sequence
     // is stepping on its own timer; 0 while it is stopped, scratched, on MIDI clock or in its start delay.
-    void rateTick() {
+    bool rateTick() {   // true while the sequence steps on its own timer
         int dir = 1;
         bool running = false;
         const double period = dev.fseqFramePeriod(&dir, &running);
         const std::string s = std::to_string((long)std::lround(period * 1e6)) + " " + std::to_string(dir) + (running ? " 1" : " 0");
         if (s != rateShown) st.setData("live.fseq.rate", rateShown = s);
+        return running;
     }
 
     void step() {   // under ctl: a session that arrived, what the engine did, what the params ask for
