@@ -348,7 +348,7 @@ void Gui::relayout() {
             w_ = w;
             h_ = h;
             canvas_.assign((size_t)w_ * h_, 0);
-            dirty_ = {};
+            dirty_.clear();
             resizeWindow();
         }
     }
@@ -766,14 +766,41 @@ void Gui::midiToDials(Node& n) {
 void Gui::invalidate(Rect r) {
     r = r & Rect{0, 0, w_, h_};
     if (r.empty()) return;
-    dirty_ = dirty_ | r;
+    addDirty(r);
     if (window) platformInvalidate(window, r);
 }
 
+// The dirty area is kept as a few rectangles rather than their bounding box, so a meter in the top bar and
+// a playhead in a plot far from it repaint as two small areas, not the window between them. A rectangle
+// joins one it touches or overlaps, or one whose box with it is at most half again their two areas; past
+// eight, the two whose box grows least are joined.
+void Gui::addDirty(Rect r) {
+    auto area = [](const Rect& a) { return (long long)a.w * a.h; };
+    auto joins = [&](const Rect& a, const Rect& b) {
+        return !(Rect{a.x - 1, a.y - 1, a.w + 2, a.h + 2} & b).empty() || area(a | b) * 2 <= (area(a) + area(b)) * 3;
+    };
+    for (bool joined = true; joined;) {   // a join can reach another
+        joined = false;
+        for (size_t i = 0; i < dirty_.size() && !joined; ++i)
+            if (joins(dirty_[i], r)) r = r | dirty_[i], dirty_.erase(dirty_.begin() + (long)i), joined = true;
+    }
+    dirty_.push_back(r);
+    while (dirty_.size() > 8) {
+        size_t bi = 0, bj = 1;
+        long long best = LLONG_MAX;
+        for (size_t i = 0; i < dirty_.size(); ++i)
+            for (size_t j = i + 1; j < dirty_.size(); ++j)
+                if (const long long grow = area(dirty_[i] | dirty_[j]) - area(dirty_[i]) - area(dirty_[j]); grow < best) best = grow, bi = i, bj = j;
+        dirty_[bi] = dirty_[bi] | dirty_[bj];
+        dirty_.erase(dirty_.begin() + (long)bj);
+    }
+}
+
 const std::vector<uint32_t>& Gui::pixels() {
-    if (!dirty_.empty()) {
-        Canvas c{canvas_.data(), w_, h_, dirty_};
-        dirty_ = {};
+    std::vector<Rect> rects;
+    rects.swap(dirty_);
+    for (const Rect& d : rects) {   // each on its own, so an opaque widget may hold one of them whole
+        Canvas c{canvas_.data(), w_, h_, d};
         std::vector<Node*> path;
         occNode_ = nullptr, occAt_ = -1;
         findOccluder(root_, c.clip, path);

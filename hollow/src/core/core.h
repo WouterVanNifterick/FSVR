@@ -610,8 +610,8 @@ private:
     int w_ = 0, h_ = 0, scale_ = 1, ticks_ = 0;
     uint64_t stamp_ = 0;
     std::vector<uint32_t> canvas_;
-    Rect dirty_;
-    unsigned gen_ = 1;                           // bumped whenever nodes may die; stale Hits are dead
+    std::vector<Rect> dirty_;                    // what the next paint repaints: a few rectangles, each on its own
+    unsigned gen_ = 1;                          // bumped whenever nodes may die; stale Hits are dead
     Hit hover_, press_;
     std::vector<int> editing_;                   // params inside a begin/endEdit gesture
     int anchorPos_ = 0, anchorScroll_ = 0, mouseX_ = 0, mouseY_ = 0;
@@ -686,6 +686,7 @@ private:
     int occAt_ = -1;
     std::vector<Node*> occPath_;
     void findOccluder(Node& n, Rect d, std::vector<Node*>& path);
+    void addDirty(Rect r);
     void paintWidget(Canvas& c, Node& n, int i, Rect r);
     void paintScrollbar(Canvas& c, const Node& n, int i);
     void paintList(Canvas& c, Node& n, int i, Rect r);
