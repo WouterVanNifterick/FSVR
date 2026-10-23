@@ -391,6 +391,23 @@ int selftest(Synth& S) {
       pt.p[9] = 0x40 - 18; S.compute_pitch(C, pt, 60); const int down = C.pitchNote;
       pt.p[8] = ns; pt.p[9] = dt;
       ck("a part's detune scales by the key played, not the shifted note", centre - down == 9); }
+    // A fine of 100 or more plays as the next coarse step at fine 0, as measured on the unit on 2026-10-23:
+    // coarse 0 fine 100 is ratio 1.0 and coarse 2 fine 100 is 3.0. The factory Hook under Teck Hook, Tech Lead
+    // and 25 more store fine 100; held at 99 they sat 8 cents under the note and beat against it.
+    { Synth& T = S; Voice& V = T.perf.part[0].voice;
+      auto word = [&](int coarse, int fine) {
+          init_default_voice(V);
+          V.v[0].coarse = coarse; V.v[0].fine = fine; V.v[0].fixed = 0; V.v[0].form = 0;
+          std::vector<float> a(64), b(64);
+          T.midi_in(0x90, 60, 100); T.render(a.data(), b.data(), 64);
+          int w = -1;
+          for (auto& c : T.ch) if (c.active && c.note == 60) { w = c.freqWord[0]; break; }
+          T.midi_in(0x80, 60, 0); T.midi_in(0xB0, 120, 0);
+          return w;
+      };
+      const bool carry = word(0, 100) == word(1, 0) && word(0, 127) == word(1, 0) && word(2, 100) == word(3, 0) && word(0, 99) < word(1, 0);
+      init_default_voice(V);
+      ck("a fine of 100 or more plays as the next coarse step", carry); }
 
     // Formant transpose is the pitch half of register 0x230 (FUN_00013bc6): it shifts the grain rate.
     // The formant frequency, coarse and fine plus detune, stays. A frame replaces that frequency and

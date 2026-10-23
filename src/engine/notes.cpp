@@ -208,7 +208,11 @@ void Synth::setup_ops(Chan& C, const Part& pt, int vel) {
         // frequency words. The bias the controller matrix adds to them is not here: it moves while
         // the note sounds, and refresh_bias rebuilds it every tick.
         if (v.form == 7 || v.fixed) C.freqWord[o] = 8 * (v.coarse * 128 + v.fine) + 0x28ED + keytrack(v.notescale, pm) + fvs_term(v.fmsb, vel);
-        else C.freqWord[o] = 0x1243 + COARSE[v.coarse] + FINE[std::min(99, v.fine)];
+        // MEASURED 2026-10-23: a fine of 100 or more plays as the next coarse step at fine 0 (coarse 0 at 100,
+        // 110 and 127 is 1.0, coarse 1 at 100 is 2.0, coarse 2 at 100 is 3.0). The factory Hook under Teck Hook,
+        // Tech Lead and 25 other operators store fine 100; held at 99 they sat 8 cents under and beat.
+        else if (v.fine >= 100) C.freqWord[o] = 0x1243 + COARSE[std::min(31, v.coarse + 1)];
+        else C.freqWord[o] = 0x1243 + COARSE[v.coarse] + FINE[v.fine];
         C.ufreqWord[o] = std::min(0x7F00, ((u.coarse & 0x1F) * 256 + u.fine * 2) * 4 + 0x28ED + keytrack(u.notescale, pm) + fvs_term(u.fmsb, vel));
         // Detune, in pitch word units, from the ROM's own key scaled table. MEASURED: the chip does
         // the same thing to a ratio operator's register 0x80 that the CPU does to a formant
