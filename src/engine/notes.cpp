@@ -155,8 +155,10 @@ void Synth::compute_pitch(Chan& C, const Part& pt, int note) {
     n = clampi(n + (pt.voice.raw[0x1E] & 0x3F) - 24, 0, 127);
     C.noteP = n; C.keyfact = KEYFACT[n] >> 2;
     int pitch = NOTETAB[n];
+    // The part's detune scales by the band of the key played (0x0102A402, before any note shift), not of the
+    // shifted note: Teck Hook's parts an octave and two down beat as the unit's do only so.
     int d = pt.p[9] - 0x40;
-    if (d) { int band = (n >> 3) & 0xF; int prod = std::abs(d) * (15 - band); if (!prod) prod = 1; pitch += (d < 0 ? -prod : prod) / 15; }
+    if (d) { int band = (note >> 3) & 0xF; int prod = std::abs(d) * (15 - band); if (!prod) prod = 1; pitch += (d < 0 ? -prod : prod) / 15; }
     pitch += (sysTune() & 0x7F) - 0x40;
     C.pitchNote = pitch;
 }

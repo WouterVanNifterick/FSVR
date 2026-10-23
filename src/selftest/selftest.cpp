@@ -382,6 +382,15 @@ int selftest(Synth& S) {
            down.word == centred.word - want && down.inc == op_increment(centred.word - want));
         init_default_voice(V);
     }
+    // A part's detune scales by the key played (FUN_00010dc4 reads the band off 0x0102A402, before any note
+    // shift), so a part two octaves down at -18 on key 60 moves 18 * (15 - 7) / 15 = 9 words, not the 13 its
+    // shifted note's band would give. Teck Hook's layers beat at the unit's 2.1 and 3.2 Hz only so.
+    { Part& pt = S.perf.part[0]; const uint8_t ns = pt.p[8], dt = pt.p[9]; Chan C{};
+      pt.p[8] = 0;   // note shift -24
+      pt.p[9] = 0x40; S.compute_pitch(C, pt, 60); const int centre = C.pitchNote;
+      pt.p[9] = 0x40 - 18; S.compute_pitch(C, pt, 60); const int down = C.pitchNote;
+      pt.p[8] = ns; pt.p[9] = dt;
+      ck("a part's detune scales by the key played, not the shifted note", centre - down == 9); }
 
     // Formant transpose is the pitch half of register 0x230 (FUN_00013bc6): it shifts the grain rate.
     // The formant frequency, coarse and fine plus detune, stays. A frame replaces that frequency and
