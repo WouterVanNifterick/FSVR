@@ -129,9 +129,14 @@ double wordOfMidi(double m) { return 26861 + (m - 69) * kWordsPerSemitone; }
 double ampOf(double level, double levelDb) { return std::pow(10.0, -level * levelDb / 20); }
 double levelOfAmp(double a, double levelDb) { return a <= 1e-9 ? 127 : std::clamp(-20 * std::log10(a) / levelDb, 0.0, 127.0); }
 
-// How opaque a track is drawn at a level (an attenuation, so a high level is a quiet frame): the square
-// root of its amplitude, so it halves every 12 dB down and loud and quiet stay apart all the way.
-double traceAlpha(double level, double levelDb) { return std::sqrt(ampOf(level, levelDb)); }
+// How opaque a track is drawn at a level (an attenuation, so a high level is a quiet frame): whole down to
+// kFullDb below full, gone past kGoneDb, on an S-curve between, so the loud parts stand solid and the
+// quiet tail drops away.
+constexpr double kFullDb = 12, kGoneDb = 48;
+double traceAlpha(double level, double levelDb) {
+    const double t = std::clamp((kGoneDb - level * levelDb) / (kGoneDb - kFullDb), 0.0, 1.0);
+    return t * t * (3 - 2 * t);
+}
 
 // ---- what the editor keeps -----------------------------------------------------------------------
 
@@ -177,8 +182,10 @@ struct Shared : KindState {
     int hoverTrack = -1, hoverLane = -1, hoverMarker = -1;   // hoverMarker: the marker a press of the loop tool takes
     double lastPos = -1;
     Clock::time_point lastPosAt;
-    int drawnPlayX = INT_MIN;
-    std::string paramSig;            // the view's params at the last tick, to repaint when one moves
+    double playFr = -1;              // the playhead as the last tick placed it, -1 none: a paint draws this frame,
+    int playX = INT_MIN;             // which was at this column, so what the tick repaints is where it is drawn
+    bool placed = false;             // a tick (or the first paint, before any) has placed it
+    std::string paramSig;           // the view's params at the last tick, to repaint when one moves
 };
 
 // ---- the widget's fields -------------------------------------------------------------------------
@@ -1188,7 +1195,7 @@ void publish(Gui& g, const Fields& f, const std::string& s) {   // the readout, 
     if (!f.readoutKey.empty() && g.state().data(f.readoutKey) != s) g.state().setData(f.readoutKey, s);
 }
 
-double playFrame(Gui& g, const Fields& f, Shared& st) {   // where the playhead is drawn, run on between updates
+double playFrame(Gui& g, const Fields& f, Shared& st) {   // where a tick places the playhead, run on between updates
     if (f.position < 0) return -1;
     const double pos = g.state().get((size_t)f.position);
     const auto now = Clock::now();
@@ -1204,6 +1211,13 @@ double playFrame(Gui& g, const Fields& f, Shared& st) {   // where the playhead 
         if (pos >= lo && pos <= hi) fr = std::clamp(fr, lo, hi);
     }
     return fr;
+}
+
+// Places the playhead at the frame playback is at now; its column in this view, INT_MIN for none.
+int placePlayhead(Gui& g, const Fields& f, const Geo& e, Shared& st) {
+    st.playFr = playFrame(g, f, st);
+    st.placed = true;
+    return st.playFr >= 0 && e.n > 0 ? (int)std::lround(e.X(std::clamp(st.playFr, 0.0, (double)e.n) + 0.5)) : INT_MIN;
 }
 
 void drawOverlay(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e, Shared& st, const Doc& d) {
@@ -1235,12 +1249,11 @@ void drawOverlay(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e,
         ribbon(c, pts, withAlpha(f.hover, 0.5), ribbonWidth(g, l, st.hoverTrack) + 1.2 * k, false);
         c.clip = was;
     }
-    const double fr = playFrame(g, f, st);
-    if (fr >= 0 && e.n > 0) {
-        const int x = (int)std::lround(e.X(std::clamp(fr, 0.0, (double)e.n) + 0.5));
+    if (!st.placed) st.playX = placePlayhead(g, f, e, st);
+    if (st.playFr >= 0 && e.n > 0) {   // where the tick put it, not where the position has moved on to since
+        const int x = (int)std::lround(e.X(std::clamp(st.playFr, 0.0, (double)e.n) + 0.5));
         fillRect(c, {x - k, stack.y, 4 * k, stack.h}, withAlpha(f.screen, 0.7));   // edged in the screen's colour, so it shows over a glow
         fillRect(c, {x, stack.y, 2 * k, stack.h}, f.cursor);
-        st.drawnPlayX = x;
     }
     c.clip = saved;
 }
@@ -1628,15 +1641,13 @@ void tick(Gui& g, const Hit& h, Rect r) {
         st.fast = false;
         g.invalidate(r);
     }
-    if (f.position >= 0) {   // the playhead: two thin strips, the old column and the new
+    if (f.position >= 0) {   // the playhead, placed once a tick: two thin strips, the old column and the new
         const Geo e = geoOf(g, h, f, st, r);
-        const double fr = playFrame(g, f, st);
-        if (fr >= 0 && e.n > 0) {
-            const int x = (int)std::lround(e.X(std::clamp(fr, 0.0, (double)e.n) + 0.5)), k = g.skin().lw();
-            if (x != st.drawnPlayX) {
-                if (st.drawnPlayX != INT_MIN) g.invalidate({st.drawnPlayX - k - 1, r.y, 4 * k + 2, r.h});
-                g.invalidate({x - k - 1, r.y, 4 * k + 2, r.h});
-            }
+        const int x = placePlayhead(g, f, e, st), k = g.skin().lw();
+        if (x != st.playX) {
+            if (st.playX != INT_MIN) g.invalidate({st.playX - k - 1, r.y, 4 * k + 2, r.h});
+            if (x != INT_MIN) g.invalidate({x - k - 1, r.y, 4 * k + 2, r.h});
+            st.playX = x;
         }
     }
     // The view's params moved under the widget (a toolbar toggle, a scale menu): the cache key sees it at the

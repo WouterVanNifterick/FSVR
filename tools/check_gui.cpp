@@ -1285,6 +1285,13 @@ int main() {
                 u.set("fseq.position", 101);
                 u.run(2);
                 CHECK(cursorAt(101) && !cursorAt(100), "the playhead did not move to frame 101");
+                // It is drawn where the tick put it: the audio thread moving the position on between the tick and
+                // the paint once drew it outside what the tick asked to repaint, so it flickered while playing.
+                u.set("fseq.position", 50);
+                u.gui.tick();
+                u.set("fseq.position", 60);
+                CHECK(cursorAt(50), "the playhead the tick put at frame 50 was not drawn there (frame 60: %d)", (int)cursorAt(60));
+                u.run(2);
                 // Hiding an operator takes its ribbon out.
                 u.set("gui.fseq.op1", 0);
                 u.gui.mouseLeave();
