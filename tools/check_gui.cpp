@@ -1200,6 +1200,56 @@ int main() {
                 u.drag(plotX + (int)std::lround(u.get("fseq.loop_start") * ppf), cy, (int)std::lround(20 * ppf), 0);
                 CHECK(std::fabs(u.get("fseq.loop_start") - 50) <= 1 && u.get("fseq.loop_end") >= u.get("fseq.loop_start"),
                       "dragging the loop start past the end left %g to %g", u.get("fseq.loop_start"), u.get("fseq.loop_end"));
+                // The readout under the lanes says what the pointer is over: with the loop tool the marker a
+                // press takes, drawn wider than with the select tool, which names it last; with operator 1
+                // alone shown, the frame and its track's frequency and level; nothing once the pointer leaves.
+                {
+                    Rect readout;
+                    CHECK(u.rect("pages/readout", readout), "the Fseq page has no readout");
+                    auto said = [&] { return u.data("live.fseq.readout"); };
+                    auto hoverAt = [&](int x, int y) { u.gui.mouseMove(x, y, false); u.run(2); };
+                    u.set("fseq.loop_start", 20);
+                    u.set("fseq.loop_end", 40);
+                    u.run(2);
+                    const int ex = plotX + (int)std::lround(40 * ppf);
+                    const Rect strip = {ex - 4, lanes.y, 9, lanes.h};
+                    hoverAt(ex, cy);
+                    CHECK(said().find("Loop End 40") != std::string::npos, "over the loop end with the loop tool the readout says \"%s\"", said().c_str());
+                    const uint64_t taken = picture(strip);
+                    u.set("gui.fseq.tool", 0);
+                    u.run(2);
+                    hoverAt(ex, cy);
+                    CHECK(said().size() > 11 && said().compare(said().size() - 11, 11, "Loop End 40") == 0, "over the loop end with the select tool the readout says \"%s\"", said().c_str());
+                    CHECK(picture(strip) != taken, "the loop end the loop tool would take is drawn as the select tool draws it");
+                    hoverAt(ex + 60, cy);
+                    CHECK(said().find("Loop End") == std::string::npos, "60 px past the loop end the readout says \"%s\"", said().c_str());
+                    u.set("gui.fseq.show_u", 0);
+                    u.set("gui.fseq.show_pitch", 0);
+                    u.st->setData("live.fseq.cmd", "solo 1");
+                    u.gui.mouseLeave();
+                    u.settle();
+                    const int frame = 30, fx = plotX + (int)std::lround((frame + 0.5) * ppf);
+                    int fy = lanes.y, best = INT_MAX;
+                    for (int y = lanes.y; y < lanes.y + lanes.h / 2; ++y) {   // operator 1's ribbon in the frequency lane
+                        int d = 0;
+                        for (int s = 0; s < 24; s += 8) d += std::abs((int)(pixel(fx, y) >> s & 255) - (int)(op1 >> s & 255));
+                        if (d < best) best = d, fy = y;
+                    }
+                    const uint64_t blank = picture(readout);
+                    hoverAt(fx, fy);
+                    const std::string over = said();
+                    CHECK(over.rfind("Frame " + std::to_string(frame) + " ", 0) == 0 && over.find(" V1 ") != std::string::npos && over.find(" Hz") != std::string::npos &&
+                              over.find(" dB") != std::string::npos,
+                          "over operator 1's track at frame %d the readout says \"%s\"", frame, over.c_str());
+                    CHECK(picture(readout) != blank, "the readout plate does not show \"%s\"", over.c_str());
+                    u.gui.mouseLeave();
+                    u.run(2);
+                    CHECK(said().empty() && picture(readout) == blank, "after the pointer left the readout says \"%s\"", said().c_str());
+                    u.st->setData("live.fseq.cmd", "show_all");
+                    u.set("gui.fseq.show_u", 1);
+                    u.set("gui.fseq.show_pitch", 1);
+                    u.run(2);
+                }
                 // Commands: a range operation through the command key silences the shown operators' levels over the
                 // selection, and copy and paste move frames 0 to 9 onto 30.
                 u.set("gui.fseq.tool", 0);

@@ -174,7 +174,7 @@ struct Shared : KindState {
     Doc preview;
     bool previewOn = false;
     unsigned docVersion = 0, previewVersion = 0, previewSent = 0;
-    int hoverTrack = -1, hoverLane = -1;
+    int hoverTrack = -1, hoverLane = -1, hoverMarker = -1;   // hoverMarker: the marker a press of the loop tool takes
     double lastPos = -1;
     Clock::time_point lastPosAt;
     int drawnPlayX = INT_MIN;
@@ -188,7 +188,7 @@ struct Fields {
     int showV = -1, showU = -1, showPitch = -1, showOp[8] = {-1, -1, -1, -1, -1, -1, -1, -1}, selFrom = -1, selLen = -1;
     int opTrack[8];                   // the track each operator follows, -1 when not given: what selOp's tools edit
     int selOp = -1, selLayer = 0;     // the app's selected operator, 0..7 (-1 none), and layer, 1 unvoiced
-    std::string editKey, cmdKey, rateKey;
+    std::string editKey, cmdKey, rateKey, readoutKey;
     double levelDb = 0.752574;
     double lightU = 0, floorU = 0, floorUDb = -72;   // unvoiced: lightened toward white, and the least opacity of a frame that sounds
     uint32_t screen = 0, gutter = 0, grid = 0, keyWhite = 0, keyBlack = 0, keyC = 0, selection = 0, selectionEdge = 0;
@@ -217,6 +217,7 @@ Fields fieldsOf(Gui& g, const Hit& h) {
     if (j.has("selOp")) f.selOp = std::clamp(std::atoi(g.subst(*h.node, j["selOp"].str()).c_str()), 0, 8) - 1;
     f.selLayer = g.subst(*h.node, j["selLayer"].str()) == "u";
     f.editKey = g.subst(*h.node, j["edit"].str()), f.cmdKey = g.subst(*h.node, j["cmd"].str()), f.rateKey = g.subst(*h.node, j["rate"].str());
+    f.readoutKey = g.subst(*h.node, j["readout"].str());
     f.levelDb = j["levelDb"].num(0.752574);
     f.lightU = std::clamp(j["lightU"].num(0), 0.0, 1.0), f.floorU = std::clamp(j["floorU"].num(0), 0.0, 1.0), f.floorUDb = j["floorUDb"].num(-72);
     f.screen = colourField(g, h, "screen", 0xff0b0d13), f.gutter = colourField(g, h, "gutter", 0xff161a22), f.grid = colourField(g, h, "grid", 0xff2b3346);
@@ -1085,8 +1086,106 @@ std::vector<Marker> markersOf(const Fields& f) {
     return {{f.loopStart, f.colLoopStart, 3, 3}, {f.loopEnd, f.colLoopEnd, 3, 3}, {f.start, f.colStart, 1, 3}, {f.end, f.colEnd, 2, 4}};
 }
 
+const char* const kMarkerNames[4] = {"Loop Start", "Loop End", "Start Offset", "End Step"};
+
 void dashed(Canvas& c, int x, int y, int h, uint32_t col, int on, int off, int k) {
     for (int yy = y; yy < y + h; yy += (on + off) * k) fillRect(c, {x, yy, k, std::min(on * k, y + h - yy)}, col);
+}
+
+int markerX(Gui& g, const Geo& e, int param) { return (int)std::lround(e.X(std::clamp(g.state().get((size_t)param), 0.0, (double)std::max(0, e.n - 1)))); }
+
+// The marker a press of the loop tool takes: the nearest within reach, the later one on a tie; -1 none.
+int markerAt(Gui& g, const Fields& f, const Geo& e, int x) {
+    int best = -1, k = 0, dist = g.skin().dp(5);
+    for (auto& m : markersOf(f)) {
+        if (m.param >= 0 && std::abs(x - markerX(g, e, m.param)) <= dist) best = k, dist = std::abs(x - markerX(g, e, m.param));
+        ++k;
+    }
+    return best;
+}
+
+// The selection edge a press of the select tool takes: 1 the end, 0 the start, -1 none.
+int edgeAt(Gui& g, const Shared& st, const Geo& e, int x) {
+    const int reach = g.skin().dp(5);
+    if (st.selFrom < 0) return -1;
+    if (std::abs(x - (int)std::lround(e.X(st.selTo + 1))) <= reach) return 1;
+    return std::abs(x - (int)std::lround(e.X(st.selFrom))) <= reach ? 0 : -1;
+}
+
+// ---- the readout: what the pointer is over, as a line of text ------------------------------------
+
+struct Readout {
+    std::string s;
+    void add(const std::string& part) {
+        if (part.empty()) return;
+        if (!s.empty()) s += " \xc2\xb7 ";   // a middle dot
+        s += part;
+    }
+};
+
+std::string noteOf(double w) {   // named as the gutter names it, C3 being MIDI 60; cents off the nearest
+    static const char* const names[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+    const double m = midiOf(w);
+    const int n = (int)std::lround(m), cents = (int)std::lround((m - n) * 100);
+    if (n < 0 || n > 127) return "";
+    return names[n % 12] + std::to_string(n / 12 - 2) + (cents ? (cents > 0 ? " +" : " ") + std::to_string(cents) + " ct" : "");
+}
+
+void addFreq(Readout& o, const Geo& e, double w) {
+    char s[24];
+    const double hz = hzOf(w);
+    std::snprintf(s, sizeof s, hz >= 1000 ? "%.0f Hz" : "%.1f Hz", hz);
+    o.add(s);
+    o.add(noteOf(w));
+    if (e.freqScale == 3) o.add("word " + std::to_string(std::lround(w)));
+}
+
+void addLevel(Readout& o, const Geo& e, double level) {
+    char s[24];
+    std::snprintf(s, sizeof s, "%.1f dB", level > 0 ? -level * e.levelDb : 0.0);
+    o.add(s);
+    if (e.levelScale == 2) o.add("level " + std::to_string(std::lround(level)));
+}
+
+std::string trackName(int t) { return t == kPitch ? "Pitch" : (layerOf(t) ? "N" : "V") + std::to_string(opOf(t) + 1); }
+
+std::string markerText(Gui& g, const Fields& f, int marker) {
+    return kMarkerNames[marker] + std::string(" ") + std::to_string((int)paramOr(g, markersOf(f)[(size_t)marker].param, 0));
+}
+
+// The frame under the pointer, then what a press takes there (the loop tool's marker, the select tool's
+// edge), or else the track (its frequency and level at the frame), or else the pointer's own value on the
+// lane's scale. tool is -1 in a drag, which takes what it took at the press.
+std::string readoutOf(Gui& g, const Fields& f, const Geo& e, const Shared& st, const Doc& d, const Lane& l, int x, int y, int tool, int track) {
+    Readout o;
+    const bool inPlot = x >= e.plotX && d.frames() > 0;
+    const int i = std::clamp((int)std::lround(e.frameAt(x) - 0.5), 0, std::max(0, d.frames() - 1));
+    const int marker = inPlot ? markerAt(g, f, e, x) : -1, edge = inPlot && tool == Select ? edgeAt(g, st, e, x) : -1;
+    if (inPlot) o.add("Frame " + std::to_string(i));
+    if (tool == Loop && marker >= 0) {
+        o.add(markerText(g, f, marker));
+        return o.s;
+    }
+    if (edge >= 0) {
+        o.add(edge ? "Selection End " + std::to_string(st.selTo) : "Selection Start " + std::to_string(st.selFrom));
+        return o.s;
+    }
+    if (track >= 0 && inPlot) {
+        const int t = freqOf(track);
+        o.add(trackName(t));
+        addFreq(o, e, readValue(d.frame(i), t));
+        if (t != kPitch) addLevel(o, e, readValue(d.frame(i), levelOf(t)));
+    } else if (l.freq) {
+        addFreq(o, e, valueOf(e, 0, curveAt(l, y)));
+    } else {
+        addLevel(o, e, valueOf(e, 8, curveAt(l, y)));
+    }
+    if (marker >= 0) o.add(markerText(g, f, marker));
+    return o.s;
+}
+
+void publish(Gui& g, const Fields& f, const std::string& s) {   // the readout, written when it changes
+    if (!f.readoutKey.empty() && g.state().data(f.readoutKey) != s) g.state().setData(f.readoutKey, s);
 }
 
 double playFrame(Gui& g, const Fields& f, Shared& st) {   // where the playhead is drawn, run on between updates
@@ -1118,10 +1217,14 @@ void drawOverlay(Canvas& c, Gui& g, const Hit& h, const Fields& f, const Geo& e,
         fillRect(c, {xa, stack.y, k, stack.h}, f.selectionEdge);
         fillRect(c, {xb - k, stack.y, k, stack.h}, f.selectionEdge);
     }
+    const int grabbed = st.gest.active ? (st.gest.tool == Loop ? st.gest.marker : -1) : st.hoverMarker;
+    int at = 0;
     for (auto& m : markersOf(f)) {
-        if (m.param < 0) continue;
-        const int x = (int)std::lround(e.X(std::clamp(g.state().get((size_t)m.param), 0.0, (double)std::max(0, e.n - 1))));
-        dashed(c, x, stack.y, stack.h, m.col, m.on, m.off, k);
+        if (m.param >= 0) {   // the one a press takes, three widths wide
+            const int x = markerX(g, e, m.param);
+            for (int dx = at == grabbed ? -k : 0; dx <= (at == grabbed ? k : 0); dx += k) dashed(c, x + dx, stack.y, stack.h, m.col, m.on, m.off, k);
+        }
+        ++at;
     }
     if (st.hoverTrack >= 0 && st.hoverLane >= 0 && st.hoverLane < (int)e.lanes.size() && !st.gest.active) {
         const Lane& l = e.lanes[(size_t)st.hoverLane];
@@ -1266,16 +1369,12 @@ bool down(Gui& g, const Hit& h, Rect r, int x, int y, bool) {
     ge.tool = std::clamp((int)paramOr(g, f.tool, Select), 0, 9);
     ge.f0 = e.frameAt(x);
     ge.c0 = curveAt(*l, y);
-    const int n = st.doc.frames(), reach = g.skin().dp(5);
+    const int n = st.doc.frames();
     int from, to;
     selectionOrAll(st, from, to);
     ge.from = from, ge.to = to;
     if (ge.tool == Loop) {
-        int k = 0, best = -1;
-        for (auto& m : markersOf(f)) {
-            if (m.param >= 0 && std::abs(x - (int)std::lround(e.X(std::clamp(g.state().get((size_t)m.param), 0.0, (double)(n - 1))))) <= reach) best = k;
-            ++k;
-        }
+        const int best = markerAt(g, f, e, x);
         if (best < 0) { ge.active = false; return false; }
         ge.marker = best;
         std::vector<int> ps;
@@ -1289,8 +1388,9 @@ bool down(Gui& g, const Hit& h, Rect r, int x, int y, bool) {
         if (ge.target < 0 || (ge.tool >= Move && isLevel(ge.target))) ge.tool = Select;
     }
     if (ge.tool == Select) {
-        if (st.selFrom >= 0 && std::abs(x - (int)std::lround(e.X(st.selTo + 1))) <= reach) ge.edge = 1, ge.anchor = st.selFrom;
-        else if (st.selFrom >= 0 && std::abs(x - (int)std::lround(e.X(st.selFrom))) <= reach) ge.edge = 0, ge.anchor = st.selTo;
+        ge.edge = edgeAt(g, st, e, x);
+        if (ge.edge == 1) ge.anchor = st.selFrom;
+        else if (ge.edge == 0) ge.anchor = st.selTo;
         else ge.anchor = std::clamp((int)std::lround(ge.f0 - 0.5), 0, n - 1), st.selFrom = st.selTo = ge.anchor;
         g.invalidate(r);
         return true;
@@ -1326,6 +1426,8 @@ void drag(Gui& g, const Hit& h, Rect r, int x, int y, bool shift) {
         const int at = std::clamp((int)std::lround(fr - 0.5), 0, n - 1);
         st.selFrom = std::min(ge.anchor, at), st.selTo = std::max(ge.anchor, at);
         ge.moved = true;
+        const int len = st.selTo - st.selFrom + 1;
+        publish(g, f, "Frames " + std::to_string(st.selFrom) + " to " + std::to_string(st.selTo) + " \xc2\xb7 " + std::to_string(len) + (len == 1 ? " frame" : " frames"));
         g.invalidate(r);
         return;
     }
@@ -1335,6 +1437,7 @@ void drag(Gui& g, const Hit& h, Rect r, int x, int y, bool shift) {
         g.editParam(ms[(size_t)ge.marker].param, v);
         if (ge.marker == 0 && ms[1].param >= 0 && g.state().get((size_t)ms[1].param) < v) g.editParam(ms[1].param, v);   // a loop point pushes the other
         if (ge.marker == 1 && ms[0].param >= 0 && g.state().get((size_t)ms[0].param) > v) g.editParam(ms[0].param, v);
+        publish(g, f, markerText(g, f, ge.marker));
         g.invalidate(r);
         return;
     }
@@ -1342,6 +1445,7 @@ void drag(Gui& g, const Hit& h, Rect r, int x, int y, bool shift) {
     ge.moved = true;
     applyTool(g, f, st, e, fr, curveAt(l, y), shift);
     ++st.previewVersion;
+    publish(g, f, readoutOf(g, f, e, st, st.preview, l, x, y, -1, ge.target));
     g.invalidate(r);
 }
 
@@ -1396,6 +1500,12 @@ void hover(Gui& g, const Hit& h, Rect r, int x, int y) {
         st.hoverTrack = track, st.hoverLane = lane;
         if (l) g.invalidate(l->r);
     }
+    const int marker = l && tool == Loop && x >= e.plotX && st.doc.frames() ? markerAt(g, f, e, x) : -1;
+    if (marker != st.hoverMarker) {
+        st.hoverMarker = marker;
+        g.invalidate(r);
+    }
+    publish(g, f, l && st.doc.frames() ? readoutOf(g, f, e, st, st.doc, *l, x, y, tool, track) : "");
 }
 
 void wheel(Gui& g, const Hit& h, Rect r, int x, int, double notches, bool shift) {

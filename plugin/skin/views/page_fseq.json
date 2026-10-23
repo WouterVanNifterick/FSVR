@@ -551,7 +551,7 @@
    "glowU": "#ffffffff",
    "hover": "#ffffffff",
    "menuStyle": "plain",
-   "tip": "The Fseq's tracks over time, each in the colour of the first operator that follows it (grey when none does) and fainter where quieter, glowing over its bandwidth; the selected operator's track rimmed, which Draw, Line, Move and Scale edit; the pitch in white: the loop in green and amber, the start offset grey, the end red, playback gold. Wheel zooms, Shift+wheel pans, right-click edits"
+   "readout": "live.fseq.readout"
   },
   {
    "type": "plate",
@@ -595,6 +595,13 @@
    "pressOffset": [1, 1],
    "action": {"goto": "fseq_ops", "stack": "fseq_bottom"},
    "tip": "Which operators of the selected part follow the Fseq, and the track each follows"
+  },
+  {
+   "type": "plate",
+   "name": "readout",
+   "rect": [306, 464, 905, 22],
+   "text": {"text": "{data:live.fseq.readout|}", "font": "value_dark_12", "align": "left", "valign": "middle"},
+   "pad": [6, 2, 6, 2]
   },
   {
    "type": "embed",
