@@ -397,8 +397,6 @@ int main() {
     const std::string shown = a.data("live.fseq.doc");   // the list line comes before the load, the document after it
     a.st->setData("fseq.import_audio", wav.u8string());
     CHECK(a.until([&] { return a.lines("fseq.user.list") == 1 && a.data("live.fseq.doc") != shown && !a.data("live.fseq.doc").empty(); }, 20000),
-          "Import Audio made no Fseq (%s)", a.data("fsvr.message").c_str());
-    CHECK(a.until([&] { return a.lines("fseq.user.list") == 1 && a.data("fseq.display") != shown && !a.data("fseq.display").empty(); }, 20000),
           "Import Audio made no Fseq (%s)", a.data("live.message").c_str());
     CHECK(a.is("fseq.bank", 0) && a.is("fseq.user", 1), "the new Fseq is not selected");
     CHECK(a.until([&] { return a.is("fseq.pick", 90) && a.data("fseq.pick.label").rfind("U1 Vowel", 0) == 0; }),
@@ -760,7 +758,7 @@ int main() {
         a.st->setData("live.fseq.edit", "frames 5 1 " + enc(one));
         CHECK(a.until([&] { return a.data("live.fseq.edit").empty(); }), "the edit before the save was not taken");
         a.st->setData("fseq.save", "1");
-        CHECK(a.until([&] { return a.data("fsvr.message").rfind("Saved", 0) == 0; }), "Save Fseq said \"%s\"", a.data("fsvr.message").c_str());
+        CHECK(a.until([&] { return a.data("live.message").rfind("Saved", 0) == 0; }), "Save Fseq said \"%s\"", a.data("live.message").c_str());
         a.set("fseq.pick", 10);
         CHECK(a.until([&] { return a.is("fseq.number", 10); }), "preset 11 did not load");
         a.set("fseq.pick", 90);
