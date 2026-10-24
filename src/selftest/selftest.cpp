@@ -754,6 +754,23 @@ int selftest(Synth& S) {
          n25 > 0 && fabs(s25 / n25 - want) < want * 0.01);
       S.all_off(); init_perf(S.perf); }
 
+    // A fixed operator takes its frequency EG too: A123 Drum Kit 3's kick sweeps on the unit, and rgwan's rig
+    // tracked fixed 1 kHz sines along this ramp to 1% (docs/findings.md 2026-10-25). A fixed 220 Hz carrier at
+    // init +25 has to advance its phase feg_semis(25) above its own step on the first sample. Read off the
+    // operator's phase, not the mix, which carries rand()'s note phase and pan.
+    { init_perf(S.perf); Part& pt = S.perf.part[0]; Voice& V = pt.voice; pt.p[1] = 2; pt.p[4] = 0x10;
+      init_blank_voice(V.raw); uint8_t* op = V.raw + 112;
+      op[1] = 15; op[2] = 0; op[5] |= 0x40; op[22] = 99;
+      op[8] = 50 + 25; op[9] = 50; op[10] = 60; op[11] = 60;
+      decode_voice(V);
+      S.all_off(); S.midi_in(0x90, 60, 100);
+      Chan* c = nullptr; for (auto& x : S.ch) if (x.active && x.part == 0) c = &x;
+      float l, r; S.render(&l, &r, 1); const uint32_t p0 = c ? c->op[0].phase : 0;
+      S.render(&l, &r, 1); const double step = c ? (double)(uint32_t)(c->op[0].phase - p0) : 0;
+      const double want = c ? op_inc32(c->op[0].inc) * pow(2.0, FreqEG::feg_semis(25) / 12) : 1;
+      ck("a fixed operator's frequency EG moves its pitch (A123's kick)", c && fabs(1200 * log2(step / want)) < 30);
+      S.all_off(); init_perf(S.perf); }
+
     // A note-on that takes a channel from a sounding note damps it rather than zeroing it
     // (FUN_00023000: EG stage word to 4 and register 0xFC/FD, the mask out of the one-hot table at
     // 0x35B260). Fill every channel with a sounding note, strike one more, and the displaced channel's

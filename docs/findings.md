@@ -8,6 +8,27 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-25, a fixed-frequency operator takes its frequency EG after all
+
+WouterVanNifterick, on his own unit (PR #62): A123 Drum Kit 3's kick, Nu Kick 3, is all fixed operators with a flat pitch EG and it sweeps down on the unit, where FSVR played it flat and bland. The 2026-09-25 entry below had exempted fixed operators from the frequency EG.
+
+**rgwan's rig settled it** (`FS1R.unlock/captures/2026-10-25-061457-pr62`, front door only: a performance bulk, voice bulks, notes). One fixed sine at 1002.7 Hz on algorithm 1, six strikes per setting at note 72, each strike from silence. The instantaneous frequency off zero crossings, median over the strikes, against the engine with the exemption removed:
+
+| FEG (init, attack, attack time, decay time) | unit at 0.5 / 10 / 30 / 80 ms | engine |
+| --- | --- | --- |
+| flat | 1002.5 / 1002.7 / 1002.7 / 1002.7 | 1002.7 throughout |
+| +25, 0, 20, 50 (`onset-feg`'s own) | 1790 / 1426 / 1003 / 1003 | 1792 / 1432 / 1003 / 1003 |
+| 0, -21, 27, 99 | 984 / 884 / 692 / 623 | 982 / 885 / 690 / 623 |
+| +25, -21, 27, 99 | 1817 / 1620 / 1271 / 689 | 1812 / 1623 / 1270 / 685 |
+| +34, -21, 27, 99 (the kick's op2) | 2516 / 2245 / 1759 / 956 | 2513 / 2244 / 1756 / 952 |
+| a ratio-1 carrier, the kick's op2 FEG | 1306 / 1172 / 917 / 502 | 1307 / 1174 / 918 / 504 |
+
+Every point lands within 1% of the unit, ratio and fixed alike. The ramp needed no change. The exemption alone put five of the six fixed probes hundreds of cents off. On the whole Drum Kit 3 performance at note 36, the 30 ms log spectrogram over the first 330 ms is 2.7 dB rms from the unit's with the EG and 4.6 dB without it. The low partial falls about 146 → 97 → 47 Hz over 30 ms on the unit, and with the EG the engine follows the fall where it used to sit near 67 Hz. The six strikes on the unit agree to 0.1 dB.
+
+**Why 2026-09-25 read flat.** `24_onset`'s voices release at level 99 (eg_l 99, 99, 99, 99), so each segment's first note-on keys a note and the later seven never sound from silence. The manifest's strike times also run about 0.6 s behind the take. The 2026-09-25 tracker read those later, held strikes, which are flat by construction. The first `onset-feg` strike in that same take, at 51.978 s, starts at 1805 Hz and is at 1003 Hz by 30 ms, the same sweep as above.
+
+**Scope.** The three regression cases the exemption moved (perf-towarp, ctrl-freqbias, ctrl-freqbias-off) move back, and those three only, A/B against `main` on one build. `fit_onset.py --check` is gone because it gated the wrong behaviour. The selftest plays a fixed 220 Hz carrier at init +25 and reads its operator phase step on the first sample. It fails with the exemption put back.
+
 ## 2026-10-24, the FS1R turns every frequency into a rate the same way
 
 WouterVanNifterick, on the unit: a voice with a fixed sine at 440.2 Hz and a formant operator whose formant frequency is also 440.2 Hz (both coarse 16, fine 0). Played at A5, the two hold perfectly still against each other. In FSVR they beat, about once every 5 seconds.
@@ -329,6 +350,8 @@ None of these moves a render. `bin/fsvr_console.exe -w` at `8618c17` and after i
 ---
 
 ## 2026-09-25, a fixed-frequency operator gets no frequency EG
+
+**Superseded 2026-10-25:** fixed operators do take the frequency EG. This entry read strikes that never re-keyed (see the 2026-10-25 entry above).
 
 `24_onset`'s `onset-feg` segment was the one isolated subsystem that separated from the unit: **2.54x** its own body at the tick window against the unit's **0.98x**. It turned out not to be a step at all, and the flagged ratio was the analyzer reading a frequency sweep rather than a discontinuity — a carrier sliding down from well above its target has its largest first differences at the start, which is exactly where the window sits. Measuring the thing itself instead settles it.
 
