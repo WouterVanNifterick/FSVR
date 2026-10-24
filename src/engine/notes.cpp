@@ -290,6 +290,36 @@ void Synth::release(Chan& C) {
     fseq_keys();
 }
 
+// FUN_00010384(0): every channel the part holds is freed and damped (FUN_00023000), its filter slot killed,
+// and the part's held keys forgotten, so no key up is owed to a part that may no longer hear it.
+void Synth::silence_part(int part) {
+    for (auto& C : ch) {
+        if (!owned(C) || C.part != part) continue;
+        const int slot = int(&C - ch);
+        if (C.filtered) flt.host(slot).kill(slot & 15);
+        const double damp = C.last + C.damp;
+        C = Chan(); C.part = part; C.damp = damp; C.active = damp != 0.0;
+    }
+    Part& pt = perf.part[part];
+    pt.nheld = 0; pt.lastPitch = 0x53AA;
+    fseq_keys();
+}
+
+// The handlers the firmware runs after a part byte is written, from the part block of its table at flash 0x3E460.
+// Each one that changes who hears what, or how notes are held, silences first.
+void Synth::part_written(int part, int al, int was) {
+    const Part& pt = perf.part[part];
+    switch (al) {
+    case 0x00: for (int p = 0; p < 4; p++) silence_part(p); break;   // Note Reserve, FUN_00020878
+    // Voice Bank: FUN_00021928 only records it, and the mask is rebuilt by the voice select that follows on
+    // the panel (setupPartFromMode, FUN_00020644). rcv() reads the bank live, so off silences here.
+    case 0x01: if (was && !pt.p[1]) silence_part(part); break;
+    case 0x02:                                                        // Program, FUN_0001FE62
+    case 0x03: case 0x04:                                             // Rcv Max, Rcv Ch, FUN_00020644
+    case 0x05: case 0x06: silence_part(part); break;                  // Mono/Poly FUN_000204FE, Priority FUN_00020872
+    }
+}
+
 void Synth::lfo_tick(Chan& C, const Part& pt) {
     const Voice& V = pt.voice; int part = C.part;
     int dly = clampi(V.lfo1delay + pt.p[0x17] - 64, 0, 99), q = 99 - dly;
