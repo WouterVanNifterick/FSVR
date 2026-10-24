@@ -4,7 +4,7 @@
 
 void refresh_ctl(Chan& C, const Voice& V, bool fs) {
     const unsigned char* alg = FS1R_ALG[V.alg];
-    C.f0 = word_hz(C.regPitch + 0x1243 + C.regPM);                 // channel fundamental incl. LFO pitch mod (pms 7)
+    C.f0 = op_hz(op_increment(C.regPitch + 0x1243 + C.regPM));    // channel fundamental incl. LFO pitch mod (pms 7)
     C.fbGain = V.fb ? cal::FEEDBACK * pow(2.0, V.fb - 7) : 0.0;    // INFERRED feedback scale
     for (int o = 0; o < 8; o++) {
         OpState& s = C.op[o]; const OpV& v = V.v[o]; const OpU& u = V.u[o];
@@ -60,12 +60,12 @@ void refresh_ctl(Chan& C, const Voice& V, bool fs) {
         // unvoiced (noise formant) operator
         s.uatt = C.regULevel[o] * LEVEL_DB + am_att(C.regAM, u.ams);
         double nf;
-        if (fs && C.fseqUOp[o]) nf = word_hz(C.fquWord[o]);
-        else if (u.mode == 2 && v.form == 7) nf = word_hz(C.freqWord[o] + C.detW[o]);
+        if (fs && C.fseqUOp[o]) nf = op_hz(op_increment(C.fquWord[o]));
+        else if (u.mode == 2 && v.form == 7) nf = op_hz(op_increment(C.freqWord[o] + C.detW[o]));
         // MEASURED: link-ff on a voiced partner that is not a formant operator reaches register 0x300 as
         // link-fo, not as itself. uv-linkff-sine's image reads mode 1 where the sysex asked for 2.
         else if (u.mode) nf = C.f0;
-        else nf = word_hz(C.ufreqWord[o] + C.ufbW[o] + (C.regFM * u.fms) / 7 + C.vcFreq[o][1]);
+        else nf = op_hz(op_increment(C.ufreqWord[o] + C.ufbW[o] + (C.regFM * u.fms) / 7 + C.vcFreq[o][1]));
         s.nf = nf * fm::exp2(u.transpose / 12.0);
         // MEASURED noise formant, docs/noise.md and cal.h: two unequal digital one-poles on white noise,
         // their coefficients and the band's peak gain read off the tables against the register and the
