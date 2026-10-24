@@ -1,12 +1,14 @@
 // The CLAP plug-in: one product instance on hollow::State, Editor and Processor. clap-wrapper turns
 // this same plug-in into the VST3, the AUv2 and the standalone. entry.cpp exports it.
 #include <clap/clap.h>
+#include <clapwrapper/standalone_features.h>
 #include <hollow/hollow.h>
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -52,6 +54,14 @@ struct Plugin final : Editor::Host {
     const clap_host_t* host;
     const clap_host_params_t* hostParams = nullptr;
     const clap_host_gui_t* hostGui = nullptr;
+    const clap_host_state_t* hostState = nullptr;
+    const clap_wrapper_standalone_features_t* features = nullptr;   // clap-wrapper's standalone, else null
+    // The editor's device lists (Editor::Host::devices): each item's id as last listed, the choice in each
+    // audio list (api, output, input, rate, buffer; an input of "" is none) and the open MIDI inputs. The app
+    // applies a request from its own loop after the call, so until it has, the lists show the request.
+    std::vector<std::string> deviceIds[6];
+    std::string want[5];
+    std::vector<int> midiOn;
     std::shared_ptr<Skin> skin;
     std::unique_ptr<State> state;
     std::unique_ptr<Processor> proc;
@@ -63,10 +73,20 @@ struct Plugin final : Editor::Host {
     std::atomic<bool> processing{false};
     const clap_output_events_t* midiOut = nullptr;   // the current process() call's output, for Processor::sendMidi
     int midiFrames = 0;                              // and its length; events are kept inside it
-    double rate = 44100;                             // from activate, for State::setLoad
+    double rate = 44100;                             // from activate, for State::addLoad
     std::atomic<bool> rescan{false};                 // Processor::paramsChanged, served on the main thread
+    // The host hears once per change since the last save or load that the instance is modified, so it saves
+    // the instance with the project: 0 clean, 1 asked for the main thread, 2 told. A change the processor makes
+    // itself (a browser pick, a program change) otherwise reaches the host only as a value rescan, which no
+    // host takes as an edit, and the project reopens with what it last saved.
+    std::atomic<int> dirty{0};
 
     explicit Plugin(const clap_host_t* h) : host(h) {}
+
+    void checkDirty() {
+        int clean = 0;
+        if (hostState && state->modified() && dirty.compare_exchange_strong(clean, 1)) host->request_callback(host);
+    }
 
     // Processor::sendMidi: short messages as MIDI events, longer ones as sysex, on note-out port 0.
     // The host copies the sysex bytes during try_push, so they need not outlive the call.
@@ -108,8 +128,76 @@ struct Plugin final : Editor::Host {
     void edit(size_t i, double plain) override { push({CLAP_EVENT_PARAM_VALUE, (uint32_t)i, plain}); }
     void endEdit(size_t i) override { push({CLAP_EVENT_PARAM_GESTURE_END, (uint32_t)i, 0}); }
     bool resize(int w, int h) override { return hostGui && hostGui->request_resize(host, (uint32_t)w, (uint32_t)h); }
-    // clap-wrapper's standalone names itself so (standalone_host.cpp, host_get_name).
-    bool standalone() const override { return host->name && std::strcmp(host->name, "CLAP-Wrapper-As-Standalone") == 0; }
+    bool standalone() const override { return features != nullptr; }
+    bool showDevices() override { return features && features->show_audio_midi_configuration_screen(host); }
+
+    bool devices(std::vector<DeviceList>& out) override {
+        clap_wrapper_standalone_audio_status_t st{};
+        if (!features || !features->get_audio_status(host, &st)) return false;
+        const bool pending = st.request_pending;
+        out.assign(6, {});
+        for (auto& v : deviceIds) v.clear();
+        auto add = [&](int k, const std::string& id, const std::string& name, bool on) {
+            if (on) out[(size_t)k].on.push_back((int)deviceIds[k].size());
+            out[(size_t)k].items.push_back(name);
+            deviceIds[k].push_back(id);
+        };
+        for (uint32_t i = 0, n = features->count_audio_apis(host); i < n; ++i) {
+            clap_wrapper_standalone_audio_api_t a{};
+            if (features->get_audio_api(host, i, &a))
+                add(0, a.id, a.name, pending ? want[0] == a.id : (a.flags & CLAP_WRAPPER_STANDALONE_IS_BOUND) != 0);
+        }
+        add(2, "", "None", false);
+        const uint32_t kinds[3] = {CLAP_WRAPPER_STANDALONE_AUDIO_OUTPUT, CLAP_WRAPPER_STANDALONE_AUDIO_INPUT, CLAP_WRAPPER_STANDALONE_MIDI_INPUT};
+        const int lists[3] = {1, 2, 5};
+        for (int j = 0; j < 3; ++j)
+            for (uint32_t i = 0, n = features->count_endpoints(host, kinds[j]); i < n; ++i) {
+                clap_wrapper_standalone_endpoint_t e{};
+                if (!features->get_endpoint(host, kinds[j], i, &e)) continue;
+                const bool bound = (e.flags & CLAP_WRAPPER_STANDALONE_IS_BOUND) != 0;
+                add(lists[j], e.id, e.name, pending && j < 2 ? want[lists[j]] == e.id : bound);
+            }
+        if (out[2].on.empty()) out[2].on.push_back(0);   // no input open
+        auto chosen = [&](int k) { return out[(size_t)k].on.empty() ? std::string() : deviceIds[k][(size_t)out[(size_t)k].on[0]]; };
+        for (int k = 0; k < 3; ++k) want[k] = chosen(k);
+        const char* in = want[2].empty() ? nullptr : want[2].c_str();
+        const uint32_t rate = pending ? (uint32_t)std::strtoul(want[3].c_str(), nullptr, 10) : st.sample_rate;
+        const uint32_t buffer = pending ? (uint32_t)std::strtoul(want[4].c_str(), nullptr, 10) : st.buffer_size;
+        for (uint32_t i = 0, n = features->count_sample_rates(host, want[1].c_str(), in); i < n; ++i) {
+            const uint32_t r = features->get_sample_rate(host, i);
+            add(3, std::to_string(r), std::to_string(r) + " Hz", r == rate);
+        }
+        for (uint32_t i = 0, n = features->count_buffer_sizes(host, want[1].c_str(), in); i < n; ++i) {
+            const uint32_t b = features->get_buffer_size(host, i);
+            add(4, std::to_string(b), std::to_string(b) + " samples", b == buffer);
+        }
+        want[3] = std::to_string(rate);
+        want[4] = std::to_string(buffer);
+        midiOn = out[5].on;
+        return true;
+    }
+
+    // A pick in an audio list asks for the whole setup again with that one changed (a new API or output at
+    // its preferred rate); a MIDI input opens or closes, the others staying as they are.
+    void setDevice(int list, int item) override {
+        if (!features || list < 0 || list > 5 || item < 0 || item >= (int)deviceIds[list].size()) return;
+        if (list == 5) {
+            std::vector<const char*> ids;
+            for (int i = 0; i < (int)deviceIds[5].size(); ++i)
+                if ((std::find(midiOn.begin(), midiOn.end(), i) != midiOn.end()) != (i == item)) ids.push_back(deviceIds[5][(size_t)i].c_str());
+            features->request_midi_bindings(host, CLAP_WRAPPER_STANDALONE_MIDI_INPUT, ids.data(), (uint32_t)ids.size(), false);
+            return;
+        }
+        want[list] = deviceIds[list][(size_t)item];
+        if (list < 2) want[3] = "0";
+        clap_wrapper_standalone_audio_config_t c{};
+        c.api_id = want[0].c_str();
+        c.output_id = want[1].c_str();
+        c.input_id = want[2].empty() ? nullptr : want[2].c_str();
+        c.sample_rate = (uint32_t)std::strtoul(want[3].c_str(), nullptr, 10);
+        c.buffer_size = (uint32_t)std::strtoul(want[4].c_str(), nullptr, 10);
+        features->request_audio_config(host, &c);
+    }
 
     void push(const GuiEvent& e) {
         if (state->hostSlot(e.index) < 0) return;   // host: false params never reach the host
@@ -212,8 +300,8 @@ struct Plugin final : Editor::Host {
             state->peak(pk[0], chans > 1 ? pk[1] : pk[0]);
         }
         midiOut = nullptr;
-        if (p->frames_count)
-            state->setLoad(std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() * rate / p->frames_count);
+        checkDirty();
+        if (p->frames_count) state->addLoad(std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count(), p->frames_count / rate);
         return CLAP_PROCESS_CONTINUE;
     }
 
@@ -236,9 +324,10 @@ struct Plugin final : Editor::Host {
         return true;
     }
 
-    bool save(const clap_ostream_t* s) const {
+    bool save(const clap_ostream_t* s) {
         proc->saving();
         const std::string b = state->save();
+        dirty.store(0);
         for (size_t at = 0; at < b.size();) {
             const int64_t n = s->write(s, b.data() + at, b.size() - at);
             if (n <= 0) return false;
@@ -254,6 +343,7 @@ struct Plugin final : Editor::Host {
             b.append(buf, (size_t)n);
         }
         if (!state->load(b)) return false;
+        dirty.store(0);
         if (hostParams) hostParams->rescan(host, CLAP_PARAM_RESCAN_VALUES);   // the host re-reads every value
         return true;
     }
@@ -289,6 +379,7 @@ const clap_plugin_params_t kParams = {
     [](const clap_plugin_t* p, const clap_input_events_t* in, const clap_output_events_t* out) {
         self(p)->events(in);
         self(p)->drain(out);
+        self(p)->checkDirty();   // flush is what runs while the host is not processing
     },
 };
 
@@ -307,7 +398,14 @@ const clap_plugin_gui_t kGui = {
         return true;
     },
     [](const clap_plugin_t* p) { self(p)->editor.reset(); },
-    [](const clap_plugin_t*, double) { return false; },   // the editor keeps its own integer scale
+    // The standalone's display factor, which the editor draws its chosen scale at; a host's is the host's own
+    // business, so the editor keeps its own scale there.
+    [](const clap_plugin_t* p, double scale) {
+        Plugin* s = self(p);
+        if (!s->standalone() || !s->editor) return false;
+        s->editor->setDisplayScale(scale);
+        return true;
+    },
     [](const clap_plugin_t* p, uint32_t* w, uint32_t* h) {
         const Editor* e = self(p)->editor.get();
         if (!e) return false;
@@ -377,6 +475,8 @@ const clap_plugin_t* create(const clap_host_t* host) {
         Plugin* s = self(p);
         s->hostParams = (const clap_host_params_t*)s->host->get_extension(s->host, CLAP_EXT_PARAMS);
         s->hostGui = (const clap_host_gui_t*)s->host->get_extension(s->host, CLAP_EXT_GUI);
+        s->hostState = (const clap_host_state_t*)s->host->get_extension(s->host, CLAP_EXT_STATE);
+        s->features = (const clap_wrapper_standalone_features_t*)s->host->get_extension(s->host, CLAP_WRAPPER_STANDALONE_FEATURES);
         s->skin = loadSkin();
         s->state = std::make_unique<State>(s->skin ? skinParams(*s->skin) : std::vector<ParamDef>{});
         if (s->skin) applyLearnDefaults(*s->state, *s->skin);
@@ -417,6 +517,8 @@ const clap_plugin_t* create(const clap_host_t* host) {
     c.on_main_thread = [](const clap_plugin_t* p) {
         Plugin* s = self(p);
         if (s->rescan.exchange(false) && s->hostParams) s->hostParams->rescan(s->host, CLAP_PARAM_RESCAN_VALUES);
+        int asked = 1;
+        if (s->hostState && s->dirty.compare_exchange_strong(asked, 2)) s->hostState->mark_dirty(s->host);
     };
     return &c;
 }

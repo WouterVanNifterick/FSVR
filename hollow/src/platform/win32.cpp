@@ -24,7 +24,7 @@ struct PlatformWindow {
     Gui* gui = nullptr;
     bool tracking = false;
     wchar_t high = 0;           // WM_CHAR: the first half of a surrogate pair
-    bool ateKey = false;        // the last key down was ours, so its WM_CHAR / WM_SYSCHAR is ours too
+    bool dropChar = false;      // the last key down was used or passed on, so its WM_CHAR / WM_SYSCHAR goes no further
     bool sentDown[256] = {};    // keys whose press went on to the host, by virtual key: their release goes too
     HWND root = nullptr;        // the standalone's window, while its close asks the GUI first
     WNDPROC rootProc = nullptr; // and its own procedure
@@ -116,10 +116,11 @@ static bool modifierKey(WPARAM wp) {
 // the same problem the same way (juce_WindowsHooks_windows.cpp), and on Windows only: macOS routes keys
 // through the responder chain and X11 through input focus, neither of which a host sits in front of.
 //
-// What is deliberately NOT taken: any key the editor did not use, and the one key it uses without using
-// the message, which is the key text entry is typing with — that one has to go on and become a WM_CHAR,
-// which is the whole of the keystroke there. So the hook removes only keystrokes the editor has acted on,
-// and leaves only the half-used one, whose press the window's own procedure then offers again to no effect.
+// What is deliberately NOT taken: any key the editor did not use. The key text entry is typing with is
+// taken too, but translated first, so its WM_CHAR is already queued for the editor's window; and while the
+// editor wants keys, a WM_CHAR bound for its window goes straight to it. A host that types letters, or
+// runs key commands on them, from its own loop (Live, Cubase) would otherwise eat the character or act on
+// the press, and the entry would get only the few keys the host had no use for.
 struct KeyHook {
     HHOOK hook = nullptr;
     int refs = 0;
@@ -151,16 +152,31 @@ static LRESULT CALLBACK keyHookProc(int code, WPARAM wp, LPARAM lp) {
             Gui& g = *w->gui;
             // Whatever the editor uses the key for is taken from the host, text entry's own keys included:
             // a host that closes the plug-in's window on Escape must not see the Escape that just cancelled
-            // an edit, and the same goes for the Enter that committed one. What is left to go on is the key
-            // whose character text entry is waiting for (charPending), since blanking it would stop the
-            // WM_CHAR that is the whole of the keystroke; its press does nothing twice, so the window's own
-            // procedure offering it again is harmless.
-            if (!g.skin().keys.empty() && offerKey(g, msg.wParam) && !g.charPending()) {
-                keyLog("hook took msg=%04x wp=%02x hwnd=%p", (unsigned)msg.message, (unsigned)msg.wParam, (void*)msg.hwnd);
-                msg = {};                 // the host's loop sees nothing, so no accelerator and no WM_CHAR
+            // an edit, and the same goes for the Enter that committed one. The key whose character text entry
+            // is waiting for (charPending) is translated here, which queues its WM_CHAR for the editor's
+            // window, so the host's loop sees neither the press nor the character.
+            if (!g.skin().keys.empty() && offerKey(g, msg.wParam)) {
+                const bool typing = g.charPending();
+                if (typing) {
+                    TranslateMessage(&msg);
+                    w->dropChar = false;
+                }
+                keyLog("hook took msg=%04x wp=%02x hwnd=%p typing=%d", (unsigned)msg.message, (unsigned)msg.wParam, (void*)msg.hwnd,
+                       (int)typing);
+                msg = {};                 // the host's loop sees nothing, so no accelerator and no second WM_CHAR
                 msg.message = WM_USER;
                 return 0;
             }
+        }
+    } else if (code == HC_ACTION && wp == PM_REMOVE && (msg.message == WM_CHAR || msg.message == WM_SYSCHAR)) {
+        // A character for the editor's window while it wants keys is the editor's, wherever its key went.
+        PlatformWindow* w = windowForMessage(msg.hwnd);
+        if (w && w->gui->wantsKeys()) {
+            keyLog("hook char wp=%04x hwnd=%p", (unsigned)msg.wParam, (void*)msg.hwnd);
+            SendMessageW(msg.hwnd, msg.message, msg.wParam, msg.lParam);
+            msg = {};
+            msg.message = WM_USER;
+            return 0;
         }
     }
     return CallNextHookEx(self, code, wp, lp);
@@ -288,12 +304,13 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         // A key text entry is typing with is ours too, but its character is the whole of what the entry
         // wants, so that one is left to arrive (charPending) rather than taken along with its key.
         const bool used = offerKey(g, wp);
-        w->ateKey = used && !g.charPending();
+        w->dropChar = used && !g.charPending();
         keyLog("key msg=%04x wp=%02x used=%d pending=%d focus=%p", (unsigned)msg, (unsigned)wp, (int)used, (int)g.charPending(),
                (void*)GetFocus());
         if (used) return 0;
         if (forwardKey(w, msg, wp, lp)) {
             if (wp < 256) w->sentDown[wp] = true;   // so its release follows it there
+            w->dropChar = true;                     // and the host types its character from the press
             return 0;
         }
         break;   // not ours and nowhere to send it: DefWindowProc, so Alt+F4 and the system menu still work
@@ -301,9 +318,12 @@ static LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CHAR:
     case WM_SYSCHAR: {
         // The character of a key we used is used too: forwarding it is what beeps and flashes the title bar,
-        // and it would type Shift+1's "!" into the host as well.
-        if (w->ateKey) {
-            w->ateKey = false;
+        // and it would type Shift+1's "!" into the host as well. That of a key we passed on is the host's to
+        // make: the posted press goes through its message loop, whose TranslateMessage types it there, so
+        // forwarding this one too types it twice, and a host that acts on the character acts twice: Space
+        // starts the transport and stops it again.
+        if (w->dropChar) {
+            w->dropChar = false;
             return 0;
         }
         if (!g.wantsKeys()) {   // no text entry: the character is the host's
@@ -556,19 +576,6 @@ void platformOpenUrl(const std::string& url) {
         ShellExecuteW(nullptr, L"open", wide(url).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
 
-// clap-wrapper's standalone window opens its settings from its system menu; the command's id is 0
-// (Menu::Identifier::AudioMidiSettings in windows_standalone.h).
-const bool kAudioSettings = true;
-void platformAudioSettings(PlatformWindow* w) {
-    PostMessageW(GetAncestor(w->hwnd, GA_ROOT), WM_SYSCOMMAND, 0, 0);
-}
-
-// A system command HollowClapWrapperFix.cmake adds to clap-wrapper, which opens the ASIO driver's panel
-// through RtAudio's ASIO SDK; it does nothing while the driver is not ASIO.
-void platformDriverPanel(PlatformWindow* w) {
-    PostMessageW(GetAncestor(w->hwnd, GA_ROOT), WM_SYSCOMMAND, 0x100, 0);
-}
-
 void platformWatchClose(PlatformWindow* w) {
     HWND root = GetAncestor(w->hwnd, GA_ROOT);
     if (!root || root == w->hwnd || w->root) return;
@@ -582,52 +589,6 @@ void platformWatchClose(PlatformWindow* w) {
 void platformCloseApp(PlatformWindow* w) {
     w->closing = true;
     PostMessageW(GetAncestor(w->hwnd, GA_ROOT), WM_CLOSE, 0, 0);
-}
-
-// The settings window clap-wrapper keeps hidden until its system menu shows it: its comboboxes and the
-// MIDI list box are children with the ids 0 to 5 (Settings::Identifier in windows_standalone.h), and a
-// change reaches its WM_COMMAND handler as the control's own notification would, so the app applies and
-// saves it as when the window is used by hand.
-static HWND settingsWindow() {
-    HWND found = nullptr;
-    EnumThreadWindows(GetCurrentThreadId(), [](HWND h, LPARAM lp) -> BOOL {
-        wchar_t t[64] = L"";
-        if (!GetWindowTextW(h, t, 64) || std::wcscmp(t, L"Audio/MIDI Settings") != 0) return TRUE;
-        *(HWND*)lp = h;
-        return FALSE;
-    }, (LPARAM)&found);
-    return found;
-}
-
-bool platformDevices(PlatformWindow*, std::vector<DeviceList>& out) {
-    HWND s = settingsWindow();
-    if (!s) return false;
-    out.assign(6, {});
-    for (int k = 0; k < 6; ++k) {
-        HWND c = GetDlgItem(s, k);
-        if (!c) return false;
-        bool list = k == 5;
-        int n = (int)SendMessageW(c, list ? LB_GETCOUNT : CB_GETCOUNT, 0, 0);
-        for (int i = 0; i < n; ++i) {
-            int len = (int)SendMessageW(c, list ? LB_GETTEXTLEN : CB_GETLBTEXTLEN, i, 0);
-            std::wstring t((size_t)std::max(len, 0) + 1, L'\0');
-            SendMessageW(c, list ? LB_GETTEXT : CB_GETLBTEXT, i, (LPARAM)&t[0]);
-            t.resize(std::wcslen(t.c_str()));
-            out[(size_t)k].items.push_back(narrow(t));
-            if (list && SendMessageW(c, LB_GETSEL, i, 0) > 0) out[(size_t)k].on.push_back(i);
-        }
-        int sel = list ? -1 : (int)SendMessageW(c, CB_GETCURSEL, 0, 0);
-        if (sel >= 0) out[(size_t)k].on.push_back(sel);
-    }
-    return true;
-}
-
-void platformSetDevice(PlatformWindow*, int list, int item) {
-    HWND s = settingsWindow(), c = s ? GetDlgItem(s, list) : nullptr;
-    if (!c) return;
-    if (list == 5) SendMessageW(c, LB_SETSEL, SendMessageW(c, LB_GETSEL, item, 0) > 0 ? FALSE : TRUE, item);
-    else if (SendMessageW(c, CB_SETCURSEL, item, 0) == CB_ERR) return;
-    SendMessageW(s, WM_COMMAND, MAKEWPARAM(list, list == 5 ? LBN_SELCHANGE : CBN_SELCHANGE), (LPARAM)c);
 }
 
 // The common dialogs: a filter of "Name (*.a;*.b)" then "*.a;*.b" per type, a save's extension the first type's first.

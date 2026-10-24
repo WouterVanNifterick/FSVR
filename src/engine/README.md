@@ -6,7 +6,7 @@
 |---|---|
 | `synth.h` | `struct Synth`: the performance, the 32 channels, the filter and effect sections, and every engine method's declaration |
 | `scales.h` | the firmware's byte-to-register scales: velocity, key tracking, pan, the 0..99 to 0..127 conversions |
-| `notes.cpp` | note on and off, channel allocation, operator setup, pitch, portamento, the pitch EG, LFO1, the 192.3 Hz tick, the filter latch |
+| `notes.cpp` | note on and off, channel allocation, operator setup, pitch, portamento, the pitch EG, LFO1, the 192.3 Hz tick, the filter latch, and what a part byte written does to the notes (`part_written`, `silence_part`) |
 | `controllers.cpp` | the eight controller sets, the three scalers and the 48 destinations |
 | `fseq.cpp` | formant sequence playback and MIDI clock |
 | `midi.cpp` | MIDI in, controllers, RPN/NRPN, sysex replies and dumps |

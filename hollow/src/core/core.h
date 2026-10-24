@@ -336,6 +336,7 @@ public:
     std::string closeModal;                        // skin.json "close": the standalone's close asks this modal
     Cond closeIf;                                  // first, while this holds
     std::string settingsView;                      // skin.json "standalone": its audio and MIDI settings as a modal
+    int icon = -1;                                 // and the app window's icon, where the platform sets one (Linux)
     std::vector<Binding> keys;                     // skin.json "keys": keyboard shortcuts, in the order given
     // skin.json "steppers": a number drawn on one of these plates gets a down button at its left end and an
     // up button at its right, each `width` px wide; the images are two tiles, at rest and held.
@@ -416,20 +417,6 @@ void platformOpenUrl(const std::string& url);
 // Windows only, since its hosts are the ones that keep the keyboard; elsewhere 0, and the character is read
 // as the key as before.
 unsigned platformKeyChar(unsigned codepoint, bool* shift);
-// The standalone app's own audio and MIDI settings window (clap-wrapper's); kAudioSettings is false
-// where the platform's standalone has none.
-extern const bool kAudioSettings;
-void platformAudioSettings(PlatformWindow* w);
-// The audio driver's own control panel, where the standalone has one: an ASIO driver's, on Windows.
-void platformDriverPanel(PlatformWindow* w);
-// Its settings read out of that window, for a modal of the skin's: the audio API, output, input, sample
-// rate, buffer size (each one choice) and the MIDI inputs (any of them). False where it cannot be read.
-struct DeviceList {
-    std::vector<std::string> items;
-    std::vector<int> on;          // the chosen items
-};
-bool platformDevices(PlatformWindow* w, std::vector<DeviceList>& out);
-void platformSetDevice(PlatformWindow* w, int list, int item);   // a choice, or the MIDI inputs: flips the item
 // The standalone's window asks Gui::closeRequested before it closes; platformCloseApp closes it without asking.
 void platformWatchClose(PlatformWindow* w);
 void platformCloseApp(PlatformWindow* w);
@@ -491,6 +478,8 @@ public:
     int height() const { return h_; }
     int scale() const { return scale_; }         // pixel repeats from canvas to window (1 for a skin with "scales")
     double zoom() const { return zoom_; }        // the skin's scale the canvas is drawn at
+    double picked() const { return chosenScale_; }      // the scale chosen, before the display's factor
+    void setDisplayScale(double f);
     void setScale(double s);                     // one of the skin's "scales", else 1 to 4 pixel repeats
     std::string uiJson() const;
     void applyUi(const std::string& json, bool withScale = true);   // withScale: its "scale" too
@@ -533,7 +522,7 @@ public:
     Rect rectOf(const Node& n, int i) const;
     bool pressed(const Hit& h) const { return live(press_) && press_ == h; }
     bool live(const Hit& h) const { return h.node && h.gen == gen_; }
-    bool standalone() const { return kAudioSettings && host_ && host_->standalone(); }   // the app's settings are ours to open
+    bool standalone() const { return host_ && host_->standalone(); }   // the app's settings are ours to open (Editor::Host::devices)
     bool closeRequested();                       // the standalone's window is closing: false when a modal asks first
     void dismiss();                              // closes the modal, as Escape would: a popup's window closing
     void closePopup();                           // a modal's own window goes (the editor's window is closing)
@@ -596,6 +585,8 @@ private:
     const Skin* base_;                           // the skin at 1x
     std::shared_ptr<Skin> zoomed_;
     double zoom_ = 1;
+    double chosenScale_ = 1;                     // the scale chosen (GUI Scale), what is saved and shown; drawn is the nearest to
+    double display_ = 1;                         // it times the display's own factor, which only the standalone passes on
     State& state_;
     Editor::Host* host_;
     std::shared_ptr<Skin> owned_;
@@ -648,6 +639,7 @@ private:
     bool closing_ = false;                       // the standalone closes without asking
     double deviceSent_[6] = {-1, -1, -1, -1, -1, -1};   // the settings view: each device param as last read
     bool devicesShown_ = false;                          // the settings view was in sight at the last tick
+    Time devicesRead_{};                                 // and when it was last read
     int stepDir_ = 0;                            // a number's stepper held: -1 down, 1 up
     const Skin::Stepper* stepperOf(const Node& n, int i) const;
     void stepNumber(const Hit& h, int dir);      // one step of the param (or a hundredth of a continuous one)

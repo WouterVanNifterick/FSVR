@@ -871,7 +871,7 @@ int Gui::buttonValue(const Node& n, int i) const {
          : w.source == Widget::MidiIn || w.source == Widget::Modified ? sourceValue(w) == "1"
          : w.action.type == Action::Goto || w.action.type == Action::Set ? active(n, i)
          : w.action.type == Action::Value ? n.w[i].param >= 0 && state_.get(n.w[i].param) == w.action.amount
-         : w.action.type == Action::Scale && w.action.amount > 0 ? std::fabs(w.action.amount - (base_->scales.empty() ? scale_ : zoom_)) < 1e-9
+         : w.action.type == Action::Scale && w.action.amount > 0 ? std::fabs(w.action.amount - chosenScale_) < 1e-9
          : w.action.type == Action::Step ? 0 : index(n, i);
 }
 
@@ -883,7 +883,7 @@ std::string Gui::sourceValue(const Widget& w) const {
     case Widget::MidiIn: return Clock::now() < midiUntil_ ? "1" : "0";
     case Widget::Modified: return state_.modified() ? "1" : "0";
     case Widget::Voices: return state_.voices() < 0 ? "" : formatInt(w.format.empty() ? "%d" : w.format, state_.voices());
-    case Widget::Scale: return (base_->scales.empty() ? std::to_string(scale_) : formatNumber("%g", zoom_)) + "x";
+    case Widget::Scale: return formatNumber("%g", chosenScale_) + "x";
     default: return "";
     }
 }
@@ -1367,11 +1367,10 @@ void Gui::runAction(Node& n, int i, const Action& action) {
         if (a.target == "close") {
             closing_ = true;
             platformCloseApp(window);
-        } else if (!skin_->settingsView.empty() && readDevices()) {
-            if (!settingsShown(root_)) setModal(skin_->settingsView);
-            else { platformDriverPanel(window); invalidateAll(); }   // already in sight: the driver's own panel, and read again
+        } else if (!skin_->settingsView.empty() && !settingsShown(root_) && readDevices()) {
+            setModal(skin_->settingsView);
         } else {
-            platformAudioSettings(window);
+            host_->showDevices();   // the app's own window, with the ASIO driver's panel: the skin's view is in sight or there is none
         }
         return;
     case Action::Modal:   // text data first (what the modal is for), then the view, or "" to close it
@@ -1829,8 +1828,10 @@ void Gui::rightUp(int x, int y, bool shift) {
     if (w.kind == Kind::Custom && w.ops && w.ops->right) w.ops->right(*this, h, rectOf(*h.node, h.i), x, y, shift, true);
     else if (w.kind == Kind::List && w.json.has("contextRow")) {   // the row it is for, as text data, then its menu
         int row = listRowAt(h, y);
-        if (row < 0) return;
-        const std::vector<std::string> cells = listModel(*h.node, h.i)[(size_t)row].cells;
+        // The model is built again here, and the processor may have shortened the list since the rows were counted.
+        const auto model = listModel(*h.node, h.i);
+        if (row < 0 || (size_t)row >= model.size()) return;
+        const std::vector<std::string> cells = model[(size_t)row].cells;
         std::string v = std::to_string(row);
         for (auto& c : cells) v += "\t" + c;
         state_.setData(subst(*h.node, w.json["contextRow"].str()), v);
@@ -2068,15 +2069,18 @@ bool Gui::keyDown(Key k, bool shift, bool ctrl, bool alt, unsigned ch, bool from
         return true;
     }
     if (!editing_on_) {
-        if (!live(listFocus_)) {
-            // Nothing in the editor owns the keyboard, so the skin's shortcuts get the key; a modal keeps
-            // them to itself, since its own controls are what the keyboard is for while it is up.
-            if (modalShown_.empty() && !isPopup_) return runKey(k, ch, shift, ctrl, alt, fromHost);
-            if (k == KeyEscape) dismiss();   // Escape closes a modal, as its Cancel would
+        // A list with a selected row keeps the named keys, the ones that act on a selection, though only
+        // Escape (which lets go) and a MIDI map's Delete do anything yet. A key that types is no use to it and
+        // goes on as if no list had the keyboard, so Space still reaches the host's transport.
+        if (live(listFocus_) && k != KeyNone) {
+            if (k == KeyEscape) listFocus_ = {};
+            else if (k == KeyDelete && wid(listFocus_).source == Widget::MidiMap) listAction(listFocus_, Action{Action::MidiMap, "remove"});
             return true;
         }
-        if (k == KeyEscape) listFocus_ = {};
-        else if (k == KeyDelete && wid(listFocus_).source == Widget::MidiMap) listAction(listFocus_, Action{Action::MidiMap, "remove"});
+        // The skin's shortcuts get the key; a modal keeps them to itself, since its own controls are what the
+        // keyboard is for while it is up.
+        if (modalShown_.empty() && !isPopup_) return runKey(k, ch, shift, ctrl, alt, fromHost);
+        if (k == KeyEscape) dismiss();   // Escape closes a modal, as its Cancel would
         return true;
     }
     Edit& e = edit_;
@@ -2443,7 +2447,7 @@ void Gui::scaleMenu(Rect at) {
         MenuEntry e;
         e.label = formatNumber("%g", scales[i]) + "x";
         e.id = (int)i + 1;
-        e.current = scales[i] == (base_->scales.empty() ? scale_ : zoom_);
+        e.current = scales[i] == chosenScale_;
         menu.push_back(e);
     }
     openMenu(std::move(menu), at, "", [this, scales](int id) {
@@ -2885,20 +2889,35 @@ void Gui::resizeWindow() {
 }
 
 // A skin with "scales" is loaded again at the one nearest s and drawn at that size; any other is drawn at
-// 1x and shown at s (1 to 4) pixel repeats.
+// 1x and shown at s (1 to 4) pixel repeats. In the standalone what is drawn is the nearest to s times the
+// display's factor, so 1x on a 200% display is as large as on a 100% one; s stays the choice.
 void Gui::setScale(double s) {
     if (base_->scales.empty()) {
-        int k = std::clamp((int)std::lround(s), 1, 4);
-        if (k == scale_) return;
+        const double was = chosenScale_;
+        chosenScale_ = std::clamp((int)std::lround(s), 1, 4);
+        int k = std::clamp((int)std::lround(chosenScale_ * display_), 1, 4);
+        if (k == scale_) {
+            if (chosenScale_ != was) { saveUi(); invalidateAll(); }
+            return;
+        }
         scale_ = k;
         resizeWindow();
         saveUi();
         return;
     }
-    double z = base_->scales[0];
-    for (double c : base_->scales)
-        if (std::fabs(c - s) < std::fabs(z - s)) z = c;
-    if (z == zoom_) return;
+    auto nearest = [&](double v) {
+        double z = base_->scales[0];
+        for (double c : base_->scales)
+            if (std::fabs(c - v) < std::fabs(z - v)) z = c;
+        return z;
+    };
+    const double was = chosenScale_;
+    chosenScale_ = nearest(s);
+    double z = nearest(chosenScale_ * display_);
+    if (z == zoom_) {
+        if (chosenScale_ != was) { saveUi(); invalidateAll(); }
+        return;
+    }
     std::string ui = uiJson(), err;
     auto old = std::move(zoomed_);   // the tree still points into it until applyUi rebuilds
     zoomed_ = z == 1 ? nullptr : scaledSkin(*base_, z, &err);
@@ -2908,6 +2927,13 @@ void Gui::setScale(double s) {
     applyUi(ui, false);
     resizeWindow();
     saveUi();
+}
+
+// The display's own factor (the standalone's DPI over 96 on Windows): the chosen scale is drawn again for it.
+void Gui::setDisplayScale(double f) {
+    if (f <= 0 || f == display_) return;
+    display_ = f;
+    setScale(chosenScale_);
 }
 
 void Gui::writeEmbeds(const Node& n, std::string& o) const {
@@ -2946,7 +2972,7 @@ void Gui::writeScroll(const Node& n, std::string& o) const {
 }
 
 std::string Gui::uiJson() const {
-    std::string o = "{\"scale\":" + (base_->scales.empty() ? std::to_string(scale_) : formatNumber("%g", zoom_)) + ",\"vars\":";
+    std::string o = "{\"scale\":" + formatNumber("%g", chosenScale_) + ",\"vars\":";
     writeVars(vars_, o);
     o += ",\"embeds\":{";
     writeEmbeds(root_, o);
@@ -2965,7 +2991,7 @@ void Gui::saveUi() {
 
 void Gui::applyUi(const std::string& json, bool withScale) {
     Json j;
-    double scale = base_->scales.empty() ? scale_ : zoom_;
+    double scale = chosenScale_;
     vars_ = skin_->vars;
     if (parseJson(json, j) && j.type == Json::Object) {
         scale = j["scale"].num(scale);
@@ -3052,6 +3078,8 @@ bool Gui::openPopup(const std::string& view) {
     p.isPopup_ = true;
     p.zoomed_ = zoomed_;
     p.zoom_ = zoom_;
+    p.chosenScale_ = chosenScale_;
+    p.display_ = display_;
     p.scale_ = scale_;
     p.skin_ = skin_;
     std::string ui = "{\"vars\":{";
@@ -3079,13 +3107,14 @@ bool Gui::closeRequested() {
     return false;
 }
 
-// The settings modal's lists and params from the app's settings window: each list's items as lines of
-// text data "standalone.<list>.items", its choice in the param "standalone.<list>"; the MIDI inputs' lines
-// carry a second field, "1" for an open input and "0" for a closed one, and a pick of one (the param at
-// 1 + its row) flips it.
+// The settings modal's lists and params from the app's audio and MIDI setup (Editor::Host::devices): each
+// list's items as lines of text data "standalone.<list>.items", its choice in the param "standalone.<list>";
+// the MIDI inputs' lines carry a second field, "1" for an open input and "0" for a closed one, and a pick of
+// one (the param at 1 + its row) flips it.
 bool Gui::readDevices() {
+    devicesRead_ = std::chrono::steady_clock::now();
     std::vector<DeviceList> lists;
-    if (!window || !platformDevices(window, lists) || lists.size() < 6) return false;
+    if (!window || !host_ || !host_->devices(lists) || lists.size() < 6) return false;
     for (int k = 0; k < 6; ++k) {
         const DeviceList& l = lists[(size_t)k];
         std::string items;
@@ -3113,7 +3142,7 @@ bool Gui::settingsShown(const Node& n) const {
 }
 
 // While the settings view shows: it is read when it comes into sight, a choice made there goes to the
-// app's settings window, and everything is read back, since a new API or device changes what the others offer.
+// app's setup, and everything is read back, since a new API or device changes what the others offer.
 void Gui::syncDevices() {
     const bool shown = window && !skin_->settingsView.empty() && (settingsShown(root_) || (isPopup_ && rootName_ == skin_->settingsView));
     if (shown != devicesShown_) {
@@ -3126,10 +3155,12 @@ void Gui::syncDevices() {
         int p = state_.indexOf(std::string("standalone.") + kDevices[k]);
         if (p < 0 || state_.get((size_t)p) == deviceSent_[k]) continue;
         int item = (int)std::lround(state_.get((size_t)p)) - (k == 5 ? 1 : 0);
-        if (item >= 0) platformSetDevice(window, k, item);
+        if (item >= 0) host_->setDevice(k, item);
         readDevices();
         return;
     }
+    // The app applies a request from its own loop (a new API's devices list then), and devices come and go.
+    if (std::chrono::steady_clock::now() - devicesRead_ > std::chrono::seconds(1)) readDevices();
 }
 
 // A new skin at 1x (live reload); a GUI at another scale loads it again at that scale.
@@ -3190,10 +3221,15 @@ void Editor::detach() {
 
 int Editor::width() const { return impl_->gui.width() * impl_->gui.scale(); }
 int Editor::height() const { return impl_->gui.height() * impl_->gui.scale(); }
-double Editor::scale() const { return impl_->gui.skin().scales.empty() ? impl_->gui.scale() : impl_->gui.zoom(); }
+double Editor::scale() const { return impl_->gui.picked(); }
 void Editor::setScale(double s) {
     if (impl_->gui.window) platformHold(impl_->gui.window, true);
     impl_->gui.setScale(s);
+    if (impl_->gui.window) platformHold(impl_->gui.window, false);
+}
+void Editor::setDisplayScale(double f) {
+    if (impl_->gui.window) platformHold(impl_->gui.window, true);
+    impl_->gui.setDisplayScale(f);
     if (impl_->gui.window) platformHold(impl_->gui.window, false);
 }
 
@@ -3215,6 +3251,9 @@ bool Editor::key(Key k, unsigned character, bool shift, bool ctrl, bool alt) {
     }
     if (impl_->gui.window) platformHold(impl_->gui.window, true);
     const bool used = impl_->gui.keyDown(k, shift, ctrl, alt, ch, true);
+    // No WM_CHAR follows a key the host offered here, since the host kept the keyboard: the character it
+    // reported is the one text entry is waiting for.
+    if (used && impl_->gui.charPending()) impl_->gui.keyChar(character);
     if (impl_->gui.window) platformHold(impl_->gui.window, false);
     keyLog("host key char=%u ch=%c key=%d alt=%d ctrl=%d shift=%d used=%d", character, ch ? (char)ch : '.', (int)k, (int)alt, (int)ctrl,
            (int)shift, (int)used);

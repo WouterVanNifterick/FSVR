@@ -11,6 +11,8 @@ const double DAMP_K = exp(-1.0 / (cal::DAMP_MS * 0.001 * SR));
 
 struct Chan {
     bool active = false; int part = 0, note = 0, vel = 0; bool held = false, sustained = false; uint32_t age = 0;
+    int chn = 0;               // the MIDI channel that keyed it: a part on a range of channels bends each note by its own
+
     // Ours: a channel whose carriers and noise are over stops rendering (render_chan). quiet counts the
     // zero samples that decide it, and freezeLeft is the samples until its last envelope is done, once
     // that is arithmetic, so the allocator sees it freed on the same sample it would have been.

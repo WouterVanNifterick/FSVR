@@ -36878,56 +36878,56 @@
   "id": "browse.bank",
   "name": "Browse Bank",
   "min": 0,
-  "max": 4096,
-  "steps": 4096,
+  "max": 1048576,
+  "steps": 1048576,
   "host": false
  },
  {
   "id": "browse.perf",
   "name": "Browse Performance",
   "min": 0,
-  "max": 16384,
-  "steps": 16384,
+  "max": 1048576,
+  "steps": 1048576,
   "host": false
  },
  {
   "id": "browse.fseq",
   "name": "Browse Fseq",
   "min": 0,
-  "max": 16384,
-  "steps": 16384,
+  "max": 1048576,
+  "steps": 1048576,
   "host": false
  },
  {
   "id": "browse.voice.p1",
   "name": "Browse Voice P1",
   "min": 0,
-  "max": 16384,
-  "steps": 16384,
+  "max": 1048576,
+  "steps": 1048576,
   "host": false
  },
  {
   "id": "browse.voice.p2",
   "name": "Browse Voice P2",
   "min": 0,
-  "max": 16384,
-  "steps": 16384,
+  "max": 1048576,
+  "steps": 1048576,
   "host": false
  },
  {
   "id": "browse.voice.p3",
   "name": "Browse Voice P3",
   "min": 0,
-  "max": 16384,
-  "steps": 16384,
+  "max": 1048576,
+  "steps": 1048576,
   "host": false
  },
  {
   "id": "browse.voice.p4",
   "name": "Browse Voice P4",
   "min": 0,
-  "max": 16384,
-  "steps": 16384,
+  "max": 1048576,
+  "steps": 1048576,
   "host": false
  },
  {
@@ -37131,8 +37131,8 @@
   "id": "save.bank",
   "name": "Save Bank",
   "min": 0,
-  "max": 4096,
-  "steps": 4096,
+  "max": 1048576,
+  "steps": 1048576,
   "host": false
  },
  {

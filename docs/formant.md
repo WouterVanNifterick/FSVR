@@ -77,6 +77,8 @@ That third fact tidied the level constant as well. `cal::FORM_LEVEL` had an ad-h
 
 `04_formant_3` goes from 3.05 dB of level error and 16.89 dB of spectrum error to **0.30 and 1.03**.
 
+**2026-10-20: odd and res are read by phase.** The grain trains above are now the steady state of a window and a carrier read off the operator's own phase, each with the modulation added to its phase word, which is how Yamaha's patent for the chip's forms builds them (US5610354, FIG. 11, adders 42a/42b and 45a/45b). With no modulator they are the same lines; against `04_formant_3` the strongest peak's error over the 22 odd and res segments falls from 1.51 to 0.57 dB, since the grains' sub-sample retrigger smeared the high res groups 2 to 3 dB low where the unit's peak is flat. A modulator now moves the window as well as the carrier, and a fixed operator at 0 Hz shapes what modulates it where the grains, waiting on an accumulator that never moved, passed nothing. That part is the patent's, not a measurement: no take drives these forms with a modulator or at 0 Hz yet (`docs/findings.md` 2026-10-20).
+
 ## Which moved the filter loss again
 
 `cal::FLT_LOSS` has now been measured three times and it was wrong twice for reasons outside the filter.

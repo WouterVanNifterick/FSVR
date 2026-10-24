@@ -895,7 +895,8 @@
   "if": "gui.edited"
  },
  "standalone": {
-  "settings": "options_audio"
+  "settings": "options_audio",
+  "icon": "app_icon"
  },
  "keys": [
   {

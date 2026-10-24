@@ -15,15 +15,19 @@ int Synth::ccSource(int cc) const {
 void Synth::set_source(Part& pt, int slot, int v) {
     pt.src[slot] = (SRC_RAW & (1 << slot)) ? v : ((v - 64) * 2 == 126 ? 127 : (v - 64) * 2);
     fx_controls((int)(&pt - perf.part));
+    ctrl_write((int)(&pt - perf.part));
 }
 
+// Parts 1 and 2 hear every channel from Rcv Ch to Rcv Max (Part::rcvMax). Preset C's guitar performances
+// are set so, 1 to 6, a string to a channel, and heard only the first.
 bool Synth::part_listens(int p, int chn) const {
     int rc = perf.part[p].rcv();
     if (rc == 0x7F) return false;
     if (forceChannel >= 0) return chn == forceChannel;
     int pc = perfChannel();
     if (rc == 0x10) return pc == 0x10 || (pc != 0x7F && chn == pc);
-    return rc == chn;
+    const int mx = perf.part[p].rcvMax(p);
+    return mx >= 0 ? chn >= rc && chn <= mx : rc == chn;
 }
 
 void Synth::midi_in(int st, int d1, int d2) {
@@ -41,13 +45,15 @@ void Synth::midi_in(int st, int d1, int d2) {
         if (!part_listens(p, chn)) continue;
         Part& pt = perf.part[p];
         switch (st) {
-        case 0x90: if (d2) { note_on(p, d1, d2); fseq_keys(); break; }   // velocity 0 falls through
+        case 0x90: if (d2) { noteChn = chn; note_on(p, d1, d2); fseq_keys(); break; }   // velocity 0 falls through
         case 0x80: note_off(p, d1); fseq_keys(); break;
         case 0xA0: set_source(pt, SRC_PAT, d2); break;
         case 0xD0: set_source(pt, SRC_CAT, d1); break;
         // 0x15B80: the bend word keeps the LSB's top four bits, and the source gets it >> 3, -128..127, raw
         // (FUN_00014AD0 with controller 0xE0).
-        case 0xE0: pt.bend = (d2 - 64) * 16 + (d1 >> 3); pt.bendLsb = bend14 ? d1 : 0; set_source(pt, SRC_PB, pt.bend >> 3); break;
+        case 0xE0:
+            pt.bend = pt.bendAt[chn] = (d2 - 64) * 16 + (d1 >> 3); pt.bendLsb = pt.bendLsbAt[chn] = bend14 ? d1 : 0;
+            set_source(pt, SRC_PB, pt.bend >> 3); break;
         case 0xC0: if (rom_ready(rom) && sys[0x13] && pt.p[1] && sys[8]) { pt.p[2] = (uint8_t)d1; rom_voice(*rom, bank_voice_index(pt.p[1], d1), pt.voice); } break;
         case 0xB0: control_change(p, d1, d2); break;
         }
@@ -64,29 +70,31 @@ void Synth::control_change(int p, int cc, int v) {
     case 0: if (sys[0x12]) bankMsb = v; break;
     case 32: if (sys[0x12] && bankMsb == 0x3F) { if (v <= 0x0B) pt.p[1] = (uint8_t)(v + 1); else if (v >= 0x40 && v <= 0x43) perfBank = v; } break;
     case 6: data_entry(p, v); break;
-    case 7: pt.p[0x0B] = (uint8_t)v; break;
+    // The CC handlers write their bytes through FUN_00030796's ordinary path (cc_007, cc_074, cc_091 take it
+    // with a last argument of 0), so each is an edit and moves the base the controller sets add to (ctl_edit).
+    case 7: pt.p[0x0B] = (uint8_t)v; pt.ctl_edit(0x0B); break;
     case 11: pt.expr = std::max((int)pt.p[0x2C], std::min(254, v * 2)); break;
     case 64: set_sustain(p, v >= 64); break;
     case 65: pt.p[0x24] = (uint8_t)((pt.p[0x24] & 2) | (v >= 64)); break;
     case 5: pt.p[0x25] = (uint8_t)v; break;
-    case 10: pt.p[0x0E] = (uint8_t)std::max(1, v); break;
+    case 10: pt.p[0x0E] = (uint8_t)std::max(1, v); pt.ctl_edit(0x0E); break;
     // The five sound controllers and the two sends, read out of the firmware's own per-CC handler
     // table at flash 0x3DA04: every entry that is not the ignore stub at 0x151C0 writes one part
     // parameter, and the handler's immediate is the address low it writes to. 71 -> 0x19, 72 ->
     // 0x1C, 73 -> 0x1A, 74 -> 0x18, 91 -> 0x13, 93 -> 0x12. The MIDI View screens in the EPROM
     // print the same pairs: RevSend "Bn 5B", VarSend "Bn 5D", Filter "Bn 4A".
-    case 71: pt.p[0x19] = (uint8_t)v; break;    // filter resonance
-    case 72: pt.p[0x1C] = (uint8_t)v; break;    // EG release time
-    case 73: pt.p[0x1A] = (uint8_t)v; break;    // EG attack time
-    case 74: pt.p[0x18] = (uint8_t)v; break;    // filter cutoff
-    case 91: pt.p[0x13] = (uint8_t)v; break;    // reverb send
-    case 93: pt.p[0x12] = (uint8_t)v; break;    // variation send, not 94
+    case 71: pt.p[0x19] = (uint8_t)v; pt.ctl_edit(0x19); break;    // filter resonance
+    case 72: pt.p[0x1C] = (uint8_t)v; pt.ctl_edit(0x1C); break;    // EG release time
+    case 73: pt.p[0x1A] = (uint8_t)v; pt.ctl_edit(0x1A); break;    // EG attack time
+    case 74: pt.p[0x18] = (uint8_t)v; pt.ctl_edit(0x18); break;    // filter cutoff
+    case 91: pt.p[0x13] = (uint8_t)v; pt.ctl_edit(0x13); break;    // reverb send
+    case 93: pt.p[0x12] = (uint8_t)v; pt.ctl_edit(0x12); break;    // variation send, not 94
     case 98: pt.rpnL = v; pt.nrpnSel = true; break;
     case 99: pt.rpnM = v; pt.nrpnSel = true; break;
     case 100: pt.rpnL = v; pt.nrpnSel = false; break;
     case 101: pt.rpnM = v; pt.nrpnSel = false; break;
     case 120: all_off(); break;
-    case 121: pt.reset_ctl(); fx_controls(p); break;
+    case 121: pt.reset_ctl(); fx_controls(p); ctrl_write(p); break;
     case 123: all_release(); break;
     case 126: pt.p[5] = 0; break;
     case 127: pt.p[5] = 1; break;

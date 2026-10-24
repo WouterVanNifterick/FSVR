@@ -240,6 +240,7 @@ public:
         pushModel();
         loadsSeen = st.loads();
         lib.rescan(true);
+        libraryError();
         readOptions();
         // What the LCD and the browser name is what plays: the worker's first look loads the Init Patch (Options), else
         // that factory performance (A001), unless a session arrives first. The standalone's app brings back the state
@@ -373,6 +374,7 @@ private:
     int seedSeen[4] = {-1, -1, -1, -1};
     std::atomic<int> lastNote{-1};
     std::atomic<bool> adoptWanted{false};
+    std::atomic<int> hostVoices{0};    // parts whose voice the host sent since the worker last adopted, a bit each
 
     // the output, for the harmonic display
     std::vector<float> ring = std::vector<float>(8192);
@@ -387,6 +389,12 @@ private:
     std::map<std::pair<int, int>, int> listed;   // factory voices by bank and number: their category in the browser
     std::vector<uint8_t> fseqShown;    // the Fseq the page's display last had
     int messageTicks = 0;              // worker ticks until the status line clears
+    std::string libError;              // the library's read error the status line last showed
+    uint8_t waveVoice[4][608] = {};    // each part's voice as the operator panel's waves were last drawn from it
+    bool waveDrawn[4] = {};
+    float scopeShown[32] = {};         // the harmonics the monitor last published
+    bool scopeDrawn = false;
+    std::atomic<int> userPerfs{0};     // lib.perfs.size() for the audio thread, which never touches the library itself
 
     // ---- setup -----------------------------------------------------------------------------------
 
@@ -464,8 +472,10 @@ private:
 
     // ---- to the engine ------------------------------------------------------------------------------
 
-    void send(const Field& f, const uint8_t* bytes) {
-        const int dev_ = model.sys[0x49];   // the unit's device number: its own, or 16 for all
+    // dev_ is the unit's device number, its own or 16 for all: the one the engine has, which for a change of
+    // the device number itself is the old one, since the engine refuses a message addressed to the new.
+    void send(const Field& f, const uint8_t* bytes) { send(f, bytes, model.sys[0x49]); }
+    void send(const Field& f, const uint8_t* bytes, int dev_) {
         const int v = f.wide ? bytes[f.off] << 7 | bytes[f.off + 1] : bytes[f.off];
         const uint8_t m[10] = {0xF0, 0x43, (uint8_t)(0x10 | (dev_ < 16 ? dev_ : 0)), 0x5E, (uint8_t)f.h, (uint8_t)f.m, (uint8_t)f.l,
                                (uint8_t)(v >> 7 & 0x7F), (uint8_t)(v & 0x7F), 0xF7};
@@ -533,8 +543,9 @@ private:
             const int raw = f.toRaw(v);
             if (f.area != Voice) {
                 uint8_t* b = model.area(f.area, 0);
+                const int heard = model.sys[0x49];
                 f.set(b, raw);
-                send(f, b);
+                send(f, b, heard);
                 continue;
             }
             const int p = f.part, e = edit(p);
@@ -576,9 +587,10 @@ private:
 
     int perfChannel() const { return model.sys[0x09]; }   // 0..15, 16 all, 127 off
     bool listens(int p, int ch) const {                    // Synth::part_listens
-        const int rc = model.perf[192 + 52 * p + 4], pc = perfChannel();
+        const int rc = model.perf[192 + 52 * p + 4], mx = model.perf[192 + 52 * p + 3], pc = perfChannel();
         if (rc == 0x7F) return false;
         if (rc == 0x10) return pc == 0x10 || (pc != 0x7F && ch == pc);
+        if (p < 2 && rc <= 0x0F && mx <= 0x0F && mx > rc) return ch >= rc && ch <= mx;   // Rcv Max, parts 1 and 2 (Part::rcvMax)
         return rc == ch;
     }
     std::vector<int> listeningChannels() const {
@@ -592,6 +604,10 @@ private:
     void handle(const uint8_t* b, int n, bool live) {
         const int st8 = b[0] & 0xF0, ch = b[0] & 0x0F;
         if (b[0] == 0xF0) {                       // a patch or parameter change from an editor
+            if (n >= 9 && b[1] == 0x43 && b[3] == 0x5E) {   // a part's voice, bulk or parameter change, at address high 40..43
+                const int ah = (b[2] & 0xF0) == 0x10 ? b[4] : b[6];
+                if (ah >= 0x40 && ah <= 0x43) hostVoices.fetch_or(1 << (ah - 0x40));
+            }
             dev.sendMidi(b, (size_t)n);
             adoptWanted = true;
             return;
@@ -611,8 +627,11 @@ private:
                         if (v <= 0x0B && listens(p, ch)) st.set((size_t)partBank[p], v + 1);
                 }
             }
-            if (cc != 1 && cc != 64 && cc != 11) adoptWanted = true;   // most write a part byte
+            if (cc != 64 && cc != 11) adoptWanted = true;   // most write a part byte; the wheel moves the bytes its sets edit
         }
+        // A controller source moves the part bytes its sets edit (destinations 17 to 33, Synth::ctrl_write), which
+        // the editor then shows: the wheel above, and the bend and aftertouch here.
+        if (st8 == 0xE0 || st8 == 0xD0 || st8 == 0xA0) adoptWanted = true;
         if (st8 == 0xC0 && n >= 2) {
             programChange(ch, b[1]);
             return;                               // the engine loads programs only out of an EPROM
@@ -631,7 +650,7 @@ private:
             int bank = perfBankSel;
             if (bank < 0x40) bank = get(perfBank) == 1 ? 0x40 : 0x41 + (int)get(perfProgram) / 128;
             if (bank == 0x40) {
-                if (lib.perf(prog + 1)) { st.set((size_t)perfUser, prog + 1); st.set((size_t)perfBank, 1); }
+                if (prog + 1 <= userPerfs.load()) { st.set((size_t)perfUser, prog + 1); st.set((size_t)perfBank, 1); }
             } else {
                 st.set((size_t)perfProgram, (bank - 0x41) * 128 + prog);
                 st.set((size_t)perfBank, 0);
@@ -678,14 +697,15 @@ private:
             }
             requests();
             if (fseqPos >= 0) st.set((size_t)fseqPos, dev.fseqPosition());   // the Fseq page's playback line
-            if (++n % 30 == 0 && lib.rescan()) {
+            if (++n % 30 == 0) {   // under ctl: a rescan rebuilds the banks a host's save reads
                 std::lock_guard<std::mutex> g(ctl);
-                writeLists();
+                if (lib.rescan()) writeLists();
+                libraryError();
             }
             if (n % 10 == 0) watchOptions();
             if (n % 2 == 0) harmonics();
             if (n % 3 == 1) waves();
-            if (messageTicks && --messageTicks == 0) st.setData("fsvr.message", "");
+            if (messageTicks && --messageTicks == 0) st.setData("live.message", "");
             if (notify && n % 8 == 0) {   // at most four times a second: a rescan of 3,000 params is not free for a host
                 notify = false;
                 if (paramsChanged) paramsChanged();
@@ -697,10 +717,15 @@ private:
         const unsigned loads = st.loads();
         if (!(loads & 1) && loads != loadsSeen) restore(loads);
         if (!startup.empty()) {
-            playInit(startup);
+            // A performance the host chose before this first tick is what the instance plays; the Init Patch
+            // would put the user bank under it, and the selectors below would then look for the host's
+            // number among the user's performances.
+            bool chosen = false;
+            for (int i : {perfProgram, perfBank, perfUser}) chosen |= i >= 0 && st.get((size_t)i) != sel[(size_t)i];
+            if (!chosen) playInit(startup);
             startup.clear();
         }
-        if (adoptWanted.exchange(false)) adopt();
+        if (adoptWanted.exchange(false)) adopt(true);
         selectors();
         voiceNames();
         lcdPerf();
@@ -787,7 +812,7 @@ private:
                 // if (mor.size() == 4 * 4 * 608) std::memcpy(corners[p][c].data(), mor.data() + (size_t)(p * 4 + c) * 608, 608);
                 // else
                 std::memcpy(corners[p][c].data(), model.voice[p], 608);
-        st.setData("fsvr.message", "");
+        st.setData("live.message", "");
         st.setData("fsvr.version", FSVR_VERSION);   // a session saved by another version carries its number
         st.setData("fsvr.contributors", contributors());
         followParams();
@@ -800,12 +825,22 @@ private:
     // What the engine holds, back into the params: every field whose bytes changed under us (a load, a
     // bulk from the host, a controller that writes a part byte). A changed voice goes into the morph
     // corners the part edits (all four with Edit All) and the part plays the blend again.
-    void adopt() {
+    void adopt(bool fromHost = false) {
         std::vector<uint8_t> dump, fseq;
         dev.getState(dump);
         Model now;
         if (!now.parse(dump, &fseq)) return;
         showFseq(fseq);
+        // A part whose bank or number the host changed with no voice behind it: a performance bulk or parameter
+        // change, or a bank select. The unit loads that voice from its memory, and the engine only from an
+        // EPROM, which the plug-in has not got. The plug-in's own loads bring their voices themselves.
+        const int sent = fromHost ? hostVoices.exchange(0) : ~0;
+        bool bare[4] = {};
+        for (int p = 0; p < 4; ++p) {
+            const int at = 192 + 52 * p;
+            bare[p] = !(sent & 1 << p) && (now.perf[at + 1] != model.perf[at + 1] || now.perf[at + 2] != model.perf[at + 2]) &&
+                      std::memcmp(now.voice[p], model.voice[p], 608) == 0;
+        }
         for (int i : fieldParams) {
             const Field& f = fields[(size_t)i];
             if (f.area == Voice) continue;
@@ -814,6 +849,23 @@ private:
         }
         std::memcpy(model.sys, now.sys, 76);
         std::memcpy(model.perf, now.perf, 400);
+        bool loaded = false;
+        for (int p = 0; p < 4; ++p) {
+            if (!bare[p]) continue;
+            const int vb = now.perf[192 + 52 * p + 1], prog = now.perf[192 + 52 * p + 2], fv = factoryVoice(vb, prog);
+            if (fv >= 0 && fv < (int)factory.voices.size()) {
+                loadVoiceItem(factory.voices[(size_t)fv], p);
+                loaded = true;
+            } else if (const Item* u = vb == 1 ? lib.voice(prog + 1) : nullptr) {
+                loadVoiceItem(*u, p);
+                putUser(partUser[p], userVoice[p], prog + 1);
+                loaded = true;
+            }
+        }
+        if (loaded) {   // the voices just loaded, read back as any other change is
+            adopt();
+            return;
+        }
         st.setData("perf.name", perfName());
         for (int p = 0; p < 4; ++p) {
             if (std::memcmp(now.voice[p], model.voice[p], 608) == 0) continue;
@@ -917,7 +969,9 @@ private:
     }
 
     // The Parts page's lamp turns a part off and on: off is voice bank off, as the unit has it, and the bank is
-    // kept with the session for on to bring back, with the voice it held.
+    // kept with the session for on to bring back, with the voice it held. Bank off changes only the part's bank
+    // byte, so the engine still holds that voice, edits and all: on puts the byte back and nothing else. A part
+    // the lamp did not turn off (a performance or the host did) has no record, and on loads the bank's voice.
     void lamp(int p) {
         const std::string key = "part.bank_was.p" + std::to_string(p + 1);
         const int b = (int)get(partBank[p]);
@@ -927,8 +981,9 @@ private:
             choose(partBank[p], 0);
         } else if (b == 0) {
             const int was = std::atoi(st.data(key).c_str());
-            choose(partBank[p], was >= 1 && was <= 12 ? was : 2);
-            loadPartVoice(p);
+            const bool kept = was >= 1 && was <= 12;
+            choose(partBank[p], kept ? was : 2);
+            if (!kept) loadPartVoice(p);
         }
     }
 
@@ -1016,13 +1071,15 @@ private:
         const uint8_t* d = perf.data();
         const int k = bank && bank >= lib.banks.data() && bank < lib.banks.data() + lib.banks.size() ? (int)(bank - lib.banks.data()) : -1;
         for (int p = 0; p < 4; ++p) {
+            st.setData("part.bank_was.p" + std::to_string(p + 1), "");   // the lamp's record is of the voice this load replaces
             const int vb = d[192 + 52 * p + 1], prog = d[192 + 52 * p + 2];
             auto from = [&](const Item* v) {   // a voice of the performance's own bank
                 loadVoiceItem(*v, p);
                 if (k >= 0) putUser(partUser[p], userVoice[p], lib.number(lib.voices, k, (int)(v - bank->voices.data())));
             };
+            const int fv = factoryVoice(vb, prog);   // -1 for bank bytes past PrK, which a hand-made performance may carry
             if (bank && perf.partVoice[p] >= 0) from(&bank->voices[(size_t)perf.partVoice[p]]);
-            else if (vb >= 2 && factoryVoice(vb, prog) < (int)factory.voices.size()) loadVoiceItem(factory.voices[(size_t)factoryVoice(vb, prog)], p);
+            else if (fv >= 0 && fv < (int)factory.voices.size()) loadVoiceItem(factory.voices[(size_t)fv], p);
             else if (vb == 1) {
                 if (const Item* v = internal(bank, &Bank::voices, prog)) from(v);
                 else if (const Item* u = lib.voice(prog + 1)) { loadVoiceItem(*u, p); putUser(partUser[p], userVoice[p], prog + 1); }
@@ -1130,7 +1187,8 @@ private:
         return it.name + "\t" + kCategories[std::clamp(it.category, 0, 22)] + "\t" + voices + "\t" + chans;
     }
 
-    void writeLists() {
+    void writeLists() {   // after every change to the library
+        userPerfs = (int)lib.perfs.size();
         std::string perfs, voices, fseqs, banks;
         for (auto& r : lib.perfs) perfs += perfRow(lib.banks[(size_t)r.bank].perfs[(size_t)r.index]) + "\n";
         for (auto& r : lib.voices) {
@@ -1199,8 +1257,15 @@ private:
 
     // A status line for the library page: it clears itself after five seconds, and a session never brings one back.
     void message(const std::string& s) {
-        st.setData("fsvr.message", s);
+        st.setData("live.message", s);
         messageTicks = 150;
+    }
+
+    // The library's read error on the status line, once each time it changes.
+    void libraryError() {
+        if (lib.error == libError) return;
+        libError = lib.error;
+        if (!libError.empty()) message(libError);
     }
 
     int selectedPart() const {   // the GUI's {part} var, out of its saved state
@@ -1785,7 +1850,15 @@ private:
             const int k = (int)std::lround(std::clamp(v, 0.0, 1.0) * 1000);
             s += k >= 1000 ? "1 " : "0." + std::string(k < 100 ? "0" : "") + std::string(k < 10 ? "0" : "") + std::to_string(k) + " ";
         };
-        for (int p = 0; p < 4; ++p)
+        uint8_t now[4][608];   // the waves follow the part's voice alone (Device::operatorWave), so an unchanged voice is drawn already
+        {
+            std::lock_guard<std::mutex> g(ctl);
+            std::memcpy(now, model.voice, sizeof now);
+        }
+        for (int p = 0; p < 4; ++p) {
+            if (waveDrawn[p] && std::memcmp(now[p], waveVoice[p], 608) == 0) continue;
+            std::memcpy(waveVoice[p], now[p], 608);
+            waveDrawn[p] = true;
             for (int o = 0; o < 8; ++o) {
                 dev.operatorWave(p, o, y.data(), kN);
                 std::string wave, harm;
@@ -1809,24 +1882,33 @@ private:
                 st.setData("live.wave." + at, wave);
                 st.setData("live.harmonics." + at, harm);
             }
+        }
     }
 
     // The 32 harmonics of the last note played, their level in the output (-60..0 dB as 0..1), for the
-    // monitor's harmonic display.
+    // monitor's harmonic display. Published when they change, so a silent instance repaints nothing.
     void harmonics() {
+        static constexpr size_t N = 4096;
+        static const std::vector<double> hann = [] {
+            std::vector<double> w(N);
+            for (size_t i = 0; i < N; ++i) w[i] = 0.5 - 0.5 * std::cos(2 * 3.14159265358979323846 * (double)i / N);
+            return w;
+        }();
         float out[32] = {};
         const int note = lastNote;
-        if (note >= 0) {
+        const size_t at = ringAt;
+        auto x = [&](size_t i) { return ring[(at + ring.size() - N + i) % ring.size()]; };
+        double peak = 0;
+        for (size_t i = 0; note >= 0 && i < N; ++i) peak = std::max(peak, (double)std::fabs(x(i)));
+        if (peak > 1e-6) {   // below it every harmonic reads 0 anyway
             const double f0 = 440.0 * std::pow(2.0, (note - 69) / 12.0);
-            const size_t N = 4096, at = ringAt;
             for (int h = 0; h < 32; ++h) {
                 const double f = f0 * (h + 1);
                 if (f >= hostRate / 2) break;
                 const double w = 2 * std::cos(2 * 3.14159265358979323846 * f / hostRate);
                 double s1 = 0, s2 = 0;
                 for (size_t i = 0; i < N; ++i) {   // Goertzel under a Hann window
-                    const double x = ring[(at + ring.size() - N + i) % ring.size()] * (0.5 - 0.5 * std::cos(2 * 3.14159265358979323846 * i / N));
-                    const double s = x + w * s1 - s2;
+                    const double s = x(i) * hann[i] + w * s1 - s2;
                     s2 = s1;
                     s1 = s;
                 }
@@ -1834,6 +1916,9 @@ private:
                 out[h] = mag > 1e-6 ? (float)std::clamp((20 * std::log10(mag) + 60) / 60, 0.0, 1.0) : 0.0f;
             }
         }
+        if (scopeDrawn && std::memcmp(out, scopeShown, sizeof out) == 0) return;
+        std::memcpy(scopeShown, out, sizeof out);
+        scopeDrawn = true;
         st.setScope(out, 32);
     }
 };

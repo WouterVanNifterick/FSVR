@@ -1,0 +1,62 @@
+name: nightly
+
+# Each night the newest build of main that passed every check becomes the rolling "nightly" pre-release,
+# and the Discord channel gets its download links. Nothing is rebuilt: build.yml built and checked it on
+# its push, and this copies that run's artifacts. A night with no newer passing build than the last
+# nightly publishes nothing. The pre-release is never marked latest, so releases/latest, which the site
+# and the updater's mirror read, stays on the newest v* tag.
+on:
+  schedule:
+    - cron: '17 10 * * *'   # 03:17 in BC in summer, 02:17 in winter
+  workflow_dispatch:
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # the nightly tag and its release
+      actions: read     # the build run's artifacts
+    concurrency: nightly
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Publish
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          read -r run sha < <(gh run list -w build.yml -b main -e push -s success -L 1 --json databaseId,headSha --jq '.[0] | "\(.databaseId) \(.headSha)"')
+          if [ "$(git rev-parse -q --verify 'refs/tags/nightly^{commit}')" = "$sha" ]; then
+            echo "the nightly is already $sha"; exit 0
+          fi
+          gh run download "$run" -D artifacts -p FSVR-installers -p 'FSVR-plugin-*'
+          short=$(git rev-parse --short "$sha")
+          last=$(git describe --tags --abbrev=0 --match 'v*' "$sha")
+          {
+            echo "**Automatic build of \`main\` at $short ($(git log -1 --format=%cs "$sha")).** It passed the same checks as a release but has not been tried by hand; for that, take [the latest release](https://github.com/$GITHUB_REPOSITORY/releases/latest)."
+            echo
+            echo "### Changes since $last"
+            echo
+            git log --no-merges --format='- %s (%h)' "$last..$sha"
+          } > notes.md
+          git tag -f nightly "$sha" && git push -f origin refs/tags/nightly
+          title="FSVR nightly ($short)"
+          files=$(ls artifacts/FSVR-installers/* artifacts/FSVR-plugin-*/*.zip)
+          if gh release view nightly > /dev/null 2>&1; then
+            gh release edit nightly --title "$title" --notes-file notes.md --prerelease --latest=false
+            gh release upload nightly --clobber $files
+          else
+            gh release create nightly --title "$title" --notes-file notes.md --prerelease --latest=false --verify-tag $files
+          fi
+          echo "short=$short" >> "$GITHUB_OUTPUT"
+      - name: Discord
+        if: steps.publish.outputs.short
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          SHORT: ${{ steps.publish.outputs.short }}
+        run: |
+          [ -n "$DISCORD_WEBHOOK" ] || exit 0
+          u="https://github.com/$GITHUB_REPOSITORY/releases/download/nightly"
+          msg="**FSVR nightly \`$SHORT\`**, untested by hand: [Windows]($u/FSVR-Windows-Installer.exe) · [macOS]($u/FSVR-MacOS-Installer.zip) · [Linux]($u/FSVR-Linux-Installer) · [every file and the changes](https://github.com/$GITHUB_REPOSITORY/releases/tag/nightly)"
+          jq -n --arg c "$msg" '{content: $c, flags: 4}' | curl -fsS -H 'Content-Type: application/json' -d @- "$DISCORD_WEBHOOK"

@@ -35,7 +35,7 @@ void perf_from_bytes(Synth& S, const Rom* R, const uint8_t* d) {
     S.all_off();
     memcpy(P.c, d, 80); memcpy(P.fx, d + 80, 112);
     for (int i = 0; i < 4; i++) {
-        Part& pt = P.part[i]; memcpy(pt.p, d + 192 + 52 * i, 52); pt.nheld = 0; pt.lastPitch = -1; pt.reset_ctl();
+        Part& pt = P.part[i]; memcpy(pt.p, d + 192 + 52 * i, 52); pt.fill_ctl_base(); pt.nheld = 0; pt.lastPitch = -1; pt.reset_ctl();
         if (R && R->ok && pt.p[1]) rom_voice(*R, bank_voice_index(pt.p[1], pt.p[2]), pt.voice);
     }
     memcpy(P.name, P.c, 12); P.name[12] = 0;
@@ -129,6 +129,7 @@ bool write_param(Synth& S, int ah, int am, int al, int val) {
     if (ah == 0x00 && am == 0 && al < 76) { if (al != 0x46) S.sys[al] = v; return true; }
     if (ah == 0x10 && am == 0 && al < 80) {
         S.perf.c[al] = v;
+        if (al >= 0x28 && al < 0x50) for (int p = 0; p < 4; p++) S.ctrl_write(p);   // a controller set changed: its bytes follow
         if (al == 0x15 || al == 0x16 || al == 0x17) {
             S.fseqPart = (S.perf.c[0x15] & 7) ? (S.perf.c[0x15] & 7) - 1 : -1;
             if (rom_ready(S.rom) && (S.perf.c[0x16] & 1)) {
@@ -140,7 +141,14 @@ bool write_param(Synth& S, int ah, int am, int al, int val) {
         return true;
     }
     if (ah == 0x10 && ((am == 0 && al >= 0x50) || am == 1)) { int i = am ? 48 + al : al - 0x50; if (i >= 112) return false; S.perf.fx[i] = v; return true; }
-    if (ah >= 0x30 && ah <= 0x33 && am == 0 && al < 52) { S.perf.part[ah - 0x30].p[al] = v; return true; }
+    if (ah >= 0x30 && ah <= 0x33 && am == 0 && al < 52) {
+        // The firmware runs a part byte's handler on every write; only a change runs it here, so a host
+        // re-sending a value it already sent does not cut the part's notes.
+        Part& pt = S.perf.part[ah - 0x30]; const int was = pt.p[al];
+        pt.p[al] = v; pt.ctl_edit(al);
+        if (was != v) S.part_written(ah - 0x30, al, was);
+        return true;
+    }
     if (ah >= 0x40 && ah <= 0x43 && am == 0 && al < 112) { Voice& V = S.perf.part[ah - 0x40].voice; V.raw[al] = v; decode_voice(V); S.voice_changed(ah - 0x40); return true; }
     if (ah >= 0x60 && ah <= 0x63 && am < 8 && al < 62) { Voice& V = S.perf.part[ah - 0x60].voice; V.raw[112 + am * 62 + al] = v; decode_voice(V); S.voice_changed(ah - 0x60); return true; }
     if (ah == 0x70 && am == 0 && al < 32) {                       // Fseq header

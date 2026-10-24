@@ -139,7 +139,7 @@
     29
    ],
    "text": {
-    "text": "{data:fsvr.message|}",
+    "text": "{data:live.message|}",
     "font": "library_row_white_12",
     "align": "right",
     "valign": "middle"

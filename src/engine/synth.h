@@ -43,6 +43,7 @@ struct Synth {
     // filter on plays all 32 voices instead of the unit's 16. fltWide is it as last latched.
     Filter flt; int fltSw = 0; bool filter32 = true, fltWide = false;
     bool bend14 = true;                        // ours: keep the pitch bend LSB the unit drops (bend_word)
+    int noteChn = 0;                           // the MIDI channel of the note on midi_in is handing note_on
     int flt_banks() const { return fltSw ? (fltWide ? 2 : 1) : 0; }   // banks of sixteen filter voices in use
     void filter_latch();                       // FUN_0002087e: a switch that changed stops every channel
     void filter_sync(int part);                // the part's voice, record and controllers, into the filter host
@@ -96,8 +97,10 @@ struct Synth {
     int ctrl_offset(int part, int dest) const;
     void fx_controls(int part);                // destinations 1-16, into the effect host (controllers.cpp)
     // A destination that edits a part byte: the firmware writes the byte, so the last set that selects
-    // it wins rather than the offsets adding up.
+    // it wins rather than the offsets adding up. ctrl_part is the value one would write, stored being the
+    // base copy (Part::ctlBase); ctrl_write writes them all into the part's bytes, which everything reads.
     int ctrl_part(int part, int dest, int stored) const;
+    void ctrl_write(int part);
     // Destination 34 is its own shape: the depth is the bend range in semitones, not a scaler
     // (ctrlDest_34, and the manual: "if Vcn depth is set to +2 the maximum control value is +2
     // semitones"). The summed source drives it like a bend wheel.
@@ -105,7 +108,7 @@ struct Synth {
     // Destination 35 writes one per-part value that event 0x205 then scales by each operator's own EG
     // bias sense: ~((|scaled| + table[|depth|]) * 2), the table being flash 0x3DDC4 (ctrlDest_35).
     int ctrl_eg_bias(int part) const;
-    double bend_word(const Part& pt) const;
+    double bend_word(const Part& pt, int chn) const;   // chn: the note's MIDI channel, which a ranged part bends by
     void part_levels(int part, int& vAtt, int& uAtt) const;
 
     // ---------------------------------------------------------------- note on (FUN_00010b48 / FUN_000112c0 / FUN_000125f8)
@@ -139,10 +142,18 @@ struct Synth {
     void note_off(int part, int note);
     void fseq_keys();
     void release(Chan& C);
+    void silence_part(int part);                     // FUN_00010384(0) on one part
+    void part_written(int part, int al, int was);    // the firmware's handler after a part byte is written
     void set_sustain(int part, bool on) { Part& pt = perf.part[part]; pt.sustain = on; if (!on) for (auto& c : ch) if (c.active && c.part == part && c.sustained) { c.sustained = false; release(c); } }
-    // What the POLY readout counts: a key down or sustained, or a released note still audible. The allocator's
-    // active flag is not it: a release can sit at a -91 dB L4 floor, or crawl through -70 dB for tens of
-    // seconds, with the channel still owned, and that pinned the readout at 32 on Zap ! and Nightmare.
+    // What the allocator counts as taken: a key down, or one the sustain pedal holds. FUN_00011E40, the poly
+    // note off, clears a channel's in-use word (0x010287DE) and its part (0x010289BC) the moment its key comes
+    // up with no sustain, so a channel whose release is still sounding is free to the next note, which damps
+    // it (note_on). A channel used to stay taken until all sixteen of its EGs passed -120 dB, which is up to
+    // 73 s after the key on A020 Vox Morph, and a full machine stole held notes in its place (#54).
+    static bool owned(const Chan& c) { return c.active && (c.held || c.sustained); }
+    // What the POLY readout counts: a key down or sustained, or a released note still audible. The active flag
+    // is not it: a release can sit at a -91 dB L4 floor, or crawl through -70 dB for tens of seconds, and that
+    // pinned the readout at 32 on Zap ! and Nightmare.
     // ponytail: the loudest carrier EG against a fixed floor; the channel's output level if this misreads a patch.
     static constexpr double POLY_AUDIBLE_DB = -60;
     bool audible(const Chan& c) const {

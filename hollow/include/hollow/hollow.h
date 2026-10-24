@@ -96,9 +96,10 @@ public:
     bool popMidi(uint8_t bytes[3], int& size);
 
     // What the audio side knows and the GUI shows. The format layer calls midiIn for every incoming
-    // MIDI message and setLoad once per block (audio thread); a Processor may call setVoices.
+    // MIDI message and addLoad once per block (audio thread); a Processor may call setVoices.
     void midiIn(const uint8_t* bytes, int size);   // key and wheel display, MIDI learn, assigned CCs
-    void setLoad(double fraction);                 // time spent in process() / block duration
+    void setLoad(double fraction);                 // time spent in process() / block duration, shown as it is
+    void addLoad(double busy, double audio);       // seconds in process() and of audio made: load() is their ratio over half a second
     void setVoices(int voices);
     bool noteHeld(int note) const;                  // from a note on to its note off; a sustain pedal is not followed
     int pitchBend() const;                          // -8192..8191
@@ -181,6 +182,12 @@ enum Key { KeyNone, KeyLeft, KeyRight, KeyUp, KeyDown, KeyHome, KeyEnd, KeyBacks
 void keyLog(const char* fmt, ...);
 bool keyLogOn();
 
+// One of the standalone's audio and MIDI settings, for a modal of the skin's: its items and the chosen ones.
+struct DeviceList {
+    std::vector<std::string> items;
+    std::vector<int> on;
+};
+
 class Editor {
 public:
     // Implemented by the format layer; called on the GUI thread, for host params only.
@@ -192,6 +199,13 @@ public:
         virtual bool resize(int width, int height) { (void)width; (void)height; return false; }
         // True in the standalone app, whose audio and MIDI settings a skin's "standalone" action opens.
         virtual bool standalone() const { return false; }
+        // The standalone's audio and MIDI setup: six lists, the audio API, output, input, sample rate and
+        // buffer size (each one choice) and the MIDI inputs (any of them). False where the host has none.
+        virtual bool devices(std::vector<DeviceList>& out) { (void)out; return false; }
+        // Picks an item of one of those lists; for the MIDI inputs it opens or closes that one.
+        virtual void setDevice(int list, int item) { (void)list; (void)item; }
+        // The standalone's own audio and MIDI settings window, where it has one.
+        virtual bool showDevices() { return false; }
     };
 
     Editor(std::shared_ptr<Skin> skin, State& state, Host& host);
@@ -202,6 +216,9 @@ public:
     int height() const;
     double scale() const;                 // one of the skin's "scales", else 1..4; remembered in State::ui()
     void setScale(double s);              // resizes the window and calls Host::resize
+    // The display's own factor, which the standalone app passes on (DPI / 96 on Windows): the editor is drawn
+    // at the skin scale nearest scale() times it, so the chosen size looks the same on any display.
+    void setDisplayScale(double f);
     // A key the host delivered through its plug-in API rather than to the window, for the hosts that keep
     // the keyboard to themselves (REAPER's "send all keyboard input to plugin"). `character` is what the key
     // typed, as the host reported it and so as the layout made it, 0 for a key that types nothing; which key

@@ -24,13 +24,11 @@ void Synth::filter_latch() {
 }
 
 // The filter host reads the voice and the part record. Destinations 21 to 26 edit the record, as the firmware
-// has them do (FUN_00017192 and the five after it); 42, 44 and 45 are offsets the host keeps itself.
+// has them do (FUN_00017192 and the five after it), by writing the part's bytes (ctrl_write); 42, 44 and 45
+// are offsets the host keeps itself.
 void Synth::filter_sync(int part) {
     const Part& pt = perf.part[part];
-    using namespace fsvr::vop3host::filter;
-    static const int BYTE[6] = {PART_CUTOFF, PART_RESONANCE, PART_EG_DEPTH, PART_ATTACK, PART_DECAY, PART_RELEASE};
     uint8_t rec[fsvr::vop3host::FilterHost::PART_BYTES]; memcpy(rec, pt.p, sizeof rec);
-    for (int d = 0; d < 6; d++) rec[BYTE[d]] = (uint8_t)ctrl_part(part, 21 + d, pt.p[BYTE[d]]);
     flt.sync(flt_banks(), part, pt.voice.raw, rec, ctrl_offset(part, 42), ctrl_offset(part, 44), ctrl_offset(part, 45));
 }
 
@@ -60,7 +58,8 @@ void Synth::note_on(int part, int note, int vel) {
     // FUN_0000f7dc, measured against the unit (FS1R.unlock 2026-09-25-7). Three things, none of which
     // the old "first free, else oldest" did:
     //  1. allocation is ROUND ROBIN from the last channel allocated, not the lowest free one. Filling an
-    //     empty machine with 32 notes puts them on channels 1..31 then 0, which is what the unit did.
+    //     empty machine with 32 notes puts them on channels 1..31 then 0, which is what the unit did. Free
+    //     is a channel no key holds (owned, synth.h): a release still sounding does not keep it.
     //  2. when nothing is free, the part to take from is the one furthest over its own note reserve.
     //     The reserves cannot oversubscribe the 32 channels: writing 32 to part 2 with parts 3 and 4
     //     holding 8 each read back as 16, i.e. 32 - (0 + 8 + 8), so a part's effective reserve is what
@@ -77,7 +76,7 @@ void Synth::note_on(int part, int note, int vel) {
     int& cursor = nextChan[!split ? 0 : filtered ? 1 : 2];
     auto at = [&](int from, int k) { return first + ((from - first + k) % count + count) % count; };
     Chan* c = nullptr;
-    for (int k = 1; k <= count; k++) { Chan& x = ch[at(cursor, k)]; if (!x.active) { c = &x; break; } }
+    for (int k = 1; k <= count; k++) { Chan& x = ch[at(cursor, k)]; if (!owned(x)) { c = &x; break; } }
     if (!c) {
         int best = part, excess = -1;
         for (int k = 0; k < 4; k++) {
@@ -85,13 +84,13 @@ void Synth::note_on(int part, int note, int vel) {
             if (split && (fltSw >> p & 1) != (int)filtered) continue;   // its notes are in the other half
             for (int q = 0; q < 4; q++) if (q != p) others += perf.part[q].p[0x00];
             int res = clampi(perf.part[p].p[0x00], 0, std::max(0, NCHAN - others));
-            for (auto& x : ch) if (x.active && x.part == p) n++;
+            for (auto& x : ch) if (owned(x) && x.part == p) n++;
             if (n > res && n - res > excess) { excess = n - res; best = p; }
         }
         int thr = note, fb = -1;
         for (int k = 1; k <= count; k++) {
             int i = at(partChan[best], k);
-            if (!ch[i].active || ch[i].part != best) continue;
+            if (!owned(ch[i]) || ch[i].part != best) continue;
             if (thr < ch[i].note) { c = &ch[i]; break; }
             if (fb >= 0) { c = &ch[fb]; break; }
             fb = i; thr = ch[i].note;
@@ -111,7 +110,7 @@ void Synth::note_on(int part, int note, int vel) {
     // the struct instead put a step the size of the old note's own output into the output between two
     // samples, which is a click the unit does not make.
     double damp = C.active ? C.last + C.damp : 0.0;
-    C = Chan(); C.active = true; C.part = part; C.note = note; C.vel = vel; C.held = true; C.age = ++clock;
+    C = Chan(); C.active = true; C.part = part; C.note = note; C.vel = vel; C.held = true; C.age = ++clock; C.chn = noteChn;
     C.damp = damp; C.filtered = filtered;
     C.lfoPhase = sync ? 0 : keepPhase;
     C.panBase = pt.p[0x0E] ? pt.p[0x0E] : (rand() % 128);       // part pan 0 = random per note; the rest is the table index
@@ -156,8 +155,10 @@ void Synth::compute_pitch(Chan& C, const Part& pt, int note) {
     n = clampi(n + (pt.voice.raw[0x1E] & 0x3F) - 24, 0, 127);
     C.noteP = n; C.keyfact = KEYFACT[n] >> 2;
     int pitch = NOTETAB[n];
+    // The part's detune scales by the band of the key played (0x0102A402, before any note shift), not of the
+    // shifted note: Teck Hook's parts an octave and two down beat as the unit's do only so.
     int d = pt.p[9] - 0x40;
-    if (d) { int band = (n >> 3) & 0xF; int prod = std::abs(d) * (15 - band); if (!prod) prod = 1; pitch += (d < 0 ? -prod : prod) / 15; }
+    if (d) { int band = (note >> 3) & 0xF; int prod = std::abs(d) * (15 - band); if (!prod) prod = 1; pitch += (d < 0 ? -prod : prod) / 15; }
     pitch += (sysTune() & 0x7F) - 0x40;
     C.pitchNote = pitch;
 }
@@ -207,7 +208,11 @@ void Synth::setup_ops(Chan& C, const Part& pt, int vel) {
         // frequency words. The bias the controller matrix adds to them is not here: it moves while
         // the note sounds, and refresh_bias rebuilds it every tick.
         if (v.form == 7 || v.fixed) C.freqWord[o] = 8 * (v.coarse * 128 + v.fine) + 0x28ED + keytrack(v.notescale, pm) + fvs_term(v.fmsb, vel);
-        else C.freqWord[o] = 0x1243 + COARSE[v.coarse] + FINE[std::min(99, v.fine)];
+        // MEASURED 2026-10-23: a fine of 100 or more plays as the next coarse step at fine 0 (coarse 0 at 100,
+        // 110 and 127 is 1.0, coarse 1 at 100 is 2.0, coarse 2 at 100 is 3.0). The factory Hook under Teck Hook,
+        // Tech Lead and 25 other operators store fine 100; held at 99 they sat 8 cents under and beat.
+        else if (v.fine >= 100) C.freqWord[o] = 0x1243 + COARSE[std::min(31, v.coarse + 1)];
+        else C.freqWord[o] = 0x1243 + COARSE[v.coarse] + FINE[v.fine];
         C.ufreqWord[o] = std::min(0x7F00, ((u.coarse & 0x1F) * 256 + u.fine * 2) * 4 + 0x28ED + keytrack(u.notescale, pm) + fvs_term(u.fmsb, vel));
         // Detune, in pitch word units, from the ROM's own key scaled table. MEASURED: the chip does
         // the same thing to a ratio operator's register 0x80 that the CPU does to a formant
@@ -222,7 +227,7 @@ void Synth::setup_ops(Chan& C, const Part& pt, int vel) {
         // EG registers: levels LEVTAB >> 1, rates ((99-T)*0xA4)>>8, part EG offsets on attack/decay/release (assumed T1/T2/T4)
         // FUN_00019414 walks the part's EG bytes 0x1A, 0x1B, 0x1B, 0x1C against voice times T1-T4,
         // so the decay offset reaches both T2 and T3, not T2 alone.
-        int atk = ctrl_part(part, 24, pt.p[0x1A]), dec = ctrl_part(part, 25, pt.p[0x1B]), rel = ctrl_part(part, 26, pt.p[0x1C]);
+        int atk = pt.p[0x1A], dec = pt.p[0x1B], rel = pt.p[0x1C];
         int offs[4] = {atk - 64, dec - 64, dec - 64, rel - 64};
         for (int i = 0; i < 4; i++) {
             C.egL[o][i] = LEVTAB[std::min(99, v.L[i])] >> 1; C.egR[o][i] = egrate(v.T[i] + offs[i]);
@@ -237,11 +242,11 @@ void Synth::setup_peg(Chan& C, const Part& pt, int vel) {
     C.velP = V.pegVel ? vel + 1 : 128;        // firmware overrides the graded PEGVEL table with this (see docs)
     int Lp[5], Tp[5];
     for (int i = 0; i < 5; i++) Lp[i] = V.pegL[i];
-    Lp[0] = clampi(Lp[0] + ctrl_part(C.part, 27, pt.p[0x20]) - 64, 0, 100);
-    Lp[4] = clampi(Lp[4] + ctrl_part(C.part, 29, pt.p[0x22]) - 64, 0, 100);
+    Lp[0] = clampi(Lp[0] + pt.p[0x20] - 64, 0, 100);
+    Lp[4] = clampi(Lp[4] + pt.p[0x22] - 64, 0, 100);
     Tp[0] = 255; for (int i = 0; i < 4; i++) Tp[i + 1] = V.pegT[i];
-    Tp[1] = clampi(Tp[1] + ctrl_part(C.part, 28, pt.p[0x21]) - 64, 0, 99);
-    Tp[4] = clampi(Tp[4] + ctrl_part(C.part, 30, pt.p[0x23]) - 64, 0, 99);
+    Tp[1] = clampi(Tp[1] + pt.p[0x21] - 64, 0, 99);
+    Tp[4] = clampi(Tp[4] + pt.p[0x23] - 64, 0, 99);
     for (int i = 0; i < 5; i++) {
         int w = ((int)PEGLVL[clampi(Lp[i], 0, 100)] - 128) << 7;
         w = (w * C.velP) >> 7; if (V.pegRange) w >>= V.pegRange + 1;
@@ -283,6 +288,36 @@ void Synth::release(Chan& C) {
     if (C.filtered) flt.host(slot).noteOff(slot & 15);   // FUN_00010a52
     C.pegStage = 4; C.pegTarget = C.pegLvl[4]; C.pegRate = C.pegRt[4];
     fseq_keys();
+}
+
+// FUN_00010384(0): every channel the part holds is freed and damped (FUN_00023000), its filter slot killed,
+// and the part's held keys forgotten, so no key up is owed to a part that may no longer hear it.
+void Synth::silence_part(int part) {
+    for (auto& C : ch) {
+        if (!owned(C) || C.part != part) continue;
+        const int slot = int(&C - ch);
+        if (C.filtered) flt.host(slot).kill(slot & 15);
+        const double damp = C.last + C.damp;
+        C = Chan(); C.part = part; C.damp = damp; C.active = damp != 0.0;
+    }
+    Part& pt = perf.part[part];
+    pt.nheld = 0; pt.lastPitch = 0x53AA;
+    fseq_keys();
+}
+
+// The handlers the firmware runs after a part byte is written, from the part block of its table at flash 0x3E460.
+// Each one that changes who hears what, or how notes are held, silences first.
+void Synth::part_written(int part, int al, int was) {
+    const Part& pt = perf.part[part];
+    switch (al) {
+    case 0x00: for (int p = 0; p < 4; p++) silence_part(p); break;   // Note Reserve, FUN_00020878
+    // Voice Bank: FUN_00021928 only records it, and the mask is rebuilt by the voice select that follows on
+    // the panel (setupPartFromMode, FUN_00020644). rcv() reads the bank live, so off silences here.
+    case 0x01: if (was && !pt.p[1]) silence_part(part); break;
+    case 0x02:                                                        // Program, FUN_0001FE62
+    case 0x03: case 0x04:                                             // Rcv Max, Rcv Ch, FUN_00020644
+    case 0x05: case 0x06: silence_part(part); break;                  // Mono/Poly FUN_000204FE, Priority FUN_00020872
+    }
 }
 
 void Synth::lfo_tick(Chan& C, const Part& pt) {
@@ -334,7 +369,7 @@ void Synth::refresh_regs(Chan& C, const Part& pt) {
         const uint8_t* f = fseq.frame[fseqStep];
         fseqPitch = (f[0] * 256 + f[1] * 2) - (NOTETAB[fseq.noteAssign & 0x7F] + 0x1243) + (fseq.tuning - 63);
     }
-    C.regPitch = C.portaCur + (C.pegCur >> 2) + bend_word(pt) + fseqPitch;
+    C.regPitch = C.portaCur + (C.pegCur >> 2) + bend_word(pt, C.chn) + fseqPitch;
     C.regC0 = (C.pitchNote >> 8) + 10;
     int fade = C.lfoFade >> 8;
     int pmd = clampi(eb86(clampi(V.pmd + pt.p[0x16] - 64, 0, 99)) + ctrl_offset(part, 39) * 2, 0, 255);   // ctrlDest_39 doubles it
@@ -381,7 +416,7 @@ void Synth::voice_ctrl(Chan& C, const Part& pt) {
     // and a quarter of those, and a cal constant for a scale that is a shift in the flash.
     memset(C.vcLvl, 0, sizeof C.vcLvl); memset(C.vcFreq, 0, sizeof C.vcFreq); memset(C.vcBw, 0, sizeof C.vcBw);
     const uint8_t* b = pt.voice.raw;
-    int src[2] = {clampi((ctrl_part(C.part, 32, pt.p[0x1D]) - 64) * 2, -128, 127), clampi((ctrl_part(C.part, 33, pt.p[0x1E]) - 64) * 2, -128, 127)};
+    int src[2] = {clampi((pt.p[0x1D] - 64) * 2, -128, 127), clampi((pt.p[0x1E] - 64) * 2, -128, 127)};
     for (int k = 0; k < 10; k++) {
         int d = b[k < 5 ? 0x40 + k : 0x4A + (k - 5)];
         int dep = (int)b[k < 5 ? 0x45 + k : 0x4F + (k - 5)] - 64;
@@ -395,7 +430,7 @@ void Synth::voice_ctrl(Chan& C, const Part& pt) {
 }
 
 void Synth::refresh_pan(Chan& C, const Part& pt) {
-    int base = pt.p[0x0E] ? ctrl_part(C.part, 18, pt.p[0x0E]) : C.panBase;             // Panpot edits the part byte
+    int base = pt.p[0x0E] ? pt.p[0x0E] : C.panBase;             // Panpot edits the part byte
     int idx = pan_index(base, pt.p[0x28], C.noteP);
     idx += ((C.lfoVal * std::max(1, eb86(clampi(pt.p[0x29], 0, 99))) * (int)(C.lfoFade >> 8)) >> 16) / 2; // pan LFO depth: image +0x1F is eb86(byte), 1 at 0 (FUN_00019362 case 0x29)
     if (perf.c[0x11]) idx += (perf.c[0x11] - 64) / 2;                              // performance pan

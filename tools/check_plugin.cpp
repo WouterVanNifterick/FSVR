@@ -191,6 +191,10 @@ int main() {
     CHECK(a.st->size() > 3000, "the skin's params did not load (%zu)", a.st->size());
     CHECK(!a.data("library.dir").empty(), "no library.dir");
     CHECK(!a.data("fsvr.version").empty(), "no fsvr.version for the About box");
+    // The CPU readout is busy time over audio time, steady while blocks alternate light and heavy: each block's
+    // own ratio, as it was, swung between the two at the GUI's 30 Hz.
+    for (int k = 0; k < 64; ++k) a.st->addLoad(k % 2 ? 0.75 / 64 : 0.25 / 64, 1.0 / 64);
+    CHECK(a.st->load() == 0.5, "the CPU readout is %g over alternating 25 %% and 75 %% blocks, not 0.5", a.st->load());
 
     // A fresh instance plays what its LCD names: A001 "Zap !", B021 on part 1, a Sound FX.
     CHECK(a.until([&] { return a.is("part.bank.p1", 3) && a.is("part.program.p1", 21); }), "A001 did not load its part 1 voice B021 (bank %g, program %g)",
@@ -238,6 +242,25 @@ int main() {
     a.st->setData("part.voice.p4", "");   // as a session saved before the names were published has it
     const std::string blob = a.st->save();
     a.st->setData("part.voice.p4", named);
+    // A session that has just come back is not an edit: the format layer tells the host the instance is
+    // modified whenever State says so, and a project would then read as changed the moment it opened.
+    {
+        const std::string whole = a.st->save();
+        Rig c;
+        c.st->load(whole);
+        c.until([] { return false; }, 600);
+        if (c.st->modified()) {   // name what moved: the lines of the session that are not as it came
+            const std::string now = c.st->save();
+            std::string moved;
+            for (size_t p = 0; p < now.size();) {
+                const size_t e = std::min(now.find('\n', p), now.size());
+                const std::string line = now.substr(p, e - p);
+                if (whole.find(line + "\n") == std::string::npos && moved.size() < 600) moved += "\n    " + line.substr(0, 160);
+                p = e + 1;
+            }
+            CHECK(false, "the session came back modified:%s", moved.c_str());
+        }
+    }
     {
         Rig b;
         CHECK(b.until([&] { return b.data("part.voice.p4") == "off"; }), "a fresh instance's part 4 reads \"%s\"", b.data("part.voice.p4").c_str());
@@ -266,14 +289,21 @@ int main() {
     a.st->setData("sysex.import", syx.u8string());
     CHECK(a.until([&] { return a.data("bank.list") == "Test Bank\nTest Bank 2\n"; }), "a second import did not make \"Test Bank 2\"");
     CHECK(a.lines("voice.user.list") == 64, "%d user voices, not 64", a.lines("voice.user.list"));
-    CHECK(a.data("fsvr.message").rfind("Imported", 0) == 0, "no import message (\"%s\")", a.data("fsvr.message").c_str());
-    CHECK(a.until([&] { return a.data("fsvr.message").empty(); }), "the import message stayed up");
+    CHECK(a.data("live.message").rfind("Imported", 0) == 0, "no import message (\"%s\")", a.data("live.message").c_str());
+    CHECK(a.until([&] { return a.data("live.message").empty(); }), "the import message stayed up");
 
     // A pick from the browsed user bank: its third voice into part 2.
     a.set("browse.bank", 1);
     CHECK(a.until([&] { return a.lines("browse.voice.list") == 32; }), "the browsed bank lists %d voices", a.lines("browse.voice.list"));
     a.set("browse.voice.p2", 3);
     CHECK(a.until([&] { return a.is("part.bank.p2", 1) && a.is("part.user.p2", 3) && a.data("morph.p2.bl") == "TEST03"; }), "the pick did not load TEST03");
+    // A pick is the processor's own change, made where the host cannot see it, and still marks the instance
+    // modified, so the host saves it with the project.
+    a.proc->saving();
+    a.st->save();
+    a.set("browse.voice.p2", 4);
+    CHECK(a.until([&] { return a.data("morph.p2.bl") == "TEST04"; }), "the pick did not load TEST04");
+    CHECK(a.st->modified(), "a pick from the browser left the instance unmodified");
 
     // Morph is off until it works: a voice picked with corner A chosen reaches every corner, and moving the
     // square changes nothing.
@@ -310,7 +340,7 @@ int main() {
     const std::string shown = a.data("fseq.display");   // the list line comes before the load, the display after it
     a.st->setData("fseq.import_audio", wav.u8string());
     CHECK(a.until([&] { return a.lines("fseq.user.list") == 1 && a.data("fseq.display") != shown && !a.data("fseq.display").empty(); }, 20000),
-          "Import Audio made no Fseq (%s)", a.data("fsvr.message").c_str());
+          "Import Audio made no Fseq (%s)", a.data("live.message").c_str());
     CHECK(a.is("fseq.bank", 0) && a.is("fseq.user", 1), "the new Fseq is not selected");
     const std::string disp = a.data("fseq.display");
     const size_t p = disp.find("\"pitch\":\"");
@@ -334,7 +364,7 @@ int main() {
     // Save to Bank, as the Save modal asks for it: an edit marks the performance edited, the modal opens
     // on its name, and the save makes a new bank holding it as a user performance.
     auto lineOf = [&](const char* key, const std::string& first) { return rowOf(a, key, first); };   // 1 + the line whose first field is first, 0 if none
-    auto request = [&](const char* key, const std::string& v) { a.st->setData("fsvr.message", ""); a.st->setData(key, v); };
+    auto request = [&](const char* key, const std::string& v) { a.st->setData("live.message", ""); a.st->setData(key, v); };
     auto settle = [&] { a.until([] { return false; }, 400); };   // a right-click's row reaches the worker before its modal opens
     a.set("perf.program", 1);
     CHECK(a.until([&] { return a.is("perf.category", 19) && a.is("gui.edited", 0); }), "A002 did not load clean");
@@ -347,18 +377,18 @@ int main() {
     a.st->setData("save.name", "My Shaman");
     request("save.request", "1");
     CHECK(a.until([&] { return lineOf("bank.list", "Saved") && a.is("perf.bank", 1) && a.data("perf.user.name") == "My Shaman"; }),
-          "Save to a new bank did not make \"Saved\" (%s)", a.data("fsvr.message").c_str());
+          "Save to a new bank did not make \"Saved\" (%s)", a.data("live.message").c_str());
     CHECK(a.is("gui.edited", 0), "the saved performance still reads as edited");
     const int saved = lineOf("bank.list", "Saved");
     a.set("browse.bank", saved);
     CHECK(a.until([&] { return a.lines("browse.perf.list") == 1; }), "the new bank lists %d performances", a.lines("browse.perf.list"));
     a.set("save.bank", saved);
     request("save.request", "1");   // the same name again replaces it
-    CHECK(a.until([&] { return !a.data("fsvr.message").empty(); }) && a.lines("browse.perf.list") == 1, "saving \"My Shaman\" again left %d performances (%s)",
-          a.lines("browse.perf.list"), a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return !a.data("live.message").empty(); }) && a.lines("browse.perf.list") == 1, "saving \"My Shaman\" again left %d performances (%s)",
+          a.lines("browse.perf.list"), a.data("live.message").c_str());
     a.st->setData("save.name", "Second");
     request("save.request", "1");
-    CHECK(a.until([&] { return a.lines("browse.perf.list") == 2; }), "a second name did not add a performance (%s)", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return a.lines("browse.perf.list") == 2; }), "a second name did not add a performance (%s)", a.data("live.message").c_str());
 
     // A saved preset loads back as it was saved: its performance, its four voices and its Fseq, byte for
     // byte but the name, after another performance in between.
@@ -393,7 +423,7 @@ int main() {
         a.set("save.bank", bank);
         a.st->setData("save.name", name);
         request("save.request", "1");
-        CHECK(a.until([&] { return a.data("perf.user.name") == name && a.is("gui.edited", 0); }), "\"%s\" did not save (%s)", name.c_str(), a.data("fsvr.message").c_str());
+        CHECK(a.until([&] { return a.data("perf.user.name") == name && a.is("gui.edited", 0); }), "\"%s\" did not save (%s)", name.c_str(), a.data("live.message").c_str());
     };
     auto sound = [&] {   // a note's RMS in dB over three seconds, long enough to average out the free-running effect LFOs
         a.set("gui.panic", 1);
@@ -524,7 +554,7 @@ int main() {
     a.st->setData("hollow.modal", "");
     request("fsvr.import", preset.u8string());
     CHECK(a.until([&] { return a.data("hollow.modal") == "dialog_save" && a.data("save.name") == "Int Perf"; }), "Import FSVR Preset did not open the Save modal (%s)",
-          a.data("fsvr.message").c_str());
+          a.data("live.message").c_str());
 
     // The right-click menu on a user performance: Rename, Edit Attributes, Paste Attributes, Delete.
     const std::string second = "0\tU" + std::to_string(lineOf("perf.user.list", "Second")) + "\tSecond";
@@ -532,19 +562,19 @@ int main() {
     CHECK(a.until([&] { return a.data("item.name") == "Second" && a.is("item.readonly", 0); }), "the row did not describe itself (\"%s\")", a.data("item.name").c_str());
     a.st->setData("item.new_name", "Renamed");
     request("item.request", "rename");
-    CHECK(a.until([&] { return lineOf("perf.user.list", "Renamed") > 0; }), "Rename did not rename (%s)", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return lineOf("perf.user.list", "Renamed") > 0; }), "Rename did not rename (%s)", a.data("live.message").c_str());
     const std::string renamed = "0\tU" + std::to_string(lineOf("perf.user.list", "Renamed")) + "\tRenamed";
     a.st->setData("item.context", renamed);
     settle();
     a.set("item.category", 5);
     request("item.request", "attributes");
-    CHECK(a.until([&] { return a.data("perf.user.list").find("Renamed\tBass") != std::string::npos; }), "Edit Attributes did not set Bass (%s)", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return a.data("perf.user.list").find("Renamed\tBass") != std::string::npos; }), "Edit Attributes did not set Bass (%s)", a.data("live.message").c_str());
     a.st->setData("item.context", "0\tA001\tZap !");   // a factory row: read only, but its attributes copy
     CHECK(a.until([&] { return a.data("item.name") == "Zap !" && a.is("item.readonly", 1) && a.is("item.category", 16); }), "A001 did not describe itself read only");
     request("item.request", "delete");
-    CHECK(a.until([&] { return a.data("fsvr.message").find("read only") != std::string::npos; }), "deleting a factory preset said \"%s\"", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return a.data("live.message").find("read only") != std::string::npos; }), "deleting a factory preset said \"%s\"", a.data("live.message").c_str());
     request("item.request", "copy");
-    CHECK(a.until([&] { return a.data("fsvr.message").rfind("Copied", 0) == 0; }), "Copy Attributes said \"%s\"", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return a.data("live.message").rfind("Copied", 0) == 0; }), "Copy Attributes said \"%s\"", a.data("live.message").c_str());
     a.st->setData("item.context", renamed);
     CHECK(a.until([&] { return a.data("item.name") == "Renamed"; }), "back on the user row");
     request("item.request", "paste");
@@ -557,11 +587,11 @@ int main() {
     settle();
     a.st->setData("bank.new_name", "Kept");
     request("bank.request", "rename");
-    CHECK(a.until([&] { return lineOf("bank.list", "Kept") && !lineOf("bank.list", "Saved"); }), "Rename Bank did not rename (%s)", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return lineOf("bank.list", "Kept") && !lineOf("bank.list", "Saved"); }), "Rename Bank did not rename (%s)", a.data("live.message").c_str());
     a.st->setData("bank.context", "0\tYamaha FS1R");
     settle();
     request("bank.request", "delete");
-    CHECK(a.until([&] { return a.data("fsvr.message").find("read only") != std::string::npos; }), "deleting the factory bank said \"%s\"", a.data("fsvr.message").c_str());
+    CHECK(a.until([&] { return a.data("live.message").find("read only") != std::string::npos; }), "deleting the factory bank said \"%s\"", a.data("live.message").c_str());
     a.st->setData("bank.context", std::to_string(lineOf("bank.list", "Kept")) + "\tKept");
     settle();
     request("bank.request", "delete");
@@ -628,6 +658,93 @@ int main() {
         CHECK(b.get("fseq.position") == step, "the Fseq ran on Tines Copy, which has no Fseq part (step %g, was %g)", b.get("fseq.position"), step);
     }
 
+    // A performance bulk from the host with no voices behind it plays the voices its parts name, as the unit
+    // does from its memory: an editor sends A002's performance alone over A013.
+    {
+        a.set("perf.bank", 0);
+        a.set("perf.program", 1);
+        CHECK(a.until([&] { return a.data("perf.name") == "Shaman"; }), "A002 did not load for the bulk");
+        std::vector<uint8_t> shamanPerf;
+        for (auto& b : engine())
+            if (b.first == 0x10) shamanPerf = b.second;
+        const std::string shamanVoice = a.data("morph.p1.bl");
+        a.set("perf.program", 12);
+        CHECK(a.until([&] { return a.data("perf.name") == "Dirt Vocoder" && a.data("morph.p1.bl") != shamanVoice; }), "A013 did not load before the bulk");
+        std::vector<uint8_t> m;
+        addBulk(m, 0x10, 0, shamanPerf);
+        a.proc->midi(0, m.data(), (int)m.size());
+        CHECK(a.until([&] { return a.data("perf.name") == "Shaman" && a.data("morph.p1.bl") == shamanVoice; }),
+              "the host's performance bulk left part 1 on \"%s\", not \"%s\"", a.data("morph.p1.bl").c_str(), shamanVoice.c_str());
+    }
+
+    // The Parts page's lamp brings back the voice its part held, edits and all. It once reloaded the factory
+    // voice the part's bank and number name, so an edited part came back as the stock voice.
+    {
+        a.set("perf.bank", 0);
+        a.set("perf.program", 4);   // away first: the bulk above left the param on A013 and the engine on A002
+        CHECK(a.until([&] { return a.data("perf.name") == "Snow Decay"; }), "A005 did not load before the lamp");
+        a.set("perf.program", 12);   // A013 Dirt Vocoder, parts 1 and 2 on
+        CHECK(a.until([&] { return a.data("perf.name") == "Dirt Vocoder" && a.is("gui.edited", 0); }), "A013 did not load for the lamp (\"%s\", edited %g)",
+              a.data("perf.name").c_str(), a.get("gui.edited"));
+        a.set("op.1.v.level.p1", 42);
+        a.run(4);
+        auto voiceOf = [&](int bulk) {
+            for (auto& b : engine())
+                if (b.first == bulk) return b.second;
+            return std::vector<uint8_t>();
+        };
+        const auto held = voiceOf(0x40);
+        CHECK(!held.empty(), "part 1 has no voice bulk");
+        a.set("part.on.p1", 0);
+        CHECK(a.until([&] { return a.is("part.bank.p1", 0); }), "the lamp did not turn part 1 off");
+        a.set("part.on.p1", 1);
+        CHECK(a.until([&] { return !a.is("part.bank.p1", 0); }), "the lamp did not turn part 1 back on");
+        CHECK(voiceOf(0x40) == held, "part 1 came back with another voice than the one it held");
+        CHECK(a.is("op.1.v.level.p1", 42), "part 1's edit did not come back (level %g)", a.get("op.1.v.level.p1"));
+    }
+
+    // A controller set on a part byte moves that byte, and the editor with it: A088 Fat Line sends KN1 and the
+    // wheel to part 1's cutoff at +16 (ctrlDest_21 writes the byte, Synth::ctrl_write), and it once swept the
+    // filter with the Cutoff shown standing still.
+    {
+        a.set("perf.bank", 0);
+        a.set("perf.program", 87);
+        CHECK(a.until([&] { return a.data("perf.name") == "Fat Line"; }), "A088 did not load (\"%s\")", a.data("perf.name").c_str());
+        const double rest = a.get("part.cutoff.p1");
+        a.midi({0xB0, 1, 127});
+        CHECK(a.until([&] { return a.get("part.cutoff.p1") > rest; }), "the wheel left the Cutoff at %g", a.get("part.cutoff.p1"));
+        a.midi({0xB0, 1, 0});
+        CHECK(a.until([&] { return a.get("part.cutoff.p1") == rest; }), "the Cutoff did not come back to %g with the wheel (%g)", rest, a.get("part.cutoff.p1"));
+    }
+
+    // A bank past 16,384 voices: every row loads. A merged DX7 .syx can hold 40,000, and the browser's row
+    // params stopped at 16,384, so every row past it loaded row 16,384.
+    {
+        std::vector<uint8_t> big;
+        for (int k = 0; k < 520; ++k) {
+            std::vector<uint8_t> b = dx7Bank();
+            for (int v = 0; v < 32; ++v) {
+                char name[11];
+                std::snprintf(name, sizeof name, "B%03dV%02d   ", k, v + 1);
+                std::memcpy(b.data() + 6 + v * 128 + 118, name, 10);
+            }
+            int sum = 0;
+            for (size_t i = 6; i + 2 < b.size(); ++i) sum += b[i];
+            b[b.size() - 2] = (uint8_t)(-sum & 0x7F);
+            big.insert(big.end(), b.begin(), b.end());
+        }
+        const fs::path bigSyx = tmp / "Zz Big.syx";
+        writeBytes(bigSyx, big);
+        a.st->setData("sysex.import", bigSyx.u8string());
+        CHECK(a.until([&] { return lineOf("bank.list", "Zz Big") > 0; }, 30000), "the big bank did not import (%s)", a.data("live.message").c_str());
+        a.set("browse.category", 0);
+        a.set("browse.bank", lineOf("bank.list", "Zz Big"));
+        CHECK(a.until([&] { return a.lines("browse.voice.list") == 520 * 32; }, 30000), "the big bank lists %d voices", a.lines("browse.voice.list"));
+        a.set("browse.voice.p1", 16500);
+        CHECK(a.is("browse.voice.p1", 16500), "row 16500 became %g", a.get("browse.voice.p1"));
+        CHECK(a.until([&] { return a.data("morph.p1.bl") == "B515V20"; }), "row 16500 loaded \"%s\"", a.data("morph.p1.bl").c_str());
+    }
+
     a.proc.reset();
     // Options: a new instance plays the Init Patch. The standalone's app brings back the state it closed with, as a
     // session, as it starts: Load Last Patch keeps it, and otherwise the Init Patch plays over it. A host's session stays.
@@ -648,6 +765,12 @@ int main() {
             Rig s;
             CHECK(s.until([&] { return s.data("perf.user.name") == "Snow Decay" && s.is("perf.bank", 1); }), "a new instance did not play the Init Patch (\"%s\")",
                   s.data("perf.user.name").c_str());
+        }
+        {
+            Rig s;   // a host that picks a performance as the instance starts gets that one, not the Init Patch
+            s.set("perf.program", 2);
+            CHECK(s.until([&] { return s.data("perf.name") == "Nightmare" && s.is("perf.bank", 0); }), "a performance the host picked at the start gave way to \"%s\"",
+                  s.data("perf.name").c_str());
         }
         {
             Rig s(true);
@@ -672,7 +795,27 @@ int main() {
         }
     }
 
+    // A library the instance cannot read says so on the status line, rather than every bank just vanishing:
+    // macOS refuses ~/Documents to an app it has no grant for, and the import then wrote a file nobody saw.
+    {
+        const fs::path notFolder = tmp / "Not a folder";
+        writeBytes(notFolder, {0});
+        auto library = [](const fs::path& p) {
+#ifdef _WIN32
+            _putenv_s("FSVR_LIBRARY", p.u8string().c_str());
+#else
+            setenv("FSVR_LIBRARY", p.u8string().c_str(), 1);
+#endif
+        };
+        library(notFolder);
+        {
+            Rig s;
+            CHECK(s.data("live.message").rfind("Cannot read", 0) == 0, "an unreadable library said \"%s\"", s.data("live.message").c_str());
+        }
+        library(tmp / "Library");
+    }
+
     fs::remove_all(tmp, ec);
-    if (!fails) std::printf("check_plugin: factory banks, sessions, Import SysEx, the bank browser, morph (off), Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, a preset's Fseq after a reopen, and the Init and last patches all pass\n");
+    if (!fails) std::printf("check_plugin: factory banks, sessions, Import SysEx, the bank browser, morph (off), Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, a preset's Fseq after a reopen, a host's performance bulk, the part lamp, the Init and last patches, and an unreadable library all pass\n");
     return fails ? 1 : 0;
 }

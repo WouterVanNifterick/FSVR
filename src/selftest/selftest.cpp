@@ -2,6 +2,7 @@
 #include "engine/synth.h"
 #include "display/display.h"
 #include "display/egview.h"
+#include <algorithm>
 #include <cstring>
 #include <memory>
 
@@ -209,7 +210,7 @@ int selftest(Synth& S) {
     // Pitch bend (0x15B80): the bend word is (msb - 64) * 16 + (lsb >> 3), the pitch takes it >> 3, 256 steps,
     // and source PB gets the same >> 3 raw, -128..127. Ours: bend14 puts the LSB's low six bits between those steps.
     { Part& pt = S.perf.part[0];
-      auto bw = [&](int lsb, int msb) { S.midi_in(0xE0, lsb, msb); return S.bend_word(pt); };
+      auto bw = [&](int lsb, int msb) { S.midi_in(0xE0, lsb, msb); return S.bend_word(pt, 0); };
       S.bend14 = false;
       const double w0 = bw(0, 96), w1 = bw(64, 96);
       ck("bend: the unit's pitch keeps the LSB's top bit", w0 == 512 && w1 == 520 && bw(63, 96) == w0);
@@ -222,6 +223,46 @@ int selftest(Synth& S) {
       for (int v = 0; v < 16384; v += 37) { double w = bw(v & 127, v >> 7); up = up && w >= last; last = w; }
       ck("bend: the 14-bit sweep never steps back", up);
       bw(0, 64); }
+    // Rcv Max (owner's manual p.25, Data List 2.2.3.2): parts 1 and 2 hear every channel from Rcv Ch to Rcv Max, as
+    // Preset C's guitar performances are set (1 to 6, a string to a channel). Parts 3 and 4 have no Max, and pf is
+    // the performance channel alone. A part on a range bends each note by its own channel (Data List 2.2.4).
+    { const int force = S.forceChannel, perfCh = S.sys[9];
+      S.forceChannel = -1;
+      init_perf(S.perf);
+      for (auto& q : S.perf.part) q.p[1] = 0;   // every part off but the two under test
+      Part& a = S.perf.part[0]; a.p[1] = 2; a.p[4] = 0; a.p[3] = 5; init_default_voice(a.voice);
+      Part& c = S.perf.part[2]; c.p[1] = 2; c.p[4] = 9; c.p[3] = 12;
+      ck("Rcv Max: part 1 set to 1..6 hears channel 4 and not 7", S.part_listens(0, 3) && !S.part_listens(0, 6));
+      ck("Rcv Max: part 3 has none and hears its own channel alone", S.part_listens(2, 9) && !S.part_listens(2, 11));
+      a.p[4] = 0x10; S.sys[9] = 2;
+      ck("Rcv Max: a part on pf hears the performance channel alone", S.part_listens(0, 2) && !S.part_listens(0, 3));
+      a.p[4] = 0;
+      S.all_off();
+      std::vector<float> l(512), r(512);
+      S.midi_in(0x90, 60, 100); S.midi_in(0x91, 64, 100); S.render(l.data(), r.data(), 512);
+      auto pitchOf = [&](int note) { for (auto& ch : S.ch) if (ch.active && ch.note == note) return ch.regPitch; return -1.0; };
+      const double at60 = pitchOf(60), at64 = pitchOf(64);
+      S.midi_in(0xE1, 0, 127); S.render(l.data(), r.data(), 512);
+      ck("Rcv Max: a bend on channel 2 moves its own note and leaves channel 1's", at60 > 0 && pitchOf(60) == at60 && pitchOf(64) > at64);
+      S.midi_in(0xE1, 0, 64); S.all_off();
+      init_perf(S.perf); S.forceChannel = force; S.sys[9] = (uint8_t)perfCh; }
+    // A part turned off with a key down: its bank to off, or its Rcv Ch to off, stops what it holds, since the
+    // key up will not reach it. The firmware silences a part whenever its receive changes (FUN_00020644).
+    { const int force = S.forceChannel; S.forceChannel = -1;
+      std::vector<float> l(2048), r(2048);
+      for (int al : {0x01, 0x04}) {
+          init_perf(S.perf); S.all_off();
+          for (auto& q : S.perf.part) q.p[1] = 0;
+          Part& a = S.perf.part[0]; a.p[1] = 2; a.p[4] = 0; init_default_voice(a.voice);
+          S.midi_in(0x90, 60, 100); S.render(l.data(), r.data(), 512);
+          const bool sounding = std::any_of(S.ch, S.ch + NCHAN, [](const Chan& c) { return Synth::owned(c); });
+          uint8_t m[10] = {0xF0, 0x43, 0x10, 0x5E, 0x30, 0x00, (uint8_t)al, 0, (uint8_t)(al == 0x01 ? 0 : 0x7F), 0xF7};
+          apply_param_change_locked(S, m, 10);
+          S.render(l.data(), r.data(), 2048);
+          ck(al == 0x01 ? "bank off stops the part's held note" : "Rcv Ch off stops the part's held note",
+             sounding && std::none_of(S.ch, S.ch + NCHAN, [](const Chan& c) { return c.active; }));
+      }
+      init_perf(S.perf); S.all_off(); S.forceChannel = force; }
     S.midi_in(0xB0, 100, 2); S.midi_in(0xB0, 6, 0x28 + 12);
     ck("RPN note shift", S.perf.part[0].p[8] == 12);
     S.midi_in(0xB0, 99, 1); S.midi_in(0xB0, 98, 0x20); S.midi_in(0xB0, 6, 90);
@@ -268,6 +309,20 @@ int selftest(Synth& S) {
         T.perf.c[0x28] = 0x0F; T.perf.c[0x40] = 21;                   // filter cutoff edits the part byte
         ck("a part-byte destination lands on the byte",
            T.ctrl_part(0, 21, 64) == Synth::scale_f58(127, 32, 64));
+        // ctrlDest_21 writes the cutoff byte itself, from a copy of the byte (Part::ctlBase) plus the controller,
+        // so the byte reads as the unit's edit buffer does, the same source again does not compound, and an
+        // ordinary edit (CC74 here, FUN_00030796's normal path) moves the base the controller adds to.
+        { Part& pt = T.perf.part[0];
+          pt.p[0x18] = 50; pt.fill_ctl_base();
+          T.set_source(pt, Synth::SRC_KN1, 127);
+          const int up = pt.p[0x18];
+          T.set_source(pt, Synth::SRC_KN1, 127);
+          ck("a controller writes the cutoff byte as base plus offset, once", up == Synth::scale_f58(127, 32, 50) && pt.p[0x18] == up && pt.ctlBase[4] == 50);
+          T.set_source(pt, Synth::SRC_KN1, 64);
+          ck("and the byte is back at its base when the source rests", pt.p[0x18] == 50);
+          T.control_change(0, 74, 30);
+          T.set_source(pt, Synth::SRC_KN1, 127);
+          ck("an edit moves the base the controller adds to", pt.ctlBase[4] == 30 && pt.p[0x18] == Synth::scale_f58(127, 32, 30)); }
         // Two sets on one destination do not compose: each handler stores a per-part byte, so the
         // highest-numbered one wins (FUN_00014DDC walks 0 to 7, ctrlDest_37 writes DAT_01029758).
         T.perf.c[0x40] = 37; T.perf.c[0x29] = 0x0F;
@@ -345,6 +400,32 @@ int selftest(Synth& S) {
            down.word == centred.word - want && down.inc == op_increment(centred.word - want));
         init_default_voice(V);
     }
+    // A part's detune scales by the key played (FUN_00010dc4 reads the band off 0x0102A402, before any note
+    // shift), so a part two octaves down at -18 on key 60 moves 18 * (15 - 7) / 15 = 9 words, not the 13 its
+    // shifted note's band would give. Teck Hook's layers beat at the unit's 2.1 and 3.2 Hz only so.
+    { Part& pt = S.perf.part[0]; const uint8_t ns = pt.p[8], dt = pt.p[9]; Chan C{};
+      pt.p[8] = 0;   // note shift -24
+      pt.p[9] = 0x40; S.compute_pitch(C, pt, 60); const int centre = C.pitchNote;
+      pt.p[9] = 0x40 - 18; S.compute_pitch(C, pt, 60); const int down = C.pitchNote;
+      pt.p[8] = ns; pt.p[9] = dt;
+      ck("a part's detune scales by the key played, not the shifted note", centre - down == 9); }
+    // A fine of 100 or more plays as the next coarse step at fine 0, as measured on the unit on 2026-10-23:
+    // coarse 0 fine 100 is ratio 1.0 and coarse 2 fine 100 is 3.0. The factory Hook under Teck Hook, Tech Lead
+    // and 25 more store fine 100; held at 99 they sat 8 cents under the note and beat against it.
+    { Synth& T = S; Voice& V = T.perf.part[0].voice;
+      auto word = [&](int coarse, int fine) {
+          init_default_voice(V);
+          V.v[0].coarse = coarse; V.v[0].fine = fine; V.v[0].fixed = 0; V.v[0].form = 0;
+          std::vector<float> a(64), b(64);
+          T.midi_in(0x90, 60, 100); T.render(a.data(), b.data(), 64);
+          int w = -1;
+          for (auto& c : T.ch) if (c.active && c.note == 60) { w = c.freqWord[0]; break; }
+          T.midi_in(0x80, 60, 0); T.midi_in(0xB0, 120, 0);
+          return w;
+      };
+      const bool carry = word(0, 100) == word(1, 0) && word(0, 127) == word(1, 0) && word(2, 100) == word(3, 0) && word(0, 99) < word(1, 0);
+      init_default_voice(V);
+      ck("a fine of 100 or more plays as the next coarse step", carry); }
 
     // Formant transpose is the pitch half of register 0x230 (FUN_00013bc6): it shifts the grain rate.
     // The formant frequency, coarse and fine plus detune, stays. A frame replaces that frequency and
@@ -748,6 +829,17 @@ int selftest(Synth& S) {
       ck("key sync: two operators in step at every note", held);
       ck("key sync: a frequency EG on one alone leads it by a share that doubles each octave", doubles && fabs(fe[0]) > 0.05); }
 
+    // odd and res read their window and carrier by phase with the modulation added to both (US5610354, FIG. 11), so a
+    // fixed operator at 0 Hz shapes whatever modulates it, as the sine does. As grains fired by an accumulator of their
+    // own they passed nothing at 0 Hz: a modulator into odd1 at 0 Hz was silence (reported on the 2026-10-20 nightly).
+    { double quiet = 1;
+      for (int form : {0, 3, 4, 5, 6}) {
+          OpV v{}; v.form = form; v.skirt = 0; OpState s{}; double peak = 0;
+          for (int i = 0; i < 4800; i++) peak = std::max(peak, std::fabs(op_sample(s, v, 0, 0, 0, 1, 0.3 * std::sin(2 * 3.14159265358979 * 100.0 * i / SR), 1)));
+          quiet = std::min(quiet, peak);
+      }
+      ck("a 0 Hz operator shapes its modulator on sine, odd1, odd2, res1 and res2", quiet > 0.01); }
+
     // The phase generator, as measured on the unit (cal.h): the increments take 3 predicted and then read off it,
     // carriers and modulators, fixed and ratio-mode, every floor-or-round choice a floor; the saturated word's
     // 23982 Hz line; and a fixed operator at coarse 17, fine 3 stepping by exactly that increment in a channel.
@@ -810,6 +902,22 @@ int selftest(Synth& S) {
       int took = -1;
       for (int i = 0; i < NCHAN; i++) if (S.ch[i].active && S.ch[i].note == 100) took = i;
       ck("the 33rd note steals the channel the unit stole (ch 2)", took == 2 && before == 2);
+      // The take then let note 100 go and played 24, below everything held, and the unit put it on channel 2:
+      // the note off freed that channel (FUN_00011E40) while its release still sounded.
+      S.midi_in(0x80, 100, 0); S.render(l, r, 4);
+      S.midi_in(0x90, 24, 100); S.render(l, r, 4);
+      int low = -1;
+      for (int i = 0; i < NCHAN; i++) if (S.ch[i].active && S.ch[i].note == 24) low = i;
+      ck("a note off frees its channel: the next note takes it, as the unit did (ch 2)", low == 2);
+      // #54: a machine full of released notes, their releases still sounding, takes 32 new notes and keeps every
+      // one of them. Releases kept their channels until the EGs ran out, and new notes stole each other instead.
+      S.all_off(); S.nextChan[0] = 0; for (int i = 0; i < 4; i++) S.partChan[i] = 0;
+      for (int note = 36; note < 36 + NCHAN; note++) { S.midi_in(0x90, note, 100); S.render(l, r, 4); }
+      for (int note = 36; note < 36 + NCHAN; note++) { S.midi_in(0x80, note, 0); S.render(l, r, 4); }
+      for (int note = 70; note < 70 + NCHAN; note++) { S.midi_in(0x90, note, 100); S.render(l, r, 4); }
+      int kept = 0;
+      for (auto& c : S.ch) kept += c.active && c.held && c.note >= 70;
+      ck("released notes give their channels up: 32 notes played over 32 releases all stay held (#54)", kept == NCHAN);
       S.all_off(); init_perf(S.perf); }
 
     // Ours: the engine sleeps while nothing sounds (render.cpp), and a host cannot tell. A note and its release
