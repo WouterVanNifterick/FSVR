@@ -15,12 +15,6 @@ static const int AMS_W[8] = {0, 1, 2, 4, 5, 6, 7, 8};
 static inline double am_att(int regAM, int ams) { return std::min(regAM, 127) * LEVEL_DB * AMS_W[ams & 7] / 8.0; }
 // One pole per sample coefficient for the voiced level register, cal::LEVEL_SLEW_MS as a rate.
 const double LEVEL_SLEW_K = 1.0 - exp(-1.0 / (cal::LEVEL_SLEW_MS * 0.001 * SR));
-// 1024 units per octave, and the word is a 16 bit register that saturates rather than wrapping.
-// MEASURED 2026-09-21 off 12_fseqlevel: a ratio operator driven by an Fseq lands past the ceiling at
-// every note and the unit answers with one line at 23982 Hz, which is word 32767 through the phase
-// generator below (op_increment), 23982.42 Hz. This smooth law reads 23969.9 there and plays the
-// channel's own rates, the formant window and the noise centre, which nothing has measured that way.
-static inline double word_hz(double w) { return 440.0 * fm::exp2((std::clamp(w, 0.0, 32767.0) - 26861) / 1024.0); }   // fractional for the bend LSB
 
 // ------------------------------------------------------------------------------------------ tables (chip side)
 extern float g_win[2][8][1025];
@@ -29,9 +23,11 @@ extern uint16_t g_opMant[1024];   // the phase generator's mantissas, floor(2048
 void init_tables();
 
 // An operator's phase increment for a frequency word, in units of 2^-cal::OP_PHASE_BITS of a cycle a sample
-// (MEASURED, cal.h). A word with a fraction, which the unit's never has (FSVR's 14-bit bend, the frequency
-// EG's ramp), takes the same law at its fractional place. INFERRED: between two words there is nothing to
-// measure on the unit.
+// (MEASURED, cal.h). The word is a 16 bit register that saturates rather than wrapping (12_fseqlevel,
+// 2026-09-21). The formant's grains, the channel pitch and the noise centre take the same law: a fixed formant
+// holds still against a fixed sine on the same word (2026-10-24), and the rest is INFERRED from that. A word
+// with a fraction, which the unit's never has (FSVR's 14-bit bend, the frequency EG's ramp), takes the same
+// law at its fractional place. INFERRED: between two words there is nothing to measure on the unit.
 static inline uint32_t op_increment(double w) {
     w = std::clamp(w, 0.0, 32767.0);
     const int wi = (int)w, i = wi & 1023; const double fr = w - wi;

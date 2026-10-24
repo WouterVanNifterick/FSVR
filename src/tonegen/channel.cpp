@@ -4,7 +4,7 @@
 
 void refresh_ctl(Chan& C, const Voice& V, bool fs) {
     const unsigned char* alg = FS1R_ALG[V.alg];
-    C.f0 = word_hz(C.regPitch + 0x1243 + C.regPM);                 // channel fundamental incl. LFO pitch mod (pms 7)
+    C.f0 = op_hz(op_increment(C.regPitch + 0x1243 + C.regPM));    // channel fundamental incl. LFO pitch mod (pms 7)
     C.fbGain = V.fb ? cal::FEEDBACK * pow(2.0, V.fb - 7) : 0.0;    // INFERRED feedback scale
     for (int o = 0; o < 8; o++) {
         OpState& s = C.op[o]; const OpV& v = V.v[o]; const OpU& u = V.u[o];
@@ -43,14 +43,16 @@ void refresh_ctl(Chan& C, const Voice& V, bool fs) {
         // through the full LFO word: rgwan's demo take of 15_Human (pms 1..4, pmd 12) wobbles its formant
         // harmonics 33..48 cents, the same as its pms 2 sine carriers, where a window on C.f0 gave 541.
         // The transpose word rides that pitch. The width stays the same number of Hz, so the window
-        // length in periods follows the grain rate.
+        // length in periods follows the grain rate. The grain rate goes through the phase generator as
+        // every other rate does: on the unit a fixed formant and a fixed sine on the same word hold still
+        // against each other, where the smooth law put the formant 0.73 cents under (2026-10-24).
         double base = C.regPitch + 0x1243 + pmw - C.vcFreq[o][0];
         int trans = v.form == 7 ? C.frmtWord[o] - 0x1243 - C.detW[o] : 0;
-        s.fw = word_hz(base + trans);
+        s.fw = op_hz(op_increment(base + trans));
         s.bw = clampi(C.bwReg[o] + C.vcBw[o][0], 0, 99);                 // register 0x218, the formant's
         s.ratio = v.form == 7 ? 0 : clampi(C.frmtWord[o], 0, 99);         // register 0x230, every other form's
         double wl = C.f0 / (cal::FRMT_BW_HZ0 * fm::exp2(s.bw / cal::FRMT_BW_DB));
-        if (trans) wl *= s.fw / word_hz(base);
+        if (trans) wl *= s.fw / op_hz(op_increment(base));
         s.wl7 = std::min(cal::FRMT_WL_MAX, wl);
         }
         unvoiced:
@@ -58,12 +60,12 @@ void refresh_ctl(Chan& C, const Voice& V, bool fs) {
         // unvoiced (noise formant) operator
         s.uatt = C.regULevel[o] * LEVEL_DB + am_att(C.regAM, u.ams);
         double nf;
-        if (fs && C.fseqUOp[o]) nf = word_hz(C.fquWord[o]);
-        else if (u.mode == 2 && v.form == 7) nf = word_hz(C.freqWord[o] + C.detW[o]);
+        if (fs && C.fseqUOp[o]) nf = op_hz(op_increment(C.fquWord[o]));
+        else if (u.mode == 2 && v.form == 7) nf = op_hz(op_increment(C.freqWord[o] + C.detW[o]));
         // MEASURED: link-ff on a voiced partner that is not a formant operator reaches register 0x300 as
         // link-fo, not as itself. uv-linkff-sine's image reads mode 1 where the sysex asked for 2.
         else if (u.mode) nf = C.f0;
-        else nf = word_hz(C.ufreqWord[o] + C.ufbW[o] + (C.regFM * u.fms) / 7 + C.vcFreq[o][1]);
+        else nf = op_hz(op_increment(C.ufreqWord[o] + C.ufbW[o] + (C.regFM * u.fms) / 7 + C.vcFreq[o][1]));
         s.nf = nf * fm::exp2(u.transpose / 12.0);
         // MEASURED noise formant, docs/noise.md and cal.h: two unequal digital one-poles on white noise,
         // their coefficients and the band's peak gain read off the tables against the register and the

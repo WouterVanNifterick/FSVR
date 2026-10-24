@@ -8,6 +8,21 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-24, the FS1R turns every frequency into a rate the same way
+
+WouterVanNifterick, on the unit: a voice with a fixed sine at 440.2 Hz and a formant operator whose formant frequency is also 440.2 Hz (both coarse 16, fine 0). Played at A5, the two hold perfectly still against each other. In FSVR they beat, about once every 5 seconds.
+
+**Why.** FSVR had two ways to turn a frequency word into hertz:
+
+- the sine used the phase generator measured on 2026-10-18, which gives 440.186 Hz;
+- the formant's pitch, the rate its grains fire at, used `word_hz`, a smooth formula nobody had measured, which gives 440.000 Hz.
+
+That 0.19 Hz gap is the beat. The unit has none, so the chip uses one method for both.
+
+**What changed.** `word_hz` is gone. Every rate now goes through the phase generator (`op_hz(op_increment(...))`): the operators, the formant's grains, the channel pitch and the unvoiced noise centres. The same word now gives exactly the same rate, so a formant and a sine on the same frequency stay in phase. The selftest checks this with the voice above. In `regress.py`, the three cases with formants (perf-everybody, perf-spacypad, ctrl-volume) moved and were re-fingerprinted; moving the channel pitch and noise centres changed nothing beyond the tolerances.
+
+Only the formant was observed on the unit. The channel pitch and noise centres follow by the same reasoning, but they are not checked.
+
 ## 2026-10-23, a part's detune scales by the key played, a fine past 99 carries into the coarse, and the 0 Hz forms match the unit
 
 **Teck Hook's wobble was its layers beating at the wrong rates.** Performance 180 is four mono parts on one voice, two an octave down at part detune -23 and +24 and two two octaves down at -18 and +18, panned apart, through a Symphonic insertion. Its level moves 8 to 12 dB on held notes on the unit as in FSVR, but rgwan's rig, recording that performance on 2026-10-23, put the movement at 2.12 Hz on note 60 and 3.22 Hz on note 72, where FSVR moved at about 0.9 Hz on both. `FUN_00010dc4` scales the part detune by 15 minus the band of the key: `(note >> 3) & 15` read off 0x0102A402, the incoming note before the system, performance, part and voice note shifts (the disassembly at 0x10ECA shifts that word right by three and masks it with 15, and loads 15 into r0 for the divide at 0x10F0E). The engine took the band from the shifted note, so a part shifted down got a lower band and more detune than the unit gives it. From the key played, parts 1 and 2 sit at -14.1 and +14.1 cents on note 60 and beat at 2.11 Hz, and at -10.5 and +10.5 cents on note 72 for 3.17 Hz, the unit's two rates. Rendered again, FSVR's level moves at 3.27, 0.48 and 2.76 Hz on note 72 against the unit's 3.22, 0.46 and 2.73, and carries the 2.13 Hz beat on note 60, though a 0.4 Hz movement there, likely the Symphonic's, stays 5 dB stronger in FSVR than on the unit, where the beat leads by 5 dB. No regression case shifts a detuned part, so none moved. The selftest checks the band on a part two octaves down.

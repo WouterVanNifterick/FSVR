@@ -862,6 +862,20 @@ int selftest(Synth& S) {
       for (uint32_t n = 90; n <= 100; n++) whole = whole || (c && c->op[0].phase == op_inc32(156352) * n);
       ck("phase generator: a fixed coarse 17 fine 3 steps by exactly 156352", c && c->op[0].inc == 156352u && whole); }
 
+    // A formant's grains fire at a rate off the same phase generator. On the unit a fixed sine and a fixed formant
+    // at coarse 16 fine 0, played at the key whose pitch is that word, hold still against each other (2026-10-24);
+    // the smooth law put the grains at 440.000 Hz under a sine at 440.186.
+    { auto T = std::make_unique<Synth>(); init_perf(T->perf); Part& pt = T->perf.part[0]; Voice& V = pt.voice;
+      pt.p[1] = 2; pt.p[4] = 0x10;
+      init_blank_voice(V.raw);
+      for (int o = 0; o < 2; o++) { uint8_t* p = V.raw + 112 + o * 62; p[0] = 24; p[1] = 16; p[2] = 0; p[4] = o ? 7 : 0; p[5] = 0x40; p[6] = 40; p[7] = 15; p[22] = 99; }
+      decode_voice(V);
+      T->midi_in(0x90, 69, 100);
+      Chan* c = nullptr; for (auto& x : T->ch) if (x.active) c = &x;
+      float l, r; T->render(&l, &r, 1);
+      ck("phase generator: a fixed formant's grains run at the fixed sine's rate on the same word",
+         c && c->op[0].inc == 76928u && c->op[1].fw == c->op[0].fop); }
+
     // The allocator, against the unit itself (FS1R.unlock captures/2026-09-25-7, session6 alloc).
     // Filling an empty machine with notes 36..67 on part 1 put them on channels 1..31 then 0, and a
     // 33rd note of 100 arriving on the full part took channel 2 (which held note 37). Both are
