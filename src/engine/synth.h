@@ -142,6 +142,8 @@ struct Synth {
     void note_off(int part, int note);
     void fseq_keys();
     void release(Chan& C);
+    void silence_part(int part);                     // FUN_00010384(0) on one part
+    void part_written(int part, int al, int was);    // the firmware's handler after a part byte is written
     void set_sustain(int part, bool on) { Part& pt = perf.part[part]; pt.sustain = on; if (!on) for (auto& c : ch) if (c.active && c.part == part && c.sustained) { c.sustained = false; release(c); } }
     // What the allocator counts as taken: a key down, or one the sustain pedal holds. FUN_00011E40, the poly
     // note off, clears a channel's in-use word (0x010287DE) and its part (0x010289BC) the moment its key comes

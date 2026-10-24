@@ -2,6 +2,7 @@
 #include "engine/synth.h"
 #include "display/display.h"
 #include "display/egview.h"
+#include <algorithm>
 #include <cstring>
 #include <memory>
 
@@ -245,6 +246,23 @@ int selftest(Synth& S) {
       ck("Rcv Max: a bend on channel 2 moves its own note and leaves channel 1's", at60 > 0 && pitchOf(60) == at60 && pitchOf(64) > at64);
       S.midi_in(0xE1, 0, 64); S.all_off();
       init_perf(S.perf); S.forceChannel = force; S.sys[9] = (uint8_t)perfCh; }
+    // A part turned off with a key down: its bank to off, or its Rcv Ch to off, stops what it holds, since the
+    // key up will not reach it. The firmware silences a part whenever its receive changes (FUN_00020644).
+    { const int force = S.forceChannel; S.forceChannel = -1;
+      std::vector<float> l(2048), r(2048);
+      for (int al : {0x01, 0x04}) {
+          init_perf(S.perf); S.all_off();
+          for (auto& q : S.perf.part) q.p[1] = 0;
+          Part& a = S.perf.part[0]; a.p[1] = 2; a.p[4] = 0; init_default_voice(a.voice);
+          S.midi_in(0x90, 60, 100); S.render(l.data(), r.data(), 512);
+          const bool sounding = std::any_of(S.ch, S.ch + NCHAN, [](const Chan& c) { return Synth::owned(c); });
+          uint8_t m[10] = {0xF0, 0x43, 0x10, 0x5E, 0x30, 0x00, (uint8_t)al, 0, (uint8_t)(al == 0x01 ? 0 : 0x7F), 0xF7};
+          apply_param_change_locked(S, m, 10);
+          S.render(l.data(), r.data(), 2048);
+          ck(al == 0x01 ? "bank off stops the part's held note" : "Rcv Ch off stops the part's held note",
+             sounding && std::none_of(S.ch, S.ch + NCHAN, [](const Chan& c) { return c.active; }));
+      }
+      init_perf(S.perf); S.all_off(); S.forceChannel = force; }
     S.midi_in(0xB0, 100, 2); S.midi_in(0xB0, 6, 0x28 + 12);
     ck("RPN note shift", S.perf.part[0].p[8] == 12);
     S.midi_in(0xB0, 99, 1); S.midi_in(0xB0, 98, 0x20); S.midi_in(0xB0, 6, 90);
