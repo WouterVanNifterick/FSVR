@@ -3,7 +3,6 @@
 
     python tools/fit_onset.py captures/hardware/24_onset.wav
     python tools/fit_onset.py captures/engine/24_onset.wav --label engine
-    python tools/fit_onset.py captures/engine/24_onset.wav --check    exit 1 if a known fix regressed
 
 For each segment, every strike is aligned on its own note-on and the first differences are averaged
 across the eight strikes, which is the point of striking it eight times: a real control-rate step sits
@@ -15,8 +14,10 @@ nothing special happens there. The control segment (onset-plain) must come out n
 that updates on the tick, so a step there would mean the tick period itself, the alignment, or this
 analyzer is wrong, and no other segment could then be trusted.
 
---check is the regression gate for the fixed-operator frequency EG fix (docs/findings.md 2026-09-25):
-onset-feg has to read like the control, because the unit holds that carrier flat.
+There is no --check any more. It held onset-feg to the control because the unit held that fixed
+carrier flat (docs/findings.md 2026-09-25), and the engine now gives fixed operators their frequency
+EG again, as the unit does on A123 Drum Kit 3's kick (2026-10-24). Which of the two the chip does
+when is open.
 """
 import argparse
 import json
@@ -97,9 +98,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("wav")
     ap.add_argument("--label", default="hardware")
-    ap.add_argument("--check", action="store_true",
-                    help="exit 1 if onset-feg no longer reads like the control (the fixed-operator "
-                         "frequency EG fix, docs/findings.md 2026-09-25)")
     a = ap.parse_args()
     man = json.loads((REQUESTS / "manifest.json").read_text())
     entry = next((f for f in man["files"] if f["file"] == "24_onset.mid"), None)
@@ -133,32 +131,14 @@ def main():
     ctrl = rows.get("onset-plain")
     if ctrl is None:
         print("\nno control segment, so nothing here can be trusted")
-        return 1 if a.check else 0
+        return 0
     print()
     if ctrl["ratio"] > 2.5:
         print(f"CONTROL FAILED: onset-plain steps at the tick too ({ctrl['ratio']:.2f}x). Nothing in this")
         print("  voice updates on the tick, so the tick period, the alignment or this analyzer is wrong.")
         print("  Fix that before reading any other segment.")
-        return 1 if a.check else 0
+        return 0
     print(f"control ok: onset-plain is flat at the tick ({ctrl['ratio']:.2f}x), so the window is honest")
-
-    # The regression gate. onset-feg used to read 2.54x here against the unit's 0.98x, because the
-    # engine applied the operator frequency EG to a FIXED-frequency carrier and the unit does not
-    # (docs/findings.md 2026-09-25). With the fix it reads like the control. Anything much above the
-    # control means the FEG is reaching fixed operators again.
-    feg = rows.get("onset-feg")
-    if a.check:
-        if feg is None:
-            print("FAIL: no onset-feg segment to check")
-            return 1
-        limit = max(2.0, 1.4 * ctrl["ratio"])
-        if feg["ratio"] > limit:
-            print(f"FAIL: onset-feg reads {feg['ratio']:.2f}x against the control's {ctrl['ratio']:.2f}x "
-                  f"(limit {limit:.2f}x).")
-            print("  The operator frequency EG is reaching fixed-frequency operators again; the unit")
-            print("  holds that carrier flat. See render_chan in src/tonegen/channel.cpp.")
-            return 1
-        print(f"check ok: onset-feg {feg['ratio']:.2f}x is within {limit:.2f}x of the control")
 
     flagged = [(k, v["ratio"]) for k, v in rows.items()
                if k != "onset-plain" and v["ratio"] > max(2.5, 2.0 * ctrl["ratio"])]

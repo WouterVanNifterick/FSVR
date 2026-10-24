@@ -754,6 +754,26 @@ int selftest(Synth& S) {
          n25 > 0 && fabs(s25 / n25 - want) < want * 0.01);
       S.all_off(); init_perf(S.perf); }
 
+    // A fixed operator takes its frequency EG too: A123 Drum Kit 3's kick sweeps on the unit along the
+    // ramp its fixed operators' EGs give (docs/findings.md 2026-10-24). A fixed 220 Hz carrier at init +25
+    // and a slow attack has to sound feg_semis(25) above its own frequency over its first 50 ms.
+    { init_perf(S.perf); Part& pt = S.perf.part[0]; Voice& V = pt.voice; pt.p[1] = 2; pt.p[4] = 0x10;
+      init_blank_voice(V.raw); uint8_t* op = V.raw + 112;
+      op[1] = 15; op[2] = 0; op[5] |= 0x40; op[22] = 99;
+      op[8] = 50 + 25; op[9] = 50; op[10] = 60; op[11] = 60;
+      decode_voice(V);
+      S.all_off(); S.midi_in(0x90, 60, 100);
+      std::vector<float> l(2400), r(2400); S.render(l.data(), r.data(), 2400);
+      double fop = 0; for (auto& c : S.ch) if (c.active && c.part == 0) fop = c.op[0].fop;
+      double first = -1, last = -1; int n = 0;
+      for (int i = 1; i < 2400; i++) {
+          const double a = l[i - 1] + r[i - 1], b = l[i] + r[i];
+          if (a < 0 && b >= 0) { const double t = i - 1 + a / (a - b); if (first < 0) first = t; last = t; n++; }
+      }
+      const double hz = n > 2 ? (n - 1) * SR / (last - first) : 0, want = fop * pow(2.0, FreqEG::feg_semis(25) / 12);
+      ck("a fixed operator's frequency EG moves its pitch (A123's kick)", fop > 0 && fabs(1200 * log2(hz / want)) < 30);
+      S.all_off(); init_perf(S.perf); }
+
     // A note-on that takes a channel from a sounding note damps it rather than zeroing it
     // (FUN_00023000: EG stage word to 4 and register 0xFC/FD, the mask out of the one-hot table at
     // 0x35B260). Fill every channel with a sounding note, strike one more, and the displaced channel's

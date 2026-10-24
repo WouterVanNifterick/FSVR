@@ -148,17 +148,13 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
         }
         if (gain != 0.0 || s.g[0].on || s.g[1].on) {
             double fop = s.fop; uint32_t inc = s.inc;
-            // A FIXED-frequency operator gets no frequency EG. MEASURED 2026-09-25 off 24_onset's
-            // onset-feg segment: init +25 with attack time 20 on a fixed carrier holds 1007.6 Hz flat
-            // on the unit through the whole sweep, while the engine started 939 cents sharp and took
-            // 25 ms to come down; the two agree to 1 cent once the ramp is over. That is consistent
-            // with the ratio-mode measurement on 2026-09-25 (07_modulation_2, the six feg-* segments,
-            // 1 to 5 cents), which used sine() carriers: the FEG rides the note's pitch word, and a
-            // fixed operator does not take that word at all, it takes its own coarse/fine bytes.
-            // Formant operators are NOT covered either way by any capture, so they keep the EG here
-            // rather than being changed on a guess. The EG moves the word, so the phase generator takes the
-            // moved word every sample of the ramp.
-            if (!v.fixed && s.feg.stage < 2) { inc = op_increment(s.word + s.feg.tick() * (1024.0 / 12.0)); fop = op_hz(inc); }
+            // Every operator takes its frequency EG, fixed ones included. MEASURED 2026-10-24 off Wouter's
+            // FS1R playing A123 Drum Kit 3: the kick's operators are all fixed, its pitch EG is flat, and
+            // the unit sweeps it from about 143 Hz to 45 Hz in 100 ms, the ramp op2's frequency EG gives.
+            // OPEN: 24_onset's onset-feg (2026-09-25) held a fixed 1 kHz carrier flat under init +25,
+            // attack 0, and nothing yet says which setting separates the two (docs/findings.md).
+            // The EG moves the word, so the phase generator takes the moved word every sample of the ramp.
+            if (s.feg.stage < 2) { inc = op_increment(s.word + s.feg.tick() * (1024.0 / 12.0)); fop = op_hz(inc); }
             y = op_sample(s, v, s.fw, fop, inc, s.ratio, in * FM_INDEX, gain, C.phOff[o]);
         }
         // A read leaves the sum bus as it is; t1 bit 1 starts it over, after this operator's read and
