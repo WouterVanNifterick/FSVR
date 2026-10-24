@@ -43,14 +43,16 @@ void refresh_ctl(Chan& C, const Voice& V, bool fs) {
         // through the full LFO word: rgwan's demo take of 15_Human (pms 1..4, pmd 12) wobbles its formant
         // harmonics 33..48 cents, the same as its pms 2 sine carriers, where a window on C.f0 gave 541.
         // The transpose word rides that pitch. The width stays the same number of Hz, so the window
-        // length in periods follows the grain rate.
+        // length in periods follows the grain rate. The grain rate goes through the phase generator as
+        // every other rate does: on the unit a fixed formant and a fixed sine on the same word hold still
+        // against each other, where the smooth law put the formant 0.73 cents under (2026-10-24).
         double base = C.regPitch + 0x1243 + pmw - C.vcFreq[o][0];
         int trans = v.form == 7 ? C.frmtWord[o] - 0x1243 - C.detW[o] : 0;
-        s.fw = word_hz(base + trans);
+        s.fw = op_hz(op_increment(base + trans));
         s.bw = clampi(C.bwReg[o] + C.vcBw[o][0], 0, 99);                 // register 0x218, the formant's
         s.ratio = v.form == 7 ? 0 : clampi(C.frmtWord[o], 0, 99);         // register 0x230, every other form's
         double wl = C.f0 / (cal::FRMT_BW_HZ0 * fm::exp2(s.bw / cal::FRMT_BW_DB));
-        if (trans) wl *= s.fw / word_hz(base);
+        if (trans) wl *= s.fw / op_hz(op_increment(base));
         s.wl7 = std::min(cal::FRMT_WL_MAX, wl);
         }
         unvoiced:

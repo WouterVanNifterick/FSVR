@@ -19,7 +19,7 @@ const double LEVEL_SLEW_K = 1.0 - exp(-1.0 / (cal::LEVEL_SLEW_MS * 0.001 * SR));
 // MEASURED 2026-09-21 off 12_fseqlevel: a ratio operator driven by an Fseq lands past the ceiling at
 // every note and the unit answers with one line at 23982 Hz, which is word 32767 through the phase
 // generator below (op_increment), 23982.42 Hz. This smooth law reads 23969.9 there and plays the
-// channel's own rates, the formant window and the noise centre, which nothing has measured that way.
+// channel's own rate, the formant window's length and the noise centre, which nothing has measured that way.
 static inline double word_hz(double w) { return 440.0 * fm::exp2((std::clamp(w, 0.0, 32767.0) - 26861) / 1024.0); }   // fractional for the bend LSB
 
 // ------------------------------------------------------------------------------------------ tables (chip side)
