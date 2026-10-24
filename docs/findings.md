@@ -8,6 +8,21 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-24, the FS1R turns every frequency into a rate the same way
+
+WouterVanNifterick, on the unit: a voice with a fixed sine at 440.2 Hz and a formant operator whose formant frequency is also 440.2 Hz (both coarse 16, fine 0). Played at A5, the two hold perfectly still against each other. In FSVR they beat, about once every 5 seconds.
+
+**Why.** FSVR had two ways to turn a frequency word into hertz:
+
+- the sine used the phase generator measured on 2026-10-18, which gives 440.186 Hz;
+- the formant's pitch, the rate its grains fire at, used `word_hz`, a smooth formula nobody had measured, which gives 440.000 Hz.
+
+That 0.19 Hz gap is the beat. The unit has none, so the chip uses one method for both.
+
+**What changed.** `word_hz` is gone. Every rate now goes through the phase generator (`op_hz(op_increment(...))`): the operators, the formant's grains, the channel pitch and the unvoiced noise centres. The same word now gives exactly the same rate, so a formant and a sine on the same frequency stay in phase. The selftest checks this with the voice above. In `regress.py`, the three cases with formants (perf-everybody, perf-spacypad, ctrl-volume) moved and were re-fingerprinted; moving the channel pitch and noise centres changed nothing beyond the tolerances.
+
+Only the formant was observed on the unit. The channel pitch and noise centres follow by the same reasoning, but they are not checked.
+
 ## 2026-10-18, the YMP706's operator phase generator: an integer increment, a 12-bit floor table and a shift
 
 rgwan, on the 2026-10-17 key sync report: the oscillators should run on integer accumulators. FSVR's ran on a double, with the frequency from `word_hz`'s smooth `440 * 2^((w - 26861) / 1024)`. The YMP706 is write-only on the bus, so the width had to come off the audio: three takes on rgwan's unit through the rig, MIDI only, into the edit buffers.
