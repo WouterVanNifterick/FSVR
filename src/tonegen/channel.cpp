@@ -157,6 +157,15 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
             // The EG moves the word, so the phase generator takes the moved word every sample of the ramp.
             if (s.feg.stage < 2) { inc = op_increment(s.word + s.feg.tick() * (1024.0 / 12.0)); fop = op_hz(inc); }
             y = op_sample(s, v, s.fw, fop, inc, s.ratio, in * FM_INDEX, gain, C.phOff[o]);
+        } else if (s.eg.stage != 0) {
+            // Ours: under the gate an operator is not computed, but its phase and its frequency EG still run, so
+            // a key-synced operator rising out of silence is where it would have been. Holding them moved its
+            // relation to the others with the note and with the Quality setting. An EG hold still holds them
+            // (docs/findings.md, 2026-10-17).
+            uint32_t inc = s.inc;
+            if (!v.fixed && s.feg.stage < 2) inc = op_increment(s.word + s.feg.tick() * (1024.0 / 12.0));
+            if (v.form <= 6) s.phase += op_inc32(inc);
+            else if ((s.fphase += s.fw / SR) >= 1) s.fphase -= 1;
         }
         // A read leaves the sum bus as it is; t1 bit 1 starts it over, after this operator's read and
         // before its add. INFERRED from the table, not measured: the bit is set wherever a second sum

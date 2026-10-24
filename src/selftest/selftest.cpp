@@ -904,6 +904,25 @@ int selftest(Synth& S) {
       ck("key sync: two operators in step at every note", held);
       ck("key sync: a frequency EG on one alone leads it by a share that doubles each octave", doubles && fabs(fe[0]) > 0.05); }
 
+    // An operator under the gate is not computed, but its phase runs from key-on: a key-synced operator at level 30
+    // with a slow attack starts some milliseconds under the gate, and held there it led a loud one by a share that
+    // moved with the note and again with the Quality setting's gate.
+    { auto lead = [](int note, double gateDb, int egDecimation) {
+          auto T = std::make_unique<Synth>(); init_perf(T->perf); Part& pt = T->perf.part[0]; Voice& V = pt.voice;
+          T->gateDb = gateDb; T->egDecimation = egDecimation;
+          pt.p[1] = 2; pt.p[4] = 0x10;
+          init_blank_voice(V.raw);
+          for (int o = 0; o < 2; o++) { V.raw[112 + o * 62] = 0x40 | 24; V.raw[112 + o * 62 + 22] = 99; }   // key sync, level 99
+          V.raw[112 + 22] = 30; V.raw[112 + 16] = 50;                                                        // but level 30, attack time 50
+          decode_voice(V);
+          T->midi_in(0x90, note, 100);
+          Chan* c = nullptr; for (auto& x : T->ch) if (x.active) c = &x;
+          float l, r; for (int k = 0; k < SR / 2; k++) T->render(&l, &r, 1);
+          return c ? (int32_t)(c->op[0].phase - c->op[1].phase) / 4294967296.0 : 0.5; };
+      bool held = true;
+      for (int k = 0; k < 4; k++) held = held && lead(36 + 12 * k, -100, 1) == 0.0 && lead(36 + 12 * k, -72, 8) == 0.0;
+      ck("key sync: a quiet operator rising out of the gate is in step at every note and both gates", held); }
+
     // odd and res read their window and carrier by phase with the modulation added to both (US5610354, FIG. 11), so a
     // fixed operator at 0 Hz shapes whatever modulates it, as the sine does. As grains fired by an accumulator of their
     // own they passed nothing at 0 Hz: a modulator into odd1 at 0 Hz was silence (reported on the 2026-10-20 nightly).

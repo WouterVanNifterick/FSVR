@@ -97,6 +97,14 @@ That 0.19 Hz gap is the beat. The unit has none, so the chip uses one method for
 
 Only the formant was observed on the unit. The channel pitch and noise centres follow by the same reasoning, but they are not checked.
 
+## 2026-10-24, an operator under the gate runs on
+
+WouterVanNifterick: with key sync on, Teck Hook's operators seem not to reset their phase. The fine of 100 beating against the note (2026-10-23) is one cause; this is another.
+
+**An operator under the gate runs on.** Quality's gate (ours, -100 to -72 dB) skipped an operator's phase and frequency EG along with its sample, so a key-synced operator whose attack starts under it, more than about 45 dB down at Full, started its phase as late as it took to rise out. Its relation to the other operators then moved with the note and again with the Quality setting. Bassline 2 with operator 7 at level 30 and attack time 50 led operator 8 by +0.14, -0.48, +0.04 and +0.09 turns at C2 to C5; it now leads by 0 at all four, under Full's gate and Fastest's. An operator in its EG hold still holds both (2026-10-17). Nothing in `regress.py` moved.
+
+---
+
 ## 2026-10-23, a part's detune scales by the key played, a fine past 99 carries into the coarse, and the 0 Hz forms match the unit
 
 **Teck Hook's wobble was its layers beating at the wrong rates.** Performance 180 is four mono parts on one voice, two an octave down at part detune -23 and +24 and two two octaves down at -18 and +18, panned apart, through a Symphonic insertion. Its level moves 8 to 12 dB on held notes on the unit as in FSVR, but rgwan's rig, recording that performance on 2026-10-23, put the movement at 2.12 Hz on note 60 and 3.22 Hz on note 72, where FSVR moved at about 0.9 Hz on both. `FUN_00010dc4` scales the part detune by 15 minus the band of the key: `(note >> 3) & 15` read off 0x0102A402, the incoming note before the system, performance, part and voice note shifts (the disassembly at 0x10ECA shifts that word right by three and masks it with 15, and loads 15 into r0 for the divide at 0x10F0E). The engine took the band from the shifted note, so a part shifted down got a lower band and more detune than the unit gives it. From the key played, parts 1 and 2 sit at -14.1 and +14.1 cents on note 60 and beat at 2.11 Hz, and at -10.5 and +10.5 cents on note 72 for 3.17 Hz, the unit's two rates. Rendered again, FSVR's level moves at 3.27, 0.48 and 2.76 Hz on note 72 against the unit's 3.22, 0.46 and 2.73, and carries the 2.13 Hz beat on note 60, though a 0.4 Hz movement there, likely the Symphonic's, stays 5 dB stronger in FSVR than on the unit, where the beat leads by 5 dB. No regression case shifts a detuned part, so none moved. The selftest checks the band on a part two octaves down.
@@ -280,7 +288,8 @@ setting have no per-operator pitch EG to do it with. Self check: two key-synced 
 note, and a frequency EG on one leads it by a share that doubles each octave.
 
 **An EG hold is left open.** Below the -100 dB gate an operator is not computed, and that stops its phase and
-its frequency EG too; an operator in its hold is there. Running both from key-on instead moved `regress.py`'s
+its frequency EG too; an operator in its hold is there. (Since 2026-10-24 only the hold stops them: under the gate
+otherwise an operator runs on.) Running both from key-on instead moved `regress.py`'s
 perf-towarp, and A043 To Warp is the reason it was taken back out: it staggers holds of 55, 50, 30 and 20 over
 operators that each carry a full-range frequency sweep, which is a design only if a sweep starts when its hold
 ends. If the unit's hold delays the operator's key-on, the phase reset waits for it too and the relation between

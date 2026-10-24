@@ -68,7 +68,8 @@ void Device::setEchoParameters(bool on) { p->echo = on; }
 
 // Ours, a user's choice, so unlike engine/tuning.h's knobs every step but Full changes the output. Full gates at
 // -100 dB, under the 16-bit floor after OUT_GAIN, and runs the control maths every 16 samples and the EGs every
-// sample. Good gates at -90 dB, which takes out the operators parked at output level 0 (-96 dB), and halves the
+// sample. An operator under the gate is not computed, but outside an EG hold its phase and frequency EG run
+// on, so the gate does not move its phase. Good gates at -90 dB, which takes out the operators parked at output level 0 (-96 dB), and halves the
 // control rate. Fast and Fastest gate at -80 and -72 dB, which also lets a release tail under the gate end its
 // channel sooner, and advance the amplitude EGs 4 and 8 samples at a time (render_chan). Measured over 8-note
 // chords struck twice a second, Fastest is 32 % under Full on A020 Vox Morph, 30 % on B014 Full Tines and 8 % on
