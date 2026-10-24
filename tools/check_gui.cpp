@@ -474,6 +474,47 @@ int main() {
             u.set("op.1.v.form.p1", form), u.set("op.1.v.mode.p1", mode), u.set("op.1.v.coarse.p1", coarse);
             u.run();
         }
+        {   // The Operator page reads Coarse alone, Fine, and what the two play: Teck Hook's operator 7, coarse 0 fine 100,
+            // plays the next coarse step, 1.000. A typed ratio goes back through the table, and a box opened and left as
+            // it was changes nothing. The sidebar's frequency follows Fine.
+            const double form = u.get("op.1.v.form.p1"), coarse = u.get("op.1.v.coarse.p1"), fine = u.get("op.1.v.fine.p1");
+            u.set("op.1.v.coarse.p1", 0), u.set("op.1.v.fine.p1", 100);
+            u.click("opcol/edit");
+            u.run();
+            const std::string c = u.gui.textOf("pages/coarse_ratio"), f = u.gui.textOf("pages/fine"), t = u.gui.textOf("pages/freq_ratio");
+            CHECK(c == "0.500" && f == "100" && t == "1.000", "coarse 0 fine 100 reads Coarse %s, Fine %s, Ratio %s", c.c_str(), f.c_str(), t.c_str());
+            Rect r;
+            if (u.rect("pages/coarse_ratio", r)) {
+                u.clickAt(r.x + r.w / 2, r.y + r.h / 2, true);
+                u.gui.keyDown(KeyEnter, false, false);
+                u.run(2);
+                CHECK(u.get("op.1.v.coarse.p1") == 0, "Coarse opened and left as it was went to %g", u.get("op.1.v.coarse.p1"));
+                u.clickAt(r.x + r.w / 2, r.y + r.h / 2, true);
+                u.type("2");
+                CHECK(u.get("op.1.v.coarse.p1") == 2, "2 typed into Coarse left it at %g", u.get("op.1.v.coarse.p1"));
+                u.clickAt(r.x + r.w / 2, r.y + r.h / 2, true);
+                u.type("0.5");
+                CHECK(u.get("op.1.v.coarse.p1") == 0, "0.5 typed into Coarse left it at %g", u.get("op.1.v.coarse.p1"));
+            }
+            u.set("op.1.v.form.p1", 7);
+            u.run();
+            CHECK(u.shows("pages/freq_fixed") && u.shows("pages/freq_title_hz") && !u.shows("pages/freq_ratio"), "Formant's frequency did not read in Hz");
+            u.set("op.1.v.form.p1", 0), u.set("op.1.v.fine.p1", 0);
+            u.run();
+            auto box = [&] {
+                std::vector<uint32_t> px;
+                if (u.rect("opcol/wave_ratio", r))
+                    for (int y = r.y; y < r.y + r.h; ++y)
+                        for (int x = r.x; x < r.x + r.w; ++x) px.push_back(u.gui.pixels()[(size_t)y * u.gui.width() + x]);
+                return px;
+            };
+            const auto before = box();
+            u.set("op.1.v.fine.p1", 50);
+            u.run();
+            CHECK(box() != before, "the sidebar's frequency did not repaint when Fine moved");
+            u.set("op.1.v.form.p1", form), u.set("op.1.v.coarse.p1", coarse), u.set("op.1.v.fine.p1", fine);
+            u.run();
+        }
 
         // ---- the keyboard shortcuts (skin.json "keys", issue #11) -------------------------------------
         {

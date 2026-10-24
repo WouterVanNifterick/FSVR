@@ -114,7 +114,7 @@
    "type": "plate",
    "name": "fine_title",
    "rect": [
-    174,
+    132,
     46,
     70,
     20
@@ -133,6 +133,108 @@
    ],
    "fill": {
     "image": "panels/group_tab"
+   }
+  },
+  {
+   "type": "plate",
+   "name": "freq_title_ratio",
+   "rect": [
+    220,
+    46,
+    75,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Ratio",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab"
+   },
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.v.mode.{part}",
+      "equals": 0
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "notEquals": 7
+     }
+    ]
+   }
+  },
+  {
+   "type": "plate",
+   "name": "freq_title_hz",
+   "rect": [
+    220,
+    46,
+    60,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "Hz",
+    "font": "caption_grey_12",
+    "align": "left"
+   },
+   "pad": [
+    22,
+    4,
+    22,
+    0
+   ],
+   "fill": {
+    "image": "panels/group_tab"
+   },
+   "showIf": {
+    "any": [
+     {
+      "all": [
+       {
+        "var": "layer",
+        "equals": "v"
+       },
+       {
+        "any": [
+         {
+          "param": "op.{op}.v.mode.{part}",
+          "equals": 1
+         },
+         {
+          "param": "op.{op}.v.form.{part}",
+          "equals": 7
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "layer",
+        "equals": "u"
+       },
+       {
+        "param": "op.{op}.u.mode.{part}",
+        "equals": 0
+       }
+      ]
+     }
+    ]
    }
   },
   {
@@ -254,7 +356,7 @@
    "rect": [
     50,
     93,
-    118,
+    82,
     50
    ],
    "layer": 1,
@@ -266,9 +368,9 @@
    "type": "number",
    "name": "coarse_ratio",
    "rect": [
-    54,
+    50,
     107,
-    108,
+    78,
     25
    ],
    "text": {
@@ -298,22 +400,26 @@
      {
       "param": "op.{op}.v.mode.{part}",
       "equals": 0
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "notEquals": 7
      }
     ]
    },
-   "tip": "Coarse, reading as the unit shows it",
+   "tip": "Coarse: the ratio at fine 0, 0 being 0.5",
    "valueText": {
     "table": "op_ratio",
-    "col": "op.{op}.{layer}.fine.{part}"
+    "col": 0
    }
   },
   {
    "type": "number",
    "name": "coarse_fixed",
    "rect": [
-    54,
+    50,
     107,
-    84,
+    78,
     25
    ],
    "text": {
@@ -341,58 +447,32 @@
       "equals": "v"
      },
      {
-      "param": "op.{op}.v.mode.{part}",
-      "equals": 1
+      "any": [
+       {
+        "param": "op.{op}.v.mode.{part}",
+        "equals": 1
+       },
+       {
+        "param": "op.{op}.v.form.{part}",
+        "equals": 7
+       }
+      ]
      }
     ]
    },
-   "tip": "Coarse, reading as the unit shows it",
+   "tip": "Coarse: the frequency at fine 0, in Hz",
    "valueText": {
     "table": "fixed_freq",
-    "col": "op.{op}.{layer}.fine.{part}"
-   }
-  },
-  {
-   "type": "plate",
-   "name": "coarse_fixed_unit",
-   "rect": [
-    140,
-    112,
-    24,
-    18
-   ],
-   "layer": 4,
-   "text": {
-    "text": "Hz",
-    "font": "caption_grey_12",
-    "align": "left"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "showIf": {
-    "all": [
-     {
-      "var": "layer",
-      "equals": "v"
-     },
-     {
-      "param": "op.{op}.v.mode.{part}",
-      "equals": 1
-     }
-    ]
+    "col": 0
    }
   },
   {
    "type": "number",
    "name": "coarse_noise",
    "rect": [
-    54,
+    50,
     107,
-    84,
+    78,
     25
    ],
    "text": {
@@ -425,53 +505,19 @@
      }
     ]
    },
-   "tip": "Coarse, reading as the unit shows it",
+   "tip": "Coarse: the noise's centre at fine 0, in Hz",
    "valueText": {
     "table": "fixed_freq",
-    "col": "op.{op}.{layer}.fine.{part}"
-   }
-  },
-  {
-   "type": "plate",
-   "name": "coarse_noise_unit",
-   "rect": [
-    140,
-    112,
-    24,
-    18
-   ],
-   "layer": 4,
-   "text": {
-    "text": "Hz",
-    "font": "caption_grey_12",
-    "align": "left"
-   },
-   "pad": [
-    2,
-    2,
-    2,
-    2
-   ],
-   "showIf": {
-    "all": [
-     {
-      "var": "layer",
-      "equals": "u"
-     },
-     {
-      "param": "op.{op}.u.mode.{part}",
-      "equals": 0
-     }
-    ]
+    "col": 0
    }
   },
   {
    "type": "number",
    "name": "coarse_linked",
    "rect": [
-    54,
+    50,
     107,
-    108,
+    78,
     25
    ],
    "text": {
@@ -558,9 +604,9 @@
    "type": "plate",
    "name": "fine_inset",
    "rect": [
-    180,
+    138,
     93,
-    118,
+    82,
     50
    ],
    "layer": 1,
@@ -572,9 +618,9 @@
    "type": "number",
    "name": "fine",
    "rect": [
-    184,
+    142,
     107,
-    108,
+    74,
     25
    ],
    "text": {
@@ -600,7 +646,7 @@
    "type": "button",
    "name": "fine_up_10",
    "rect": [
-    181,
+    139,
     71,
     38,
     18
@@ -624,7 +670,7 @@
    "type": "button",
    "name": "fine_down_10",
    "rect": [
-    181,
+    139,
     147,
     38,
     18
@@ -648,7 +694,7 @@
    "type": "button",
    "name": "fine_up_1",
    "rect": [
-    220,
+    178,
     71,
     38,
     18
@@ -672,7 +718,7 @@
    "type": "button",
    "name": "fine_down_1",
    "rect": [
-    220,
+    178,
     147,
     38,
     18
@@ -691,6 +737,173 @@
    },
    "param": "op.{op}.{layer}.fine.{part}",
    "tip": "-1"
+  },
+  {
+   "type": "plate",
+   "name": "freq_inset",
+   "rect": [
+    226,
+    93,
+    82,
+    50
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "panels/inset_light"
+   },
+   "showIf": {
+    "any": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.u.mode.{part}",
+      "equals": 0
+     }
+    ]
+   }
+  },
+  {
+   "type": "number",
+   "name": "freq_ratio",
+   "rect": [
+    226,
+    107,
+    78,
+    25
+   ],
+   "text": {
+    "text": "",
+    "font": "digits_grey_14",
+    "align": "right",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "format": "%.0f",
+   "reset": false,
+   "param": "op.{op}.{layer}.coarse.{part}",
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "param": "op.{op}.v.mode.{part}",
+      "equals": 0
+     },
+     {
+      "param": "op.{op}.v.form.{part}",
+      "notEquals": 7
+     }
+    ]
+   },
+   "tip": "The ratio coarse and fine play, a multiple of the note's. A fine of 100 or more plays the next coarse step",
+   "valueText": {
+    "table": "op_ratio",
+    "col": "op.{op}.{layer}.fine.{part}"
+   },
+   "drag": false
+  },
+  {
+   "type": "number",
+   "name": "freq_fixed",
+   "rect": [
+    226,
+    107,
+    78,
+    25
+   ],
+   "text": {
+    "text": "",
+    "font": "digits_grey_14",
+    "align": "right",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "format": "%.0f",
+   "reset": false,
+   "param": "op.{op}.{layer}.coarse.{part}",
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "v"
+     },
+     {
+      "any": [
+       {
+        "param": "op.{op}.v.mode.{part}",
+        "equals": 1
+       },
+       {
+        "param": "op.{op}.v.form.{part}",
+        "equals": 7
+       }
+      ]
+     }
+    ]
+   },
+   "tip": "The frequency coarse and fine play, in Hz; the top settings all play 23982 Hz, the most the phase generator gives",
+   "valueText": {
+    "table": "fixed_freq",
+    "col": "op.{op}.{layer}.fine.{part}"
+   },
+   "drag": false
+  },
+  {
+   "type": "number",
+   "name": "freq_noise",
+   "rect": [
+    226,
+    107,
+    78,
+    25
+   ],
+   "text": {
+    "text": "",
+    "font": "digits_grey_14",
+    "align": "right",
+    "valign": "middle"
+   },
+   "pad": [
+    2,
+    2,
+    2,
+    2
+   ],
+   "format": "%.0f",
+   "reset": false,
+   "param": "op.{op}.{layer}.coarse.{part}",
+   "showIf": {
+    "all": [
+     {
+      "var": "layer",
+      "equals": "u"
+     },
+     {
+      "param": "op.{op}.u.mode.{part}",
+      "equals": 0
+     }
+    ]
+   },
+   "tip": "The noise's centre coarse and fine give, in Hz",
+   "valueText": {
+    "table": "fixed_freq",
+    "col": "op.{op}.{layer}.fine.{part}"
+   },
+   "drag": false
   },
   {
    "type": "dropdown",

@@ -611,7 +611,7 @@
    ],
    "fine": 0.2,
    "reset": false,
-   "tip": "The frequency as a multiple of the note's: drag it or step it to change Coarse, and Fine for between"
+   "tip": "The frequency as a multiple of the note's, as the unit plays it: drag it or step it to change Coarse, and Fine for between. A fine of 100 or more plays the next coarse step"
   },
   {
    "type": "number",
@@ -665,7 +665,7 @@
    ],
    "fine": 0.2,
    "reset": false,
-   "tip": "The fixed frequency in Hz: drag it or step it to change Coarse, and Fine for between"
+   "tip": "The fixed frequency in Hz, as the unit plays it: drag it or step it to change Coarse, and Fine for between"
   },
   {
    "type": "plate",
