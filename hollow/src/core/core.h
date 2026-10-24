@@ -442,7 +442,7 @@ struct Inst {                    // one widget of one shown view
     int revealed = -2;            // bound lists: the selected row when it was last scrolled into view
     int lit = -1;                 // widgets with onIf: whether it held at the last look, to repaint when it turns
     int context = -1;             // lists: the row a right-click is for, lit while its menu or modal is open
-    std::string caption;          // a caption's "{data:}" text at the last look, to repaint when it changes
+    std::string caption;          // a caption's "{data:}" text, or a table number's cell, at the last look, to repaint when it changes
     std::string text;             // text.text with {vars} resolved
     std::string key, data;        // resolved text data key, and its text (or source value) at the last paint
     bool stored = false;          // whether the key held data at the last paint
@@ -529,6 +529,7 @@ public:
     // For tests that drive the GUI without a window (tools/check_gui.cpp).
     bool widgetRect(const std::string& path, Rect& r);   // a visible widget's rect, by embed path and name
     std::string tipOf(const std::string& path);           // the tooltip it would show, its shortcut included
+    std::string textOf(const std::string& path);          // the text a number shows
     std::vector<std::string> menuLabels() const;          // the open (deepest) menu's items, "-" a separator
     bool chooseMenu(const std::string& label);           // picks an item of the open menu, as a click would
     const std::string& modal() const { return modalShown_; }
@@ -677,6 +678,7 @@ private:
     std::string sourceValue(const Widget& w) const;
     std::string numberText(const Node& n, int i) const;
     const Json& valueCell(const Node& n, int i, double v) const;     // "valueText": the table's cell for value v
+    bool tableValue(const Node& n, int i, const std::string& t, double& v) const;   // typed text back through it
     Hit hit(Node& n, int x, int y);
     Hit tipAt(Node& n, int x, int y);
     Hit hit(int x, int y) { return hit(root_, x, y); }

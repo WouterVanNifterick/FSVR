@@ -914,6 +914,28 @@ const Json& Gui::valueCell(const Node& n, int i, double v) const {
     return r >= 0 && c >= 0 ? skin_->table(vt.table)[(size_t)r][(size_t)c] : skin_->table("");
 }
 
+// Typed text back through a "valueText" table: the value along the widget's own axis whose cell reads nearest
+// the typed number, the other axis where it stands. False without such an axis, or when no cell reads as a number.
+bool Gui::tableValue(const Node& n, int i, const std::string& t, double& v) const {
+    const Widget& w = n.view->widgets[i];
+    const Widget::ValueText& vt = w.valueText;
+    const bool own = (vt.row < 0 && vt.rowParam.empty()) || (vt.col < 0 && vt.colParam.empty());
+    const char* s = t.c_str();
+    while (*s == ' ') ++s;
+    double want, best = -1;
+    if (vt.table.empty() || !own || !parseNumber(s, t.c_str() + t.size(), want)) return false;
+    const int p = n.w[i].param;
+    const double lo = p >= 0 ? state_.def(p).min : w.rangeMin, hi = p >= 0 ? state_.def(p).max : w.rangeMax;
+    for (double x = std::ceil(lo); x <= hi; ++x) {
+        const Json& cell = valueCell(n, i, x);
+        const char* c = cell.s.c_str();
+        double got;
+        if (cell.type != Json::String || !parseNumber(c, c + cell.s.size(), got)) continue;
+        if (best < 0 || std::fabs(got - want) < best) best = std::fabs(got - want), v = x;
+    }
+    return best >= 0;
+}
+
 std::string Gui::numberText(const Node& n, int i) const {
     const Widget& w = n.view->widgets[i];
     double v = plain(n, i);
@@ -2204,12 +2226,13 @@ void Gui::startEdit(const Hit& h, bool atClick, int x, int y) {
     if (w.kind == Kind::Number) {
         e.text = numberText(*h.node, h.i);
         e.anchor = e.text.size();
-        e.commit = [this, h](const std::string& t) {
+        e.commit = [this, h, shown = e.text](const std::string& t) {
+            if (t == shown) return;   // nothing typed: a table's text need not parse back to where it stands
             double v;
             int p = inst(h).param;
             const char* s = t.c_str();
             while (*s == ' ') ++s;
-            if (!(p >= 0 ? state_.parse(p, t, v) : parseNumber(s, t.c_str() + t.size(), v))) return;
+            if (!tableValue(*h.node, h.i, t, v) && !(p >= 0 ? state_.parse(p, t, v) : parseNumber(s, t.c_str() + t.size(), v))) return;
             begin(h);
             setPlain(h, v);
             end();
@@ -2497,6 +2520,15 @@ std::string Gui::tipOf(const std::string& path) {
     return tipText(h);
 }
 
+// The text a number shows, by embed path and name. For tools and tests.
+std::string Gui::textOf(const std::string& path) {
+    size_t slash = path.rfind('/');
+    Node* n = nodeAt(slash == std::string::npos ? "" : path.substr(0, slash));
+    Hit h;
+    if (!n || !findWidget(*n, path.substr(slash == std::string::npos ? 0 : slash + 1), h, false) || wid(h).kind != Kind::Number) return {};
+    return numberText(*h.node, h.i);
+}
+
 std::vector<Gui::Probe> Gui::probes() {
     std::vector<Probe> out;
     std::function<void(Node&)> walk = [&](Node& n) {
@@ -2770,6 +2802,9 @@ void Gui::checkValues(Node& n) {
         }
         if (s.text.find("{data:") != std::string::npos) {   // a caption follows the text data it names
             std::string t = withData(n, s.text);
+            if (t != s.caption) { s.caption = t; changed = true; }
+        } else if (w.kind == Kind::Number && !w.valueText.table.empty()) {   // a table's cell follows its row and column params
+            std::string t = numberText(n, (int)i);
             if (t != s.caption) { s.caption = t; changed = true; }
         }
         if (w.kind == Kind::List && w.json["dataRows"].has("key")) {   // a list follows the text data its rows come from
