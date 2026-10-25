@@ -4,6 +4,7 @@
 // draw and take input in kinds.cpp.
 #include "core.h"
 #include <algorithm>
+#include <cctype>
 #include <climits>
 #include <cmath>
 #include <cstdarg>
@@ -1389,7 +1390,8 @@ void Gui::runAction(Node& n, int i, const Action& action) {
         return;
     case Action::File: {   // a native dialog; the chosen path goes to text data, for the product to act on
         std::string path;
-        if (!window || !platformFileDialog(window, a.target == "save", a.title, a.vars, withData(n, a.nameKey), path)) return;
+        const bool save = a.target == "save";
+        if (!window || !platformFileDialog(window, save, a.multiple && !save, a.title, a.vars, withData(n, a.nameKey), path)) return;
         state_.setData(subst(n, a.key), path);
         invalidateAll();
         return;
@@ -3113,6 +3115,33 @@ bool Gui::closeRequested() {
     if (!test(root_, c, c.param.empty() ? -1 : state_.indexOf(subst(root_, c.param)))) return true;
     setModal(skin_->closeModal);
     return false;
+}
+
+static const Skin::DropRule* dropRule(const Skin& skin, const std::string& path) {
+    const size_t dot = path.find_last_of('.'), sep = path.find_last_of("/\\");
+    if (dot == std::string::npos || (sep != std::string::npos && dot < sep)) return nullptr;
+    std::string ext = path.substr(dot + 1);
+    for (char& c : ext) c = (char)std::tolower((unsigned char)c);
+    for (auto& r : skin.drops)
+        if (std::find(r.types.begin(), r.types.end(), ext) != r.types.end()) return &r;
+    return nullptr;
+}
+
+bool Gui::dropAccepts(const std::string& path) const { return !isPopup_ && modalShown_.empty() && dropRule(*skin_, path); }
+
+// Each rule's key gets every path it takes, one per line, as a "multiple" File action's dialog gives them.
+bool Gui::drop(const std::vector<std::string>& paths) {
+    if (isPopup_ || !modalShown_.empty()) return false;
+    std::vector<std::pair<std::string, std::string>> taken;   // key, its paths
+    for (auto& p : paths)
+        if (const Skin::DropRule* r = dropRule(*skin_, p)) {
+            auto it = std::find_if(taken.begin(), taken.end(), [&](const auto& t) { return t.first == r->key; });
+            if (it == taken.end()) taken.push_back({r->key, p});
+            else it->second += "\n" + p;
+        }
+    for (auto& t : taken) state_.setData(t.first, t.second);
+    if (!taken.empty()) invalidateAll();
+    return !taken.empty();
 }
 
 // The settings modal's lists and params from the app's audio and MIDI setup (Editor::Host::devices): each

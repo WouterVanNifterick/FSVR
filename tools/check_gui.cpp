@@ -20,6 +20,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <iterator>
 #include <string>
 #include <thread>
 #include <vector>
@@ -1066,6 +1067,76 @@ int main() {
         u.click(M + "delete");
         CHECK(u.until([&] { return u.lineOf("bank.list", "Renamed Bank") == 0; }) && fs::exists(tmp / "Library" / "Deleted" / "Renamed Bank.syx"),
               "Delete Bank did not move the bank to Deleted");
+
+        // An .fs1, as other editors save a performance (its bulk and its four voices'), dropped on the window
+        // imports as a bank of its own and plays; one put in the library folder is a bank too. Several dropped
+        // at once share a bank, each performance with its own voices, though a loose voice came between them.
+        {
+            const fs::path unit = tmp / "unit.syx", fs1 = tmp / "Dropped.fs1", second = tmp / "Second.fs1", loose = tmp / "Loose.syx", wav = tmp / "Dropped.wav";
+            u.st->setData("sysex.export", unit.u8string());
+            CHECK(u.until([&] { return fs::exists(unit) && fs::file_size(unit) > 0; }), "Export SysEx wrote nothing");
+            u.settle();
+            std::ifstream in(unit, std::ios::binary);
+            const std::vector<uint8_t> dump((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            auto named = [](std::vector<uint8_t> m, const std::string& name) {   // a bulk's name, its checksum redone
+                std::copy(name.begin(), name.end(), m.begin() + 9);
+                int sum = 0;
+                for (size_t k = 4; k + 2 < m.size(); ++k) sum += m[k];
+                m[m.size() - 2] = (uint8_t)(-sum & 0x7F);
+                return m;
+            };
+            // The unit's performance and part voices, the performance and part 1's voice renamed so that what
+            // loads shows; names padded to their length (12, 10).
+            int bulks = 0;
+            auto fs1Of = [&](const std::string& perf, const std::string& voice, std::vector<uint8_t>* first = nullptr) {
+                std::vector<uint8_t> out;
+                bulks = 0;
+                for (size_t i = 0; i < dump.size();) {
+                    const size_t j = std::find(dump.begin() + (long)i, dump.end(), (uint8_t)0xF7) - dump.begin();
+                    if (j >= dump.size()) break;
+                    const uint8_t ah = j - i > 9 ? dump[i + 6] : 0;
+                    if (dump[i + 3] == 0x5E && (ah == 0x10 || (ah >= 0x40 && ah <= 0x43))) {
+                        std::vector<uint8_t> m(dump.begin() + (long)i, dump.begin() + (long)j + 1);
+                        if (ah == 0x10) m = named(m, perf);
+                        if (ah == 0x40) m = named(m, voice);
+                        if (ah == 0x40 && first) *first = m;
+                        out.insert(out.end(), m.begin(), m.end());
+                        ++bulks;
+                    }
+                    i = j + 1;
+                }
+                return out;
+            };
+            auto put = [](const fs::path& f, const std::vector<uint8_t>& b) { std::ofstream(f, std::ios::binary).write((const char*)b.data(), (std::streamsize)b.size()); };
+            std::vector<uint8_t> looseVoice;
+            put(fs1, fs1Of("Dropped Perf", "DROPVOX   "));
+            CHECK(bulks == 5, "the unit's dump has %d performance and part voice bulks, not 5", bulks);
+            put(second, fs1Of("Second Perf ", "SECONDVOX "));
+            fs1Of("Unused Perf ", "LOOSEVOX  ", &looseVoice);
+            put(loose, looseVoice);   // one voice for part 1, after no performance of its own
+            CHECK(u.gui.dropAccepts(fs1.u8string()) && u.gui.dropAccepts((tmp / "X.SYX").u8string()) && !u.gui.dropAccepts(wav.u8string()),
+                  "the window takes the wrong files");
+            CHECK(u.gui.drop({wav.u8string(), fs1.u8string()}), "the window refused the .fs1");
+            CHECK(u.until([&] { return u.lineOf("bank.list", "Dropped") > 0 && u.data("perf.name") == "Dropped Perf"; }),
+                  "the dropped .fs1 did not import and play (\"%s\")", u.data("perf.name").c_str());
+            fs::copy_file(fs1, tmp / "Library" / "Copied.fs1", ec);
+            CHECK(u.until([&] { return u.lineOf("bank.list", "Copied") > 0; }), "an .fs1 in the library folder is not a bank");
+
+            const std::string shared = tmp.filename().u8string();   // the folder the files came from
+            CHECK(u.gui.drop({fs1.u8string(), loose.u8string(), second.u8string()}), "the window refused three files");
+            CHECK(u.until([&] { return u.lineOf("bank.list", shared) > 0 && u.get("browse.bank") == u.lineOf("bank.list", shared); }),
+                  "the three files made no bank \"%s\" (%s)", shared.c_str(), u.data("live.message").c_str());
+            CHECK(u.until([&] { return u.lines("browse.perf.list") == 2 && u.lines("browse.voice.list") == 9; }), "the shared bank has %d performances and %d voices, not 2 and 9",
+                  u.lines("browse.perf.list"), u.lines("browse.voice.list"));
+            const char* const perfs[2] = {"Dropped Perf", "Second Perf"}, *const voices[2] = {"DROPVOX", "SECONDVOX"};
+            for (int k = 0; k < 2; ++k) {
+                u.set("browse.perf", 0);
+                u.run(2);
+                u.set("browse.perf", k + 1);
+                CHECK(u.until([&] { return u.data("perf.name") == perfs[k] && u.data("part.voice.p1") == voices[k]; }),
+                      "%s plays \"%s\" on part 1, not its own %s (performance \"%s\")", perfs[k], u.data("part.voice.p1").c_str(), voices[k], u.data("perf.name").c_str());
+            }
+        }
 
         // ---- every page's controls: each dial and fader drags, each dropdown opens a menu, each toggle flips
         int dials = 0, drops = 0, toggles = 0;

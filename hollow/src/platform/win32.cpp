@@ -9,6 +9,7 @@
 #include <shellapi.h>
 #include <commctrl.h>
 #include <commdlg.h>
+#include <ole2.h>
 #include <algorithm>
 #include <climits>
 #include <map>
@@ -30,6 +31,8 @@ struct PlatformWindow {
     WNDPROC rootProc = nullptr; // and its own procedure
     bool closing = false;       // platformCloseApp: it closes without asking
     HWND frame = nullptr;       // platformPopup: the top-level window this one fills
+    IDropTarget* drop = nullptr;   // skin.json "drop": registered with OLE while the window is up
+    bool ole = false;              // and OleInitialize to balance
 };
 
 static int classUsers = 0;
@@ -360,6 +363,62 @@ static LRESULT CALLBACK rootProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return CallWindowProcW(w->rootProc, hwnd, msg, wp, lp);
 }
 
+static std::vector<std::string> droppedPaths(IDataObject* d) {
+    std::vector<std::string> out;
+    FORMATETC f = {CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
+    STGMEDIUM m = {};
+    if (!d || FAILED(d->GetData(&f, &m))) return out;
+    HDROP h = (HDROP)m.hGlobal;
+    const UINT n = DragQueryFileW(h, 0xFFFFFFFF, nullptr, 0);
+    for (UINT i = 0; i < n; ++i) {
+        std::wstring s(DragQueryFileW(h, i, nullptr, 0), L'\0');
+        DragQueryFileW(h, i, &s[0], (UINT)s.size() + 1);
+        out.push_back(narrow(s));
+    }
+    ReleaseStgMedium(&m);
+    return out;
+}
+
+// Files dragged in from Explorer or a host's browser. OLE's way, since a host registers a drop target of its
+// own and a child window's WS_EX_ACCEPTFILES never hears of an OLE drag.
+struct DropTarget : IDropTarget {
+    PlatformWindow* w;
+    LONG refs = 1;
+    DWORD effect = DROPEFFECT_NONE;   // what DragEnter found, for every DragOver after it
+    explicit DropTarget(PlatformWindow* w) : w(w) {}
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID id, void** out) override {
+        if (id == IID_IUnknown || id == IID_IDropTarget) {
+            *out = static_cast<IDropTarget*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *out = nullptr;
+        return E_NOINTERFACE;
+    }
+    ULONG STDMETHODCALLTYPE AddRef() override { return (ULONG)InterlockedIncrement(&refs); }
+    ULONG STDMETHODCALLTYPE Release() override {
+        const LONG n = InterlockedDecrement(&refs);
+        if (n == 0) delete this;
+        return (ULONG)n;
+    }
+    HRESULT STDMETHODCALLTYPE DragEnter(IDataObject* d, DWORD, POINTL, DWORD* e) override {
+        effect = DROPEFFECT_NONE;
+        for (auto& p : droppedPaths(d))
+            if (w->gui->dropAccepts(p)) effect = DROPEFFECT_COPY;
+        *e = effect;
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE DragOver(DWORD, POINTL, DWORD* e) override {
+        *e = effect;
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE DragLeave() override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE Drop(IDataObject* d, DWORD, POINTL, DWORD* e) override {
+        *e = w->gui->drop(droppedPaths(d)) ? DROPEFFECT_COPY : DROPEFFECT_NONE;
+        return S_OK;
+    }
+};
+
 PlatformWindow* platformOpen(void* parent, Gui* gui) {
     HMODULE mod = thisModule();
     if (classUsers++ == 0) {
@@ -389,6 +448,14 @@ PlatformWindow* platformOpen(void* parent, Gui* gui) {
     w->tip = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, CW_USEDEFAULT,
                              CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, w->hwnd, nullptr, mod, nullptr);
     if (w->tip) tool(w, TTM_ADDTOOLW, "");
+    if (!gui->skin().drops.empty()) {   // a thread the host put in the multithreaded apartment takes no drops
+        w->ole = SUCCEEDED(OleInitialize(nullptr));
+        w->drop = new DropTarget(w);
+        if (!w->ole || FAILED(RegisterDragDrop(w->hwnd, w->drop))) {
+            w->drop->Release();
+            w->drop = nullptr;
+        }
+    }
     // A skin with shortcuts holds the keyboard while its window is up, so its chords work without a click first,
     // and hooks this thread's message loop for the hosts that take keys off the window before it is dispatched.
     if (!gui->skin().keys.empty()) {
@@ -466,6 +533,11 @@ void platformClose(PlatformWindow* w) {
     }
     if (w->tip) DestroyWindow(w->tip);
     KillTimer(w->hwnd, 1);
+    if (w->drop) {
+        RevokeDragDrop(w->hwnd);
+        w->drop->Release();
+    }
+    if (w->ole) OleUninitialize();
     SetWindowLongPtrW(w->hwnd, GWLP_USERDATA, 0);
     DestroyWindow(w->hwnd);
     if (w->frame) {   // a popup's: its own window goes too
@@ -592,7 +664,7 @@ void platformCloseApp(PlatformWindow* w) {
 }
 
 // The common dialogs: a filter of "Name (*.a;*.b)" then "*.a;*.b" per type, a save's extension the first type's first.
-bool platformFileDialog(PlatformWindow* w, bool save, const std::string& title, const Vars& types, const std::string& name, std::string& path) {
+bool platformFileDialog(PlatformWindow* w, bool save, bool multiple, const std::string& title, const Vars& types, const std::string& name, std::string& path) {
     std::wstring filter, ext;
     for (auto& t : types) {
         std::wstring pats;
@@ -610,23 +682,26 @@ bool platformFileDialog(PlatformWindow* w, bool save, const std::string& title, 
         filter += wide(t.first) + L" (" + pats + L")" + L'\0' + pats + L'\0';
     }
     filter += L'\0';
-    wchar_t file[MAX_PATH * 4] = {};
+    std::vector<wchar_t> file(multiple ? 1 << 16 : MAX_PATH * 4, L'\0');   // several files: the folder, then each name
     std::wstring start = wide(name);
-    wcsncpy_s(file, start.c_str(), _TRUNCATE);
+    wcsncpy_s(file.data(), file.size(), start.c_str(), _TRUNCATE);
     std::wstring caption = wide(title);
     OPENFILENAMEW o = {};
     o.lStructSize = sizeof o;
     o.hwndOwner = GetAncestor(w->hwnd, GA_ROOT);
     o.lpstrFilter = types.empty() ? nullptr : filter.c_str();
-    o.lpstrFile = file;
-    o.nMaxFile = (DWORD)(sizeof file / sizeof file[0]);
+    o.lpstrFile = file.data();
+    o.nMaxFile = (DWORD)file.size();
     o.lpstrTitle = caption.empty() ? nullptr : caption.c_str();
     o.lpstrDefExt = ext.empty() ? nullptr : ext.c_str();
-    o.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | (save ? OFN_OVERWRITEPROMPT : OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST);
+    o.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | (save ? OFN_OVERWRITEPROMPT : OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST) | (multiple ? OFN_ALLOWMULTISELECT : 0);
     if (!(save ? GetSaveFileNameW(&o) : GetOpenFileNameW(&o))) return false;
-    int n = WideCharToMultiByte(CP_UTF8, 0, file, -1, nullptr, 0, nullptr, nullptr);
-    path.assign(n > 0 ? n - 1 : 0, '\0');
-    if (n > 1) WideCharToMultiByte(CP_UTF8, 0, file, -1, &path[0], n, nullptr, nullptr);
+    // One file comes back as its path; several as the folder, then each name, every one ended by a 0.
+    std::vector<std::wstring> parts;
+    for (const wchar_t* p = file.data(); *p; p += wcslen(p) + 1) parts.push_back(p);
+    if (parts.empty()) return false;
+    path = parts.size() == 1 ? narrow(parts[0]) : "";
+    for (size_t k = 1; k < parts.size(); ++k) path += (k > 1 ? "\n" : "") + narrow(parts[0] + L"\\" + parts[k]);
     return !path.empty();
 }
 

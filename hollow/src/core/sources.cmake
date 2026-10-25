@@ -20,7 +20,7 @@ set(HOLLOW_CORE_INCLUDES
 
 if(WIN32)
     list(APPEND HOLLOW_CORE_SOURCES "${HOLLOW_FRAMEWORK_DIR}/src/platform/win32.cpp")
-    set(HOLLOW_CORE_LIBS user32 gdi32 shell32 comctl32 comdlg32)
+    set(HOLLOW_CORE_LIBS user32 gdi32 shell32 comctl32 comdlg32 ole32 uuid)
 elseif(APPLE)
     list(APPEND HOLLOW_CORE_SOURCES "${HOLLOW_FRAMEWORK_DIR}/src/platform/mac.mm")
     set(HOLLOW_CORE_LIBS "-framework Cocoa")

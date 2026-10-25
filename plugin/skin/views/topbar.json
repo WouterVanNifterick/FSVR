@@ -2719,14 +2719,15 @@
      "action": {
       "file": "open",
       "key": "sysex.import",
+      "multiple": true,
       "types": {
-       "SysEx": "syx"
+       "SysEx": "syx;fs1"
       },
       "title": "Import SysEx"
      }
     }
    ],
-   "tip": "Import an FSVR preset, or a .syx as a new bank",
+   "tip": "Import an FSVR preset, or a .syx or .fs1 as a new bank",
    "text": {
     "text": "Import",
     "font": "caption_white_12",

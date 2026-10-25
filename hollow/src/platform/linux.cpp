@@ -9,6 +9,7 @@
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 #include <atomic>
+#include <cctype>
 #include <cerrno>
 #include <climits>
 #include <cstdio>
@@ -45,6 +46,14 @@ struct PlatformWindow {
     int wake[2] = {-1, -1};
     Time lastClick = 0;
     int clickX = 0, clickY = 0;
+    // XDND, while the skin takes drops ("drop"): the atoms, and the drag over the window now
+    struct {
+        Atom aware = None, enter = None, position = None, status = None, leave = None, drop = None, finished = None;
+        Atom selection = None, typeList = None, uriList = None, copy = None;
+        Window source = None;
+        long version = 0;
+        bool uris = false;             // the source offers text/uri-list
+    } dnd;
 };
 
 static int floorDiv(int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); }
@@ -99,6 +108,106 @@ static Key keyOf(KeySym k, bool ctrl) {
     case XK_a: case XK_A: return ctrl ? KeySelectAll : KeyNone;
     default: return KeyNone;
     }
+}
+
+// ---- files dropped on the window: XDND version 5, the protocol every X11 toolkit drags files with ----
+
+static void dndSend(PlatformWindow* w, Atom type, long l1, long l2, long l4) {
+    XEvent m = {};
+    m.xclient.type = ClientMessage;
+    m.xclient.display = w->dpy;
+    m.xclient.window = w->dnd.source;
+    m.xclient.message_type = type;
+    m.xclient.format = 32;
+    m.xclient.data.l[0] = (long)w->win;
+    m.xclient.data.l[1] = l1;
+    m.xclient.data.l[2] = l2;
+    m.xclient.data.l[4] = l4;
+    XSendEvent(w->dpy, w->dnd.source, False, NoEventMask, &m);
+}
+
+static void dndFinish(PlatformWindow* w, bool done) {
+    if (w->dnd.source != None) dndSend(w, w->dnd.finished, done ? 1 : 0, done ? (long)w->dnd.copy : (long)None, 0);   // the action in l[2]
+    w->dnd.source = None;
+    w->dnd.uris = false;
+}
+
+// text/uri-list: a file:// URI per line, percent-encoded, '#' lines comments.
+static std::vector<std::string> uriPaths(const std::string& list) {
+    std::vector<std::string> out;
+    size_t a = 0;
+    while (a < list.size()) {
+        size_t b = list.find('\n', a);
+        if (b == std::string::npos) b = list.size();
+        std::string line = list.substr(a, b - a);
+        a = b + 1;
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\0')) line.pop_back();
+        if (line.compare(0, 7, "file://") != 0) continue;
+        const size_t slash = line.find('/', 7);   // past the host, usually none
+        if (slash == std::string::npos) continue;
+        std::string p;
+        for (size_t i = slash; i < line.size(); ++i) {
+            if (line[i] == '%' && i + 2 < line.size() && std::isxdigit((unsigned char)line[i + 1]) && std::isxdigit((unsigned char)line[i + 2])) {
+                p += (char)std::strtol(line.substr(i + 1, 2).c_str(), nullptr, 16);
+                i += 2;
+            } else {
+                p += line[i];
+            }
+        }
+        out.push_back(p);
+    }
+    return out;
+}
+
+// A ClientMessage of the drag protocol: the source's drag entering, moving over, leaving or dropping.
+static void dndMessage(PlatformWindow* w, const XClientMessageEvent& c) {
+    auto& d = w->dnd;
+    if (d.aware == None) return;
+    const long* l = c.data.l;
+    if (c.message_type == d.enter) {
+        d.source = (Window)l[0];
+        d.version = (unsigned long)l[1] >> 24;
+        d.uris = false;
+        if (l[1] & 1) {   // more than three types: the source's list
+            Atom type = None;
+            int format = 0;
+            unsigned long n = 0, left = 0;
+            unsigned char* prop = nullptr;
+            if (XGetWindowProperty(w->dpy, d.source, d.typeList, 0, 1024, False, XA_ATOM, &type, &format, &n, &left, &prop) == Success && prop) {
+                for (unsigned long i = 0; i < n; ++i) d.uris |= ((Atom*)prop)[i] == d.uriList;
+                XFree(prop);
+            }
+        } else {
+            for (int i = 2; i < 5; ++i) d.uris |= (Atom)l[i] == d.uriList;
+        }
+    } else if (c.message_type == d.position) {
+        d.source = (Window)l[0];
+        dndSend(w, d.status, d.uris ? 1 : 0, 0, d.uris ? (long)d.copy : (long)None);   // which files, only the drop can tell
+    } else if (c.message_type == d.leave) {
+        d.source = None;
+        d.uris = false;
+    } else if (c.message_type == d.drop) {
+        d.source = (Window)l[0];
+        if (!d.uris) dndFinish(w, false);
+        else XConvertSelection(w->dpy, d.selection, d.uriList, d.selection, w->win, d.version >= 1 ? (Time)l[2] : CurrentTime);
+    }
+}
+
+// The dropped list arrives as a property of our window.
+static void dndSelection(PlatformWindow* w, const XSelectionEvent& s) {
+    if (w->dnd.aware == None || s.selection != w->dnd.selection || w->dnd.source == None) return;
+    std::string list;
+    if (s.property != None) {
+        Atom type = None;
+        int format = 0;
+        unsigned long n = 0, left = 0;
+        unsigned char* prop = nullptr;
+        if (XGetWindowProperty(w->dpy, w->win, s.property, 0, LONG_MAX / 4, True, AnyPropertyType, &type, &format, &n, &left, &prop) == Success && prop) {
+            list.assign((const char*)prop, n * (size_t)(format / 8));
+            XFree(prop);
+        }
+    }
+    dndFinish(w, w->gui->drop(uriPaths(list)));
 }
 
 static void event(PlatformWindow* w, XEvent& e) {
@@ -173,6 +282,12 @@ static void event(PlatformWindow* w, XEvent& e) {
     }
     case FocusOut:
         g.focusLost();
+        break;
+    case ClientMessage:
+        dndMessage(w, e.xclient);
+        break;
+    case SelectionNotify:
+        dndSelection(w, e.xselection);
         break;
     }
 }
@@ -270,6 +385,23 @@ PlatformWindow* platformOpen(void* parent, Gui* gui) {
     w->win = XCreateWindow(w->dpy, host, 0, 0, (unsigned)(gui->width() * gui->scale()), (unsigned)(gui->height() * gui->scale()), 0,
                            CopyFromParent, InputOutput, CopyFromParent, CWEventMask | CWBackPixel, &a);
     w->gc = XCreateGC(w->dpy, w->win, 0, nullptr);
+    if (!gui->skin().drops.empty()) {
+        auto& d = w->dnd;
+        auto atom = [w](const char* name) { return XInternAtom(w->dpy, name, False); };
+        d.aware = atom("XdndAware");
+        d.enter = atom("XdndEnter");
+        d.position = atom("XdndPosition");
+        d.status = atom("XdndStatus");
+        d.leave = atom("XdndLeave");
+        d.drop = atom("XdndDrop");
+        d.finished = atom("XdndFinished");
+        d.selection = atom("XdndSelection");
+        d.typeList = atom("XdndTypeList");
+        d.uriList = atom("text/uri-list");
+        d.copy = atom("XdndActionCopy");
+        const Atom version = 5;
+        XChangeProperty(w->dpy, w->win, d.aware, XA_ATOM, 32, PropModeReplace, (const unsigned char*)&version, 1);
+    }
     if (parent && gui->standalone()) nameApp(w);
     XMapWindow(w->dpy, w->win);
     XFlush(w->dpy);
@@ -393,7 +525,7 @@ void platformCloseApp(PlatformWindow*) {}
 PlatformWindow* platformPopup(PlatformWindow*, Gui*) { return nullptr; }   // none yet: the editor grows around the modal
 
 // zenity, else kdialog: the file dialogs every desktop has one of. False when neither is installed.
-bool platformFileDialog(PlatformWindow*, bool save, const std::string& title, const Vars& types, const std::string& name, std::string& path) {
+bool platformFileDialog(PlatformWindow*, bool save, bool multiple, const std::string& title, const Vars& types, const std::string& name, std::string& path) {
     std::vector<std::string> z = {"zenity", "--file-selection", "--title=" + title};
     std::string kfilter;
     if (save) {
@@ -401,6 +533,7 @@ bool platformFileDialog(PlatformWindow*, bool save, const std::string& title, co
         z.push_back("--confirm-overwrite");
         if (!name.empty()) z.push_back("--filename=" + name);
     }
+    if (multiple) z.insert(z.end(), {"--multiple", "--separator=\n"});   // one path a line, as kdialog's --separate-output
     for (auto& t : types) {
         std::string pats;
         for (size_t a = 0; a <= t.second.size();) {
@@ -418,6 +551,7 @@ bool platformFileDialog(PlatformWindow*, bool save, const std::string& title, co
     if (rc < 0 || rc > 1) {   // no zenity (1 is a cancel)
         out.clear();
         std::vector<std::string> k = {"kdialog", "--title", title, save ? "--getsavefilename" : "--getopenfilename", save && !name.empty() ? name : ".", kfilter};
+        if (multiple) k.insert(k.end(), {"--multiple", "--separate-output"});
         rc = spawn(k, &out);
     }
     if (rc != 0) return false;

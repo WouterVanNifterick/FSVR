@@ -59,6 +59,28 @@ static void scrollWheel(id self, SEL, NSEvent* e) {
     w->gui->wheel((int)std::floor(p.x / s), (int)std::floor(p.y / s), notches, ([e modifierFlags] & NSEventModifierFlagShift) != 0);
 }
 
+// Files dragged in from the Finder or a host's browser (skin.json "drop").
+static std::vector<std::string> draggedPaths(id<NSDraggingInfo> info) {
+    std::vector<std::string> out;
+    NSArray* urls = [[info draggingPasteboard] readObjectsForClasses:@[[NSURL class]] options:@{NSPasteboardURLReadingFileURLsOnlyKey: @YES}];
+    for (NSURL* u in urls)
+        if (const char* p = [[u path] UTF8String]) out.push_back(p);
+    return out;
+}
+
+static NSDragOperation draggingEntered(id self, SEL, id<NSDraggingInfo> info) {
+    PlatformWindow* w = windowOf(self);
+    if (!w) return NSDragOperationNone;
+    for (auto& p : draggedPaths(info))
+        if (w->gui->dropAccepts(p)) return NSDragOperationCopy;
+    return NSDragOperationNone;
+}
+
+static BOOL performDragOperation(id self, SEL, id<NSDraggingInfo> info) {
+    PlatformWindow* w = windowOf(self);
+    return w && w->gui->drop(draggedPaths(info));
+}
+
 static void pickItem(id self, SEL, id sender) {
     if (PlatformWindow* w = windowOf(self)) w->pick = (int)[sender tag];
 }
@@ -188,6 +210,10 @@ static Class viewClass() {
     class_addMethod(cls, @selector(keyDown:), (IMP)keyDown, types(@selector(keyDown:)));
     class_addMethod(cls, @selector(selectAll:), (IMP)selectAll, "v@:@");
     class_addMethod(cls, NSSelectorFromString(@"hollowPick:"), (IMP)pickItem, "v@:@");
+    static const std::string dragOp = std::string(@encode(NSDragOperation)) + "@:@", dragDone = std::string(@encode(BOOL)) + "@:@";
+    class_addMethod(cls, @selector(draggingEntered:), (IMP)draggingEntered, dragOp.c_str());
+    class_addMethod(cls, @selector(draggingUpdated:), (IMP)draggingEntered, dragOp.c_str());
+    class_addMethod(cls, @selector(performDragOperation:), (IMP)performDragOperation, dragDone.c_str());
     objc_registerClassPair(cls);
     windowIvar = class_getInstanceVariable(cls, "hollowWindow");
     return cls;
@@ -205,6 +231,7 @@ PlatformWindow* platformOpen(void* parent, Gui* gui) {
                                                           owner:v
                                                        userInfo:nil];
     [v addTrackingArea:area];
+    if (!gui->skin().drops.empty()) [v registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
     [p addSubview:v];
     w->view = (void*)CFBridgingRetain(v);
 #if !__has_feature(objc_arc)
@@ -316,7 +343,7 @@ void platformCloseApp(PlatformWindow*) {}
 PlatformWindow* platformPopup(PlatformWindow*, Gui*) { return nullptr; }   // none yet: the editor grows around the modal
 
 // NSOpenPanel / NSSavePanel, run modal; the types' extensions become the allowed ones.
-bool platformFileDialog(PlatformWindow*, bool save, const std::string& title, const Vars& types, const std::string& name, std::string& path) {
+bool platformFileDialog(PlatformWindow*, bool save, bool multiple, const std::string& title, const Vars& types, const std::string& name, std::string& path) {
     NSMutableArray* exts = [NSMutableArray array];
     for (auto& t : types) {
         size_t a = 0;
@@ -335,12 +362,12 @@ bool platformFileDialog(PlatformWindow*, bool save, const std::string& title, co
     if ([exts count]) [panel setAllowedFileTypes:exts];
 #pragma clang diagnostic pop
     if (save && !name.empty()) [panel setNameFieldStringValue:[NSString stringWithUTF8String:name.c_str()]];
+    if (multiple) [(NSOpenPanel*)panel setAllowsMultipleSelection:YES];
     if ([panel runModal] != NSModalResponseOK) return false;
-    NSURL* u = [panel URL];
-    const char* p = u ? [[u path] UTF8String] : nullptr;
-    if (!p) return false;
-    path = p;
-    return true;
+    path.clear();
+    for (NSURL* u in save ? @[[panel URL]] : [(NSOpenPanel*)panel URLs])
+        if (const char* p = [[u path] UTF8String]) path += (path.empty() ? "" : "\n") + std::string(p);
+    return !path.empty();
 }
 
 } // namespace hollow
