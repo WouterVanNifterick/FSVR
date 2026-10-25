@@ -2868,7 +2868,35 @@
    },
    "layer": 4,
    "tip": "Edit part 1",
-   "pressedTiles": true
+   "pressedTiles": true,
+   "context": [
+    {
+     "label": "Part 1",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Part",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy part p1"
+      }
+     }
+    },
+    {
+     "label": "Paste Part",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste part p1"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",
@@ -2906,7 +2934,35 @@
    },
    "layer": 4,
    "tip": "Edit part 2",
-   "pressedTiles": true
+   "pressedTiles": true,
+   "context": [
+    {
+     "label": "Part 2",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Part",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy part p2"
+      }
+     }
+    },
+    {
+     "label": "Paste Part",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste part p2"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",
@@ -2944,7 +3000,35 @@
    },
    "layer": 4,
    "tip": "Edit part 3",
-   "pressedTiles": true
+   "pressedTiles": true,
+   "context": [
+    {
+     "label": "Part 3",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Part",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy part p3"
+      }
+     }
+    },
+    {
+     "label": "Paste Part",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste part p3"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",
@@ -2982,7 +3066,35 @@
    },
    "layer": 4,
    "tip": "Edit part 4",
-   "pressedTiles": true
+   "pressedTiles": true,
+   "context": [
+    {
+     "label": "Part 4",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Part",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy part p4"
+      }
+     }
+    },
+    {
+     "label": "Paste Part",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste part p4"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",

@@ -59,7 +59,35 @@
    "tip": "Part 1 on or off: off, its voice bank is off and it plays nothing",
    "layer": 1,
    "param": "part.on.p1",
-   "toggle": true
+   "toggle": true,
+   "context": [
+    {
+     "label": "Part 1",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Part",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy part p1"
+      }
+     }
+    },
+    {
+     "label": "Paste Part",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste part p1"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",
@@ -1979,7 +2007,35 @@
    "tip": "Part 2 on or off: off, its voice bank is off and it plays nothing",
    "layer": 1,
    "param": "part.on.p2",
-   "toggle": true
+   "toggle": true,
+   "context": [
+    {
+     "label": "Part 2",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Part",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy part p2"
+      }
+     }
+    },
+    {
+     "label": "Paste Part",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste part p2"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",
@@ -3899,7 +3955,35 @@
    "tip": "Part 3 on or off: off, its voice bank is off and it plays nothing",
    "layer": 1,
    "param": "part.on.p3",
-   "toggle": true
+   "toggle": true,
+   "context": [
+    {
+     "label": "Part 3",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Part",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy part p3"
+      }
+     }
+    },
+    {
+     "label": "Paste Part",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste part p3"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",
@@ -5692,7 +5776,35 @@
    "tip": "Part 4 on or off: off, its voice bank is off and it plays nothing",
    "layer": 1,
    "param": "part.on.p4",
-   "toggle": true
+   "toggle": true,
+   "context": [
+    {
+     "label": "Part 4",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Part",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy part p4"
+      }
+     }
+    },
+    {
+     "label": "Paste Part",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste part p4"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",

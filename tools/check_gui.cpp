@@ -3,7 +3,8 @@
 // right-clicks and typing, then the params, text data, menus and modals checked. The top bar's menus and
 // toggles, the keyboard's lit keys, every page by its tab, the Operators tab's sub-tabs or the operator column's buttons, the operator panel,
 // the waveform the engine draws for it, its Form header and its frequency box, the skin's keyboard shortcuts and the tooltips that name them,
-// the Parts page's steppers, keyboard, velocity curve and Poly/Mono radios, the browser and its right-click menus, every dialog, the modal's veil,
+// the Parts page's steppers, keyboard, velocity curve and Poly/Mono radios, copy and paste of an operator, an envelope and a part, the
+// Fseq speed's steppers across the values it skips, the browser and its right-click menus, every dialog, the modal's veil,
 // Escape and close X, the close prompt, the Options page (the scales, the keyboard's two layouts, Modern EG Labels, the Init
 // Patch, Turn off all Effects, Init Current Patch, Init All and Quality / Speed) and the About box; then a sweep of every page's
 // dials, faders, dropdowns and toggles. Exits non-zero on any failure.
@@ -469,6 +470,22 @@ int main() {
             CHECK(u.get("op.1.v.coarse.p1") == 2, "the frequency's up stepper left Coarse at %g, from 1", u.get("op.1.v.coarse.p1"));
             if (u.rect("opcol/wave_ratio", r)) u.clickAt(r.x + 3, r.y + r.h / 2);
             CHECK(u.get("op.1.v.coarse.p1") == 1, "the frequency's down stepper left Coarse at %g, from 2", u.get("op.1.v.coarse.p1"));
+            if (u.rect("opcol/wave_ratio", r)) {   // the ratio is read off Coarse and Fine, so Fine alone repaints it
+                auto box = [&] {
+                    std::vector<uint32_t> px;
+                    for (int y = r.y; y < r.y + r.h; ++y)
+                        px.insert(px.end(), u.gui.pixels().begin() + (size_t)y * u.gui.width() + r.x, u.gui.pixels().begin() + (size_t)y * u.gui.width() + r.x + r.w);
+                    return px;
+                };
+                const double fine = u.get("op.1.v.fine.p1");
+                u.set("op.1.v.fine.p1", 0);
+                u.run();
+                const auto before = box();
+                u.set("op.1.v.fine.p1", 50);
+                u.run();
+                CHECK(box() != before, "Fine moved from 0 to 50 and the frequency ratio did not repaint");
+                u.set("op.1.v.fine.p1", fine);
+            }
             u.click("opcol/mode_fixed");
             CHECK(u.shows("opcol/wave_fixed") && !u.shows("opcol/wave_ratio") && u.shows("opcol/freq_hz_label"), "Fixed did not show the frequency in Hz");
             u.set("op.1.v.form.p1", form), u.set("op.1.v.mode.p1", mode), u.set("op.1.v.coarse.p1", coarse);
@@ -824,6 +841,67 @@ int main() {
             u.click("pages/library/tab_perf");   // back to the performances, where the browser's checks start
         }
 
+        // ---- copy and paste from the right-click menus: an operator, an envelope from V to N, a part --------
+        {
+            Rect r;
+            auto menu = [&](const std::string& path) { if (u.rect(path, r)) u.rclickAt(r.x + r.w / 2, r.y + r.h / 2); };
+            u.click("opcol/layer_v");
+            u.set("op.1.v.coarse.p1", 5), u.set("op.1.v.eg_l1.p1", 40), u.set("op.2.v.coarse.p1", 1), u.set("op.2.v.eg_l1.p1", 99);
+            u.settle();
+            menu("opcol/op_1");
+            u.menuIs({"Operator 1", "-", "Copy Operator", "Paste Operator"}, "operator 1's");
+            u.choose("Copy Operator");
+            u.settle();   // the worker takes one request a tick
+            menu("opcol/op_2");
+            u.choose("Paste Operator");
+            CHECK(u.until([&] { return u.get("op.2.v.coarse.p1") == 5 && u.get("op.2.v.eg_l1.p1") == 40; }),
+                  "Paste Operator left operator 2 at Coarse %g, L1 %g", u.get("op.2.v.coarse.p1"), u.get("op.2.v.eg_l1.p1"));
+            u.click("opcol/op_1");
+            menu("opcol/envelope");
+            u.menuIs({"Operator 1 Envelope", "-", "Copy Envelope", "Paste Envelope"}, "the panel's envelope");
+            u.choose("Copy Envelope");
+            u.settle();
+            u.click("opcol/layer_u");
+            u.click("opcol/op_3");
+            menu("opcol/envelope");
+            u.choose("Paste Envelope");
+            CHECK(u.until([&] { return u.get("op.3.u.eg_l1.p1") == 40; }), "an envelope pasted from V to N left L1 at %g", u.get("op.3.u.eg_l1.p1"));
+            u.click("opcol/layer_v");
+            u.click("opcol/op_1");
+            const double ch = u.get("part.rcv_ch.p2");   // a part takes the voice and the settings, and keeps its channel
+            u.set("part.volume.p1", 77);
+            u.settle();
+            menu("topbar/part_1");
+            u.menuIs({"Part 1", "-", "Copy Part", "Paste Part"}, "part 1's");
+            u.choose("Copy Part");
+            u.settle();
+            menu("topbar/part_2");
+            u.choose("Paste Part");
+            CHECK(u.until([&] { return u.data("part.voice.p2") == u.data("part.voice.p1") && u.get("part.volume.p2") == 77; }) && u.get("part.rcv_ch.p2") == ch,
+                  "Paste Part gave part 2 \"%s\" at volume %g on channel %g, from \"%s\" on %g", u.data("part.voice.p2").c_str(), u.get("part.volume.p2"),
+                  u.get("part.rcv_ch.p2"), u.data("part.voice.p1").c_str(), ch);
+        }
+
+        // ---- the Fseq speed skips 0.5 to 9.9, where nothing plays: the steppers step across, a value there lands on its nearer end
+        {
+            u.click("tab_fseq");
+            const double speed = u.get("fseq.speed");
+            u.set("fseq.speed", 10);
+            u.run();
+            Rect r;
+            if (u.rect("pages/speed", r)) u.clickAt(r.x + 3, r.y + r.h / 2);
+            const std::string t = u.st->text((size_t)u.at("fseq.speed"), u.get("fseq.speed"));
+            CHECK(u.get("fseq.speed") == 0.4 && t == "MIDI 4/1", "the speed's down stepper from 10.0 gave %g (\"%s\")", u.get("fseq.speed"), t.c_str());
+            if (u.rect("pages/speed", r)) u.clickAt(r.x + r.w - 3, r.y + r.h / 2);
+            CHECK(u.get("fseq.speed") == 10, "the speed's up stepper from MIDI 4/1 gave %g", u.get("fseq.speed"));
+            u.set("fseq.speed", 5);
+            CHECK(u.get("fseq.speed") == 0.4, "a speed of 5.0 became %g, not MIDI 4/1", u.get("fseq.speed"));
+            u.set("fseq.speed", 6);
+            CHECK(u.get("fseq.speed") == 10, "a speed of 6.0 became %g, not 10.0", u.get("fseq.speed"));
+            u.set("fseq.speed", speed);
+            u.click("tab_browser");
+        }
+
         // ---- the close prompt, with the performance edited -------------------------------------------
         CHECK(!u.gui.closeRequested() && u.gui.modal() == "dialog_quit", "closing an edited performance did not ask (modal \"%s\")", u.gui.modal().c_str());
         if (u.gui.modal() == "dialog_quit") u.menuIs({}, "no menu over the modal");
@@ -1026,6 +1104,6 @@ int main() {
         u.proc.reset();
     }
     fs::remove_all(tmp, ec);
-    if (!fails) std::printf("check_gui: the top bar, its menus and toggles, every page and the Operators tab's sub-tabs, the keyboard shortcuts and their tooltips, the Parts page's steppers, keyboard, velocity curve and radios, the browser's right-click menus, every dialog, the modal's veil, Escape and close X, the close prompt, the Options page and About all pass\n");
+    if (!fails) std::printf("check_gui: the top bar, its menus and toggles, every page and the Operators tab's sub-tabs, the keyboard shortcuts and their tooltips, the Parts page's steppers, keyboard, velocity curve and radios, copy and paste, the Fseq speed, the browser's right-click menus, every dialog, the modal's veil, Escape and close X, the close prompt, the Options page and About all pass\n");
     return fails ? 1 : 0;
 }

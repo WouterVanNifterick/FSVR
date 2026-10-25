@@ -434,6 +434,7 @@ struct Inst {                    // one widget of one shown view
     int param = -1, param2 = -1;  // resolved State indices
     std::vector<int> mirror;      // resolved mirror params
     int cond[2] = {-1, -1};       // resolved showIf / enableIf params
+    int cell[2] = {-1, -1};       // resolved "valueText" row / col params
     Rect r;                       // its rect in the view, after flow, fit and animation
     int animH = -1;               // animated flow: current height, -1 = not animating
     int scroll = 0;               // embeds and lists: pixels scrolled
@@ -447,6 +448,7 @@ struct Inst {                    // one widget of one shown view
     std::string key, data;        // resolved text data key, and its text (or source value) at the last paint
     bool stored = false;          // whether the key held data at the last paint
     double drawn = -1e300, drawn2 = -1e300;   // bound values at the last paint
+    double drawnCell[2] = {-1e300, -1e300};   // the cell params' values at the last paint
     std::unique_ptr<Node> child;  // embeds
     std::unique_ptr<KindState> ks;// custom kinds
 };

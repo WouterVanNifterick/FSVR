@@ -3186,7 +3186,18 @@
   "max": 500,
   "default": 100.0,
   "steps": 5000,
-  "format": "%.1f"
+  "format": "%.1f",
+  "labels": [
+   "MIDI 1/4",
+   "MIDI 1/2",
+   "MIDI",
+   "MIDI 2/1",
+   "MIDI 4/1"
+  ],
+  "skip": [
+   0.4,
+   10
+  ]
  },
  {
   "id": "fseq.start",

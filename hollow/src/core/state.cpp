@@ -78,6 +78,7 @@ static double snap(const ParamDef& d, double v) {
         const double k = std::round(normOf(d, v) * d.steps);
         v = isLog(d) ? plainOf(d, k / d.steps) : d.min + k * (d.max - d.min) / d.steps;
     }
+    if (v > d.skip[0] && v < d.skip[1]) v = v - d.skip[0] < d.skip[1] - v ? d.skip[0] : d.skip[1];   // "skip": the nearer end
     return v;
 }
 

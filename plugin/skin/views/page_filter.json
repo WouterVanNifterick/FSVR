@@ -1275,7 +1275,35 @@
    "text": {
     "font": "plot_tiny"
    },
-   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "context": [
+    {
+     "label": "Filter Envelope",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Envelope",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy filter_eg voice.filter.eg_ .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Envelope",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste filter_eg voice.filter.eg_ .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "number",

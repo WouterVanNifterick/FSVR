@@ -130,7 +130,35 @@
      "op": "1"
     }
    },
-   "tip": "Operator 1"
+   "tip": "Operator 1",
+   "context": [
+    {
+     "label": "Operator 1",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Operator",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy operator.{layer} op.1.{layer}. .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Operator",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste operator.{layer} op.1.{layer}. .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",
@@ -168,7 +196,35 @@
      "op": "2"
     }
    },
-   "tip": "Operator 2"
+   "tip": "Operator 2",
+   "context": [
+    {
+     "label": "Operator 2",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Operator",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy operator.{layer} op.2.{layer}. .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Operator",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste operator.{layer} op.2.{layer}. .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",
@@ -206,7 +262,35 @@
      "op": "3"
     }
    },
-   "tip": "Operator 3"
+   "tip": "Operator 3",
+   "context": [
+    {
+     "label": "Operator 3",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Operator",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy operator.{layer} op.3.{layer}. .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Operator",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste operator.{layer} op.3.{layer}. .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",
@@ -244,7 +328,35 @@
      "op": "4"
     }
    },
-   "tip": "Operator 4"
+   "tip": "Operator 4",
+   "context": [
+    {
+     "label": "Operator 4",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Operator",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy operator.{layer} op.4.{layer}. .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Operator",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste operator.{layer} op.4.{layer}. .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",
@@ -282,7 +394,35 @@
      "op": "5"
     }
    },
-   "tip": "Operator 5"
+   "tip": "Operator 5",
+   "context": [
+    {
+     "label": "Operator 5",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Operator",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy operator.{layer} op.5.{layer}. .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Operator",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste operator.{layer} op.5.{layer}. .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",
@@ -320,7 +460,35 @@
      "op": "6"
     }
    },
-   "tip": "Operator 6"
+   "tip": "Operator 6",
+   "context": [
+    {
+     "label": "Operator 6",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Operator",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy operator.{layer} op.6.{layer}. .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Operator",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste operator.{layer} op.6.{layer}. .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",
@@ -358,7 +526,35 @@
      "op": "7"
     }
    },
-   "tip": "Operator 7"
+   "tip": "Operator 7",
+   "context": [
+    {
+     "label": "Operator 7",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Operator",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy operator.{layer} op.7.{layer}. .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Operator",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste operator.{layer} op.7.{layer}. .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",
@@ -396,7 +592,35 @@
      "op": "8"
     }
    },
-   "tip": "Operator 8"
+   "tip": "Operator 8",
+   "context": [
+    {
+     "label": "Operator 8",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Operator",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy operator.{layer} op.8.{layer}. .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Operator",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste operator.{layer} op.8.{layer}. .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",
@@ -1694,7 +1918,35 @@
    "text": {
     "font": "plot_tiny"
    },
-   "overlayCurve": "@op{op}_line/80"
+   "overlayCurve": "@op{op}_line/80",
+   "context": [
+    {
+     "label": "Operator {op} Envelope",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Envelope",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy aeg op.{op}.{layer}.eg_ .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Envelope",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste aeg op.{op}.{layer}.eg_ .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",

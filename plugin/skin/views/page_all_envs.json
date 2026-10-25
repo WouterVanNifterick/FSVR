@@ -335,7 +335,35 @@
    "text": {
     "font": "plot_tiny"
    },
-   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "context": [
+    {
+     "label": "Operator 1 Envelope",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Envelope",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy aeg op.1.{layer}.eg_ .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Envelope",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste aeg op.1.{layer}.eg_ .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",
@@ -521,7 +549,35 @@
    "text": {
     "font": "plot_tiny"
    },
-   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "context": [
+    {
+     "label": "Operator 2 Envelope",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Envelope",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy aeg op.2.{layer}.eg_ .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Envelope",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste aeg op.2.{layer}.eg_ .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",
@@ -707,7 +763,35 @@
    "text": {
     "font": "plot_tiny"
    },
-   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "context": [
+    {
+     "label": "Operator 3 Envelope",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Envelope",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy aeg op.3.{layer}.eg_ .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Envelope",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste aeg op.3.{layer}.eg_ .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",
@@ -893,7 +977,35 @@
    "text": {
     "font": "plot_tiny"
    },
-   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "context": [
+    {
+     "label": "Operator 4 Envelope",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Envelope",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy aeg op.4.{layer}.eg_ .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Envelope",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste aeg op.4.{layer}.eg_ .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",
@@ -1079,7 +1191,35 @@
    "text": {
     "font": "plot_tiny"
    },
-   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "context": [
+    {
+     "label": "Operator 5 Envelope",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Envelope",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy aeg op.5.{layer}.eg_ .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Envelope",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste aeg op.5.{layer}.eg_ .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",
@@ -1265,7 +1405,35 @@
    "text": {
     "font": "plot_tiny"
    },
-   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "context": [
+    {
+     "label": "Operator 6 Envelope",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Envelope",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy aeg op.6.{layer}.eg_ .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Envelope",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste aeg op.6.{layer}.eg_ .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",
@@ -1451,7 +1619,35 @@
    "text": {
     "font": "plot_tiny"
    },
-   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "context": [
+    {
+     "label": "Operator 7 Envelope",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Envelope",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy aeg op.7.{layer}.eg_ .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Envelope",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste aeg op.7.{layer}.eg_ .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "plate",
@@ -1637,7 +1833,35 @@
    "text": {
     "font": "plot_tiny"
    },
-   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64"
+   "tip": "Drag a point: up and down sets its level and slides it along its slope, sideways its time. The curve is the engine's own, for middle C at velocity 64",
+   "context": [
+    {
+     "label": "Operator 8 Envelope",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Envelope",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy aeg op.8.{layer}.eg_ .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Envelope",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste aeg op.8.{layer}.eg_ .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "button",

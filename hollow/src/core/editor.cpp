@@ -198,6 +198,8 @@ void Gui::resolve(Node& n) {
             if (int q = state_.indexOf(subst(n, m)); q >= 0) s.mirror.push_back(q);
         s.cond[0] = w.showIf.param.empty() ? -1 : state_.indexOf(subst(n, w.showIf.param));
         s.cond[1] = w.enableIf.param.empty() ? -1 : state_.indexOf(subst(n, w.enableIf.param));
+        s.cell[0] = w.valueText.rowParam.empty() ? -1 : state_.indexOf(subst(n, w.valueText.rowParam));
+        s.cell[1] = w.valueText.colParam.empty() ? -1 : state_.indexOf(subst(n, w.valueText.colParam));
         s.text = subst(n, w.text.text);
         s.key = subst(n, w.key);
         if (s.child) resolve(*s.child);
@@ -617,7 +619,9 @@ void Gui::stepNumber(const Hit& h, int dir) {
     int steps = p >= 0 ? state_.def(p).steps : w.steps;
     double unit = (hi - lo) / (steps > 0 ? steps : 100);
     if (w.hasRange && p >= 0) lo = std::max(lo, std::min(w.rangeMin, w.rangeMax)), hi = std::min(hi, std::max(w.rangeMin, w.rangeMax));
-    setPlain(h, std::clamp(plain(*h.node, h.i) + dir * unit, lo, hi));
+    double v = plain(*h.node, h.i) + dir * unit;
+    if (p >= 0 && v > state_.def(p).skip[0] && v < state_.def(p).skip[1]) v = state_.def(p).skip[dir > 0];   // a step into "skip" lands past it
+    setPlain(h, std::clamp(v, lo, hi));
 }
 
 void Gui::setParam(int p, double v) {
@@ -949,6 +953,8 @@ void Gui::paintWidget(Canvas& c, Node& n, int i, Rect r) {
     static const int noPad[4] = {0, 0, 0, 0};
     if (s.param >= 0) s.drawn = state_.get(s.param);
     if (s.param2 >= 0) s.drawn2 = state_.get(s.param2);
+    for (int k = 0; k < 2; ++k)
+        if (s.cell[k] >= 0) s.drawnCell[k] = state_.get(s.cell[k]);
     Fill own;   // a tint naming a {var}, or a number's {value} (the text it shows), is resolved here: "@op{value}"
     if (!w.fill.tintRef.empty()) {
         own = w.fill;
@@ -1374,7 +1380,7 @@ void Gui::runAction(Node& n, int i, const Action& action) {
         }
         return;
     case Action::Modal:   // text data first (what the modal is for), then the view, or "" to close it
-        for (auto& kv : a.vars) state_.setData(subst(n, kv.first), kv.second);
+        for (auto& kv : a.vars) state_.setData(subst(n, kv.first), subst(n, kv.second));
         setModal(a.target);
         return;
     case Action::Scale:   // a window scale, or the scale menu under the widget
@@ -1398,7 +1404,7 @@ void Gui::runAction(Node& n, int i, const Action& action) {
         sequence(n, a);
         return;
     case Action::Data:   // text data keys set to the given texts (a curve reset, a name)
-        for (auto& kv : a.vars) state_.setData(subst(n, kv.first), kv.second);
+        for (auto& kv : a.vars) state_.setData(subst(n, kv.first), subst(n, kv.second));
         return;
     case Action::Step:
         if (n.w[i].param >= 0) {
@@ -2369,7 +2375,7 @@ void Gui::itemMenu(const Hit& h, const std::vector<Item>& items, Rect at, const 
         for (auto& it : its) {
             if (it.action.type == Action::Standalone && !standalone()) continue;   // only the app has its settings
             MenuEntry e;
-            e.label = it.label;
+            e.label = subst(*h.node, it.label);
             e.separator = it.separator;
             e.disabled = it.disabled;
             e.columnBreak = it.columnBreak;
@@ -2760,6 +2766,8 @@ void Gui::checkValues(Node& n) {
         if ((r & n.clip).empty()) continue;
         bool changed = (s.param >= 0 && state_.get(s.param) != s.drawn) || (s.param2 >= 0 && state_.get(s.param2) != s.drawn2) ||
                        (!s.key.empty() && (state_.hasData(s.key) != s.stored || state_.data(s.key) != s.data));
+        for (int k = 0; k < 2; ++k)   // a table's text follows the params that index it
+            if (s.cell[k] >= 0 && state_.get(s.cell[k]) != s.drawnCell[k]) changed = true;
         if (changed && !s.key.empty() && w.kind == Kind::Custom) {   // kinds keep no copy of their data at paint
             s.stored = state_.hasData(s.key);
             s.data = state_.data(s.key);

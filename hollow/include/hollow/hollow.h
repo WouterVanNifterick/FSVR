@@ -37,6 +37,7 @@ struct ParamDef {
     double min = 0, max = 1, def = 0;
     int steps = 0;                        // 0 = continuous, n = n + 1 values
     bool log = false;                     // params.json "taper": "log"
+    double skip[2] = {0, 0};              // params.json "skip": [lo, hi], the values strictly between not allowed
     bool host = true;                     // params.json "host": false keeps it off the host's list (still saved)
     std::vector<std::string> labels;
     uint32_t hostId = 0;                  // fnv1a32(id) & 0x7fffffff

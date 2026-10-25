@@ -1001,6 +1001,8 @@ std::shared_ptr<Skin> loadFiles(std::shared_ptr<const Files> all, std::string* e
         d.def = p["default"].num(d.min);
         d.steps = std::max(0, p["steps"].integer());
         d.log = p["taper"].str() == "log";
+        d.skip[0] = p["skip"][0].num(0);
+        d.skip[1] = p["skip"][1].num(0);
         d.host = p["host"].flag(true);
         for (auto& l : p["labels"].items) d.labels.push_back(l.str());
         uint32_t h = 2166136261u;

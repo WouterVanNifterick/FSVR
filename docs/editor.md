@@ -176,6 +176,21 @@ The unit has no keyboard, so these are ours (issue #11): a way to reach any page
 - **Hosts take the keyboard off a plug-in's window, and the fix is a message hook.** A host may handle keys in its own message loop, where its accelerators are, so the editor's window never sees them however well it holds focus, and a plug-in that seems to need a click first is usually meeting this rather than a focus bug. So on Windows a skin with bindings hooks the host's message queue (`WH_GETMESSAGE`, `hollow/src/platform/win32.cpp`), takes the chords it uses and passes everything else on, which is what JUCE does and for the same reason. It needs nothing of the host or of the format, so every format works in every host tested, with no setting to turn on and no click first.
 - **The plug-in interface is the second route, and the cooperative one.** A host may also offer keys through the plug-in's own API rather than to the window, and Hollow answers VST2's `effEditKeyDown` through `Editor::key`. VST3 has such a call too, but the wrapper FSVR's VST3 is built with stubs it out, and CLAP has no key event and never will, deliberately: keyboard focus is the window system's job in its view, and VST2's and VST3's key APIs are the mistake, hosts having taken the keyboard away in the first place. So the hook above is what serves those two, and on Windows it makes this route redundant for all three. macOS and Linux need neither: the responder chain and X11 input focus deliver keys without a host in front of them, which is why JUCE hooks on Windows alone.
 
+### Copy and paste
+
+The unit copies nothing between operators, envelopes or parts; FSVR does it from right-click menus, each a heading naming what it is on and then Copy and Paste.
+
+| Menu on | Copies |
+|---|---|
+| The operator column's 1 to 8 | That operator's params on the layer shown (`op.N.{layer}.*`). The clip is per layer, so voiced pastes onto voiced and unvoiced onto unvoiced |
+| Every amplitude EG plot (the operator panel's, the Operator page's, the Envelopes page's eight) | `op.N.{layer}.eg_*`: L1 to L4, T1 to T4, Hold and the time scale. A voiced and an unvoiced operator's EG params share their names, so one pastes onto the other |
+| The Pitch page's plot, the Filter page's plot | The voice's `voice.peg.*`, its `voice.filter.eg_*` |
+| The top bar's Part 1 to 4, the Parts page's lamps | The part's 52 performance bytes and its voice |
+
+- **Params by name.** The menu sends `clip.request`, "copy" or "paste", the clip's name and an id prefix and suffix with the widget's vars filled in (Hollow fills them in a `data` action's texts as in its keys). A copy keeps every param whose id is that prefix, a name and that suffix, by the name; a paste sets the params those names make with its own prefix and suffix as edits the engine hears, one parameter change each, as if each were moved by hand.
+- **A part goes in as a load.** Its bytes go to the engine as parameter changes, its voice as one bulk, and the processor reads back what the engine took, so the part shows the copied voice by its name. It keeps its own Rcv Ch and Rcv Max, so it still answers on the channels it did.
+- **Each instance has its own clipboard**, kept until the instance closes and not saved with the session. A Paste before any Copy does nothing.
+
 ### Modals
 
 Every dialog, the About box too, is a Hollow modal: a view named `dialog_*`, opened by a `modal` action or by the processor through the text data `hollow.modal`, drawn centred over the window behind a dimming veil, with the keyboard (Escape closes it). They share one frame: a dark title bar with the title and a close X, the content well's brushed floor around the browser's dark stripes, a dark rim, dark buttons along the bottom right, text fields dark on a thin light rim, and lists in the browser's colours. With the editor hidden the window is a bar too small for a dialog, so on Windows the dialog opens in a window of its own over it (Hollow's `platformPopup`) and the bar keeps its size; on macOS and Linux the window still grows to hold it.
@@ -248,7 +263,8 @@ Of the FS1R's params, every one is on a page except these, all on purpose: the u
 Values read the way the unit shows them, from `src/display/display.h`, which the skin's data tables `fixed_freq`, `op_ratio` and `fx_values` were made from.
 
 - **Effects.** One slot param means something different in each effect type (Reverb Param 1 is Hall1's Reverb Time and Delay LCR's Lch Delay), so each slot has a readout per type, shown with its type, through that type's value table ("2.0" seconds, "4.0k", "thru", "D=W"), or for the 14-bit delay times the value as milliseconds, and a drag stays within what that type takes.
-- **Operator frequency.** The coarse display reads as the unit reads F.Coarse: a voiced operator's ratio (0.500 to 61.69, from coarse and fine), or in fixed mode, and for an unvoiced operator, the frequency in hertz, with "Hz" beside it.
+- **Operator frequency.** The coarse display reads as the unit reads F.Coarse: a voiced operator's ratio (0.500 to 61.69, from coarse and fine), or in fixed mode, and for an unvoiced operator, the frequency in hertz, with "Hz" beside it. It repaints as Fine moves as well as Coarse, since the text is the table's cell for both.
+- **Fseq speed.** The owner's manual's settings: MIDI 1/4, MIDI 1/2, MIDI, MIDI 2/1 and MIDI 4/1 (the speed word's 0 to 4, following MIDI clock), then 10.0 to 500.0 percent. The word's 5 to 99 is no setting: the engine reads anything under 100 as a clock division (`Synth::fseq_start`) and clamps it to 4 (`Synth::midi_clock`), so 5.0 played nothing without MIDI clock and ran at MIDI 4/1 with it. The param keeps its 0 to 500 range with Hollow's `skip` over 0.4 to 10, so a value between lands on the nearer end and the steppers step across.
 
 ## What the processor answers
 
@@ -287,6 +303,7 @@ The skin asks through params and the instance's text data; the processor (`plugi
 | `part.morph_*.pN` | params | GUI or host | Part N's morph |
 | `morph.pN.tl`, `.tr`, `.bl`, `.br` | text data | processor | The names of part N's corner voices |
 | `morph.request.pN` | text data | GUI | `normalize`: copy the edited corner into all four |
+| `clip.request` | text data | GUI | Copy or paste from a page's right-click menu (Copy and paste, above) |
 | `gui.panic` | param (not the host's) | GUI | All notes off while held |
 | `fsvr.engine`, `fsvr.morph` | text data | processor | The engine's bulk dumps and the morph corners, saved with the instance |
 

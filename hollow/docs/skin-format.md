@@ -71,7 +71,8 @@ Compositing uses an integer blend: images and glyphs `(s*a + d*(255-a)) >> 8`, c
 - `name` (required): shown in the host.
 - `min`, `max`, `default`: plain values, defaults 0, 1, `min`.
 - `steps`: 0 = continuous; `n` = `n + 1` discrete values from `min` to `max`.
-- `labels`: optional text per discrete value.
+- `labels`: optional text per discrete value. A list shorter than the values names the first ones, and the rest show as numbers.
+- `skip`: `[lo, hi]`, a range of values a param never takes: a value strictly between snaps to the nearer end, and a number's stepper steps across to the far one.
 - `taper`: `"linear"` (default) or `"log"`. With `"log"` (both `min` and `max` > 0) the normalized value `n` maps to `min * (max / min) ^ n`, for frequency and time sweeps. Widgets and hosts move in normalized steps, so a log param sweeps evenly per octave.
 - `unit`, `format` (printf, one `%` conversion for a double): optional, for display. `format` covers the number only; hosts get the unit after it (`"200 ms"`), or as a separate label where the format has one (VST2). A widget's own `format` may add text of its own (`"%.0f ms"`) for the GUI. Default format `%.2f`, or the label, or an integer for stepped params.
 
@@ -150,12 +151,12 @@ Button state tile: the strip is laid out as groups `[normal][pressed, if pressed
 - `{ "toggle": "about_box" }`: flip `hidden` on the widget with that name (searched in the same view first, then from the root).
 - `{ "url": "https://example.com" }`: open in the browser.
 - `{ "standalone": "settings" }`: open the standalone app's own audio and MIDI settings window, or with skin.json `"standalone": { "settings": "<view>" }` that view as a modal, filled from the app's setup (see Modals); where that view already shows in a page or as the modal, it opens the app's window, which has the driver's own control panel where the platform has one (an ASIO driver's, on Windows). A menu item with it is listed only in the standalone, so a File menu can carry it in every format. `{ "standalone": "close" }` closes the standalone without asking.
-- `{ "modal": "<view>", "data": { "<key>": "<text>" } }`: store the text data first (keys may use `{var}`), then show that view as the modal; `"modal": ""` closes it. See Modals.
+- `{ "modal": "<view>", "data": { "<key>": "<text>" } }`: store the text data first (keys and texts may use `{var}`), then show that view as the modal; `"modal": ""` closes it. See Modals.
 - `{ "scale": "menu" }`: open the window scale menu under the widget: the skin's `"scales"`, else 1x to 4x. A right-click on empty space opens nothing, so a skin that wants the scales offers them with this. `{ "scale": 1.5 }` sets that scale (the nearest the skin has) and draws the button as on while it is the window's scale, a radio button per scale.
 - `{ "sequence": "insert", "prefix": "arp.step.", "index": "{step}", "count": 32 }` (or `"delete"`): treats params named `<prefix><n>.<leaf>` for n = 1..count as a step sequence. Insert moves steps index..count-1 one place up (the last is dropped) and resets step index to its defaults; delete moves steps index+1..count one place down and resets step count. `index` may use `{var}`.
 - `{ "sequence": "reset" | "random", "prefix": "arp.step.", "leaf": "on", "count": 32 }`: sets `<prefix><n>.<leaf>` for n = 1..count to its default, or to random valid values (for a step sequencer's rows).
 - `{ "presets": "<table>", "key": "env.{op}", "name": "<text key>", "save": true, "columns": 16 }`: a native menu of the preset slots of `data/<table>.json` (kept, once changed, in text data `presets.<table>`), `columns` items per column. Choosing a slot copies its content into text data `key` and its name into text data `name`; with `save` the menu also offers storing the current content and name into a slot.
-- `{ "data": { "keyscale.z": "0 -60 0.5|127 67 0.5" } }`: store these strings as text data (keys may use `{var}`), for buttons that restore a shape.
+- `{ "data": { "keyscale.z": "0 -60 0.5|127 67 0.5" } }`: store these strings as text data (keys and texts may use `{var}`), for buttons that restore a shape.
 - `{ "midi_map": "remove" }` (or `"reset"`): for the context menu of a `midi_map` list, drop the selected row's assignment (a fixed row's CC goes back to its default), or drop them all and restore `learn.defaults`.
 - `{ "file": "open" | "save", "key": "<text key>", "types": { "SysEx": "syx", "Audio": "wav;mp3" }, "title": "...", "name": "<a save's file name>" }`: a native open or save dialog (`name` may hold `{data:<key>|<default>}`, so a processor can start a save in a folder of its own: `"{data:library.dir|}Performance.syx"`); the chosen file's path (UTF-8) is stored as text data under `key` (with `{var}`s), for the product's processor to act on and clear. Cancelling changes nothing.
 - `{ "value": 2 }`: set the bound param to this plain value, a radio button: it draws as on while the param holds that value. With a `goto`, `stack` and optional `vars` as well, it then shows that view there, so a chooser closes itself on a pick.
@@ -260,7 +261,7 @@ Further `menu` fields:
 - Menu items may also carry: `"items": [...]` (a submenu, opening on hover to the right), `"disabled": true` (shown in the style's `disabledFont`, never highlighted or chosen: a heading), `"check": true` (a toggle item showing a check mark), `"short": "<text>"` (the caption shown by `captionFromItem` instead of the label), `"columnBreak": true` (starts a new column, native menus), and `"action": { ... }` (any button action, run when chosen instead of setting the value).
 - `"menuAt": [x, y]` on a dropdown or a `presets` button: the menu opens with its top-left at that point of the view (for example on a neighbouring name field), instead of relative to the widget.
 - Native menus check only `check` items (never the current value), and their column breaks draw no divider line.
-- `"context": [items]` on any widget: right-click (on release) opens a menu of those items at the pointer, in the widget's `menuStyle` (default the named style `"plain"` if it exists).
+- `"context": [items]` on any widget: right-click (on release) opens a menu of those items at the pointer, in the widget's `menuStyle` (default the named style `"plain"` if it exists). A label may use `{var}`, as any menu item's may, so a heading names what the widget shows ("Operator {op}").
 
 ### Keyboard shortcuts
 

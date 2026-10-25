@@ -1318,6 +1318,7 @@ private:
         if (std::string path = take("fseq.export"); !path.empty()) exportFseq(path);
         if (std::string path = take("fseq.import_audio"); !path.empty()) importAudio(path);
         if (std::string r = take("opt.request"); !r.empty()) optionRequest(r);
+        if (std::string r = take("clip.request"); !r.empty()) clipRequest(r);
         for (int p = 0; p < 4; ++p)
             if (take("morph.request.p" + std::to_string(p + 1)) == "normalize") {
                 std::lock_guard<std::mutex> g(ctl);
@@ -1661,6 +1662,71 @@ private:
         put(saveBank, saveRow((int)get(browseBank)));
         st.setData("save.then_close", "");
         st.setData("hollow.modal", "dialog_save");
+    }
+
+    // ---- copy and paste ------------------------------------------------------------------------------
+
+    // The pages' right-click menus send "copy <clip> <prefix> <suffix>" and "paste <clip> <prefix> <suffix>" as
+    // text data clip.request. A copy keeps every param whose id is the prefix, a name and the suffix, by that name
+    // ("op.3.v." and ".p1" keep operator 3's voiced params as coarse, eg_l1 and so on); a paste sets the params
+    // the names make with its own prefix and suffix, as edits the engine hears. A voiced and an unvoiced
+    // operator's envelope params share their names, so an envelope pastes across the two.
+    std::map<std::string, std::vector<std::pair<std::string, double>>> clips;
+    struct PartClip { bool held = false; uint8_t perf[52] = {}; uint8_t voice[608] = {}; int user = 0; } partClip;
+
+    void clipRequest(const std::string& r) {
+        std::vector<std::string> w;
+        for (size_t a = 0; a < r.size();) {
+            const size_t e = std::min(r.find(' ', a), r.size());
+            w.push_back(r.substr(a, e - a));
+            a = e + 1;
+        }
+        w.resize(4);
+        std::lock_guard<std::mutex> g(ctl);
+        if (w[1] == "part") { partRequest(w[0] == "copy", w[2]); return; }
+        const std::string &pre = w[2], &suf = w[3];
+        if (w[0] == "copy") {
+            auto& c = clips[w[1]];
+            c.clear();
+            for (size_t i = 0; i < st.size(); ++i) {
+                const std::string& id = st.def(i).id;
+                if (id.size() > pre.size() + suf.size() && id.compare(0, pre.size(), pre) == 0 && id.compare(id.size() - suf.size(), suf.size(), suf) == 0)
+                    c.emplace_back(id.substr(pre.size(), id.size() - pre.size() - suf.size()), st.get(i));
+            }
+        } else if (w[0] == "paste") {
+            for (auto& [name, v] : clips[w[1]]) choose(st.indexOf(pre + name + suf), v);
+        }
+    }
+
+    // "copy part pN" and "paste part pN": the part's 52 performance bytes and its voice. A paste keeps the channels
+    // the part receives on (Rcv Max and Rcv Ch), so it answers where it did, and goes in as a load does: the bytes
+    // as parameter changes, the voice as one bulk, and adopt reads what the engine took back into the params.
+    void partRequest(bool copy, const std::string& part) {   // under ctl
+        const int p = part.size() == 2 && part[0] == 'p' && part[1] >= '1' && part[1] <= '4' ? part[1] - '1' : -1;
+        if (p < 0) return;
+        const int at = 192 + 52 * p;
+        if (copy) {
+            std::memcpy(partClip.perf, model.perf + at, 52);
+            std::memcpy(partClip.voice, model.voice[p], 608);
+            partClip.user = userVoice[p];
+            partClip.held = true;
+            return;
+        }
+        if (!partClip.held) return;
+        uint8_t perf[400];
+        std::memcpy(perf, model.perf, 400);
+        for (int k = 0; k < 52; ++k)
+            if (k != 3 && k != 4) perf[at + k] = partClip.perf[k];
+        dev.allNotesOff();
+        for (int i : fieldParams) {
+            const Field& f = fields[(size_t)i];
+            if (f.area == Performance && f.off >= at && f.off < at + 52) send(f, perf);
+        }
+        sendVoice(p, partClip.voice);
+        adopt();
+        putUser(partUser[p], userVoice[p], partClip.user);
+        put(edited, 1);
+        syncBrowse();
     }
 
     // ---- right-click on a browser row ---------------------------------------------------------------

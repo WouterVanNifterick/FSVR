@@ -2634,7 +2634,35 @@
    "text": {
     "font": "plot_tiny"
    },
-   "overlayCurve": "@op{op}_line/80"
+   "overlayCurve": "@op{op}_line/80",
+   "context": [
+    {
+     "label": "Operator {op} Envelope",
+     "value": 0,
+     "disabled": true
+    },
+    {
+     "separator": true
+    },
+    {
+     "label": "Copy Envelope",
+     "value": 1,
+     "action": {
+      "data": {
+       "clip.request": "copy aeg op.{op}.{layer}.eg_ .{part}"
+      }
+     }
+    },
+    {
+     "label": "Paste Envelope",
+     "value": 2,
+     "action": {
+      "data": {
+       "clip.request": "paste aeg op.{op}.{layer}.eg_ .{part}"
+      }
+     }
+    }
+   ]
   },
   {
    "type": "number",
