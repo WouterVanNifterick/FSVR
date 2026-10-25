@@ -14,13 +14,21 @@ import fs1r_patch as fp
 OUT = Path(__file__).resolve().parent.parent / "presets" / "templates.syx"
 
 
+OFF = (0, 0, 0, 0)
+
+
 def voice(name, alg=0, ops=(), **common):
+    """Every operator, voiced and noise, off unless named. Off is EG levels 0, not output level 0: level 0 is
+    -95.6 dB (LEVTAB[0] = 127 steps of 0.376 dB, doubled), above the engine's -100 dB gate, so a sine at a
+    random note phase and a clock-seeded noise each leaked 64 LSB of 24-bit. EG level 0 is attenuation
+    step 63, which the EG takes as off (EG::lvl_db), whatever level or bias a controller adds."""
     v = fp.init_voice(name.ljust(10))
     v[0x2C] = alg
     for k, val in common.items():
         v[int(k[1:], 16)] = val
-    for o, kw in ops:
-        fp.set_op(v, o, **kw)
+    used = dict(ops)
+    for o in range(8):
+        fp.set_op(v, o, **{"eg_l": OFF, "u_eg_l": OFF, **used.get(o, {})})
     return v
 
 
@@ -37,9 +45,12 @@ TEMPLATES = [
     ("Additive", voice("Additive", ops=[(0, dict(level=99, coarse=1, **release(20))),
                                         (1, dict(level=90, coarse=2, **release(20))),
                                         (2, dict(level=85, coarse=3, **release(20)))])),
-    ("Formant", voice("Formant", ops=[(0, dict(level=99, form=fp.FRMT, bw=60, **release(30)))])),
+    # a formant operator's coarse and fine are its centre as a fixed frequency (fp.fixed_hz), whatever the key
+    ("Formant", voice("Formant", ops=[(0, dict(level=99, form=fp.FRMT, bw=60, coarse=fp.fixed_bytes(1000.0)[0],
+                                               fine=fp.fixed_bytes(1000.0)[1], **release(30)))])),
     ("Noise", voice("Noise", ops=[(0, dict(level=0, u_level=99, u_coarse=fp.fixed_bytes(1000.0)[0],
-                                           u_fine=fp.fixed_bytes(1000.0)[1], u_bw=99, u_eg_t=(0, 0, 0, 30)))])),
+                                           u_fine=fp.fixed_bytes(1000.0)[1], u_bw=99, u_eg_l=(99, 99, 99, 0),
+                                           u_eg_t=(0, 0, 0, 30), eg_l=OFF))])),
 ]
 
 

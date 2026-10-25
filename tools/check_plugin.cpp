@@ -309,19 +309,26 @@ int main() {
         const double hz = pitchOf(a);
         CHECK(hz > 255 && hz < 270, "the Init Patch plays C4 at %.1f Hz", hz);
     }
-    a.set("browse.perf", 2);
-    CHECK(a.until([&] { return a.data("perf.user.name") == "Silence"; }), "the Silence template did not load");
-    a.set("gui.panic", 1);
-    a.run(40);
-    a.set("gui.panic", 0);
-    a.peak = 0;
-    a.run(20);
-    const float floor = a.peak;   // the output with nothing playing
-    a.midi({0x90, 60, 100});
-    a.peak = 0;
-    a.run(20);
-    CHECK(a.peak <= floor, "the Silence template sounds (peak %g over a floor of %g)", a.peak, floor);
-    a.midi({0x80, 60, 0});
+    // Every template sounds but Silence, and Silence is exactly zero, not merely quiet: an operator at output
+    // level 0 is -95.6 dB, over the -100 dB gate, and leaked 64 LSB of 24-bit at a random note phase.
+    for (int row = 1; row <= 6; ++row) {
+        static const char* const kNames[6] = {"Init Patch", "Silence", "FM Pair", "Additive", "Formant", "Noise"};
+        a.set("browse.perf", row);
+        CHECK(a.until([&] { return a.data("perf.user.name") == kNames[row - 1]; }), "template %d did not load as \"%s\"", row, kNames[row - 1]);
+        a.set("gui.panic", 1);
+        a.run(40);
+        a.set("gui.panic", 0);
+        a.peak = 0;
+        for (int note : {0, 60, 127})
+            for (int vel : {1, 127}) {
+                a.midi({0x90, (uint8_t)note, (uint8_t)vel});
+                a.run(30);
+                a.midi({0x80, (uint8_t)note, 0});
+                a.run(10);
+            }
+        if (row == 2) CHECK(a.peak == 0, "the Silence template sounds (peak %g)", a.peak);
+        else CHECK(a.peak > 1e-3f, "template \"%s\" is silent (peak %g)", a.data("perf.user.name").c_str(), a.peak);
+    }
     a.set("perf.bank", 0);
     a.set("perf.program", 0);
     CHECK(a.until([&] { return a.is("perf.category", 16) && a.data("perf.user.name").empty(); }), "A001 did not load again after the templates");
