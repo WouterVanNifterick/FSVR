@@ -18,10 +18,9 @@ OFF = (0, 0, 0, 0)
 
 
 def voice(name, alg=0, ops=(), **common):
-    """Every operator, voiced and noise, off unless named. Off is EG levels 0, not output level 0: level 0 is
-    -95.6 dB (LEVTAB[0] = 127 steps of 0.376 dB, doubled), above the engine's -100 dB gate, so a sine at a
-    random note phase and a clock-seeded noise each leaked 64 LSB of 24-bit. EG level 0 is attenuation
-    step 63, which the EG takes as off (EG::lvl_db), whatever level or bias a controller adds."""
+    """Every operator, voiced and noise, off unless named: output level 0 and EG levels 0. Output level 0 alone is
+    silent on the unit (the chip cuts an operator below about 89 dB, cal::OP_CUT_DB) and EG level 0 is off on any
+    tone generator, whatever level a controller or a bias adds back (docs/findings.md 2026-10-26)."""
     v = fp.init_voice(name.ljust(10))
     v[0x2C] = alg
     for k, val in common.items():
@@ -38,7 +37,9 @@ def release(t):   # the amplitude EG: on at once, held, and t to fade after key 
 
 TEMPLATES = [
     ("Init Patch", voice("Init", ops=[(0, dict(level=99, **release(30)))])),
-    ("Silence", voice("Silence")),
+    # the two ways to switch every operator off: output level 0 under an open EG, and that with the EG levels at 0
+    ("Silence", voice("Silence", ops=[(o, dict(eg_l=(99, 99, 99, 0), u_eg_l=(99, 99, 99, 0))) for o in range(8)])),
+    ("Silence EG 0", voice("SilenceEG0")),
     # algorithm 8: operator 1 modulates operator 2, the only carrier
     ("FM Pair", voice("FM Pair", alg=7, ops=[(0, dict(level=70, **release(30))), (1, dict(level=99, **release(30)))])),
     # algorithm 1: every operator a carrier, three sines at the first three harmonics

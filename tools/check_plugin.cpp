@@ -282,7 +282,7 @@ int main() {
     CHECK(a.data("bank.list") == builtins && a.data("save.bank.list").empty(), "an empty library lists \"%s\", and Save offers \"%s\"",
           a.data("bank.list").c_str(), a.data("save.bank.list").c_str());
     const int nb = 2, bonusVoices = a.lines("voice.user.list");
-    CHECK(a.lines("perf.user.list") == 4 * 128 + 6 && bonusVoices == 4 * 128 + 6, "the built-in banks hold %d performances and %d voices",
+    CHECK(a.lines("perf.user.list") == 4 * 128 + 7 && bonusVoices == 4 * 128 + 7, "the built-in banks hold %d performances and %d voices",
           a.lines("perf.user.list"), bonusVoices);
     a.set("browse.bank", 1);
     CHECK(a.until([&] { return a.lines("browse.perf.list") == 512; }), "the Bonus bank lists %d performances", a.lines("browse.perf.list"));
@@ -302,7 +302,7 @@ int main() {
               "a Bonus preset did not describe itself read only");
     }
     a.set("browse.bank", 2);
-    CHECK(a.until([&] { return a.lines("browse.perf.list") == 6; }), "the Templates bank lists %d performances", a.lines("browse.perf.list"));
+    CHECK(a.until([&] { return a.lines("browse.perf.list") == 7; }), "the Templates bank lists %d performances", a.lines("browse.perf.list"));
     a.set("browse.perf", 1);
     CHECK(a.until([&] { return a.data("perf.user.name") == "Init Patch"; }), "the Init Patch template did not load");
     {
@@ -311,8 +311,8 @@ int main() {
     }
     // Every template sounds but Silence, and Silence is exactly zero, not merely quiet: an operator at output
     // level 0 is -95.6 dB, over the -100 dB gate, and leaked 64 LSB of 24-bit at a random note phase.
-    for (int row = 1; row <= 6; ++row) {
-        static const char* const kNames[6] = {"Init Patch", "Silence", "FM Pair", "Additive", "Formant", "Noise"};
+    for (int row = 1; row <= 7; ++row) {
+        static const char* const kNames[7] = {"Init Patch", "Silence", "Silence EG 0", "FM Pair", "Additive", "Formant", "Noise"};
         a.set("browse.perf", row);
         CHECK(a.until([&] { return a.data("perf.user.name") == kNames[row - 1]; }), "template %d did not load as \"%s\"", row, kNames[row - 1]);
         a.set("gui.panic", 1);
@@ -326,7 +326,7 @@ int main() {
                 a.midi({0x80, (uint8_t)note, 0});
                 a.run(10);
             }
-        if (row == 2) CHECK(a.peak == 0, "the Silence template sounds (peak %g)", a.peak);
+        if (row == 2 || row == 3) CHECK(a.peak == 0, "the \"%s\" template sounds (peak %g)", kNames[row - 1], a.peak);
         else CHECK(a.peak > 1e-3f, "template \"%s\" is silent (peak %g)", a.data("perf.user.name").c_str(), a.peak);
     }
     a.set("perf.bank", 0);
