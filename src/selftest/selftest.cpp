@@ -804,6 +804,28 @@ int selftest(Synth& S) {
       }
       S.all_off(); init_perf(S.perf); }
 
+    // The chip's operator cut (cal::OP_CUT_DB, NOISE_CUT_DB), at the four points rgwan's unit put either side of
+    // it on 2026-10-26: one sine carrier at output level 4 (register 235) sounds and at 3 (243) is exactly zero; the
+    // noise at level 2 (251) sounds and at 1 (255) is exactly zero. Velocity 127, sensitivity 0, every other op off.
+    { auto peak = [](int level, bool noise) {
+          auto T = std::make_unique<Synth>(); init_perf(T->perf); Part& pt = T->perf.part[0]; Voice& V = pt.voice;
+          pt.p[1] = 2; pt.p[4] = 0x10;
+          init_blank_voice(V.raw);
+          for (int o = 0; o < 8; o++) for (int i = 0; i < 4; i++) V.raw[112 + o * 62 + 12 + i] = V.raw[112 + o * 62 + 35 + 13 + i] = 0;
+          uint8_t* q = V.raw + 112;
+          for (int i = 0; i < 3; i++) (noise ? q[35 + 13 + i] : q[12 + i]) = 99;
+          (noise ? q[35 + 11] : q[22]) = (uint8_t)level;
+          if (noise) { q[35 + 1] = 17; q[35 + 2] = 24; q[35 + 4] = 99; }   // 1 kHz, widest band
+          decode_voice(V);
+          srand(5); T->midi_in(0x90, 60, 127);
+          double pk = 0; float l, r;
+          for (int k = 0; k < SR / 4; k++) { T->render(&l, &r, 1); for (auto& c : T->ch) if (c.active) pk = std::max(pk, fabs(c.last)); }
+          return pk; };
+      ck("cut: a sine at register 235 sounds", peak(4, false) > 0);
+      ck("cut: a sine at register 243 is zero", peak(3, false) == 0);
+      ck("cut: noise at register 251 sounds", peak(2, true) > 0);
+      ck("cut: noise at register 255 is zero", peak(1, true) == 0); }
+
     // Ours: op byte 0x1C is a key-synced oscillator's initial phase, value / 128 of a turn. 64 is half a turn,
     // which negates a lone sine carrier at the channel's output; with key sync off the byte does nothing.
     { auto run = [](int sync, int ph, std::vector<double>& y) {

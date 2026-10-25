@@ -54,6 +54,15 @@ static const double LEVEL_DB     = 0.376287;// dB per step of the 8-bit level re
                                             // 0918 recording, where the fit ran into the output path's own droop
                                             // below -68 dB (see fs1r_capture_session2_results.md) and read high.
 static const double EG_LEVEL_DB  = 1.5;     // dB per step of the 6-bit EG level registers (LEVTAB >> 1)
+// An operator is cut, exactly zero, once its attenuation (level register plus EG) reaches this many dB, the
+// voiced and the noise half each at their own. MEASURED 2026-10-26 on rgwan's unit off the S/PDIF tap (docs/findings.md):
+// a voiced sine sounds at level register 236 (88.8 dB) and is digital zero at 237 (89.2), and the same cut holds
+// with the attenuation in the EG instead (register 15 plus EG step 55 sounds, step 57 is zero); the noise sounds
+// at 251 (94.4) and is zero at 252 (94.8), and at register 15 plus EG step 55, but not 61. The part level is not in
+// it: at part volume 64 a sine at register 199 still plays. The CPU writes 254 or 255 for output level 0
+// (FUN_00012E2C, FUN_00012FCC) with no case of its own, so this is the chip's.
+static const double OP_CUT_DB    = 236.5 * LEVEL_DB;
+static const double NOISE_CUT_DB = 251.5 * LEVEL_DB;
 static const double CARRIER_DB   = 1.5;     // dB per step of the carrier level correction (voice 0x2D-0x34)
 static const double FEEDBACK     = 0.53;    // feedback gain = FEEDBACK * 2^(fb - 7). MEASURED: 03_fm_2 feedback-1..6, the
                                             // second harmonic sat a steady 0.5 dB under the unit at 0.5

@@ -8,6 +8,30 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-26, the tone generator cuts an operator to zero below about -89 dB, and output level 0 is past it
+
+James asked whether the Silence template had needed its operators' EG levels at 0, or whether output level 0 was already silent on the unit and the engine was wrong. The unit says the engine was wrong.
+
+**The CPU has no case for level 0.** `FUN_00012E2C` gives a voiced operator `2 * LEVTAB[level]` plus key scaling, which is 254 at level 0, and its velocity term makes the register 255; `FUN_00012FCC` gives the noise operator `min(255, 2 * LEVTAB[level] + velocity)`. That is -96 dB at 0.376 dB a step, and the engine computed exactly that and played it: a sine at a random note phase and the clock-seeded noise came out at 64 to 128 LSB of 24-bit. So any silence at level 0 has to be the chip's.
+
+**It is, and the cut is well above level 0.** Seven takes off the S/PDIF tap (three earlier ones are void: the reference sine in them had its own EG at 0), every segment one operator alone, note held 3 s, the idle floor digital zero throughout (FS1R.unlock `captures/2026-10-26-*-silence`):
+
+- A voiced sine sounds at level register 236 (88.8 dB) and is digital zero from 237 (89.2 dB). Register 232 to 236 play the same 32720-count peak, so under the cut the output is down to its last steps before it stops.
+- The cut counts the EG too: output level 99 (register 15) under EG level 4 (step 55, 88.1 dB in all) sounds, under EG level 3 (91.1 dB) is zero, and EG 20 at output level 40 (108.5 dB) is zero.
+- The carrier level correction counts: level 5 (229) sounds alone and is zero with correction 3 (+4.5 dB); level 4 with correction 1 is zero.
+- The part level does not: at part volume 64 a sine at register 199 plays, the same peak as at volume 127.
+- Several operators at the cut do not add up past it: two and four in-phase key-synced sines at register 243 are zero.
+- The noise half cuts later, between 251 (94.4 dB, sounds) and 252 (94.8 dB, zero), and its EG counts the same way.
+- The old Silence template (output level 0, EG at 99) was digital zero on the unit at notes 60 and 96, velocities 1 and 127. It was enough.
+
+**The engine now cuts where the unit does.** `cal::OP_CUT_DB` and `cal::NOISE_CUT_DB` (236.5 and 251.5 steps) floor the gate `render_chan` already had, voiced and noise each at its own, whenever the Quality setting's own gate is lower; that gate went on deciding when a channel is over, and does with the cut too. Every segment of the seven takes, rendered through the engine, now reads exactly zero where the unit does and sounds where it sounds. The selftest pins the four points either side of both cuts, and fails without the change.
+
+**What it moves.** Two of the nineteen regression cases, fingerprinted on one Linux build before and after: `fseq-shoobydo`'s envelope at -113 dB moves 1.5 dB (an Fseq operator's frame level under the cut) and `ctrl-volume`'s peak by 3 %, a performance whose parts sit 30 dB down under CC 18. Both are operators the unit plays as zero. The Silence template keeps its EG levels at 0: zero on the unit either way, and a template should not rely on a cut that sits 7 dB above what level 0 means.
+
+**Left open.** At the cut, the engine's output sits on its last DAC step, -1 of 2^17, the effect section's floor of the last note's residue, where the unit returns to zero. The cut operators themselves are exactly zero in both, so this is the effect path's rounding after a note, not the operators; it is the 1-LSB DC the earlier silence checks saw after any note, Silence's or not.
+
+---
+
 ## 2026-10-25, a fixed-frequency operator takes its frequency EG after all
 
 WouterVanNifterick, on his own unit (PR #62): A123 Drum Kit 3's kick, Nu Kick 3, is all fixed operators with a flat pitch EG and it sweeps down on the unit, where FSVR played it flat and bland. The 2026-09-25 entry below had exempted fixed operators from the frequency EG.

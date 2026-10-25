@@ -124,6 +124,8 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
     if (block) C.egLeft = egDecimation - 1;
     const unsigned char* alg = FS1R_ALG[V.alg];
     double partV = C.partV, partU = C.partU;
+    // The chip's own cut (cal.h) where it is above the speed's gate: an operator past it plays nothing at all.
+    const double vGate = std::max(gateDb, -cal::OP_CUT_DB), uGate = std::max(gateDb, -cal::NOISE_CUT_DB);
     double Cb = 0, H = 0, S = 0, fbNew = 0, mix = 0;
     for (int o = 0; o < 8; o++) {
         OpState& s = C.op[o]; const OpV& v = V.v[o];
@@ -136,12 +138,12 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
         if (!decim) {
             double egdb = s.eg.tick();
             if (s.attS < -1e8) s.attS = s.att; else s.attS += (s.att - s.attS) * LEVEL_SLEW_K;
-            gain = egdb - s.attS > gateDb ? db2lin_fast(egdb - s.attS) : 0.0;
+            gain = egdb - s.attS > vGate ? db2lin_fast(egdb - s.attS) : 0.0;
         } else {
             if (block) {
                 const double egdb = s.eg.advance(egDecimation);
                 if (s.attS < -1e8) s.attS = s.att; else s.attS += (s.att - s.attS) * slew_n(egDecimation);
-                s.gain = s.gto; s.gto = egdb - s.attS > gateDb ? db2lin_fast(egdb - s.attS) : 0.0;
+                s.gain = s.gto; s.gto = egdb - s.attS > vGate ? db2lin_fast(egdb - s.attS) : 0.0;
                 s.dg = (s.gto - s.gain) / egDecimation;
             }
             gain = s.dg == 0.0 ? s.gain : (s.gain += s.dg);
@@ -165,9 +167,9 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
         if (t1 & 1) mix += y * partV;
         // unvoiced (noise formant) operator
         double ugain;
-        if (!decim) { const double uegdb = s.ueg.tick(); ugain = uegdb - s.uatt > gateDb ? db2lin_fast(uegdb - s.uatt) : 0.0; }
+        if (!decim) { const double uegdb = s.ueg.tick(); ugain = uegdb - s.uatt > uGate ? db2lin_fast(uegdb - s.uatt) : 0.0; }
         else {
-            if (block) { const double uegdb = s.ueg.advance(egDecimation); s.ugain = s.ugto; s.ugto = uegdb - s.uatt > gateDb ? db2lin_fast(uegdb - s.uatt) : 0.0; s.dug = (s.ugto - s.ugain) / egDecimation; }
+            if (block) { const double uegdb = s.ueg.advance(egDecimation); s.ugain = s.ugto; s.ugto = uegdb - s.uatt > uGate ? db2lin_fast(uegdb - s.uatt) : 0.0; s.dug = (s.ugto - s.ugain) / egDecimation; }
             ugain = s.dug == 0.0 ? s.ugain : (s.ugain += s.dug);
         }
         if (ugain != 0.0) {
@@ -195,9 +197,9 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
     // under the gate is over too, since nothing it does from there is computed: a release time of 99 on an
     // operator at output level 0 kept A020 Vox Morph's channels computing silence for minutes, and with them
     // the engine awake (render.cpp). Only a level raised by a controller mid-release could bring one back.
-    auto over = [&](const EG& e, double att) { return e.done() || (e.stage == 4 && !e.rising && e.cur - att <= gateDb); };
+    auto over = [&](const EG& e, double att, double gate) { return e.done() || (e.stage == 4 && !e.rising && e.cur - att <= gate); };
     bool carriersDone = true;
-    for (int o = 0; o < 8; o++) { const OpState& s = C.op[o]; if (((alg[2 * o + 1] & 1) && (!over(s.eg, s.attS) || s.g[0].on || s.g[1].on)) || !over(s.ueg, s.uatt)) { carriersDone = false; break; } }
+    for (int o = 0; o < 8; o++) { const OpState& s = C.op[o]; if (((alg[2 * o + 1] & 1) && (!over(s.eg, s.attS, vGate) || s.g[0].on || s.g[1].on)) || !over(s.ueg, s.uatt, uGate)) { carriersDone = false; break; } }
     if (carriersDone && fabs(mix) < 1e-9 && C.damp == 0.0) { if (++C.quiet >= 64) C.silent = true; } else C.quiet = 0;
     // The channel accumulator saturates before the filter loop, which is where the capture puts it:
     // eight carriers stacked in one channel clip flat, while the filter's own output on ingain-12 rides
