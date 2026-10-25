@@ -397,7 +397,7 @@
    ],
    "layer": 3,
    "text": {
-    "text": "A Yamaha FS1R preset: read only.\\nCopy Attributes still copies them to paste onto your own.",
+    "text": "A {data:item.bank|} preset: read only.\\nCopy Attributes still copies them to paste onto your own.",
     "font": "library_text_grey_10",
     "align": "left",
     "valign": "middle"

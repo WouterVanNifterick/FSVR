@@ -208,13 +208,13 @@
     ]
    ],
    "dataRows": {
-    "key": "bank.list",
+    "key": "save.bank.list",
     "row": [
      "{1}"
     ],
     "first": 1
    },
-   "tip": "The Yamaha FS1R bank is read only, so it is not listed",
+   "tip": "The built-in banks are read only, so they are not listed",
    "rowHeight": 23,
    "rowGap": 2,
    "rowFill": "#434f50ff",

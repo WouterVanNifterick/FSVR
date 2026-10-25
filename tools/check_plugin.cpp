@@ -277,23 +277,72 @@ int main() {
               b.data("part.voice.p4").c_str());
     }
 
+    // The built-in banks lead the list, read only, under the factory's: the Bonus Tool Pack's four sets and the Templates.
+    const std::string builtins = "Yamaha FS1R (Bonus)\nTemplates\n";
+    CHECK(a.data("bank.list") == builtins && a.data("save.bank.list").empty(), "an empty library lists \"%s\", and Save offers \"%s\"",
+          a.data("bank.list").c_str(), a.data("save.bank.list").c_str());
+    const int nb = 2, bonusVoices = a.lines("voice.user.list");
+    CHECK(a.lines("perf.user.list") == 4 * 128 + 6 && bonusVoices == 4 * 128 + 6, "the built-in banks hold %d performances and %d voices",
+          a.lines("perf.user.list"), bonusVoices);
+    a.set("browse.bank", 1);
+    CHECK(a.until([&] { return a.lines("browse.perf.list") == 512; }), "the Bonus bank lists %d performances", a.lines("browse.perf.list"));
+    {   // a WX5 performance plays its own set's Int voices, not Best of DX's voice of the same number
+        const int wx = rowOf(a, "browse.perf.list", "Wx BadMoog", 1);
+        a.set("browse.perf", wx);
+        CHECK(wx && a.until([&] { return a.data("perf.user.name") == "Wx BadMoog" && a.data("morph.p1.bl") == "Syn Bass"; }),
+              "Wx BadMoog loaded \"%s\" on part 1", a.data("morph.p1.bl").c_str());
+        a.st->setData("bank.context", "1\tYamaha FS1R (Bonus)");
+        a.run(4);   // the worker describes the row before the request names it
+        a.st->setData("live.message", "");
+        a.st->setData("bank.request", "delete");
+        CHECK(a.until([&] { return a.data("live.message").find("read only") != std::string::npos; }) && a.data("bank.list") == builtins,
+              "deleting the Bonus bank said \"%s\"", a.data("live.message").c_str());
+        a.st->setData("item.context", "0\tU" + std::to_string(rowOf(a, "perf.user.list", "Wx BadMoog")) + "\tWx BadMoog");
+        CHECK(a.until([&] { return a.data("item.name") == "Wx BadMoog" && a.is("item.readonly", 1) && a.data("item.bank") == "Yamaha FS1R (Bonus)"; }),
+              "a Bonus preset did not describe itself read only");
+    }
+    a.set("browse.bank", 2);
+    CHECK(a.until([&] { return a.lines("browse.perf.list") == 6; }), "the Templates bank lists %d performances", a.lines("browse.perf.list"));
+    a.set("browse.perf", 1);
+    CHECK(a.until([&] { return a.data("perf.user.name") == "Init Patch"; }), "the Init Patch template did not load");
+    {
+        const double hz = pitchOf(a);
+        CHECK(hz > 255 && hz < 270, "the Init Patch plays C4 at %.1f Hz", hz);
+    }
+    a.set("browse.perf", 2);
+    CHECK(a.until([&] { return a.data("perf.user.name") == "Silence"; }), "the Silence template did not load");
+    a.set("gui.panic", 1);
+    a.run(40);
+    a.set("gui.panic", 0);
+    a.peak = 0;
+    a.run(20);
+    const float floor = a.peak;   // the output with nothing playing
+    a.midi({0x90, 60, 100});
+    a.peak = 0;
+    a.run(20);
+    CHECK(a.peak <= floor, "the Silence template sounds (peak %g over a floor of %g)", a.peak, floor);
+    a.midi({0x80, 60, 0});
+    a.set("perf.bank", 0);
+    a.set("perf.program", 0);
+    CHECK(a.until([&] { return a.is("perf.category", 16) && a.data("perf.user.name").empty(); }), "A001 did not load again after the templates");
+
     // Import SysEx: a DX7 bank becomes a bank of its own, named after the file, and its first voice loads.
     const fs::path syx = tmp / "Test Bank.syx";
     writeBytes(syx, dx7Bank());
     a.st->setData("sysex.import", syx.u8string());
-    CHECK(a.until([&] { return a.data("bank.list") == "Test Bank\n"; }), "the bank list is \"%s\"", a.data("bank.list").c_str());
-    CHECK(a.lines("voice.user.list") == 32, "%d user voices, not 32", a.lines("voice.user.list"));
-    CHECK(a.is("browse.bank", 1), "the browser is not on the new bank");
+    CHECK(a.until([&] { return a.data("bank.list") == builtins + "Test Bank\n"; }), "the bank list is \"%s\"", a.data("bank.list").c_str());
+    CHECK(a.lines("voice.user.list") == bonusVoices + 32, "%d user voices, not %d", a.lines("voice.user.list"), bonusVoices + 32);
+    CHECK(a.is("browse.bank", nb + 1), "the browser is not on the new bank");
     CHECK(a.until([&] { return a.is("part.bank.p1", 1) && a.is("part.user.p1", 1) && a.data("morph.p1.bl") == "TEST01"; }),
           "the first voice did not load (bank %g, user %g, \"%s\")", a.get("part.bank.p1"), a.get("part.user.p1"), a.data("morph.p1.bl").c_str());
     a.st->setData("sysex.import", syx.u8string());
-    CHECK(a.until([&] { return a.data("bank.list") == "Test Bank\nTest Bank 2\n"; }), "a second import did not make \"Test Bank 2\"");
-    CHECK(a.lines("voice.user.list") == 64, "%d user voices, not 64", a.lines("voice.user.list"));
+    CHECK(a.until([&] { return a.data("bank.list") == builtins + "Test Bank\nTest Bank 2\n"; }), "a second import did not make \"Test Bank 2\"");
+    CHECK(a.lines("voice.user.list") == bonusVoices + 64, "%d user voices, not %d", a.lines("voice.user.list"), bonusVoices + 64);
     CHECK(a.data("live.message").rfind("Imported", 0) == 0, "no import message (\"%s\")", a.data("live.message").c_str());
     CHECK(a.until([&] { return a.data("live.message").empty(); }), "the import message stayed up");
 
     // A pick from the browsed user bank: its third voice into part 2.
-    a.set("browse.bank", 1);
+    a.set("browse.bank", nb + 1);
     CHECK(a.until([&] { return a.lines("browse.voice.list") == 32; }), "the browsed bank lists %d voices", a.lines("browse.voice.list"));
     a.set("browse.voice.p2", 3);
     CHECK(a.until([&] { return a.is("part.bank.p2", 1) && a.is("part.user.p2", 3) && a.data("morph.p2.bl") == "TEST03"; }), "the pick did not load TEST03");
@@ -382,7 +431,7 @@ int main() {
     const int saved = lineOf("bank.list", "Saved");
     a.set("browse.bank", saved);
     CHECK(a.until([&] { return a.lines("browse.perf.list") == 1; }), "the new bank lists %d performances", a.lines("browse.perf.list"));
-    a.set("save.bank", saved);
+    a.set("save.bank", rowOf(a, "save.bank.list", "Saved"));
     request("save.request", "1");   // the same name again replaces it
     CHECK(a.until([&] { return !a.data("live.message").empty(); }) && a.lines("browse.perf.list") == 1, "saving \"My Shaman\" again left %d performances (%s)",
           a.lines("browse.perf.list"), a.data("live.message").c_str());
@@ -488,7 +537,7 @@ int main() {
     a.run(4);
     const double edited = sound();
     const auto editedBytes = engine();
-    saveAs(saved, "Round Trip");
+    saveAs(rowOf(a, "save.bank.list", "Saved"), "Round Trip");
     CHECK(a.until([&] { return a.is("browse.bank", saved) && a.get("browse.perf") == lineOf("browse.perf.list", "U" + std::to_string((int)a.get("perf.user"))); }),
           "the saved preset's row is not the lit one (row %g)", a.get("browse.perf"));
     sameAfterReload("a saved factory performance", edited, editedBytes);
@@ -532,7 +581,7 @@ int main() {
         a.run(4);
         const double intEdited = sound();
         const auto intBytes = engine();
-        saveAs(lineOf("bank.list", "Unit"), "Int Perf");
+        saveAs(rowOf(a, "save.bank.list", "Unit"), "Int Perf");
         a.set("browse.bank", lineOf("bank.list", "Unit"));
         CHECK(a.until([&] { return a.lines("browse.perf.list") == 1; }), "saving over \"Int Perf\" left %d performances in its bank", a.lines("browse.perf.list"));
         sameAfterReload("a unit bank's performance saved over itself", intEdited, intBytes);
@@ -632,7 +681,7 @@ int main() {
         CHECK(hz > 200 && hz < 330, "Tines Int plays C4 at %.1f Hz", hz);
         a.set("part.attack.p1", 63);
         a.run(4);
-        saveAs(lineOf("bank.list", "Unit Two"), "Tines Copy");
+        saveAs(rowOf(a, "save.bank.list", "Unit Two"), "Tines Copy");
         a.proc->saving();
         const std::string session = a.st->save();
         Rig b;

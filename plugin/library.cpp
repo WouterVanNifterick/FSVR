@@ -261,7 +261,7 @@ bool Library::rescan(bool force) {
     }
     if (!force && stamp == stamp_) return false;
     stamp_ = stamp;
-    banks.clear();
+    banks = builtin;
     for (auto& f : files) {
         std::vector<uint8_t> bytes;
         if (!readFile(f.u8string(), bytes)) {
@@ -276,7 +276,9 @@ bool Library::rescan(bool force) {
     perfs.clear();
     voices.clear();
     fseqs.clear();
-    for (int k = 0; k < (int)banks.size(); ++k) {
+    const int nb = (int)builtin.size();
+    for (int j = 0; j < (int)banks.size(); ++j) {
+        const int k = (j + nb) % (int)banks.size();   // the folder's banks, then the built-in ones
         for (int i = 0; i < (int)banks[(size_t)k].perfs.size(); ++i) perfs.push_back({k, i});
         for (int i = 0; i < (int)banks[(size_t)k].voices.size(); ++i) voices.push_back({k, i});
         for (int i = 0; i < (int)banks[(size_t)k].fseqs.size(); ++i) fseqs.push_back({k, i});
@@ -328,6 +330,7 @@ int Library::import(const std::string& path, std::string& err) {
 
 bool Library::splice(int bank, std::vector<Splice> edits, std::string& err) {
     if (bank < 0 || bank >= (int)banks.size()) return false;
+    if (banks[(size_t)bank].readonly()) { err = "\"" + banks[(size_t)bank].name + "\" is read only"; return false; }
     const std::string path = banks[(size_t)bank].path;
     std::vector<uint8_t> b;
     if (!readFile(path, b)) { err = "Cannot read " + path; return false; }
@@ -346,6 +349,7 @@ bool Library::splice(int bank, std::vector<Splice> edits, std::string& err) {
 
 bool Library::remove(int bank, std::string& err) {
     if (bank < 0 || bank >= (int)banks.size()) return false;
+    if (banks[(size_t)bank].readonly()) { err = "\"" + banks[(size_t)bank].name + "\" is read only"; return false; }
     const fs::path from = fs::u8path(banks[(size_t)bank].path), bin = fs::u8path(dir) / "Deleted";
     std::error_code ec;
     fs::create_directories(bin, ec);
@@ -359,6 +363,7 @@ bool Library::remove(int bank, std::string& err) {
 
 bool Library::rename(int bank, const std::string& name, std::string& err, std::string* path) {
     if (bank < 0 || bank >= (int)banks.size()) return false;
+    if (banks[(size_t)bank].readonly()) { err = "\"" + banks[(size_t)bank].name + "\" is read only"; return false; }
     const fs::path from = fs::u8path(banks[(size_t)bank].path);
     std::error_code ec;
     // Only the case changing keeps the name as it is; anything else is made unique like a new bank's.

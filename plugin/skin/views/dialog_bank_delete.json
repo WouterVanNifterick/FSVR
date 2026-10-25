@@ -218,7 +218,7 @@
    ],
    "layer": 3,
    "text": {
-    "text": "The Yamaha FS1R bank is read only.",
+    "text": "The bank \"{data:bank.name|}\" is read only.",
     "font": "library_row_white_12",
     "align": "left",
     "valign": "middle"

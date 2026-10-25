@@ -218,7 +218,7 @@
    ],
    "layer": 3,
    "text": {
-    "text": "The Yamaha FS1R presets are read only.",
+    "text": "The {data:item.bank|} presets are read only.",
     "font": "library_row_white_12",
     "align": "left",
     "valign": "middle"

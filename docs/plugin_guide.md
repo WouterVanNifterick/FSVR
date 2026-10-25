@@ -76,15 +76,15 @@ While FSVR's editor has the keyboard, a chord listed above is FSVR's and your ho
 
 ## The browser and your library
 
-The Bank column holds the factory bank, **Yamaha FS1R** (the 384 performances, 1408 voices and 90 Fseqs of the unit's ROM, built into the plug-in), then your own banks. The Performances, Voices and Fseqs tabs switch what the lists show, and the Category column narrows them. A performance loads all four parts with the voices and Fseq it names; a voice loads into the selected part; an Fseq plays on the performance's Fseq part.
+The Bank column holds the factory bank, **Yamaha FS1R** (the 384 performances, 1408 voices and 90 Fseqs of the unit's ROM, built into the plug-in), then two more built-in banks, then your own. **Yamaha FS1R (Bonus)** is Yamaha's FS1R Bonus Tool Pack, once a download on yamahasynth.com and now only on the web archive: four sets of 128 performances, each with the 128 voices it plays (Best of DX Voice, Popular, Cyber, and Jan Beiling's WX5 soundbank). **Templates** are starting points: **Init Patch**, one sine operator; **Silence**, every operator off; an FM pair, three additive sines, a formant operator and a noise operator. Both are read only like the factory bank; their presets are numbered after yours, so the U numbers your own presets had before are unchanged. The Performances, Voices and Fseqs tabs switch what the lists show, and the Category column narrows them. A performance loads all four parts with the voices and Fseq it names; a voice loads into the selected part; an Fseq plays on the performance's Fseq part.
 
 Your library is a folder of .syx files, one bank each: `Documents/FSVR/Library` (set `FSVR_LIBRARY` to use another). Every FSVR in every host shares it and notices when a file in it comes, goes or changes, so you can also manage it with a file manager.
 
-- **Save > Save Current Preset** saves the performance with its voices and its Fseq into one of your banks, or a new one, under the name you give it (12 characters). Saving under a name the bank already has replaces that preset. The factory bank is read only, so it is not offered.
+- **Save > Save Current Preset** saves the performance with its voices and its Fseq into one of your banks, or a new one, under the name you give it (12 characters). Saving under a name the bank already has replaces that preset. The built-in banks are read only, so they are not offered.
 - **Save > Export Current Preset** writes the performance as an `.fsvr` file, FSVR's own preset format, to share or keep outside the library. **Import > Import FSVR Preset** loads one and asks which bank to save it to.
 - **Import > Import FS1R SysEx to New Bank** copies a .syx into the library as a new bank named after the file (the name with a number after it if that is taken), shows it and loads the first thing in it. It takes FS1R performance, voice and Fseq dumps, including a whole unit's internal memory, DX7 single voices and DX7 32-voice banks.
 - **Save > Export to FS1R SysEx** writes the whole unit, system settings included, as bulk dumps a real FS1R takes.
-- **Right-click a preset** to delete or rename it, or to edit, copy or paste its attributes (its category). The factory's presets are read only, but their attributes open to read and copy.
+- **Right-click a preset** to delete or rename it, or to edit, copy or paste its attributes (its category). The built-in banks' presets are read only, but their attributes open to read and copy.
 - **Right-click a bank** to delete or rename it. A deleted bank's file moves to the library's `Deleted` folder, so it can come back.
 - **Yamaha FS1R** lists the factory's presets only; yours are in the banks you saved them to.
 

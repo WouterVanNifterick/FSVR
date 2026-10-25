@@ -225,6 +225,7 @@ public:
         factory = parseSyx(factoryBytes("fs1r_performances.syx"), "Yamaha FS1R");
         factory.voices = parseSyx(factoryBytes("fs1r_presets.syx"), "").voices;
         factory.fseqs = parseSyx(factoryBytes("fs1r_fseqs.syx"), "").fseqs;
+        lib.builtin = builtinBanks();
         dev.setSampleRate(fsvr::ENGINE_RATE);
         // A fresh instance is what its params say (FSVR's init performance and voice): the engine takes
         // them as whole bulks, over its own init images for the bytes no param names.
@@ -1027,6 +1028,27 @@ private:
         return it == listed.end() ? 0 : it->second;
     }
 
+    // The read-only banks the library lists first, under the factory's: Yamaha's Bonus Tool Pack (tools/extract_bonus.py),
+    // four internal-memory sets in one bank, and the Templates (tools/make_templates.py). A set's performances play its
+    // own Int voices, so each part is tied to its voice here: the four sets' voice numbers overlap.
+    static std::vector<Bank> builtinBanks() {
+        Bank bonus;
+        bonus.name = "Yamaha FS1R (Bonus)";
+        for (const char* f : {"1_Best_of_DX.syx", "2_Popular.syx", "3_Cyber.syx", "4_WX5.syx"}) {
+            Bank b = parseSyx(factoryBytes(f), "");
+            const int base = (int)bonus.voices.size();
+            for (Item& perf : b.perfs) {
+                for (int p = 0; p < 4; ++p) {
+                    const uint8_t* q = perf.data() + 192 + 52 * p;
+                    if (const Item* v = q[1] == 1 ? internal(&b, &Bank::voices, q[2]) : nullptr) perf.partVoice[p] = base + (int)(v - b.voices.data());
+                }
+                bonus.perfs.push_back(perf);
+            }
+            bonus.voices.insert(bonus.voices.end(), b.voices.begin(), b.voices.end());
+        }
+        return {bonus, parseSyx(factoryBytes("templates.syx"), "Templates")};
+    }
+
     // ---- loading -----------------------------------------------------------------------------------
 
     void loadVoiceItem(const Item& it, int p) {
@@ -1199,7 +1221,10 @@ private:
             const Item& f = lib.banks[(size_t)r.bank].fseqs[(size_t)r.index];
             fseqs += f.name + "\t" + std::to_string(f.frames) + " frames\n";
         }
-        for (auto& b : lib.banks) banks += b.name + "\n";
+        std::string writable;
+        for (auto& b : lib.banks) (b.readonly() ? banks : writable) += b.name + "\n";
+        banks += writable;   // the built-in banks lead, as rescan() puts them
+        st.setData("save.bank.list", writable);
         st.setData("perf.user.list", perfs);
         st.setData("voice.user.list", voices);
         st.setData("fseq.user.list", fseqs);
@@ -1404,8 +1429,8 @@ private:
     void openSave() {
         std::lock_guard<std::mutex> g(ctl);
         st.setData("save.name", perfName());
-        int bank = get(perfBank) == 1 && lib.perf(userPerf) ? lib.perfs[(size_t)userPerf - 1].bank + 1 : (int)get(browseBank);
-        put(saveBank, bank >= 1 && bank <= (int)lib.banks.size() ? bank : 0);
+        const int bank = get(perfBank) == 1 && lib.perf(userPerf) ? lib.perfs[(size_t)userPerf - 1].bank + 1 : (int)get(browseBank);
+        put(saveBank, saveRow(bank));
         // A new bank's name starts on one no bank has, so the name shown is the name the file gets.
         std::string fresh = "My Presets";
         auto taken = [&](const std::string& n) {
@@ -1413,6 +1438,12 @@ private:
         };
         for (int k = 2; taken(fresh); ++k) fresh = "My Presets " + std::to_string(k);
         st.setData("save.bank_name", fresh);
+    }
+
+    // The Save modal's row for a browser bank row: its list leaves out the built-in banks, so <New Bank> for one.
+    int saveRow(int bank) const {
+        const int nb = (int)lib.builtin.size();
+        return bank > nb && bank <= (int)lib.banks.size() ? bank - nb : 0;
     }
 
     // Save to Bank: the performance with its voices and Fseq into the bank the modal chose, or a new one.
@@ -1423,8 +1454,7 @@ private:
         std::lock_guard<std::mutex> g(ctl);
         setPerf(&name, -1);
         const std::vector<uint8_t> bytes = presetBytes(name);
-        const int chosen = (int)get(saveBank) - 1;
-        int k = chosen;
+        int k = (int)get(saveBank) < 1 ? -1 : (int)get(saveBank) - 1 + (int)lib.builtin.size();
         if (k < 0 || k >= (int)lib.banks.size()) {
             const std::string bankName = trimmed(st.data("save.bank_name"));
             k = lib.add(bankName.empty() ? name : bankName, bytes, err);
@@ -1628,7 +1658,7 @@ private:
         if (name.empty()) return;
         put(edited, 1);   // in no bank yet
         st.setData("save.name", name);
-        put(saveBank, (int)get(browseBank) <= (int)lib.banks.size() ? (int)get(browseBank) : 0);
+        put(saveBank, saveRow((int)get(browseBank)));
         st.setData("save.then_close", "");
         st.setData("hollow.modal", "dialog_save");
     }
@@ -1681,7 +1711,10 @@ private:
         st.setData("item.what", std::string(kinds[target.kind]) + " \"" + (it ? it->name : "") + "\"");
         st.setData("item.new_name", it ? it->name : "");
         st.setData("item.max", it ? std::to_string(nameLength(*it)) + " characters at most" : "");
-        put(itemReadonly, target.user ? 0 : 1);
+        const Library::Ref* ref = refOf(target);
+        const bool readonly = !ref || lib.banks[(size_t)ref->bank].readonly();
+        st.setData("item.bank", ref ? lib.banks[(size_t)ref->bank].name : "Yamaha FS1R");
+        put(itemReadonly, readonly ? 1 : 0);
         put(itemKind, target.kind == 2 || (it && !it->address) ? 2 : target.kind);   // 2: no category (an Fseq, a DX voice)
         put(itemCategory, it && it->address ? std::clamp(it->category, 0, 22) : 0);
     }
@@ -1719,7 +1752,7 @@ private:
             return;
         }
         const Library::Ref* ref = refOf(target);
-        if (!ref) { message("The Yamaha FS1R presets are read only"); return; }
+        if (!ref || lib.banks[(size_t)ref->bank].readonly()) { message("The " + (ref ? lib.banks[(size_t)ref->bank].name : "Yamaha FS1R") + " presets are read only"); return; }
         const Bank& b = lib.banks[(size_t)ref->bank];
         const std::string path = b.path, old = it->name;
         const Loaded was = loaded();
@@ -1762,13 +1795,16 @@ private:
         bankTarget = row - 1;
         st.setData("bank.name", name);
         st.setData("bank.new_name", name);
-        put(bankReadonly, row == 0 ? 1 : 0);
+        put(bankReadonly, row == 0 || (row <= (int)lib.banks.size() && lib.banks[(size_t)row - 1].readonly()) ? 1 : 0);
     }
 
     void bankRequest(const std::string& r) {
         std::lock_guard<std::mutex> g(ctl);
         const int k = bankTarget;
-        if (k < 0 || k >= (int)lib.banks.size()) { message("The Yamaha FS1R bank is read only"); return; }
+        if (k < 0 || k >= (int)lib.banks.size() || lib.banks[(size_t)k].readonly()) {
+            message("The " + (k < 0 || k >= (int)lib.banks.size() ? std::string("Yamaha FS1R") : lib.banks[(size_t)k].name) + " bank is read only");
+            return;
+        }
         const std::string old = lib.banks[(size_t)k].name, path = lib.banks[(size_t)k].path;
         const bool browsed = (int)get(browseBank) == k + 1;
         Loaded was = loaded();

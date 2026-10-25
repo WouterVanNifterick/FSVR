@@ -22,9 +22,10 @@ struct Item {
 };
 
 struct Bank {
-    std::string name, path;        // path: the file, empty for the factory bank
+    std::string name, path;        // path: the file, empty for a bank built into the plug-in
     std::vector<Item> perfs, voices, fseqs;
     bool empty() const { return perfs.empty() && voices.empty() && fseqs.empty(); }
+    bool readonly() const { return path.empty(); }
 };
 
 // Every bulk in a .syx image: FS1R performances, voices and Fseqs at any of their addresses, DX7 single
@@ -49,9 +50,12 @@ class Library {
 public:
     Library();
     std::string dir;
+    // The read-only banks built into the plug-in, set before the first rescan: they lead banks, ahead of the
+    // folder's, and their items are numbered after the user's, so a U number already saved keeps its preset.
+    std::vector<Bank> builtin;
     std::vector<Bank> banks;
     struct Ref { int bank, index; };
-    std::vector<Ref> perfs, voices, fseqs;   // every user item, bank after bank: U1, U2 ...
+    std::vector<Ref> perfs, voices, fseqs;   // every item, the folder's banks first: U1, U2 ...
     // Reads the folder again when a file came, went or changed since the last look; true if it did.
     bool rescan(bool force = false);
     // Why the last look could not read the folder or one of its files, for the status line; empty when it could.
@@ -62,7 +66,7 @@ public:
     // Writes bytes as a new bank called name (made unique the same way); its index, or -1.
     int add(const std::string& name, const std::vector<uint8_t>& bytes, std::string& err);
     int bankOf(const std::string& path) const;
-    // Edits a bank's file in place: each (at, len) range of it becomes the bytes given. A bank left with
+    // Edits a bank's file in place (a built-in bank refuses, as remove() and rename() do): each (at, len) range of it becomes the bytes given. A bank left with
     // nothing in it goes the way remove() sends it. False (err says why) when it cannot be written.
     struct Splice { size_t at, len; std::vector<uint8_t> bytes; };
     bool splice(int bank, std::vector<Splice> edits, std::string& err);

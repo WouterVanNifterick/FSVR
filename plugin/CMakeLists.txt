@@ -7,12 +7,18 @@ FetchContent_Declare(stb URL https://github.com/nothings/stb/archive/2c980bb5987
 FetchContent_MakeAvailable(dr_libs stb)
 
 # The factory banks: 1408 voices, 384 performances and 90 Fseqs, packed out of presets/ by
-# tools/make_presets_blob.py (generated/README.md).
+# tools/make_presets_blob.py (generated/README.md); then the read-only Bonus and Templates banks, written into
+# presets/ by tools/extract_bonus.py and tools/make_templates.py.
 hollow_embed_files("${CMAKE_CURRENT_BINARY_DIR}/factory.cpp" kFactoryFiles kFactoryFileCount FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/generated/fs1r_presets.syx"
     "${CMAKE_CURRENT_SOURCE_DIR}/generated/fs1r_performances.syx"
     "${CMAKE_CURRENT_SOURCE_DIR}/generated/fs1r_fseqs.syx"
-    "${CMAKE_CURRENT_SOURCE_DIR}/generated/contributors.txt")
+    "${CMAKE_CURRENT_SOURCE_DIR}/generated/contributors.txt"
+    "${PROJECT_SOURCE_DIR}/presets/bonus/1_Best_of_DX.syx"
+    "${PROJECT_SOURCE_DIR}/presets/bonus/2_Popular.syx"
+    "${PROJECT_SOURCE_DIR}/presets/bonus/3_Cyber.syx"
+    "${PROJECT_SOURCE_DIR}/presets/bonus/4_WX5.syx"
+    "${PROJECT_SOURCE_DIR}/presets/templates.syx")
 
 hollow_add_plugin(fsvr
   NAME "FSVR"
