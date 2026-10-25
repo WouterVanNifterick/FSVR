@@ -309,8 +309,10 @@ int main() {
         const double hz = pitchOf(a);
         CHECK(hz > 255 && hz < 270, "the Init Patch plays C4 at %.1f Hz", hz);
     }
-    // Every template sounds but Silence, and Silence is exactly zero, not merely quiet: an operator at output
-    // level 0 is -95.6 dB, over the -100 dB gate, and leaked 64 LSB of 24-bit at a random note phase.
+    // Every template sounds but the two silences, and they add nothing at all: not one DAC step over what the output
+    // already holds. That is not always 0.0: the notes of the template before leave the effect section on its last
+    // step, -1 of 2^17, which rand()'s note phase rounds to 0 on one C library and not on another (docs/findings.md
+    // 2026-10-26, left open). An operator at output level 0 played -95.6 dB, 64 LSB of 24-bit, before the chip's cut.
     for (int row = 1; row <= 7; ++row) {
         static const char* const kNames[7] = {"Init Patch", "Silence", "Silence EG 0", "FM Pair", "Additive", "Formant", "Noise"};
         a.set("browse.perf", row);
@@ -319,6 +321,9 @@ int main() {
         a.run(40);
         a.set("gui.panic", 0);
         a.peak = 0;
+        a.run(20);
+        const float floor = a.peak;
+        a.peak = 0;
         for (int note : {0, 60, 127})
             for (int vel : {1, 127}) {
                 a.midi({0x90, (uint8_t)note, (uint8_t)vel});
@@ -326,7 +331,7 @@ int main() {
                 a.midi({0x80, (uint8_t)note, 0});
                 a.run(10);
             }
-        if (row == 2 || row == 3) CHECK(a.peak == 0, "the \"%s\" template sounds (peak %g)", kNames[row - 1], a.peak);
+        if (row == 2 || row == 3) CHECK(a.peak <= floor, "the \"%s\" template sounds (peak %g over the output's %g)", kNames[row - 1], a.peak, floor);
         else CHECK(a.peak > 1e-3f, "template \"%s\" is silent (peak %g)", a.data("perf.user.name").c_str(), a.peak);
     }
     a.set("perf.bank", 0);
