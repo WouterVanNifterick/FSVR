@@ -426,6 +426,17 @@ int main() {
                 CHECK(p == 0xe8f3ef, "the selected matrix box's ring has no right side (%06x)", p);
             }
         }
+        {   // FSVR#72: a double-click on an amount in the matrix sets it to 0, Op1's (default 99) too
+            const double alg = u.get("voice.alg.p1"), lvl = u.get("op.1.v.level.p1");
+            u.set("voice.alg.p1", 1);
+            u.run(2);
+            Rect r;
+            if (u.rect("pages/fm_matrix/1_to_out", r)) u.clickAt(r.x + r.w / 2, r.y + r.h / 2, true);
+            CHECK(u.get("op.1.v.level.p1") == 0, "a double-click left Op1's output amount at %g", u.get("op.1.v.level.p1"));
+            u.set("op.1.v.level.p1", lvl);
+            u.set("voice.alg.p1", alg);
+            u.run(2);
+        }
         {   // OP Att reads the unit's dB under Voiced, its value on Level's row; Level's fader stands under Noise
             const std::string db = u.st->text((size_t)u.at("op.6.v.carrier_corr.p1"), 15);
             CHECK(db == "-22.5", "OP Att's last step reads \"%s\", not -22.5 dB", db.c_str());
