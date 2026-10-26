@@ -20,8 +20,23 @@ The engine's path matched it word for word. The fix is an addition (`docs/Differ
 glide): a 10 ms one-pole on the cutoff word in `VoiceFilter::run`, reset at note-on, off in `render_capture`
 without `-fsvr`. A held 880 Hz sine under LPF24, cutoff walked a byte every 16 ms: CC-rate ripple in its
 level 0.161 dB/ms stepped, 0.030 at 5 ms, **0.018** at 10 ms. Regression and `dsp_check` unchanged; with
-`-fsvr` the nineteen cases render bit-identical to main. Open: whether the chip itself smooths a coefficient
-write, which no take shows; a capture that sweeps CC2 under a held note would settle it.
+`-fsvr` the nineteen cases render bit-identical to main. The chip does not smooth it either. rgwan's unit, the same day (FS1R.unlock
+`captures/2026-10-26-cutoff`, front door only, `tools/make_capture_cutoff.py`): one sine through LPF24, the modulation
+wheel on Cutoff at depth +63 jumping 0 to 127 and back under a held note, twice at each of two notes. The level's
+10-90 % time on the unit, against the engine with the glide off and on:
+
+| | unit | step (off) | glide (on) |
+|---|---|---|---|
+| note 69, open | 1.9, 1.9 ms | 1.5, 2.0 | 2.8, 2.8 |
+| note 69, close | 5.4, 5.8 | 6.6, 3.0 | 11.1, 10.2 |
+| note 81, open | 1.1, 1.2 | 1.0, 0.8 | 2.9, 3.0 |
+| note 81, close | 3.6, 3.6 | 2.5, 2.7 | 6.3, 6.2 |
+
+The moves are +31.2 and +53.2 dB on the unit, +31.1 and +53.3 in the engine. Every opening lands with the step and
+none with the glide; the closings sit between the two but nearer the step, and they are the filter's own
+decay. So the unit's step is what `setCutoffGlide(false)` renders, and the glide stays ours. The take's walk segment
+(a byte every 16 ms) reads 0.056 dB/ms of ripple against 0.089 stepped and 0.037 glided; the rig sends it
+from a Python loop whose timing jitters, so it does not decide anything.
 
 ## 2026-10-26, OP Att is a carrier level correction, and a modulator ignores it on the unit too
 

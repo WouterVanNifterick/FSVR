@@ -114,8 +114,9 @@ recomputes the slot's cutoff word in `FUN_0000DB3C` and `FUN_0000C36C` stores it
 chip's coefficient memory (0x01068F78), `0xC0D + 0xA9 * byte`. Nothing on the CPU ramps it and the filter
 program reads it as a constant, so the corner jumps a semitone (169 words) at every step of the byte. A
 breath controller at depth +63 (23 of the WX5 bank's performances) moves the byte one step a CC, and a slow swell
-is a staircase of semitones (FSVR#56, reported by TheBreathalyzer). No capture moves the cutoff during a
-note, so what the unit sounds like here is the firmware's account, not a recording's.
+is a staircase of semitones (FSVR#56, reported by TheBreathalyzer). rgwan's unit confirms it
+(FS1R.unlock `captures/2026-10-26-cutoff`): a jump of the wheel on cutoff opens the filter in 1.1 to 1.9 ms, as the
+engine's step does, where the glide takes 2.8 to 3.0 (`docs/findings.md`, 2026-10-26).
 
 **FSVR.** The cutoff word glides to each new value on a one-pole of 10 ms (`Synth::CUTOFF_GLIDE_MS`, ours),
 starting each note at its own word, so nothing changes at a note-on and a held note's corner moves smoothly.
