@@ -298,6 +298,25 @@ int main() {
         u.gui.setDisplayScale(1);
         CHECK(u.gui.zoom() == 1 && u.gui.width() == wide, "back on a 100%% display, 100%% drew at %gx", u.gui.zoom());
         {
+            // Ctrl with minus or plus steps through the skin's scales, wrapping at either end, and Ctrl with
+            // period steps up too. Ctrl+Shift+= is the plus key as it comes when Shift types its +.
+            auto ctrlKey = [&](char ch, bool shift) {
+                const bool used = u.gui.keyDown(KeyNone, shift, true, false, (unsigned char)ch);
+                u.run(2);
+                return used;
+            };
+            for (double s : {1.5, 2.0, 0.5, 0.75, 1.0})
+                CHECK(ctrlKey('=', false) && u.gui.picked() == s, "Ctrl+= went to %gx, not %gx", u.gui.picked(), s);
+            CHECK(ctrlKey('-', false) && u.gui.picked() == 0.75, "Ctrl+- went from 1x to %gx, not 0.75x", u.gui.picked());
+            CHECK(ctrlKey('=', true) && u.gui.picked() == 1, "Ctrl+Shift+= went from 0.75x to %gx, not 1x", u.gui.picked());
+            CHECK(ctrlKey('.', false) && u.gui.picked() == 1.5 && u.gui.zoom() == 1.5, "Ctrl+. went from 1x to %gx, not 1.5x",
+                  u.gui.picked());
+            CHECK(u.ui().find("\"scale\":1.5,") != std::string::npos, "the session does not keep the scale Ctrl+. chose");
+            CHECK(!u.chord('-', false, false) && !u.chord('.', false, false), "a bare - or . was taken from the host");
+            u.click("pages/list/display/scale_100");
+            CHECK(u.gui.picked() == 1 && u.gui.width() == wide, "100%% came back %d px wide after the shortcuts", u.gui.width());
+        }
+        {
             Rect a, b;   // the radio pair's lit tile is darker than its raised one, at the same point of each
             auto lum = [&](const Rect& r) { const uint32_t p = u.gui.pixels()[(size_t)(r.y + r.h / 2) * u.gui.width() + r.x + 4];
                                              return (77 * (p >> 16 & 255) + 150 * (p >> 8 & 255) + 29 * (p & 255)) >> 8; };

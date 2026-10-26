@@ -164,6 +164,9 @@ static void event(PlatformWindow* w, XEvent& e) {
         unsigned ch = 0;
         if (plain >= XK_a && plain <= XK_z) ch = (unsigned)(plain - XK_a + 'A');
         else if (plain >= XK_0 && plain <= XK_9) ch = (unsigned)plain;
+        else if (plain == XK_minus || plain == XK_KP_Subtract) ch = '-';
+        else if (plain == XK_equal || plain == XK_KP_Add) ch = '=';
+        else if (plain == XK_period) ch = '.';
         if (g.keyDown(k, shift, ctrl, alt, ch)) break;
         if (w->parent != None) {   // not ours: the host's window gets it
             e.xkey.window = w->parent;

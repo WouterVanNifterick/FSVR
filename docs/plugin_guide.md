@@ -69,6 +69,7 @@ Every page has a chord, so you can get around without the mouse. Hover any butto
 | **Alt+B** / **Alt+Z** / **Alt+T** / **Alt+R** | Browser / Quick Control / Parts / Performance |
 | **Alt+N** | Voiced and unvoiced, back and forth (the V and N switches) |
 | **Shift+1** to **Shift+4** | The part the edit pages show |
+| **Ctrl+Minus** / **Ctrl+Plus** | The window smaller / larger, 50% to 200% |
 
 Only these chords are FSVR's; every other key goes to your host, so the transport bar and your own shortcuts keep working. While a dialog is open or you are typing a name, FSVR takes every key until you are done, so nothing you type goes astray. On macOS, Alt is Option.
 
