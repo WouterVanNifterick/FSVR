@@ -74,6 +74,8 @@ Grouped by what blocks each item rather than by subsystem. This file is the list
 
 - Run the real firmware on an SH-2 core. `tools/ghidra_ctrl_dests.py` shows the pattern for reaching code Ghidra never turned into functions
 
+- Unvoiced operator synthesis against patent-dsp and the XG decompile
+
 **Parked**
 
 - YMP706 emulation. Not possible without register semantics or a die, and the chip is too rare for a die shot. It stays a model
