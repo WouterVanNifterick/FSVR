@@ -4,7 +4,7 @@ The FS1R's per-voice resonant filter: one 4-pole ladder per tone-generator chann
 
 | File | What |
 |---|---|
-| `voice_filter.h` | `VoiceFilter`: one voice's ladder, its coefficients and taps. Start here |
+| `voice_filter.h` | `VoiceFilter`: one voice's ladder, its coefficients and taps, and our cutoff glide (`glide`, 0 is the unit's step; `docs/Differences.md`). Start here |
 | `filter.h`, `.cpp` | `Filter`: 32 voices in two banks of 16, each with its filter host and `Modulators`; turns the host's writes into voice coefficients |
 | `filter_host.h`, `.cpp` | the firmware's filter host (KNOWN, cites `FUN_`): the part's filter parameters into register writes |
 

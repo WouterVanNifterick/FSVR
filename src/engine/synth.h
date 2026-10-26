@@ -48,6 +48,12 @@ struct Synth {
     // filter on plays all 32 voices instead of the unit's 16. fltWide is it as last latched.
     Filter flt; int fltSw = 0; bool filter32 = true, fltWide = false;
     bool bend14 = true;                        // ours: keep the pitch bend LSB the unit drops (bend_word)
+    // Ours (docs/Differences.md): the unit writes a new cutoff word straight into the filter's coefficient memory
+    // (FUN_0000DB3C -> FUN_0000C36C), a semitone a byte, so a breath controller on cutoff steps. This glides it.
+    bool cutoffGlide = true;
+    // ponytail: one fixed time, ours and not measured; a host-facing knob if someone needs a different feel.
+    static constexpr double CUTOFF_GLIDE_MS = 10.0;
+    static inline const double CUTOFF_GLIDE_K = 1.0 - std::exp(-1.0 / (CUTOFF_GLIDE_MS * 0.001 * SR));
     int noteChn = 0;                           // the MIDI channel of the note on midi_in is handing note_on
     int flt_banks() const { return fltSw ? (fltWide ? 2 : 1) : 0; }   // banks of sixteen filter voices in use
     void filter_latch();                       // FUN_0002087e: a switch that changed stops every channel

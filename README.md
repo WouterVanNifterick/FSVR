@@ -69,7 +69,7 @@ Four words carry the status of each piece below. **Read** is lifted out of the d
 
 The practical result is that patches, performances and Fseqs load and play with the same parameter interpretation the hardware uses, because the same logic computes them. What still differs from a real unit lives inside the two custom chips.
 
-A short list of places FSVR behaves differently **on purpose** is kept in [docs/Differences.md](docs/Differences.md), with the firmware address behind each one where there is one. The engine has none left since the filter switch latched as the unit's does (2026-10-14); what is listed are the plug-in's additions, things the unit never had: user libraries without the unit's memory limits and Import Audio.
+A short list of places FSVR behaves differently **on purpose** is kept in [docs/Differences.md](docs/Differences.md), with the firmware address behind each one where there is one. Most are additions the unit never had: 32 filtered voices, 14-bit pitch bend, a gliding filter cutoff, user libraries without the unit's memory limits and Import Audio. `render_capture` keeps the engine's on the unit's behaviour unless given `-fsvr`.
 
 ### The processors
 

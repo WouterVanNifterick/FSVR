@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     const char* mid = nullptr;
     const char* syx = nullptr;
     double gain = 1.0, tail = 1.0, secs = 3.0;
-    bool fsvr = false;    // FSVR's own additions (32 filtered voices, 14-bit bend); off, the unit, which a capture is compared against
+    bool fsvr = false;    // FSVR's own additions (32 filtered voices, 14-bit bend, cutoff glide); off, the unit, which a capture is compared against
     int perfIdx = -1, pick = -1, fseqIdx = -1, note = 60, note2 = -1, monoTime = -1, channel = -1;
     std::vector<std::pair<int, int>> cc;
     fs1r_smf::WavFormat fmt = fs1r_smf::WAV_S16;
@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
     if (rom && !dev.loadRom(rom)) { printf("cannot load %s\n", rom); return 1; }
     dev.setSampleRate(fsvr::ENGINE_RATE);
     dev.setGain(gain);
-    dev.setFilterPoly32(fsvr); dev.setBend14(fsvr);
+    dev.setFilterPoly32(fsvr); dev.setBend14(fsvr); dev.setCutoffGlide(fsvr);
     if (perfIdx >= 0 && !dev.loadRomPerformance(perfIdx)) { printf("-P needs -r\n"); return 1; }
     if (syx) {
         FILE* f = fopen(syx, "rb"); if (!f) { printf("cannot open %s\n", syx); return 1; }

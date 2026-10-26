@@ -126,7 +126,8 @@ void Synth::note_on(int part, int note, int vel) {
     if (fseq.valid && fseqPart == part && ((perf.c[0x24] & 1) || !anyOther(C))) fseq_start(vel);
     // The filter slot starts before the tone generator's registers are written: its modulation word
     // (FUN_0002a47c), then the note (FUN_0000b0e8), which takes the note after its shifts and the curved velocity.
-    if (filtered) { filter_sync(part); auto& h = flt.host(slot); h.setSlotCutoffMod(slot & 15, filter_mod(C)); h.noteOn(slot & 15, part, C.noteP, vel); }
+    if (filtered) { filter_sync(part); auto& h = flt.host(slot); h.setSlotCutoffMod(slot & 15, filter_mod(C)); h.noteOn(slot & 15, part, C.noteP, vel);
+        auto& fv = flt.bank[slot >> 4].voice[slot & 15]; fv.cutoff_s = NAN; fv.glide = cutoffGlide ? CUTOFF_GLIDE_K : 0; }
     refresh_regs(C, pt);
     if (getenv("FS1R_DEBUG")) {
         printf("note %d vel %d -> note' %d pitch %d keyfact %d C0 %d\n", note, vel, C.noteP, C.pitchNote, C.keyfact, C.regC0);

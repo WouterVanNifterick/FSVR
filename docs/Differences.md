@@ -106,6 +106,24 @@ wheel has 16,384 positions and the unit's pitch word comes out exactly wherever 
 controller source is the unit's own -128..127, unchanged. `Device::setBend14(false)` gives the unit's 256
 steps.
 
+## Filter cutoff glide
+
+**The unit.** A controller on Filter Cutoff (destination 21) rewrites part byte 0x18 through `FUN_00030796` with
+its last argument 1, which sets the filter's dirty flag (`FUN_0000B2E4`, 0x01068F18); the filter task then
+recomputes the slot's cutoff word in `FUN_0000DB3C` and `FUN_0000C36C` stores it straight into the filter
+chip's coefficient memory (0x01068F78), `0xC0D + 0xA9 * byte`. Nothing on the CPU ramps it and the filter
+program reads it as a constant, so the corner jumps a semitone (169 words) at every step of the byte. A
+breath controller at depth +63 (23 of the WX5 bank's performances) moves the byte one step a CC, and a slow swell
+is a staircase of semitones (FSVR#56, reported by TheBreathalyzer). No capture moves the cutoff during a
+note, so what the unit sounds like here is the firmware's account, not a recording's.
+
+**FSVR.** The cutoff word glides to each new value on a one-pole of 10 ms (`Synth::CUTOFF_GLIDE_MS`, ours),
+starting each note at its own word, so nothing changes at a note-on and a held note's corner moves smoothly.
+The EG and LFO2 terms are added after it, unchanged. On a held sine under LPF24 walked by a CC every 16 ms,
+the level's ripple at the CC rate drops from 0.161 to 0.018 dB/ms. `Device::setCutoffGlide(false)` gives the
+unit's step, and `render_capture` keeps it off unless `-fsvr` is given, so no fidelity number moves; with
+`-fsvr` all nineteen regression cases render bit-identical, since none moves the cutoff during a note.
+
 ## Oscillator initial phase
 
 **The unit.** Voiced operator byte 0x1C is reserved (Data List, Voice Voiced Parameter) and every factory voice

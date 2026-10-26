@@ -591,6 +591,19 @@ int selftest(Synth& S) {
           for (auto& c : E->ch) busy += c.active && c.filtered;
           if (wide) ck("engine: 32 filtered voices, the second sixteen on bank 1", busy == 32 && onChip1 == 16 && energy(l) > 0);
           else ck("engine: 16 filtered voices, the unit's", busy == 16 && onChip1 == 0);
+      }
+      // Ours (FSVR#56): a controller on cutoff glides rather than stepping. The unit writes the new word
+      // straight into the filter (FUN_0000C36C). Cutoff 40 to 100 mid-note: 1 ms after the jump the glide
+      // has let through under half of what the open filter passes 30 ms on; the unit's step lets through all.
+      for (int glide = 0; glide < 2; glide++) {
+          auto G = std::make_unique<Synth>(); open(*G); G->perf.part[0].p[7] = 1; G->cutoffGlide = glide;
+          std::vector<float> l(4800), r(4800); note(*G, 0, 96, l, r);
+          G->perf.part[0].p[0x18] = 100;                   // what ctrlDest_21 writes
+          std::vector<float> a(48), ar(48), b(48), br(48), skip(1440), sr(1440);
+          G->render(a.data(), ar.data(), 48); G->render(skip.data(), sr.data(), 1440); G->render(b.data(), br.data(), 48);
+          const double ratio = energy(a) / energy(b);
+          if (glide) ck("engine: a cutoff change glides (ours)", ratio < 0.5 && energy(b) > 0);
+          else ck("engine: and steps as on the unit with the glide off", ratio > 0.8);
       } }
 
     // Note and velocity limits: low above high plays everything but the gap between them, as Drum Kit 9o9's

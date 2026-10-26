@@ -38,6 +38,8 @@ public:
     void setFilterPoly32(bool on);
     // Ours: pitch bend at its full 14 bits (the default), or the MSB alone as on the unit.
     void setBend14(bool on);
+    // Ours: a new filter cutoff glides over 10 ms (the default), or steps a semitone a byte as on the unit (off).
+    void setCutoffGlide(bool on);
 
     // ---- MIDI. One channel message or one complete sysex message per call.
     void sendMidi(const uint8_t* bytes, size_t len);

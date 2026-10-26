@@ -8,6 +8,21 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-26, a controller on cutoff steps a semitone at a time on the unit too (FSVR#56)
+
+TheBreathalyzer reported the filter as zippery under a WX7 breath controller on the WX5 bank (FSVR#56). The
+firmware has no smoothing to copy: `ctrlDest_21` writes part byte 0x18 through `FUN_00030796(.., 1)`, which
+flags the part's filter dirty (`FUN_0000B2E4`, 0x01068F18) and posts task 7; `FUN_0000DB3C` recomputes the
+slot's cutoff and `FUN_0000C36C` writes `0xC0D + 0xA9 * byte` (169 words, a semitone) into coefficient memory
+0x01068F78 through `FUN_0000B6A4`. The filter program reads it as a constant. So the unit steps too, a
+semitone per byte; 116 of the WX5 bank's 128 performances route BC to cutoff, at depths +20 to +63 (+63 on 23 of them, a byte a CC).
+The engine's path matched it word for word. The fix is an addition (`docs/Differences.md`, Filter cutoff
+glide): a 10 ms one-pole on the cutoff word in `VoiceFilter::run`, reset at note-on, off in `render_capture`
+without `-fsvr`. A held 880 Hz sine under LPF24, cutoff walked a byte every 16 ms: CC-rate ripple in its
+level 0.161 dB/ms stepped, 0.030 at 5 ms, **0.018** at 10 ms. Regression and `dsp_check` unchanged; with
+`-fsvr` the nineteen cases render bit-identical to main. Open: whether the chip itself smooths a coefficient
+write, which no take shows; a capture that sweeps CC2 under a held note would settle it.
+
 ## 2026-10-26, OP Att is a carrier level correction, and a modulator ignores it on the unit too
 
 Reported on #fsvr-development on 2026-10-24 (FSVR#79): the operator attenuator has no effect on the modulation index. It has none, and that is the FS1R.

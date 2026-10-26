@@ -33,6 +33,7 @@ struct VoiceFilter
 	double type_k = 0;                                // 0 for the six types, the type byte past them
 	double reso_a = 0, reso_b = 0;                    // the two resonance words (FUN_0000C3D0's tables A and B)
 	double ramp = 0;                                  // the output ramp's step a sample: up while the note sounds
+	double glide = 0;                                 // ours: a one-pole on the cutoff word, 0 is the unit's step (docs/Differences.md)
 	double exp_slope = 0, reso_bias = 0, fb_scale = 0;   // the program's own constants
 	double stage_k = 0, damp_k = 0, pole_k = 0;
 	Tap tap = BPF;                                    // as the unit boots, before the host sets a type
@@ -43,6 +44,7 @@ struct VoiceFilter
 	double s2 = 0, s3 = 0;      // the resonant two-pole section
 	double s4 = 0, s5 = 0;      // the two one-poles after it
 	double level = 0;           // the output ramp
+	double cutoff_s = NAN;      // the cutoff word as glided; NaN snaps to the word (a note on)
 
 	// The program's global constants, the cells it loads in its first sixteen steps
 	struct Shared { double eg_zero, c61, c62, c63; };
@@ -82,7 +84,9 @@ struct VoiceFilter
 		double const x = sat((0.0 + wrap_sum(gain * in + 0.0)) * 4);
 
 		// the cutoff word: the EG by its depth over the EG's own zero, LFO2 by its depth, x2, on the cutoff
-		double const fc = pos(128 * cutoff + wrap_sum((lfo_depth * lfo + wrap_sum(eg_depth * eg + g.eg_zero)) * 2));
+		double c = cutoff;
+		if (glide > 0) c = cutoff_s = std::isnan(cutoff_s) || std::fabs(cutoff - cutoff_s) < 1e-9 ? cutoff : cutoff_s + (cutoff - cutoff_s) * glide;
+		double const fc = pos(128 * c + wrap_sum((lfo_depth * lfo + wrap_sum(eg_depth * eg + g.eg_zero)) * 2));
 
 		// The coefficients follow the cutoff word alone, and it holds still whenever the EG holds and LFO2 is
 		// off, which is most of a note: they are recomputed only when it moves (or a word under them did).
