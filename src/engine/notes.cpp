@@ -113,7 +113,7 @@ void Synth::note_on(int part, int note, int vel) {
     C = Chan(); C.active = true; C.part = part; C.note = note; C.vel = vel; C.held = true; C.age = ++clock; C.chn = noteChn;
     C.damp = damp; C.filtered = filtered;
     C.lfoPhase = sync ? 0 : keepPhase;
-    C.panBase = pt.p[0x0E] ? pt.p[0x0E] : (rand() % 128);       // part pan 0 = random per note; the rest is the table index
+    C.panBase = pt.p[0x0E] ? pt.p[0x0E] : (int)(draw() % 128);       // part pan 0 = random per note; the rest is the table index
     compute_pitch(C, pt, note);
     // portamento start (FUN_000124fe)
     int porta = pt.p[0x24]; C.portaTarget = C.pitchNote; C.portaCur = C.pitchNote;
@@ -140,7 +140,7 @@ void Synth::note_on(int part, int note, int vel) {
         OpState& s = C.op[o]; const OpV& v = V.v[o]; const OpU& u = V.u[o];
         s.eg.start(C.egL[o], C.egR[o], C.egHold[o], eg_ratescale(v.tscale, C.regC0));
         s.feg.start(v.fegInit, v.fegAtt, v.fegAttT, v.fegDecT);
-        s.phase = v.keysync ? 0u : (uint32_t)((double)rand() / RAND_MAX * 4294967295.0);   // 2^32 to a cycle
+        s.phase = v.keysync ? 0u : draw();   // 2^32 to a cycle
         s.ueg.start(C.uegL[o], C.uegR[o], C.uegHold[o], eg_ratescale(u.tscale, C.regC0));
         s.ufeg.start(u.fegInit, u.fegAtt, u.fegAttT, u.fegDecT);
         s.rng = 0x9E3779B9u * (o + 1) ^ clock; if (!s.rng) s.rng = 1;
@@ -336,7 +336,7 @@ void Synth::lfo_tick(Chan& C, const Part& pt) {
     case 2: val = (int8_t)hi; break;
     case 3: val = (hi & 0x80) ? -128 : 127; break;
     case 4: { int idx = hi & 0x3F; if (hi & 0x40) idx ^= 0x3F; int s = SINE64[idx]; val = (hi & 0x80) ? (int8_t)(~s) : s; break; }
-    case 5: if (wrapped) { C.lfoSH = SHTAB[((C.lfoSH & 0xFF) * 0xB3 + (rand() & 0xFF)) & 0x7FF]; } val = C.lfoSH; break;
+    case 5: if (wrapped) { C.lfoSH = SHTAB[((C.lfoSH & 0xFF) * 0xB3 + (int)(draw() & 0xFF)) & 0x7FF]; } val = C.lfoSH; break;
     default: { uint32_t t = (C.lfoPhase << 1); if (t > 0xFFFF) t = ~t & 0xFFFF; val = (int)((t >> 8) & 0xFF) - 0x80; }
     }
     C.lfoVal = val;

@@ -31,6 +31,11 @@
 
 struct Synth {
     Perf perf; Chan ch[NCHAN]; uint32_t clock = 0; double gain = 1.0;   // the analogue volume pot, after the tap
+    // Ours: the random note phase, part pan 0 and the sample-and-hold LFO draw from this, not from rand(). rand() is
+    // one generator shared by every instance in the process and a different sequence on each C library, so two
+    // instances took each other's draws and a render on Windows differed from the same render on Linux.
+    uint32_t rnd = 0x9E3779B9u;
+    uint32_t draw() { rnd ^= rnd << 13; rnd ^= rnd >> 17; rnd ^= rnd << 5; return rnd; }   // xorshift32, as the noise
     // FUN_0000f7dc's cursors: the last channel allocated, and the last one each part took. Allocation
     // walks from these rather than from channel 0, which is what fixes the channel a note lands on.
     // While a part has its filter on there are two more walks, each over half the channels: the parts

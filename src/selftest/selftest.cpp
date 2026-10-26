@@ -557,7 +557,7 @@ int selftest(Synth& S) {
     // others on the rest; a filtered note loses its top; and a part without a filter sounds exactly as it
     // does in a performance that has none.
     { auto note = [](Synth& T, int part, int n, std::vector<float>& l, std::vector<float>& r) {
-          srand(7); T.note_on(part, n, 100); T.render(l.data(), r.data(), (int)l.size()); };
+          T.rnd = 7; T.note_on(part, n, 100); T.render(l.data(), r.data(), (int)l.size()); };
       auto energy = [](const std::vector<float>& x) { double e = 0; for (float s : x) e += (double)s * s; return e; };
       std::vector<float> l0(4800), r0(4800), l1(4800), r1(4800), l2(4800), r2(4800);
       auto open = [](Synth& T) {
@@ -757,7 +757,7 @@ int selftest(Synth& S) {
     // A fixed operator takes its frequency EG too: A123 Drum Kit 3's kick sweeps on the unit, and rgwan's rig
     // tracked fixed 1 kHz sines along this ramp to 1% (docs/findings.md 2026-10-25). A fixed 220 Hz carrier at
     // init +25 has to advance its phase feg_semis(25) above its own step on the first sample. Read off the
-    // operator's phase, not the mix, which carries rand()'s note phase and pan.
+    // operator's phase, not the mix, which carries the random note phase and pan.
     { init_perf(S.perf); Part& pt = S.perf.part[0]; Voice& V = pt.voice; pt.p[1] = 2; pt.p[4] = 0x10;
       init_blank_voice(V.raw); uint8_t* op = V.raw + 112;
       op[1] = 15; op[2] = 0; op[5] |= 0x40; op[22] = 99;
@@ -804,6 +804,29 @@ int selftest(Synth& S) {
       }
       S.all_off(); init_perf(S.perf); }
 
+    // After a note the output is digital zero again, as the unit's is (FS1R.unlock 2026-10-26-*-silence): the
+    // effect section's double residue left the DAC on -1 step for good. And the random note phase and pan are the
+    // instance's own: two instances seeded alike render alike, whatever a third draws in between.
+    { auto play = [](uint32_t seed, Synth* other, std::vector<float>& l) {
+          auto T = std::make_unique<Synth>(); init_perf(T->perf); init_default_voice(T->perf.part[0].voice);
+          T->perf.part[0].p[1] = 2; T->perf.part[0].p[4] = 0x10; T->perf.part[0].p[0x0E] = 0;   // pan 0: random per note
+          T->rnd = seed; l.assign(SR * 3, 0.f); std::vector<float> r(l.size());
+          T->midi_in(0x90, 60, 100);
+          if (other) other->midi_in(0x90, 64, 100);   // between this instance's two notes
+          T->midi_in(0x90, 67, 100);
+          T->render(l.data(), r.data(), SR / 4); T->midi_in(0x80, 60, 0); T->midi_in(0x80, 67, 0);
+          T->render(l.data() + SR / 4, r.data() + SR / 4, (int)l.size() - SR / 4); };
+      auto busy = std::make_unique<Synth>(); init_perf(busy->perf); init_default_voice(busy->perf.part[0].voice);
+      busy->perf.part[0].p[1] = 2; busy->perf.part[0].p[4] = 0x10; busy->perf.part[0].p[0x0E] = 0;
+      std::vector<float> a, b; play(9, nullptr, a); play(9, busy.get(), b);
+      ck("random: an instance's draws are its own", a == b);
+      bool zero = true;   // the residue's sign follows the note phase: seeds 3 and 5 left it negative, -1 step
+      for (uint32_t seed = 1; seed <= 8; seed++) {
+          play(seed, nullptr, a);
+          for (size_t i = a.size() - SR / 2; i < a.size(); i++) zero = zero && a[i] == 0.0f;
+      }
+      ck("silence: the output is exactly zero again after a note", zero); }
+
     // The chip's operator cut (cal::OP_CUT_DB, NOISE_CUT_DB), at the four points rgwan's unit put either side of
     // it on 2026-10-26: one sine carrier at output level 4 (register 235) sounds and at 3 (243) is exactly zero; the
     // noise at level 2 (251) sounds and at 1 (255) is exactly zero. Velocity 127, sensitivity 0, every other op off.
@@ -817,7 +840,7 @@ int selftest(Synth& S) {
           (noise ? q[35 + 11] : q[22]) = (uint8_t)level;
           if (noise) { q[35 + 1] = 17; q[35 + 2] = 24; q[35 + 4] = 99; }   // 1 kHz, widest band
           decode_voice(V);
-          srand(5); T->midi_in(0x90, 60, 127);
+          T->rnd = 5; T->midi_in(0x90, 60, 127);
           double pk = 0; float l, r;
           for (int k = 0; k < SR / 4; k++) { T->render(&l, &r, 1); for (auto& c : T->ch) if (c.active) pk = std::max(pk, fabs(c.last)); }
           return pk; };
@@ -835,7 +858,7 @@ int selftest(Synth& S) {
           V.v[0].form = 0; V.v[0].level = 99; V.v[0].fixed = 0; V.v[0].coarse = 1; V.v[0].keysync = sync; V.u[0].level = 0;
           for (int i = 0; i < 4; i++) { V.v[0].L[i] = i == 3 ? 0 : 99; V.v[0].T[i] = i == 3 ? 99 : 0; }
           V.raw[112 + 0x1C] = (uint8_t)ph;
-          srand(3); T->midi_in(0x90, 60, 100);
+          T->rnd = 3; T->midi_in(0x90, 60, 100);
           Chan* c = nullptr; for (auto& x : T->ch) if (x.active) c = &x;
           float l, r; for (auto& v : y) { T->render(&l, &r, 1); v = c ? c->last : 0; }
           if (c && sync) { V.raw[112 + 0x1C] = 32; for (int k = 0; k < 512; k++) T->render(&l, &r, 1); y[0] = c->phOff[0]; } };   // a sounding note follows an edit
@@ -967,7 +990,7 @@ int selftest(Synth& S) {
           auto T = std::make_unique<Synth>(); init_perf(T->perf); init_default_voice(T->perf.part[0].voice);
           T->perf.part[0].p[1] = 2; T->perf.part[0].p[4] = 0x10;
           const int held = SR / 4, all = SR * 5; l.assign(all, 0.f); std::vector<float> r(all);
-          srand(5); T->midi_in(0x90, 60, 100);                // the same random phases and pan in both
+          T->rnd = 5; T->midi_in(0x90, 60, 100);              // the same random phases and pan in both
           for (int i = 0; i < held; i++) T->render(&l[i], &r[i], 1);
           T->midi_in(0x80, 60, 0);
           if (oneBlock) T->render(&l[held], &r[held], all - held);

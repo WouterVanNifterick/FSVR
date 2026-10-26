@@ -172,8 +172,15 @@ void Effects::run(const double bus[8], double& l, double& r) {
     std::copy(mod.lfoOut, mod.lfoOut + 16, s.lfo);
     for (effects::Program p : stage) if (p) p(s);
     s.ptr = (s.ptr - 1) & (effects::State::RAM_WORDS - 1);
-    l = fsvr::word::dac(s.out[0]) / cal::WORD;
-    r = fsvr::word::dac(s.out[8]) / cal::WORD;
+    // The chip's words are fixed point and these are doubles, so a filter or a reverb that has decayed to nothing
+    // on the unit is a residue here, 1e-10 after a note, which the DAC's floor turned into -1 step for good. On the
+    // unit the output is digital zero after a note (FS1R.unlock 2026-10-26-*-silence, every idle segment). A value
+    // under 2^-24 of a register unit is finer than the LSB of a 32-bit word over +-128, so no word the chip holds
+    // can carry it: it is zero.
+    // ponytail: a bound, not the chip's word width (open, VOP3.unlock QBITS); model that width when it is measured.
+    auto chip = [](double v) { return std::fabs(v) < 0x1p-24 ? 0.0 : v; };
+    l = fsvr::word::dac(chip(s.out[0])) / cal::WORD;
+    r = fsvr::word::dac(chip(s.out[8])) / cal::WORD;
     if (fade > 0) {                              // ours: a performance load comes back up (load)
         const double g = 0.5 - 0.5 * std::cos(3.14159265358979323846 * (FADE_SAMPLES - --fade) / FADE_SAMPLES);
         l *= g;

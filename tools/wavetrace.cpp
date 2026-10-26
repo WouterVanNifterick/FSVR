@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
     for (int note : notes) {
         auto S = std::make_unique<Synth>(); Part& pt = S->perf.part[0];
         pt.p[1] = 2; pt.p[4] = 0x10; pt.voice = voice;
-        srand(1); S->midi_in(0x90, note, vel);
+        S->rnd = 1; S->midi_in(0x90, note, vel);
         Chan* c = nullptr; for (auto& x : S->ch) if (x.active && x.part == 0) { c = &x; break; }
         if (!c) { printf("note %d: no channel\n", note); continue; }
         const long start = (long)(at * SR);
