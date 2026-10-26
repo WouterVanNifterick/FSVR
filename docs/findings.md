@@ -8,6 +8,18 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-10-26, OP Att is a carrier level correction, and a modulator ignores it on the unit too
+
+Reported on #fsvr-development on 2026-10-24 (FSVR#79): the operator attenuator has no effect on the modulation index. It has none, and that is the FS1R.
+
+**The firmware sends it for carriers only.** OP Att is voice bytes 0x2D..0x34, the Data List's carrier level correction. On a voice load and an algorithm change, `FUN_0003251C` builds the eight algorithm words from the connection table at EPROM 0x37C0DC and ORs the byte in as `<< 3` of t1 only where the per-algorithm carrier flag table at 0x389830 is set (88 x 8 bytes, which agrees with t1 bit 0 of every entry in `src/fs1r/algorithms.h`). A modulator's register keeps a zero nibble. The 2026-09-19 register capture shows the same thing on the unit: the `corr-op3/5/7` segments of algorithm 13 put a correction on operators that do not reach the mix and register 0x200 keeps a zero nibble (`FS1R.unlock/captures/image_check.py`, `alg_word`, passing). The engine applies `cal::CARRIER_DB * corr` on carriers only (`refresh_ctl`), which is the same rule. Rendered: algorithm 2, correction 15 on operators 1 to 3 leaves the output bit for bit the same, on operator 4 (the carrier) it moves.
+
+**One path is not covered.** A live edit of the byte (voice parameter 0x2D..0x34) goes through `FUN_00032624`, which writes the nibble into the staged word without the carrier test, so after editing OP Att on a modulator with the panel the register carries it until the next voice load or algorithm change. What the chip does with the nibble on a modulator is unmeasured. The manual (p. 66) only says it attenuates "the output of the currently selected operator", and its troubleshooting page uses it on algorithm 1, all carriers, to stop clipping. Not modelled; it would need a take of the edit path.
+
+The operator page's tooltip said "Attenuates this operator's output", which reads as if it scaled modulation too. It now says it is the carrier level correction and that a modulator ignores it.
+
+---
+
 ## 2026-10-26, the tone generator cuts an operator to zero below about -89 dB, and output level 0 is past it
 
 James asked whether the Silence template had needed its operators' EG levels at 0, or whether output level 0 was already silent on the unit and the engine was wrong. The unit says the engine was wrong.

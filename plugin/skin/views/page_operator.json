@@ -1676,7 +1676,7 @@
    "reset": false,
    "editable": true,
    "param": "op.{op}.v.carrier_corr.{part}",
-   "tip": "Attenuates this operator's output, 0 to -22.5 dB in 1.5 dB steps",
+   "tip": "Carrier level correction: attenuates this operator's output to the mix, 0 to -22.5 dB in 1.5 dB steps. A modulator ignores it, as on the FS1R",
    "fill": {
     "image": "panels/label_plate"
    },
