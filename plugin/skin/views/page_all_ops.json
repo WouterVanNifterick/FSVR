@@ -1237,6 +1237,62 @@
    "showIf": {
     "var": "layer",
     "equals": "u"
+   },
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.1.u.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
    }
   },
   {
@@ -1255,6 +1311,62 @@
    "margin": 12,
    "reset": "default",
    "param": "op.1.{layer}.level.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.1.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   },
    "tip": "Operator 1 level"
   },
   {
@@ -2054,6 +2166,62 @@
    "showIf": {
     "var": "layer",
     "equals": "u"
+   },
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.2.u.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
    }
   },
   {
@@ -2072,6 +2240,62 @@
    "margin": 12,
    "reset": "default",
    "param": "op.2.{layer}.level.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.2.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   },
    "tip": "Operator 2 level"
   },
   {
@@ -2871,6 +3095,62 @@
    "showIf": {
     "var": "layer",
     "equals": "u"
+   },
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.3.u.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
    }
   },
   {
@@ -2889,6 +3169,62 @@
    "margin": 12,
    "reset": "default",
    "param": "op.3.{layer}.level.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.3.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   },
    "tip": "Operator 3 level"
   },
   {
@@ -3688,6 +4024,62 @@
    "showIf": {
     "var": "layer",
     "equals": "u"
+   },
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.4.u.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
    }
   },
   {
@@ -3706,6 +4098,62 @@
    "margin": 12,
    "reset": "default",
    "param": "op.4.{layer}.level.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.4.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   },
    "tip": "Operator 4 level"
   },
   {
@@ -4505,6 +4953,62 @@
    "showIf": {
     "var": "layer",
     "equals": "u"
+   },
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.5.u.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
    }
   },
   {
@@ -4523,6 +5027,62 @@
    "margin": 12,
    "reset": "default",
    "param": "op.5.{layer}.level.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.5.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   },
    "tip": "Operator 5 level"
   },
   {
@@ -5322,6 +5882,62 @@
    "showIf": {
     "var": "layer",
     "equals": "u"
+   },
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.6.u.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
    }
   },
   {
@@ -5340,6 +5956,62 @@
    "margin": 12,
    "reset": "default",
    "param": "op.6.{layer}.level.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.6.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   },
    "tip": "Operator 6 level"
   },
   {
@@ -6139,6 +6811,62 @@
    "showIf": {
     "var": "layer",
     "equals": "u"
+   },
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.7.u.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
    }
   },
   {
@@ -6157,6 +6885,62 @@
    "margin": 12,
    "reset": "default",
    "param": "op.7.{layer}.level.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.7.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   },
    "tip": "Operator 7 level"
   },
   {
@@ -6956,6 +7740,62 @@
    "showIf": {
     "var": "layer",
     "equals": "u"
+   },
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.8.u.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
    }
   },
   {
@@ -6974,6 +7814,62 @@
    "margin": 12,
    "reset": "default",
    "param": "op.8.{layer}.level.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.8.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   },
    "tip": "Operator 8 level"
   }
  ]
