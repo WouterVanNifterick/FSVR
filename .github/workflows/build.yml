@@ -53,13 +53,14 @@ jobs:
     runs-on: ${{ startsWith(matrix.name, 'windows') && 'windows-latest' || matrix.name == 'linux' && 'ubuntu-latest' || 'macos-latest' }}
     steps:
       - uses: actions/checkout@v4
-      # The editor is an X11 window; the standalone's audio and MIDI are RtAudio's ALSA, JACK and
-      # PulseAudio backends and RtMidi's ALSA one, each built only when its headers are there.
+      # The editor is an X11 window. The standalone's audio is clap-wrapper's PipeWire and JACK backends and
+      # its MIDI the ALSA sequencer, each built only when its headers are there: without libpipewire-0.3-dev
+      # the app has JACK alone, and a PipeWire desktop never sees it (FSVR#57).
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libx11-dev libasound2-dev libjack-jackd2-dev libpulse-dev pkg-config
+          sudo apt-get install -y libx11-dev libasound2-dev libjack-jackd2-dev libpipewire-0.3-dev libpulse-dev pkg-config
       # The About box credits the repository's contributors as GitHub lists them when the build runs.
       - uses: actions/setup-python@v5
         with:

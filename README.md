@@ -142,7 +142,7 @@ cmake --build build/plugin --config Release
 ctest --test-dir build/plugin -C Release -R plugin   # the plug-in's own check
 ```
 
-On Linux install `libx11-dev libasound2-dev libjack-jackd2-dev libpulse-dev pkg-config` first (Debian and Ubuntu names). On Windows a second build with `-A Win32` makes the 32-bit VST2 with the DXi in it.
+On Linux install `libx11-dev libasound2-dev libjack-jackd2-dev libpipewire-0.3-dev libpulse-dev pkg-config` first (Debian and Ubuntu names). On Windows a second build with `-A Win32` makes the 32-bit VST2 with the DXi in it.
 
 Every format lands in a folder of its own under `bin/`: `bin/CLAP`, `bin/VST3`, `bin/VST2` and `bin/Standalone`, `bin/AU` on macOS, which is the only plugin format Logic Pro loads, and `bin/VST2 32-bit and DXi` from the 32-bit build. The 1408 factory voices, the 384 factory performances and the 90 preset formant sequences are built into the plugin, so its browser needs no EPROM image.
 
