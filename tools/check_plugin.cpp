@@ -600,6 +600,13 @@ int main() {
         a.set("browse.bank", lineOf("bank.list", "Unit"));
         CHECK(a.until([&] { return a.is("browse.category", 0) && a.lines("browse.perf.list") == 1; }), "the bank opened on category %g with %d rows",
               a.get("browse.category"), a.lines("browse.perf.list"));
+        // ... and with the browser's filter box empty, for the same reason: text typed for one bank never hides another's.
+        a.set("browse.bank", 0);
+        CHECK(a.until([&] { return a.lines("browse.perf.list") == 0; }), "the factory bank did not open again");
+        a.st->setData("live.browse.filter", "zap");
+        a.set("browse.bank", lineOf("bank.list", "Unit"));
+        CHECK(a.until([&] { return a.data("live.browse.filter").empty() && a.lines("browse.perf.list") == 1; }), "the bank opened with \"%s\" in the filter box",
+              a.data("live.browse.filter").c_str());
     }
 
     // Export Preset writes .fsvr XML; importing it loads it and opens the Save modal on its name.

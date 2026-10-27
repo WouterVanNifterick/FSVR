@@ -961,6 +961,7 @@ private:
         }
         const bool bank = moved(browseBank);
         if (bank && get(browseCategory) != 0) put(browseCategory, 0);   // another bank opens on All, never on an empty filter
+        if (bank && !st.data("live.browse.filter").empty()) st.setData("live.browse.filter", "");   // nor with the last bank's text in the filter box
         bool lists = bank | moved(browseCategory);
         if (lists) writeLists();
         if (moved(browsePerf) && get(browsePerf) >= 1) pick(0, (int)get(browsePerf), 0);

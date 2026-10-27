@@ -147,18 +147,43 @@ struct Ui {   // one instance and its editor, run a block and a GUI tick at a ti
     }
     // Into the field being edited: all of it replaced, then Enter. A character is delivered the way a
     // platform delivers it, the key first and then the character it typed, which only arrives because the
-    // key left it to come (charPending): a key the editor spends takes its character with it.
-    void type(const std::string& text) {
+    // key left it to come (charPending): a key the editor spends takes its character with it. With a stored
+    // key, after each character the text data under it must already hold what was typed so far, as a field
+    // that commits "typing" does.
+    void typeKeys(const std::string& text, const char* stored = nullptr) {
         gui.keyDown(KeySelectAll, false, true);
-        for (char c : text) {
+        for (size_t k = 0; k < text.size(); ++k) {
+            const char c = text[k];
             const unsigned ch = c >= 'a' && c <= 'z' ? (unsigned)(c - 'a' + 'A')   // the key, as a platform reports it
                               : (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ? (unsigned)c : 0;
             gui.keyDown(KeyNone, false, false, false, ch);
             CHECK(gui.charPending(), "typing \"%s\": the key for '%c' took its own character", text.c_str(), c);
             if (gui.charPending()) gui.keyChar((unsigned char)c);
+            if (stored) CHECK(data(stored) == text.substr(0, k + 1), "typing \"%s\": %s holds \"%s\" after '%c'", text.c_str(), stored, data(stored).c_str(), c);
         }
+    }
+    void type(const std::string& text) {
+        typeKeys(text);
         gui.keyDown(KeyEnter, false, false);
         run(2);
+    }
+    // How many of a browser list's rows hold text, counted from the list's top as it is scrolled, the last
+    // one cut by the list's bottom left out: the rows past the data are drawn too, in the same fill, but empty.
+    int shownRows(const std::string& list) {
+        Rect r;
+        if (!gui.widgetRect(list, r)) return -1;
+        const auto& px = gui.pixels();
+        int n = 0;
+        for (int k = 0; k * 25 + 23 <= r.h; ++k) {
+            bool ink = false;
+            for (int y = r.y + k * 25; y < r.y + k * 25 + 23 && !ink; ++y)
+                for (int x = r.x; x < r.x + 252 && !ink; ++x) {
+                    const uint32_t p = px[(size_t)y * gui.width() + x] & 0xffffff;
+                    ink = p != 0x434f50 && p != 0x82ca9c && p != 0x3a4546;
+                }
+            n += ink;
+        }
+        return n;
     }
     // One chord on a letter or a digit, as a platform would deliver it. True when the editor used the key;
     // false means it stays the host's.
@@ -1015,6 +1040,100 @@ int main() {
         u.row("pages/library/perfs_all", 2);   // a left-click after all that still loads, and lights its row alone
         CHECK(u.until([&] { return u.data("perf.name") == "Nightmare"; }), "a left-click after the right-click menus loaded \"%s\"", u.data("perf.name").c_str());
         CHECK(u.lit("pages/library/perfs_all", 2) && !u.lit("pages/library/perfs_all", 1), "after the right-click menus the lit row is not the loaded one");
+
+        // ---- the filter box in the browser's header: the rows that hold its text, the clicks and the lit row kept ----
+        {
+            const std::string L = "pages/library/", list = L + "perfs_all", box = L + "filter", kFilter = "live.browse.filter";
+            const Widget* all = nullptr;   // the factory performances' rows, to say what the box should leave
+            if (const View* lib = u.skin->view("library_browser"))
+                for (auto& w : lib->widgets)
+                    if (w.name == "perfs_all") all = &w;
+            auto low = [](std::string s) { for (auto& c : s) c = (char)std::tolower((unsigned char)c); return s; };
+            auto has = [&](const std::vector<std::string>& row, const std::string& needle) {
+                for (auto& cell : row)
+                    if (low(cell).find(low(needle)) != std::string::npos) return true;
+                return false;
+            };
+            auto expect = [&](const std::string& needle, const std::string& name, int& count, int& place) {   // rows kept, and where the one named stands among them
+                count = 0;
+                place = -1;
+                for (auto& row : all->rows)
+                    if (has(row, needle)) {
+                        if (row[1] == name) place = count;
+                        ++count;
+                    }
+            };
+            auto filter = [&](const std::string& text) {   // click into the box and type, no Enter
+                u.click(box);
+                u.typeKeys(text, kFilter.c_str());
+                u.run(3);
+            };
+            Rect fr;
+            CHECK(all && u.rect(box, fr), "the browser has no filter box");
+            if (all && u.rect(box, fr)) {
+                int count = 0, place = 0;
+                CHECK(u.shownRows(list) == 16, "the browser shows %d rows with nothing typed", u.shownRows(list));
+                // Nightmare is the one loaded and lit: a filter that leaves it out lights nothing, and the row left loads what it names
+                filter("shaman");
+                expect("shaman", "Shaman", count, place);
+                CHECK(count == 1 && place == 0 && u.shownRows(list) == 1, "\"shaman\" shows %d rows, %d expected", u.shownRows(list), count);
+                CHECK(!u.lit(list, 0), "the row left by the filter is lit though Nightmare is the one loaded");
+                u.row(list, 0);
+                CHECK(u.until([&] { return u.data("perf.name") == "Shaman"; }), "the only row left loaded \"%s\", not Shaman", u.data("perf.name").c_str());
+                CHECK(u.lit(list, 0) && u.shownRows(list) == 1, "Shaman is not lit in the filtered list");
+                // in any case, in any column, and the loaded row stays lit wherever the filter puts it
+                for (const char* text : {"VOCAL", "b028", "zap", "xyzzy"}) {
+                    filter(text);
+                    expect(text, "Shaman", count, place);
+                    CHECK(u.shownRows(list) == std::min(count, 16), "\"%s\" shows %d rows, %d expected", text, u.shownRows(list), count);
+                    if (place >= 0 && place < 16) CHECK(u.lit(list, place), "\"%s\" does not light Shaman, row %d", text, place);
+                    else CHECK(!u.lit(list, 0) && !u.lit(list, 1), "\"%s\" lights a row though Shaman is not among them", text);
+                    if (std::string(text) == "VOCAL") u.shot("library_filter");
+                }
+                u.row(list, 0);   // no row where the filter left none
+                u.settle();
+                CHECK(u.data("perf.name") == "Shaman", "a click where the filter left no row loaded \"%s\"", u.data("perf.name").c_str());
+                // Backspace stores as well, and Escape ends the entry with the text kept
+                u.click(box);
+                u.typeKeys("zapx", kFilter.c_str());
+                u.gui.keyDown(KeyBackspace, false, false);
+                CHECK(u.data(kFilter) == "zap", "Backspace left \"%s\" in the filter", u.data(kFilter).c_str());
+                u.gui.keyDown(KeyEscape, false, false);
+                u.run(2);
+                CHECK(u.data(kFilter) == "zap" && !u.gui.wantsKeys(), "Escape left \"%s\" in the filter, keys wanted %d", u.data(kFilter).c_str(), u.gui.wantsKeys());
+                // the cross at the box's right end empties it and leaves the box open for typing; the lit row is still Shaman's
+                u.clickAt(fr.x + fr.w - fr.h / 2, fr.y + fr.h / 2);
+                CHECK(u.data(kFilter).empty() && u.shownRows(list) == 16 && u.gui.wantsKeys(), "the cross left \"%s\", %d rows, keys wanted %d", u.data(kFilter).c_str(),
+                      u.shownRows(list), u.gui.wantsKeys());
+                CHECK(u.lit(list, 1) && !u.lit(list, 2), "after the cross the lit row is not Shaman's");
+                u.typeKeys("nightmare", kFilter.c_str());
+                u.run(3);
+                expect("nightmare", "Nightmare", count, place);
+                CHECK(count == 1 && u.shownRows(list) == 1 && !u.lit(list, 0), "\"nightmare\" shows %d rows, %d expected", u.shownRows(list), count);
+                // another bank opens with the box empty
+                u.row(L + "banks", bankRow);
+                CHECK(u.until([&] { return u.get("browse.bank") == bankRow && u.data(kFilter).empty(); }), "the bank opened with \"%s\" in the filter", u.data(kFilter).c_str());
+
+                // a user bank's rows are the processor's text, and a right-click names its row by the place it has without the filter
+                u.settle();
+                u.st->setData("browse.perf.list", "U1\tAlpha One\tPiano\tA001\t1\nU2\tBravo Two\tBass\tA002\t2\nU3\tCharlie\tBass\tA003\t3\nU4\tDelta Four\tOrgan\tA004\t4\n");
+                u.run(3);
+                const std::string bank = L + "perfs_bank";
+                CHECK(u.shownRows(bank) == 4, "the bank's list shows %d rows, not the 4 given", u.shownRows(bank));
+                filter("bass");
+                CHECK(u.shownRows(bank) == 2, "\"bass\" shows %d of the bank's rows, not 2", u.shownRows(bank));
+                u.row(bank, 1, true);
+                CHECK(u.data("item.context").rfind("2\tU3\tCharlie", 0) == 0, "the right-click on the second row left shown named \"%s\"", u.data("item.context").c_str());
+                u.menuIs({"Performance: Charlie", "-", "Rename", "Delete", "-", "Edit Attributes", "Copy Attributes", "Paste Attributes"}, "a filtered user preset's");
+                u.gui.keyDown(KeyEscape, false, false);
+                u.run(2);
+                filter("bass");   // leaving the bank for another empties the box again, and coming back lists the processor's own rows
+                u.row(L + "banks", 0);
+                CHECK(u.until([&] { return u.data(kFilter).empty() && u.get("browse.bank") == 0; }), "the factory bank opened with \"%s\" in the filter", u.data(kFilter).c_str());
+                u.row(L + "banks", bankRow);
+                CHECK(u.until([&] { return u.get("browse.bank") == bankRow && u.lines("browse.perf.list") == 1; }), "back on the bank: %d rows", u.lines("browse.perf.list"));
+            }
+        }
 
         // ---- a user preset's right-click menu: Rename, Edit Attributes, Paste Attributes, Delete --------
         u.row("pages/library/banks", bankRow);
