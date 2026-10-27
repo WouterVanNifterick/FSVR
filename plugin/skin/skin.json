@@ -1055,7 +1055,11 @@
    "set": {
     "part": "p4"
    }
-  }
+  },
+  {"chord": "ctrl+minus", "scale": "prev"},
+  {"chord": "ctrl+equals", "scale": "next"},
+  {"chord": "ctrl+shift+equals", "scale": "next"},
+  {"chord": "ctrl+period", "scale": "next"}
  ],
  "steppers": {
   "width": 9,

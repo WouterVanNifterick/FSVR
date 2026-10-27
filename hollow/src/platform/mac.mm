@@ -114,7 +114,8 @@ static void keyDown(id self, SEL, NSEvent* e) {
         NSString* bare = [e charactersIgnoringModifiers];
         if ([bare length] == 1) {
             unichar c = [[bare uppercaseString] characterAtIndex:0];
-            if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) ch = c;
+            if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '=' || c == '.') ch = c;
+            else if (c == '+') ch = '=';   // the keypad's plus, which a chord names with the = key
         }
         if (!w->gui->keyDown(k, shift, cmd, alt, ch)) [[self nextResponder] keyDown:e];
         return;

@@ -1383,8 +1383,9 @@ void Gui::runAction(Node& n, int i, const Action& action) {
         for (auto& kv : a.vars) state_.setData(subst(n, kv.first), subst(n, kv.second));
         setModal(a.target);
         return;
-    case Action::Scale:   // a window scale, or the scale menu under the widget
-        if (a.amount > 0) setScale(a.amount);
+    case Action::Scale:   // a window scale, the next or previous one, or the scale menu under the widget
+        if (a.target == "next" || a.target == "prev") stepScale(a.target == "next" ? 1 : -1);
+        else if (a.amount > 0) setScale(a.amount);
         else scaleMenu(rectOf(n, i));
         return;
     case Action::File: {   // a native dialog; the chosen path goes to text data, for the product to act on
@@ -2444,10 +2445,23 @@ void Gui::contextMenu(const Hit& h, int x, int y, const std::vector<Item>& items
     itemMenu(h, items, {x, y, 0, 0}, style, false);
 }
 
-// The skin's "scales", else 1x to 4x.
+// The scales the window can be at: the skin's "scales", else 1x to 4x.
+std::vector<double> Gui::scaleList() const {
+    return base_->scales.empty() ? std::vector<double>{1, 2, 3, 4} : base_->scales;
+}
+
+// The scale one up or down from the chosen one, wrapping round at either end.
+void Gui::stepScale(int dir) {
+    const std::vector<double> scales = scaleList();
+    const int n = (int)scales.size();
+    int at = 0;
+    for (int i = 0; i < n; ++i)
+        if (std::fabs(scales[i] - chosenScale_) < std::fabs(scales[at] - chosenScale_)) at = i;
+    setScale(scales[((at + dir) % n + n) % n]);
+}
+
 void Gui::scaleMenu(Rect at) {
-    std::vector<double> scales = base_->scales;
-    if (scales.empty()) scales = {1, 2, 3, 4};
+    const std::vector<double> scales = scaleList();
     std::vector<MenuEntry> menu;
     for (size_t i = 0; i < scales.size(); ++i) {
         MenuEntry e;
@@ -3256,6 +3270,8 @@ bool Editor::key(Key k, unsigned character, bool shift, bool ctrl, bool alt) {
     if (!ch) {
         if ((character >= '0' && character <= '9') || (character >= 'A' && character <= 'Z')) ch = character;
         else if (character >= 'a' && character <= 'z') ch = character - 'a' + 'A';
+        else if (character == '-' || character == '=' || character == '.') ch = character;
+        else if (character == '+') ch = '=', shift = true;   // the = key with Shift, where a layout puts it
     }
     if (impl_->gui.window) platformHold(impl_->gui.window, true);
     const bool used = impl_->gui.keyDown(k, shift, ctrl, alt, ch, true);

@@ -79,11 +79,25 @@ static bool forwardKey(PlatformWindow* w, UINT msg, WPARAM wp, LPARAM lp) {
     return true;
 }
 
+// A virtual key as a chord names it: a letter or a digit is its own ASCII code, and the minus, plus and
+// period keys, the keypad's minus and plus with them, are '-', '=' and '.'. 0 for any other key.
+static unsigned chordChar(unsigned vk) {
+    if ((vk >= 'A' && vk <= 'Z') || (vk >= '0' && vk <= '9')) return vk;
+    switch (vk) {
+    case VK_OEM_MINUS:
+    case VK_SUBTRACT: return '-';
+    case VK_OEM_PLUS:
+    case VK_ADD: return '=';
+    case VK_OEM_PERIOD: return '.';
+    default: return 0;
+    }
+}
+
 // A WM_KEYDOWN or WM_SYSKEYDOWN offered to the editor, from the window's own procedure or from the keyboard
 // hook below. True when the editor used it. Modifier keys are not offered: alone they are nobody's keystroke.
 static bool offerKey(Gui& g, WPARAM wp) {
     const bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
-    const unsigned ch = (wp >= 'A' && wp <= 'Z') || (wp >= '0' && wp <= '9') ? (unsigned)wp : 0;   // VK codes are ASCII there
+    const unsigned ch = chordChar((unsigned)wp);
     Key k = KeyNone;
     switch (wp) {
     case VK_LEFT: k = KeyLeft; break;
@@ -565,10 +579,10 @@ unsigned platformKeyChar(unsigned codepoint, bool* shift) {
     if (codepoint > 0xffff) return 0;
     const SHORT s = VkKeyScanW((WCHAR)codepoint);
     if (s == -1) return 0;
-    const unsigned vk = (unsigned)(s & 0xff);
-    if (!((vk >= 'A' && vk <= 'Z') || (vk >= '0' && vk <= '9'))) return 0;
+    const unsigned ch = chordChar((unsigned)(s & 0xff));
+    if (!ch) return 0;
     if (shift) *shift = (s & 0x100) != 0;
-    return vk;
+    return ch;
 }
 
 void platformOpenUrl(const std::string& url) {

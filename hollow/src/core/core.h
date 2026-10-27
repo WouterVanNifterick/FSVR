@@ -131,9 +131,10 @@ struct Action {
     std::string title;           // File: the dialog's title (target: open / save, key: the text data key, nameKey:
                                  // a save's file name, vars: file types, name to extensions)
 };
-// skin.json "keys": a chord and what it does. `ch` is the physical key as an uppercase ASCII letter
-// or a digit, 0 when the chord names one of the Key commands instead. The action is any a button can
-// carry, so a binding reaches a page, a var or a modal without the skin repeating itself.
+// skin.json "keys": a chord and what it does. `ch` is the physical key as an uppercase ASCII letter,
+// a digit, or '-', '=' (the + key too) or '.', 0 when the chord names one of the Key commands instead.
+// The action is any a button can carry, so a binding reaches a page, a var or a modal without the skin
+// repeating itself.
 struct Binding {
     Key key = KeyNone;
     unsigned ch = 0;
@@ -408,11 +409,12 @@ extern const bool kNativeMenus;   // false: the platform has none, and a "native
 void platformTip(PlatformWindow* w, const std::string& text);        // tooltip of the whole window, "" = none
 void platformFocus(PlatformWindow* w, bool on);   // take the keyboard (text entry, menus, lists), or hand it back
 void platformOpenUrl(const std::string& url);
-// The key that types this character on the current layout, as an uppercase ASCII letter or digit, 0 when
-// that is not known, and in *shift whether typing it needs Shift held. A host's plug-in API hands over the
-// character a key produced rather than the key, so this is how a chord gets back to the key the window
-// itself would have reported: Shift+2 types a quote on some layouts, and only the layout knows both that
-// the quote came off the 2 key and that Shift was held to get it. The second half matters because a host
+// The key that types this character on the current layout, as an uppercase ASCII letter or digit, or the
+// '-', '=' or '.' a chord names those keys by, 0 when that is not known, and in *shift whether typing it
+// needs Shift held. A host's plug-in API hands over the character a key produced rather than the key, so
+// this is how a chord gets back to the key the window itself would have reported: Shift+2 types a quote
+// on some layouts, and only the layout knows both that the quote came off the 2 key and that Shift was
+// held to get it. The second half matters because a host
 // may report no modifiers at all on the character, Shift having been spent producing it.
 // Windows only, since its hosts are the ones that keep the keyboard; elsewhere 0, and the character is read
 // as the key as before.
@@ -708,6 +710,8 @@ private:
     void contextMenu(const Hit& h, int x, int y);
     void itemMenu(const Hit& h, const std::vector<Item>& items, Rect at, const std::string& style, bool current);
     void contextMenu(const Hit& h, int x, int y, const std::vector<Item>& items);
+    std::vector<double> scaleList() const;
+    void stepScale(int dir);
     void scaleMenu(Rect at);
     void openSkinned(size_t level, std::vector<MenuEntry> items, Rect at, bool below, const MenuStyle* st);
     void closeMenus(size_t from = 0);

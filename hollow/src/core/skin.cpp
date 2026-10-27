@@ -683,8 +683,9 @@ struct Loader {
         return c;
     }
 
-    // "alt+f", "shift+1", "ctrl+alt+escape": the modifiers in any order, then one letter, one digit or
-    // one Key name. False when nothing names a key, so a typo drops that binding rather than the skin.
+    // "alt+f", "shift+1", "ctrl+alt+escape": the modifiers in any order, then one letter, one digit, one
+    // Key name or a punctuation key by name ("ctrl+minus"; "plus" is the = key, typed with Shift or not).
+    // False when nothing names a key, so a typo drops that binding rather than the skin.
     // On macOS "ctrl" is Command, which is the modifier mac.mm already reports as ctrl.
     static bool chord(const std::string& s, Binding& b) {
         size_t at = 0;
@@ -698,6 +699,9 @@ struct Loader {
             else if (tok == "alt" || tok == "opt" || tok == "option") b.alt = true;
             else if (tok.size() == 1 && (std::isalpha((unsigned char)tok[0]) || std::isdigit((unsigned char)tok[0])))
                 b.ch = (unsigned char)std::toupper((unsigned char)tok[0]);
+            else if (tok == "minus") b.ch = '-';
+            else if (tok == "equals" || tok == "plus") b.ch = '=';
+            else if (tok == "period") b.ch = '.';
             else if (tok == "left") b.key = KeyLeft;
             else if (tok == "right") b.key = KeyRight;
             else if (tok == "up") b.key = KeyUp;
@@ -735,7 +739,7 @@ struct Loader {
         else if (a.has("toggle")) { r.type = Action::Toggle; r.target = a["toggle"].str(); }
         else if (a.has("url")) { r.type = Action::Url; r.target = a["url"].str(); }
         else if (a.has("standalone")) { r.type = Action::Standalone; r.target = a["standalone"].str(); }
-        else if (a.has("scale")) { r.type = Action::Scale; r.amount = a["scale"].num(0); }   // "menu", or a scale to set
+        else if (a.has("scale")) { r.type = Action::Scale; r.amount = a["scale"].num(0); r.target = a["scale"].str(); }   // a scale to set, "next", "prev" or "menu"
         else if (a.has("file")) {
             r.type = Action::File;
             r.target = a["file"].str();
