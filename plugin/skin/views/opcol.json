@@ -1214,7 +1214,63 @@
    "image": "knobs/rotary_small_orange",
    "param": "op.{op}.{layer}.level.{part}",
    "fine": 0.2,
-   "wheel": 0.05
+   "wheel": 0.05,
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.{op}.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   }
   },
   {
    "type": "number",
@@ -1234,7 +1290,63 @@
    },
    "fine": 0.2,
    "reset": false,
-   "editable": true
+   "editable": true,
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.{op}.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   }
   },
   {
    "fill": {

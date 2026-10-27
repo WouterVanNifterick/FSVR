@@ -1469,7 +1469,63 @@
    "fine": 0.2,
    "wheel": 0.09,
    "reset": "default",
-   "param": "op.{op}.{layer}.level.{part}"
+   "param": "op.{op}.{layer}.level.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.{op}.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   }
   },
   {
    "type": "number",
@@ -1495,7 +1551,63 @@
    "fine": 0.2,
    "reset": false,
    "editable": true,
-   "param": "op.{op}.{layer}.level.{part}"
+   "param": "op.{op}.{layer}.level.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.{op}.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   }
   },
   {
    "type": "plate",
@@ -1533,7 +1645,63 @@
    "fine": 0.2,
    "wheel": 0.029,
    "reset": "default",
-   "param": "op.{op}.{layer}.amp_vel.{part}"
+   "param": "op.{op}.{layer}.amp_vel.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.{op}.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   }
   },
   {
    "type": "number",
@@ -1559,7 +1727,63 @@
    "fine": 0.2,
    "reset": false,
    "editable": true,
-   "param": "op.{op}.{layer}.amp_vel.{part}"
+   "param": "op.{op}.{layer}.amp_vel.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.{op}.{layer}.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   }
   },
   {
    "type": "plate",
@@ -1736,6 +1960,62 @@
    "reset": false,
    "editable": true,
    "param": "op.{op}.u.level_key_scale.{part}",
+   "enableIf": {
+    "any": [
+     {
+      "param": "op.{op}.u.fseq_sw.{part}",
+      "equals": 0
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p1"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 1
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p2"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 2
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p3"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 3
+       }
+      ]
+     },
+     {
+      "all": [
+       {
+        "var": "part",
+        "equals": "p4"
+       },
+       {
+        "param": "fseq.part",
+        "notEquals": 4
+       }
+      ]
+     }
+    ]
+   },
    "tip": "Raises the noise level right of C3 and lowers it left of it, or the reverse",
    "fill": {
     "image": "panels/label_plate"

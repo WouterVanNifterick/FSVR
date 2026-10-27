@@ -449,6 +449,57 @@ int main() {
                 CHECK(std::abs(mid2(fader) - mid2(nb)) <= 2, "Level's fader is not under Noise");
             }
         }
+        {   // An operator the Fseq drives takes its level from the frame, not from Level, Amp Vel or the level key
+            // scaling (FUN_00012A32 voiced, FUN_00012FCC unvoiced), so those controls take no input then; with the
+            // operator's switch off, or the Fseq on another part, they still do
+            const double fseqPart = u.get("fseq.part"), vsw = u.get("op.6.v.fseq_sw.p1"), usw = u.get("op.6.u.fseq_sw.p1");
+            auto moves = [&](const std::string& path, const std::string& id) {   // a drag, up or down, changes the param
+                Rect r;
+                if (!u.rect(path, r)) return false;
+                const double was = u.get(id);
+                bool changed = false;
+                for (int dy : {30, -30}) {
+                    u.drag(r.x + r.w / 2, r.y + r.h / 2, 0, dy);
+                    changed = changed || u.get(id) != was;
+                    u.set(id, was);
+                }
+                u.run(2);
+                return changed;
+            };
+            struct Case { const char* what; int sw, part; bool live; };
+            const Case cases[] = {{"on, the Fseq on part 1", 1, 1, false}, {"on, the Fseq on part 2", 1, 2, true}, {"off, the Fseq on part 1", 0, 1, true}};
+            struct Control { const char* path; const char* param; };
+            const Control voiced[] = {{"pages/level", "level"}, {"pages/level_value", "level"}, {"pages/amp_vel", "amp_vel"},
+                                      {"pages/amp_vel_value", "amp_vel"}, {"opcol/level", "level"}, {"opcol/level_value", "level"}};
+            const Control unvoiced[] = {{"pages/level", "level"}, {"pages/level_value", "level"}, {"pages/amp_vel", "amp_vel"},
+                                        {"pages/amp_vel_value", "amp_vel"}, {"pages/amp_u_value", "level_key_scale"}};
+            for (const char* layer : {"v", "u"}) {
+                if (layer[0] == 'u') u.click("pages/unvoiced");
+                for (const Case& c : cases) {
+                    u.set(std::string("op.6.") + layer + ".fseq_sw.p1", c.sw);
+                    u.set("fseq.part", c.part);
+                    u.run(2);
+                    const Control* first = layer[0] == 'v' ? voiced : unvoiced;
+                    for (size_t k = 0; k < (layer[0] == 'v' ? std::size(voiced) : std::size(unvoiced)); ++k)
+                        CHECK(moves(first[k].path, std::string("op.6.") + layer + "." + first[k].param + ".p1") == c.live,
+                              "%s of operator 6 %s with its Fseq switch %s", first[k].path, c.live ? "does not move" : "moves", c.what);
+                }
+                u.set(std::string("op.6.") + layer + ".fseq_sw.p1", layer[0] == 'v' ? vsw : usw);
+            }
+            u.click("pages/voiced");
+            if (u.click("pages/subtabs/tab_all_ops")) {   // the all-operators page's Level dial follows the same rule
+                for (const Case& c : cases) {
+                    u.set("op.6.v.fseq_sw.p1", c.sw);
+                    u.set("fseq.part", c.part);
+                    u.run(2);
+                    CHECK(moves("pages/level_6", "op.6.v.level.p1") == c.live, "pages/level_6 %s with operator 6's Fseq switch %s", c.live ? "does not move" : "moves", c.what);
+                }
+                u.click("opcol/edit");
+            }
+            u.set("op.6.v.fseq_sw.p1", vsw);
+            u.set("fseq.part", fseqPart);
+            u.run(2);
+        }
         CHECK(u.until([&] { return u.data("live.wave.p1.6").size() > 128; }), "the engine drew no wave for operator 6 (\"%s\")",
               u.data("live.wave.p1.6").substr(0, 40).c_str());
         CHECK(u.st->save().find("live.wave") == std::string::npos, "the panel's wave went into the saved session");
