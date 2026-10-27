@@ -131,11 +131,66 @@
   },
   {
    "type": "plate",
+   "name": "filter_caption",
+   "rect": [
+    906,
+    8,
+    50,
+    29
+   ],
+   "layer": 3,
+   "text": {
+    "text": "Filter",
+    "font": "library_row_white_12",
+    "align": "right",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    2,
+    0
+   ]
+  },
+  {
+   "type": "textbox",
+   "name": "filter",
+   "rect": [
+    960,
+    8,
+    250,
+    29
+   ],
+   "layer": 3,
+   "fill": {
+    "colour": "#1e2728ff"
+   },
+   "key": "live.browse.filter",
+   "editable": true,
+   "editOn": "click",
+   "commit": "typing",
+   "clear": true,
+   "text": {
+    "text": "",
+    "font": "library_field_white_12",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    7,
+    0,
+    7,
+    2
+   ],
+   "tip": "Shows only the rows that hold this text in any column: a code such as B028, a name or a category"
+  },
+  {
+   "type": "plate",
    "name": "message",
    "rect": [
-    796,
+    376,
     3,
-    414,
+    524,
     29
    ],
    "text": {
@@ -630,6 +685,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -3828,6 +3884,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -13811,6 +13868,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -14036,6 +14094,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -14410,6 +14469,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -15776,6 +15836,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -15998,6 +16059,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -16944,6 +17006,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -17278,6 +17341,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -18238,6 +18302,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -18460,6 +18525,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -19049,6 +19115,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -19471,6 +19538,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -20473,6 +20541,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -20703,6 +20772,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -21460,6 +21530,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -21610,6 +21681,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -21772,6 +21844,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -22074,6 +22147,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -22789,6 +22863,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -22939,6 +23014,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -23185,6 +23261,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -23375,6 +23452,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -23712,6 +23790,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -24102,6 +24181,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -24740,6 +24820,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -25178,6 +25259,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -25928,6 +26010,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -26214,6 +26297,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -26684,6 +26768,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -26946,6 +27031,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -27367,6 +27453,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -27533,6 +27620,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -28115,6 +28203,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -28385,6 +28474,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -29121,6 +29211,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -29327,6 +29418,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -29685,6 +29777,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -30019,6 +30112,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -30496,6 +30590,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -30870,6 +30965,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -31270,6 +31366,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -31476,6 +31573,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -31771,6 +31869,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -31961,6 +32060,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -32179,6 +32279,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -32931,6 +33032,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -33059,6 +33161,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62
@@ -33185,6 +33288,7 @@
     416
    ],
    "layer": 4,
+   "filter": "{data:live.browse.filter}",
    "columns": [
     {
      "width": 62

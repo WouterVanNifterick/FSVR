@@ -253,6 +253,9 @@ struct Widget {
     std::vector<std::string> mirror;   // params written with every edit of the bound one
     // textbox, plot, list
     bool multiline = false;
+    bool commitTyping = false;   // textbox: "commit": "typing" stores the text at every keystroke, not at Enter
+    bool clear = false;          // textbox: a cross at its right end empties the text
+    std::string filter;          // list: a row shows when this is, in any case, part of one of its cells; {vars} and {data:key} fill in
     uint32_t line = 0xffffffff, line2 = 0xffffffff;
     int drawMode = 0;            // plot: 0 trace, 1 bars, 2 bars and trace, 3 centre bars and trace
     int rowHeight = 0, rowGap = 0, colGap = 0;
@@ -446,6 +449,7 @@ struct Inst {                    // one widget of one shown view
     int lit = -1;                 // widgets with onIf: whether it held at the last look, to repaint when it turns
     int context = -1;             // lists: the row a right-click is for, lit while its menu or modal is open
     std::string caption;          // a caption's "{data:}" text at the last look, to repaint when it changes
+    std::string filter;           // lists: the filter at the last look, to repaint and start from the top when it changes
     std::string text;             // text.text with {vars} resolved
     std::string key, data;        // resolved text data key, and its text (or source value) at the last paint
     bool stored = false;          // whether the key held data at the last paint
@@ -581,6 +585,7 @@ private:
         Text style;
         int pad[4] = {0, 0, 0, 0};
         bool multiline = false;
+        bool live = false;                       // commit at every change, not only when the entry ends
         std::string text;
         size_t caret = 0, anchor = 0;            // byte offsets; the selection runs between them
         std::function<void(const std::string&)> commit;
@@ -734,6 +739,11 @@ private:
     void editCell(const Hit& h, int row, int col);
     void finishEdit(bool commit);
     void editInsert(const std::string& s);
+    void editChanged();                          // the text was typed into: a "typing" entry stores it now
+    bool crossShown(const Node& n, int i) const;       // a textbox with a cross holds text, so it shows the cross
+    bool crossAt(const Node& n, int i, int x) const;   // and x is over it
+    void paintCross(Canvas& c, const Widget& w, Rect r);
+    void clearBox(const Hit& h, int x, int y);         // a press on the cross: the text emptied, the box open for typing
     size_t editIndexAt(int x, int y) const;
     void paintEdit(Canvas& c);
     void restartBlink();
@@ -741,8 +751,12 @@ private:
     struct ListRow {                             // one data row of a list
         std::vector<std::string> cells;
         int cc = -1, param = -1, ccParam = -1;   // midi_map rows: its CC, the param it moves, the param its CC cell shows
+        int src = -1;                            // its place among the list's rows before a filter hid any: the number the rest of the editor knows it by
     };
-    std::vector<ListRow> listModel(const Node& n, int i) const;
+    // The rows shown: all of them, or those the filter keeps; *total, when given, is how many there are unfiltered.
+    std::vector<ListRow> listModel(const Node& n, int i, int* total = nullptr) const;
+    std::string listFilter(const Node& n, int i) const;   // the list's "filter" with its {vars} and {data:} filled in
+    static int placeOf(const std::vector<ListRow>& rows, int src);   // where the row numbered src stands among the rows shown, -1 when the filter hid it
     std::string withData(const Node& n, const std::string& s) const;   // "{data:key|default}" filled in
     std::vector<std::pair<int, double>> listRowParams(const Hit& h, int row) const;
     int listRows(const Node& n, int i) const { return (int)listModel(n, i).size(); }
