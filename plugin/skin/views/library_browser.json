@@ -518,7 +518,7 @@
    ],
    "layer": 5,
    "text": {
-    "text": "|Code",
+    "text": "Code",
     "font": "library_header_white_11"
    },
    "pad": [
@@ -539,7 +539,7 @@
    ],
    "layer": 5,
    "text": {
-    "text": "|Name",
+    "text": "Name",
     "font": "library_header_white_11"
    },
    "pad": [
@@ -560,7 +560,7 @@
    ],
    "layer": 5,
    "text": {
-    "text": "|Category",
+    "text": "Category",
     "font": "library_header_white_11"
    },
    "pad": [
@@ -581,7 +581,7 @@
    ],
    "layer": 5,
    "text": {
-    "text": "|Parts",
+    "text": "Parts",
     "font": "library_header_white_11"
    },
    "pad": [
@@ -606,7 +606,7 @@
    ],
    "layer": 5,
    "text": {
-    "text": "|Channels",
+    "text": "Channels",
     "font": "library_header_white_11"
    },
    "pad": [
