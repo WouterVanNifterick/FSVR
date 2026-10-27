@@ -1031,11 +1031,15 @@ void Gui::paintWidget(Canvas& c, Node& n, int i, Rect r) {
         else drawCaption(c, w.text, numberText(n, i), r, pad, 0, 0, false);
         break;
     }
-    case Kind::Textbox:
+    case Kind::Textbox: {
         drawFill(c, fill, r, 0);
+        int pad[4] = {w.pad[0], w.pad[1], w.pad[2], w.pad[3]};
+        if (w.clear) pad[2] = std::max(pad[2], r.h);   // the text stops short of the cross
         if (editing(n, i)) paintEdit(c);
-        else drawCaption(c, w.text, shownText(n, i), r, w.pad, 0, 0, w.multiline);
+        else drawCaption(c, w.text, shownText(n, i), r, pad, 0, 0, w.multiline);
+        if (crossShown(n, i)) paintCross(c, w, r);
         break;
+    }
     case Kind::Plot: {   // the processor's scope values across the width, or zero data (a trace on the bottom row, no bars)
         drawFill(c, fill, r, 0);
         // the colours read here, where a palette name's {vars} have values ("@op{op}" follows the var)
@@ -1099,10 +1103,25 @@ void Gui::paintWidget(Canvas& c, Node& n, int i, Rect r) {
 
 // ---- lists --------------------------------------------------------------------------------------
 
+// Whether needle, in lower case already, is part of s, whatever the case of its ASCII letters.
+static bool hasText(const std::string& s, const std::string& needle) {
+    auto lower = [](char c) { return c >= 'A' && c <= 'Z' ? char(c + 32) : c; };
+    return std::search(s.begin(), s.end(), needle.begin(), needle.end(), [&](char a, char b) { return lower(a) == b; }) != s.end();
+}
+
+// A list's "filter": its {vars} and {data:key} filled in.
+std::string Gui::listFilter(const Node& n, int i) const {
+    const Widget& w = n.view->widgets[i];
+    return w.filter.empty() ? std::string() : withData(n, subst(n, w.filter));
+}
+
 // Rows of a list: a midi_map list's assignments ("cc | param name"), then its fixed rows unless
 // already listed (a param with its CC or -1, a label whose CC cell is an internal param), then its
-// static rows, leaving out one that names a param already listed.
-std::vector<Gui::ListRow> Gui::listModel(const Node& n, int i) const {
+// static rows, leaving out one that names a param already listed, then a row for each line of its
+// data. Of those, with a filter, the rows with the filter in one of their cells. Each row carries its
+// number before the filter (src), which is how the rest of the editor knows it: the selected row, the
+// row a right-click is for and what a click sets all stay the same while the filter comes and goes.
+std::vector<Gui::ListRow> Gui::listModel(const Node& n, int i, int* total) const {
     const Widget& w = n.view->widgets[i];
     std::vector<ListRow> rows;
     std::vector<std::string> names;
@@ -1155,6 +1174,14 @@ std::vector<Gui::ListRow> Gui::listModel(const Node& n, int i) const {
             p = e + 1;
         }
     }
+    for (size_t k = 0; k < rows.size(); ++k) rows[k].src = (int)k;
+    if (total) *total = (int)rows.size();
+    std::string filter = listFilter(n, i);
+    if (filter.empty()) return rows;
+    for (auto& c : filter) c = c >= 'A' && c <= 'Z' ? char(c + 32) : c;
+    rows.erase(std::remove_if(rows.begin(), rows.end(),
+                              [&](const ListRow& r) { return std::none_of(r.cells.begin(), r.cells.end(), [&](const std::string& c) { return hasText(c, filter); }); }),
+               rows.end());
     return rows;
 }
 
@@ -1198,19 +1225,27 @@ std::vector<std::pair<int, double>> Gui::listRowParams(const Hit& h, int row) co
     return v;
 }
 
+int Gui::placeOf(const std::vector<ListRow>& rows, int src) {
+    auto at = std::lower_bound(rows.begin(), rows.end(), src, [](const ListRow& r, int s) { return r.src < s; });
+    return at != rows.end() && at->src == src ? (int)(at - rows.begin()) : -1;
+}
+
 // Rows from the top, each rowHeight tall and rowGap apart over gapFill, down to the bottom even
 // past the data; cells from the left, colGap apart, in the row text style inset by the widget's pad.
+// The rows are those the filter keeps, but the selected row is still the one it was, shown or not.
 void Gui::paintList(Canvas& c, Node& n, int i, Rect r) {
     const Widget& w = n.view->widgets[i];
     const Inst& s = n.w[i];
     Rect content = r;
     content.w -= bar(n, i).w;
-    auto model = listModel(n, i);
+    int total = 0;
+    auto model = listModel(n, i, &total);
     int pitch = std::max(1, w.rowHeight + w.rowGap), rows = (int)model.size(), sel = s.context >= 0 ? s.context : s.row;
+    n.w[i].scroll = std::clamp(s.scroll, 0, std::max(0, rows * pitch - r.h));   // fewer rows than it was scrolled for
     if (s.param >= 0 && s.context < 0) {   // a bound list shows the first row whose params all hold what it sets
         Hit h{&n, i, gen_};
         sel = -1;
-        for (int k = 0; k < rows && sel < 0; ++k) {
+        for (int k = 0; k < total && sel < 0; ++k) {
             bool held = true;
             for (auto& pv : listRowParams(h, k)) held = held && pv.first >= 0 && state_.get(pv.first) == pv.second;
             if (held) sel = k;
@@ -1218,9 +1253,9 @@ void Gui::paintList(Canvas& c, Node& n, int i, Rect r) {
         if (sel != s.revealed) {   // a selection that moved (a load, the host, another list) scrolls into view, once
             Inst& m = n.w[i];
             m.revealed = sel;
-            int top = sel * pitch;
-            if (sel >= 0 && (top < m.scroll || top + w.rowHeight > m.scroll + content.h))
-                m.scroll = std::clamp(top - (content.h - w.rowHeight) / 2, 0, std::max(0, contentHeight(n, i) - r.h));
+            int at = placeOf(model, sel), top = at * pitch;   // no place while the filter hides it: nothing to scroll to
+            if (at >= 0 && (top < m.scroll || top + w.rowHeight > m.scroll + content.h))
+                m.scroll = std::clamp(top - (content.h - w.rowHeight) / 2, 0, std::max(0, rows * pitch - r.h));
         }
     }
     Rect saved = c.clip;
@@ -1230,7 +1265,8 @@ void Gui::paintList(Canvas& c, Node& n, int i, Rect r) {
         int y = content.y + k * pitch - s.scroll;
         if (y >= content.y + content.h) break;
         Rect row{content.x, y, content.w, w.rowHeight};
-        if (k == sel && k < rows && w.hasSelectFill) fillRect(c, row, w.selectFill);
+        const bool lit = k < rows && model[(size_t)k].src == sel;
+        if (lit && w.hasSelectFill) fillRect(c, row, w.selectFill);
         else if (w.hasRowFill) fillRect(c, row, w.rowFill);
         if (k >= rows || w.row.font < 0) continue;
         const auto& cells = model[(size_t)k].cells;
@@ -1240,12 +1276,12 @@ void Gui::paintList(Canvas& c, Node& n, int i, Rect r) {
             if (col < w.columns.size() && w.columns[col].image >= 0) {   // an icon: tile 1 on the selected row when there is one
                 const Image& img = skin_->images[w.columns[col].image];
                 Rect t = img.tile(0);
-                int tile = w.columns[col].tileCell ? std::atoi(cells[col].c_str()) : k == sel && img.tiles > 1 ? 1 : 0;
+                int tile = w.columns[col].tileCell ? std::atoi(cells[col].c_str()) : lit && img.tiles > 1 ? 1 : 0;
                 if (!cells[col].empty()) drawImage(c, img, tile, {x + (cw - t.w) / 2, y + (w.rowHeight - t.h) / 2, t.w, t.h});
                 x += cw + w.colGap;
                 continue;
             }
-            Text style = k == sel && w.selectRow.font >= 0 ? w.selectRow : w.row;
+            Text style = lit && w.selectRow.font >= 0 ? w.selectRow : w.row;
             if (col < w.columns.size()) style.align = w.columns[col].align;
             drawCaption(c, style, cells[col], {x, y, cw, w.rowHeight}, w.pad, 0, 0, false);
             x += cw + w.colGap;
@@ -1284,16 +1320,17 @@ void Gui::listDown(const Hit& h, int x, int y, bool dbl) {
 // default); "reset" drops them all and restores the skin's default assignments.
 void Gui::listAction(const Hit& h, const Action& a) {
     Inst& s = inst(h);
-    auto model = listModel(*h.node, h.i);
+    int total = 0;
+    auto model = listModel(*h.node, h.i, &total);
     if (a.target == "reset") {
         for (auto& cp : state_.midiMap()) state_.assign(cp.first, -1);
         applyLearnDefaults(state_, *skin_);
-    } else if (a.target == "remove" && s.row >= 0 && s.row < (int)model.size()) {
-        const ListRow& r = model[(size_t)s.row];
+    } else if (a.target == "remove" && s.row >= 0 && placeOf(model, s.row) >= 0) {
+        const ListRow& r = model[(size_t)placeOf(model, s.row)];
         if (r.cc >= 0) state_.assign(r.cc, -1);
         else if (r.ccParam >= 0) setParam(r.ccParam, state_.def(r.ccParam).def);
     }
-    s.row = std::min(s.row, listRows(*h.node, h.i) - 1);
+    s.row = std::min(s.row, total - 1);
     invalidate(rectOf(*h.node, h.i));
 }
 
@@ -1681,6 +1718,10 @@ void Gui::mouseDown(int x, int y, bool right, bool dbl, bool shift) {
         break;
     case Kind::Textbox:
         if (!w.editable || w.key.empty()) break;
+        if (crossAt(*h.node, h.i, x)) {
+            clearBox(h, x, y);
+            break;
+        }
         if (w.editOnClick) {
             startEdit(h, true, x, y);
             editDrag_ = true;
@@ -1833,11 +1874,12 @@ void Gui::rightUp(int x, int y, bool shift) {
     const Widget& w = wid(h);
     if (w.kind == Kind::Custom && w.ops && w.ops->right) w.ops->right(*this, h, rectOf(*h.node, h.i), x, y, shift, true);
     else if (w.kind == Kind::List && w.json.has("contextRow")) {   // the row it is for, as text data, then its menu
-        int row = listRowAt(h, y);
+        int row = listRowAt(h, y);   // its number before any filter hid rows, which is how the processor counts them
         // The model is built again here, and the processor may have shortened the list since the rows were counted.
         const auto model = listModel(*h.node, h.i);
-        if (row < 0 || (size_t)row >= model.size()) return;
-        const std::vector<std::string> cells = model[(size_t)row].cells;
+        const int at = placeOf(model, row);
+        if (row < 0 || at < 0) return;
+        const std::vector<std::string> cells = model[(size_t)at].cells;
         std::string v = std::to_string(row);
         for (auto& c : cells) v += "\t" + c;
         state_.setData(subst(*h.node, w.json["contextRow"].str()), v);
@@ -1870,10 +1912,13 @@ void Gui::unlight(Node& n) {
     }
 }
 
+// The number of the row under y (see ListRow::src), -1 between rows and past the last.
 int Gui::listRowAt(const Hit& h, int y) const {
     const Widget& w = wid(h);
-    int pitch = std::max(1, w.rowHeight + w.rowGap), at = y - rectOf(*h.node, h.i).y + inst(h).scroll, row = at / pitch;
-    return at >= 0 && row < listRows(*h.node, h.i) && at % pitch < w.rowHeight ? row : -1;
+    int pitch = std::max(1, w.rowHeight + w.rowGap), at = y - rectOf(*h.node, h.i).y + inst(h).scroll, place = at / pitch;
+    if (at < 0 || at % pitch >= w.rowHeight) return -1;
+    const auto model = listModel(*h.node, h.i);
+    return place < (int)model.size() ? model[(size_t)place].src : -1;
 }
 
 void Gui::mouseLeave() {
@@ -2154,6 +2199,7 @@ bool Gui::keyDown(Key k, bool shift, bool ctrl, bool alt, unsigned ch, bool from
         e.text.erase(lo, hi - lo);
         e.caret = e.anchor = lo;
         move = false;
+        editChanged();
         break;
     case KeyNone:
         // A printable key: nothing to do with the key itself, since the character it types is the whole of
@@ -2184,8 +2230,47 @@ void Gui::editInsert(const std::string& s) {
     size_t lo = std::min(edit_.anchor, edit_.caret), hi = std::max(edit_.anchor, edit_.caret);
     edit_.text.replace(lo, hi - lo, s);
     edit_.caret = edit_.anchor = lo + s.size();
+    editChanged();
     restartBlink();
     invalidate(edit_.r);
+}
+
+// The text was typed into: an entry that stores as it goes ("commit": "typing") does so now.
+void Gui::editChanged() {
+    if (edit_.live && edit_.commit) edit_.commit(edit_.text);
+}
+
+// A textbox's cross (its "clear"): a square as wide as the box is tall at its right end, there while it
+// holds text.
+bool Gui::crossShown(const Node& n, int i) const {
+    const Widget& w = n.view->widgets[i];
+    const Inst& s = n.w[i];
+    if (w.kind != Kind::Textbox || !w.clear) return false;
+    if (editing(n, i)) return !edit_.text.empty();
+    return !((!s.key.empty() && state_.hasData(s.key)) ? state_.data(s.key) : s.text).empty();
+}
+
+bool Gui::crossAt(const Node& n, int i, int x) const {
+    Rect r = rectOf(n, i);
+    return crossShown(n, i) && x >= r.x + r.w - r.h && x < r.x + r.w;
+}
+
+void Gui::paintCross(Canvas& c, const Widget& w, Rect r) {
+    if (w.text.font < 0) return;
+    const uint32_t col = skin_->fonts[w.text.font].colour;
+    const double cx = r.x + r.w - r.h / 2.0, cy = r.y + r.h / 2.0, d = std::max(2.0, r.h / 7.0), lw = skin_->lw();
+    drawPolyline(c, {{cx - d, cy - d}, {cx + d, cy + d}}, col, lw);
+    drawPolyline(c, {{cx - d, cy + d}, {cx + d, cy - d}}, col, lw);
+}
+
+void Gui::clearBox(const Hit& h, int x, int y) {
+    if (!editing(*h.node, h.i)) startEdit(h, false, x, y);
+    if (!editing(*h.node, h.i)) return;   // no font to type with
+    edit_.text.clear();
+    edit_.caret = edit_.anchor = 0;
+    if (edit_.commit) edit_.commit(edit_.text);
+    restartBlink();
+    invalidate(rectOf(*h.node, h.i));
 }
 
 void Gui::restartBlink() {
@@ -2207,6 +2292,10 @@ void Gui::startEdit(const Hit& h, bool atClick, int x, int y) {
     e.r = rectOf(*h.node, h.i);
     e.style = w.text;
     std::copy(w.pad, w.pad + 4, e.pad);
+    if (w.kind == Kind::Textbox && w.clear) {   // the field ends where the cross begins, so a press on the cross places no caret
+        e.r.w -= e.r.h;
+        e.pad[2] = std::max(0, e.pad[2] - e.r.h);
+    }
     if (w.kind == Kind::Number) {
         e.text = numberText(*h.node, h.i);
         e.anchor = e.text.size();
@@ -2223,6 +2312,7 @@ void Gui::startEdit(const Hit& h, bool atClick, int x, int y) {
     } else {
         const std::string& key = inst(h).key;
         e.multiline = w.multiline;
+        e.live = w.commitTyping;
         e.text = state_.hasData(key) ? state_.data(key) : inst(h).text;
         if (w.multiline)
             for (size_t p; (p = e.text.find("\\n")) != std::string::npos;) e.text.replace(p, 2, "\n");
@@ -2243,8 +2333,9 @@ void Gui::startEdit(const Hit& h, bool atClick, int x, int y) {
 void Gui::editCell(const Hit& h, int row, int col) {
     const Widget& w = wid(h);
     auto model = listModel(*h.node, h.i);
-    if (w.row.font < 0 || row >= (int)model.size()) return;
-    const ListRow r = model[(size_t)row];
+    const int place = placeOf(model, row);   // row is its number before any filter; it is drawn at its place among those shown
+    if (w.row.font < 0 || place < 0) return;
+    const ListRow r = model[(size_t)place];
     if (r.param < 0 && r.ccParam < 0) return;
     Rect wr = rectOf(*h.node, h.i);
     int pitch = std::max(1, w.rowHeight + w.rowGap), x = wr.x;
@@ -2252,7 +2343,7 @@ void Gui::editCell(const Hit& h, int row, int col) {
     Edit& e = edit_;
     e = Edit();
     e.h = h;
-    e.r = {x, wr.y + row * pitch - inst(h).scroll, w.columns[col].width, w.rowHeight};
+    e.r = {x, wr.y + place * pitch - inst(h).scroll, w.columns[col].width, w.rowHeight};
     e.style = w.row;
     e.style.align = w.columns[col].align;
     std::copy(w.pad, w.pad + 4, e.pad);
@@ -2783,6 +2874,10 @@ void Gui::checkValues(Node& n) {
         if (w.kind == Kind::List && w.json["dataRows"].has("key")) {   // a list follows the text data its rows come from
             std::string d = state_.data(subst(n, w.json["dataRows"]["key"].str()));
             if (d != s.data) { s.data = d; changed = true; }
+        }
+        if (w.kind == Kind::List && !w.filter.empty()) {   // a list follows its filter, and starts again from the top when it changes
+            std::string f = listFilter(n, (int)i);
+            if (f != s.filter) { s.filter = f; s.scroll = 0; s.revealed = -2; changed = true; }
         }
         if (w.source == Widget::MidiMap) {   // the list follows the assignments and its CC params
             std::string sig;

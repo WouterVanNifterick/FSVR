@@ -867,6 +867,9 @@ struct Loader {
         w.zeroText = j["zeroText"].str();
         w.format = j["format"].str();
         w.multiline = j["multiline"].flag();
+        w.commitTyping = j["commit"].str() == "typing";
+        w.clear = j["clear"].flag();
+        w.filter = j["filter"].str();
         w.line = colour(j["line"].str(), 0xffffffff);
         w.line2 = colour(j["line2"].str(), w.line);
         static const std::map<std::string, int> draws = {{"trace", 0}, {"bars", 1}, {"bars_trace", 2}, {"centre_bars", 3}};
