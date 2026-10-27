@@ -45,7 +45,8 @@ std::vector<uint8_t> bulk(int ah, int am, int al, const uint8_t* data, size_t si
 
 extern const char* const kCategories[23];   // the Data List's names, "--" first
 
-// The user library: <Documents>/FSVR/Library (FSVR_LIBRARY overrides it), its .syx files by name.
+// The user library: <Documents>/FSVR/Library (FSVR_LIBRARY overrides it), its .syx files by name (and .fs1,
+// which other editors write: one performance and its four voices, sysex as a .syx is).
 class Library {
 public:
     Library();
@@ -63,6 +64,11 @@ public:
     // Copies a .syx into the folder as a new bank named after the file ("Name", "Name 2" ...) and rescans.
     // The new bank's index, or -1 (err says why).
     int import(const std::string& path, std::string& err);
+    // Several files as one new bank, named after their folder, each performance keeping the voices and Fseq
+    // that came with it. A file holding internal memory (a unit's dump, whose performances name their voices
+    // by number) is a bank of its own, as import() makes it, since its numbers would meet another file's.
+    // The new banks' indexes, the shared one first; err says what could not be read.
+    std::vector<int> importAll(const std::vector<std::string>& paths, std::string& err);
     // Writes bytes as a new bank called name (made unique the same way); its index, or -1.
     int add(const std::string& name, const std::vector<uint8_t>& bytes, std::string& err);
     int bankOf(const std::string& path) const;

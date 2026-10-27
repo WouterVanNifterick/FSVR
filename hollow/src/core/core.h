@@ -130,6 +130,7 @@ struct Action {
     int count = 0;               // Sequence: steps
     std::string title;           // File: the dialog's title (target: open / save, key: the text data key, nameKey:
                                  // a save's file name, vars: file types, name to extensions)
+    bool multiple = false;       // File: an open takes several files, their paths one per line
 };
 // skin.json "keys": a chord and what it does. `ch` is the physical key as an uppercase ASCII letter,
 // a digit, or '-', '=' (the + key too) or '.', 0 when the chord names one of the Key commands instead.
@@ -342,6 +343,10 @@ public:
     std::string settingsView;                      // skin.json "standalone": its audio and MIDI settings as a modal
     int icon = -1;                                 // and the app window's icon, where the platform sets one (Linux)
     std::vector<Binding> keys;                     // skin.json "keys": keyboard shortcuts, in the order given
+    // skin.json "drop": a file dropped on the window goes to the text data key of the first rule naming its
+    // extension (lower case, no dot), as a File action's chosen path does. None: the window takes no drops.
+    struct DropRule { std::vector<std::string> types; std::string key; };
+    std::vector<DropRule> drops;
     // skin.json "steppers": a number drawn on one of these plates gets a down button at its left end and an
     // up button at its right, each `width` px wide; the images are two tiles, at rest and held.
     struct Stepper { int down = -1, up = -1, width = 0; };
@@ -425,8 +430,9 @@ unsigned platformKeyChar(unsigned codepoint, bool* shift);
 // The standalone's window asks Gui::closeRequested before it closes; platformCloseApp closes it without asking.
 void platformWatchClose(PlatformWindow* w);
 void platformCloseApp(PlatformWindow* w);
-// A native open or save dialog; types: (name, "ext;ext"). False when cancelled; path in UTF-8.
-bool platformFileDialog(PlatformWindow* w, bool save, const std::string& title, const Vars& types, const std::string& name, std::string& path);
+// A native open or save dialog; types: (name, "ext;ext"). False when cancelled; path in UTF-8, and with
+// multiple (an open) each chosen file's on a line of its own.
+bool platformFileDialog(PlatformWindow* w, bool save, bool multiple, const std::string& title, const Vars& types, const std::string& name, std::string& path);
 
 // ---- the GUI: one shown view tree, its input handling and painting --------------------------------
 
@@ -534,6 +540,11 @@ public:
     bool closeRequested();                       // the standalone's window is closing: false when a modal asks first
     void dismiss();                              // closes the modal, as Escape would: a popup's window closing
     void closePopup();                           // a modal's own window goes (the editor's window is closing)
+    // Files dragged over the window (skin.json "drop"): whether a path would be taken, which the platform
+    // shows as the drag's cursor, and the drop itself, each rule's key getting the paths it takes, one a
+    // line. Nothing is taken while a modal is open. False when nothing was.
+    bool dropAccepts(const std::string& path) const;
+    bool drop(const std::vector<std::string>& paths);
     // For tests that drive the GUI without a window (tools/check_gui.cpp).
     bool widgetRect(const std::string& path, Rect& r);   // a visible widget's rect, by embed path and name
     std::string tipOf(const std::string& path);           // the tooltip it would show, its shortcut included

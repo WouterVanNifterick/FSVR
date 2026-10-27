@@ -250,7 +250,8 @@ bool Library::rescan(bool force) {
     std::error_code ec;
     error.clear();
     for (fs::directory_iterator it(fs::u8path(dir), ec), end; !ec && it != end; it.increment(ec)) {
-        if (!it->is_regular_file(ec) || lower(it->path().extension().u8string()) != ".syx") continue;
+        const std::string ext = lower(it->path().extension().u8string());
+        if (!it->is_regular_file(ec) || (ext != ".syx" && ext != ".fs1")) continue;   // an .fs1 is a performance and its four voices
         files.push_back(it->path());
     }
     if (ec && ec != std::errc::no_such_file_or_directory) error = unreadable(dir, ec);   // no folder yet is an empty library
@@ -326,6 +327,68 @@ int Library::import(const std::string& path, std::string& err) {
         return -1;
     }
     return add(fs::u8path(path).stem().u8string(), bytes, err);
+}
+
+// Whether a file's performances find their voices and Fseqs in any bank it shares: no bulk dumped from a
+// numbered internal memory, and every part naming an Int voice (bank byte 1), and an Int Fseq, plays the one
+// that came right after its performance rather than one found by number.
+static bool selfContained(const Bank& b) {
+    auto numbered = [](const std::vector<Item>& v) { return std::any_of(v.begin(), v.end(), [](const Item& it) { return it.number >= 0; }); };
+    if (numbered(b.perfs) || numbered(b.voices) || numbered(b.fseqs)) return false;
+    for (auto& perf : b.perfs) {
+        const uint8_t* d = perf.data();
+        for (int p = 0; p < 4; ++p)
+            if (d[192 + 52 * p + 1] == 1 && perf.partVoice[p] < 0) return false;
+        if ((d[0x15] & 7) != 0 && !(d[0x16] & 1) && perf.fseq < 0) return false;
+    }
+    return true;
+}
+
+// A shared bank holds its files' items in the order parseSyx binds them again: every voice and Fseq no
+// performance claims first, then each performance with the voices and Fseq it claims right after it. Left
+// where it was, a loose voice after another file's performance would join that performance.
+std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::string& err) {
+    std::vector<std::string> made;   // the files written, the shared bank's first
+    std::vector<uint8_t> loose, claimed;
+    std::string folder;
+    auto fail = [&](const std::string& why) { err += (err.empty() ? "" : "; ") + why; };
+    auto write = [&](const std::string& name, const std::vector<uint8_t>& bytes, bool first) {
+        std::string e;
+        const int k = add(name, bytes, e);
+        if (k < 0) fail(e);
+        else made.insert(first ? made.begin() : made.end(), banks[(size_t)k].path);
+    };
+    for (auto& path : paths) {
+        std::vector<uint8_t> bytes;
+        if (!readFile(path, bytes)) { fail("cannot read " + path); continue; }
+        const Bank b = parseSyx(bytes, "");
+        const fs::path p = fs::u8path(path);
+        if (b.empty()) { fail("no performances, voices or Fseqs in " + path); continue; }
+        if (!selfContained(b)) { write(p.stem().u8string(), bytes, false); continue; }
+        if (folder.empty()) folder = p.parent_path().filename().u8string();
+        std::vector<bool> voiceClaimed(b.voices.size()), fseqClaimed(b.fseqs.size());
+        for (auto& perf : b.perfs) {
+            for (int v : perf.partVoice)
+                if (v >= 0) voiceClaimed[(size_t)v] = true;
+            if (perf.fseq >= 0) fseqClaimed[(size_t)perf.fseq] = true;
+        }
+        for (size_t i = 0; i < b.voices.size(); ++i)
+            if (!voiceClaimed[i]) loose.insert(loose.end(), b.voices[i].syx.begin(), b.voices[i].syx.end());
+        for (size_t i = 0; i < b.fseqs.size(); ++i)
+            if (!fseqClaimed[i]) loose.insert(loose.end(), b.fseqs[i].syx.begin(), b.fseqs[i].syx.end());
+        for (auto& perf : b.perfs) {
+            claimed.insert(claimed.end(), perf.syx.begin(), perf.syx.end());
+            for (int v : perf.partVoice)
+                if (v >= 0) claimed.insert(claimed.end(), b.voices[(size_t)v].syx.begin(), b.voices[(size_t)v].syx.end());
+            if (perf.fseq >= 0) claimed.insert(claimed.end(), b.fseqs[(size_t)perf.fseq].syx.begin(), b.fseqs[(size_t)perf.fseq].syx.end());
+        }
+    }
+    loose.insert(loose.end(), claimed.begin(), claimed.end());
+    if (!loose.empty()) write(folder.empty() ? "Imported" : folder, loose, true);
+    std::vector<int> out;   // each add() rescanned, so the indexes are read once all are written
+    for (auto& path : made)
+        if (const int k = bankOf(path); k >= 0) out.push_back(k);
+    return out;
 }
 
 bool Library::splice(int bank, std::vector<Splice> edits, std::string& err) {

@@ -746,6 +746,7 @@ struct Loader {
             r.key = a["key"].str();
             r.nameKey = a["name"].str();
             r.title = a["title"].str();
+            r.multiple = a["multiple"].flag();
             for (auto& m : a["types"].members) r.vars.push_back({m.first, m.second.str()});
         }
         else if (a.has("step")) { r.type = Action::Step; r.amount = a["step"].num(); }
@@ -1097,6 +1098,20 @@ std::shared_ptr<Skin> loadFiles(std::shared_ptr<const Files> all, std::string* e
         if (!Loader::chord(kj["chord"].str(), b)) continue;   // an unreadable chord is dropped, not fatal
         b.action = Loader::action(kj);
         if (b.action.type != Action::None) skin->keys.push_back(std::move(b));
+    }
+    for (auto& dj : sj["drop"].items) {   // "drop": [ { "types": "syx;fs1", "key": "sysex.import" }, ... ]
+        Skin::DropRule r;
+        r.key = dj["key"].str();
+        const std::string t = dj["types"].str();
+        for (size_t a = 0; a <= t.size();) {
+            size_t b = t.find(';', a);
+            std::string e = t.substr(a, b == std::string::npos ? std::string::npos : b - a);
+            for (char& c : e) c = (char)std::tolower((unsigned char)c);
+            if (!e.empty()) r.types.push_back(e);
+            if (b == std::string::npos) break;
+            a = b + 1;
+        }
+        if (!r.key.empty() && !r.types.empty()) skin->drops.push_back(std::move(r));
     }
     if (auto root = skin->views.find(skin->root); root != skin->views.end()) {
         View& v = root->second;

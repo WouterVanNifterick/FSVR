@@ -1331,17 +1331,28 @@ private:
     }
 
     // Import SysEx: the file becomes a bank of the library, named after it, and what it holds first loads
-    // (its first performance, else its first voice into the selected part, else its first Fseq).
-    void importSyx(const std::string& path, bool fseqFirst) {
+    // (its first performance, else its first voice into the selected part, else its first Fseq). Several
+    // files, one path a line (a drop, or the dialog's several), share one bank, named after their folder.
+    void importSyx(const std::string& list, bool fseqFirst) {
+        std::vector<std::string> paths;
+        for (size_t a = 0; a < list.size();) {
+            const size_t e = std::min(list.find('\n', a), list.size());
+            if (e > a) paths.push_back(list.substr(a, e - a));
+            a = e + 1;
+        }
         std::string err;
         std::lock_guard<std::mutex> g(ctl);
-        const int k = lib.import(path, err);
-        if (k < 0) { message(err); return; }
+        const std::vector<int> made = paths.size() == 1 ? std::vector<int>{lib.import(paths[0], err)} : lib.importAll(paths, err);
+        if (made.empty() || made[0] < 0) { message(err); return; }
+        const int k = made[0];
         const Bank& b = lib.banks[(size_t)k];
         put(browseBank, k + 1);
         writeLists();
+        std::string more;
+        if (made.size() > 1) more = ", and " + std::to_string(made.size() - 1) + " more as banks of their own";   // unit dumps
+        if (!err.empty()) more += " (" + err + ")";
         message("Imported \"" + b.name + "\": " + std::to_string(b.perfs.size()) + " performances, " + std::to_string(b.voices.size()) +
-                " voices, " + std::to_string(b.fseqs.size()) + " Fseqs");
+                " voices, " + std::to_string(b.fseqs.size()) + " Fseqs" + more);
         if (!b.fseqs.empty() && (fseqFirst || (b.perfs.empty() && b.voices.empty()))) {
             const int n = lib.number(lib.fseqs, k, 0);
             putUser(fseqUser, userFseq, n);

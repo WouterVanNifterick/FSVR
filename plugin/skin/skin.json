@@ -898,6 +898,9 @@
   "settings": "options_audio",
   "icon": "app_icon"
  },
+ "drop": [
+  {"types": "syx;fs1", "key": "sysex.import"}
+ ],
  "keys": [
   {
    "chord": "alt+1",

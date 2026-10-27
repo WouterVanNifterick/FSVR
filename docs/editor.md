@@ -276,7 +276,7 @@ The skin asks through params and the instance's text data; the processor (`plugi
 
 | Key or param | Kind | Written by | Meaning |
 |---|---|---|---|
-| `sysex.import`, `fseq.import` | text data | GUI | A .syx to import as a bank (the Import menu; the Fseq bank's Import) |
+| `sysex.import`, `fseq.import` | text data | GUI | A .syx or .fs1 to import as a bank (the Import menu, a file dropped on the window; the Fseq bank's Import); several, one a line, share a bank |
 | `sysex.export`, `fseq.export` | text data | GUI | Where to write the unit, the Fseq |
 | `fsvr.export`, `fsvr.import` | text data | GUI | A .fsvr preset to write, or to load and save |
 | `save.open`, `save.request`, `save.then_close` | text data | GUI | Save to Bank opened (the processor fills it in), confirmed, and whether the standalone closes after it |
