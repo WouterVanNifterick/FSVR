@@ -60,7 +60,7 @@ int main() {
         double lr[2]; e->run(bus, lr[0], lr[1]); eat(lr, sizeof lr);
       } } }
   const uint64_t effects = h;
-  const bool ok = filter == 0x0d3a65cd60d920adull && effects == 0xc382b50e6a7adbc9ull;
+  const bool ok = filter == 0x5bbe9c1beb596632ull && effects == 0xc382b50e6a7adbc9ull;
   std::printf("filter %016llx, effects %016llx: %s\n", (unsigned long long)filter, (unsigned long long)effects, ok ? "ok" : "CHANGED");
   return ok ? 0 : 1;
 }

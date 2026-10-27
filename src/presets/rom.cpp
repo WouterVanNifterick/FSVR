@@ -33,9 +33,12 @@ void perf_from_bytes(Synth& S, const Rom* R, const uint8_t* d) {
     // editor or the MIDI in left notes sounding, and they carried on through the new performance's voices.
     // No FUN_ for it yet: this is the unit's behaviour as reported, not read off the disassembly.
     S.all_off();
+    // FUN_0000f2f0 puts every part's last pitch (0x0102885C) at 0x53AA, so a part with portamento in full-time
+    // mode glides its first note in from that word. MEASURED 2026-10-26 (FS1R.unlock 2026-10-26-open, takes 9 and
+    // 11): Teck Hook's part 1 struck on a fresh load starts near 179 Hz and settles on 129.6 by 100 ms.
     memcpy(P.c, d, 80); memcpy(P.fx, d + 80, 112);
     for (int i = 0; i < 4; i++) {
-        Part& pt = P.part[i]; memcpy(pt.p, d + 192 + 52 * i, 52); pt.fill_ctl_base(); pt.nheld = 0; pt.lastPitch = -1; pt.reset_ctl();
+        Part& pt = P.part[i]; memcpy(pt.p, d + 192 + 52 * i, 52); pt.fill_ctl_base(); pt.nheld = 0; pt.lastPitch = 0x53AA; pt.reset_ctl();
         if (R && R->ok && pt.p[1]) rom_voice(*R, bank_voice_index(pt.p[1], pt.p[2]), pt.voice);
     }
     memcpy(P.name, P.c, 12); P.name[12] = 0;
@@ -149,8 +152,15 @@ bool write_param(Synth& S, int ah, int am, int al, int val) {
         if (was != v) S.part_written(ah - 0x30, al, was);
         return true;
     }
-    if (ah >= 0x40 && ah <= 0x43 && am == 0 && al < 112) { Voice& V = S.perf.part[ah - 0x40].voice; V.raw[al] = v; decode_voice(V); S.voice_changed(ah - 0x40); return true; }
-    if (ah >= 0x60 && ah <= 0x63 && am < 8 && al < 62) { Voice& V = S.perf.part[ah - 0x60].voice; V.raw[112 + am * 62 + al] = v; decode_voice(V); S.voice_changed(ah - 0x60); return true; }
+    if (ah >= 0x40 && ah <= 0x43 && am == 0 && al < 112) {
+        Voice& V = S.perf.part[ah - 0x40].voice; const int edited = V.corrEdit, was = V.raw[al];
+        V.raw[al] = v; decode_voice(V);
+        // An algorithm change rebuilds the words with the carrier test; an OP Att edit skips it (Voice::corrEdit).
+        // MEASURED (FS1R.unlock 2026-10-26-open, takes 2 and 5): writing the algorithm it already has keeps the edit.
+        V.corrEdit = al == 0x2C && v != was ? 0 : al >= 0x2D && al <= 0x34 ? edited | 1 << (al - 0x2D) : edited;
+        S.voice_changed(ah - 0x40); return true;
+    }
+    if (ah >= 0x60 && ah <= 0x63 && am < 8 && al < 62) { Voice& V = S.perf.part[ah - 0x60].voice; const int edited = V.corrEdit; V.raw[112 + am * 62 + al] = v; decode_voice(V); V.corrEdit = edited; S.voice_changed(ah - 0x60); return true; }
     if (ah == 0x70 && am == 0 && al < 32) {                       // Fseq header
         uint8_t h[32] = {}; std::vector<uint8_t> cur; S.fseq_bytes(cur);
         if (cur.size() >= 32) memcpy(h, cur.data(), 32);

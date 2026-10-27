@@ -9,7 +9,7 @@ void refresh_ctl(Chan& C, const Voice& V, bool fs) {
     for (int o = 0; o < 8; o++) {
         OpState& s = C.op[o]; const OpV& v = V.v[o]; const OpU& u = V.u[o];
         s.att = C.regLevel[o] * LEVEL_DB + am_att(C.regAM, v.ams);
-        if (alg[2 * o + 1] & 1) s.att += cal::CARRIER_DB * V.corr[o];         // carrier level correction (bits in the 0x200 word), 1.5 dB steps INFERRED
+        if ((alg[2 * o + 1] & 1) || (V.corrEdit >> o & 1)) s.att += cal::CARRIER_DB * V.corr[o];   // carrier level correction (the 0x200 word), on a modulator after an edit
         // Ours, and bit-identical: an operator whose EG is over, with no grain in flight and no level
         // boost that could lift it back over the -100 dB gate before the next refresh, never reads its
         // frequency maths again. The carrier correction can reach -22.5 dB, hence the -20 dB bound on
@@ -157,7 +157,7 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
             // The EG moves the word, so the phase generator takes the moved word every sample of the ramp.
             if (s.feg.stage < 2) { inc = op_increment(s.word + s.feg.tick() * (1024.0 / 12.0)); fop = op_hz(inc); }
             y = op_sample(s, v, s.fw, fop, inc, s.ratio, in * FM_INDEX, gain, C.phOff[o]);
-        }
+        } else s.phase += op_inc32(s.inc);   // a silent operator's phase generator runs on (Synth::note_on)
         // A read leaves the sum bus as it is; t1 bit 1 starts it over, after this operator's read and
         // before its add. INFERRED from the table, not measured: the bit is set wherever a second sum
         // starts and never over an add no operator has read yet, and so 65 and 80 fan out to every

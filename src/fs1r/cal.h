@@ -63,7 +63,10 @@ static const double EG_LEVEL_DB  = 1.5;     // dB per step of the 6-bit EG level
 // (FUN_00012E2C, FUN_00012FCC) with no case of its own, so this is the chip's.
 static const double OP_CUT_DB    = 236.5 * LEVEL_DB;
 static const double NOISE_CUT_DB = 251.5 * LEVEL_DB;
-static const double CARRIER_DB   = 1.5;     // dB per step of the carrier level correction (voice 0x2D-0x34)
+// dB per step of the carrier level correction (voice 0x2D-0x34). MEASURED 2026-10-26 (FS1R.unlock 2026-10-26-open):
+// corrections 4 and 8 take a carrier 6.03 and 12.05 dB down, 1.506 a step; on a modulator after an edit
+// the same steps lower its index as an output level would.
+static const double CARRIER_DB   = 1.5;
 static const double FEEDBACK     = 0.53;    // feedback gain = FEEDBACK * 2^(fb - 7). MEASURED: 03_fm_2 feedback-1..6, the
                                             // second harmonic sat a steady 0.5 dB under the unit at 0.5
 static const double EG_ATTACK_K  = 0.0625;  // rising EG time constant as a fraction of rate_secs. MEASURED:
@@ -100,6 +103,9 @@ static const double EG_HOLD_LAG  = 0.0081;  // ... plus this, fixed. MEASURED ov
                                             // leaves that one value alone.
 static const double FEG_SEMIS    = 48.0;    // frequency EG range at the full register swing of 128 (four octaves).
                                             // The sysex byte reaches the register through FEGLVL, which is measured
+// The frequency EG holds its start level this many samples before it moves. MEASURED 2026-10-26 (FS1R.unlock
+// 2026-10-26-open, takes 15 and 16): over 115 settings the phase a ramp adds fits 0.120 cycle rms with 0, 0.059 with 3.
+static const int    FEG_LATCH    = 3;
 static const double FEG_TRAVERSE = 24.0;    // semitones the operator frequency EG covers in one traverse at
                                             // rate_secs(word), the amplitude EG's own rate ladder. MEASURED
                                             // 2026-09-25 off 07_modulation_2: the two attack segments at time 40
@@ -280,7 +286,12 @@ static const double DAMP_MS      = 1.0;     // the note-on damp: what is left of
 static const double CHAN_CLIP    = 1.1919;  // the channel accumulator saturates here, hard and memoryless,
                                             // before the filter loop. stack-4 and stack-8 are driven 4x and
                                             // 8x past one carrier and recover the same ceiling to five places.
-static const double FLT_LOSS     = 0.8681;  // flat 1.23 dB the VOP3-1 filter loop costs, constant to 0.02 dB
+// The VOP3-1 filter loop costs nothing. MEASURED 2026-10-26 (FS1R.unlock 2026-10-26-open, takes 23 and 24): the
+// part filter on against off on one voice, LPF24 at resonance 0, reads 0.00 dB at part volumes 127 to 40, cutoffs
+// 127 to 80, and on the 06 files' own all1 source at note 24; input gains 0, 6, 18, 24 land on -12.06, -6.03,
+// +6.03, +12.05. The 1.23 dB below was fitted off whole files against a reference whose level was itself off, and
+// was absorbing those errors as the history under it says it did twice before.
+static const double FLT_LOSS     = 1.0;     // was 0.8681: flat 1.23 dB the VOP3-1 filter loop was taken to cost, constant to 0.02 dB
                                             // across every type, every resonance from 0 to 100, every input
                                             // gain and every cutoff from 48 up. The 0.3190 this replaces read
                                             // 9.93 dB off the same recording on 2026-09-18, because both

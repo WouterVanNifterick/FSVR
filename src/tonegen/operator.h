@@ -130,6 +130,7 @@ inline double op_sample(OpState& s, const OpV& v, double f0, double fop, uint32_
     }
     // The formant: grains under a window at the fundamental (INFERRED bw curve), the asymmetric window, each
     // restarting its carrier, which is what holds its peak still while the fundamental moves.
+    const bool modulated = pm != 0;   // ph0 is ours and does not keep a grain reading
     pm += ph0;
     const double wl = std::min(s.wl7, 2.0);
     s.fphase += f0 / SR;
@@ -140,8 +141,18 @@ inline double op_sample(OpState& s, const OpV& v, double f0, double fop, uint32_
     double winc = f0 / (wl * SR), y = 0;
     for (int k = 0; k < 2; k++) {
         WinGen& g = s.g[k]; if (!g.on) continue;
-        g.w += winc; if (g.w >= 1) { g.on = false; continue; }
-        y += gain * fwin(1, v.skirt, g.w) * fsin(g.c + pm); g.c += g.fc / SR;
+        // The modulation goes into the window's address as well as the carrier's (US5610354 FIG. 11, adders
+        // 42a/42b and 45a/45b), and the address wraps, so a modulated grain does not end where the window does:
+        // it rests at the window's end and the modulation keeps reading it, until its slot fires again.
+        // MEASURED 2026-10-26 (FS1R.unlock 2026-10-26-open, takes 7 and 8): a formant at 0 Hz under a sine at
+        // level 85 plays at the same level whatever its bandwidth (32 to 72) or the note (36 to 84), within 0.3
+        // dB of the unit at all twenty-one settings, where a window that ended with the grain lost 4 to 23 dB.
+        // Unmodulated, a grain is its window and nothing after, as before.
+        g.w += winc;
+        // ponytail: a modulator at exactly 0.0 that sample reads as unmodulated; an input flag if that ever shows.
+        if (g.w >= 1 && (!modulated || gain == 0)) { g.on = false; continue; }
+        double wa = std::min(g.w, 1.0) + (modulated ? pm : 0.0); wa -= floor(wa);
+        y += gain * fwin(1, v.skirt, wa) * fsin(g.c + pm); g.c += g.fc / SR;
     }
     if (cal::FRMT_NORM != 0.0) y *= pow(1.0 / wl, cal::FRMT_NORM);
     return y;

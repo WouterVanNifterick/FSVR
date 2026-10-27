@@ -20,6 +20,9 @@ struct Voice {
     int lfo1wave, lfo1speed, lfo1delay, lfo1sync, pmd, amd, fmd;
     int noteshift, pegL[5], pegT[4], pegVel, pegRange, pegTscale;
     int fseqV, fseqU, alg, corr[8], fb;
+    // Operators whose correction came in as a parameter change since the last voice load or algorithm change:
+    // FUN_00032624 writes the nibble without the carrier test FUN_0003251C applies, so a modulator plays it too.
+    int corrEdit;
     OpV v[8]; OpU u[8];
 };
 // DX7 ACED (49 bytes, DX7II/DX7S/TX802 additions). The Data List: "ACED bulk data is not interpreted

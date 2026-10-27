@@ -17,6 +17,8 @@ struct Chan {
     // zero samples that decide it, and freezeLeft is the samples until its last envelope is done, once
     // that is arithmetic, so the allocator sees it freed on the same sample it would have been.
     bool silent = false; int quiet = 0; long long freezeLeft = -1;
+    int owner = -1;      // the part whose note last took the channel, until a silence frees it (DAT_010289fc)
+    long long ran = 0;   // Synth::now after the last sample the channel's operators stepped (render), for note_on
     // The channel's last output, and the damp left over from the note this channel was playing before.
     // FUN_00023000: note-on damps the channel it is about to take (the mask table at 0x35B260 is one hot
     // per channel) rather than silencing it, so the previous note's waveform fades instead of being cut
@@ -33,6 +35,7 @@ struct Chan {
     int fbW[8] = {}, ufbW[8] = {};   // frequency bias words, DAT_010282bc / DAT_010283bc
     int egL[8][4], egR[8][4], egHold[8], uegL[8][4], uegR[8][4], uegHold[8];
     // pitch EG (software, FUN_00028c8e)
+    bool pegWait = true;   // the note-on lands on the next tick, so the first tick is not the pitch EG's (peg_tick)
     int pegStage = 5, pegCur = 0, pegTarget = 0, pegRate = 255, velP = 128;
     int pegLvl[5], pegRt[5];
     // portamento (FUN_00029048)

@@ -24,7 +24,7 @@ void Synth::render(float* outL, float* outR, int frames) {
     // chips regardless. What sleeping changes is invisible at the output: the effect LFOs and the filter's
     // modulators advance one sample a block rather than a block, so they come back at another phase.
     bool skipping = false;
-    for (int i = 0; i < frames; i++) {
+    for (int i = 0; i < frames; i++, now++) {
         if (asleep && i > 0) {
             // The rest of the block repeats the held sample, from wherever in it the engine fell asleep. A silent
             // channel's last envelopes still count down over those samples to the one the allocator frees it on.
@@ -42,7 +42,9 @@ void Synth::render(float* outL, float* outR, int frames) {
             Chan& c = ch[n];
             if (!c.active) continue;
             if (!c.silent || c.freezeLeft < 0) any = true;   // a silent channel counting down plays nothing more
+            const bool steps = !c.silent;
             const double m = render_chan(c, perf.part[c.part].voice, fseq_on(c.part), gateDb, ctlDecimation, egDecimation);
+            if (steps) c.ran = now + 1;
             if (n < nf && (c.filtered || !fltWide)) v[n] = m; else { pl[c.part] += m * c.panL; pr[c.part] += m * c.panR; }
         }
         flt.run(flt_banks(), v);

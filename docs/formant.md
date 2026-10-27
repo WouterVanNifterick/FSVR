@@ -81,13 +81,14 @@ That third fact tidied the level constant as well. `cal::FORM_LEVEL` had an ad-h
 
 ## Which moved the filter loss again
 
-`cal::FLT_LOSS` has now been measured three times and it was wrong twice for reasons outside the filter.
+`cal::FLT_LOSS` has now been measured four times and it was wrong three times for reasons outside the filter.
 
 | | loss | why it read that |
 |---|---|---|
 | 2026-09-18 | 9.93 dB | both filter files play at note 24, where the request set's pan scaling throws the sound hard right, and the left channel alone was being measured against an engine whose pan law was 28 % shy |
 | 2026-09-19, morning | 5.69 dB | the pan corrected, but the source was still an all1 operator the engine was giving a whole harmonic series, so the loss was absorbing that too |
-| 2026-09-19, now | **1.23 dB** | the source measured |
+| 2026-09-19 | 1.23 dB | the source measured |
+| 2026-10-26, now | **0.00 dB** | measured directly: the part filter on against off on one voice, at five part volumes, three cutoffs, four input gains and the 06 files' own source (FS1R.unlock `2026-10-26-open`, takes 23 and 24). The 1.23 was the 06 files' own 0.8 dB, which is not the filter |
 
 Each reading was internally consistent and each was wrong. A constant fitted on a file whose source model is wrong absorbs the source's error, and nothing in the fit can tell. The guard against it is the one this session added: score the shape as well as the level, because a gain error and a spectrum error look identical in a level and completely different in a spectrum.
 

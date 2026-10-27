@@ -71,7 +71,7 @@ struct EG {                      // amplitude EG on the chip: hold, 4 segments. 
 };
 struct FreqEG {                  // init -> attack level -> 0. The level curve and the times are the firmware's, read
                                  // back off the voice images (FEGLVL and the EG rate conversion, registers 0x60-0x78).
-    double cur = 0, target = 0, katt = 0, kdec = 0; int stage = 2;
+    double cur = 0, target = 0, katt = 0, kdec = 0; int stage = 2, hold = 0;
     // The sysex byte is not linear in the register: FEGLVL maps 0..100 onto 0..255 with 128 the centre, and
     // half the displayed depth is only a fifth of the register offset. 128 register steps = FEG_SEMIS.
     static double feg_semis(int v) { return (FEGLVL[clampi(v + 50, 0, 100)] - 128) * cal::FEG_SEMIS / 128.0; }
@@ -86,12 +86,19 @@ struct FreqEG {                  // init -> attack level -> 0. The level curve a
     // cal::FEG_TRAVERSE semitones, which the two long segments put at 23.99 and 23.98 against the 24.0
     // that a 96-unit scale quartered gives. So the chip runs one stepper for both EGs and only the unit of
     // the step differs, 0.375 dB on the amplitude side and a quarter tone here.
+    // The chip's frequency EG plays rates 57 and 58, and 61 and 62, the other way round from the amplitude ladder.
+    // MEASURED 2026-10-26 (FS1R.unlock 2026-10-26-open, take 19): every attack time 0 to 36 read off the phase a
+    // ramp adds, two start levels at two notes; times 1-2, 3, 7-8 and 9-10 land on the swapped rate to 0.003 of a
+    // cycle and every other time on FUN_0000EBE8's own. Not checked on the amplitude EG, which is left alone.
+    static int feg_rate(int t) { const int q = egrate(t); return q == 57 ? 58 : q == 58 ? 57 : q == 61 ? 62 : q == 62 ? 61 : q; }
     void start(int init, int att, int attT, int decT) {
         cur = feg_semis(init); target = feg_semis(att); stage = (init == 0 && att == 0) ? 2 : 0;
-        katt = cal::FEG_TRAVERSE / (rate_secs(egrate(attT)) * SR);
-        kdec = cal::FEG_TRAVERSE / (rate_secs(egrate(decT)) * SR);
+        katt = cal::FEG_TRAVERSE / (rate_secs(feg_rate(attT)) * SR);
+        kdec = cal::FEG_TRAVERSE / (rate_secs(feg_rate(decT)) * SR);
+        hold = cal::FEG_LATCH;
     }
     inline double tick() {
+        if (hold > 0) { hold--; return cur; }
         if (stage == 0) {
             double d = target - cur;
             if (fabs(d) <= katt) { cur = target; stage = 1; } else cur += d < 0 ? -katt : katt;

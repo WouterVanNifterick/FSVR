@@ -31,6 +31,7 @@
 
 struct Synth {
     Perf perf; Chan ch[NCHAN]; uint32_t clock = 0; double gain = 1.0;   // the analogue volume pot, after the tap
+    long long now = 0;   // samples rendered: when a channel last ran (Chan::ran, note_on)
     // Ours: the random note phase, part pan 0 and the sample-and-hold LFO draw from this, not from rand(). rand() is
     // one generator shared by every instance in the process and a different sequence on each C library, so two
     // instances took each other's draws and a render on Windows differed from the same render on Linux.

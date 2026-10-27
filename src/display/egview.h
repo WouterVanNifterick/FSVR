@@ -151,6 +151,7 @@ inline EgCurve pitch(const Input& in) {
         p.along(n / TICK_HZ, 1, [](double) { return 0.0; }, semis(w = to));
     };
     p.put(semis(w));
+    p.along(1 / TICK_HZ, 1, [](double) { return 0.0; }, semis(w));   // the note-on's own tick moves nothing (Synth::peg_tick)
     int s = 1;
     if (rate(1) >= 255) p.corner(0), s = 2;
     for (; s <= 3; ++s) segment(s), p.corner(s - 1);

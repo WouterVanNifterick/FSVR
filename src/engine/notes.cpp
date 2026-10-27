@@ -76,7 +76,12 @@ void Synth::note_on(int part, int note, int vel) {
     int& cursor = nextChan[!split ? 0 : filtered ? 1 : 2];
     auto at = [&](int from, int k) { return first + ((from - first + k) % count + count) % count; };
     Chan* c = nullptr;
-    for (int k = 1; k <= count; k++) { Chan& x = ch[at(cursor, k)]; if (!owned(x)) { c = &x; break; } }
+    // FUN_000112c0: a mono part with no key down takes back the first channel it last owned, without moving a
+    // cursor; the walk below is only for a part that owns none. MEASURED 2026-10-26 (FS1R.unlock 2026-10-26-open,
+    // takes 3 and 4): a key-sync-off sine on a mono part starts each strike where one generator ran on to.
+    if (mono) for (int k = 0; k < count && !c; k++) { Chan& x = ch[first + k]; if (x.owner == part && !owned(x)) c = &x; }
+    const bool reused = c != nullptr;
+    for (int k = 1; k <= count && !c; k++) { Chan& x = ch[at(cursor, k)]; if (!owned(x)) { c = &x; break; } }
     if (!c) {
         int best = part, excess = -1;
         for (int k = 0; k < 4; k++) {
@@ -98,7 +103,7 @@ void Synth::note_on(int part, int note, int vel) {
         if (!c) c = &ch[fb >= 0 ? fb : first];
     }
     const int slot = int(c - ch);
-    cursor = slot; partChan[part] = slot;
+    if (!reused) { cursor = slot; partChan[part] = slot; }
     // FUN_000112c0: the filter slot is silenced before the note takes it. With fltWide an unfiltered note can
     // take a channel a filtered one rang out on, so its slot is silenced too.
     if (filtered || (fltSw && fltWide)) flt.host(slot).kill(slot & 15);
@@ -110,7 +115,14 @@ void Synth::note_on(int part, int note, int vel) {
     // the struct instead put a step the size of the old note's own output into the output between two
     // samples, which is a click the unit does not make.
     double damp = C.active ? C.last + C.damp : 0.0;
-    C = Chan(); C.active = true; C.part = part; C.note = note; C.vel = vel; C.held = true; C.age = ++clock; C.chn = noteChn;
+    // The channel's phase generators never stop: an operator with key sync off starts the note where its
+    // generator has run to since the channel's last note, at that note's rate. MEASURED 2026-10-26 (FS1R.unlock
+    // 2026-10-26-open, take 3): a 1 Hz sine, key sync off, struck every 1.5 s on a mono part starts each strike
+    // half a turn on from the last (0.544, 0.038, 0.531, 0.025 ...); on a poly part, a channel each strike, scattered.
+    // A channel no note has used yet starts at a drawn phase: what it ran since power-on is not known.
+    uint32_t run[8];
+    for (int o = 0; o < 8; o++) run[o] = C.age ? C.op[o].phase + op_inc32(C.op[o].inc) * (uint32_t)(now - C.ran) : V.v[o].keysync ? 0u : draw();
+    C = Chan(); C.active = true; C.part = part; C.owner = part; C.note = note; C.vel = vel; C.held = true; C.age = ++clock; C.chn = noteChn;
     C.damp = damp; C.filtered = filtered;
     C.lfoPhase = sync ? 0 : keepPhase;
     C.panBase = pt.p[0x0E] ? pt.p[0x0E] : (int)(draw() % 128);       // part pan 0 = random per note; the rest is the table index
@@ -141,7 +153,7 @@ void Synth::note_on(int part, int note, int vel) {
         OpState& s = C.op[o]; const OpV& v = V.v[o]; const OpU& u = V.u[o];
         s.eg.start(C.egL[o], C.egR[o], C.egHold[o], eg_ratescale(v.tscale, C.regC0));
         s.feg.start(v.fegInit, v.fegAtt, v.fegAttT, v.fegDecT);
-        s.phase = v.keysync ? 0u : draw();   // 2^32 to a cycle
+        s.phase = v.keysync ? 0u : run[o];   // 2^32 to a cycle
         s.ueg.start(C.uegL[o], C.uegR[o], C.uegHold[o], eg_ratescale(u.tscale, C.regC0));
         s.ufeg.start(u.fegInit, u.fegAtt, u.fegAttT, u.fegDecT);
         s.rng = 0x9E3779B9u * (o + 1) ^ clock; if (!s.rng) s.rng = 1;
@@ -343,7 +355,14 @@ void Synth::lfo_tick(Chan& C, const Part& pt) {
     C.lfoVal = val;
 }
 
+// The unit applies a note-on at a control tick, so the pitch EG's first step comes one to two ticks after the
+// note sounds, never within the first. MEASURED 2026-10-26 (FS1R.unlock 2026-10-26-open, take 20): sixteen strikes
+// of a stepping pitch EG at note 84 put the first step 5.4 to 11.2 ms after the onset, where the engine's tick,
+// free against the note, put it 0 to 5.2. Teck Hook's voice (PrA Hook, a 1.5 semitone pitch EG drop into a 0 Hz
+// formant) played 1 to 5 dB under the unit depending on where the tick fell, and its level follows the unit's
+// within 0.6 dB with this (takes 6 and 10).
 void Synth::peg_tick(Chan& C) {
+    if (C.pegWait) { C.pegWait = false; return; }
     int s = C.pegStage; if (s == 3 || s == 5) return;
     if (s > 5) { C.pegStage = 3; return; }
     if (C.pegRate < 255) {

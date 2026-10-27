@@ -427,6 +427,40 @@ int selftest(Synth& S) {
       init_default_voice(V);
       ck("a fine of 100 or more plays as the next coarse step", carry); }
 
+    // FS1R.unlock 2026-10-26-open, measured on rgwan's unit. An OP Att edit reaches a modulator until the algorithm
+    // changes (FUN_00032624 skips FUN_0003251C's carrier test); a key-sync-off operator on a mono part starts each
+    // note where its generator ran on to, on the channel the part takes back; a performance load starts portamento
+    // from 0x53AA; and a modulated formant grain keeps reading its window past the window's end.
+    { auto A = std::make_unique<Synth>(); Synth& T = *A; Voice& V = T.perf.part[0].voice; init_default_voice(V);
+      auto param = [&](int al, int v) { const uint8_t m[10] = {0xF0, 0x43, 0x10, 0x5E, 0x40, 0x00, (uint8_t)al, 0, (uint8_t)v, 0xF7}; apply_param_change_locked(T, m, 10); };
+      param(0x2C, 7);                                   // algorithm 8: op 1 modulates op 2
+      param(0x2D, 15);
+      const bool edited = V.corrEdit == 1;
+      param(0x2C, 7);                                   // the same algorithm again keeps the edit (take 5)
+      const bool kept = V.corrEdit == 1;
+      param(0x2C, 0); param(0x2C, 7);
+      ck("engine: an OP Att edit reaches a modulator until the algorithm changes", edited && kept && V.corrEdit == 0); }
+    { auto A = std::make_unique<Synth>(); Synth& T = *A; Voice& V = T.perf.part[0].voice; init_default_voice(V);
+      T.perf.part[0].p[5] = 0;                          // mono
+      V.v[0].keysync = 0;
+      std::vector<float> a(4800), b(4800);
+      T.midi_in(0x90, 60, 100); T.render(a.data(), b.data(), 4800);
+      int at = -1; for (int i = 0; i < NCHAN; i++) if (T.ch[i].active && T.ch[i].held) at = i;
+      const uint32_t ph = T.ch[at].op[0].phase, inc = op_inc32(T.ch[at].op[0].inc);
+      T.midi_in(0x80, 60, 0); T.render(a.data(), b.data(), 4800);
+      T.midi_in(0x90, 60, 100);
+      int again = -1; for (int i = 0; i < NCHAN; i++) if (T.ch[i].active && T.ch[i].held) again = i;
+      ck("engine: a mono part's key-sync-off operator runs on through the gap", again == at && T.ch[at].op[0].phase == ph + inc * 4800u);
+      T.midi_in(0x80, 60, 0); }
+    { auto A = std::make_unique<Synth>(); Synth& T = *A; uint8_t perf[400]; T.current_perf_bytes(perf);
+      perf_from_bytes(T, nullptr, perf);
+      ck("engine: a performance load starts portamento from 0x53AA", T.perf.part[0].lastPitch == 0x53AA); }
+    { // A grain fires each period of f0 (480 Hz, 100 samples) and its window lasts a quarter of it: 50 samples after
+      // the first fire the unmodulated grain is over and the modulated one still reads its window.
+      auto run = [](double pm) { OpState s{}; OpV v{}; v.form = 7; s.wl7 = 0.25; double y = 0;
+          for (int n = 0; n < 150; n++) y = op_sample(s, v, 480.0, 0.0, 0, 0, pm, 1.0); return y; };
+      ck("engine: a modulated formant grain reads on past its window, an unmodulated one ends", run(0.25) != 0.0 && run(0.0) == 0.0); }
+
     // Formant transpose is the pitch half of register 0x230 (FUN_00013bc6): it shifts the grain rate.
     // The formant frequency, coarse and fine plus detune, stays. A frame replaces that frequency and
     // leaves the pitch word, so an Fseq formant is transposed the same way. Sine ignores it.
@@ -750,6 +784,7 @@ int selftest(Synth& S) {
               double cur = C->op[0].feg.tick();
               double d = fabs(cur - prev);
               if (C->op[0].feg.stage != 0) break;            // the truncated final step
+              if (d == 0 && n == 0) { prev = cur; continue; } // cal::FEG_LATCH: the start level held first
               if (n == 0) step = d; else worst = std::max(worst, fabs(d - step));
               prev = cur; n++;
           }
