@@ -265,7 +265,7 @@ static void event(PlatformWindow* w, XEvent& e) {
         const Key k = keyOf(sym, ctrl);
         if (g.wantsKeys()) {
             if (k != KeyNone) g.keyDown(k, shift, ctrl, alt);
-            else if (n == 1 && (unsigned char)buf[0] >= 32 && buf[0] != 127) g.keyChar((unsigned char)buf[0]);   // Latin-1, as the fonts are
+            else if (!ctrl && n == 1 && (unsigned char)buf[0] >= 32 && buf[0] != 127) g.keyChar((unsigned char)buf[0]);   // Latin-1, as the fonts are
             break;
         }
         // The physical key, read with no modifier, so Alt+F is 'F' whatever Alt itself would have typed.

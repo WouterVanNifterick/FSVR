@@ -456,6 +456,7 @@ private:
     void putUser(int param, int& loaded, int n) { loaded = n; put(param, n); }   // a U number, past the param's range too
     void put(int i, double v) {   // a value read back from the engine: it has it already, and no action follows
         if (i < 0) return;
+        if (i == browseBank && v != get(i)) st.setData("live.browse.filter", "");   // a bank the processor opens (an import, a save) opens unfiltered too
         st.set((size_t)i, v);
         base[(size_t)i] = sel[(size_t)i] = st.get((size_t)i);
         notify = true;

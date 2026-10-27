@@ -1316,9 +1316,11 @@ int main() {
             put(loose, looseVoice);   // one voice for part 1, after no performance of its own
             CHECK(u.gui.dropAccepts(fs1.u8string()) && u.gui.dropAccepts((tmp / "X.SYX").u8string()) && !u.gui.dropAccepts(wav.u8string()),
                   "the window takes the wrong files");
+            u.st->setData("live.browse.filter", "zz");   // the bank the import opens shows its rows, not the last bank's filter
             CHECK(u.gui.drop({wav.u8string(), fs1.u8string()}), "the window refused the .fs1");
             CHECK(u.until([&] { return u.lineOf("bank.list", "Dropped") > 0 && u.data("perf.name") == "Dropped Perf"; }),
                   "the dropped .fs1 did not import and play (\"%s\")", u.data("perf.name").c_str());
+            CHECK(u.data("live.browse.filter").empty(), "the dropped .fs1's bank opened with \"%s\" in the filter", u.data("live.browse.filter").c_str());
             fs::copy_file(fs1, tmp / "Library" / "Copied.fs1", ec);
             CHECK(u.until([&] { return u.lineOf("bank.list", "Copied") > 0; }), "an .fs1 in the library folder is not a bank");
 
