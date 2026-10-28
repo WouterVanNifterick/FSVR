@@ -18,6 +18,12 @@ project(fsvr VERSION 0.8.4 LANGUAGES C CXX)
 if(APPLE)
   enable_language(OBJC OBJCXX)
 endif()
+# A multiply and an add stay two operations everywhere: the hosts, filters and effects are bit-exact only so, the
+# tone generator's lane kernels replay its scalar arithmetic operation for operation, and clang on arm64 fuses by
+# default. MSVC does not under /fp:precise, its default, which the engine's targets state anyway.
+if(NOT MSVC)
+  add_compile_options(-ffp-contract=off)
+endif()
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release)
@@ -66,7 +72,7 @@ if(_fsvr_math_id LESS 0)
 endif()
 target_compile_definitions(fs1rLib PUBLIC FSVR_MATH=${_fsvr_math_id})
 if(MSVC)
-  target_compile_options(fs1rLib PRIVATE /W3)
+  target_compile_options(fs1rLib PRIVATE /W3 /fp:precise)
 else()
   target_compile_options(fs1rLib PRIVATE -Wall -Wno-unused-function)
 endif()

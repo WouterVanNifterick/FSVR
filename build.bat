@@ -20,6 +20,8 @@ set MATHDEF=
 rem The two hosts and the filters and effects are bit-exact only without FMA contraction, so they are compiled apart.
 rem VS 2022 does not contract under /fp:precise (tools\dsp_bench.cpp writes the same bytes as under /fp:strict).
 set VOP3FLAGS=/nologo /O2 /EHsc /W3 /std:c++20 /fp:precise /I src
+rem The engine too: its lane kernels replay the scalar arithmetic operation for operation (fm::selfcheck tests it).
+set ENGINEFLAGS=/nologo /O2 /EHsc /W3 /std:c++17 /fp:precise
 set VOP3OBJ=build\vop3host\*.obj
 set ENGINE=src\tonegen\*.cpp src\engine\render.cpp src\engine\controllers.cpp src\engine\fseq.cpp src\engine\midi.cpp src\engine\notes.cpp src\presets\patch.cpp src\presets\rom.cpp src\math\fastmath.cpp
 if defined FSVR_MATH set MATHDEF=/DFSVR_MATH=%FSVR_MATH%
@@ -42,10 +44,10 @@ if "%~1"=="" (
   cl %VOP3FLAGS% tools\dsp_bench.cpp %VOP3OBJ% /Fe:bin\dsp_bench.exe /Fobuild\
 ) else if "%~1"=="perf" (
   call :vop3host || goto :done
-  cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src %ENGINE% src\device\device.cpp src\selftest\selftest.cpp tools\perfbench.cpp %VOP3OBJ% /Fe:bin\perfbench.exe /Fobuild\
+  cl %ENGINEFLAGS% %MATHDEF% /I src %ENGINE% src\device\device.cpp src\selftest\selftest.cpp tools\perfbench.cpp %VOP3OBJ% /Fe:bin\perfbench.exe /Fobuild\
 ) else if "%~1"=="trace" (
   call :vop3host || goto :done
-  cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src %ENGINE% tools\wavetrace.cpp %VOP3OBJ% /Fe:bin\wavetrace.exe /Fobuild\
+  cl %ENGINEFLAGS% %MATHDEF% /I src %ENGINE% tools\wavetrace.cpp %VOP3OBJ% /Fe:bin\wavetrace.exe /Fobuild\
 ) else (
   cl /nologo /O2 /EHsc /W3 /std:c++17 %* /Fobuild\
 )
@@ -54,7 +56,7 @@ goto :done
 rem The console.
 :console
 call :vop3host || exit /b 1
-cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src %ENGINE% src\device\device.cpp src\selftest\selftest.cpp %VOP3OBJ% src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
+cl %ENGINEFLAGS% %MATHDEF% /I src %ENGINE% src\device\device.cpp src\selftest\selftest.cpp %VOP3OBJ% src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
 exit /b %ERRORLEVEL%
 
 :vop3host
