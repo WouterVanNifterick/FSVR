@@ -20,6 +20,7 @@ const double LEVEL_SLEW_K = 1.0 - exp(-1.0 / (cal::LEVEL_SLEW_MS * 0.001 * SR));
 extern float g_win[2][8][1025];
 extern float g_winDC[2][8];
 extern uint16_t g_opMant[1024];   // the phase generator's mantissas, floor(2048 * 2^(i / 1024)) (cal.h)
+extern double g_slewN[65];        // the level slew over n samples at once, for the Fast steps' blocks (render_chan)
 void init_tables();
 
 // An operator's phase increment for a frequency word, in units of 2^-cal::OP_PHASE_BITS of a cycle a sample
@@ -96,7 +97,7 @@ inline double op_sample(OpState& s, const OpV& v, double f0, double fop, uint32_
         // partial the unit gives, and the mean is gone because the unit's is: every all1/all2 take reads
         // mean / rms under 0.03 where a raw sin^2 pulse train sits at 0.7. docs/skirt.md.
         if (v.form <= 2) {
-            double x = ph + pm; x -= floor(x);
+            double x = ph + pm; x -= fm::floor_exact(x);
             return gain * cal::FORM_LEVEL * 2.0 * (fwin(v.form == 1, v.skirt, x) - g_winDC[v.form == 1][v.skirt]);
         }
         // odd and res: a window times a carrier, each addressed by its own phase word with the modulation added to
@@ -124,8 +125,8 @@ inline double op_sample(OpState& s, const OpV& v, double f0, double fop, uint32_
         // and kills everything beyond them, which is what the unit gives at every one of a hundred settings.
         double w, c;
         if (v.form <= 4) { w = 2 * ph + pm; c = ph + pm; }                                   // odd: the window twice a period
-        else { const double f = ph - floor(ph); w = f + pm; c = (ratio + 1) * f + pm; }       // res: on partial ratio + 1
-        w -= floor(w);
+        else { const double f = ph - fm::floor_exact(ph); w = f + pm; c = (ratio + 1) * f + pm; }       // res: on partial ratio + 1
+        w -= fm::floor_exact(w);
         return gain * cal::FORM_LEVEL * 2.0 * fwin(v.form == 3 || v.form == 5, v.skirt, w) * fsin(c);
     }
     // The formant: grains under a window at the fundamental (INFERRED bw curve), the asymmetric window, each
@@ -151,7 +152,7 @@ inline double op_sample(OpState& s, const OpV& v, double f0, double fop, uint32_
         g.w += winc;
         // ponytail: a modulator at exactly 0.0 that sample reads as unmodulated; an input flag if that ever shows.
         if (g.w >= 1 && (!modulated || gain == 0)) { g.on = false; continue; }
-        double wa = std::min(g.w, 1.0) + (modulated ? pm : 0.0); wa -= floor(wa);
+        double wa = std::min(g.w, 1.0) + (modulated ? pm : 0.0); wa -= fm::floor_exact(wa);
         y += gain * fwin(1, v.skirt, wa) * fsin(g.c + pm); g.c += g.fc / SR;
     }
     if (cal::FRMT_NORM != 0.0) y *= pow(1.0 / wl, cal::FRMT_NORM);

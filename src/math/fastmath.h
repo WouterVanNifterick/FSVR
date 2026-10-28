@@ -30,6 +30,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include "math/floor.h"
 
 #ifndef FSVR_MATH
 #define FSVR_MATH 1
@@ -47,7 +48,7 @@ const char* backend_name();
 void init();       // fills the tables and the arctangents; idempotent, and run at load anyway
 int selfcheck();   // the compiled backend against libm over a sweep; returns the failure count
 
-extern float g_sin[4097];        // LUT: sin(2 pi i / 4096)
+extern float g_sin[4098];        // LUT: sin(2 pi i / 4096), and one past the turn: t - floor(t) rounds to 1.0 for a t a hair under a whole number
 extern float g_db2lin[2305];     // LUT: 10^((i / 16 - 128) / 20), -128 .. +16 dB
 extern double g_exp2f[1025];     // LUT: 2^(i / 1024)
 
@@ -64,13 +65,13 @@ static inline double db2lin(double db) { return std::pow(10.0, db / 20.0); }
 #elif FSVR_MATH == 1
 // The float arithmetic in sin_turns and db2lin is the engine's original table read, kept as it was.
 static inline double sin_turns(double t) {
-    double x = (t - std::floor(t)) * 4096.0; int i = (int)x; float f = (float)(x - i);
+    double x = (t - floor_exact(t)) * 4096.0; int i = (int)x; float f = (float)(x - i);
     return g_sin[i] + (g_sin[i + 1] - g_sin[i]) * f;
 }
 static inline double exp2(double x) {
     if (x < -1000.0) return 0.0;
     if (x > 1000.0) x = 1000.0;
-    int n = (int)std::floor(x); double f = (x - n) * 1024.0; int i = (int)f; double t = f - i;
+    int n = (int)floor_exact(x); double f = (x - n) * 1024.0; int i = (int)f; double t = f - i;
     return scale2n(g_exp2f[i] + (g_exp2f[i + 1] - g_exp2f[i]) * t, n);
 }
 static inline double db2lin(double db) {

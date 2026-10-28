@@ -142,7 +142,7 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
         } else {
             if (block) {
                 const double egdb = s.eg.advance(egDecimation);
-                if (s.attS < -1e8) s.attS = s.att; else s.attS += (s.att - s.attS) * slew_n(egDecimation);
+                if (s.attS < -1e8) s.attS = s.att; else s.attS += (s.att - s.attS) * g_slewN[std::clamp(egDecimation, 1, 64)];
                 s.gain = s.gto; s.gto = egdb - s.attS > vGate ? db2lin_fast(egdb - s.attS) : 0.0;
                 s.dg = (s.gto - s.gain) / egDecimation;
             }
