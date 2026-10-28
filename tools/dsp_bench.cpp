@@ -20,6 +20,7 @@
 #include <vector>
 #include "effects/effects.h"
 #include "filters/filter.h"
+#include "kernel/dispatch.h"
 
 namespace H = fsvr::vop3host;
 
@@ -51,19 +52,21 @@ int main(int argc, char** argv) {
     uint32_t seed = 12345;
     const auto t0 = std::chrono::steady_clock::now();
     const uint64_t c0 = __rdtsc();
+    uint64_t cfx = 0, cflt = 0;
     for (int i = 0; i < SAMPLES; i++) {
         seed = seed * 1664525u + 1013904223u;
         const double x = (int32_t)seed * (0.2 / 2147483648.0) + (i % 48000 == 0 ? 0.9 : 0.0);
         double* o = &out[(size_t)i * OUT];
         const double bus[8] = {x, -x, 0, 0, x, x, x, -x};   // dry, insertion, variation send, reverb send
-        fx->run(bus, o[0], o[1]);
+        const uint64_t a = __rdtsc(); fx->run(bus, o[0], o[1]); const uint64_t b = __rdtsc();
         for (int n = 0; n < 16; n++) o[2 + n] = x;
-        flt->run(o + 2);
+        flt->run(o + 2); cflt += __rdtsc() - b; cfx += b - a;
     }
     const uint64_t cycles = __rdtsc() - c0;
     const double ns = std::chrono::duration<double, std::nano>(std::chrono::steady_clock::now() - t0).count();
 
-    std::printf("%.1f ns/sample  %.0f TSC cycles/sample  %.0f%% of a core at 48 kHz\n", ns / SAMPLES, double(cycles) / SAMPLES, ns / 1e8);
+    std::printf("%.1f ns/sample  %.0f TSC cycles/sample  %.0f%% of a core at 48 kHz  (effects %.0f, filter %.0f cycles/sample on the %s kernels)\n",
+                ns / SAMPLES, double(cycles) / SAMPLES, ns / 1e8, double(cfx) / SAMPLES, double(cflt) / SAMPLES, fsvr::kernels().name);
     FILE* f = std::fopen(path, "wb");
     if (!f || std::fwrite(out.data(), sizeof(double), out.size(), f) != out.size()) { std::perror(path); return 1; }
     std::fclose(f);

@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "math/floor.h"
+
 namespace fsvr::word {
 
 inline double floored_mod(double a, double m)
@@ -40,11 +42,11 @@ inline double q15(double y)
 	double const w = y * 256.0;
 	return (w < -32768.0 ? -32768.0 : 32767.0 < w ? 32767.0 : w) / 32768.0;
 }
-inline double frac(double y) { double const w = y * 256.0; return w - std::floor(w); }
-inline double index(double y) { return std::floor(y * 256.0); }   // a delay index, in samples
+inline double frac(double y) { double const w = y * 256.0; return w - fm::floor_exact(w); }
+inline double index(double y) { return fm::floor_exact(y * 256.0); }   // a delay index, in samples
 
 // The DAC word the unit plays for a cell value: floor to 18 bits of value / 4, clipped at +-8. Full scale is 8.
-inline double dac(double v) { return std::floor(std::clamp(v / 4.0, -8.0, 8.0) * 16384.0) / 16384.0; }
+inline double dac(double v) { return fm::floor_exact(std::clamp(v / 4.0, -8.0, 8.0) * 16384.0) / 16384.0; }
 
 // A run of products into the running sum, in the order the chip adds them: sum(a, b, c) is
 // wrap_sum(c + wrap_sum(b + wrap_sum(a + 0.0))). sum_on carries on from a sum already taken.

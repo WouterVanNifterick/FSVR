@@ -2,6 +2,90 @@
 
 A user report: "A020 Vox Morph is very CPU hungry. With 5 to 8 voices it brings my Intel i7 to the limit" (AU build). This is what the engine does, measured, and what would make it cheaper. Nothing here is a fidelity question: the constants in `cal.h` are not involved, and every option below has to leave the output bit-identical or it is not an optimisation.
 
+## Measuring (2026-10-28)
+
+Every optimisation commit names its tier. **Tier A**: the nineteen `tools/regress.py` cases and the Fat Line demo render bit-identical 16-bit audio. **Tier B**: no sample moves more than one 16-bit step, and `regress.py` and the demo ledger read the same. Structural work (loops, layout, build flags, dispatch) is Tier A; a change of arithmetic, a table in place of a function, may be Tier B and says so in its commit.
+
+`bin\perfbench.exe` (`build.bat perf`, `tools/perfbench.cpp`) plays fixed scenarios through `fsvr::Device` from the factory banks, so it needs no EPROM, and reports the CPU time inside `process()` as a share of one core at the render rate, the minimum and the median of three runs pinned to one core, with the cycles a sample costs beside it; it hashes the 16-bit output, `--save` keeps the renders and `--ref` compares a later build against them with the same A/B verdict. A scenario names its performance and may put one factory voice in every part and write the parts' Mono/Poly and filter switches, as an editor would; `--perf` and `--release` try another shell or release length without changing a scenario's own definition. `python tools/abcheck.py` renders the regress cases and the demo and, against `--ref`, prints the largest step, the samples moved and the first frame that moved; `--build-base REV` builds a revision apart under `build/ab` and renders its set, so a baseline never shares `build/` with the tree under test. The protocol on the dev box, an i9-14900KF: core 2 (a P-core), the median of three, the two builds alternated in one session, nothing else timed meanwhile. Windows counts thread time in 15.6 ms steps, so a 10 s run resolves 0.16 % of a core; the cycles per sample are the finer number. These numbers are not comparable with the Ryzen 9 3900X rows below, which are kept as history.
+
+### Phase 0: before any change (2026-10-28)
+
+`perfbench --set standard --runs 3` on the dev box: MSVC 19.44 `/O2`, LUT maths, FTZ, 48 kHz in 512-frame blocks, the median of three on one P-core of an i9-14900KF (the minimum is within 0.7 of each). The chord is eight notes; Zap! is a one-channel patch, so eight notes cost what one does and its 6.6 % is the filter chip and the effects; Vox Morph is two layered parts, sixteen channels for eight notes, and held32 fills all 32 channels, the ceiling at Full.
+
+| scenario | % of a core | cycles a sample |
+|---|---|---|
+| idle-zap | 0.62 | 385 |
+| held1-zap | 6.56 | 4299 |
+| held8-zap | 6.56 | 4435 |
+| held8-homy | 16.09 | 10423 |
+| held8-voxmorph | 21.25 | 14361 |
+| held8-fatline | 14.53 | 9562 |
+| held8-fulltines | 14.22 | 9450 |
+| held32-voxmorph | 36.09 | 24092 |
+| struck8-zap | 6.72 | 4425 |
+| struck8-voxmorph | 20.16 | 13525 |
+| struck8-fatline | 17.34 | 11585 |
+| struck8-fulltines | 8.59 | 5505 |
+| demo-fatline (29.9 s) | 16.38 | 10822 |
+
+### Phase 1: the scalar steps (2026-10-28), every one Tier A
+
+Each step was timed alternated against the build before it, two or three rounds in one session, 10 s a scenario; the cycles a sample are the number, since the thread clock counts in 15.6 ms. `build.bat` and `tools/abcheck.py --tier A` passed on every step, with every hash the baseline's.
+
+| step | held1-zap | held8-voxmorph | held8-fatline | struck8-fatline | demo-fatline |
+|---|---|---|---|---|---|
+| floor as `roundsd` behind a runtime test, the sine table padded, the slew table filled once | -0.7 % | 0 % | | -3.5 % | |
+| the control refresh skipped under a serial it already computed under | | -4.9 % | -10.6 % | -8.6 % | -5.4 % |
+| link-time optimisation (`/GL`, `/LTCG`) | +1 % | +1.3 % | +3.7 % | +2.7 % | |
+| no stack cookies (`/GS-`) | +2 % | +0.8 % | +2 % | +1 % | |
+| the loop in segments between ticks, every channel over a segment, then the mix a sample at a time (Phase 2) | -2.8 % | -4.9 % | -6.6 % | -8.2 % | |
+| the filter bank's sixteen voices four at a time on the avx2 lane kernel (Phase 3.2; Zap! is one channel, its cost the filter and the effects) | -14 % | -6 % | | -8.5 % | |
+| the tone generator's channels four at a time on the avx2 lane kernel, a lone channel left scalar (Phase 3.3; Full Tines -16 %, held32 Vox Morph -9 %) | 0 % | -9 % | -13 % | -4 % | |
+
+Phase 1's end state on the standard set, against the baseline above: Zap! 4235 cycles a sample (-1.5 %), Homy 9205 (-11.7 %), Vox Morph 13632 (-5.1 %), Fat Line 8296 (-13.2 %), Full Tines 8294 (-12.2 %), held32 22765 (-5.5 %), struck Vox Morph 12620 (-6.7 %), struck Fat Line 10953 (-5.5 %), the demo 10473 (-3.2 %), every hash the baseline's. The segment loop (Phase 2) held32 Vox Morph 22738 to 21575 (-5.1 %) on top of that.
+
+The tone generator's kernel (`src/kernel/isa/group_kernel.cpp`) is exact on scalar, sse2 and avx2 lanes, by the self check's segments scenario and `tools/abcheck.py` under each; its first form was a wash, 3 % better on Vox Morph and 9 to 12 % worse on Fat Line, because a frame of four channels ran about as many instructions as four scalar frames: every lane takes every path the scalar code could branch into, and the three interpolated table reads a sample each cost two gathers. Taking out what the scalar loop skips (an EG past its last segment, a level lookup under the gate, the liveness pass, a control refresh with nothing stale, the frequency-EG scans) and reading a table with one AVX2 gather gave the row above. What is left in it is the arithmetic the tiers keep: double precision lerps where the chip, and Yamaha's own software engine, read an integer table once.
+
+### The programme's end state (2026-10-28), against Phase 0
+
+`perfbench --set standard --runs 3` on the same P-core, the median of three, every hash the baseline's (Tier A throughout), the avx2 kernels chosen at load:
+
+| scenario | % of a core | cycles a sample | against Phase 0 |
+|---|---|---|---|
+| idle-zap | 0.47 | 318 | -17 % |
+| held1-zap | 5.47 | 3583 | -17 % |
+| held8-zap | 5.31 | 3534 | -20 % |
+| held8-homy | 11.09 | 7635 | -27 % |
+| held8-voxmorph | 16.41 | 11011 | -23 % |
+| held8-fatline | 8.91 | 6070 | -37 % |
+| held8-fulltines | 9.22 | 5931 | -37 % |
+| held32-voxmorph | 28.12 | 18615 | -23 % |
+| struck8-zap | 5.47 | 3578 | -19 % |
+| struck8-voxmorph | 17.03 | 11270 | -17 % |
+| struck8-fatline | 12.50 | 8253 | -29 % |
+| struck8-fulltines | 6.56 | 4255 | -23 % |
+| demo-fatline (29.9 s) | 10.33 | 6976 | -36 % |
+
+What is left is the arithmetic the tiers keep, and the lane kernels' bound above; a channel pool across groups (the plan's last phase) and a float32 kernel on integer tables, which would be Tier B, are the levers past it.
+
+### Four parts on all 32 channels (2026-10-28, later the same day)
+
+A four-part performance with a long release, eight notes, so every one of the 32 channels is taken and the next chord steals from releases still sounding. The factory set has sixteen four-part performances, drum kits and one voice layered four times, and no pad among them, so the `superpad4` scenarios build one as an editor would: B053 Teck Hook's shell, its four parts written poly (they are mono, and eight notes on a mono part take one channel: the first try measured four channels) and their filters off (a filter EG closes at key-off, which cut the release whatever the amplitude EG's time), with A109 SuperPad in every part, eight voiced and eight unvoiced operators a channel and an eight-second release. `held8-superpad4` holds the chord for 10 s, 32 channels with every operator live; `struck8-superpad4` strikes it every 0.5 s, so each chord takes all 32 channels from the releases of the one before; `held8-superpad4f` keeps Teck Hook's filters on in every part, 32 channels and 32 filter slots, the heaviest case the engine has. The bench's `ch` column is the channels the engine still computes at the end of the render (`Device::renderingChannels`), 32 on all three rows.
+
+Phase 0 and the end state alternated in one session, three rounds each, the median, every hash the same (Tier A):
+
+| scenario | Phase 0 % of a core | Phase 0 cycles a sample | now % | now cycles | change |
+|---|---|---|---|---|---|
+| held8-superpad4 | 24.22 | 15937 | 17.97 | 11793 | -26 % |
+| struck8-superpad4 | 20.00 | 13321 | 15.78 | 10371 | -22 % |
+| held8-superpad4f | 32.50 | 21168 | 21.56 | 14033 | -34 % |
+
+So the full machine, 32 channels of a 16-operator pad with every filter slot busy, is a fifth of a P-core where it was a third.
+
+`dsp_bench` on the filter bank alone, cycles a sample for sixteen slots: 1123 on the scalar lanes, 719 on sse2, 672 on avx2, the same bytes out of all three (`dsp_check`). The modulators and the LATE schedule stay scalar around the kernel.
+
+The two compiler experiments measured slower on MSVC 19.44, consistently over both rounds, and were dropped; `/Ob3` was not tried after the extra inlining of LTO lost, and `/favor` is one vendor's. The floor's first form, an integer cut with a branch on the sign, was 4 ns against the library's 1.1 ns (`src/math/floor.h` has the microbenchmark's numbers): it mispredicts on modulated phases, and it read as a 3 to 9 % loss across the set before the alternated rounds showed the rest of that loss was the session.
+
 ## What the patch asks for
 
 A020 is two layered parts of PrB 097 `SpacySweep` (algorithm 8) on the performance channel, so every key is two channels. Each channel runs five voiced sine operators (three sit at output level 0) and **all eight unvoiced operators** at levels 39 to 71 with their own EGs. The unvoiced path is a noise generator, two one-poles and a resonance carrier per operator per sample, and no other kind of preset uses eight of them at once. Eight held keys is 16 channels × (8 voiced + 8 unvoiced) = 256 operator paths per sample at 48 kHz. On the hardware this costs nothing extra: the YMP706 runs every slot of every channel whether it sounds or not.

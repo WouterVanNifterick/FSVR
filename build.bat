@@ -8,6 +8,7 @@ rem                                     standalone (64-bit, build\x64), then the
 rem                                     then the plug-in's own checks (check_plugin, check_gui)
 rem   build.bat bench                -> bin\dsp_bench.exe, the filter and effects' cost and bit-exact output (tools\dsp_bench.cpp)
 rem   build.bat trace                -> bin\wavetrace.exe, a voice's operators sample by sample (tools\wavetrace.cpp)
+rem   build.bat perf                 -> bin\perfbench.exe, the engine's cost on fixed scenarios, hashed (tools\perfbench.cpp)
 rem   build.bat file.cpp [cl args]   -> compiles whatever you pass (paths relative to this folder)
 rem   set FSVR_MATH=0..3           -> the sample loop's maths backend (src\math\fastmath.h): 0 raw libm, 1 LUT (unset), 2 CORDIC, 3 hybrid
 rem CMakeLists.txt builds the same targets for anything that is not MSVC-on-Windows.
@@ -19,14 +20,23 @@ set MATHDEF=
 rem The two hosts and the filters and effects are bit-exact only without FMA contraction, so they are compiled apart.
 rem VS 2022 does not contract under /fp:precise (tools\dsp_bench.cpp writes the same bytes as under /fp:strict).
 set VOP3FLAGS=/nologo /O2 /EHsc /W3 /std:c++20 /fp:precise /I src
-set VOP3OBJ=build\vop3host\*.obj
-set ENGINE=src\tonegen\*.cpp src\engine\render.cpp src\engine\controllers.cpp src\engine\fseq.cpp src\engine\midi.cpp src\engine\notes.cpp src\presets\patch.cpp src\presets\rom.cpp src\math\fastmath.cpp
+rem The engine too: its lane kernels replay the scalar arithmetic operation for operation (fm::selfcheck tests it).
+set ENGINEFLAGS=/nologo /O2 /EHsc /W3 /std:c++17 /fp:precise
+set VOP3OBJ=build\vop3host\*.obj build\vop3host\isa0\*.obj build\vop3host\isa1\*.obj build\vop3host\isa2\*.obj
+set ENGINE=src\tonegen\*.cpp src\engine\render.cpp src\engine\controllers.cpp src\engine\fseq.cpp src\engine\midi.cpp src\engine\notes.cpp src\presets\patch.cpp src\presets\rom.cpp src\math\fastmath.cpp src\kernel\tonegen.cpp
+rem The tone generator's lane kernel, once per instruction set (src\kernel\README.md), linked with the engine.
+set TGOBJ=build\kernel\isa0\*.obj build\kernel\isa1\*.obj build\kernel\isa2\*.obj
 if defined FSVR_MATH set MATHDEF=/DFSVR_MATH=%FSVR_MATH%
 if "%~1"=="" (
   call :console
 ) else if "%~1"=="test" (
   call :console || goto :done
   "%~dp0bin\fsvr_console.exe" -selftest || goto :done
+  rem The same on the sse2 kernels, and the avx2 object defines nothing outside its namespace (src\kernel\README.md)
+  set FSVR_SIMD=sse2
+  "%~dp0bin\fsvr_console.exe" -selftest || goto :done
+  set FSVR_SIMD=
+  python "%~dp0tools\check_isa.py" avx2 "%~dp0build\vop3host\isa2\*.obj" "%~dp0build\kernel\isa2\*.obj" || goto :done
   python "%~dp0tools\check_formant.py" || goto :done
   python "%~dp0tools\check_presets.py"
 ) else if "%~1"=="plugin" (
@@ -39,9 +49,12 @@ if "%~1"=="" (
 ) else if "%~1"=="bench" (
   call :vop3host || goto :done
   cl %VOP3FLAGS% tools\dsp_bench.cpp %VOP3OBJ% /Fe:bin\dsp_bench.exe /Fobuild\
+) else if "%~1"=="perf" (
+  call :vop3host || goto :done
+  cl %ENGINEFLAGS% %MATHDEF% /DFSVR_HAVE_SSE2=1 /DFSVR_HAVE_AVX2=1 /I src %ENGINE% src\device\device.cpp src\selftest\selftest.cpp tools\perfbench.cpp %VOP3OBJ% %TGOBJ% /Fe:bin\perfbench.exe /Fobuild\
 ) else if "%~1"=="trace" (
   call :vop3host || goto :done
-  cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src %ENGINE% tools\wavetrace.cpp %VOP3OBJ% /Fe:bin\wavetrace.exe /Fobuild\
+  cl %ENGINEFLAGS% %MATHDEF% /DFSVR_HAVE_SSE2=1 /DFSVR_HAVE_AVX2=1 /I src %ENGINE% tools\wavetrace.cpp %VOP3OBJ% %TGOBJ% /Fe:bin\wavetrace.exe /Fobuild\
 ) else (
   cl /nologo /O2 /EHsc /W3 /std:c++17 %* /Fobuild\
 )
@@ -50,13 +63,23 @@ goto :done
 rem The console.
 :console
 call :vop3host || exit /b 1
-cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src %ENGINE% src\device\device.cpp src\selftest\selftest.cpp %VOP3OBJ% src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
+cl %ENGINEFLAGS% %MATHDEF% /DFSVR_HAVE_SSE2=1 /DFSVR_HAVE_AVX2=1 /I src %ENGINE% src\device\device.cpp src\selftest\selftest.cpp %VOP3OBJ% %TGOBJ% src\console\main.cpp winmm.lib /Fe:bin\fsvr_console.exe /Fobuild\
 exit /b %ERRORLEVEL%
 
 :vop3host
 if exist build\vop3host rmdir /s /q build\vop3host
-mkdir build\vop3host
-cl /c /MP %VOP3FLAGS% src\effects\*.cpp src\effects\host\*.cpp src\filters\*.cpp src\modulators\*.cpp src\fs1r\rom_tables.cpp /Fobuild\vop3host\ || exit /b 1
+mkdir build\vop3host build\vop3host\isa0 build\vop3host\isa1 build\vop3host\isa2
+cl /c /MP %VOP3FLAGS% /DFSVR_HAVE_SSE2=1 /DFSVR_HAVE_AVX2=1 src\effects\*.cpp src\effects\host\*.cpp src\filters\*.cpp src\modulators\*.cpp src\fs1r\rom_tables.cpp src\kernel\dispatch.cpp /Fobuild\vop3host\ || exit /b 1
+rem The lane kernels, once per instruction set (src\kernel\README.md): scalar, sse2, and avx2 under /arch:AVX2. The
+rem DSP's (the filter bank) with the DSP, the tone generator's (group_kernel.cpp) with the engine, which it reaches into.
+cl /c /MP %VOP3FLAGS% /DFSVR_ISA=0 src\kernel\isa\bank_kernel.cpp src\kernel\isa\table.cpp /Fobuild\vop3host\isa0\ || exit /b 1
+cl /c /MP %VOP3FLAGS% /DFSVR_ISA=1 src\kernel\isa\bank_kernel.cpp src\kernel\isa\table.cpp /Fobuild\vop3host\isa1\ || exit /b 1
+cl /c /MP %VOP3FLAGS% /DFSVR_ISA=2 /arch:AVX2 src\kernel\isa\bank_kernel.cpp src\kernel\isa\table.cpp /Fobuild\vop3host\isa2\ || exit /b 1
+if exist build\kernel rmdir /s /q build\kernel
+mkdir build\kernel build\kernel\isa0 build\kernel\isa1 build\kernel\isa2
+cl /c %ENGINEFLAGS% %MATHDEF% /I src /DFSVR_ISA=0 src\kernel\isa\group_kernel.cpp /Fobuild\kernel\isa0\ || exit /b 1
+cl /c %ENGINEFLAGS% %MATHDEF% /I src /DFSVR_ISA=1 src\kernel\isa\group_kernel.cpp /Fobuild\kernel\isa1\ || exit /b 1
+cl /c %ENGINEFLAGS% %MATHDEF% /I src /DFSVR_ISA=2 /arch:AVX2 src\kernel\isa\group_kernel.cpp /Fobuild\kernel\isa2\ || exit /b 1
 exit /b %ERRORLEVEL%
 
 :done

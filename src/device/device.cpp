@@ -1,5 +1,6 @@
 // device/device.cpp - fsvr::Device: host sample rate, state, the public surface. Ours.
 #include "engine/synth.h"
+#include "kernel/dispatch.h"
 
 // ------------------------------------------------------------------------------------------ fsvr::Device
 namespace fsvr {
@@ -207,6 +208,13 @@ int Device::activeVoices() const {
     std::lock_guard<std::mutex> lk(p->s.mtx);
     return p->s.active_chans();
 }
+int Device::renderingChannels() const {
+    std::lock_guard<std::mutex> lk(p->s.mtx);
+    int n = 0; for (auto& c : p->s.ch) n += c.active && !c.silent;
+    return n;
+}
+
+const char* Device::simd() { return kernels().name; }
 
 int Device::selfTest() {
     init_tables();

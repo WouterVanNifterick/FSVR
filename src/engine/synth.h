@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <string>
@@ -26,6 +27,8 @@
 #include "presets/performance.h"
 #include "presets/rom.h"
 #include "tonegen/channel.h"
+#include "tonegen/lanes.h"
+#include "kernel/tonegen.h"
 #include "effects/effects.h"
 #include "filters/filter.h"
 
@@ -75,10 +78,24 @@ struct Synth {
     Fseq fseq; bool fseqRun = false; double fseqAcc = 0, fseqPeriod = 0.01; int fseqStep = 0, fseqDir = 1; int fseqVel = 100; int fseqPart = -1;
     bool fseqHeld = false, fseqClock = false; double fseqDelay = 0, fseqClockAcc = 0;
     double tickAcc = 0;
+    // Ours: counts the ticks and the render calls, the two moments a control refresh's inputs can move, so a
+    // refresh whose inputs have not moved is skipped (tonegen/channel.cpp, refresh_chan). Bit-identical.
+    uint64_t ctlSerial = 1;
+    // Ours: the sample loop runs in segments between ticks (render.cpp), each channel over a whole segment into
+    // chanOut and the mix a sample at a time after; the serial loop is its reference, and FSVR_RENDER=serial runs
+    // that alone.
+    static const int SEG_MAX = 256;            // a segment is at most a tick's 249.6 samples
+    bool serialOnly = false;
+    double chanOut[NCHAN][SEG_MAX];
+    struct Sends { double dry[4], var[4], rev[4]; bool ins[4]; };   // the parts onto the buses, once a call
+    fsvr::tonegen::Group group;                // the lane kernel's working set (render_segment)
+    void render_serial(float* outL, float* outR, int frames, const Sends& s);
+    void render_segment(float* outL, float* outR, int n, const Sends& s);
+    void mix_sample(float* outL, float* outR, int i, double v[NCHAN], double pl[4], double pr[4], bool any, const Sends& s);
     // Ours: the engine sleeps while nothing sounds (render.cpp). The output's last sample, and how long it has held.
     float lastL = 0, lastR = 0; int quiet = 0; bool asleep = false;
 
-    Synth() { init_perf(perf); init_system(); fx.load((uint8_t*)&perf); }
+    Synth() { init_perf(perf); init_system(); fx.load((uint8_t*)&perf); if (const char* r = getenv("FSVR_RENDER")) serialOnly = !strcmp(r, "serial"); }
     void init_system();
     static inline double sendlvl(int v) { return db2lin(-LEVEL_DB * SENDTAB[clampi(v, 0, 127)]); }
 

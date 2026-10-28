@@ -50,6 +50,7 @@ struct Chan {
     int fqWord[8] = {}, fquWord[8] = {}; double partV = 1, partU = 1;
     OpState op[8]; double fbBus = 0, fbPrev = 0;
     double f0 = 0, fbGain = 0; int ctlLeft = 0, egLeft = 0;        // control-rate cache, see refresh_ctl; egLeft, render_chan
+    uint64_t ctlSerialC = 0, ctlSerialV[8] = {}, ctlSerialU[8] = {};   // the Synth::ctlSerial each refresh last computed under
     bool fseqOp[8] = {}, fseqUOp[8] = {};
     bool filtered = false;     // its note goes through its filter voice, flt channel n
     double phOff[8] = {};      // ours: each voiced operator's initial phase in turns, op byte 0x1C (refresh_regs)
@@ -60,8 +61,16 @@ struct Chan {
 // it per sample (a dozen pow() calls per operator) was the whole CPU bill. The one input that moves
 // every sample, an operator's own pitch EG, stays in the sample loop while it runs: its integral is
 // the phase. The rate itself is ours, not the hardware's, so it lives in engine/tuning.h.
-// fseq: the part's Fseq is driving the operators this tick (Synth::fseq_on).
-void refresh_ctl(Chan& C, const Voice& V, bool fseq);
+// fseq: the part's Fseq is driving the operators this tick (Synth::fseq_on). serial is Synth::ctlSerial, which
+// moves whenever an input can have: a refresh under a serial it already computed under is skipped.
+void refresh_chan(Chan& C, const Voice& V, uint64_t serial);                // the channel's fundamental and feedback gain
+void refresh_op(Chan& C, const Voice& V, bool fseq, int o, uint64_t serial);   // operator o, voiced and unvoiced
+void refresh_ctl(Chan& C, const Voice& V, bool fseq, uint64_t serial);        // both, every operator
 // The channel's own word, before the filter and the pan. gateDb, ctlDecimation and egDecimation are Synth's cost
 // knobs: at an egDecimation of n the amplitude EGs advance n samples at a time and the gains ramp across the block.
-double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation, int egDecimation);
+double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation, int egDecimation, uint64_t ctlSerial);
+// Ours: the channel over a segment of n samples into out, as render_chan renders them one by one; returns the sample it
+// went inactive at (n when it did not), and marks busy[t] where it counted as sounding at t (Synth::render's any). now
+// is Synth::now at the segment's first sample, for Chan::ran.
+int render_chan_block(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation, int egDecimation, uint64_t ctlSerial,
+                      long long now, double* out, bool* busy, int n);

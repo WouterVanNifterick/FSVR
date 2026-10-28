@@ -6,12 +6,14 @@
 float g_win[2][8][1025];       // [asymmetric?][skirt]: the two window families
 float g_winDC[2][8];           // each window's mean, which a grain under a DC carrier does not carry
 uint16_t g_opMant[1024];       // the phase generator's mantissas (cal.h, op_increment)
+double g_slewN[65];            // 1 - (1 - LEVEL_SLEW_K)^n: the slew's step over a block of n
 
 void init_tables() {
     fm::init();
     // floor(2048 * 2^(i / 1024)), MEASURED (cal.h). The nearest entry to a whole number past i = 0 is 6.8e-4
     // away (i = 905), so libm's exp2 floors every one the same on every platform.
     for (int i = 0; i < 1024; i++) g_opMant[i] = (uint16_t)std::floor(cal::OP_MANT_ONE * std::exp2(i / 1024.0));
+    for (int n = 1; n <= 64; n++) g_slewN[n] = 1.0 - pow(1.0 - LEVEL_SLEW_K, n);
     // MEASURED 2026-09-19 (FS1R.unlock's skirt sweep, all sixty partials) and 2026-09-24 (the same take
     // read again, plus 04_formant_2): the grain window is sin^p with p = 2 * 2^skirt on every form, and
     // there are two families. The "2" forms (all2, odd2, res2) are the symmetric window, whose line

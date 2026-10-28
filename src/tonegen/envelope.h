@@ -25,7 +25,7 @@ static inline int eg_ratescale(int tscale, int c0) {
 // INFERRED: chip EG rate 0..63 -> seconds for a full 96 dB traverse. The firmware maps time T to rate (99-T)*0xA4>>8, the
 // exact inverse of the DX7's (R*41)>>6, and its DX7 converter uses T = 99 - R, so the chip is assumed to time its EG like the
 // DX7 EGS: increment (4 + (q & 3)) << (q >> 2) per 64 samples on a 2^28 = 96 dB scale (Dexed). 6.6 ms at 63, 380 s at 0.
-static inline double rate_secs(int q) { q = clampi(q, 0, 63); return pow(2.0, 26 - (q >> 2)) / (4 + (q & 3)) / SR; }
+static inline double rate_secs(int q) { q = clampi(q, 0, 63); return pow(2.0, (double)(26 - (q >> 2))) / (4 + (q & 3)) / SR; }   // the C pow: no template for the lane kernels to instantiate
 struct EG {                      // amplitude EG on the chip: hold, 4 segments. INFERRED shape/timing, DX7 style
     int stage = 5; double cur = -200, target = -200, rate = 0, holdLeft = 0; bool rising = false;
     int L[4] = {}, R[4] = {}; int hold = 0; int rs = 0;

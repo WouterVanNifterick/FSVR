@@ -6,9 +6,10 @@ The FS1R's tone generator chip, modelled: 32 channels of eight voiced and eight 
 |---|---|
 | `envelope.h` | `EG` (the amplitude EG: hold and four segments) and `FreqEG` (the frequency EG ramp), the rate ladder `rate_secs` and key rate scaling; `EG::advance`, n samples at once for the Fast steps |
 | `operator.h` | one voiced operator: the phase generator (`op_increment`, a frequency word to the chip's integer phase increment, measured), `op_sample` (sine and the stored all1/all2 waves, odd and res as a window and a carrier read by phase with the modulation in both, the formant's grains), the windows, `OpState` (its integer phase, and each sample's output for `tools/wavetrace`) |
-| `operator.cpp` | `init_tables` (the grain windows and the phase generator's mantissa table), `op_wave` (an operator alone, for displays) |
+| `operator.cpp` | `init_tables` (the grain windows, the phase generator's mantissa table and the level slew per block), `op_wave` (an operator alone, for displays) |
 | `noise.h` | the unvoiced operator: its noise band (`noise_band`) and resonance carrier (`ures`) |
-| `channel.h`, `.cpp` | `Chan`: eight operator pairs on the algorithm, the feedback bus, the level slew, the note-on damp, the chip's per-operator cut (`cal::OP_CUT_DB`, `NOISE_CUT_DB`), when a channel goes silent; `refresh_ctl` (control rate) and `render_chan` (one sample, its EGs a block at a time on the Fast steps) |
+| `lanes.h` | `Group`: W channels side by side, a number a row, with the forms and the algorithm's buses decoded as masks, for `kernel/isa/group_kernel.cpp` (`Synth::render_segment` fills it) |
+| `channel.h`, `.cpp` | `Chan`: eight operator pairs on the algorithm, the feedback bus, the level slew, the note-on damp, the chip's per-operator cut (`cal::OP_CUT_DB`, `NOISE_CUT_DB`), when a channel goes silent; `refresh_chan` and `refresh_op` (control rate, skipped under a `Synth::ctlSerial` they already computed under) and `render_chan` (one sample, its EGs a block at a time on the Fast steps), `render_chan_block` (a segment of them, for `Synth::render_segment`) |
 
 ## Structure
 Reads down: envelope, operator and noise are per operator; a channel runs eight of them through `FS1R_ALG`. A channel renders from its `Chan` and the part's `Voice` only. `Synth` (`engine/`) writes the channel's registers (`regPitch`, `regLevel`...) on the tick and calls `render_chan` per sample.

@@ -22,6 +22,10 @@ static const int SR = (int)fsvr::ENGINE_RATE;
 // carry a quantisation floor of its own, and the quietest segments of the capture set sit below -100 dB.
 enum WavFormat { WAV_S16, WAV_F32 };
 
+// A sample as the 16-bit word a WAV holds: scaled to 32767, held to the range and cut toward zero. The one
+// quantiser every render goes through, so tools/perfbench.cpp and tools/abcheck.py hash the same bytes.
+inline int16_t to_s16(float x) { return (int16_t)std::max(-32767.0f, std::min(32767.0f, x * 32767.f)); }
+
 inline void write_wav(const char* path, const std::vector<float>& l, const std::vector<float>& r,
                       WavFormat format = WAV_S16) {
     size_t frames = l.size();
@@ -37,8 +41,7 @@ inline void write_wav(const char* path, const std::vector<float>& l, const std::
     } else {
         body.resize(frames * 4);
         for (size_t i = 0; i < frames; i++) {
-            int16_t a = (int16_t)std::max(-32767.0f, std::min(32767.0f, l[i] * 32767.f));
-            int16_t b = (int16_t)std::max(-32767.0f, std::min(32767.0f, r[i] * 32767.f));
+            int16_t a = to_s16(l[i]), b = to_s16(r[i]);
             memcpy(&body[4 * i], &a, 2); memcpy(&body[4 * i + 2], &b, 2);
         }
     }
