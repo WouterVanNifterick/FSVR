@@ -4,6 +4,7 @@
 void Synth::render(float* outL, float* outR, int frames) {
     std::lock_guard<std::mutex> lk(mtx);
     const tuning::NoDenormals flush;
+    ctlSerial++;                               // MIDI and edits land between render calls
     fx.sync((uint8_t*)&perf);
     filter_latch();
     for (int p = 0; p < 4; p++) if (fltSw >> p & 1) filter_sync(p);
@@ -43,7 +44,7 @@ void Synth::render(float* outL, float* outR, int frames) {
             if (!c.active) continue;
             if (!c.silent || c.freezeLeft < 0) any = true;   // a silent channel counting down plays nothing more
             const bool steps = !c.silent;
-            const double m = render_chan(c, perf.part[c.part].voice, fseq_on(c.part), gateDb, ctlDecimation, egDecimation);
+            const double m = render_chan(c, perf.part[c.part].voice, fseq_on(c.part), gateDb, ctlDecimation, egDecimation, ctlSerial);
             if (steps) c.ran = now + 1;
             if (n < nf && (c.filtered || !fltWide)) v[n] = m; else { pl[c.part] += m * c.panL; pr[c.part] += m * c.panR; }
         }

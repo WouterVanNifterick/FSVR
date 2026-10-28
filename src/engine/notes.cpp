@@ -459,6 +459,7 @@ void Synth::refresh_pan(Chan& C, const Part& pt) {
 }
 
 void Synth::tick() {
+    ctlSerial++;
     double dt = 1.0 / TICK_HZ;
     fseq_tick(dt);
     for (int n = 0; n < NCHAN; n++) {

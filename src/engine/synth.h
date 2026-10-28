@@ -75,6 +75,9 @@ struct Synth {
     Fseq fseq; bool fseqRun = false; double fseqAcc = 0, fseqPeriod = 0.01; int fseqStep = 0, fseqDir = 1; int fseqVel = 100; int fseqPart = -1;
     bool fseqHeld = false, fseqClock = false; double fseqDelay = 0, fseqClockAcc = 0;
     double tickAcc = 0;
+    // Ours: counts the ticks and the render calls, the two moments a control refresh's inputs can move, so a
+    // refresh whose inputs have not moved is skipped (tonegen/channel.cpp, refresh_chan). Bit-identical.
+    uint64_t ctlSerial = 1;
     // Ours: the engine sleeps while nothing sounds (render.cpp). The output's last sample, and how long it has held.
     float lastL = 0, lastR = 0; int quiet = 0; bool asleep = false;
 

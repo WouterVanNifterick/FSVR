@@ -2,11 +2,19 @@
 #include "tonegen/channel.h"
 #include "fs1r/algorithms.h"
 
-void refresh_ctl(Chan& C, const Voice& V, bool fs) {
-    const unsigned char* alg = FS1R_ALG[V.alg];
+// Ours, and bit-identical: everything a refresh reads moves on the 192 Hz tick or between render calls, so
+// Synth::ctlSerial counts those, a refresh that computed marks the serial it ran under, and one that finds
+// its serial current skips the maths it would redo. At Full that is fifteen refreshes in sixteen.
+void refresh_chan(Chan& C, const Voice& V, uint64_t serial) {
+    if (C.ctlSerialC == serial) return;
+    C.ctlSerialC = serial;
     C.f0 = op_hz(op_increment(C.regPitch + 0x1243 + C.regPM));    // channel fundamental incl. LFO pitch mod (pms 7)
     C.fbGain = V.fb ? cal::FEEDBACK * pow(2.0, V.fb - 7) : 0.0;    // INFERRED feedback scale
-    for (int o = 0; o < 8; o++) {
+}
+
+void refresh_op(Chan& C, const Voice& V, bool fs, int o, uint64_t serial) {
+    const unsigned char* alg = FS1R_ALG[V.alg];
+    {
         OpState& s = C.op[o]; const OpV& v = V.v[o]; const OpU& u = V.u[o];
         s.att = C.regLevel[o] * LEVEL_DB + am_att(C.regAM, v.ams);
         if ((alg[2 * o + 1] & 1) || (V.corrEdit >> o & 1)) s.att += cal::CARRIER_DB * V.corr[o];   // carrier level correction (the 0x200 word), on a modulator after an edit
@@ -16,6 +24,8 @@ void refresh_ctl(Chan& C, const Voice& V, bool fs) {
         // both the target attenuation and the slewed one. MEASURED 2026-09-28 on the Fat Line demo:
         // refresh_ctl was a quarter of the render and half of that was for finished operators.
         if (s.eg.done() && !s.g[0].on && !s.g[1].on && s.att >= -20 && s.attS >= -20) goto unvoiced;
+        if (C.ctlSerialV[o] == serial) goto unvoiced;   // current already (the values are a function of what the serial counts)
+        C.ctlSerialV[o] = serial;
         {
         int pmw = (int)(C.regPM * cal::PMS_FRAC[v.pms]) + C.vcFreq[o][0];
         // The detune word goes into the frequency word rather than onto the result: it is a pitch
@@ -56,9 +66,11 @@ void refresh_ctl(Chan& C, const Voice& V, bool fs) {
         s.wl7 = std::min(cal::FRMT_WL_MAX, wl);
         }
         unvoiced:
-        if (s.ueg.done()) continue;   // the same, and simpler: the unvoiced attenuation is never negative, so a finished noise EG is gated for good
+        if (s.ueg.done()) return;     // the same, and simpler: the unvoiced attenuation is never negative, so a finished noise EG is gated for good
         // unvoiced (noise formant) operator
         s.uatt = C.regULevel[o] * LEVEL_DB + am_att(C.regAM, u.ams);
+        if (C.ctlSerialU[o] == serial) return;
+        C.ctlSerialU[o] = serial;
         double nf;
         if (fs && C.fseqUOp[o]) nf = op_hz(op_increment(C.fquWord[o]));
         else if (u.mode == 2 && v.form == 7) nf = op_hz(op_increment(C.freqWord[o] + C.detW[o]));
@@ -86,10 +98,12 @@ void refresh_ctl(Chan& C, const Voice& V, bool fs) {
     }
 }
 
-// The level slew over n samples at once, for the Fast steps' blocks.
-static double slew_n(int n) { static double k[65] = {}; n = std::clamp(n, 1, 64); if (k[n] == 0) k[n] = 1.0 - pow(1.0 - LEVEL_SLEW_K, n); return k[n]; }
+void refresh_ctl(Chan& C, const Voice& V, bool fs, uint64_t serial) {
+    refresh_chan(C, V, serial);
+    for (int o = 0; o < 8; o++) refresh_op(C, V, fs, o, serial);
+}
 
-double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation, int egDecimation) {
+double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation, int egDecimation, uint64_t ctlSerial) {
     if (C.silent) {
         // Ours. The carriers and the noise are over, so the channel's output
         // is zero from here to its end; what is left is when the allocator may treat it as free, which
@@ -116,7 +130,7 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
         C.last = 0.0;
         return 0.0;
     }
-    if (C.ctlLeft-- <= 0) { C.ctlLeft = ctlDecimation - 1; refresh_ctl(C, V, fseq); }
+    if (C.ctlLeft-- <= 0) { C.ctlLeft = ctlDecimation - 1; refresh_ctl(C, V, fseq, ctlSerial); }
     // Ours, the Fast steps (Device::setSpeed): with egDecimation n the amplitude EGs and the level slew advance n
     // samples at a block's start and each gain ramps linearly to where they land, which takes the EG tick and the
     // dB-to-gain conversion out of every sample but one in n. Full and Good, at 1, run them every sample.
