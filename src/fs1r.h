@@ -79,6 +79,7 @@ public:
     void operatorWave(int part, int op, float* out, int n) const;
     int fseqPart() const;                      // -1 when no part is assigned
     int activeVoices() const;                  // keys down or sustained and releases still above -60 dB, for a polyphony readout
+    int renderingChannels() const;             // channels the engine still computes every sample: taken and not yet silent, what a block costs
     // How long one Fseq frame lasts at 100 % speed for a header speed adjust of 0..127 (fseq_start).
     static double fseqFrameSeconds(int speedAdjust);
     // An Fseq frame's bytes on the engine's scales: a frequency as the word its hi and lo bytes make

@@ -6,7 +6,7 @@ A user report: "A020 Vox Morph is very CPU hungry. With 5 to 8 voices it brings 
 
 Every optimisation commit names its tier. **Tier A**: the nineteen `tools/regress.py` cases and the Fat Line demo render bit-identical 16-bit audio. **Tier B**: no sample moves more than one 16-bit step, and `regress.py` and the demo ledger read the same. Structural work (loops, layout, build flags, dispatch) is Tier A; a change of arithmetic, a table in place of a function, may be Tier B and says so in its commit.
 
-`bin\perfbench.exe` (`build.bat perf`, `tools/perfbench.cpp`) plays fixed scenarios through `fsvr::Device` from the factory banks, so it needs no EPROM, and reports the CPU time inside `process()` as a share of one core at the render rate, the minimum and the median of three runs pinned to one core, with the cycles a sample costs beside it; it hashes the 16-bit output, `--save` keeps the renders and `--ref` compares a later build against them with the same A/B verdict. `python tools/abcheck.py` renders the regress cases and the demo and, against `--ref`, prints the largest step, the samples moved and the first frame that moved; `--build-base REV` builds a revision apart under `build/ab` and renders its set, so a baseline never shares `build/` with the tree under test. The protocol on the dev box, an i9-14900KF: core 2 (a P-core), the median of three, the two builds alternated in one session, nothing else timed meanwhile. Windows counts thread time in 15.6 ms steps, so a 10 s run resolves 0.16 % of a core; the cycles per sample are the finer number. These numbers are not comparable with the Ryzen 9 3900X rows below, which are kept as history.
+`bin\perfbench.exe` (`build.bat perf`, `tools/perfbench.cpp`) plays fixed scenarios through `fsvr::Device` from the factory banks, so it needs no EPROM, and reports the CPU time inside `process()` as a share of one core at the render rate, the minimum and the median of three runs pinned to one core, with the cycles a sample costs beside it; it hashes the 16-bit output, `--save` keeps the renders and `--ref` compares a later build against them with the same A/B verdict. A scenario names its performance and may put one factory voice in every part and write the parts' Mono/Poly and filter switches, as an editor would; `--perf` and `--release` try another shell or release length without changing a scenario's own definition. `python tools/abcheck.py` renders the regress cases and the demo and, against `--ref`, prints the largest step, the samples moved and the first frame that moved; `--build-base REV` builds a revision apart under `build/ab` and renders its set, so a baseline never shares `build/` with the tree under test. The protocol on the dev box, an i9-14900KF: core 2 (a P-core), the median of three, the two builds alternated in one session, nothing else timed meanwhile. Windows counts thread time in 15.6 ms steps, so a 10 s run resolves 0.16 % of a core; the cycles per sample are the finer number. These numbers are not comparable with the Ryzen 9 3900X rows below, which are kept as history.
 
 ### Phase 0: before any change (2026-10-28)
 
@@ -67,6 +67,20 @@ The tone generator's kernel (`src/kernel/isa/group_kernel.cpp`) is exact on scal
 | demo-fatline (29.9 s) | 10.33 | 6976 | -36 % |
 
 What is left is the arithmetic the tiers keep, and the lane kernels' bound above; a channel pool across groups (the plan's last phase) and a float32 kernel on integer tables, which would be Tier B, are the levers past it.
+
+### Four parts on all 32 channels (2026-10-28, later the same day)
+
+A four-part performance with a long release, eight notes, so every one of the 32 channels is taken and the next chord steals from releases still sounding. The factory set has sixteen four-part performances, drum kits and one voice layered four times, and no pad among them, so the `superpad4` scenarios build one as an editor would: B053 Teck Hook's shell, its four parts written poly (they are mono, and eight notes on a mono part take one channel: the first try measured four channels) and their filters off (a filter EG closes at key-off, which cut the release whatever the amplitude EG's time), with A109 SuperPad in every part, eight voiced and eight unvoiced operators a channel and an eight-second release. `held8-superpad4` holds the chord for 10 s, 32 channels with every operator live; `struck8-superpad4` strikes it every 0.5 s, so each chord takes all 32 channels from the releases of the one before; `held8-superpad4f` keeps Teck Hook's filters on in every part, 32 channels and 32 filter slots, the heaviest case the engine has. The bench's `ch` column is the channels the engine still computes at the end of the render (`Device::renderingChannels`), 32 on all three rows.
+
+Phase 0 and the end state alternated in one session, three rounds each, the median, every hash the same (Tier A):
+
+| scenario | Phase 0 % of a core | Phase 0 cycles a sample | now % | now cycles | change |
+|---|---|---|---|---|---|
+| held8-superpad4 | 24.22 | 15937 | 17.97 | 11793 | -26 % |
+| struck8-superpad4 | 20.00 | 13321 | 15.78 | 10371 | -22 % |
+| held8-superpad4f | 32.50 | 21168 | 21.56 | 14033 | -34 % |
+
+So the full machine, 32 channels of a 16-operator pad with every filter slot busy, is a fifth of a P-core where it was a third.
 
 `dsp_bench` on the filter bank alone, cycles a sample for sixteen slots: 1123 on the scalar lanes, 719 on sse2, 672 on avx2, the same bytes out of all three (`dsp_check`). The modulators and the LATE schedule stay scalar around the kernel.
 

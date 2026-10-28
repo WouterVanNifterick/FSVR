@@ -56,10 +56,21 @@ namespace {
 // ---------------------------------------------------------------------------------------- the scenarios
 enum Drive { IDLE, HELD, STRUCK, SMF };
 enum Set { QUICK = 1, STANDARD = 2, FULL = 3 };   // quick is in standard is in full
-struct Scenario { const char* name; int perf; Drive drive; int notes; double secs; const char* smf; int set; };
+struct Scenario { const char* name; int perf; Drive drive; int notes; double secs; const char* smf; int set;
+                  int release = 0;    // EG time 4 written to every operator before the phrase, 0 for the performance's own
+                  int voice = -1;     // a factory voice (0..1407) loaded into every part, -1 for the performance's own
+                  int filter = -1;    // every part's filter switch written 0 or 1, -1 for the performance's own
+                  int poly = -1; };   // every part's Mono/Poly byte written 0 or 1, -1 for the performance's own
 
 // Performances by their EPROM index: A001 Zap! 0, A014 Homy 13, A020 Vox Morph 19, A088 Fat Line 87,
-// B014 Full Tines 141. A chord is the first `notes` of CHORD; more than eight notes run up from 36.
+// B014 Full Tines 141, B053 Teck Hook 180. A chord is the first `notes` of CHORD; more than eight notes run up from 36.
+// Teck Hook is four parts of one voice, the one four-part sustained sound in the factory set; its parts are mono, so
+// superpad4 sets them poly and puts A109 SuperPad, eight voiced and eight unvoiced operators with an eight-second
+// release, in every part, as an editor would: eight notes take all 32 channels with every operator live. With the
+// parts' filters off the release is the amplitude EG's (a filter EG closes at key-off), and a struck chord's releases
+// ring under the next one, which steals every channel. superpad4f keeps Teck Hook's filters, on in every part: 32
+// channels and 32 filter slots.
+// steals every channel. superpad4f keeps Teck Hook's filters, on in every part: 32 channels and 32 filter slots.
 // For a song, secs is the tail after its last event. A scenario's definition never changes: one that
 // must gets a new name, so a number stays comparable over the record.
 const int SCHEMA = 1;
@@ -76,6 +87,9 @@ const Scenario SCENARIOS[] = {
     {"struck8-voxmorph",  19,  STRUCK, 8,  10, nullptr,                         STANDARD},
     {"struck8-fatline",   87,  STRUCK, 8,  10, nullptr,                         QUICK},
     {"struck8-fulltines", 141, STRUCK, 8,  10, nullptr,                         STANDARD},
+    {"held8-superpad4",   180, HELD,   8,  10, nullptr,                         STANDARD, 0, 108, 0, 1},
+    {"struck8-superpad4", 180, STRUCK, 8,  10, nullptr,                         STANDARD, 0, 108, 0, 1},
+    {"held8-superpad4f",  180, HELD,   8,  10, nullptr,                         STANDARD, 0, 108, -1, 1},
     {"demo-fatline",      -1,  SMF,    0,  2,  "captures/demo/04_Fat Line.mid", STANDARD},
     {"demo-all",          -1,  SMF,    0,  2,  "captures/demo/all.mid",         FULL},
 };
@@ -171,7 +185,7 @@ std::string compiler_name() {
 }
 
 // ---------------------------------------------------------------------------------------- one run
-struct Run { double cpu = 0; uint64_t cycles = 0, hash = 0; int64_t frames = 0; std::vector<int16_t> pcm; };
+struct Run { double cpu = 0; uint64_t cycles = 0, hash = 0; int64_t frames = 0; int chans = 0; std::vector<int16_t> pcm; };
 
 const uint64_t FNV_BASIS = 1469598103934665603ull, FNV_PRIME = 1099511628211ull;
 
@@ -187,6 +201,26 @@ Run render(const Scenario& s, const std::vector<Event>& ev, double secs, const f
     if (s.perf >= 0 && !(rom ? dev.loadRomPerformance(s.perf) : fs1r_factory::performance(dev, b, s.perf))) {
         printf("cannot load performance %d\n", s.perf); exit(1);
     }
+    if (s.voice >= 0)
+        for (int p = 0; p < 4; p++)
+            if (!(rom ? dev.loadRomVoice(p, s.voice) : fs1r_factory::voice(dev, b, p, s.voice))) { printf("cannot load voice %d\n", s.voice); exit(1); }
+    if (s.poly >= 0)                             // part byte 5, Mono/Poly
+        for (int p = 0; p < 4; p++) {
+            const uint8_t m[10] = {0xF0, 0x43, 0x10, 0x5E, (uint8_t)(0x30 + p), 0, 5, 0, (uint8_t)s.poly, 0xF7};
+            dev.sendMidi(m, 10);
+        }
+    if (s.filter >= 0)                           // part byte 7, the filter switch
+        for (int p = 0; p < 4; p++) {
+            const uint8_t m[10] = {0xF0, 0x43, 0x10, 0x5E, (uint8_t)(0x30 + p), 0, 7, 0, (uint8_t)s.filter, 0xF7};
+            dev.sendMidi(m, 10);
+        }
+    if (s.release)                               // EG time 4 of every voiced (byte 19) and unvoiced (35 + 20) operator
+        for (int p = 0; p < 4; p++)
+            for (int o = 0; o < 8; o++)
+                for (int al : {19, 55}) {
+                    const uint8_t m[10] = {0xF0, 0x43, 0x10, 0x5E, (uint8_t)(0x60 + p), (uint8_t)o, (uint8_t)al, 0, (uint8_t)s.release, 0xF7};
+                    dev.sendMidi(m, 10);
+                }
     Run run; run.frames = (int64_t)(secs * rate);
     if (keep) run.pcm.reserve((size_t)run.frames * 2);
     std::vector<float> l(block), r(block);
@@ -206,7 +240,7 @@ Run render(const Scenario& s, const std::vector<Event>& ev, double secs, const f
             if (keep) { run.pcm.push_back(a); run.pcm.push_back(c); }
         }
     }
-    run.hash = h;
+    run.hash = h; run.chans = dev.renderingChannels();   // the channels the engine still computes at the end
     return run;
 }
 
@@ -245,20 +279,22 @@ bool save(const std::vector<int16_t>& pcm, const std::string& path) {
 
 struct Row {
     std::string name, file; double rate; int speed, block; double secs; int runs;
-    std::vector<double> pct; double cyclesPerSample; uint64_t hash; Diff diff;
+    std::vector<double> pct; double cyclesPerSample; int chans; uint64_t hash; Diff diff;
 };
 
 void usage() {
     printf("usage: perfbench [--list] [--set quick|standard|full|name,...] [--runs K] [--core N | --no-pin]\n"
            "                 [--rate 48000|44100|both] [--speed 0..3|all] [--block N] [--seconds S] [--label TEXT]\n"
-           "                 [--json FILE] [--save DIR] [--ref DIR] [--rom PATH] [--check-blocks] [--check-factory]\n");
+           "                 [--json FILE] [--save DIR] [--ref DIR] [--rom PATH] [--check-blocks] [--check-factory]\n"
+           "                 [--release T]   EG time 4 of every operator written to T, to try a release length; a scenario's own value is the record\n"
+           "                 [--perf N]      the performance played instead of the scenario's, to try a shell; the scenario's own is the record\n");
 }
 
 }   // namespace
 
 int main(int argc, char** argv) {
     std::string set = "standard", label, json, saveDir, refDir, rom;
-    int runs = 3, core = 2, speedArg = 0, block = 512;
+    int runs = 3, core = 2, speedArg = 0, block = 512, releaseArg = 0, perfArg = -1;
     bool noPin = false, list = false, checkBlocks = false, checkFactory = false, allSpeeds = false, bothRates = false;
     double rate = 48000, seconds = 0;
     for (int i = 1; i < argc; i++) {
@@ -273,6 +309,8 @@ int main(int argc, char** argv) {
         else if (a == "--speed") { std::string v = next(); if (v == "all") allSpeeds = true; else speedArg = atoi(v.c_str()); }
         else if (a == "--block") block = std::max(1, atoi(next()));
         else if (a == "--seconds") seconds = atof(next());
+        else if (a == "--release") releaseArg = atoi(next());
+        else if (a == "--perf") perfArg = atoi(next());
         else if (a == "--label") label = next();
         else if (a == "--json") json = next();
         else if (a == "--save") saveDir = next();
@@ -342,19 +380,20 @@ int main(int argc, char** argv) {
     std::vector<Row> rows;
     int fails = 0;
     printf("kernels: %s\n", fsvr::Device::simd());
-    printf("%-18s %5s %2s %5s %5s  %7s %7s %9s  %-16s %s\n", "scenario", "rate", "sp", "block", "secs", "min%", "med%", "cyc/smp", "hash", refDir.empty() ? "" : "ref");
+    printf("%-18s %5s %2s %5s %5s  %7s %7s %9s %2s  %-16s %s\n", "scenario", "rate", "sp", "block", "secs", "min%", "med%", "cyc/smp", "ch", "hash", refDir.empty() ? "" : "ref");
     for (const Scenario* s : picked)
         for (double rt : rates)
             for (int sp : speeds) {
                 std::vector<Event> ev; double secs;
                 if (!phrase(*s, blobs.root, seconds, ev, secs)) { printf("%-18s cannot read %s\n", s->name, s->smf); fails++; continue; }
-                Row row{s->name, raw_name(*s, rt, sp), rt, sp, block, secs, runs, {}, 0, 0, {}};
+                Row row{s->name, raw_name(*s, rt, sp), rt, sp, block, secs, runs, {}, 0, 0, 0, {}};
+                Scenario sc = *s; if (releaseArg) sc.release = releaseArg; if (perfArg >= 0) sc.perf = perfArg;
                 std::vector<int16_t> pcm; uint64_t hash = 0; bool same = true;
                 for (int k = 0; k < runs; k++) {
                     const bool keep = k == runs - 1 && (!saveDir.empty() || !refDir.empty());
-                    Run run = render(*s, ev, secs, blobs, nullptr, rt, sp, block, keep);
+                    Run run = render(sc, ev, secs, blobs, nullptr, rt, sp, block, keep);
                     row.pct.push_back(100.0 * run.cpu / (run.frames / rt));
-                    row.cyclesPerSample = (double)run.cycles / run.frames;
+                    row.cyclesPerSample = (double)run.cycles / run.frames; row.chans = run.chans;
                     if (k && run.hash != hash) same = false;
                     hash = run.hash;
                     if (keep) pcm.swap(run.pcm);
@@ -364,8 +403,8 @@ int main(int argc, char** argv) {
                 const double median = row.pct[row.pct.size() / 2];
                 if (!refDir.empty()) row.diff = compare(pcm, refDir + "/" + row.file);
                 if (!saveDir.empty() && !save(pcm, saveDir + "/" + row.file)) { printf("cannot write into %s\n", saveDir.c_str()); return 1; }
-                printf("%-18s %5d %2d %5d %5.1f  %7.2f %7.2f %9.0f  %016llx", s->name, (int)rt, sp, block, secs, row.pct.front(), median,
-                       row.cyclesPerSample, (unsigned long long)hash);
+                printf("%-18s %5d %2d %5d %5.1f  %7.2f %7.2f %9.0f %2d  %016llx", s->name, (int)rt, sp, block, secs, row.pct.front(), median,
+                       row.cyclesPerSample, row.chans, (unsigned long long)hash);
                 if (!refDir.empty()) {
                     printf("  %s", verdict(row.diff));
                     if (row.diff.found && row.diff.length && row.diff.moved) printf(" (max %d step%s, %lld moved, first at %lld)", row.diff.maxStep, row.diff.maxStep > 1 ? "s" : "", (long long)row.diff.moved, (long long)row.diff.first);
@@ -399,7 +438,7 @@ int main(int argc, char** argv) {
             fprintf(f, "  {\"name\": \"%s\", \"rate\": %d, \"speed\": %d, \"block\": %d, \"seconds\": %g, \"runs\": %d, \"cpu_pct\": {\"min\": %.3f, \"median\": %.3f, \"all\": [",
                     r.name.c_str(), (int)r.rate, r.speed, r.block, r.secs, r.runs, r.pct.front(), r.pct[r.pct.size() / 2]);
             for (size_t k = 0; k < r.pct.size(); k++) fprintf(f, "%s%.3f", k ? ", " : "", r.pct[k]);
-            fprintf(f, "]}, \"cycles_per_sample\": %.1f, \"hash\": \"%016llx\"", r.cyclesPerSample, (unsigned long long)r.hash);
+            fprintf(f, "]}, \"cycles_per_sample\": %.1f, \"chans\": %d, \"hash\": \"%016llx\"", r.cyclesPerSample, r.chans, (unsigned long long)r.hash);
             if (r.diff.found) fprintf(f, ", \"ref\": {\"max_step\": %d, \"moved\": %lld, \"tier\": \"%s\"}", r.diff.maxStep, (long long)r.diff.moved, verdict(r.diff));
             fprintf(f, "}%s\n", i + 1 < rows.size() ? "," : "");
         }
