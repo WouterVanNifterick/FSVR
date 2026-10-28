@@ -46,6 +46,28 @@ Phase 1's end state on the standard set, against the baseline above: Zap! 4235 c
 
 The tone generator's kernel (`src/kernel/isa/group_kernel.cpp`) is exact on scalar, sse2 and avx2 lanes, by the self check's segments scenario and `tools/abcheck.py` under each; its first form was a wash, 3 % better on Vox Morph and 9 to 12 % worse on Fat Line, because a frame of four channels ran about as many instructions as four scalar frames: every lane takes every path the scalar code could branch into, and the three interpolated table reads a sample each cost two gathers. Taking out what the scalar loop skips (an EG past its last segment, a level lookup under the gate, the liveness pass, a control refresh with nothing stale, the frequency-EG scans) and reading a table with one AVX2 gather gave the row above. What is left in it is the arithmetic the tiers keep: double precision lerps where the chip, and Yamaha's own software engine, read an integer table once.
 
+### The programme's end state (2026-10-28), against Phase 0
+
+`perfbench --set standard --runs 3` on the same P-core, the median of three, every hash the baseline's (Tier A throughout), the avx2 kernels chosen at load:
+
+| scenario | % of a core | cycles a sample | against Phase 0 |
+|---|---|---|---|
+| idle-zap | 0.47 | 318 | -17 % |
+| held1-zap | 5.47 | 3583 | -17 % |
+| held8-zap | 5.31 | 3534 | -20 % |
+| held8-homy | 11.09 | 7635 | -27 % |
+| held8-voxmorph | 16.41 | 11011 | -23 % |
+| held8-fatline | 8.91 | 6070 | -37 % |
+| held8-fulltines | 9.22 | 5931 | -37 % |
+| held32-voxmorph | 28.12 | 18615 | -23 % |
+| struck8-zap | 5.47 | 3578 | -19 % |
+| struck8-voxmorph | 17.03 | 11270 | -17 % |
+| struck8-fatline | 12.50 | 8253 | -29 % |
+| struck8-fulltines | 6.56 | 4255 | -23 % |
+| demo-fatline (29.9 s) | 10.33 | 6976 | -36 % |
+
+What is left is the arithmetic the tiers keep, and the lane kernels' bound above; a channel pool across groups (the plan's last phase) and a float32 kernel on integer tables, which would be Tier B, are the levers past it.
+
 `dsp_bench` on the filter bank alone, cycles a sample for sixteen slots: 1123 on the scalar lanes, 719 on sse2, 672 on avx2, the same bytes out of all three (`dsp_check`). The modulators and the LATE schedule stay scalar around the kernel.
 
 The two compiler experiments measured slower on MSVC 19.44, consistently over both rounds, and were dropped; `/Ob3` was not tried after the extra inlining of LTO lost, and `/favor` is one vendor's. The floor's first form, an integer cut with a branch on the sign, was 4 ns against the library's 1.1 ns (`src/math/floor.h` has the microbenchmark's numbers): it mispredicts on modulated phases, and it read as a 3 to 9 % loss across the set before the alternated rounds showed the rest of that loss was the session.
