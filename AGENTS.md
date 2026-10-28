@@ -110,6 +110,8 @@ For a change that should not alter the output at all, prove it rather than assum
 bin/fsvr_console.exe -w before.wav -n 60 -d 3
 ```
 
+For a change meant to make the engine cheaper, that proof is the gate and the number comes with it: `python tools/abcheck.py --build-base upstream/main` builds the baseline apart and renders it, `python tools/abcheck.py --ref build/ab/<sha> --tier A` says whether the nineteen cases and the Fat Line demo still render the same 16-bit audio (`--tier B` allows one step), and `bin\perfbench.exe --set standard --ref build/perf-<sha> --save build/perf-head` measures and gives the same verdict on its scenarios. A timing only means something against the other binary in the same session, alternated; `docs/performance.md` (Measuring) has the protocol and the record.
+
 ### Tracing a waveform
 
 A change to how operators run (phase, key sync, ratios, the EGs, feedback, a form) is checked by tracing them, not by listening. `tools/wavetrace.cpp` plays one voice on a fresh engine at several notes, tone generator only, and prints every sounding operator's frequency, ratio to the fundamental, phase and **lead**: the phase less frequency times time since key-on, what the operator gained or lost against an oscillator left alone. A key-synced operator at a steady pitch leads by 0 at every note. A lead that moves with the note is something sweeping the pitch, which is how Bassline 2's frequency EG was told apart from a key sync bug (`docs/findings.md` 2026-10-17). `-png` draws a few periods of the fundamental per note, the channel and then each operator, aligned on the fundamental's cycle, so notes that agree draw the same wave. Look at it enlarged.
