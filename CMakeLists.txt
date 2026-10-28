@@ -182,8 +182,10 @@ if(FSVR_HAVE_SSE2)
   add_test(NAME dsp-sse2 COMMAND dsp_check)
   set_tests_properties(dsp-sse2 PROPERTIES ENVIRONMENT FSVR_SIMD=sse2)
 endif()
-if(FSVR_HAVE_AVX2)
-  add_test(NAME isa COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_isa.py avx2 $<TARGET_OBJECTS:fsvr_kernel_2> $<TARGET_OBJECTS:fsvr_tg_kernel_2>)
+find_package(Python3 COMPONENTS Interpreter)
+if(FSVR_HAVE_AVX2 AND Python3_Interpreter_FOUND)
+  add_test(NAME isa COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_isa.py avx2
+           $<TARGET_OBJECTS:fsvr_kernel_2> $<TARGET_OBJECTS:fsvr_tg_kernel_2> COMMAND_EXPAND_LISTS)
 endif()
 # Their cost per sample, and the output's hash (not a test: a number to compare builds by).
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
