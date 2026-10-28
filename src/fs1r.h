@@ -87,6 +87,9 @@ public:
     static int fseqLevel(double gain);
     void forceChannel(int channel);            // -1 = parts use their own receive channels
 
+    // Which lane kernels the engine runs on this CPU: scalar, sse2, avx2 or neon (src/kernel/README.md).
+    static const char* simd();
+
     // Engine self check: every sysex path, RPN/NRPN, bank select, a note. Prints failures, returns the
     // number of them.
     static int selfTest();

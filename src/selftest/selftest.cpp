@@ -1,5 +1,6 @@
 // selftest/selftest.cpp - the engine self check. Ours, not the hardware's.
 #include "engine/synth.h"
+#include "kernel/dispatch.h"
 #include "display/display.h"
 #include "display/egview.h"
 #include <algorithm>
@@ -44,6 +45,8 @@ static int g_fails = 0;
 static void ck(const char* what, bool ok) { if (!ok) { printf("  FAIL %s\n", what); g_fails++; } }
 int selftest(Synth& S) {
     ck("fastmath backend within its error budget of libm", fm::selfcheck() == 0);
+    printf("  lane kernels: %s, %d a register\n", fsvr::kernels().name, fsvr::kernels().lanes);
+    ck("the lane kernels' build keeps a multiply and an add apart", !fsvr::kernels().fma_contracted());
     // 1. a parameter change reaches the engine at every address class
     struct { int ah, am, al, v; const char* name; } pc[] = {
         {0x00, 0, 0x0E, 3, "system velocity curve"},

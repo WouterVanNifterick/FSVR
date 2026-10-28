@@ -341,6 +341,7 @@ int main(int argc, char** argv) {
     std::vector<int> speeds{speedArg}; if (allSpeeds) speeds = {0, 1, 2, 3};
     std::vector<Row> rows;
     int fails = 0;
+    printf("kernels: %s\n", fsvr::Device::simd());
     printf("%-18s %5s %2s %5s %5s  %7s %7s %9s  %-16s %s\n", "scenario", "rate", "sp", "block", "secs", "min%", "med%", "cyc/smp", "hash", refDir.empty() ? "" : "ref");
     for (const Scenario* s : picked)
         for (double rt : rates)
@@ -392,7 +393,7 @@ int main(int argc, char** argv) {
         char date[32]; const time_t now = time(nullptr); strftime(date, sizeof date, "%Y-%m-%d", localtime(&now));
         fprintf(f, "{\n \"schema\": %d,\n \"label\": \"%s\",\n \"date\": \"%s\",\n", SCHEMA, label.c_str(), date);
         fprintf(f, " \"host\": {\"cpu\": \"%s\", \"os\": \"%s\", \"core\": %d, \"pinned\": %s},\n", cpu_name().c_str(), os_name(), core, pinned ? "true" : "false");
-        fprintf(f, " \"build\": {\"compiler\": \"%s\", \"math\": \"%s\"},\n \"scenarios\": [\n", compiler_name().c_str(), fm::backend_name());
+        fprintf(f, " \"build\": {\"compiler\": \"%s\", \"math\": \"%s\", \"simd\": \"%s\"},\n \"scenarios\": [\n", compiler_name().c_str(), fm::backend_name(), fsvr::Device::simd());
         for (size_t i = 0; i < rows.size(); i++) {
             const Row& r = rows[i];
             fprintf(f, "  {\"name\": \"%s\", \"rate\": %d, \"speed\": %d, \"block\": %d, \"seconds\": %g, \"runs\": %d, \"cpu_pct\": {\"min\": %.3f, \"median\": %.3f, \"all\": [",

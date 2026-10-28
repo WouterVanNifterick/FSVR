@@ -39,8 +39,11 @@ Each step was timed alternated against the build before it, two or three rounds 
 | link-time optimisation (`/GL`, `/LTCG`) | +1 % | +1.3 % | +3.7 % | +2.7 % | |
 | no stack cookies (`/GS-`) | +2 % | +0.8 % | +2 % | +1 % | |
 | the loop in segments between ticks, every channel over a segment, then the mix a sample at a time (Phase 2) | -2.8 % | -4.9 % | -6.6 % | -8.2 % | |
+| the filter bank's sixteen voices four at a time on the avx2 lane kernel (Phase 3.2; Zap! is one channel, its cost the filter and the effects) | -14 % | -6 % | | -8.5 % | |
 
 Phase 1's end state on the standard set, against the baseline above: Zap! 4235 cycles a sample (-1.5 %), Homy 9205 (-11.7 %), Vox Morph 13632 (-5.1 %), Fat Line 8296 (-13.2 %), Full Tines 8294 (-12.2 %), held32 22765 (-5.5 %), struck Vox Morph 12620 (-6.7 %), struck Fat Line 10953 (-5.5 %), the demo 10473 (-3.2 %), every hash the baseline's. The segment loop (Phase 2) held32 Vox Morph 22738 to 21575 (-5.1 %) on top of that.
+
+`dsp_bench` on the filter bank alone, cycles a sample for sixteen slots: 1123 on the scalar lanes, 719 on sse2, 672 on avx2, the same bytes out of all three (`dsp_check`). The modulators and the LATE schedule stay scalar around the kernel.
 
 The two compiler experiments measured slower on MSVC 19.44, consistently over both rounds, and were dropped; `/Ob3` was not tried after the extra inlining of LTO lost, and `/favor` is one vendor's. The floor's first form, an integer cut with a branch on the sign, was 4 ns against the library's 1.1 ns (`src/math/floor.h` has the microbenchmark's numbers): it mispredicts on modulated phases, and it read as a 3 to 9 % loss across the set before the alternated rounds showed the rest of that loss was the session.
 

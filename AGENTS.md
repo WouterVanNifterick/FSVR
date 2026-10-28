@@ -26,6 +26,7 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 | `src/tonegen/`, `src/modulators/` | **INFERRED**, modelled; constants in `cal.h` | it needs calibrating against a recording |
 | `src/filters/`, `src/effects/`, `src/dsp/` (the DSP) | **KNOWN**, bit for bit what the firmware's DSP programs compute | you changed the sound; `dsp_check` says so |
 | `src/device/`, `src/math/`, `src/display/`, `src/io/`, `src/selftest/`, `src/console/` | **ours**, no hardware counterpart | nothing. The hardware has no opinion |
+| `src/kernel/` | **ours**: the scalar code of `filters/` (and in time `tonegen/`) a few lanes at a time, compiled once per instruction set | nothing; a hash that moves means a lane is not the scalar code, and `dsp_check` says so |
 | `src/engine/tuning.h` | our cost knobs | nothing, and changing one must not alter the output |
 | `plugin/` | the plug-in: processor, bank manager, Import Audio | it never models synthesis, see below |
 | `plugin/skin/` | the editor, edited in place with Hollow's web editor | nothing; the hardware has no opinion (`docs/editor.md`) |

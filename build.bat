@@ -22,7 +22,7 @@ rem VS 2022 does not contract under /fp:precise (tools\dsp_bench.cpp writes the 
 set VOP3FLAGS=/nologo /O2 /EHsc /W3 /std:c++20 /fp:precise /I src
 rem The engine too: its lane kernels replay the scalar arithmetic operation for operation (fm::selfcheck tests it).
 set ENGINEFLAGS=/nologo /O2 /EHsc /W3 /std:c++17 /fp:precise
-set VOP3OBJ=build\vop3host\*.obj
+set VOP3OBJ=build\vop3host\*.obj build\vop3host\isa0\*.obj build\vop3host\isa1\*.obj build\vop3host\isa2\*.obj
 set ENGINE=src\tonegen\*.cpp src\engine\render.cpp src\engine\controllers.cpp src\engine\fseq.cpp src\engine\midi.cpp src\engine\notes.cpp src\presets\patch.cpp src\presets\rom.cpp src\math\fastmath.cpp
 if defined FSVR_MATH set MATHDEF=/DFSVR_MATH=%FSVR_MATH%
 if "%~1"=="" (
@@ -30,6 +30,11 @@ if "%~1"=="" (
 ) else if "%~1"=="test" (
   call :console || goto :done
   "%~dp0bin\fsvr_console.exe" -selftest || goto :done
+  rem The same on the sse2 kernels, and the avx2 object defines nothing outside its namespace (src\kernel\README.md)
+  set FSVR_SIMD=sse2
+  "%~dp0bin\fsvr_console.exe" -selftest || goto :done
+  set FSVR_SIMD=
+  python "%~dp0tools\check_isa.py" avx2 "%~dp0build\vop3host\isa2\*.obj" || goto :done
   python "%~dp0tools\check_formant.py" || goto :done
   python "%~dp0tools\check_presets.py"
 ) else if "%~1"=="plugin" (
@@ -61,8 +66,12 @@ exit /b %ERRORLEVEL%
 
 :vop3host
 if exist build\vop3host rmdir /s /q build\vop3host
-mkdir build\vop3host
-cl /c /MP %VOP3FLAGS% src\effects\*.cpp src\effects\host\*.cpp src\filters\*.cpp src\modulators\*.cpp src\fs1r\rom_tables.cpp /Fobuild\vop3host\ || exit /b 1
+mkdir build\vop3host build\vop3host\isa0 build\vop3host\isa1 build\vop3host\isa2
+cl /c /MP %VOP3FLAGS% /DFSVR_HAVE_SSE2=1 /DFSVR_HAVE_AVX2=1 src\effects\*.cpp src\effects\host\*.cpp src\filters\*.cpp src\modulators\*.cpp src\fs1r\rom_tables.cpp src\kernel\dispatch.cpp /Fobuild\vop3host\ || exit /b 1
+rem The lane kernels, once per instruction set (src\kernel\README.md): scalar, sse2, and avx2 under /arch:AVX2.
+cl /c /MP %VOP3FLAGS% /DFSVR_ISA=0 src\kernel\isa\*.cpp /Fobuild\vop3host\isa0\ || exit /b 1
+cl /c /MP %VOP3FLAGS% /DFSVR_ISA=1 src\kernel\isa\*.cpp /Fobuild\vop3host\isa1\ || exit /b 1
+cl /c /MP %VOP3FLAGS% /DFSVR_ISA=2 /arch:AVX2 src\kernel\isa\*.cpp /Fobuild\vop3host\isa2\ || exit /b 1
 exit /b %ERRORLEVEL%
 
 :done
