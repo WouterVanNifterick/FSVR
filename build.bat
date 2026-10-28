@@ -8,6 +8,7 @@ rem                                     standalone (64-bit, build\x64), then the
 rem                                     then the plug-in's own checks (check_plugin, check_gui)
 rem   build.bat bench                -> bin\dsp_bench.exe, the filter and effects' cost and bit-exact output (tools\dsp_bench.cpp)
 rem   build.bat trace                -> bin\wavetrace.exe, a voice's operators sample by sample (tools\wavetrace.cpp)
+rem   build.bat perf                 -> bin\perfbench.exe, the engine's cost on fixed scenarios, hashed (tools\perfbench.cpp)
 rem   build.bat file.cpp [cl args]   -> compiles whatever you pass (paths relative to this folder)
 rem   set FSVR_MATH=0..3           -> the sample loop's maths backend (src\math\fastmath.h): 0 raw libm, 1 LUT (unset), 2 CORDIC, 3 hybrid
 rem CMakeLists.txt builds the same targets for anything that is not MSVC-on-Windows.
@@ -39,6 +40,9 @@ if "%~1"=="" (
 ) else if "%~1"=="bench" (
   call :vop3host || goto :done
   cl %VOP3FLAGS% tools\dsp_bench.cpp %VOP3OBJ% /Fe:bin\dsp_bench.exe /Fobuild\
+) else if "%~1"=="perf" (
+  call :vop3host || goto :done
+  cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src %ENGINE% src\device\device.cpp src\selftest\selftest.cpp tools\perfbench.cpp %VOP3OBJ% /Fe:bin\perfbench.exe /Fobuild\
 ) else if "%~1"=="trace" (
   call :vop3host || goto :done
   cl /nologo /O2 /EHsc /W3 /std:c++17 %MATHDEF% /I src %ENGINE% tools\wavetrace.cpp %VOP3OBJ% /Fe:bin\wavetrace.exe /Fobuild\

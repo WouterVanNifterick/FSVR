@@ -2,6 +2,7 @@
 # fsvr_console     the test console (WinMM, Windows only), built into bin/.
 # render_capture   the renderer behind the calibration loop, into bin/.
 # wavetrace        a voice's operators sample by sample at several notes, into bin/.
+# perfbench        the engine's cost on fixed scenarios, its output hashed, into bin/ (docs/performance.md).
 # With FSVR_BUILD_PLUGIN, the plug-in: Hollow (hollow/) with the FSVR skin (plugin/), every format the
 # platform has into bin/<format>. The first configure downloads the CLAP, VST3 and AU SDKs, RtAudio and
 # RtMidi (through clap-wrapper) and the audio decoders.
@@ -79,6 +80,10 @@ set_target_properties(render_capture PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${
 add_executable(wavetrace tools/wavetrace.cpp)
 target_link_libraries(wavetrace PRIVATE fs1rLib)
 set_target_properties(wavetrace PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${FS1R_BIN}>")
+# The engine's cost on fixed scenarios and its output hashed, the record docs/performance.md is kept from.
+add_executable(perfbench tools/perfbench.cpp)
+target_link_libraries(perfbench PRIVATE fs1rLib)
+set_target_properties(perfbench PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${FS1R_BIN}>")
 
 enable_testing()
 
