@@ -1047,6 +1047,36 @@ int selftest(Synth& S) {
       std::vector<float> a, b; int oa = -1, ob = -2;
       const bool slept = run(true, a, oa); run(false, b, ob);      ck("sleep: a block that falls asleep part way repeats the held sample and counts the channels down", slept && a == b && oa == ob); }
 
+    // Ours: the sample loop runs in segments between ticks, every channel over a segment and then the mix a sample
+    // at a time (render.cpp), and the serial loop is the reference it is held to: one phrase through both, in blocks
+    // of every size, comes out the same to the bit and owns the same channels. The phrase: two parts, one on the
+    // filter chip and another algorithm, an eight-note chord released into a 33-note one that steals channels and
+    // damps them, the mod wheel, and a level edit to a sounding voice.
+    { auto play = [](bool serial, int block, std::vector<float>& l) {
+          auto T = std::make_unique<Synth>(); T->serialOnly = serial; init_perf(T->perf);
+          for (int p = 0; p < 2; p++) { Part& pt = T->perf.part[p]; init_default_voice(pt.voice); pt.p[1] = 2; pt.p[4] = 0x10; }
+          T->perf.part[1].p[7] = 1; write_param(*T, 0x41, 0, 0x2C, 20);
+          const int total = SR * 2; l.assign(total, 0.f); std::vector<float> r(total);
+          int done = 0;
+          auto play_to = [&](int to) { while (done < to) { const int n = std::min(block, to - done); T->render(&l[done], &r[done], n); done += n; } };
+          T->rnd = 11;
+          for (int k = 0; k < 8; k++) T->midi_in(0x90, 48 + 3 * k, 100);
+          play_to(SR / 2);
+          for (int k = 0; k < 8; k++) T->midi_in(0x80, 48 + 3 * k, 0);
+          T->midi_in(0xB0, 1, 64);
+          play_to(SR * 3 / 4);
+          for (int k = 0; k < 33; k++) T->midi_in(0x90, 36 + k, 100);
+          play_to(SR);
+          T->midi_in(0xB0, 1, 127); write_param(*T, 0x60, 0, 22, 50);
+          play_to(SR * 5 / 4);
+          for (int k = 0; k < 33; k++) T->midi_in(0x80, 36 + k, 0);
+          play_to(total);
+          return T->active_chans(); };
+      std::vector<float> ref; const int owned = play(true, 1000, ref);
+      bool same = true;
+      for (int block : {1, 7, 64, 250, 256, 1000}) { std::vector<float> got; if (play(false, block, got) != owned || got != ref) same = false; }
+      ck("segments: the loop in segments between ticks renders what the serial loop renders, whatever the block size", same); }
+
     // The polyphony readout counts channels, not keys. It used to count notes held or sustained, so a
     // voice with a long release left the display the moment the key came up while the channel was still
     // sounding and still unavailable to the allocator.

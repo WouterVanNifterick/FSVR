@@ -69,3 +69,8 @@ void refresh_ctl(Chan& C, const Voice& V, bool fseq, uint64_t serial);        //
 // The channel's own word, before the filter and the pan. gateDb, ctlDecimation and egDecimation are Synth's cost
 // knobs: at an egDecimation of n the amplitude EGs advance n samples at a time and the gains ramp across the block.
 double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation, int egDecimation, uint64_t ctlSerial);
+// Ours: the channel over a segment of n samples into out, as render_chan renders them one by one; returns the sample it
+// went inactive at (n when it did not), and marks busy[t] where it counted as sounding at t (Synth::render's any). now
+// is Synth::now at the segment's first sample, for Chan::ran.
+int render_chan_block(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation, int egDecimation, uint64_t ctlSerial,
+                      long long now, double* out, bool* busy, int n);

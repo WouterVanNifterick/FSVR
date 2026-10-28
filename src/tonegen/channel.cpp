@@ -230,3 +230,15 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
     }
     return mix;
 }
+
+int render_chan_block(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDecimation, int egDecimation, uint64_t ctlSerial,
+                      long long now, double* out, bool* busy, int n) {
+    for (int t = 0; t < n; t++) {
+        if (!C.active) return t;
+        if (!C.silent || C.freezeLeft < 0) busy[t] = true;   // a silent channel counting down plays nothing more
+        const bool steps = !C.silent;
+        out[t] = render_chan(C, V, fseq, gateDb, ctlDecimation, egDecimation, ctlSerial);
+        if (steps) C.ran = now + t + 1;
+    }
+    return n;
+}
