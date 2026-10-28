@@ -27,6 +27,8 @@
 #include "presets/performance.h"
 #include "presets/rom.h"
 #include "tonegen/channel.h"
+#include "tonegen/lanes.h"
+#include "kernel/tonegen.h"
 #include "effects/effects.h"
 #include "filters/filter.h"
 
@@ -86,6 +88,7 @@ struct Synth {
     bool serialOnly = false;
     double chanOut[NCHAN][SEG_MAX];
     struct Sends { double dry[4], var[4], rev[4]; bool ins[4]; };   // the parts onto the buses, once a call
+    fsvr::tonegen::Group group;                // the lane kernel's working set (render_segment)
     void render_serial(float* outL, float* outR, int frames, const Sends& s);
     void render_segment(float* outL, float* outR, int n, const Sends& s);
     void mix_sample(float* outL, float* outR, int i, double v[NCHAN], double pl[4], double pr[4], bool any, const Sends& s);

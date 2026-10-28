@@ -32,12 +32,34 @@ void Synth::render(float* outL, float* outR, int frames) {
     }
 }
 
-// A segment: every active channel over its n samples into chanOut, then the samples one by one.
+// A segment: every active channel over its n samples into chanOut, then the samples one by one. The channels that
+// sound go through the lane kernel W at a time, those of one part together so a group's lanes share a voice; a
+// lane that goes silent or inactive before the end is put back and rendered the scalar way, as is every channel
+// the kernel does not take (a silent one counting down, and all of them on the Fast steps).
 void Synth::render_segment(float* outL, float* outR, int n, const Sends& s) {
     const int nf = flt_banks() * FILTER_CHANNELS;
     bool busy[SEG_MAX] = {};
-    int until[NCHAN];                          // the sample a channel rendered up to; 0 for one that was not active
+    int until[NCHAN] = {};                     // the sample a channel rendered up to; 0 for one that was not active
+    bool done[NCHAN] = {};
+    const fsvr::TgKernels& K = fsvr::tg_kernels();
+    if (egDecimation == 1) {
+        int order[NCHAN], count = 0;
+        for (int p = 0; p < 4; p++) for (int c = 0; c < NCHAN; c++) if (ch[c].active && !ch[c].silent && ch[c].part == p) order[count++] = c;
+        for (int i = 0; i + 1 < count; i += K.lanes) {   // a group of one is the scalar loop's
+            fsvr::tonegen::Group& G = group;
+            G.lanes = std::min(K.lanes, count - i);
+            for (int l = 0; l < G.lanes; l++) {
+                const int c = order[i + l];
+                G.chan[l] = &ch[c]; G.voice[l] = &perf.part[ch[c].part].voice; G.fseq[l] = fseq_on(ch[c].part); G.out[l] = chanOut[c];
+            }
+            G.gateDb = gateDb; G.ctlDecimation = ctlDecimation; G.ctlSerial = ctlSerial; G.now = now;
+            K.render_group(G, n);
+            for (int l = 0; l < G.lanes; l++) if (G.flipAt[l] < 0) { until[order[i + l]] = n; done[order[i + l]] = true; }
+        }
+        for (int c = 0; c < NCHAN; c++) if (done[c]) { for (int t = 0; t < n; t++) busy[t] = true; break; }   // a lane the kernel kept sounded throughout
+    }
     for (int c = 0; c < NCHAN; c++) {
+        if (done[c]) continue;
         Chan& C = ch[c];
         until[c] = C.active ? render_chan_block(C, perf.part[C.part].voice, fseq_on(C.part), gateDb, ctlDecimation, egDecimation, ctlSerial, now, chanOut[c], busy, n) : 0;
     }

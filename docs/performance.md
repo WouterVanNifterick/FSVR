@@ -40,8 +40,11 @@ Each step was timed alternated against the build before it, two or three rounds 
 | no stack cookies (`/GS-`) | +2 % | +0.8 % | +2 % | +1 % | |
 | the loop in segments between ticks, every channel over a segment, then the mix a sample at a time (Phase 2) | -2.8 % | -4.9 % | -6.6 % | -8.2 % | |
 | the filter bank's sixteen voices four at a time on the avx2 lane kernel (Phase 3.2; Zap! is one channel, its cost the filter and the effects) | -14 % | -6 % | | -8.5 % | |
+| the tone generator's channels four at a time on the avx2 lane kernel, a lone channel left scalar (Phase 3.3; Full Tines -16 %, held32 Vox Morph -9 %) | 0 % | -9 % | -13 % | -4 % | |
 
 Phase 1's end state on the standard set, against the baseline above: Zap! 4235 cycles a sample (-1.5 %), Homy 9205 (-11.7 %), Vox Morph 13632 (-5.1 %), Fat Line 8296 (-13.2 %), Full Tines 8294 (-12.2 %), held32 22765 (-5.5 %), struck Vox Morph 12620 (-6.7 %), struck Fat Line 10953 (-5.5 %), the demo 10473 (-3.2 %), every hash the baseline's. The segment loop (Phase 2) held32 Vox Morph 22738 to 21575 (-5.1 %) on top of that.
+
+The tone generator's kernel (`src/kernel/isa/group_kernel.cpp`) is exact on scalar, sse2 and avx2 lanes, by the self check's segments scenario and `tools/abcheck.py` under each; its first form was a wash, 3 % better on Vox Morph and 9 to 12 % worse on Fat Line, because a frame of four channels ran about as many instructions as four scalar frames: every lane takes every path the scalar code could branch into, and the three interpolated table reads a sample each cost two gathers. Taking out what the scalar loop skips (an EG past its last segment, a level lookup under the gate, the liveness pass, a control refresh with nothing stale, the frequency-EG scans) and reading a table with one AVX2 gather gave the row above. What is left in it is the arithmetic the tiers keep: double precision lerps where the chip, and Yamaha's own software engine, read an integer table once.
 
 `dsp_bench` on the filter bank alone, cycles a sample for sixteen slots: 1123 on the scalar lanes, 719 on sse2, 672 on avx2, the same bytes out of all three (`dsp_check`). The modulators and the LATE schedule stay scalar around the kernel.
 

@@ -30,7 +30,7 @@ void init_tables();
 // with a fraction, which the unit's never has (FSVR's 14-bit bend, the frequency EG's ramp), takes the same
 // law at its fractional place. INFERRED: between two words there is nothing to measure on the unit.
 static inline uint32_t op_increment(double w) {
-    w = std::clamp(w, 0.0, 32767.0);
+    w = w < 0.0 ? 0.0 : w > 32767.0 ? 32767.0 : w;   // no std::clamp: the lane kernels call this (kernel/README.md)
     const int wi = (int)w, i = wi & 1023; const double fr = w - wi;
     const uint32_t M = fr == 0.0 ? g_opMant[i] : (uint32_t)(cal::OP_MANT_ONE * fm::exp2((i + fr) / 1024.0));
     const int s = (wi >> 10) - cal::OP_OCTAVE0;

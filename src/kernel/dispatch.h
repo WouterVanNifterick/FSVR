@@ -3,13 +3,18 @@
 
 // kernel/dispatch.h - the lane kernels the engine runs, chosen once for the CPU it is on. Ours.
 //
-// Every kernel is compiled once per instruction set (kernel/README.md) and each build of it fills a Kernels table;
-// kernels() picks the best the CPU has, or what FSVR_SIMD names (scalar, sse2, avx2, neon; one the CPU lacks falls
-// back), and never changes its mind, so a render thread reads it without a lock.
+// Every kernel is compiled once per instruction set (kernel/README.md) and each build of it fills a table: the
+// DSP's here (the filter bank), the tone generator's in kernel/tonegen.h. isa() picks the best the CPU has, or
+// what FSVR_SIMD names (scalar, sse2, avx2, neon; one the CPU lacks falls back), and never changes its mind, so a
+// render thread reads either table without a lock.
 #pragma once
 #include "filters/lanes.h"
 
 namespace fsvr {
+
+// The instruction set the kernels run on, chosen once: the best the CPU has, or what FSVR_SIMD asks for.
+enum class Isa { scalar, sse2, avx2, neon };
+Isa isa();
 
 struct Kernels {
     const char* name;                          // scalar, sse2, avx2 or neon

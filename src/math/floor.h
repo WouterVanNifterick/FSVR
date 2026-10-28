@@ -25,14 +25,14 @@
 namespace fm {
 
 #if defined(_M_X64) || defined(__x86_64__) || defined(_M_IX86) || defined(__i386__)
-inline bool has_sse41() {
+static inline bool has_sse41() {
 #ifdef _MSC_VER
     int r[4]; __cpuid(r, 1); return (r[2] >> 19) & 1;
 #else
     unsigned a, b, c, d; return __get_cpuid(1, &a, &b, &c, &d) && (c >> 19 & 1);
 #endif
 }
-inline const bool g_sse41 = has_sse41();
+extern const bool g_sse41;                 // has_sse41(), defined once in fastmath.cpp
 #endif
 
 static inline double floor_cut(double x) {

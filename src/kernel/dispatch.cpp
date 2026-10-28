@@ -4,6 +4,7 @@
 // The choice of kernels: what the CPU has, unless FSVR_SIMD asks for less. Compiled once, with no lane code in it.
 #define _CRT_SECURE_NO_WARNINGS
 #include "kernel/dispatch.h"
+#include "math/floor.h"
 #include <cstdlib>
 #include <cstring>
 #if defined(_M_X64) || defined(__x86_64__) || defined(_M_IX86) || defined(__i386__)
@@ -12,6 +13,11 @@
 #else
 #include <cpuid.h>
 #endif
+#endif
+
+// floor.h's test for the rounding instruction, made once (fm::floor_exact reads it on the x64 baseline)
+#if defined(_M_X64) || defined(__x86_64__) || defined(_M_IX86) || defined(__i386__)
+const bool fm::g_sse41 = fm::has_sse41();
 #endif
 
 #ifndef FSVR_HAVE_SSE2
@@ -40,8 +46,8 @@ namespace neon { const Kernels& table(); }
 namespace {
 
 using fsvr::Kernels;
-
-enum Isa { SCALAR, SSE2, AVX2, NEON };
+using fsvr::Isa;
+constexpr Isa SCALAR = Isa::scalar, SSE2 = Isa::sse2, AVX2 = Isa::avx2, NEON = Isa::neon;
 
 // What the CPU runs: AVX2 wants the OS to save the wide registers too (OSXSAVE and XGETBV bits 1 and 2).
 Isa cpu_isa() {
@@ -84,7 +90,7 @@ const Kernels& table(Isa isa) {
     }
 }
 
-const Kernels& choose() {
+Isa choose() {
     Isa have = cpu_isa();
     if (have == AVX2 && !FSVR_HAVE_AVX2) have = SSE2;
     if (have == SSE2 && !FSVR_HAVE_SSE2) have = SCALAR;
@@ -100,12 +106,17 @@ const Kernels& choose() {
     if (want == NEON && have != NEON) want = have;
     if (want == AVX2 && have != AVX2) want = have == NEON ? SCALAR : have;
     if (want == SSE2 && (have == NEON || have == SCALAR)) want = SCALAR;
-    return table(want);
+    return want;
 }
 
 }  // namespace
 
+fsvr::Isa fsvr::isa() {
+    static const Isa i = choose();
+    return i;
+}
+
 const fsvr::Kernels& fsvr::kernels() {
-    static const Kernels& k = choose();
+    static const Kernels& k = table(isa());
     return k;
 }

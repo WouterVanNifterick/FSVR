@@ -8,7 +8,8 @@
 
 An inline function a kernel file instantiates from a header becomes a COMDAT the linker may pick for the whole
 program; compiled under /arch:AVX2 it would then run on a machine without it. This reads the object's symbols
-with dumpbin (MSVC) or nm and fails on any defined function whose name is not in the namespace.
+with dumpbin (MSVC) or nm and fails on any external function whose name is not in the namespace; a static
+inline helper is the file's own copy and is fine.
 """
 import glob
 import shutil
@@ -31,11 +32,12 @@ def functions(obj):
         names = []
         for line in out.splitlines():
             # 00A 00000000 SECT4  notype ()    External     | ?filter_bank@avx2@kernel@fsvr@@YAX...
-            if "SECT" in line and "()" in line and "|" in line:
+            # A Static function is the file's own copy; an External one is what the linker may share.
+            if "SECT" in line and "()" in line and "External" in line and "|" in line:
                 names.append(line.split("|", 1)[1].strip().split()[0])
         return names
     out = subprocess.run(["nm", "--defined-only", obj], capture_output=True, text=True).stdout
-    return [line.split()[-1] for line in out.splitlines() if line.split() and line.split()[-2] in ("T", "t", "W")]
+    return [line.split()[-1] for line in out.splitlines() if line.split() and line.split()[-2] in ("T", "W")]
 
 
 def main():
