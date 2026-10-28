@@ -8,6 +8,26 @@ Every optimisation commit names its tier. **Tier A**: the nineteen `tools/regres
 
 `bin\perfbench.exe` (`build.bat perf`, `tools/perfbench.cpp`) plays fixed scenarios through `fsvr::Device` from the factory banks, so it needs no EPROM, and reports the CPU time inside `process()` as a share of one core at the render rate, the minimum and the median of three runs pinned to one core, with the cycles a sample costs beside it; it hashes the 16-bit output, `--save` keeps the renders and `--ref` compares a later build against them with the same A/B verdict. `python tools/abcheck.py` renders the regress cases and the demo and, against `--ref`, prints the largest step, the samples moved and the first frame that moved; `--build-base REV` builds a revision apart under `build/ab` and renders its set, so a baseline never shares `build/` with the tree under test. The protocol on the dev box, an i9-14900KF: core 2 (a P-core), the median of three, the two builds alternated in one session, nothing else timed meanwhile. Windows counts thread time in 15.6 ms steps, so a 10 s run resolves 0.16 % of a core; the cycles per sample are the finer number. These numbers are not comparable with the Ryzen 9 3900X rows below, which are kept as history.
 
+### Phase 0: before any change (2026-10-28)
+
+`perfbench --set standard --runs 3` on the dev box: MSVC 19.44 `/O2`, LUT maths, FTZ, 48 kHz in 512-frame blocks, the median of three on one P-core of an i9-14900KF (the minimum is within 0.7 of each). The chord is eight notes; Zap! is a one-channel patch, so eight notes cost what one does and its 6.6 % is the filter chip and the effects; Vox Morph is two layered parts, sixteen channels for eight notes, and held32 fills all 32 channels, the ceiling at Full.
+
+| scenario | % of a core | cycles a sample |
+|---|---|---|
+| idle-zap | 0.62 | 385 |
+| held1-zap | 6.56 | 4299 |
+| held8-zap | 6.56 | 4435 |
+| held8-homy | 16.09 | 10423 |
+| held8-voxmorph | 21.25 | 14361 |
+| held8-fatline | 14.53 | 9562 |
+| held8-fulltines | 14.22 | 9450 |
+| held32-voxmorph | 36.09 | 24092 |
+| struck8-zap | 6.72 | 4425 |
+| struck8-voxmorph | 20.16 | 13525 |
+| struck8-fatline | 17.34 | 11585 |
+| struck8-fulltines | 8.59 | 5505 |
+| demo-fatline (29.9 s) | 16.38 | 10822 |
+
 ## What the patch asks for
 
 A020 is two layered parts of PrB 097 `SpacySweep` (algorithm 8) on the performance channel, so every key is two channels. Each channel runs five voiced sine operators (three sit at output level 0) and **all eight unvoiced operators** at levels 39 to 71 with their own EGs. The unvoiced path is a noise generator, two one-poles and a resonance carrier per operator per sample, and no other kind of preset uses eight of them at once. Eight held keys is 16 channels × (8 voiced + 8 unvoiced) = 256 operator paths per sample at 48 kHz. On the hardware this costs nothing extra: the YMP706 runs every slot of every channel whether it sounds or not.

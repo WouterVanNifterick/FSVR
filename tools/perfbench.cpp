@@ -180,8 +180,7 @@ const uint64_t FNV_BASIS = 1469598103934665603ull, FNV_PRIME = 1099511628211ull;
 Run render(const Scenario& s, const std::vector<Event>& ev, double secs, const fs1r_factory::Blobs& b, const char* rom,
            double rate, int speed, int block, bool keep) {
     fsvr::Device dev;
-    srand(1);                                    // the same random phases and pans every run
-    if (rom && !dev.loadRom(rom)) { printf("cannot read %s\n", rom); exit(1); }
+        if (rom && !dev.loadRom(rom)) { printf("cannot read %s\n", rom); exit(1); }
     dev.setSampleRate(rate);
     dev.setSpeed(speed);
     if (s.drive != SMF) dev.forceChannel(0);     // every part with a receive channel plays the chord
