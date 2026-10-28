@@ -28,6 +28,22 @@ Every optimisation commit names its tier. **Tier A**: the nineteen `tools/regres
 | struck8-fulltines | 8.59 | 5505 |
 | demo-fatline (29.9 s) | 16.38 | 10822 |
 
+### Phase 1: the scalar steps (2026-10-28), every one Tier A
+
+Each step was timed alternated against the build before it, two or three rounds in one session, 10 s a scenario; the cycles a sample are the number, since the thread clock counts in 15.6 ms. `build.bat` and `tools/abcheck.py --tier A` passed on every step, with every hash the baseline's.
+
+| step | held1-zap | held8-voxmorph | held8-fatline | struck8-fatline | demo-fatline |
+|---|---|---|---|---|---|
+| floor as `roundsd` behind a runtime test, the sine table padded, the slew table filled once | -0.7 % | 0 % | | -3.5 % | |
+| the control refresh skipped under a serial it already computed under | | -4.9 % | -10.6 % | -8.6 % | -5.4 % |
+| link-time optimisation (`/GL`, `/LTCG`) | +1 % | +1.3 % | +3.7 % | +2.7 % | |
+| no stack cookies (`/GS-`) | +2 % | +0.8 % | +2 % | +1 % | |
+| the loop in segments between ticks, every channel over a segment, then the mix a sample at a time (Phase 2) | -2.8 % | -4.9 % | -6.6 % | -8.2 % | |
+
+Phase 1's end state on the standard set, against the baseline above: Zap! 4235 cycles a sample (-1.5 %), Homy 9205 (-11.7 %), Vox Morph 13632 (-5.1 %), Fat Line 8296 (-13.2 %), Full Tines 8294 (-12.2 %), held32 22765 (-5.5 %), struck Vox Morph 12620 (-6.7 %), struck Fat Line 10953 (-5.5 %), the demo 10473 (-3.2 %), every hash the baseline's. The segment loop (Phase 2) held32 Vox Morph 22738 to 21575 (-5.1 %) on top of that.
+
+The two compiler experiments measured slower on MSVC 19.44, consistently over both rounds, and were dropped; `/Ob3` was not tried after the extra inlining of LTO lost, and `/favor` is one vendor's. The floor's first form, an integer cut with a branch on the sign, was 4 ns against the library's 1.1 ns (`src/math/floor.h` has the microbenchmark's numbers): it mispredicts on modulated phases, and it read as a 3 to 9 % loss across the set before the alternated rounds showed the rest of that loss was the session.
+
 ## What the patch asks for
 
 A020 is two layered parts of PrB 097 `SpacySweep` (algorithm 8) on the performance channel, so every key is two channels. Each channel runs five voiced sine operators (three sit at output level 0) and **all eight unvoiced operators** at levels 39 to 71 with their own EGs. The unvoiced path is a noise generator, two one-poles and a resonance carrier per operator per sample, and no other kind of preset uses eight of them at once. Eight held keys is 16 channels × (8 voiced + 8 unvoiced) = 256 operator paths per sample at 48 kHz. On the hardware this costs nothing extra: the YMP706 runs every slot of every channel whether it sounds or not.
