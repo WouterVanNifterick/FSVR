@@ -47,6 +47,7 @@ int selftest(Synth& S) {
     ck("fastmath backend within its error budget of libm", fm::selfcheck() == 0);
     printf("  lane kernels: %s, %d a register\n", fsvr::kernels().name, fsvr::kernels().lanes);
     ck("the lane kernels' build keeps a multiply and an add apart", !fsvr::kernels().fma_contracted());
+    ck("the lane kernels' masks widen, narrow and select whole lanes, and a tie takes the second operand", fsvr::kernels().lanes_ok());
     // 1. a parameter change reaches the engine at every address class
     struct { int ah, am, al, v; const char* name; } pc[] = {
         {0x00, 0, 0x0E, 3, "system velocity curve"},
