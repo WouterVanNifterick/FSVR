@@ -1,7 +1,7 @@
 // license:BSD-3-Clause
 // copyright-holders:Wouter van Nifterick
 
-// The FS1R's voice filters: one fsvr::filters::VoiceFilter per tone generator channel, programmed by the
+// The FS1R's voice filters: one voice (filters/voice_filter.h, run on lanes by kernel/isa/bank_kernel.cpp) per
 // firmware's filter host. In: the channels' samples. Out: the same channels, filtered. No chip is emulated:
 // the host's register writes are read for what they mean to a voice (Filter::write).
 //
@@ -12,7 +12,7 @@
 #include <cstdint>
 #include "modulators/modulators.h"
 #include "filters/filter_host.h"
-#include "filters/voice_filter.h"
+#include "filters/lanes.h"
 
 struct Filter {
     static constexpr int SLOTS = 16, BANKS = 2, VOICES = SLOTS * BANKS;
@@ -21,8 +21,8 @@ struct Filter {
     struct Bank final : fsvr::vop3host::WriteSink {
         fsvr::vop3host::FilterHost host;
         Modulators mod;
-        fsvr::filters::VoiceFilter voice[SLOTS];
-        fsvr::filters::VoiceFilter::Shared shared = {};
+        fsvr::filters::Lanes lanes;                          // the sixteen voices, a number a row (the lane kernel runs them)
+        fsvr::filters::Shared shared = {};
 
         Bank() { host.sink = this; host.boot(); reset(); }
         Bank(const Bank&) = delete;                          // the host writes to this bank

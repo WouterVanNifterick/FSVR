@@ -2,7 +2,9 @@
 //
 // This is what the firmware's filter program computes for one voice, written as the DSP it is. The program
 // runs sixteen of these interleaved in one 512-step pass; nothing in it couples two voices, so here a
-// voice is a struct and a filter is as many of them as the engine wants (filters/filter.h).
+// voice is a struct and a filter is as many of them as the engine wants (filters/filter.h). What runs is the lane
+// kernel (kernel/isa/bank_kernel.cpp), this voice's arithmetic W slots at a time; this is the reference it is
+// written from and read against, and dsp_check holds the two together.
 //
 // The arithmetic is the chip's, operation for operation, in its own number format: values are doubles
 // that a register wraps or saturates at +-128, a t register holds as a 1.15 word, and a cell clips at
@@ -16,6 +18,7 @@
 #include <cmath>
 
 #include "dsp/word.h"
+#include "filters/lanes.h"
 
 namespace fsvr::filters {
 
@@ -46,8 +49,8 @@ struct VoiceFilter
 	double level = 0;           // the output ramp
 	double cutoff_s = NAN;      // the cutoff word as glided; NaN snaps to the word (a note on)
 
-	// The program's global constants, the cells it loads in its first sixteen steps
-	struct Shared { double eg_zero, c61, c62, c63; };
+	// The program's global constants, the cells it loads in its first sixteen steps (filters/lanes.h)
+	using Shared = fsvr::filters::Shared;
 
 	// The cutoff word's coefficients: the pole gain kf of the two-pole section, kb on its feedback state and
 	// kp of the two one-poles. memo_fc is the word they were made for; anything that changes a word under

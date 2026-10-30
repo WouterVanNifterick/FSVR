@@ -4,10 +4,12 @@
 // Built without FMA contraction, like the hosts.
 #include "filters/filter.h"
 #include "fs1r/cal.h"
+#include "kernel/dispatch.h"
+#include "dsp/word.h"
 #include <cmath>
 
 namespace {
-using fsvr::filters::VoiceFilter;
+using fsvr::filters::Lanes;
 namespace word = fsvr::word;
 
 // OPEN: the level a channel reaches the filter at. A channel at its clip level is taken to be a full-scale
@@ -40,8 +42,7 @@ void Filter::Bank::write(uint32_t reg, uint32_t value) {
 }
 
 void Filter::Bank::clear(int s) {
-    VoiceFilter& f = voice[s];
-    f.x1 = f.s2 = f.s3 = f.s4 = f.s5 = 0.0;
+    lanes.x1[s] = lanes.s2[s] = lanes.s3[s] = lanes.s4[s] = lanes.s5[s] = 0.0;
 }
 
 // A constant: the program's shared ones in steps 11 to 14, else one of a slot's words in its page.
@@ -53,23 +54,23 @@ void Filter::Bank::coef(int step, uint16_t v) {
         if (step == 12) shared.eg_zero = wrap(128 * k + 0.0);
         if (step == 13) shared.c62 = cell(wrap_sum(128 * k + 0.0));
         if (step == 14) shared.c61 = cell(wrap_sum(128 * k + 0.0));
-        for (VoiceFilter& f : voice) f.memo_fc = NAN;
+        for (int s = 0; s < SLOTS; s++) lanes.memo_fc[s] = NAN;
         return;
     }
     // slot s has the page at 16 + 124 * (((s >> 2) + 1) & 3) and the lane s & 3 in it
     const int g = (step - 16) / 124, rel = (step - 16) % 124;
-    VoiceFilter* lanes = voice + 4 * ((g + 3) & 3);
-    struct Word { int first, stride; double VoiceFilter::*field; };
+    const int first = 4 * ((g + 3) & 3);
+    struct Word { int first, stride; double (Lanes::*field)[Lanes::N]; };
     static constexpr Word WORDS[] = {
-        {0, 3, &VoiceFilter::eg_depth},   {1, 3, &VoiceFilter::lfo_depth}, {2, 3, &VoiceFilter::cutoff},
-        {12, 1, &VoiceFilter::exp_slope}, {28, 1, &VoiceFilter::type_k},   {32, 1, &VoiceFilter::reso_a},
-        {40, 1, &VoiceFilter::reso_bias}, {44, 1, &VoiceFilter::fb_scale}, {52, 4, &VoiceFilter::gain},
-        {54, 4, &VoiceFilter::reso_b},    {71, 4, &VoiceFilter::stage_k},  {84, 2, &VoiceFilter::damp_k},
-        {96, 1, &VoiceFilter::pole_k},    {116, 1, &VoiceFilter::ramp},
+        {0, 3, &Lanes::eg_depth},   {1, 3, &Lanes::lfo_depth}, {2, 3, &Lanes::cutoff},
+        {12, 1, &Lanes::exp_slope}, {28, 1, &Lanes::type_k},   {32, 1, &Lanes::reso_a},
+        {40, 1, &Lanes::reso_bias}, {44, 1, &Lanes::fb_scale}, {52, 4, &Lanes::gain},
+        {54, 4, &Lanes::reso_b},    {71, 4, &Lanes::stage_k},  {84, 2, &Lanes::damp_k},
+        {96, 1, &Lanes::pole_k},    {116, 1, &Lanes::ramp},
     };
     for (const Word& w : WORDS) {
         const int i = rel - w.first;
-        if (i >= 0 && i % w.stride == 0 && i / w.stride < 4) { VoiceFilter& f = lanes[i / w.stride]; f.*w.field = k; f.memo_fc = NAN; return; }
+        if (i >= 0 && i % w.stride == 0 && i / w.stride < 4) { const int s = first + i / w.stride; (lanes.*w.field)[s] = k; lanes.memo_fc[s] = NAN; return; }
     }
     // the rest: the second serial bank's gain, always 0 on the FS1R, and words no step multiplies by
 }
@@ -77,13 +78,12 @@ void Filter::Bank::coef(int step, uint16_t v) {
 // The slot's output: which tap the type reads, and its scale. The BPF's is x1, the others x2.
 void Filter::Bank::setType(int s, int type) {
     using namespace fsvr::vop3host::filter;
-    VoiceFilter& f = voice[s];
-    f.route = type == BPF ? 1 : 2;
+    lanes.route[s] = type == BPF ? 1 : 2;
     // ponytail: a type byte past BEF makes the unit read whatever register the byte names, which is another
-    // voice's state and not a filter. It plays silence here (docs/Differences.md).
-    static constexpr VoiceFilter::Tap TAP[6] = {VoiceFilter::LPF24, VoiceFilter::LPF18, VoiceFilter::LPF12,
-                                                 VoiceFilter::HPF, VoiceFilter::BPF, VoiceFilter::BEF};
-    f.tap = type >= 0 && type <= BEF ? TAP[type] : VoiceFilter::NONE;
+    // voice's state and not a filter. It plays silence here (docs/Differences.md): no tap.
+    static constexpr Lanes::Tap TAP[6] = {Lanes::LPF24, Lanes::LPF18, Lanes::LPF12, Lanes::HPF, Lanes::BPF, Lanes::BEF};
+    for (int t = 0; t < Lanes::TAPS; t++) lanes.tap[t][s] = 0;
+    if (type >= 0 && type <= BEF) lanes.tap[TAP[type]][s] = ~0ull;
 }
 
 void Filter::Bank::sync(int p, const uint8_t* voiceBytes, const uint8_t* rec, int cutoffMod, int lfo2Depth, int lfo2Speed) {
@@ -95,17 +95,22 @@ void Filter::Bank::sync(int p, const uint8_t* voiceBytes, const uint8_t* rec, in
     host.flush();
 }
 
-// The modulators step, then every slot's voice. An EG that ended its segment is served in the sample it reports.
+// The modulators step, then every slot's voice, W at a time on the lane kernel. An EG that ended its segment is
+// served in the sample it reports.
 void Filter::Bank::run(double v[SLOTS]) {
     mod.step();
-    for (int s = 0; s < 16; s++) {
+    double in[SLOTS], eg[SLOTS], lfo[SLOTS], out[SLOTS];
+    for (int s = 0; s < SLOTS; s++) {
         const int ch = (s + 2) & 15;
         const Late& late = LATE[ch];
-        const double in = v[s] * TO_FILTER, eg = mod.egOut[ch], lfo = mod.lfoOut[ch];
-        const double out = voice[s].run(late.in ? inPrev[s] : in, late.eg ? egPrev[s] : eg, late.lfo ? lfoPrev[s] : lfo, shared);
-        inPrev[s] = in; egPrev[s] = eg; lfoPrev[s] = lfo;
-        v[s] = (late.out ? outPrev[s] : out) * FROM_FILTER;
-        outPrev[s] = out;
+        const double i = v[s] * TO_FILTER, e = mod.egOut[ch], l = mod.lfoOut[ch];
+        in[s] = late.in ? inPrev[s] : i; eg[s] = late.eg ? egPrev[s] : e; lfo[s] = late.lfo ? lfoPrev[s] : l;
+        inPrev[s] = i; egPrev[s] = e; lfoPrev[s] = l;
+    }
+    fsvr::kernels().filter_bank(lanes, shared, in, eg, lfo, out);
+    for (int s = 0; s < SLOTS; s++) {
+        v[s] = (LATE[(s + 2) & 15].out ? outPrev[s] : out[s]) * FROM_FILTER;
+        outPrev[s] = out[s];
     }
     if (mod.read(vop3::EG_STATUS)) host.egInterrupt();
 }

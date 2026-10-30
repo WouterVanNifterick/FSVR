@@ -5,7 +5,7 @@
 
 namespace fm {
 
-float g_sin[4097];
+float g_sin[4098];
 float g_db2lin[2305];
 double g_exp2f[1025];
 
@@ -37,6 +37,7 @@ void init() {
     s_ready = true;
     const double PI = 3.14159265358979323846;
     for (int i = 0; i <= 4096; i++) g_sin[i] = (float)std::sin(2 * PI * i / 4096.0);
+    g_sin[4097] = g_sin[4096];   // read, times a zero fraction, when t - floor(t) rounds up to 1.0
     for (int i = 0; i <= 2304; i++) g_db2lin[i] = (float)std::pow(10.0, (i / 16.0 - 128.0) / 20.0);
     for (int i = 0; i <= 1024; i++) g_exp2f[i] = std::exp2(i / 1024.0);
     double k = 1.0, kp = 1.0;
@@ -139,6 +140,11 @@ int selfcheck() {
         if (!ok) fails++;
     };
     printf("  fastmath backend: %s\n", backend_name());
+    // The build must not fuse a multiply into an add: fused, a * a + c keeps the product's low bits that two
+    // roundings drop, and the lane kernels replay the scalar arithmetic operation for operation.
+    { volatile double a = 1.0 + 1.0 / (1 << 27), c = -1.0; const bool fused = a * a + c != 1.0 / (1 << 26);
+      printf("  %s fp contraction: %s\n", fused ? "FAIL" : "ok  ", fused ? "a multiply and an add fused" : "none");
+      if (fused) fails++; }
     sweep("sin",    -3.0,    3.0, 300001, 5e-7, false, [](double t) { return sin_turns(t); }, [](double t) { return std::sin(6.283185307179586 * t); });
     sweep("exp2",  -60.0,   20.0, 200001, 2e-7, true,  [](double x) { return exp2(x); },      [](double x) { return std::exp2(x); });
     sweep("db2lin", -128.0, 16.0, 200001, 2e-5, true,  [](double d) { return db2lin(d); },    [](double d) { return std::pow(10.0, d / 20.0); });

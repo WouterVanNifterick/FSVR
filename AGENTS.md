@@ -26,6 +26,7 @@ The path tells you, and it tells you what a disagreement with real hardware mean
 | `src/tonegen/`, `src/modulators/` | **INFERRED**, modelled; constants in `cal.h` | it needs calibrating against a recording |
 | `src/filters/`, `src/effects/`, `src/dsp/` (the DSP) | **KNOWN**, bit for bit what the firmware's DSP programs compute | you changed the sound; `dsp_check` says so |
 | `src/device/`, `src/math/`, `src/display/`, `src/io/`, `src/selftest/`, `src/console/` | **ours**, no hardware counterpart | nothing. The hardware has no opinion |
+| `src/kernel/` | **ours**: the scalar code of `filters/` (and in time `tonegen/`) a few lanes at a time, compiled once per instruction set | nothing; a hash that moves means a lane is not the scalar code, and `dsp_check` says so |
 | `src/engine/tuning.h` | our cost knobs | nothing, and changing one must not alter the output |
 | `plugin/` | the plug-in: processor, bank manager, Import Audio | it never models synthesis, see below |
 | `plugin/skin/` | the editor, edited in place with Hollow's web editor | nothing; the hardware has no opinion (`docs/editor.md`) |
@@ -108,6 +109,8 @@ For a change that should not alter the output at all, prove it rather than assum
 ```bash
 bin/fsvr_console.exe -w before.wav -n 60 -d 3
 ```
+
+For a change meant to make the engine cheaper, that proof is the gate and the number comes with it: `python tools/abcheck.py --build-base upstream/main` builds the baseline apart and renders it, `python tools/abcheck.py --ref build/ab/<sha> --tier A` says whether the nineteen cases and the Fat Line demo still render the same 16-bit audio (`--tier B` allows one step), and `bin\perfbench.exe --set standard --ref build/perf-<sha> --save build/perf-head` measures and gives the same verdict on its scenarios. A timing only means something against the other binary in the same session, alternated; `docs/performance.md` (Measuring) has the protocol and the record.
 
 ### Tracing a waveform
 

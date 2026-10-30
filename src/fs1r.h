@@ -82,6 +82,7 @@ public:
     // Live levels for a meter, display only, from any thread: each part's operators on its last note in dB, voiced
     // [p][0] and unvoiced [p][1] (-200 once the note is over), and each part's peak since the last call, 1.0 a full carrier.
     void levels(float op[4][2][8], float part[4]);
+    int renderingChannels() const;             // channels the engine still computes every sample: taken and not yet silent, what a block costs
     // How long one Fseq frame lasts at 100 % speed for a header speed adjust of 0..127 (fseq_start).
     static double fseqFrameSeconds(int speedAdjust);
     // An Fseq frame's bytes on the engine's scales: a frequency as the word its hi and lo bytes make
@@ -89,6 +90,9 @@ public:
     static int fseqWord(double hz);
     static int fseqLevel(double gain);
     void forceChannel(int channel);            // -1 = parts use their own receive channels
+
+    // Which lane kernels the engine runs on this CPU: scalar, sse2, avx2 or neon (src/kernel/README.md).
+    static const char* simd();
 
     // Engine self check: every sysex path, RPN/NRPN, bank select, a note. Prints failures, returns the
     // number of them.

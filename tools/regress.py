@@ -3,12 +3,14 @@
 
     python tools/regress.py                 check against tools/regress_ref.json
     python tools/regress.py --update        rewrite the reference from the current build
-    python tools/regress.py --rom PATH      use this EPROM image (default: ../FS1R_DISASM/roms/...)
+    python tools/regress.py --rom PATH      use this EPROM image (default: $FSVR_ROM, else ../FS1R_DISASM/roms/...)
+    python tools/regress.py --factory       the ROM cases from the factory banks in plugin/generated, no image needed
 
 Run it after every engine change. ROM cases are skipped with a warning if the image is missing.
 """
 import argparse
 import json
+import os
 import struct
 import subprocess
 import sys
@@ -123,7 +125,8 @@ def compare(name, ref, got, tol):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--update", action="store_true")
-    ap.add_argument("--rom", default=str(DEFAULT_ROM))
+    ap.add_argument("--rom", default=os.environ.get("FSVR_ROM", str(DEFAULT_ROM)))
+    ap.add_argument("--factory", action="store_true", help="load the ROM cases from the factory banks")
     ap.add_argument("--tol", type=float, default=0.02)
     a = ap.parse_args()
     exe = renderer()
@@ -133,7 +136,9 @@ def main():
     ref = json.loads(REF.read_text()) if REF.exists() and not a.update else {}
     out, fails, skipped = {}, 0, 0
     for name, extra, note, secs in CASES:
-        if "{rom}" in " ".join(extra) and not rom.exists():
+        if "{rom}" in " ".join(extra) and a.factory:
+            extra = ["-factory"] + [x for x in extra if x not in ("-r", "{rom}")]
+        elif "{rom}" in " ".join(extra) and not rom.exists():
             skipped += 1
             continue
         args = [str(exe)] + [x.replace("{rom}", str(rom)) for x in extra]

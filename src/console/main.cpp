@@ -2,7 +2,7 @@
 //
 //   fsvr_console.exe -l                                   list MIDI ports
 //   fsvr_console.exe -selftest                            run the engine self check
-//   fsvr_console.exe [-m N] [-o N] [-c ch] [-v voice.syx] [-r eprom.bin [-p voice] [-P perf] [-f fseq]]
+//   fsvr_console.exe [-m N] [-o N] [-c ch] [-v voice.syx] [-r eprom.bin | -factory] [-p voice] [-P perf] [-f fseq]
 //                [-g gain] [-w test.wav [-n note] [-n2 note] [-cc num=val] [-d secs]]
 //
 // The console owns no synthesis. It feeds MIDI bytes to fsvr::Device and pulls audio back.
@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 #include "fs1r.h"
+#include "io/factory.h"
 #include "io/smf.h"
 
 using fs1r_smf::write_wav;
@@ -85,6 +86,7 @@ int main(int argc, char** argv) {
     dev.setSampleRate(SR);
     int midiPort = -1, midiOutPort = -1, pick = -1, perfIdx = -1, fseqIdx = -1, channel = -1;
     const char* syx = nullptr; const char* romPath = nullptr; const char* wav = nullptr; const char* smf = nullptr;
+    bool factory = false; fs1r_factory::Blobs blobs;   // -factory: the factory banks from plugin/generated, no EPROM
     int testNote = 60, monoTime = -1; double testSecs = 3.0;
     for (int i = 1; i < argc; i++) {
         std::string a = argv[i];
@@ -110,21 +112,24 @@ int main(int argc, char** argv) {
         else if (a == "-d" && i + 1 < argc) testSecs = atof(argv[++i]);
         else if (a == "-smf" && i + 1 < argc) smf = argv[++i];
         else if (a == "-flt16") dev.setFilterPoly32(false);   // the unit's 16 filtered voices
+        else if (a == "-factory") factory = true;
         else { printf("usage: fsvr_console [-l] [-selftest] [-m midiport] [-o midiout] [-c channel] [-v file.syx [-p index]]\n"
-                      "                [-r eprom.bin [-p voice] [-P performance] [-f fseq]] [-g gain]\n"
+                      "                [-r eprom.bin | -factory] [-p voice] [-P performance] [-f fseq] [-g gain]\n"
                       "                [-w test.wav [-n note] [-n2 note] [-cc num=val] [-d seconds]] [-mono portatime]\n"
                       "                [-smf file.mid -w out.wav [-d tail seconds]] [-flt16]\n"); return 1; }
     }
     if (romPath && !dev.loadRom(romPath)) { printf("cannot read 2 MB EPROM image %s\n", romPath); return 1; }
-    if (perfIdx >= 0 && !dev.loadRomPerformance(perfIdx)) { printf("-P needs -r\n"); return 1; }
+    if (factory && !blobs.load(argv[0])) { printf("cannot find plugin/generated: run from the repository, or set FSVR_ROOT\n"); return 1; }
+    if (perfIdx >= 0 && !(factory ? fs1r_factory::performance(dev, blobs, perfIdx) : dev.loadRomPerformance(perfIdx))) { printf("-P needs -r or -factory\n"); return 1; }
     if (syx) {
         FILE* f = fopen(syx, "rb"); if (!f) { printf("cannot open %s\n", syx); return 1; }
         std::vector<uint8_t> d; uint8_t tmp[65536]; size_t n;
         while ((n = fread(tmp, 1, sizeof tmp, f)) > 0) d.insert(d.end(), tmp, tmp + n);
         fclose(f);
         if (!dev.loadSyx(d.data(), d.size(), std::max(0, pick), 0)) { printf("no FS1R voice/performance/Fseq or DX7 voice dump #%d found in %s\n", std::max(0, pick), syx); return 1; }
-    } else if (dev.romLoaded() && pick >= 0) dev.loadRomVoice(0, pick);
-    if (fseqIdx >= 0 && !dev.loadRomFseq(fseqIdx)) { printf("-f needs -r\n"); return 1; }
+    } else if (pick >= 0 && factory) fs1r_factory::voice(dev, blobs, 0, pick);
+    else if (pick >= 0 && dev.romLoaded()) dev.loadRomVoice(0, pick);
+    if (fseqIdx >= 0 && !(factory ? fs1r_factory::fseq(dev, blobs, fseqIdx) : dev.loadRomFseq(fseqIdx))) { printf("-f needs -r or -factory\n"); return 1; }
     if (monoTime >= 0) fs1r_smf::set_mono_porta(dev, monoTime);
     printf("performance \"%s\"", dev.performanceName());
     for (int p = 0; p < 4; p++) if (dev.partActive(p)) printf("  part%d \"%s\" alg %d", p + 1, dev.voiceName(p), dev.algorithm(p) + 1);
@@ -170,8 +175,8 @@ int main(int argc, char** argv) {
         pump_midi(dev);
         dev.process(fl, fr, BLOCK);
         for (int i = 0; i < BLOCK; i++) {
-            pcm[cur][2 * i] = (int16_t)std::max(-32767.f, std::min(32767.f, fl[i] * 32767.f));
-            pcm[cur][2 * i + 1] = (int16_t)std::max(-32767.f, std::min(32767.f, fr[i] * 32767.f));
+            pcm[cur][2 * i] = fs1r_smf::to_s16(fl[i]);
+            pcm[cur][2 * i + 1] = fs1r_smf::to_s16(fr[i]);
         }
         h.dwFlags &= ~WHDR_DONE;
         waveOutWrite(hwo, &h, sizeof(WAVEHDR));

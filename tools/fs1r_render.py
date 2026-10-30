@@ -37,10 +37,11 @@ def renderer():
 
 
 def note_args(exe, syx=None, wav=None, note=60, secs=None, rom=None, perf=None, pick=None,
-              fseq=None, note2=None, cc=(), mono=None):
+              fseq=None, note2=None, cc=(), mono=None, factory=False):
     """One offline-render command line, spelled for whichever renderer this is. The two differ on the
     Fseq flag only: -f is the index on the console and the float-output switch on the portable one."""
     a = [str(exe)]
+    if factory: a += ["-factory"]   # the factory banks from plugin/generated, no EPROM
     if rom is not None: a += ["-r", str(rom)]
     if perf is not None: a += ["-P", str(perf)]
     if syx is not None: a += ["-v", str(syx)]
