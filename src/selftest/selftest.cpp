@@ -1095,7 +1095,7 @@ int selftest(Synth& S) {
           ck(noise ? "segments: with the unvoiced operators sounding too" : "segments: the loop in segments between ticks renders what the serial loop renders, whatever the block size", same);
       } }
 
-    // Bandwidth register 0 freezes the unvoiced walk (cal::WALK_WIDTH): taken there inside a note it stands still, and
+    // Bandwidth register 0 freezes the unvoiced walk (cal::WALK_STEP): taken there inside a note it stands still, and
     // the operator is the carrier alone at the level the walk stood at, a pure sine. MEASURED on WouterVanNifterick's
     // unit (docs/noise.md, 2026-11-02): bandwidth 40 to 0 inside a note is a pure sine within 2 ms.
     { auto T = std::make_unique<Synth>(); init_perf(T->perf); Part& pt = T->perf.part[0]; Voice& V = pt.voice;

@@ -79,10 +79,10 @@ void refresh_op(Chan& C, const Voice& V, bool fs, int o, uint64_t serial) {
         else if (u.mode) nf = C.f0;
         else nf = op_hz(op_increment(C.ufreqWord[o] + C.ufbW[o] + (C.regFM * u.fms) / 7 + C.vcFreq[o][1]));
         s.ninc = nf * fm::exp2(u.transpose / 12.0) / SR;   // the carrier's step, in turns a sample
-        // The walk (cal.h): its width by the bandwidth register, 0 freezing it; the drive's one-pole by the
+        // The walk (cal.h): its width the bandwidth register over 64, 0 freezing it; the drive's one-pole by the
         // skirt; the drift by the resonance, whatever the register.
         const int ureg = clampi(C.ubwReg[o] + C.vcBw[o][1], 0, 127);
-        s.uwidth = cal::WALK_WIDTH[ureg]; s.ucoef = cal::WALK_COEF[u.skirt & 7]; s.udrift = cal::WALK_DRIFT[u.res & 7];
+        s.uwidth = ureg * cal::WALK_STEP; s.ucoef = cal::WALK_COEF[u.skirt & 7]; s.udrift = cal::WALK_DRIFT[u.res & 7];
     }
 }
 

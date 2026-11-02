@@ -162,3 +162,29 @@ R0 is how far the carrier's phase at each note agrees with a restart, Rf with on
 These rows read FSVR's left channel alone. FSVR's right channel lags its left by two samples in its output path, and `analyze.py` sums the channels, so as rendered a comb takes 6 dB off at 8 kHz and 21 dB at 12 kHz on both engines alike (band shape 4.9 and 5.1 dB). That is the output path, not this generator, and whether the unit's analogue out does the same is not claimed here either way. Nor is FS1x's out-path take (its F-0453), which reads the unit's voiced output as carrying a two-sample mean of its own off the analogue out, where the 2026-09-22 reading above found none on rgwan's digital tap.
 
 **What is open.** The tables against a second unit: `tools/bench_captures.py` on rgwan's `05_unvoiced_1`, `05_unvoiced_2`, `13_unvoiced3` and `22_ures`, which the two one-poles were fitted on, has not been run on the walk (the captures are not on the machine that made the change). The drift at resonance 7. Kalimba (demo song 6), whose two bandwidth-0 operators settled the old carrier, has not been read again. The walk's bit widths and its period: US5744741 reads as a 12-bit drive and a 16-bit walk, and nothing here measures either. `tools/fit_noise_band.py` still runs and reproduces the 2026-09-22 table off rgwan's captures; it describes the two-pole model and stays as its history.
+
+## 2026-11-03, the width is the register over 64
+
+The walk's width above was a table: the widths fitted setting by setting, interpolated log-linearly between them, with 2 standing in past the rails. It carried every fit's scatter, plateaus at registers 10 to 12 and 18 to 20 and jitter at the bottom, and it jumped from 1.28 to 2 at register 82. The fitted widths themselves say what the law is:
+
+| settings (registers) | fitted width over register / 64 |
+|---|---|
+| 24 to 57 (30 to 73), the best-determined fits | 0.998 to 1.028, most 1.000 to 1.010 |
+| 2 to 22 (2 to 28), fitted from level | 0.84 to 1.08 |
+| 58 to 63 (74 to 81), fitted from kurtosis | 1.007 to 1.030 |
+| 64 to 99 (82 to 127) | 2, a stand-in for "past the rails", not a fit |
+
+**So the width is the register over 64** (`cal::WALK_STEP`). Register 0 freezes the walk, 64 is one rail, and the 7-bit register tops out at 1.98. Past about register 90 the walk is the drive whatever its width: the unit's kurtosis is flat from setting 66 up, and the law renders those settings as the table's 2 did, to two decimals, without the jump. Read as fixed point it is the register with six fraction bits; in a 16-bit walk with its rails at ±2^15, which is how US5744741 reads, the register shifted nine places up into the patent's multiply. 1/64 is also the S-YXG100's own smallest step. That is a reading, not a measurement: the bit widths are open.
+
+Against the takes, read as in the section above (FS1x's `analyze.py` at 9de1dfc4, FSVR's left channel, bandwidth 0 aside), the table against the law, median / 90th percentile:
+
+| | kurtosis difference | band shape, under 16 kHz | level, median / abs p90 |
+|---|---|---|---|
+| `spectrum`, 106 segments, table | 0.03 / 0.09 | 0.41 / 0.59 | +0.07 / 0.18 |
+| `spectrum`, register / 64 | 0.03 / 0.08 | **0.38 / 0.56** | -0.02 / **0.17** |
+| `window-3hz`, 40 segments, table | 0.07 / 0.10 | 0.46 / 0.56 | +0.10 / 0.23 |
+| `window-3hz`, register / 64 | 0.07 / 0.11 | **0.43 / 0.51** | +0.04 / **0.18** |
+| `gen-fine`, 91 segments, table | 0.06 / 0.13 | 0.46 / 0.58 | +0.06 / 0.22 |
+| `gen-fine`, register / 64 | 0.06 / 0.13 | **0.44 / 0.55** | +0.03 / **0.20** |
+
+`gen-fine` (take 20261101-2238) steps the bandwidth from 2 to 98, mostly at a 3.4 Hz centre where the walk's own shape is what the analysis reads; FS1x's engine with its table reads 0.05 / 0.14, 0.46 / 0.60 and -0.02 / 0.40 there. Setting by setting at skirt 0, the mean absolute residual in kurtosis and level goes 0.134 and 0.209 dB to 0.139 and 0.155 over settings 2 to 22, 0.064 and 0.071 to 0.059 and 0.056 over 24 to 57, 0.077 and 0.125 to 0.050 and 0.063 over 58 to 63, and stays where it was over 64 to 98, the take's disturbed patches at 80 to 84 included. The `sync` take does not move. So the law reads as well as the table or better on three sets and has one number in it where the table had 128. FS1x keeps its table; the same law would serve it.

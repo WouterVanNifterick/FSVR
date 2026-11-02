@@ -185,28 +185,16 @@ static const double FRMT_NORM    = 0.0;     // how a formant's level follows its
 // and not the waveform: the unit's noise is sine valued below bandwidth 44, bursty at 52 to 56 and Gaussian
 // above, where theirs was Gaussian throughout. docs/noise.md, 2026-11-02.
 // FITTED 2026-11-01 and 2026-11-02 on takes at a 1 kHz and an 8 kHz centre on one unit, WouterVanNifterick's,
-// by level, band shape and kurtosis; not yet confirmed on a second unit. WALK_WIDTH is by bandwidth register:
-// 0 at register 0, where the walk stands still and the operator is the carrier alone at the level the walk
-// stood at, log-linear between the fitted settings, and 2 from register 82 (setting 64), past the rails,
-// where the walk is the drive itself. WALK_COEF is the drive's one-pole by skirt, 1/16 at 0. WALK_DRIFT is
-// the S-YXG100's table by resonance; fitted free, resonances 4 to 6 land on it and 7 reads 0.35 against 0.25.
-// WALK_GAIN is one gain for every setting, the unit's level past the rails.
-static const double WALK_WIDTH[128] = {0, 0.0232298, 0.027625, 0.0399305, 0.0577174, 0.0834275, 0.0987127, 0.116798,
-                                      0.129036, 0.142555, 0.15749, 0.15749, 0.15749, 0.184377, 0.215855, 0.252707,
-                                      0.266774, 0.281625, 0.297302, 0.297302, 0.297302, 0.322377, 0.349568, 0.379051,
-                                      0.395635, 0.412944, 0.429038, 0.445758, 0.46313, 0.472437, 0.481932, 0.496255,
-                                      0.511003, 0.52619, 0.541161, 0.556557, 0.572391, 0.588088, 0.604216, 0.619013,
-                                      0.634173, 0.649705, 0.66558, 0.681843, 0.695696, 0.70983, 0.724251, 0.740657,
-                                      0.757434, 0.772096, 0.787042, 0.802277, 0.816273, 0.830513, 0.845001, 0.858867,
-                                      0.872961, 0.888599, 0.904516, 0.924955, 0.937388, 0.952768, 0.968169, 0.983818,
-                                      1.00164, 1.01609, 1.03265, 1.04948, 1.05935, 1.08709, 1.09694, 1.11207,
-                                      1.12741, 1.1407, 1.1902, 1.19986, 1.20959, 1.21167, 1.23917, 1.2715,
-                                      1.27748, 1.28348, 2, 2, 2, 2, 2, 2,
-                                      2, 2, 2, 2, 2, 2, 2, 2,
-                                      2, 2, 2, 2, 2, 2, 2, 2,
-                                      2, 2, 2, 2, 2, 2, 2, 2,
-                                      2, 2, 2, 2, 2, 2, 2, 2,
-                                      2, 2, 2, 2, 2, 2, 2, 2};
+// by level, band shape and kurtosis; not yet confirmed on a second unit. The walk's width is the bandwidth
+// register in 64ths of a rail, WALK_STEP a register: register 0 freezes the walk, which leaves the carrier alone
+// at the level the walk stood at, 64 is one rail, and from about 90 the walk is the drive itself. The widths
+// fitted setting by setting are the register over 64 to 1 to 3 % from register 30 to 73, and the law reads level
+// and band shape as well as their interpolated table or better on spectrum, window-3hz and gen-fine, and the same
+// past the rails, where the table's 2 had stood in (docs/noise.md, 2026-11-03). It reads as the 7-bit register
+// with six fraction bits, a shift in fixed point; the bit widths are not measured. WALK_COEF is the drive's
+// one-pole by skirt, 1/16 at 0. WALK_DRIFT is the S-YXG100's table by resonance; fitted free, resonances 4 to 6
+// land on it and 7 reads 0.35 against 0.25. WALK_GAIN is one gain for every setting, the unit's level past the rails.
+static const double WALK_STEP     = 1.0 / 64;
 static const double WALK_COEF[8]  = {0.0625, 0.0935993, 0.122913, 0.187135, 0.246659, 0.368925, 0.486767, 0.710525};
 static const double WALK_DRIFT[8] = {0, 0.00390625, 0.0078125, 0.015625, 0.03125, 0.0625, 0.125, 0.25};
 static const double WALK_GAIN     = 1.0457;
