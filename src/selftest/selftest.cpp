@@ -1054,10 +1054,23 @@ int selftest(Synth& S) {
     // at a time (render.cpp), and the serial loop is the reference it is held to: one phrase through both, in blocks
     // of every size, comes out the same to the bit and owns the same channels. The phrase: two parts, one on the
     // filter chip and another algorithm, an eight-note chord released into a 33-note one that steals channels and
-    // damps them, the mod wheel, and a level edit to a sounding voice.
-    { auto play = [](bool serial, int block, std::vector<float>& l) {
+    // damps them, the mod wheel, and a level edit to a sounding voice. Played again with every unvoiced operator
+    // sounding, each at its own register (0, where the walk stands still, to past the rails), skirt and resonance,
+    // one following the fundamental and one under a moving frequency EG.
+    { auto play = [](bool serial, int block, bool noise, std::vector<float>& l) {
           auto T = std::make_unique<Synth>(); T->serialOnly = serial; init_perf(T->perf);
-          for (int p = 0; p < 2; p++) { Part& pt = T->perf.part[p]; init_default_voice(pt.voice); pt.p[1] = 2; pt.p[4] = 0x10; }
+          for (int p = 0; p < 2; p++) {
+              Part& pt = T->perf.part[p]; init_default_voice(pt.voice); pt.p[1] = 2; pt.p[4] = 0x10;
+              if (!noise) continue;
+              static const uint8_t bw[8] = {0, 4, 20, 40, 52, 60, 64, 99};
+              for (int o = 0; o < 8; o++) {
+                  uint8_t* q = pt.voice.raw + 112 + o * 62 + 35;
+                  q[1] = (uint8_t)(o == 5 ? 1 << 5 : 2 + 2 * o); q[2] = (uint8_t)(10 * o); q[4] = bw[o]; q[6] = (uint8_t)(o << 3 | (7 - o));
+                  q[11] = 90; q[13] = q[14] = q[15] = 99; q[16] = 0; q[20] = 60;
+                  if (o == 3) { q[7] = 80; q[8] = 30; q[9] = 60; q[10] = 70; }
+              }
+              decode_voice(pt.voice);
+          }
           T->perf.part[1].p[7] = 1; write_param(*T, 0x41, 0, 0x2C, 20);
           const int total = SR * 2; l.assign(total, 0.f); std::vector<float> r(total);
           int done = 0;
@@ -1075,10 +1088,31 @@ int selftest(Synth& S) {
           for (int k = 0; k < 33; k++) T->midi_in(0x80, 36 + k, 0);
           play_to(total);
           return T->active_chans(); };
-      std::vector<float> ref; const int owned = play(true, 1000, ref);
-      bool same = true;
-      for (int block : {1, 7, 64, 250, 256, 1000}) { std::vector<float> got; if (play(false, block, got) != owned || got != ref) same = false; }
-      ck("segments: the loop in segments between ticks renders what the serial loop renders, whatever the block size", same); }
+      for (bool noise : {false, true}) {
+          std::vector<float> ref; const int owned = play(true, 1000, noise, ref);
+          bool same = true;
+          for (int block : {1, 7, 64, 250, 256, 1000}) { std::vector<float> got; if (play(false, block, noise, got) != owned || got != ref) same = false; }
+          ck(noise ? "segments: with the unvoiced operators sounding too" : "segments: the loop in segments between ticks renders what the serial loop renders, whatever the block size", same);
+      } }
+
+    // Bandwidth register 0 freezes the unvoiced walk (cal::WALK_WIDTH): taken there inside a note it stands still, and
+    // the operator is the carrier alone at the level the walk stood at, a pure sine. MEASURED on WouterVanNifterick's
+    // unit (docs/noise.md, 2026-11-02): bandwidth 40 to 0 inside a note is a pure sine within 2 ms.
+    { auto T = std::make_unique<Synth>(); init_perf(T->perf); Part& pt = T->perf.part[0]; Voice& V = pt.voice;
+      pt.p[1] = 2; pt.p[4] = 0x10;
+      init_blank_voice(V.raw);
+      for (int o = 0; o < 8; o++) V.raw[112 + o * 62 + 12] = V.raw[112 + o * 62 + 13] = V.raw[112 + o * 62 + 14] = 0;
+      uint8_t* q = V.raw + 112 + 35;
+      q[1] = 17; q[2] = 24; q[4] = 40; q[11] = 99; q[13] = q[14] = q[15] = 99;   // 1 kHz, bandwidth 40
+      decode_voice(V);
+      T->rnd = 5; T->midi_in(0x90, 60, 127);
+      float l, r; for (int k = 0; k < SR / 8; k++) T->render(&l, &r, 1);
+      write_param(*T, 0x60, 0, 35 + 4, 0);
+      Chan* c = nullptr; for (auto& x : T->ch) if (x.active) c = &x;
+      for (int k = 0; k < SR / 100; k++) T->render(&l, &r, 1);
+      const double w = c ? c->op[0].walk : 0; bool still = c != nullptr; double lo = 0, hi = 0;
+      for (int k = 0; k < SR / 8; k++) { T->render(&l, &r, 1); still = still && c->op[0].walk == w; lo = std::min(lo, c->last); hi = std::max(hi, c->last); }
+      ck("walk: at bandwidth register 0 the walk stands still and the operator is a sine", still && w != 0 && hi > 0 && fabs(hi + lo) < 1e-3 * hi); }
 
     // The polyphony readout counts channels, not keys. It used to count notes held or sustained, so a
     // voice with a long release left the display the moment the key came up while the channel was still

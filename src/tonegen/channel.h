@@ -3,7 +3,6 @@
 #include <cstdint>
 #include "presets/voice.h"
 #include "tonegen/operator.h"
-#include "tonegen/noise.h"
 
 // The note-on damp, same shape: what is left of the previous note in a reused channel decays at this
 // rate instead of being cut to zero. cal::DAMP_MS.

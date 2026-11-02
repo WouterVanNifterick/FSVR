@@ -176,76 +176,46 @@ static const double FRMT_WL_MAX  = 2.0;     // and the window never runs longer 
 static const double FRMT_NORM    = 0.0;     // how a formant's level follows its window length: 0 leaves the
                                             // window's peak at 1, so a wide bandwidth is quiet; 1 holds the
                                             // spectral peak instead, which is what a FOF generator does
-// The noise formant, MEASURED 2026-09-22 off 13_unvoiced3 (an 8 kHz centre, forty-one segments over the
-// bandwidth and both skirt sweeps) and confirmed off 05_unvoiced_1 and 05_unvoiced_2 (a 1 kHz and a 4 kHz
-// centre), which give the same coefficients to a few percent at every register they share. docs/noise.md
-// is the working. The band is two digital one-poles in series on white noise, ring modulated up to the
-// centre, and the two poles are NOT the same pole: the first sets the core's width and the second, much
-// wider, is what the 2026-09-21 reading called the pedestal. It is the second pole's own floor, a
-// digital one-pole at coefficient a passing (a / (2 - a))^2 of everything at Nyquist, which is why the
-// floor is white, why it sits at the same level whichever centre the band is moved to, and why it rises
-// with the bandwidth register twelve decibels an octave. Fitting a1, a2 and a peak gain to every
-// segment leaves 0.6 to 0.9 dB rms over 200 Hz to 23 kHz, where two identical poles plus a flat pedestal
-// left 0.7 to 1.4 and the identical poles alone 2 to 10.
-//
-// The three tables are on the register breakpoints of NOISE_REG. Register 0 is off the shape entirely and
-// carries the 2026-09-21 reading, the noise 19.6 dB under register 5 with the resonance carrier left at
-// its level; nothing above register 77 changes, which is where the firmware's own clamp sits.
-static const int    NOISE_REG[16] = {0, 5, 10, 15, 20, 25, 30, 36, 41, 46, 51, 56, 61, 67, 72, 77};
-static const double NOISE_A1[16]  = {0.0030, 0.0030, 0.0066, 0.0095, 0.0154, 0.0236, 0.0272, 0.0348,
-                                     0.0353, 0.0399, 0.0479, 0.0520, 0.0571, 0.0566, 0.0615, 0.0605};
-static const double NOISE_A2[16]  = {0.0707, 0.0707, 0.0803, 0.0973, 0.1058, 0.1136, 0.1357, 0.1610,
-                                     0.2027, 0.2407, 0.2849, 0.3724, 0.4526, 0.6899, 0.8797, 0.9725};
-// The peak of the band, in dB on the recording's own scale; NOISE_LEVEL_DB moves it onto the engine's.
-// From register 25 up it is a straight line at one LEVEL_DB per register, -0.376 dB, to the decibel.
-static const double NOISE_G_DB[16] = {-27.8, -8.2, -10.4, -11.7, -14.1, -16.4, -17.7, -19.7,
-                                      -20.8, -22.5, -24.6, -26.7, -29.0, -31.9, -34.4, -35.3};
-static const int    NOISE_BW_CLAMP = 77;
-// What one skirt step multiplies a1 and a2 by, and adds to the peak in dB, at registers 25, 51 and 77;
-// the engine interpolates between the three and holds the ends. The skirt opens the second pole at low
-// registers, where the first barely moves, and the first pole at high ones, where the second has already
-// reached 1 and there is nothing left to open. Neither is a register shift, which is what the 2026-09-21
-// reading assumed; that held only at register 25.
-static const double NOISE_SK_REG[3] = {25, 51, 77};
-static const double NOISE_SK_M1[3]  = {1.200, 1.315, 1.400};
-static const double NOISE_SK_M2[3]  = {1.285, 1.135, 0.966};
-static const double NOISE_SK_DG[3]  = {-0.84, -0.64, 0.24};
-static const double NOISE_LEVEL_DB = 31.5;  // the recording's scale onto the engine's, one number for all
-                                            // of it, set so 13_unvoiced3's levels read zero in the median
+// The unvoiced generator is a clamped random walk, the "correlative noise" of Yamaha's US5610354 (FIG. 14),
+// spelled out in US5744741 and JPH04346502A; Yamaha's S-YXG100 soft synth computes the same walk in floating
+// point. White noise through a one-pole set by the skirt is the drive. Each sample the walk moves to a point
+// between itself less the width and itself plus the width, clamped to [-1, 1], placed there by the drive two
+// samples back plus the resonance's drift, and the walk times the centre's sine is the operator. Two one-poles
+// on white noise fitted to rgwan's 13_unvoiced3, 05_unvoiced_1, 05_unvoiced_2 and 22_ures gave the spectrum
+// and not the waveform: the unit's noise is sine valued below bandwidth 44, bursty at 52 to 56 and Gaussian
+// above, where theirs was Gaussian throughout. docs/noise.md, 2026-11-02.
+// FITTED 2026-11-01 and 2026-11-02 on takes at a 1 kHz and an 8 kHz centre on one unit, WouterVanNifterick's,
+// by level, band shape and kurtosis; not yet confirmed on a second unit. WALK_WIDTH is by bandwidth register:
+// 0 at register 0, where the walk stands still and the operator is the carrier alone at the level the walk
+// stood at, log-linear between the fitted settings, and 2 from register 82 (setting 64), past the rails,
+// where the walk is the drive itself. WALK_COEF is the drive's one-pole by skirt, 1/16 at 0. WALK_DRIFT is
+// the S-YXG100's table by resonance; fitted free, resonances 4 to 6 land on it and 7 reads 0.35 against 0.25.
+// WALK_GAIN is one gain for every setting, the unit's level past the rails.
+static const double WALK_WIDTH[128] = {0, 0.0232298, 0.027625, 0.0399305, 0.0577174, 0.0834275, 0.0987127, 0.116798,
+                                      0.129036, 0.142555, 0.15749, 0.15749, 0.15749, 0.184377, 0.215855, 0.252707,
+                                      0.266774, 0.281625, 0.297302, 0.297302, 0.297302, 0.322377, 0.349568, 0.379051,
+                                      0.395635, 0.412944, 0.429038, 0.445758, 0.46313, 0.472437, 0.481932, 0.496255,
+                                      0.511003, 0.52619, 0.541161, 0.556557, 0.572391, 0.588088, 0.604216, 0.619013,
+                                      0.634173, 0.649705, 0.66558, 0.681843, 0.695696, 0.70983, 0.724251, 0.740657,
+                                      0.757434, 0.772096, 0.787042, 0.802277, 0.816273, 0.830513, 0.845001, 0.858867,
+                                      0.872961, 0.888599, 0.904516, 0.924955, 0.937388, 0.952768, 0.968169, 0.983818,
+                                      1.00164, 1.01609, 1.03265, 1.04948, 1.05935, 1.08709, 1.09694, 1.11207,
+                                      1.12741, 1.1407, 1.1902, 1.19986, 1.20959, 1.21167, 1.23917, 1.2715,
+                                      1.27748, 1.28348, 2, 2, 2, 2, 2, 2,
+                                      2, 2, 2, 2, 2, 2, 2, 2,
+                                      2, 2, 2, 2, 2, 2, 2, 2,
+                                      2, 2, 2, 2, 2, 2, 2, 2,
+                                      2, 2, 2, 2, 2, 2, 2, 2,
+                                      2, 2, 2, 2, 2, 2, 2, 2};
+static const double WALK_COEF[8]  = {0.0625, 0.0935993, 0.122913, 0.187135, 0.246659, 0.368925, 0.486767, 0.710525};
+static const double WALK_DRIFT[8] = {0, 0.00390625, 0.0078125, 0.015625, 0.03125, 0.0625, 0.125, 0.25};
+static const double WALK_GAIN     = 1.0457;
 // The unvoiced output is the mean of the sample and the one before it. MEASURED: on every wideband
 // segment the unit's noise is flat to 8 kHz and then falls 2.8, 6.8, 13 and 27 dB at 12, 16, 20 and 23
 // kHz against the engine's white band, the same curve at a 1 kHz centre (15_filter) and an 8 kHz one
 // (13_unvoiced3), so it sits after the ring modulator. A two-sample mean, cos^2 of half the angular
 // frequency, lands on it at 0.8 dB rms over forty bins; a sine at 22 kHz on the voiced path reads the
 // same level as one at 55 Hz, so it is the unvoiced path alone.
-// The unvoiced resonance adds a carrier beside the band, and it is a threshold rather than a ramp.
-// MEASURED: settings 0 to 3 give the same spectrum to the byte, 4 narrows it, and 5, 6 and 7 are a tone
-// with the noise under it, the total rising 0.8, 2.0 and 3.1 dB over setting 0. Reading those rises as
-// 1 + d^2 against a band at unit RMS gave 0.21, 0.46, 0.76 and 1.02, and the engine then set the carrier
-// against a band whose RMS was actually 1 / sqrt(3), the uniform noise it ran on. The table below is the
-// same carrier against the band's true RMS, sqrt(3) times the reading, which keeps what the three
-// recordings and Kalimba settled. The tone still scatters 3 dB between the 8 kHz take at register 25
-// and the 1 kHz take at register 51, in opposite directions at settings 5 and 7, so its law against the
-// register is not read yet. The engine's res / 7 ramp had the tone taking over from setting 2 and added
-// 12 dB across the range where the unit adds 3.
-// MEASURED 2026-09-24, 22_ures: five bandwidth registers by the four settings that carry a tone, at 8 kHz,
-// left channel only (the recording's right channel lags the left by one sample, which costs a mono sum
-// 1.25 dB at 8 kHz). The carrier is a sine to the sample (envelope cv 0.003 at register 10, setting 7)
-// and its amplitude against the band's RMS depends on the register as much as on the setting: 1.50 at
-// register 10 where it is 2.37 at 87. And the noise under it is not left alone: a narrow band loses
-// 23 dB of noise at setting 7 where a wide one loses nothing. Both are read together, interpolated
-// across the register and clamped outside 10..87; settings 0 to 3 are the plain band (13_unvoiced3).
-// The whole take, tone and noise alike, sits 1.1 dB over the engine at 8 kHz, as 13_unvoiced3 does,
-// and that offset is the noise level's own against the centre frequency, not this table's: the DC is
-// against the unit's band and the noise column is relative to setting 4.
-// ponytail: the noise loss is a gain; the unit also reshapes the band (the centre drops more than the
-// skirts at register 10), which a gain cannot see. The 8 kHz take cannot say whether the carrier scales
-// with the centre frequency.
-static const int    URES_REG[5]         = {10, 25, 46, 67, 87};
-static const double URES_DC[5][4]       = {{0.60, 1.18, 1.40, 1.50}, {0.37, 0.86, 1.20, 1.42}, {0.31, 0.55, 1.07, 1.57},
-                                           {0.34, 0.58, 1.26, 2.38}, {0.33, 0.65, 1.09, 2.37}};       // settings 4..7
-static const double URES_NOISE_DB[5][4] = {{0.0, -4.9, -13.2, -23.4}, {0.0, -2.1, -9.5, -19.1}, {0.0, -1.0, -4.9, -11.3},
-                                           {0.0, 0.0, -0.2, -0.9}, {0.0, -0.3, -0.1, 0.5}};
 static const double PMS_FRAC[8]  = {0, 0.038, 0.076, 0.125, 0.212, 0.365, 0.620, 1.0};        // per-op pitch mod sensitivity. MEASURED 2026-09-24
                                             // off 07_modulation_1's eight pms segments at pitch depth 99: the
                                             // fundamental's swing at pms 1..6 is 0.038, 0.076, 0.125, 0.212, 0.365,
