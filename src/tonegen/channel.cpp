@@ -194,7 +194,7 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
             const double u1 = s.walk * cal::WALK_GAIN * fsin(s.nphase);
             mix += 0.5 * (u1 + s.uprev) * ugain * partU;
             s.uprev = u1;
-        }
+        } else { s.nphase += s.ninc; if (s.nphase >= 1) s.nphase -= 1; }   // an unheard carrier runs on (keep_unvoiced)
     }
     C.fbBus = (fbNew + C.fbPrev) * 0.5; C.fbPrev = fbNew;
     bool alive = false;
@@ -235,4 +235,24 @@ int render_chan_block(Chan& C, const Voice& V, bool fseq, double gateDb, int ctl
         if (steps) C.ran = now + t + 1;
     }
     return n;
+}
+
+void seed_unvoiced(Chan& C, int c) {
+    for (int o = 0; o < 8; o++) {
+        const uint32_t k = (uint32_t)(c * 8 + o + 1) * 0x9E3779B9u;
+        OpState& s = C.op[o];
+        s.nphase = ((k >> 9) & 0x7FFFFF) / 8388608.0;
+        s.rng    = k | 1u;
+        s.walk   = ((k >> 16) & 0xFFFF) / 32768.0 - 1.0;
+    }
+}
+
+void keep_unvoiced(Chan& C, const Chan& was, long long now) {
+    for (int o = 0; o < 8; o++) {
+        const OpState& w = was.op[o]; OpState& s = C.op[o];
+        const double ph = w.nphase + w.ninc * (double)(now - was.ran);
+        s.nphase = ph - floor(ph); s.ninc = w.ninc;
+        s.rng = w.rng; s.lp[0] = w.lp[0]; s.lp[1] = w.lp[1]; s.walk = w.walk; s.uprev = w.uprev;
+    }
+    C.ran = now;
 }

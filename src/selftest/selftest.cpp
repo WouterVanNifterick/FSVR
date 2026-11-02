@@ -1114,6 +1114,45 @@ int selftest(Synth& S) {
       for (int k = 0; k < SR / 8; k++) { T->render(&l, &r, 1); still = still && c->op[0].walk == w; lo = std::min(lo, c->last); hi = std::max(hi, c->last); }
       ck("walk: at bandwidth register 0 the walk stands still and the operator is a sine", still && w != 0 && hi > 0 && fabs(hi + lo) < 1e-3 * hi); }
 
+    // The unvoiced carriers and their walks run free per channel (keep_unvoiced): MEASURED on WouterVanNifterick's
+    // unit (docs/noise.md, 2026-11-02), a mono part's notes land on one channel whose carrier never stopped, and at
+    // bandwidth 0 the level the frozen walk stood at repeats over its notes. One unvoiced operator at 1 kHz, mono.
+    { auto make = [](int bw, int level) {
+          auto T = std::make_unique<Synth>(); init_perf(T->perf); Part& pt = T->perf.part[0]; Voice& V = pt.voice;
+          pt.p[1] = 2; pt.p[4] = 0x10; pt.p[5] = 0;
+          init_blank_voice(V.raw);
+          for (int o = 0; o < 8; o++) V.raw[112 + o * 62 + 12] = V.raw[112 + o * 62 + 13] = V.raw[112 + o * 62 + 14] = 0;
+          uint8_t* q = V.raw + 112 + 35;
+          q[1] = 17; q[2] = 24; q[4] = (uint8_t)bw; q[11] = (uint8_t)level; q[13] = q[14] = q[15] = 99;
+          decode_voice(V); T->rnd = 5; return T; };
+      float l, r;
+      { auto T = make(20, 99);
+        T->midi_in(0x90, 60, 127); for (int k = 0; k < SR / 8; k++) T->render(&l, &r, 1);
+        T->midi_in(0x80, 60, 0);   for (int k = 0; k < SR; k++) T->render(&l, &r, 1);   // released, then nothing rendered
+        Chan* c = nullptr; for (auto& x : T->ch) if (x.owner == 0) c = &x;
+        const OpState s0 = c->op[0]; const long long ran = c->ran, at = T->now;
+        T->midi_in(0x90, 62, 127);
+        Chan* d = nullptr; for (auto& x : T->ch) if (x.active && x.held) d = &x;
+        const double ph = s0.nphase + s0.ninc * (double)(at - ran);
+        ck("free: a mono note takes its channel back with the unvoiced walk and its generator where they were",
+           d == c && d->op[0].rng == s0.rng && d->op[0].walk == s0.walk && d->op[0].lp[0] == s0.lp[0] && d->op[0].lp[1] == s0.lp[1]);
+        ck("free: and the carrier run on from the last note at that note's centre", d == c && at > ran && fabs(d->op[0].nphase - (ph - floor(ph))) < 1e-12); }
+      { auto T = make(20, 1);                                                      // register 255: under the cut, never heard
+        T->midi_in(0x90, 60, 127); for (int k = 0; k < SR / 100; k++) T->render(&l, &r, 1);
+        Chan* c = nullptr; for (auto& x : T->ch) if (x.active) c = &x;
+        const double p0 = c->op[0].nphase, inc = c->op[0].ninc; const int n = SR / 10;
+        for (int k = 0; k < n; k++) T->render(&l, &r, 1);
+        const double want = p0 + inc * n;
+        ck("free: an unheard carrier runs on", inc > 0 && !c->silent && fabs(c->op[0].nphase - (want - floor(want))) < 1e-9); }
+      { auto T = make(0, 99); double first = -1; bool same = true;
+        for (int k = 0; k < 4; k++) {
+            T->midi_in(0x90, 60, 127); for (int i = 0; i < SR / 20; i++) T->render(&l, &r, 1);
+            double e = 0; for (int i = 0; i < SR / 4; i++) { T->render(&l, &r, 1); for (auto& x : T->ch) if (x.held) e += x.last * x.last; }
+            T->midi_in(0x80, 60, 0); for (int i = 0; i < SR / 4; i++) T->render(&l, &r, 1);
+            if (first < 0) first = e; else same = same && fabs(e - first) < 5e-3 * first;
+        }
+        ck("free: at bandwidth 0 the level the walk froze at repeats over a mono part's notes", first > 0 && same); } }
+
     // The polyphony readout counts channels, not keys. It used to count notes held or sustained, so a
     // voice with a long release left the display the moment the key came up while the channel was still
     // sounding and still unavailable to the allocator.

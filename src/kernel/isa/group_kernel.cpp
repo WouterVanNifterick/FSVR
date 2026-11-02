@@ -410,15 +410,17 @@ void render_group(Group& G, int n) {
                 const vd lo = max(sub(walk, width), mone), hi = min(add(walk, width), one);
                 const vd walkN = add(lo, mul(mul(sub(hi, lo), add(t, one)), half));
                 store(P.walk, select(um, walkN, walk));
-                vd nphase = load(P.nphase);
-                vd np = add(nphase, ninc);
+                // the carrier on every lane, heard or not: an unheard lane steps by its own increment
+                vd np = add(load(P.nphase), ninc);
                 np = select(ge(np, one), sub(np, one), np);
-                nphase = select(um, np, nphase);
-                store(P.nphase, nphase);
+                store(P.nphase, np);
                 const vd u1 = mul(mul(walkN, walkGain), sin_turns(np));
                 const vd uprev = load(P.uprev);
                 mix = select(um, add(mix, mul(mul(mul(half, add(u1, uprev)), ugain), partU)), mix);
                 store(P.uprev, select(um, u1, uprev));
+            } else {
+                vd np = add(load(P.nphase), load(P.ninc));
+                store(P.nphase, select(ge(np, one), sub(np, one), np));
             }
             // what the channel's tail asks of this operator: a running envelope, a carrier still heard
             const vm egDone = eg_done(er), uegDone = eg_done(ur);
