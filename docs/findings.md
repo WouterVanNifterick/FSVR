@@ -8,6 +8,20 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-11-07, the unvoiced level stepped at every Fseq frame (FSVR#103)
+
+rgwan reported glitches on A019 with part 2 off and Fseq 59 L&G, 64 Check123 or 77 Thank You, fading as the Fseq loops. PatriotBY found the cause and proposed the fix on the issue: the voiced level register glides at `cal::LEVEL_SLEW_MS` (2026-09-21), but the unvoiced one, `s.uatt`, went into the gain as it was, so a frame that opens a noise operator stepped the output. The unvoiced level now runs through the same one pole (`uattS`, reset with `attS` at key on), in `render_chan` and the lane kernel alike.
+
+**Measured on FSVR**, A019, part 2's bank off, preset Fseq N, note 60 held 12 s, PatriotBY's detector (left channel, |second difference| over 12 times its rms in the surrounding 50 ms and above 1e-4, isolated events): main then fixed, Fseq 59 26 -> 6, 64 17 -> 0, 77 7 -> 0, 39 (A019's own) 6 -> 0, 1 ShoobyDo 10 -> 0. A 0.03 click added to each fixed render is found every time. Fseq 59's six are the voiced path: they stay with the unvoiced part muted and go with the voiced muted, and repeat every pass; the largest is 1.1e-3 in second difference, where main's largest on Fseq 59 is 3.5e-2. The fade with looping is in main's render too, Fseq 59 loops every 7.03 s, and over the first 5 s of each pass main has 21 events, then 4; the fixed render has the same three each pass.
+
+**Not measured: the constant.** 1.6 ms is the voiced path's. `12_fseqlevel`'s three uv segments (rgwan's unit, 2026-09-20) put the 10-90 % rise of the noise amplitude at a frame jump of over 12 dB at 5.0, 6.9 and 9.7 ms for notes 36, 60 and 84; FSVR reads 0.1 stepped, 1.0 with this glide, and 5.5 to 6.7 with a 16 ms one. One file, a rise that moves with the note, and a noise band that smears any envelope: that is a pointer for a dedicated take of one unvoiced operator under a level-stepping Fseq, not a constant.
+
+`tools/bench_captures.py` before and after: only `12_fseqlevel` moved, level 2.17 -> 2.07 dB, envelope 11.80 -> 11.86. `regress.py`, `check_formant`, `check_presets` and the self check pass; the self check pins the glide and fails with the unvoiced level stepped.
+
+Reported by rgwan; cause and fix by PatriotBY.
+
+---
+
 ## 2026-10-28, the 12 kHz notch was the dry pair leaving the DACs two samples apart (FSVR#97)
 
 gentleclockdivider reported a deep notch at about 12 kHz on a feedback sine and on unvoiced noise that his other FM synths (Swayed, OPs-7) do not have, and EvilDragon checked that his FS1R does not have it either. The notch is in the reporter's `gap.wav` (-39 dB at 12 kHz in L+R, flat in L and in R alone), and FSVR renders it at the same depth on a single sine operator with feedback 7 and on one unvoiced operator.

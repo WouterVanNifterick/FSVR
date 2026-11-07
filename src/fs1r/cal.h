@@ -264,8 +264,8 @@ static const double LEVEL_SLEW_MS= 1.6;     // the voiced level register does no
                                             // band error over its eight formant segments bottoms at 4.74 dB
                                             // here, against 9.7 for a register that steps and 10.6 for one
                                             // latched to the grain. Flat between 1.2 and 2.0, so the last digit
-                                            // is not measured. The unvoiced level is not slewed, see
-                                            // render_chan. docs/formant.md.
+                                            // is not measured. The unvoiced level glides on it too,
+                                            // borrowed, not measured there (FSVR#103). docs/formant.md.
 static const double DAMP_MS      = 1.0;     // the note-on damp: what is left of the previous note in a channel
                                             // the allocator reuses decays with this time constant instead of
                                             // being cut to zero. INFERRED, and the one constant here with no
