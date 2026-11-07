@@ -211,7 +211,7 @@ void gather(Group& G) {
             P.nextGen[l] = s.nextGen; P.fphase[l] = s.fphase;
             P.uegStage[l] = s.ueg.stage; P.uegCur[l] = s.ueg.cur; P.uegTarget[l] = s.ueg.target; P.uegRate[l] = s.ueg.rate; P.uegHold[l] = s.ueg.holdLeft; setmask(P.uegRising, l, s.ueg.rising);
             P.ufegStage[l] = s.ufeg.stage; P.ufegHold[l] = s.ufeg.hold; P.ufegCur[l] = s.ufeg.cur; P.ufegTarget[l] = s.ufeg.target; P.ufegKatt[l] = s.ufeg.katt; P.ufegKdec[l] = s.ufeg.kdec;
-            P.rng[l] = (int32_t)s.rng; P.lp0[l] = s.lp[0]; P.lp1[l] = s.lp[1]; P.walk[l] = s.walk; P.nphase[l] = s.nphase; P.uprev[l] = s.uprev;
+            P.rng[l] = (int32_t)s.rng; P.lp0[l] = s.lp[0]; P.lp1[l] = s.lp[1]; P.walk[l] = s.walk; P.nphase[l] = s.nphase;
             P.out[l] = s.out;
         }
     }
@@ -230,7 +230,7 @@ void gather(Group& G) {
             P.sine[l] = ~0ull; P.all[l] = P.odd[l] = P.res[l] = P.frmt[l] = 0; P.winAt[l] = 0; P.skirt[l] = 0; P.dc[l] = 0.f; P.formA[l] = P.formB[l] = 1;
             P.uegStage[l] = 5; P.uegCur[l] = P.uegTarget[l] = -200; P.uegRate[l] = P.uegHold[l] = 0; P.uegRising[l] = 0;
             P.ufegStage[l] = 2; P.ufegHold[l] = 0; P.ufegCur[l] = P.ufegTarget[l] = P.ufegKatt[l] = P.ufegKdec[l] = 0;
-            P.uatt[l] = P.ninc[l] = P.ucoef[l] = P.udrift[l] = P.uwidth[l] = 0; P.rng[l] = 1; P.lp0[l] = P.lp1[l] = P.walk[l] = P.nphase[l] = P.uprev[l] = 0;
+            P.uatt[l] = P.ninc[l] = P.ucoef[l] = P.udrift[l] = P.uwidth[l] = 0; P.rng[l] = 1; P.lp0[l] = P.lp1[l] = P.walk[l] = P.nphase[l] = 0;
             P.inFb[l] = P.inCb[l] = P.inH[l] = P.inS[l] = P.toH[l] = P.sClr[l] = P.sAdd[l] = P.toFb[l] = P.carrier[l] = 0;
             P.out[l] = 0;
         }
@@ -272,7 +272,7 @@ void scatter(Group& G, int l, int n) {
         s.nextGen = P.nextGen[l]; s.fphase = P.fphase[l];
         s.ueg.stage = P.uegStage[l]; s.ueg.cur = P.uegCur[l]; s.ueg.target = P.uegTarget[l]; s.ueg.rate = P.uegRate[l]; s.ueg.holdLeft = P.uegHold[l]; s.ueg.rising = P.uegRising[l] != 0;
         s.ufeg.stage = P.ufegStage[l]; s.ufeg.hold = P.ufegHold[l]; s.ufeg.cur = P.ufegCur[l];
-        s.rng = (uint32_t)P.rng[l]; s.lp[0] = P.lp0[l]; s.lp[1] = P.lp1[l]; s.walk = P.walk[l]; s.nphase = P.nphase[l]; s.uprev = P.uprev[l];
+        s.rng = (uint32_t)P.rng[l]; s.lp[0] = P.lp0[l]; s.lp[1] = P.lp1[l]; s.walk = P.walk[l]; s.nphase = P.nphase[l];
         s.out = P.out[l];
     }
 }
@@ -418,9 +418,7 @@ void render_group(Group& G, int n) {
                 np = select(ge(np, one), sub(np, one), np);
                 store(P.nphase, np);
                 const vd u1 = mul(mul(walkN, walkGain), sin_turns(np));
-                const vd uprev = load(P.uprev);
-                mix = select(um, add(mix, mul(mul(mul(half, add(u1, uprev)), ugain), partU)), mix);
-                store(P.uprev, select(um, u1, uprev));
+                mix = select(um, add(mix, mul(mul(u1, ugain), partU)), mix);
             } else {
                 vd np = add(load(P.nphase), load(P.ninc));
                 store(P.nphase, select(ge(np, one), sub(np, one), np));

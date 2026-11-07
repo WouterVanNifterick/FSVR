@@ -198,12 +198,10 @@ static const double WALK_STEP     = 1.0 / 64;
 static const double WALK_COEF[8]  = {0.0625, 0.0935993, 0.122913, 0.187135, 0.246659, 0.368925, 0.486767, 0.710525};
 static const double WALK_DRIFT[8] = {0, 0.00390625, 0.0078125, 0.015625, 0.03125, 0.0625, 0.125, 0.25};
 static const double WALK_GAIN     = 1.0457;
-// The unvoiced output is the mean of the sample and the one before it. MEASURED: on every wideband
-// segment the unit's noise is flat to 8 kHz and then falls 2.8, 6.8, 13 and 27 dB at 12, 16, 20 and 23
-// kHz against the engine's white band, the same curve at a 1 kHz centre (15_filter) and an 8 kHz one
-// (13_unvoiced3), so it sits after the ring modulator. A two-sample mean, cos^2 of half the angular
-// frequency, lands on it at 0.8 dB rms over forty bins; a sine at 22 kHz on the voiced path reads the
-// same level as one at 55 Hz, so it is the unvoiced path alone.
+// The unvoiced output has no two-sample mean. MEASURED 2026-11-07 on rgwan's tap (FS1R.unlock 2026-11-07-pr110):
+// the unit's left channel alone is the walk's band to 20 kHz at 8, 12 and 16 kHz centres, where the mean took
+// 1.1, 2.7 and 5.3 dB off. The cos^2 the 2026-09-22 reading saw is the L+R sum's, the right channel one sample
+// behind the left (docs/findings.md 2026-10-28), which every channel carries, voiced and unvoiced alike.
 static const double PMS_FRAC[8]  = {0, 0.038, 0.076, 0.125, 0.212, 0.365, 0.620, 1.0};        // per-op pitch mod sensitivity. MEASURED 2026-09-24
                                             // off 07_modulation_1's eight pms segments at pitch depth 99: the
                                             // fundamental's swing at pms 1..6 is 0.038, 0.076, 0.125, 0.212, 0.365,

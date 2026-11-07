@@ -198,11 +198,7 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
             const double lo = a > -1.0 ? a : -1.0, hi = b < 1.0 ? b : 1.0;
             s.walk = lo + (hi - lo) * (t + 1.0) * 0.5;
             s.nphase += ninc; if (s.nphase >= 1) s.nphase -= 1;
-            // The unvoiced output is the mean of this sample and the last, see cal.h: the unit's noise
-            // falls off above 8 kHz on a cos^2 that no voiced operator shows, whichever centre it is at.
-            const double u1 = s.walk * cal::WALK_GAIN * fsin(s.nphase);
-            mix += 0.5 * (u1 + s.uprev) * ugain * partU;
-            s.uprev = u1;
+            mix += s.walk * cal::WALK_GAIN * fsin(s.nphase) * ugain * partU;
         } else { s.nphase += s.ninc; if (s.nphase >= 1) s.nphase -= 1; }   // an unheard carrier runs on (keep_unvoiced)
     }
     C.fbBus = (fbNew + C.fbPrev) * 0.5; C.fbPrev = fbNew;
@@ -252,7 +248,7 @@ void seed_unvoiced(Chan& C, int c) {
         OpState& s = C.op[o];
         s.nphase = ((k >> 9) & 0x7FFFFF) / 8388608.0;
         s.rng    = k | 1u;
-        s.walk   = ((k >> 16) & 0xFFFF) / 32768.0 - 1.0;
+        s.walk   = 0;   // MEASURED 2026-11-07: a channel's first notes at bandwidth 0 are digital zero (docs/noise.md)
     }
 }
 
@@ -261,7 +257,7 @@ void keep_unvoiced(Chan& C, const Chan& was, long long now) {
         const OpState& w = was.op[o]; OpState& s = C.op[o];
         const double ph = w.nphase + w.ninc * (double)(now - was.ran);
         s.nphase = ph - floor(ph); s.ninc = w.ninc;
-        s.rng = w.rng; s.lp[0] = w.lp[0]; s.lp[1] = w.lp[1]; s.walk = w.walk; s.uprev = w.uprev;
+        s.rng = w.rng; s.lp[0] = w.lp[0]; s.lp[1] = w.lp[1]; s.walk = w.walk;
     }
     C.ran = now;
 }

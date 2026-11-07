@@ -1170,7 +1170,19 @@ int selftest(Synth& S) {
         for (int k = 0; k < n; k++) T->render(&l, &r, 1);
         const double want = p0 + inc * n;
         ck("free: an unheard carrier runs on", inc > 0 && !c->silent && fabs(c->op[0].nphase - (want - floor(want))) < 1e-9); }
-      { auto T = make(0, 99); double first = -1; bool same = true;
+      { auto T = make(0, 99); double e = 0;   // MEASURED 2026-11-07: a channel's first note at bandwidth 0 is digital zero
+        T->midi_in(0x90, 60, 127); for (int i = 0; i < SR / 4; i++) { T->render(&l, &r, 1); e += fabs(l) + fabs(r); }
+        ck("free: a channel's walk starts at 0, so its first note at bandwidth 0 is silent", e == 0.0); }
+      { double e[2] = {};   // MEASURED 2026-11-07: no two-sample mean, the walk reads -47.4 dB at a 1 kHz and a 16 kHz centre alike
+        for (int k = 0; k < 2; k++) { auto T = make(96, 99); T->perf.part[0].voice.raw[112 + 35 + 1] = k ? 21 : 17;   // 16 kHz : 1 kHz, fine 24
+          decode_voice(T->perf.part[0].voice);
+          T->midi_in(0x90, 60, 127); for (int i = 0; i < SR / 20; i++) T->render(&l, &r, 1);
+          for (int i = 0; i < SR / 2; i++) { T->render(&l, &r, 1); e[k] += (double)l * l; } }
+        ck("unvoiced: no two-sample mean, a 16 kHz centre reads the level a 1 kHz one does", fabs(10 * log10(e[1] / e[0])) < 1.0); }
+      { auto T = make(20, 99); double first = -1; bool same = true;
+        T->midi_in(0x90, 60, 127); for (int i = 0; i < SR / 8; i++) T->render(&l, &r, 1);
+        T->midi_in(0x80, 60, 0); for (int i = 0; i < SR / 4; i++) T->render(&l, &r, 1);
+        write_param(*T, 0x60, 0, 35 + 4, 0);                                       // bandwidth 0 by parameter change
         for (int k = 0; k < 4; k++) {
             T->midi_in(0x90, 60, 127); for (int i = 0; i < SR / 20; i++) T->render(&l, &r, 1);
             double e = 0; for (int i = 0; i < SR / 4; i++) { T->render(&l, &r, 1); for (auto& x : T->ch) if (x.held) e += x.last * x.last; }
