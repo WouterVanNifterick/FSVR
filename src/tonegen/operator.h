@@ -77,8 +77,8 @@ struct OpState {
 //
 // The unvoiced operator's level glides on the same constant (FSVR#103, uattS in render_chan). Stepped,
 // every Fseq frame that opened a noise operator was a step in the output: A019 with Fseq 59, 64 or 77
-// clicked. The constant is borrowed, not measured on this path: 12_fseqlevel's uv segments rise 5 to
-// 10 ms at a frame jump on the unit, 1 ms here, 0.1 stepped (docs/findings.md 2026-11-07).
+// clicked; the unit does not. MEASURED 2026-11-07 on the rig: a frame jump's 10-90 % rise is 1.7 to 2.0 ms
+// on the unit at three notes, 1.5 to 1.9 with this glide, 0.1 to 0.2 stepped (docs/findings.md 2026-11-07).
 //
 // The sine, the stored waves and the odd and res forms read the phase generator's own integer phase, stepped
 // by `inc` (cal.h); the formant runs its grains' carriers at `fop`, the same increment in hertz. ph0 is ours,
