@@ -55,7 +55,7 @@ struct OpState {
     double word = 0; uint32_t inc = 0;   // the operator's frequency word and its increment (refresh_ctl)
     EG eg; FreqEG feg;
     EG ueg; FreqEG ufeg; double nphase = 0, lp[2] = {}, walk = 0; uint32_t rng = 0x12345678;   // the unvoiced carrier, in turns, and its walk
-    double att = 0, attS = 0, fop = 0, fw = 0, wl7 = 1, uatt = 0, ninc = 0, ucoef = 0, udrift = 0, uwidth = 0, uprev = 0; int bw = 0, ratio = 0;   // refresh_ctl
+    double att = 0, attS = 0, fop = 0, fw = 0, wl7 = 1, uatt = 0, uattS = 0, ninc = 0, ucoef = 0, udrift = 0, uwidth = 0, uprev = 0; int bw = 0, ratio = 0;   // refresh_ctl
     double gain = 0, gto = 0, dg = 0, ugain = 0, ugto = 0, dug = 0;   // the Fast steps' gain ramps, voiced and unvoiced (render_chan)
     double out = 0;                                                   // this sample's voiced output, for tools/wavetrace
 };
@@ -75,9 +75,10 @@ struct OpState {
 // of no smoothing at all: at a low fundamental the grain is tens of milliseconds and the level
 // cannot wait that long. A 1.6 ms glide is 4.74 dB, and still holds Vokodrone's boundary to 2.7 dB.
 //
-// The unvoiced operator's level is left stepping. Its own segments in the same file sit 15 to 26 dB
-// dark above 640 Hz before any smoothing is applied, which is the noise formant's bandwidth law and
-// not this, so they cannot judge a glide; slewing it there only makes them darker.
+// The unvoiced operator's level glides on the same constant (FSVR#103, uattS in render_chan). Stepped,
+// every Fseq frame that opened a noise operator was a step in the output: A019 with Fseq 59, 64 or 77
+// clicked; the unit does not. MEASURED 2026-11-07 on the rig: a frame jump's 10-90 % rise is 1.7 to 2.0 ms
+// on the unit at three notes, 1.5 to 1.9 with this glide, 0.1 to 0.2 stepped (docs/findings.md 2026-11-07).
 //
 // The sine, the stored waves and the odd and res forms read the phase generator's own integer phase, stepped
 // by `inc` (cal.h); the formant runs its grains' carriers at `fop`, the same increment in hertz. ph0 is ours,

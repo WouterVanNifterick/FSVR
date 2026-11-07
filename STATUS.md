@@ -74,8 +74,6 @@ Grouped by what blocks each item rather than by subsystem. This file is the list
 
 - The unvoiced walk's bit widths and its period. US5744741 reads as a 12-bit drive and a 16-bit walk; FSVR computes both in double, and no take so far can tell the two apart
 
-- FSVR's right channel lags its left by two samples on the way out, which a mono sum turns into a comb above 4 kHz (`docs/noise.md` 2026-11-02). Whether the unit's analogue out does the same is not read
-
 - Run the real firmware on an SH-2 core. `tools/ghidra_ctrl_dests.py` shows the pattern for reaching code Ghidra never turned into functions
 
 **Parked**

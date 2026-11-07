@@ -35,7 +35,7 @@ struct Group {
         int32_t fegStage[WMAX], fegHold[WMAX]; double fegCur[WMAX], fegTarget[WMAX], fegKatt[WMAX], fegKdec[WMAX];
         // the amplitude EG and the level
         int32_t egStage[WMAX]; double egCur[WMAX], egTarget[WMAX], egRate[WMAX], egHold[WMAX]; uint64_t egRising[WMAX];
-        double att[WMAX], attS[WMAX], ph0[WMAX];
+        double att[WMAX], attS[WMAX], uattS[WMAX], ph0[WMAX];
         // the formant's grains
         double gW[2][WMAX], gC[2][WMAX], gFc[2][WMAX]; uint64_t gOn[2][WMAX]; int32_t nextGen[WMAX]; double fphase[WMAX];
         // the form on each lane: masks, the window page, the all form's mean, and the phase scales of the odd and res forms

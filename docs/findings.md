@@ -8,6 +8,25 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-11-07, the unvoiced level stepped at every Fseq frame (FSVR#103)
+
+rgwan reported glitches on A019 with part 2 off and Fseq 59 L&G, 64 Check123 or 77 Thank You, fading as the Fseq loops. PatriotBY found the cause and proposed the fix on the issue: the voiced level register glides at `cal::LEVEL_SLEW_MS` (2026-09-21), but the unvoiced one, `s.uatt`, went into the gain as it was, so a frame that opens a noise operator stepped the output. The unvoiced level now runs through the same one pole (`uattS`, reset with `attS` at key on), in `render_chan` and the lane kernel alike.
+
+**Measured on FSVR**, A019, part 2's bank off, preset Fseq N, note 60 held 12 s, PatriotBY's detector (left channel, |second difference| over 12 times its rms in the surrounding 50 ms and above 1e-4, isolated events): main then fixed, Fseq 59 26 -> 6, 64 17 -> 0, 77 7 -> 0, 39 (A019's own) 6 -> 0, 1 ShoobyDo 10 -> 0. A 0.03 click added to each fixed render is found every time. Fseq 59's six are the voiced path: they stay with the unvoiced part muted and go with the voiced muted, and repeat every pass; the largest is 1.1e-3 in second difference, where main's largest on Fseq 59 is 3.5e-2. The fade with looping is in main's render too, Fseq 59 loops every 7.03 s, and over the first 5 s of each pass main has 21 events, then 4; the fixed render has the same three each pass.
+
+**On the unit** (FS1R.unlock `captures/2026-11-07-fseq103`, rgwan's FS1R on the rig): the same five A019 cases, then one unvoiced operator at its widest band under Fseq 34 "RndArp4" at notes 36, 60 and 84, 20 s each.
+
+- **No click on the unit.** The detector finds none in any of the five Fseqs. A 0.03 step written into each segment is found. Before reading, the reader bridges runs of 2 to 8 samples where both channels are exactly zero: the rig's S/PDIF chain drops 3 or 4 samples every 1.43 s on this take, through segments and silence alike, and unbridged every event the detector found sat on that grid. FSVR main on the same file: 20, 8, 7, 5 and 7; the fix: 6, 0, 0, 1, 0.
+- **The unvoiced level glides at about the voiced constant.** Over 135 to 138 single-pass frame jumps of over 18 dB per note, the median 10-90 % rise of the noise amplitude is 1.74, 1.75 and 1.96 ms on the unit. FSVR renders 0.20 / 0.23 / 0.12 stepped, 1.48 / 1.88 / 1.57 with this 1.6 ms glide, 3.1 with a 4 ms one and 3.9 to 5.0 with 8 ms. Three notes agree, so it does not track the grain or the band. The first read of `12_fseqlevel` (5 to 10 ms, one pass a note) and a fold of this take's passes (11 ms) were both wrong. The unit's frames land a tick or so apart from pass to pass, and folding smears that into a ramp the unit does not have; read jump by jump, the same take gives 1.7 to 2.0.
+
+So the 1.6 ms is now measured on the unvoiced path too, to the precision the voiced one has (flat over a few tenths of a millisecond). Fseq 59's six remaining events are FSVR's voiced path and the unit has none there; they are a separate open item.
+
+`tools/bench_captures.py` before and after: only `12_fseqlevel` moved, level 2.17 -> 2.07 dB, envelope 11.80 -> 11.86. `regress.py`, `check_formant`, `check_presets` and the self check pass; the self check pins the glide and fails with the unvoiced level stepped.
+
+Reported by rgwan; cause and fix by PatriotBY.
+
+---
+
 ## 2026-11-03, the unvoiced walk's width is the bandwidth register over 64
 
 The width table of 2026-11-02 was the widths fitted setting by setting, interpolated, with 2 standing in past the rails, and it carried every fit's scatter. The fits themselves are the register over 64 to 1 to 3 % over registers 30 to 73, where they are best determined, and `cal::WALK_STEP` makes that the law: 0 freezes the walk, 64 is one rail, and past about 90 the walk is the drive whatever its width, as the table's 2 had it. On `spectrum`, `window-3hz` and `gen-fine` the law reads the kurtosis as the table did and the band shape and the level a little better (level 0.17, 0.18 and 0.20 dB at the 90th percentile, from 0.18, 0.23 and 0.22). It reads as the 7-bit register with six fraction bits, a shift in fixed point, and as the S-YXG100's own smallest step; the bit widths are not measured. `noise.md` has the numbers. `tools/abcheck.py` moves perf-spacypad and perf-towarp again and nothing else, and `regress.py` passes unchanged.
@@ -18,9 +37,27 @@ WouterVanNifterick recorded the unvoiced operator on their own unit, off its ana
 
 The same takes say nothing resets: 32 mono notes over 100 s land on one 3.4389 Hz carrier that never stopped, and the level frozen at bandwidth 0 repeats over a mono part's notes and with period 32 in poly. FSVR now keeps the carrier, the walk and its generator per channel through every note and gap (`keep_unvoiced`), steps a carrier while its operator is under the gate, and seeds each channel's once. This is measured, not read: `notes.cpp` carries it, and the firmware does not say. The mono rule it needs was already `FUN_000112C0`'s (2026-10-26), whose first loop takes back the first channel whose owner word `DAT_010289FC` is the part; the poly allocator writes the same word, so it is the channel the part's last note played, which is also the rule the takes imply. Nothing in the allocator changed.
 
-Against the takes through FS1x's `analyze.py`, bandwidth 0 aside, FSVR's left channel: `spectrum` kurtosis difference 1.85 to **0.03** at the median, crest 2.16 to **0.09**, envelope spread 0.207 to **0.005**, level 0.63 to **0.18** dB at the 90th percentile, band shape 0.43 to 0.41 dB; `window-3hz` likewise; `sync`'s mono carrier now continues as the unit's does (Rf 0.997 against the unit's 0.997, from 0.341). FSVR's right channel lags its left by two samples, which the analysis's mono sum turns into a comb above 4 kHz on both engines; it is not the generator and is not claimed either way. Not confirmed on a second unit: `bench_captures.py` on rgwan's captures, which the two-pole model came from, was not run.
+Against the takes through FS1x's `analyze.py`, bandwidth 0 aside, FSVR's left channel: `spectrum` kurtosis difference 1.85 to **0.03** at the median, crest 2.16 to **0.09**, envelope spread 0.207 to **0.005**, level 0.63 to **0.18** dB at the 90th percentile, band shape 0.43 to 0.41 dB; `window-3hz` likewise; `sync`'s mono carrier now continues as the unit's does (Rf 0.997 against the unit's 0.997, from 0.341). FSVR's right channel lagged its left by two samples when this was read, which the analysis's mono sum turned into a comb above 4 kHz on both engines; it was not the generator, and the 2026-10-28 entry below has since made it one sample, as the unit's. Not confirmed on a second unit: `bench_captures.py` on rgwan's captures, which the two-pole model came from, was not run.
 
 `tools/regress.py` passes unchanged; `tools/abcheck.py` against main before it (616c7d1) moves perf-spacypad and perf-towarp only, the two cases whose unvoiced operators sound, and the self check pins the freeze, the carried state and the unheard carrier, and runs the serial-against-lanes scenario with every unvoiced operator sounding.
+
+---
+
+## 2026-10-28, the 12 kHz notch was the dry pair leaving the DACs two samples apart (FSVR#97)
+
+gentleclockdivider reported a deep notch at about 12 kHz on a feedback sine and on unvoiced noise that his other FM synths (Swayed, OPs-7) do not have, and EvilDragon checked that his FS1R does not have it either. The notch is in the reporter's `gap.wav` (-39 dB at 12 kHz in L+R, flat in L and in R alone), and FSVR renders it at the same depth on a single sine operator with feedback 7 and on one unvoiced operator.
+
+**It is a comb, not a filter.** Each channel is flat; the notch appears only in a mono sum (the analyser in the screenshots sums the pair). The engine's left output was the right output delayed by two samples, and L + R with a two-sample delay cancels at 48000 / 4 = 12 kHz. It needs a signal that is the same on both sides and has energy up there, which is why a bright sound shows it and a pure low tone does not.
+
+**The unit's pair is one sample apart, left late.** GCC-PHAT over 3 kHz and up, 4096-sample windows, on every one of the 40 hardware takes in `captures/hardware/`: every take reads a lag of 1, which in a mono sum notches at 24 kHz, at Nyquist, where nothing is heard. FSVR on main reads 2 on every render of the same files. It is also what VOP3.unlock measured on the chip itself (`docs/vop3_isa.md`, session 28: "R leaves the chip in the pass the input changes, L one pass later").
+
+**Why it was two.** The bus words land partway through the chip's pass, between steps 0x108 and 0x110 (VOP3.unlock `docs/vop3_isa.md`, sessions 24-27: r0e tapped at 0x010 and at 0x110+ differs by one sample). `Effects::run` wrote all of them before the base program ran, so the base program (0x000-0x0e7), which reads the right bus, saw this sample's words where the chip sees the last sample's, while the left bus, which goes through the reverb delay window at 0x110+, was already correct. Right came out a sample early. Now base and aux run on the words already there and the windows from 0x110 on read the new ones: an impulse on the dry bus leaves R at pass 3 and L at pass 4.
+
+**What moved.** The mono-sum notch on the hardware set's own files, main then fixed, against the unit: `13_unvoiced3` -32.0 / 0.0 against 0.0 dB, `05_unvoiced_1` -32.6 / 0.0 against 0.1, `19_drums` -34.6 / -0.3 against 0.5. `tools/bench_captures.py` before and after: every file within 0.05 dB but `09_effects_1` envelope 4.52 -> 4.64, `09_effects_3` envelope 8.13 -> 7.91, `12_fseqlevel` level 2.07 -> 2.17 and `08_panlevel_1` shape 1.53 -> 1.57. The effect takes now read lag 1 like the unit's, where main read 2. `dsp_check`'s effects hash moved (`0x916322d1492c9fce`) and `regress.py`'s reference was regenerated: its `stereo` metric is the rms of L - R, which a two-sample skew inflates on any bright signal, so it falls on most cases (Init 0.0112 to 0.00585); four cases' centroids rise by 2 to 5 % (`perf-spacypad`, `perf-towarp`, `perf-manhattan`, `ctrl-freqbias`), the comb no longer taking out their top octave in the metric's mono sum, and peak and rms move by under 1.2 %. The selftest pins the one-sample lag and fails on main.
+
+Reported by gentleclockdivider, confirmed on hardware by EvilDragon.
+
+---
 
 ## 2026-10-26, the open items before v0.8.4, measured: OP Att on a modulator, free-running phase, formant grains, the frequency and pitch EGs, the filter loss
 
