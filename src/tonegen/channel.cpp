@@ -181,9 +181,18 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
         if (t1 & 1) mix += y * partV;
         // unvoiced (noise formant) operator
         double ugain;
-        if (!decim) { const double uegdb = s.ueg.tick(); ugain = uegdb - s.uatt > uGate ? db2lin_fast(uegdb - s.uatt) : 0.0; }
-        else {
-            if (block) { const double uegdb = s.ueg.advance(egDecimation); s.ugain = s.ugto; s.ugto = uegdb - s.uatt > uGate ? db2lin_fast(uegdb - s.uatt) : 0.0; s.dug = (s.ugto - s.ugain) / egDecimation; }
+        // The unvoiced level glides as the voiced one does (FSVR#103): stepped, every Fseq frame that opens a
+        // noise operator was a step in the output.
+        if (!decim) {
+            const double uegdb = s.ueg.tick();
+            if (s.uattS < -1e8) s.uattS = s.uatt; else s.uattS += (s.uatt - s.uattS) * LEVEL_SLEW_K;
+            ugain = uegdb - s.uattS > uGate ? db2lin_fast(uegdb - s.uattS) : 0.0;
+        } else {
+            if (block) {
+                const double uegdb = s.ueg.advance(egDecimation);
+                if (s.uattS < -1e8) s.uattS = s.uatt; else s.uattS += (s.uatt - s.uattS) * g_slewN[std::clamp(egDecimation, 1, 64)];
+                s.ugain = s.ugto; s.ugto = uegdb - s.uattS > uGate ? db2lin_fast(uegdb - s.uattS) : 0.0; s.dug = (s.ugto - s.ugain) / egDecimation;
+            }
             ugain = s.dug == 0.0 ? s.ugain : (s.ugain += s.dug);
         }
         if (ugain != 0.0) {
@@ -213,7 +222,7 @@ double render_chan(Chan& C, const Voice& V, bool fseq, double gateDb, int ctlDec
     // the engine awake (render.cpp). Only a level raised by a controller mid-release could bring one back.
     auto over = [&](const EG& e, double att, double gate) { return e.done() || (e.stage == 4 && !e.rising && e.cur - att <= gate); };
     bool carriersDone = true;
-    for (int o = 0; o < 8; o++) { const OpState& s = C.op[o]; if (((alg[2 * o + 1] & 1) && (!over(s.eg, s.attS, vGate) || s.g[0].on || s.g[1].on)) || !over(s.ueg, s.uatt, uGate)) { carriersDone = false; break; } }
+    for (int o = 0; o < 8; o++) { const OpState& s = C.op[o]; if (((alg[2 * o + 1] & 1) && (!over(s.eg, s.attS, vGate) || s.g[0].on || s.g[1].on)) || !over(s.ueg, s.uattS, uGate)) { carriersDone = false; break; } }
     if (carriersDone && fabs(mix) < 1e-9 && C.damp == 0.0) { if (++C.quiet >= 64) C.silent = true; } else C.quiet = 0;
     // The channel accumulator saturates before the filter loop, which is where the capture puts it:
     // eight carriers stacked in one channel clip flat, while the filter's own output on ingain-12 rides

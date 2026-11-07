@@ -157,7 +157,7 @@ void Synth::note_on(int part, int note, int vel) {
         s.ueg.start(C.uegL[o], C.uegR[o], C.uegHold[o], eg_ratescale(u.tscale, C.regC0));
         s.ufeg.start(u.fegInit, u.fegAtt, u.fegAttT, u.fegDecT);
         s.rng = 0x9E3779B9u * (o + 1) ^ clock; if (!s.rng) s.rng = 1;
-        s.attS = -1e9;                    // the level glide starts at the new note's own level
+        s.attS = s.uattS = -1e9;          // the level glides start at the new note's own levels
     }
 }
 

@@ -8,6 +8,25 @@ Entries that have a dedicated working document (`aeg.md`, `skirt.md`, `noise.md`
 
 ---
 
+## 2026-11-07, the unvoiced level stepped at every Fseq frame (FSVR#103)
+
+rgwan reported glitches on A019 with part 2 off and Fseq 59 L&G, 64 Check123 or 77 Thank You, fading as the Fseq loops. PatriotBY found the cause and proposed the fix on the issue: the voiced level register glides at `cal::LEVEL_SLEW_MS` (2026-09-21), but the unvoiced one, `s.uatt`, went into the gain as it was, so a frame that opens a noise operator stepped the output. The unvoiced level now runs through the same one pole (`uattS`, reset with `attS` at key on), in `render_chan` and the lane kernel alike.
+
+**Measured on FSVR**, A019, part 2's bank off, preset Fseq N, note 60 held 12 s, PatriotBY's detector (left channel, |second difference| over 12 times its rms in the surrounding 50 ms and above 1e-4, isolated events): main then fixed, Fseq 59 26 -> 6, 64 17 -> 0, 77 7 -> 0, 39 (A019's own) 6 -> 0, 1 ShoobyDo 10 -> 0. A 0.03 click added to each fixed render is found every time. Fseq 59's six are the voiced path: they stay with the unvoiced part muted and go with the voiced muted, and repeat every pass; the largest is 1.1e-3 in second difference, where main's largest on Fseq 59 is 3.5e-2. The fade with looping is in main's render too, Fseq 59 loops every 7.03 s, and over the first 5 s of each pass main has 21 events, then 4; the fixed render has the same three each pass.
+
+**On the unit** (FS1R.unlock `captures/2026-11-07-fseq103`, rgwan's FS1R on the rig): the same five A019 cases, then one unvoiced operator at its widest band under Fseq 34 "RndArp4" at notes 36, 60 and 84, 20 s each.
+
+- **No click on the unit.** The detector finds none in any of the five Fseqs. A 0.03 step written into each segment is found. Before reading, the reader bridges runs of 2 to 8 samples where both channels are exactly zero: the rig's S/PDIF chain drops 3 or 4 samples every 1.43 s on this take, through segments and silence alike, and unbridged every event the detector found sat on that grid. FSVR main on the same file: 20, 8, 7, 5 and 7; the fix: 6, 0, 0, 1, 0.
+- **The unvoiced level glides at about the voiced constant.** Over 135 to 138 single-pass frame jumps of over 18 dB per note, the median 10-90 % rise of the noise amplitude is 1.74, 1.75 and 1.96 ms on the unit. FSVR renders 0.20 / 0.23 / 0.12 stepped, 1.48 / 1.88 / 1.57 with this 1.6 ms glide, 3.1 with a 4 ms one and 3.9 to 5.0 with 8 ms. Three notes agree, so it does not track the grain or the band. The first read of `12_fseqlevel` (5 to 10 ms, one pass a note) and a fold of this take's passes (11 ms) were both wrong. The unit's frames land a tick or so apart from pass to pass, and folding smears that into a ramp the unit does not have; read jump by jump, the same take gives 1.7 to 2.0.
+
+So the 1.6 ms is now measured on the unvoiced path too, to the precision the voiced one has (flat over a few tenths of a millisecond). Fseq 59's six remaining events are FSVR's voiced path and the unit has none there; they are a separate open item.
+
+`tools/bench_captures.py` before and after: only `12_fseqlevel` moved, level 2.17 -> 2.07 dB, envelope 11.80 -> 11.86. `regress.py`, `check_formant`, `check_presets` and the self check pass; the self check pins the glide and fails with the unvoiced level stepped.
+
+Reported by rgwan; cause and fix by PatriotBY.
+
+---
+
 ## 2026-10-28, the 12 kHz notch was the dry pair leaving the DACs two samples apart (FSVR#97)
 
 gentleclockdivider reported a deep notch at about 12 kHz on a feedback sine and on unvoiced noise that his other FM synths (Swayed, OPs-7) do not have, and EvilDragon checked that his FS1R does not have it either. The notch is in the reporter's `gap.wav` (-39 dB at 12 kHz in L+R, flat in L and in R alone), and FSVR renders it at the same depth on a single sine operator with feedback 7 and on one unvoiced operator.

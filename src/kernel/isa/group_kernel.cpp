@@ -206,7 +206,7 @@ void gather(Group& G) {
             P.phase[l] = (int32_t)s.phase; P.ph0[l] = C.phOff[o];
             P.fegStage[l] = s.feg.stage; P.fegHold[l] = s.feg.hold; P.fegCur[l] = s.feg.cur; P.fegTarget[l] = s.feg.target; P.fegKatt[l] = s.feg.katt; P.fegKdec[l] = s.feg.kdec;
             P.egStage[l] = s.eg.stage; P.egCur[l] = s.eg.cur; P.egTarget[l] = s.eg.target; P.egRate[l] = s.eg.rate; P.egHold[l] = s.eg.holdLeft; setmask(P.egRising, l, s.eg.rising);
-            P.attS[l] = s.attS;
+            P.attS[l] = s.attS; P.uattS[l] = s.uattS;
             for (int k = 0; k < 2; k++) { P.gW[k][l] = s.g[k].w; P.gC[k][l] = s.g[k].c; P.gFc[k][l] = s.g[k].fc; setmask(P.gOn[k], l, s.g[k].on); }
             P.nextGen[l] = s.nextGen; P.fphase[l] = s.fphase;
             P.uegStage[l] = s.ueg.stage; P.uegCur[l] = s.ueg.cur; P.uegTarget[l] = s.ueg.target; P.uegRate[l] = s.ueg.rate; P.uegHold[l] = s.ueg.holdLeft; setmask(P.uegRising, l, s.ueg.rising);
@@ -224,7 +224,7 @@ void gather(Group& G) {
             P.phase[l] = P.inc[l] = 0; P.word[l] = P.fop[l] = P.fw[l] = 0; P.wl7[l] = 1; P.ratio[l] = 0;
             P.fegStage[l] = 2; P.fegHold[l] = 0; P.fegCur[l] = P.fegTarget[l] = P.fegKatt[l] = P.fegKdec[l] = 0;
             P.egStage[l] = 5; P.egCur[l] = P.egTarget[l] = -200; P.egRate[l] = P.egHold[l] = 0; P.egRising[l] = 0;
-            P.att[l] = P.attS[l] = P.ph0[l] = 0;
+            P.att[l] = P.attS[l] = P.uattS[l] = P.ph0[l] = 0;
             for (int k = 0; k < 2; k++) { P.gW[k][l] = 1; P.gC[k][l] = P.gFc[k][l] = 0; P.gOn[k][l] = 0; }
             P.nextGen[l] = 0; P.fphase[l] = 0;
             P.sine[l] = ~0ull; P.all[l] = P.odd[l] = P.res[l] = P.frmt[l] = 0; P.winAt[l] = 0; P.skirt[l] = 0; P.dc[l] = 0.f; P.formA[l] = P.formB[l] = 1;
@@ -267,7 +267,7 @@ void scatter(Group& G, int l, int n) {
         s.phase = (uint32_t)P.phase[l];
         s.feg.stage = P.fegStage[l]; s.feg.hold = P.fegHold[l]; s.feg.cur = P.fegCur[l];
         s.eg.stage = P.egStage[l]; s.eg.cur = P.egCur[l]; s.eg.target = P.egTarget[l]; s.eg.rate = P.egRate[l]; s.eg.holdLeft = P.egHold[l]; s.eg.rising = P.egRising[l] != 0;
-        s.attS = P.attS[l];
+        s.attS = P.attS[l]; s.uattS = P.uattS[l];
         for (int k = 0; k < 2; k++) { s.g[k].w = P.gW[k][l]; s.g[k].c = P.gC[k][l]; s.g[k].fc = P.gFc[k][l]; s.g[k].on = P.gOn[k][l] != 0; }
         s.nextGen = P.nextGen[l]; s.fphase = P.fphase[l];
         s.ueg.stage = P.uegStage[l]; s.ueg.cur = P.uegCur[l]; s.ueg.target = P.uegTarget[l]; s.ueg.rate = P.uegRate[l]; s.ueg.holdLeft = P.uegHold[l]; s.ueg.rising = P.uegRising[l] != 0;
@@ -288,7 +288,7 @@ void refresh_lane(Group& G, int l) {
     for (int o = 0; o < Group::OPS; o++) {
         Op& P = G.op[o]; OpState& s = C.op[o];
         s.eg.stage = P.egStage[l]; s.eg.cur = P.egCur[l]; s.ueg.stage = P.uegStage[l]; s.ueg.cur = P.uegCur[l];
-        s.g[0].on = P.gOn[0][l] != 0; s.g[1].on = P.gOn[1][l] != 0; s.attS = P.attS[l];
+        s.g[0].on = P.gOn[0][l] != 0; s.g[1].on = P.gOn[1][l] != 0; s.attS = P.attS[l]; s.uattS = P.uattS[l];
     }
     refresh_ctl(C, *G.voice[l], G.fseq[l], G.ctlSerial);
     G.fbGain[l] = C.fbGain;
@@ -382,7 +382,10 @@ void render_group(Group& G, int n) {
             // the unvoiced operator
             const EgRows ur{P.uegStage, P.uegCur, P.uegTarget, P.uegRate, P.uegHold, P.uegRising};
             const vd uegdb = eg_tick(ur, uegs[o]);
-            const vd ud = sub(uegdb, load(P.uatt));
+            vd uattS = load(P.uattS); const vd uatt = load(P.uatt);
+            uattS = select(lt(uattS, set1(-1e8)), uatt, add(uattS, mul(sub(uatt, uattS), slewK)));
+            store(P.uattS, uattS);
+            const vd ud = sub(uegdb, uattS);
             const vm upass = gt(ud, uGateV);
             const vd ugain = any(upass) ? select(upass, db2lin_fast(ud), zero) : zero;
             const vm um = ne(ugain, zero);
@@ -421,7 +424,7 @@ void render_group(Group& G, int n) {
             const vm egDone = eg_done(er), uegDone = eg_done(ur);
             alive = mor(alive, mor(mnot(egDone), mnot(uegDone)));
             const vm carrierLive = mand(loadmask(P.carrier), mor(mnot(eg_over(er, attS, vGate)), mor(loadmask(P.gOn[0]), loadmask(P.gOn[1]))));
-            carriersDone = mand(carriersDone, mand(mnot(carrierLive), eg_over(ur, load(P.uatt), uGate)));
+            carriersDone = mand(carriersDone, mand(mnot(carrierLive), eg_over(ur, uattS, uGate)));
         }
         // the channel's tail: the feedback bus, liveness, silence, the clip, the damp
         const vd fbPrev = load(G.fbPrev);

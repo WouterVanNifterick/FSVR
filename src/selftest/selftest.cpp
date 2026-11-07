@@ -901,6 +901,31 @@ int selftest(Synth& S) {
       ck("cut: noise at register 251 sounds", peak(2, true) > 0);
       ck("cut: noise at register 255 is zero", peak(1, true) == 0); }
 
+    // FSVR#103: the unvoiced level glides at cal::LEVEL_SLEW_MS as the voiced one does. Stepped, an Fseq frame
+    // opening a noise operator was a step in the output (A019 with Fseq 59, 64, 77). The level register 200 steps down mid-note:
+    // the sample the new level lands, the glide has moved under a tenth of the way; 20 ms on, it is within 0.1 dB.
+    { auto T = std::make_unique<Synth>(); init_perf(T->perf); Part& pt = T->perf.part[0]; Voice& V = pt.voice;
+      pt.p[1] = 2; pt.p[4] = 0x10;
+      init_blank_voice(V.raw);
+      for (int o = 0; o < 8; o++) for (int i = 0; i < 4; i++) V.raw[112 + o * 62 + 12 + i] = V.raw[112 + o * 62 + 35 + 13 + i] = 0;
+      uint8_t* q = V.raw + 112;
+      for (int i = 0; i < 3; i++) q[35 + 13 + i] = 99;
+      q[35 + 11] = 99; q[35 + 1] = 17; q[35 + 2] = 24; q[35 + 4] = 99;
+      decode_voice(V);
+      T->midi_in(0x90, 60, 127);
+      float l, r; for (int k = 0; k < SR / 10; k++) T->render(&l, &r, 1);
+      Chan* C = nullptr; for (auto& c : T->ch) if (c.active) C = &c;
+      ck("glide: the noise operator sounds", C != nullptr);
+      if (C) {
+          OpState& s = C->op[0]; const double from = s.uatt; C->ulevelOff[0] += 200;   // what an Fseq frame writes (level_regs)
+          int k = 0; while (s.uatt == from && k++ < SR / 10) T->render(&l, &r, 1);
+          const double step = s.uatt - from;
+          ck("glide: the noise level moves", step > 40);
+          ck("glide: the noise level does not step", s.uattS - from < 0.1 * step);
+          for (int i = 0; i < SR / 50; i++) T->render(&l, &r, 1);
+          ck("glide: and arrives 20 ms on", fabs(s.uatt - s.uattS) < 0.1);
+      } }
+
     // Ours: op byte 0x1C is a key-synced oscillator's initial phase, value / 128 of a turn. 64 is half a turn,
     // which negates a lone sine carrier at the channel's output; with key sync off the byte does nothing.
     { auto run = [](int sync, int ph, std::vector<double>& y) {
