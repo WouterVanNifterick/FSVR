@@ -67,12 +67,10 @@ void init_default_voice(Voice& V) {
     decode_voice(V);
 }
 
+// The common half of the ACED. The per-operator half is in convert_dx7, where the firmware applies it
+// (FUN_00035E96: ACED 6 + j replaces the VCED's amp mod sense when it is not 0).
 void apply_aced(uint8_t* out) {
     if (!g_acedValid) return;
-    for (int j = 0; j < 6; j++) {                 // ACED 6..11 are OP6..OP1, the same order as the VCED
-        uint8_t* p = out + 112 + (2 + j) * 62;
-        p[33] = (uint8_t)(((g_aced[6 + j] & 7) << 4) | (p[33] & 0x0F));
-    }
     out[0x3B] = g_aced[0x0C] & 3;                 // pitch EG range
     out[0x27] = g_aced[0x0E] ? 7 : 0;             // pitch EG velocity switch
     out[0x3C] = g_aced[0x26] & 7;                 // pitch EG rate scaling
@@ -129,7 +127,9 @@ void convert_dx7(const uint8_t* v, uint8_t* out) {
         p[20] = 0; p[21] = (uint8_t)rs; p[22] = (uint8_t)ol;
         p[23] = d[8]; p[24] = d[9]; p[25] = d[10]; p[26] = d[11]; p[27] = d[12]; p[28] = p[29] = p[30] = 0;
         p[31] = (uint8_t)(7 << 3 | v[143]); p[32] = 7;
-        p[33] = (uint8_t)(d[14] << 4 | (d[15] + 7)); p[34] = (uint8_t)(d[14] + 7);   // amp mod sense, velocity sense; EG bias sense = ams
+        int ams = g_acedValid && g_aced[6 + j] ? g_aced[6 + j] & 7 : d[14];             // the ACED's 0..7 sense replaces the VCED's 0..3 unless it is 0
+        p[33] = (uint8_t)(ams << 4 | (d[15] + 7)); 
+        p[34] = (uint8_t)(ams + 7); // amp mod sense, velocity sense; EG bias sense = ams
     }
     apply_aced(out);
 }

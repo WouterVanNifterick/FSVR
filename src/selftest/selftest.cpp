@@ -709,6 +709,22 @@ int selftest(Synth& S) {
           bool carrier = alg[2 * o + 1] & 1, want = (6 - j) == 1 || (6 - j) == 3 || (6 - j) == 5; if (carrier != want) ok = false; }
       ck("DX7 alg 5 carriers land on FS1R carriers (B025 Tremolo)", ok); }
 
+    // The ACED's amp mod sense (0..7) replaces the VCED's (0..3) on the operator the DX operator lands on, unless it
+    // is 0, and the EG bias sense follows it (FUN_00035E96). The slot is the algorithm's, not a fixed one.
+    { uint8_t vced[155] = {}; vced[134] = 4;
+      for (int j = 0; j < 6; j++) { vced[j * 21 + 20] = (uint8_t)(1 + j); vced[j * 21 + 14] = 2; }   // detune tags the operator, ams 2
+      g_acedValid = false; uint8_t plain[608]; convert_dx7(vced, plain);
+      memset(g_aced, 0, sizeof g_aced); g_aced[6] = 5; g_aced[8] = 0; g_aced[9] = 7;                    // DX op 6 -> 5, op 5 stays, op 4 -> 7
+      g_acedValid = true; uint8_t out[608]; convert_dx7(vced, out);
+      bool ok = !g_acedValid; int seen = 0;
+      for (int o = 0; o < 8; o++) {
+          const uint8_t* a = plain + 112 + o * 62; const uint8_t* b = out + 112 + o * 62;
+          int j = b[7] >= 9 && b[7] <= 14 ? b[7] - 9 : -1; if (j < 0) continue; seen++;
+          int want = j == 0 ? 5 : j == 3 ? 7 : 2;
+          if ((b[33] >> 4) != want || b[34] != want + 7 || (a[33] >> 4) != 2 || (b[33] & 15) != (a[33] & 15)) ok = false; }
+      if (seen != 6) ok = false;
+      ck("DX7 ACED amp mod sense replaces the VCED's on the operator's own slot, 0 leaves it", ok); }
+
     // A read leaves the sum bus as it is and t1 bit 1 starts it over (docs/ymp706_registers.md, the algorithm word).
     // The table bears that out on all 88: the bit never falls while an add waits for its reader, and every entry
     // that adds to the bus sets it at or before its first add.
