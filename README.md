@@ -18,7 +18,7 @@
 
 The Yamaha FS1R has become one of the most elusive yet desired FM synthesizers of all time. For me, it was when I saw [musictrackjp's demo and review on YouTube](https://www.youtube.com/watch?v=xfVgo-FBihU) in 2010 that I realized how incredible and unique the sound of this synth was. Not only was it powerful and technically impressive, the way it sort of "shimmers" on the high-end sounds like nothing else.
 
-Unfortunately Yamaha never released an official software version, and a real unit now costs over $3000 on eBay, keeping this synth out of reach for most.
+Unfortunately Yamaha never released an official software version, and a second-hand FS1R can cost thousands of dollars.
 
 In 2025, Zhiyuan Wan ([rgwan](https://github.com/rgwan)) started taking a real FS1R apart to try and figure out how this masterpiece worked. After all, the FS1R is not analog, it is essentially a purpose built computer running primarily on a SuperH SH2 processor supported by DSP chips. Zhiyuan's work was picked up by James Hansen ([jameshansen](https://github.com/jameshansen)) in mid-2026 who used a custom AI-assisted tooling framework to begin to understand and rebuild the synthesizer in software.
 
@@ -26,7 +26,7 @@ The biggest challenge was effects, which ran on a processor with minimal documen
 
 This project is not an emulation, it is a rewrite of the logic of the Yamaha FS1R in C++, so it runs natively on multiple platforms. We are transparent about how AI has also played a significant role in this project; the initial recreation was created using Claude Fable 5.1, with much of the ongoing analysis and engine improvements being assisted with Claude Opus 5 and Opus 5.5. We have ran many tests against real FS1R hardware to pin down the accuracy as close as possible and this has been an ongoing and challenging process.
 
-On top of the synth engine, we have developed a robust and original GUI that allows easy editing.
+On top of the synth engine, we have developed a robust and friendly GUI that allows easy editing and creation of your own sounds.
 
 We hope you enjoy.
 
