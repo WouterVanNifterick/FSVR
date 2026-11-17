@@ -41,8 +41,8 @@ void refresh_op(Chan& C, const Voice& V, bool fs, int o, uint64_t serial) {
         // and sang at 275 Hz. Formant and fixed operators do not add the channel pitch.
         // Transpose is the formant operator's pitch, the grain rate, not this centre. Detune is the
         // other half of the 0x230 word (FUN_00013bc6) and stays on the centre the coarse and fine set.
-        // A frame replaces that centre and does not take the word. LFO freq mod still reaches it: FUN_0001DC30
-        // writes fms << 3 | ams for every operator, Fseq or not, and the chip adds 0xA0 to whatever word 0x90 holds.
+        // A frame replaces that centre and does not take the word. LFO freq mod still reaches a formant or fixed
+        // one: FUN_0001DC30 writes the sense whether the operator plays a frame or not.
         int fmw = (C.regFM * v.fms) / 7;
         if (fs && C.fseqOp[o]) w = C.fqWord[o] + pmw + det + (v.form != 7 && !v.fixed ? C.regPitch : fmw);
         else if (v.form == 7) w = C.freqWord[o] + C.fbW[o] + C.detW[o] + pmw + fmw;
