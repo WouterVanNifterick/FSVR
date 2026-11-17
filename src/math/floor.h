@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // math/floor.h - floor as one instruction where the build or the CPU has it, else as an exact branchless cut. Ours.
 //
 // The sample loop takes a floor two or three times an operator. On the x64 baseline (SSE2) the library's floor

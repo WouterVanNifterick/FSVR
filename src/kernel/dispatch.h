@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // kernel/dispatch.h - the lane kernels the engine runs, chosen once for the CPU it is on. Ours.
 //
 // Every kernel is compiled once per instruction set (kernel/README.md) and each build of it fills a table: the

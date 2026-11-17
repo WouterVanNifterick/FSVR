@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // A host's side of its chip: where the writes go, the one register that is read, and the writes both
 // hosts make the same way.
 #pragma once

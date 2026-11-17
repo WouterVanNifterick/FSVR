@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The register layer, the window loaders and the initialisation.
 #include "effects/host/effect_host.h"
 #include <algorithm>

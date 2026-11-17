@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The delays: Delay L,C,R, Delay L,R, Echo and Cross Delay, which the reverb (types 13-16), the
 // variation and the insertion all run, each over its own fourteen steps and six delay slots; and
 // the variation's Karaoke.

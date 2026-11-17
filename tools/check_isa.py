@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# license:BSD-3-Clause
-# copyright-holders:Wouter van Nifterick
 """A lane kernel's object defines no function outside its instruction set's namespace (src/kernel/README.md).
 
     python tools/check_isa.py avx2 build/vop3host/isa2/*.obj

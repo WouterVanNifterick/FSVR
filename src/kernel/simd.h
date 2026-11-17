@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // kernel/simd.h - a few lanes of doubles, floats and 32-bit integers, written as the scalar arithmetic they stand in for. Ours.
 //
 // A kernel file is compiled once per instruction set, FSVR_ISA picking the lane type and the namespace it lands

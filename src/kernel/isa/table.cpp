@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // This instruction set's table of kernels, and the checks that its build fused nothing and that its lanes do what
 // simd.h says. Compiled once per set.
 #include "kernel/dispatch.h"

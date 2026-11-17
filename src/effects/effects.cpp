@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // Built without FMA contraction, like the host.
 #include "effects/effects.h"
 #include <algorithm>

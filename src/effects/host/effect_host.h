@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The FS1R's effect host: what the CPU does to turn a performance into register writes for
 // the effect chip. `p` is a parameter's number within its block.
 #pragma once

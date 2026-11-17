@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // io/factory.h - the factory banks without the EPROM: the performances, voices and Fseqs the plug-in
 // embeds (plugin/generated), reached by the engine's own index numbers. A performance loaded this way
 // renders what the EPROM path renders (perfbench --check-factory proves it), so the bench and the

@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // perfbench - the engine's cost on fixed scenarios, and its output hashed, so builds compare.
 //
 //   build.bat perf                        bin\perfbench.exe (CMake: the perfbench target)

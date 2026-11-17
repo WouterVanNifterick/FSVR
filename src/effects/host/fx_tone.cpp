@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The tone effects: the 3-band EQ of the variation and the insertion, and the insertion's Lo-Fi.
 #include "effects/host/fx_common.h"
 

@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The filter's host. Slot s has a page of constants, B = 16 + 124 * (((s >> 2) + 1) & 3), and a lane in
 // it, k = s & 3. Where its parameters land:
 //   type         the slot's tap (WriteSink::setType)

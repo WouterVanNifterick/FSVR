@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# license:BSD-3-Clause
-# copyright-holders:Wouter van Nifterick
 """Write rom_tables.h and rom_tables.cpp: the tables of the FS1R v1.20 EPROM that the two hosts read.
 
     python tools/extract_vop3_rom.py <eprom.bin>      the 2 MB image, CPU byte order

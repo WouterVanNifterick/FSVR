@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 #pragma once
 #include <cstdint>
 #include "fs1r/vop3_regs.h"

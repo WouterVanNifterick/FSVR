@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The tone generator's table of kernels for the instruction set fsvr::isa() chose. Compiled once, no lane code in it.
 #include "kernel/tonegen.h"
 
