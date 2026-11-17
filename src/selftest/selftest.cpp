@@ -499,9 +499,15 @@ int selftest(Synth& S) {
             for (auto& ch : T.ch) if (ch.active && ch.note == note) return std::make_pair(ch.op[0].word, 1200.0 * log2(ch.op[0].nf));
             return std::make_pair(0.0, 0.0);
         };
+        auto vswing = [&](bool fs, int fms) { return play(fs, 99, fms, false).first - play(fs, 0, fms, false).first; };
+        auto uswing = [&](bool fs, int fms) { return play(fs, 99, fms, false).second - play(fs, 0, fms, false).second; };
         auto cswing = [&](bool fs) { return play(fs, 0, 0, true).second - play(fs, 0, 0, false).second; };
+        ck("an Fseq operator takes LFO freq mod as a fixed one does",
+           vswing(false, 5) > 0 && fabs(vswing(true, 5) - vswing(false, 5)) < 1e-9 && vswing(true, 7) > vswing(true, 5) && vswing(true, 0) == 0);
         // The noise swings are read in cents off two different centres (a frame word is even, the fixed one odd here),
         // and the phase generator's steps differ by a fraction of a cent between them, hence 1 cent.
+        ck("an Fseq noise operator takes LFO freq mod as a fixed one does",
+           uswing(false, 5) > 0 && fabs(uswing(true, 5) - uswing(false, 5)) < 1.0 && uswing(true, 7) > uswing(true, 5) && uswing(true, 0) == 0);
         ck("an Fseq noise operator takes the control sets' frequency offset", cswing(false) > 0 && fabs(cswing(true) - cswing(false)) < 1.0);
         auto lo = play(true, 0, 0, false, 48, 20), hi = play(true, 0, 0, false, 72, 127);
         ck("note and velocity leave an Fseq operator where the frame puts it", lo.first == hi.first && fabs(lo.second - hi.second) < 1e-9);
