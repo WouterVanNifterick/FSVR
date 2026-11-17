@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The tone generator's channels W at a time: what render_chan (tonegen/channel.cpp) and op_sample (tonegen/operator.h)
 // compute for one channel's sample, operation for operation on lanes, over a segment. Compiled once per instruction
 // set (kernel/README.md); tools/abcheck.py holds the result to the scalar loop's, and the self check's segments

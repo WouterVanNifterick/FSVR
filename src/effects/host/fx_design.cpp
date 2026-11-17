@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The filter designer and the small float helpers. Each line is one step of the firmware's
 // arithmetic, in its precision and its order, so the words come out bit for bit.
 #include "effects/host/effect_host.h"

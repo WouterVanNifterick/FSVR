@@ -28,7 +28,7 @@ In addition to the synth engine, FSVR features a robust and friendly GUI that al
 
 We hope you enjoy.
 
-Licensed GPL-3, see `LICENSE` and `NOTICE.md`.
+Licensed GPLv3, see `LICENSE` and `NOTICE.md`.
 
 ## Demos
 

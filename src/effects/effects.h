@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The FS1R's effect section: the firmware's effect host, the LFOs it programs, and the effect programs it
 // loads (effects/programs.h), run as plain DSP. No chip is emulated: the host's register writes are read for
 // what they mean to the programs. In: a performance's 192 common bytes and four stereo buses. Out: the main

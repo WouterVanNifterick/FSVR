@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The register map the firmware's filter and effect hosts write (the YSS236 DSP's), and the LFO waves.
 #pragma once
 #include <cstdint>

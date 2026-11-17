@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // filters/lanes.h - the sixteen voices of a filter bank side by side, a number a row, for the lane kernel. Ours.
 //
 // The same words and state VoiceFilter (voice_filter.h) keeps for one voice, laid out so that a register loads a

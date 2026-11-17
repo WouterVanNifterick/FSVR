@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The wahs, distortions and dynamics: auto and touch wah, distortion and overdrive, amp simulator,
 // enhancer, compressor and noise gate of the variation and the insertion, and the insertion's
 // combinations of them with each other and with a delay.

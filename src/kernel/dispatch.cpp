@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The choice of kernels: what the CPU has, unless FSVR_SIMD asks for less. Compiled once, with no lane code in it.
 #define _CRT_SECURE_NO_WARNINGS
 #include "kernel/dispatch.h"

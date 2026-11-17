@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // A performance byte as a parameter: its value, clamped to the range its descriptor gives.
 // The effect parameters take the descriptors of the current effect type.
 #include "effects/host/effect_host.h"

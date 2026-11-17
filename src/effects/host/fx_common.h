@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // Shared by the effect handlers. A handler takes its window w and a parameter p; the variation
 // and the insertion run the same handler over their own steps where they share a type.
 #pragma once

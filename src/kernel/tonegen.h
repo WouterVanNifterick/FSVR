@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // kernel/tonegen.h - the tone generator's lane kernel, chosen by the same instruction-set choice as the DSP's. Ours.
 //
 // The group kernel reads the tone generator's tables and the channel's control refresh, so it is the engine's

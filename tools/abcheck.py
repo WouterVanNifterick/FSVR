@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# license:BSD-3-Clause
-# copyright-holders:Wouter van Nifterick
 """A/B check: the regression renders and the Fat Line demo as 16-bit audio, hashed, and compared sample
 for sample with a baseline, so an optimisation commit can say which tier it is.
 

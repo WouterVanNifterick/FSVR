@@ -122,7 +122,7 @@ Still open: the logic analyzer capture above, and the recordings.
 
 The measurements go straight into `namespace cal` and the engine stops being a model of those parts. `tools/analyze_capture.py` already does the work: it aligns a recording to the manifest, measures every segment, fits the constants it can fit, and diffs the result against our own render of the same MIDI file. We have run the whole loop against the engine's renders, so the moment real WAVs arrive there is no tooling to write. Recovering a known constant from a synthetic render currently lands within a fraction of a percent, so the accuracy limit will be the hardware, not the method.
 
-Everything is GPL-3 and your work is credited in `NOTICE.md` and the README. The dumps this project is built on are yours.
+Everything is GPLv3 and your work is credited in `NOTICE.md` and the README. The dumps this project is built on are yours.
 
 ## Where you could take the project
 

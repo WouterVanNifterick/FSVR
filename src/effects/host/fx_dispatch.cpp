@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // Parameter entry, and which handler runs each type.
 #include "effects/host/effect_host.h"
 #include <algorithm>

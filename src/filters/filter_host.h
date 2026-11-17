@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The FS1R's filter host: what the CPU does to run the sixteen voice filters.
 // A slot is one filter. Slot s takes tone generator channel s, which the unit runs on DSP channel (s + 2) & 15.
 #pragma once

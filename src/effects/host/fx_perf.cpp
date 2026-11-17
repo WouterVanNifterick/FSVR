@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The performance into the effect chip: applyChanges, which the effect task runs for
 // every message posted to it, and the functions it reaches.
 //

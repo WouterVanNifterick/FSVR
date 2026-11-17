@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The reverbs: the reverb block's halls and rooms (types 1-12), the variation's reverbs and the
 // insertion's early reflections, and the design helpers they share.
 #include "effects/host/fx_common.h"

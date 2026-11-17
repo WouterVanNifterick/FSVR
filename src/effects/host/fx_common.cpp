@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // What the handlers share: their arithmetic, the LFO registers, the stores of one parameter into its
 // steps, dry and wet, the shelving pair, and every parameter at once.
 #include "effects/host/fx_common.h"

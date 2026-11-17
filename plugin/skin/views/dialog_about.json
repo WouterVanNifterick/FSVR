@@ -1,7 +1,7 @@
 {
  "size": [
   640,
-  480
+  542
  ],
  "fill": {
   "colour": "#ffffffff"
@@ -14,7 +14,7 @@
     0,
     0,
     640,
-    480
+    542
    ],
    "press": "up",
    "action": {
@@ -40,7 +40,7 @@
    "name": "frame_bottom",
    "rect": [
     0,
-    468,
+    530,
     640,
     12
    ],
@@ -56,7 +56,7 @@
     0,
     12,
     12,
-    456
+    518
    ],
    "layer": 0,
    "fill": {
@@ -70,7 +70,7 @@
     628,
     12,
     12,
-    456
+    518
    ],
    "layer": 0,
    "fill": {
@@ -96,7 +96,7 @@
    "name": "edge_bottom",
    "rect": [
     0,
-    479,
+    541,
     640,
     1
    ],
@@ -112,7 +112,7 @@
     0,
     0,
     1,
-    480
+    542
    ],
    "layer": 0,
    "fill": {
@@ -126,7 +126,7 @@
     639,
     0,
     1,
-    480
+    542
    ],
    "layer": 0,
    "fill": {
@@ -180,10 +180,10 @@
    "type": "button",
    "name": "close_x",
    "rect": [
-    596,
-    14,
-    32,
-    32
+    603,
+    15,
+    24,
+    24
    ],
    "layer": 1,
    "fill": {
@@ -195,16 +195,16 @@
     "modal": ""
    },
    "text": {
-    "text": "x",
-    "font": "aw_black_24",
+    "text": "×",
+    "font": "about_close",
     "align": "center",
     "valign": "middle"
    },
    "pad": [
+    1,
     0,
     0,
-    0,
-    3
+    13
    ]
   },
   {
@@ -347,7 +347,7 @@
    ],
    "layer": 0,
    "text": {
-    "text": "VOP3 core, Envelope editing enhancements, general improvements",
+    "text": "VOP3 reference core, envelope editor, engine improvements",
     "font": "aw_grey_16",
     "align": "left",
     "valign": "middle"
@@ -416,7 +416,7 @@
    ],
    "layer": 0,
    "text": {
-    "text": "other contributors",
+    "text": "EvilDragon",
     "font": "aw_black_16",
     "align": "left",
     "valign": "middle"
@@ -439,8 +439,77 @@
    ],
    "layer": 0,
    "text": {
+    "text": "editor improvements, discord and repo help",
+    "font": "aw_grey_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_5_name",
+   "rect": [
+    24,
+    366,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
+    "text": "other contributors",
+    "font": "aw_black_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "credit_5_role",
+   "rect": [
+    24,
+    386,
+    592,
+    20
+   ],
+   "layer": 0,
+   "text": {
     "text": "{data:fsvr.contributors|}",
     "font": "aw_grey_16",
+    "align": "left",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "plate",
+   "name": "license",
+   "rect": [
+    24,
+    414,
+    592,
+    16
+   ],
+   "layer": 0,
+   "text": {
+    "text": "FSVR is free software under the GNU GPLv3 and comes with no warranty. Its source is on GitHub.",
+    "font": "aw_grey_13",
     "align": "left",
     "valign": "middle"
    },
@@ -456,7 +525,7 @@
    "name": "trademark",
    "rect": [
     24,
-    368,
+    430,
     592,
     16
    ],
@@ -479,7 +548,7 @@
    "name": "icons_credit",
    "rect": [
     24,
-    384,
+    446,
     592,
     16
    ],
@@ -499,10 +568,42 @@
   },
   {
    "type": "button",
+   "name": "license_button",
+   "rect": [
+    24,
+    473,
+    192,
+    45
+   ],
+   "layer": 1,
+   "fill": {
+    "image": "buttons/about_button"
+   },
+   "hoverTiles": true,
+   "press": "up",
+   "action": {
+    "url": "https://github.com/musicastudio/FSVR/blob/main/LICENSE"
+   },
+   "text": {
+    "text": "license.",
+    "font": "aw_black_24",
+    "align": "center",
+    "valign": "middle"
+   },
+   "pad": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "tip": "The GNU GPLv3, on GitHub"
+  },
+  {
+   "type": "button",
    "name": "site",
    "rect": [
     224,
-    411,
+    473,
     196,
     45
    ],
@@ -534,7 +635,7 @@
    "name": "discord",
    "rect": [
     428,
-    411,
+    473,
     188,
     45
    ],

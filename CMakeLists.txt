@@ -155,6 +155,11 @@ if(WIN32)
   add_executable(fsvr_console src/console/main.cpp)
   target_link_libraries(fsvr_console PRIVATE fs1rLib winmm)
   set_target_properties(fsvr_console PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<1:${FS1R_BIN}>")
+  # The license and the notices beside it, for the console's release zip.
+  add_custom_command(TARGET fsvr_console POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy "${PROJECT_SOURCE_DIR}/LICENSE" "${FS1R_BIN}/FSVR-LICENSE.txt"
+    COMMAND "${CMAKE_COMMAND}" -E copy "${PROJECT_SOURCE_DIR}/NOTICE.md" "${FS1R_BIN}/FSVR-NOTICE.md"
+    VERBATIM)
   add_test(NAME engine COMMAND fsvr_console -selftest)
   add_test(NAME engine-sse2 COMMAND fsvr_console -selftest)
   set_tests_properties(engine-sse2 PROPERTIES ENVIRONMENT FSVR_SIMD=sse2)

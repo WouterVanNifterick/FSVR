@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The FS1R's voice filters: one voice (filters/voice_filter.h, run on lanes by kernel/isa/bank_kernel.cpp) per
 // firmware's filter host. In: the channels' samples. Out: the same channels, filtered. No chip is emulated:
 // the host's register writes are read for what they mean to a voice (Filter::write).

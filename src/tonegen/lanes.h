@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // tonegen/lanes.h - a group of channels side by side, a number a row, for the lane kernel. Ours.
 //
 // What render_chan (channel.cpp) keeps per operator and per channel, laid out so that one register holds the

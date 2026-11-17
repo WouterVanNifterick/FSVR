@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // Window reset, master EQ, system parameters and the master gain.
 #include "effects/host/effect_host.h"
 #include <algorithm>

@@ -33,6 +33,26 @@ hollow_add_plugin(fsvr
   MACOS_ICON "${PROJECT_SOURCE_DIR}/icon.icns"
   BIN "${FS1R_BIN}")
 
+# The license and the notices go beside each format in bin/, so every per-format zip carries them, named for
+# FSVR so they never collide with another vendor's files in a shared plug-in folder. The installer packs only
+# the plug-ins themselves and shows the license as a step of its own. The folders are hollow_add_plugin's.
+set(fsvr_vst2_dir VST2)
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+  set(fsvr_vst2_dir "VST2 32-bit and DXi")
+endif()
+foreach(pair "clap|CLAP" "vst3|VST3" "auv2|AU" "standalone|Standalone" "vst2|${fsvr_vst2_dir}")
+  string(REPLACE "|" ";" pair "${pair}")
+  list(GET pair 0 t)
+  list(GET pair 1 dir)
+  if(TARGET fsvr_${t})
+    add_custom_command(TARGET fsvr_${t} POST_BUILD
+      COMMAND "${CMAKE_COMMAND}" -E make_directory "${FS1R_BIN}/${dir}"
+      COMMAND "${CMAKE_COMMAND}" -E copy "${PROJECT_SOURCE_DIR}/LICENSE" "${FS1R_BIN}/${dir}/FSVR-LICENSE.txt"
+      COMMAND "${CMAKE_COMMAND}" -E copy "${PROJECT_SOURCE_DIR}/NOTICE.md" "${FS1R_BIN}/${dir}/FSVR-NOTICE.md"
+      VERBATIM)
+  endif()
+endforeach()
+
 target_link_libraries(fsvr_lib PRIVATE fs1rLib)
 target_compile_definitions(fsvr_lib PRIVATE FSVR_VERSION="${PROJECT_VERSION}")
 target_include_directories(fsvr_lib PRIVATE "${dr_libs_SOURCE_DIR}" "${stb_SOURCE_DIR}")

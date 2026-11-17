@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The filter bank's sixteen voices, W at a time: what VoiceFilter::run (filters/voice_filter.h) computes for one,
 // operation for operation on lanes. Compiled once per instruction set (kernel/README.md); dsp_check pins it.
 #include <cmath>

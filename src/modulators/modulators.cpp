@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // Compiled once, with the hosts' floating-point flags.
 #include "modulators/modulators.h"
 #include <algorithm>

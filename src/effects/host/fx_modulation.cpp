@@ -1,6 +1,3 @@
-// license:BSD-3-Clause
-// copyright-holders:Wouter van Nifterick
-
 // The modulation effects: chorus, flanger, symphonic, the phasers, rotary speaker, tremolo,
 // auto pan and ensemble detune of the variation and the insertion, and the insertion's 2-way
 // rotary, ambience and pitch change.
