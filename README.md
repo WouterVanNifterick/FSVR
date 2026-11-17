@@ -1,16 +1,36 @@
-# FSVR
+<p align="center"><img src="icon.png" width="128" alt="FSVR icon"></p>
 
-![The FSVR standalone running](docs/fsvr_standalone.png)
+<h1 align="center">FSVR</h1>
 
-**FSVR**, Formant Synthesizer Virtual Rack, is a software reconstruction of the Yamaha FS1R as a plugin and a console synth: its firmware logic rewritten in C++ from the decompiled ROM, four parts, 32 channels, the filter, both LFOs, pan, the three effect blocks, performances and Fseq playback. CLAP, VST3, VST2 and standalone on Windows, macOS and Linux, an AU on macOS and a 32-bit VST2 with a DXi on Windows, with an editor for every parameter the unit has, a bank manager for your own .syx libraries and Import Audio for Fseqs.
+<p align="center"><b>A software recreation of the Yamaha FS1R synthesizer.</b><br>Created by studying the real hardware, specification, expired patents and firmware. Validated with tests against real hardware.</p>
 
-Download the latest build: **https://github.com/musicastudio/FSVR/releases/latest**
+<p align="center"><a href="../../releases/latest"><b>Download for Windows, Linux or MacOS</b></a></p>
 
-Licensed GPL-3, see `LICENSE` and `NOTICE.md`.
+<p align="center"><img src="docs/fsvr_standalone.png" alt="FSVR standalone"></p>
+
+
+
+# Introduction
+
+<b>A millenial FM monster, reborn.</b>
 
 **Discord:** https://discord.gg/6sXu3GmkNm
 
-The tone generator, the CPU-side firmware logic and everything that feeds them match rgwan's FS1R inside the measurement, file by file. The voice filter and the effects compute what the firmware's own DSP programs compute, bit for bit, as plain C++. See [Filters and effects](#filters-and-effects) and [FS1R vs FSVR](#fs1r-vs-fsvr).
+The Yamaha FS1R has become one of the most elusive yet desired FM synthesizers of all time. For me, it was when I saw [musictrackjp's demo and review on YouTube](https://www.youtube.com/watch?v=xfVgo-FBihU) in 2010 that I realized how incredible and unique the sound of this synth was. Not only was it powerful and technically impressive, the way it sort of "shimmers" on the high-end sounds like nothing else.
+
+Unfortunately Yamaha never released an official software version, and a real unit now costs over $3000 on eBay, keeping this synth out of reach for most.
+
+In 2025, Zhiyuan Wan ([rgwan](https://github.com/rgwan)) started taking a real FS1R apart to try and figure out how this masterpiece worked. After all, the FS1R is not analog, it is essentially a purpose built computer running primarily on a SuperH SH2 processor supported by DSP chips. Zhiyuan's work was picked up by James Hansen ([jameshansen](https://github.com/jameshansen)) in mid-2026 who used a custom AI-assisted tooling framework to begin to understand and rebuild the synthesizer in software.
+
+The biggest challenge was effects, which ran on a processor with minimal documentation. The [VOP3](https://github.com/musicastudio/VOP3) emulation core created by Wouter van Nifterick ([WouterVanNifterick](https://github.com/WouterVanNifterick)) gave us a reference point to finally understand and rewrite the FS1R's effects and filters in C++.
+
+This project is not an emulation, it is a rewrite of the logic of the Yamaha FS1R in C++, so it runs natively on multiple platforms. We are transparent about how AI has also played a significant role in this project; the initial recreation was created using Claude Fable 5.1, with much of the ongoing analysis and engine improvements being assisted with Claude Opus 5 and Opus 5.5. We have ran many tests against real FS1R hardware to pin down the accuracy as close as possible and this has been an ongoing and challenging process.
+
+On top of the synth engine, we have developed a robust and original GUI that allows easy editing.
+
+We hope you enjoy.
+
+Licensed GPL-3, see `LICENSE` and `NOTICE.md`.
 
 ## Demos
 
@@ -34,84 +54,13 @@ https://github.com/user-attachments/assets/fc235492-d053-4abb-af04-8e1041c32d46
 
 https://github.com/user-attachments/assets/db4cbe31-0bfa-451b-b8e1-563970ff559d
 
-## Background and History
-
-In 2025 Zhiyuan Wan ([rgwan](https://github.com/rgwan/)) created the **[rgwan/fs1r_firmware_RE](https://github.com/rgwan/fs1r_firmware_RE)** repository to study the hardware and software on the Yamaha FS1R synthesizer. That project extracted the SH7044's 256 KB internal flash through a hooked UART, dumped the 2 MB external EPROM, dumped the PLG150-DX ROM, captured the board's UART traffic, and published a Ghidra project with the boot, loader, flash and LCD code already named. 
-
-The progress of this work was shared on the [yamahamusicians.com forum](https://yamahamusicians.com/forum/threads/im-trying-to-emulating-an-fs1r.23211/).
-
-Just over a year later in September 2026, James Hansen ([jameshansen](https://github.com/jameshansen/)) created this repository, after analyzing and attempting to create the FS1R in software based on the material in rgwan's repository using a custom approach where the firmware files were decompiled with [Ghidra](https://github.com/NationalSecurityAgency/ghidra) into a database that can be read and explored by a coding AI agent.
-
-Today, jameshansen, rgwan and other contributors are collaborating on this project to improve the accuracy of the engine and bring it as close to the FS1R as possible.
-
-AI coding agents and frontier LLMs have played a large role in making this project possible. The initial recreation was created using Claude Fable 5.1, with much of the ongoing analysis and engine improvements being assisted with Claude Opus 5. As part of the collaborative process, developers on the project can now use these tools via [Discord](https://discord.gg/6sXu3GmkNm).
-
-## Filters and effects
-
-The FS1R's filter and effects run as programs on two Yamaha VOP3 DSPs (YSS236). **Wouter van Nifterick** ([WouterVanNifterick](https://github.com/WouterVanNifterick)) contributed, in [PR #36](https://github.com/musicastudio/FSVR/pull/36), both halves of getting them right: the firmware's effect and filter hosts ported to C++, and a core that runs the firmware's own DSP microcode on a model of the YSS236 measured on the unit. FSVR 0.8.0 shipped on that core, interpreted and then compiled at run time.
-
-The filter (`src/filters`) and the effects (`src/effects`) are now rewritten as plain C++ DSP, using Wouter's core as the reference: each one was checked against it sample for sample, over every type, until the two were bit for bit identical. That covers 17 reverb, 29 variation and 41 insertion types, the master EQ, and the six filter types on all 32 voices. The release build no longer runs the core, but it is what makes the C++ trustworthy, and it is the reference any future change to the DSP is checked against. It now lives, with the rest of the DSP research (the instruction set, the programs, the tools that read them), in the separate [VOP3](https://github.com/musicastudio/VOP3) project. Wouter's hosts are still in FSVR, in `src/effects/host/` and `src/filters/`.
-
-* **Checked against the real firmware.** For all 87 effect types, the host uploads word for word what the FS1R's firmware uploads, traced in MAME. Fed the unit's own upload and recorded input, the five reverbs checked so far match the hardware to within 2 to 12 LSB (correlation 0.99999 or better). The delay, modulation and insertion programs run the same uploads but are not yet checked against a recording, since they take their send from the serial port and need a purpose-built take.
-* **Pinned.** `dsp_check` (a ctest) hashes the filter over every type and the effects over every type with every parameter randomised; the hashes are what Wouter's core produced for the same drive.
-
-**Next: checking the effects against recordings.** The reverbs checked so far match the unit to within 2 to 12 LSB. The delay, modulation and insertion programs run the same uploads but still need a purpose-built take.
-
 ## FS1R vs FSVR
 
-**Where it stands, 2026-10-16: the engine is done, and the filter and effects are bit for bit.** Against rgwan's unit the synthesis engine matches close to 1:1. Every constant that models the tone generator is measured off a recording or a register session rather than guessed, and every file in the 38-file capture set outside the three effect files sits inside the measurement: the amplitude EG, the formant window and its skirt on all seven forms, the noise formant, FM and feedback, detune, the velocity law, the per-voice filter and its EG, LFO1 and LFO2, pan and the output stage. The filter and the effects compute what the firmware's own DSP programs compute, bit for bit. The reverbs checked so far match the unit to within 2 to 12 LSB; the delay, modulation and insertion programs are still to be checked against a recording. `docs/fidelity_plan.md` has the numbers per file from before the emulation.
-
-The FS1R (1998) is Yamaha's formant-shaping FM synth: 8 operators per voice, 32 channels, four parts, and a second oscillator type that generates a formant with a shaped spectral window instead of a sine. Its tone generator is the YMP706, a QFP128 part used in exactly two products, the FS1R and the PLG150-DX board. There is no public register documentation for it and no emulation of it anywhere.
-
-FSVR is a rewrite of that logic, not an emulation of the processors on the board. The SH7044 is not emulated and its firmware does not run here. `tools/build_fs1r_ghidra.py` imports the EPROM into Ghidra as SH-2 and decompiles it, and the note-on path, the tick pipeline, the parameter conversion tables and the 88-algorithm routing table are read straight out of that code and ported to C++. The YMP706 cannot be treated that way, since nobody has register semantics for it, so it is a model, and every constant behind it sits in `src/fs1r/cal.h` where calibrating against a recording of a real unit is one table edit. The YSS236's instruction set has been decoded and measured on the unit, so what each VOP3 program computes is rewritten in C++ and checked bit for bit against a core that runs the firmware's own microcode (the [VOP3](https://github.com/musicastudio/VOP3) project).
-
-Four words carry the status of each piece below. **Read** is lifted out of the decompiled firmware, its tables or the board, and needs no calibration. **Measured** is a model whose constants came off a recording of rgwan's unit rather than off a guess. **Bit for bit** is rewritten from what the firmware's own DSP programs compute and checked against them sample for sample. **Modelled** is inferred from the DX7 lineage, Yamaha's formant synthesis patent (US5610354) or the Data List, and marked INFERRED in the source.
-
-The practical result is that patches, performances and Fseqs load and play with the same parameter interpretation the hardware uses, because the same logic computes them. What still differs from a real unit lives inside the two custom chips.
+The synthesis engine matches close to 1:1 with real hardware.
 
 A short list of places FSVR behaves differently **on purpose** is kept in [docs/Differences.md](docs/Differences.md), with the firmware address behind each one where there is one. Most are additions the unit never had: 32 filtered voices, 14-bit pitch bend, a gliding filter cutoff, user libraries without the unit's memory limits and Import Audio. `render_capture` keeps the engine's on the unit's behaviour unless given `-fsvr`.
 
-### The processors
-
-- **SH7044 CPU**, SH-2 at 28 MHz with 256 KB of internal flash. **Read, and verified against the unit.** The firmware's logic is rewritten in C++: the note-on path, the 192.3 Hz MTU2 tick, the CMT1 Fseq frame timer and every conversion table. rgwan ran a debug monitor over the whole capture set on 2026-09-18 and read the voice image back segment by segment, so the CPU side is checked byte for byte, 240,476 checks over 802 segments with no mismatch. Running the real firmware on an emulated SH-2 core (gearmulator has one with the SH7040 peripherals) stays on the list as a second opinion, not as a replacement.
-
-- **YMP706-F tone generators**, two of them, 16 channels each on an 8-bit write-only bus. **CPU side read, chip side modelled and largely measured.** There is no register documentation and no die shot, and the chip is too rare for one, so it stays a model. Everything the CPU computes for it is read from the firmware: all 88 algorithms, the DX7 VCED and ACED conversion, frequency words, EG rate and level conversion, velocity curves and attenuation, level key scaling, EG bias, note shifts, part detune, master tune, bend, the software pitch EG, LFO1 and LFO2, portamento, the mono modes with priorities and legato, note and velocity limits, part volume, expression and balance, and pan. What the chip does with those values breaks down as follows.
-  - **The amplitude EG.** Measured. The rate law holds to 0.6 % over 38 measured rates and the level register is 0.376287 dB a step, a halving every sixteen. The attack's shape, its floor, the hold's length and the key rate scaling were all DX7 guesses and all wrong until two envelope recordings settled them; shape error over a hundred segments went from 5.45 dB rms to 0.58. The key code law is a table measured at every one of its 37 key codes, and the hold does not scale with it. [docs/aeg.md](docs/aeg.md).
-  - **FM, feedback and the modulation index.** Measured. 3.369 cycles at full level, off two sideband sweeps and confirmed by `03_fm`'s own spectra; feedback is `0.5 * 2^(fb - 7)`.
-  - **Detune.** Read, and it needs no constant at all. It is not a fixed step but the EPROM's own key scaled `FRMDET` table, matched over six octaves to half a cent, which took a vibrato off demo song 2 that the unit does not have. [docs/detune.md](docs/detune.md).
-  - **The voiced formant window.** Measured. The window is a time set by the bandwidth byte, the skirt doubles a `sin^p` exponent per step, and there are two window shapes: symmetric on `all2`, `odd2` and `res2`, a `sin^p` rise on a `sin^2` fall on `all1`, `odd1`, `res1` and the formant. `all1` and `all2` are that window alone, read by phase. All six harmonic forms land inside 0.5 to 1.8 dB of the unit's line amplitudes at every skirt, and the formant's skirt sweep at 0.44 dB of band shape. [docs/skirt.md](docs/skirt.md), [docs/formant.md](docs/formant.md).
-  - **The noise formant**, the unvoiced operator. Measured, 2026-09-21 and 2026-09-22. Two digital one-poles with different coefficients on white noise, both read off the register and the skirt at three centres, a two-sample mean on the output, a level table and a threshold resonance. Level error over the four unvoiced files is 0.2 to 1.05 dB and the octave bands agree inside 0.5 dB to 16 kHz. The resonance carrier's amplitude and the noise it cuts are read against the register at four settings (2026-09-24). [docs/noise.md](docs/noise.md).
-  - **Amplitude modulation sensitivity.** Measured: the chip's AM word is seven bits and the sensitivity is a 3-bit shift-and-add, {0,1,2,4,5,6,7,8}/8.
-  - **Which write starts a note.** Unknown. 0xFC/0xFD goes out before the registers load and nothing says what the chip makes of it.
-
-- **YSS236-F / VOP3-1, the per-voice filter**, at 0x800200. **CPU side read, DSP bit for bit.** Yamaha's VOP3 is the same programmable DSP that is the synthesis engine of the AN1x, AN200 and PLG150-AN; the FS1R has two, and this one sits in a channel-level loop off both tone generators. The CPU's whole side of it is read out of the firmware: sixteen filter channels mapped to parts, a dirty flag per parameter group, and closed-form conversions for cutoff, resonance, type and input gain. The filter computes what the firmware's filter program computes (`src/filters/voice_filter.h`), in place of the model measured off `15_filter` (a corner of `17.4 * 2^(byte / 12)`, three lowpasses as taps off one 4-pole ladder, and a 2-pole state-variable filter for HPF, BPF and BEF). The filter EG is stepped segment by segment by the CPU; its rate law came off the CPU's own stage word over the debug monitor and its depth scale off one recording.
-
-- **YSS236-F / VOP3-2, the effects**, at 0x800000. **Bit for bit.** Reverb (17 types), variation (29), insertion (41) and the master EQ in the XG topology, with the part dry and send levels and the insertion switch. The firmware's effect host is ported to C++ in `src/effects/host/`, and `src/effects/` computes what its programs compute. All 87 types upload word for word what the firmware does, traced in MAME, and the reverbs checked so far match recordings of the unit to within 2 to 12 LSB. The delay, modulation and insertion programs are not yet checked against a recording. This replaces the Data List models of 0.5.2 and earlier, which read 17 to 29 dB against real impulse responses. Next is making the effect programs read as the DSP blocks they are, as `aux_window.cpp` and `var_m07.cpp` already do.
-
-- **The board around them.** Read. One 24.576 MHz crystal runs the audio side and the main Sanyo LC78834M DAC is the I2S master at exactly 48 kHz, so the engine runs at 48 kHz whatever the host rate and resamples on the way out. The recording tap is that DAC's I2S input, after both DSPs and before the analogue volume pot, which is what makes a recording's absolute level comparable. The output path's fixed gain, the hard clip on the channel accumulator and the filter loop's insertion loss are all numbers off that tap. `docs/research.md` 2.0.1 and section 8 have the clocking and the CS2 decode.
-
-### The data and the control paths
-
-All read from the firmware and its tables, and all finished.
-
-- **Factory data.** The 1408 preset voices, 384 performances and 90 formant sequences out of the EPROM, plus the voice (608 bytes), performance (400), Fseq and system bulk layouts and the DX7 VCED and ACED maps. Extracted into `presets/` and built into the plugin, so the patch browser needs no EPROM image. The unit's `Internal Perform Bank` and `Internal Voice Bank` are copies its factory set routines make from the presets into NVRAM, so FSVR has no fixed internal banks; the plug-in keeps a user library of .syx files instead, as many performances, voices and Fseqs as you import or store.
-- **Fseq playback.** Frame timing on its own timer, every loop mode with the direction the loop points imply, the start offset, the performance start delay, scratch mode from controller destination 47, MIDI clock sync at all five speed ratios, and the voice Fseq switches.
-- **Controller sets.** The whole matrix out of three firmware functions: the source bit order, the bipolar and raw source conversions, the clamped sum, the three scalers and which of the 48 destinations uses each, the per-part gate, and the destinations that edit a part byte instead of contributing an offset. The voice's own Formant and FM control matrix with it.
-- **MIDI and sysex.** The whole parameter map in both directions, bulk dumps and parameter changes in and out, dump and parameter requests answered with checksummed replies, RPN 0-2, the ten NRPN 01 xx part parameters, bank select and program change in both performance and multi modes, MIDI clock and active sensing.
-
-### Where it stands
-
-Against rgwan's digital recording of the built-in demo, which the unit plays from its own EPROM so the same byte stream drives both, with the effects in the path on both sides: median envelope correlation 0.976, worst 0.912, mean band error 5.0 dB and tilt 2.0 dB. Against the 38 frozen capture files, twenty-seven agree with the unit inside half a decibel of level; the velocity law, the EG decay to a level, the modulator chain and the second and third links of it are inside a tenth, and the eleven that do not are the three effect files, two whose number is a scoring artifact below 100 Hz, two at frame and LFO rates the analyzer cannot align, two at 1.2 and 1.7 dB, and the two session-4 files whose level column measures a decay window and an 8 kHz noise offset rather than a level.
-
-Nothing in `cal.h` is a guess any more, and nothing outside the effects is open. The last three modelling items closed on 2026-09-24 off data already recorded: the window family behind the "1" forms and the formant, the `all1`/`all2` construction, and the key code table at the demo drum's note; the fourth hardware session the same day then read that table at every semitone, found the EG hold does not scale with it, and read the unvoiced resonance carrier against the bandwidth register. [docs/fidelity_plan.md](docs/fidelity_plan.md) has the per-file table; [STATUS.md](STATUS.md) carries the KNOWN / INFERRED / UNKNOWN lists and the open work; `FS1R.unlock/captures/fs1r_capture_session4.py` holds the one register dump still to run, the per-channel arrays, which the engine is not waiting on.
-
-**Known issue:** performances that layer two parts of a voice with all eight unvoiced operators live (A020 Vox Morph is the extreme) are heavy, about half a desktop core at 8 notes and more than a laptop i7 has to give. [docs/performance.md](docs/performance.md) has the measurements and the fixes in order of cost.
-
-The filters and effects are no longer outstanding: both are bit for bit, at about 5% of an x86-64 core together. Tiers 0 to 3 and 5 are done, so the engine, the library and console split, the plugin in every format with its editor, the licence and CI are all in, and Tier 4, fidelity and verification, is complete outside the effects.
-
-## Build and run
-
-### Prebuilt
+## Builds
 
 [The latest release](https://github.com/musicastudio/FSVR/releases/latest), also on [musica.studio](https://musica.studio/code/fsvr), has an installer for Windows, macOS and Linux that puts every format in place, and each format as its own zip, `FSVR-<OS>-<format>.zip`: CLAP, VST3, VST2 and standalone everywhere, an AU for Logic Pro on macOS, and on Windows `FSVR-Windows-VST2-32-DXi.zip`, a 32-bit VST2 carrying a DXi (Cakewalk's older plug-in format, registered with `regsvr32`). The macOS builds are universal, Apple silicon and Intel in one binary. No dependencies. [docs/plugin_guide.md](docs/plugin_guide.md) is the user guide.
 
