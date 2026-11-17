@@ -16,11 +16,9 @@
 
 **Discord:** https://discord.gg/6sXu3GmkNm
 
-The Yamaha FS1R has become one of the most elusive yet desired FM synthesizers of all time. For me, it was when I saw [musictrackjp's demo and review on YouTube](https://www.youtube.com/watch?v=xfVgo-FBihU) in 2010 that I realized how incredible and unique the sound of this synth was. Not only was it powerful and technically impressive, the way it sort of "shimmers" on the high-end sounds like nothing else.
+The Yamaha FS1R is one of the most sought-after FM synthesizers ever made, and one of the hardest to find.
 
-Unfortunately Yamaha never released an official software version, and a second-hand FS1R can cost thousands of dollars.
-
-In 2025, Zhiyuan Wan ([rgwan](https://github.com/rgwan)) started taking a real FS1R apart to try and figure out how this masterpiece worked. After all, the FS1R is not analog, it is essentially a purpose built computer running primarily on a SuperH SH2 processor supported by DSP chips. Zhiyuan's work was picked up by James Hansen ([jameshansen](https://github.com/jameshansen)) in mid-2026 who used a custom AI-assisted tooling framework to begin to understand and rebuild the synthesizer in software.
+In 2025, Zhiyuan Wan ([rgwan](https://github.com/rgwan)) started taking a real FS1R apart to try and figure out how this masterpiece worked. After all, the FS1R is not analog, it is essentially a purpose built computer running primarily on a SuperH SH2 processor supported by DSP chips. Zhiyuan's work was picked up by James Hansen ([jameshansen](https://github.com/jameshansen)) in mid-2026 who used a custom AI-assisted tooling framework to begin to understand and rebuild the synthesizer in software - this is what became FSVR.
 
 The biggest challenge was effects, which ran on a processor with minimal documentation. The [VOP3](https://github.com/musicastudio/VOP3) emulation core created by Wouter van Nifterick ([WouterVanNifterick](https://github.com/WouterVanNifterick)) gave us a reference point to finally understand and rewrite the FS1R's effects and filters in C++.
 
