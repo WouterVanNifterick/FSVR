@@ -43,7 +43,7 @@ void refresh_op(Chan& C, const Voice& V, bool fs, int o, uint64_t serial) {
         // other half of the 0x230 word (FUN_00013bc6) and stays on the centre the coarse and fine set.
         // A frame replaces that centre and does not take the word. LFO freq mod still reaches a formant or fixed
         // one: FUN_0001DC30 writes the sense whether the operator plays a frame or not.
-        int fmw = (C.regFM * v.fms) / 7;
+        int fmw = (int)(C.regFM * cal::FMS_FRAC[v.fms]);
         if (fs && C.fseqOp[o]) w = C.fqWord[o] + pmw + det + (v.form != 7 && !v.fixed ? C.regPitch : fmw);
         else if (v.form == 7) w = C.freqWord[o] + C.fbW[o] + C.detW[o] + pmw + fmw;
         else if (!v.fixed) w = C.freqWord[o] + C.regPitch + pmw + det;
@@ -76,7 +76,7 @@ void refresh_op(Chan& C, const Voice& V, bool fs, int o, uint64_t serial) {
         double nf;
         // LFO freq mod and the control sets' frequency offset reach a frame word too: FUN_0001DC30 writes the
         // sense for every operator and FUN_0002E308 adds the offset to every unvoiced word.
-        int ufmw = (C.regFM * u.fms) / 7;
+        int ufmw = (int)(C.regFM * cal::FMS_FRAC[u.fms]);
         if (fs && C.fseqUOp[o]) nf = op_hz(op_increment(C.fquWord[o] + ufmw + C.vcFreq[o][1]));
         else if (u.mode == 2 && v.form == 7) nf = op_hz(op_increment(C.freqWord[o] + C.detW[o]));
         // MEASURED: link-ff on a voiced partner that is not a formant operator reaches register 0x300 as

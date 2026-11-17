@@ -507,6 +507,8 @@ int selftest(Synth& S) {
         Op1 fixed5 = lfo(false, 5), fseq5 = lfo(true, 5), fseq7 = lfo(true, 7), fseq0 = lfo(true, 0);
         ck("an Fseq operator takes LFO freq mod as a fixed one does",
            fixed5.word > 0 && fabs(fseq5.word - fixed5.word) < 1e-9 && fseq7.word > fseq5.word && fseq0.word == 0);
+        // The unit swings FMS 5 by 96/256 of FMS 7 (cal.h FMS_FRAC, measured 2026-11-17), not 5/7.
+        ck("FMS 5 swings 96/256 of FMS 7", fabs(fixed5.word / lfo(false, 7).word - 96 / 256.0) < 0.005);
         // Noise is read in cents off two centres (a frame word is even, the fixed one odd), and the phase generator's
         // steps differ by a fraction of a cent between them.
         ck("an Fseq noise operator takes LFO freq mod as a fixed one does",
