@@ -72,7 +72,8 @@ void refresh_op(Chan& C, const Voice& V, bool fs, int o, uint64_t serial) {
         if (C.ctlSerialU[o] == serial) return;
         C.ctlSerialU[o] = serial;
         double nf;
-        if (fs && C.fseqUOp[o]) nf = op_hz(op_increment(C.fquWord[o]));
+        // The control sets' frequency offset reaches a frame word too: FUN_0002E308 adds it to every unvoiced word.
+        if (fs && C.fseqUOp[o]) nf = op_hz(op_increment(C.fquWord[o] + C.vcFreq[o][1]));
         else if (u.mode == 2 && v.form == 7) nf = op_hz(op_increment(C.freqWord[o] + C.detW[o]));
         // MEASURED: link-ff on a voiced partner that is not a formant operator reaches register 0x300 as
         // link-fo, not as itself. uv-linkff-sine's image reads mode 1 where the sysex asked for 2.
