@@ -24,9 +24,9 @@ In 2025, Zhiyuan Wan ([rgwan](https://github.com/rgwan)) started taking a real F
 
 The biggest challenge was effects, which ran on a processor with minimal documentation. The [VOP3](https://github.com/musicastudio/VOP3) emulation core created by Wouter van Nifterick ([WouterVanNifterick](https://github.com/WouterVanNifterick)) gave us a reference point to finally understand and rewrite the FS1R's effects and filters in C++.
 
-This project is not an emulation, it is a rewrite of the logic of the Yamaha FS1R in C++, so it runs natively on multiple platforms. We are transparent about how AI has also played a significant role in this project; the initial recreation was created using Claude Fable 5.1, with much of the ongoing analysis and engine improvements being assisted with Claude Opus 5 and Opus 5.5. We have ran many tests against real FS1R hardware to pin down the accuracy as close as possible and this has been an ongoing and challenging process.
+This project is not an emulation, it is a rewrite of the logic of the Yamaha FS1R in C++, so it runs natively on multiple platforms. We are transparent about how AI has also played a significant role in this project; the initial recreation was created using Claude Fable 5.1, with much of the ongoing analysis and engine improvements being assisted with Claude Opus 5 and Opus 5.5.
 
-On top of the synth engine, we have developed a robust and friendly GUI that allows easy editing and creation of your own sounds.
+In addition to the synth engine, FSVR features a robust and friendly GUI that allows easy editing and creation of your own sounds.
 
 We hope you enjoy.
 
