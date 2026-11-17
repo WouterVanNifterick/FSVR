@@ -230,6 +230,11 @@
    "colour": "#000000c8",
    "tracking": 0.6
   },
+  "about_close": {
+   "file": "SairaSemiCondensed-Regular.ttf",
+   "size": 50,
+   "colour": "#000000ff"
+  },
   "tag_white": {
    "file": "SairaSemiCondensed-Medium.ttf",
    "size": 14,

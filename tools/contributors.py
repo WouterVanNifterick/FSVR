@@ -1,5 +1,5 @@
 # Writes plugin/generated/contributors.txt: the repository's GitHub contributors other than those the About box
-# credits by name above them (jameshansen, rgwan and WouterVanNifterick) and bots, each by the name on their GitHub
+# credits by name above them (jameshansen, rgwan, WouterVanNifterick and mkruselj) and bots, each by the name on their GitHub
 # profile, else their handle, most contributions first, on one line. The plug-in embeds the file and the About box
 # lists it. The build workflow runs this before every build, so a release credits whoever has contributed by then.
 # GitHub's contributors list is a cached statistic that can lag a merge by hours (v0.5.2 shipped without
@@ -12,7 +12,7 @@ from collections import Counter
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parents[1] / 'plugin' / 'generated' / 'contributors.txt'
-NAMED = {'jameshansen', 'rgwan', 'woutervannifterick'}   # lowercase
+NAMED = {'jameshansen', 'rgwan', 'woutervannifterick', 'mkruselj'}   # lowercase
 
 
 def get(url):
