@@ -86,9 +86,9 @@ def main():
 
 if __name__ == '__main__':
     if sys.argv[1:] == ['--check']:   # the filter, without the network
-        people = [{'login': 'jameshansen'}, {'login': 'rgwan'}, {'login': 'WouterVanNifterick'}, {'login': 'mkruselj'}, {'login': 'dependabot[bot]', 'type': 'Bot'}, {'login': 'someone'}]
-        line = names(people, lambda login: {'mkruselj': {'name': 'Mario Kruselj'}}.get(login))
-        assert line == 'Mario Kruselj, someone', line
+        people = [{'login': 'jameshansen'}, {'login': 'rgwan'}, {'login': 'WouterVanNifterick'}, {'login': 'mkruselj'}, {'login': 'dependabot[bot]', 'type': 'Bot'}, {'login': 'pat-q'}, {'login': 'someone'}]
+        line = names(people, lambda login: {'pat-q': {'name': 'Pat Q'}}.get(login))
+        assert line == 'Pat Q, someone', line
         # a merge the contributors list has not caught up with, and a co-author credited only in a message
         commits = [{'author': {'login': 'newcomer'}, 'commit': {'message': 'x'}},
                    {'author': {'login': 'jameshansen'}, 'commit': {'message': 'y\n\nCo-authored-by: Pat <5777405+pat-q@users.noreply.github.com>\nCo-authored-by: rgwan <h@iloli.bid>'}}]
