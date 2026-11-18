@@ -322,6 +322,11 @@ int selftest_patchfiles() {
                                                                       perfs.voices[(size_t)perfs.perfs[0].partVoice[2]].name == "BANKB01" &&
                                                                       perfs.voices[0].at == 0 && perfs.voices[0].len == 0 && perfs.voices[0].slot < 0); }
 
+    // A DX1/DX5 performance bank (format 02, 64 x 64) is not read: its layout is not settled. It says so.
+    { Report r; const Bank b = readPatches(dxBulk(0x02, 0x20, 0x00, Bytes(4096, 0x20)), "DX5", &r);
+      ck("a DX1/DX5 performance bank is skipped with its reason", b.empty() && r.skipped.size() == 1 &&
+                                                                  r.summary().find("DX1/DX5 performance") != std::string::npos); }
+
     // A .fsvr preset: XML whose <sysex> is the stream in base64, read as the stream it carries.
     { const Bytes s = fs1rVoice("In Preset");
       static const char k64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

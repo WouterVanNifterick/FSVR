@@ -20,6 +20,10 @@ static std::string skipped(const Message& m) {
     switch (p[3]) {
     case 0x5E: return "an FS1R system bulk or one cut short";
     case 0x03: case 0x04: return "a 4-op voice (the FS1R has no conversion for it)";
+    // The 64 records of 64 bytes hold two voice numbers, two 16-byte blocks of controller settings and a
+    // 30-character name, but neither manual gives the byte layout and the factory dump's checksum does not
+    // verify, so which byte is the play mode, split point or balance is not known.
+    case 0x02: return "a DX1/DX5 performance bank (its layout is not documented, so FSVR does not read it)";
     case 0x7E:
         if (m.len >= 16) return "a \"" + text(p + 6, 10) + "\" bulk FSVR does not read yet";
         break;
