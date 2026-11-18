@@ -114,6 +114,7 @@ add_library(fs1rLib STATIC
     src/patchfiles/dx7.cpp
     src/patchfiles/container_sysex.cpp
     src/patchfiles/container_smf.cpp
+    src/patchfiles/container_fsvr.cpp
     src/patchfiles/container_headerless.cpp
     src/patchfiles/format_fs1r.cpp
     src/patchfiles/format_vced.cpp
