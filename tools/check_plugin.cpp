@@ -141,6 +141,22 @@ static std::vector<uint8_t> dx7Bank() {
     return b;
 }
 
+// A DX7II bank's supplements (AMEM): every slot the default (pitch bend range 2), but slot 2's amp mod sense on OP6.
+static std::vector<uint8_t> dx7iiAmem() {
+    std::vector<uint8_t> b = {0xF0, 0x43, 0x00, 0x06, 0x08, 0x60};
+    for (int v = 0; v < 32; ++v) {
+        uint8_t s[35] = {};
+        s[5] = 2 << 2;
+        if (v == 1) s[1] = 5;
+        b.insert(b.end(), s, s + 35);
+    }
+    int sum = 0;
+    for (size_t i = 6; i < b.size(); ++i) sum += b[i];
+    b.push_back((uint8_t)(-sum & 0x7F));
+    b.push_back(0xF7);
+    return b;
+}
+
 // One second of a 150 Hz voice-like tone: harmonics shaped by formant bumps at 700 and 1200 Hz, then a
 // noise burst, 16-bit mono WAV at 44.1 kHz.
 static std::vector<uint8_t> vowelWav() {
@@ -699,6 +715,15 @@ int main() {
         request("patch.import", (tmp / "Deep").u8string());
         CHECK(imported("Deep", 1, 36), "a folder made no bank \"Deep\" (%d voices, %s)", a.lines("browse.voice.list"), a.data("live.message").c_str());
         CHECK(a.data("live.message").find("nothing FSVR can read in 2 files") != std::string::npos, "the folder's import said \"%s\"", a.data("live.message").c_str());
+
+        // A file that reads as nothing is named even while another file's AMEM waits for a bank, and an AMEM
+        // no bank followed is named at the end.
+        file(tmp / "Waiting" / "A.syx", dx7iiAmem());
+        file(tmp / "Waiting" / "B.txt", junk);
+        request("patch.import", (tmp / "Waiting").u8string());
+        CHECK(a.until([&] { const std::string m = a.data("live.message");
+                            return m.find("FSVR can read in B.txt") != std::string::npos && m.find("A.syx: an AMEM with no voice bank after it") != std::string::npos; }),
+              "an AMEM and a junk file said \"%s\"", a.data("live.message").c_str());
 
         // A DX7II dump of a bank and its performances: they import as FS1R performances, and the first plays its
         // two voices on parts 1 and 2, found by number in the bank (#122).

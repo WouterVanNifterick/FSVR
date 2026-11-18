@@ -182,7 +182,11 @@ int selftest_patchfiles() {
       const Bank first = readPatches(cat({select, dxBulk(0x06, 0x08, 0x60, amem)}), "AMEM", &r2, &p);
       const Bank second = readPatches(dxBulk(0x09, 0x20, 0x00, vmemData()), "VMEM", &r2, &p);
       ck("an AMEM in one file pairs with the VMEM in the next", first.empty() && second.voices.size() == 32 && acedOf(second.voices[1]) &&
-                                                                acedOf(second.voices[1])[6] == 5 && !acedOf(second.voices[2]) && r2.skipped.empty()); }
+                                                                acedOf(second.voices[1])[6] == 5 && !acedOf(second.voices[2]) && r2.skipped.empty());
+
+      // Read on its own, an AMEM with no bank after it is reported, not dropped without a word.
+      Report r3; const Bank alone = readPatches(cat({select, dxBulk(0x06, 0x08, 0x60, amem)}), "AMEM", &r3);
+      ck("an AMEM with no bank after it is reported", alone.empty() && r3.skipped.size() == 1 && r3.summary().find("AMEM") != std::string::npos); }
 
     // A bank with no frame: 4096 bytes, or with a librarian's header before it, or two back to back. It comes back
     // rewrapped as the VMEM the DX7 sends, and the items count in that.

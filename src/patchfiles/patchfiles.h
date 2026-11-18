@@ -59,6 +59,7 @@ struct Pending {
     // The folder of the file read next, set before each: the numbering starts over in another, since a set of
     // banks and the performances that name them come together.
     std::string folder, numberedIn;
+    std::string unpaired() const;        // a supplement still waiting, for the report: "an AMEM with no voice bank after it"
 };
 
 // Any supported file as one bank. Pass the same Pending to each of several files read together, so a

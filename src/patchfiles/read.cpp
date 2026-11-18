@@ -73,7 +73,14 @@ Bank readPatches(const std::vector<uint8_t>& bytes, const std::string& name, Rep
         rep.skipped.push_back(skipped(m));
     }
     finishPerformances(r);   // a performance's voices may come after it in the file
+    if (!pending && !ownPending.unpaired().empty()) rep.skipped.push_back((name.empty() ? std::string("a file") : name) + ": " + ownPending.unpaired());
     return bank;
+}
+
+std::string Pending::unpaired() const {
+    if (!amem.empty()) return "an AMEM with no voice bank after it";
+    if (!aced.empty()) return "an ACED with no voice after it";
+    return "";
 }
 
 } // namespace fsvr

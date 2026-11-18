@@ -281,7 +281,7 @@ static bool selfContained(const Bank& b) {
 std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::string& err, Report* report, const std::string& name) {
     std::vector<std::string> made;   // the files written, the shared bank's first
     std::vector<uint8_t> loose, claimed;
-    std::string folder = name, firstUnread;
+    std::string folder = name, firstUnread, waiting;   // waiting: the file that left the supplement pending holds
     int unread = 0;
     Pending pending;   // an AMEM or ACED waiting for the bank or voice in the next file
     auto fail = [&](const std::string& why) { err += (err.empty() ? "" : "; ") + why; };
@@ -298,8 +298,11 @@ std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::
         const std::string file = p.filename().u8string();
         Report own;
         pending.folder = p.parent_path().u8string();
+        const std::vector<uint8_t> aced = pending.aced, amem = pending.amem;
         const Bank b = readPatches(bytes, file, &own, &pending);
-        if (b.empty() && pending.aced.empty() && pending.amem.empty()) {   // else its supplement waits for the next file
+        const bool supplement = pending.aced != aced || pending.amem != amem;   // it left one for the next file
+        if (supplement) waiting = file;
+        if (b.empty() && !supplement) {
             if (!unread++) firstUnread = file + " (" + unreadable(own, file) + ")";
             continue;
         }
@@ -328,6 +331,7 @@ std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::
     if (!loose.empty()) write(folder.empty() ? "Imported" : folder, loose, true);
     if (unread == 1) fail("nothing FSVR can read in " + firstUnread);
     else if (unread > 1) fail("nothing FSVR can read in " + std::to_string(unread) + " files, " + firstUnread + " first");
+    if (!pending.unpaired().empty()) fail(waiting + ": " + pending.unpaired());
     std::vector<int> out;   // each add() rescanned, so the indexes are read once all are written
     for (auto& path : made)
         if (const int k = bankOf(path); k >= 0) out.push_back(k);
