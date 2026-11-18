@@ -1568,6 +1568,22 @@ int selftest(Synth& S) {
         perf_from_bytes(S, nullptr, bulk);
         ck("engine: a performance cuts the sound before it loads", sounding > 0 && S.active_chans() == 0);
         init_perf(S.perf); }
+      // 6c. a voice bulk silences its part first, a note still releasing too (FUN_0003d0dc, FUN_00010384), and
+      // leaves the other parts alone. Before, the release played on with the new voice's operators.
+      { std::vector<float> a(256), b(256);
+        std::vector<uint8_t> bulk = {0xF0, 0x43, 0x00, 0x5E, 0x04, 0x60, 0x41, 0x00, 0x00};
+        bulk.insert(bulk.end(), S.perf.part[0].voice.raw, S.perf.part[0].voice.raw + 608);
+        bulk.push_back(0); bulk.push_back(0xF7);
+        S.midi_in(0x90, 60, 100);
+        for (int k = 0; k < 8; k++) S.render(a.data(), b.data(), 256);
+        S.midi_in(0x80, 60, 0); S.render(a.data(), b.data(), 256);
+        const int releasing = S.active_chans();
+        load_sysex(S, nullptr, bulk.data(), bulk.size(), 0, 0);
+        ck("engine: a voice bulk leaves another part's notes alone", releasing > 0 && S.active_chans() == releasing);
+        bulk[6] = 0x40;
+        load_sysex(S, nullptr, bulk.data(), bulk.size(), 0, 0);
+        ck("engine: a voice bulk silences its part, a releasing note too", S.active_chans() == 0);
+        S.all_off(); init_perf(S.perf); }
       // 7. the host's register writes, pinned: its start and a load, every type with each parameter at both ends,
       //    the mixer and EQ bytes, the controller offsets, and a load of every byte.
       { namespace H = fsvr::vop3host;

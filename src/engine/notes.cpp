@@ -312,11 +312,15 @@ void Synth::release(Chan& C) {
     fseq_keys();
 }
 
-// FUN_00010384(0): every channel the part holds is freed and damped (FUN_00023000), its filter slot killed,
-// and the part's held keys forgotten, so no key up is owed to a part that may no longer hear it.
+// FUN_00010384(0): every channel whose owner word (DAT_010289fc) is the part is freed and damped (FUN_00023000),
+// its filter slot killed, and the part's held keys forgotten, so no key up is owed to a part that may no longer
+// hear it. Only the allocators write that word (FUN_0001228c, FUN_000112c0), not a key up, so a note still
+// releasing goes too: before, it played its release on through the next voice a bulk brought in.
 void Synth::silence_part(int part) {
     for (auto& C : chans()) {
-        if (!owned(C) || C.part != part) continue;
+        if (C.owner != part) continue;
+        C.owner = -1;
+        if (!C.active) continue;
         const int slot = int(&C - ch);
         if (C.filtered) flt.host(slot).kill(slot & 15);
         const double damp = C.last + C.damp;
