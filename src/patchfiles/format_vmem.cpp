@@ -16,6 +16,12 @@ bool readVmem(const Message& m, Reading& r) {
     const auto whole = std::make_shared<const Bytes>(m.p, m.p + m.len);
     Bytes amem;
     amem.swap(r.pending.amem);
+    // The voices' numbers, for a performance that names them: 32 from the bank select's half, or, with none
+    // before it, on from the last bank read (ours: a TX802's banks come as four files with no bank select).
+    const int base = r.pending.half >= 0 ? 32 * r.pending.half : r.pending.next;
+    r.pending.half = -1;
+    r.pending.next = (base + 32) % 128;
+    r.pending.numbered.resize(128);
     int clamped = 0;
     for (int k = 0; k < 32; ++k) {
         uint8_t vced[VCED_SIZE], aced[ACED_SIZE];
@@ -27,6 +33,8 @@ bool readVmem(const Message& m, Reading& r) {
         it.len = m.len;
         it.slot = k;
         it.vmem = whole;
+        r.pending.numbered[(size_t)(base + k)] = it;
+        r.numbered[(size_t)(base + k)] = (int)r.bank.voices.size();
         r.bank.voices.push_back(std::move(it));
     }
     if (clamped) r.warn(m, std::to_string(clamped) + " VMEM voices had bytes out of the DX7's ranges, clamped");

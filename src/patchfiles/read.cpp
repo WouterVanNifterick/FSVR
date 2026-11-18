@@ -59,10 +59,11 @@ Bank readPatches(const std::vector<uint8_t>& bytes, const std::string& name, Rep
     const std::vector<Message> ms = messages(*s);
     if (ms.empty() && s == &bytes) rep.skipped.push_back((name.empty() ? std::string("a file") : name) + ": not a patch file FSVR knows");
     for (const Message& m : ms) {
-        if (readFs1r(m, r) || readAced(m, r) || readVced(m, r) || readAmem(m, r) || readVmem(m, r)) continue;
+        if (readFs1r(m, r) || readAced(m, r) || readVced(m, r) || readAmem(m, r) || readVmem(m, r) || readDx7ii(m, r)) continue;
         r.open = -1;
         rep.skipped.push_back(skipped(m));
     }
+    finishPerformances(r);   // a performance's voices may come after it in the file
     return bank;
 }
 

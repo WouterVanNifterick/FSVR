@@ -47,7 +47,32 @@ Bytes vmemData() {
     return d;
 }
 
+Bytes vmemNamed(const char* prefix) {
+    Bytes d;
+    for (int v = 0; v < 32; v++) { char n[11]; snprintf(n, sizeof n, "%s%02d", prefix, v + 1); Bytes r = record(n); d.insert(d.end(), r.begin(), r.end()); }
+    return d;
+}
+
 Bytes cat(std::initializer_list<Bytes> parts) { Bytes b; for (auto& p : parts) b.insert(b.end(), p.begin(), p.end()); return b; }
+
+// A DX7II performance record (51 bytes): play mode, voices A and B, dual detune, split point, note shifts, balance,
+// total volume and a 20-character name; everything else 0.
+Bytes dx7iiPerf(int mode, int a, int b, int ddtn, int split, int nsA, int nsB, int bal, int tvol, const char* name) {
+    Bytes r(51, 0);
+    r[0] = (uint8_t)mode; r[1] = (uint8_t)a; r[2] = (uint8_t)b; r[6] = (uint8_t)ddtn; r[7] = (uint8_t)split;
+    r[13] = (uint8_t)nsA; r[14] = (uint8_t)nsB; r[15] = (uint8_t)bal; r[16] = (uint8_t)tvol;
+    char n[21]; snprintf(n, sizeof n, "%-20s", name); memcpy(r.data() + 31, n, 20);
+    return r;
+}
+
+// A Yamaha "LM  " bulk: F0 43 00 7E <count> <tag> <data> cs F7, the count and the checksum over the tag and data.
+Bytes lmBulk(const char* tag, const Bytes& data) {
+    Bytes body(tag, tag + 10); body.insert(body.end(), data.begin(), data.end());
+    return dxBulk(0x7E, (uint8_t)(body.size() >> 7), (uint8_t)(body.size() & 0x7F), body);
+}
+
+// An FS1R performance's part byte.
+int partByte(const fsvr::Item& perf, int part, int at) { return perf.data()[192 + 52 * part + at]; }
 
 // The VCED a DX voice item sends, after its ACED.
 const uint8_t* vcedOf(const fsvr::Item& it) {
@@ -181,6 +206,52 @@ int selftest_patchfiles() {
       Report r; const Bank b = readPatches(smf, "Song", &r);
       ck("a MIDI file's sysex events read in order", b.voices.size() == 33 && b.voices[0].name == "IN A SMF" && b.voices[32].name == "VOICE32" &&
                                                      b.rewrapped == cat({single, bank}) && r.skipped.empty()); }
+
+    // A DX7II dump: two VMEMs behind their bank selects, then a PMEM naming voices by number, 0-31 the first
+    // bank and 32-63 the second. Dual, split and single go onto parts 1 and 2.
+    { Bytes pmem;
+      for (const Bytes& rec : {dx7iiPerf(1, 1, 33, 3, 60, 36, 24, 75, 99, "  Dual Test"), dx7iiPerf(2, 0, 63, 0, 60, 24, 12, 50, 99, "Split Test"),
+                               dx7iiPerf(0, 5, 0, 0, 60, 24, 24, 50, 66, "Single Test")}) pmem.insert(pmem.end(), rec.begin(), rec.end());
+      for (int k = 3; k < 32; k++) { Bytes rec = dx7iiPerf(0, 2, 0, 0, 60, 24, 24, 50, 99, "Filler"); pmem.insert(pmem.end(), rec.begin(), rec.end()); }
+      const Bytes sel0 = {0xF0, 0x43, 0x10, 0x19, 0x4D, 0x00, 0xF7}, sel1 = {0xF0, 0x43, 0x10, 0x19, 0x4D, 0x01, 0xF7};
+      const Bytes f = cat({sel0, dxBulk(0x09, 0x20, 0x00, vmemNamed("BANKA")), sel1, dxBulk(0x09, 0x20, 0x00, vmemNamed("BANKB")), lmBulk("LM  8973PM", pmem)});
+      Report r; const Bank b = readPatches(f, "DX7II", &r);
+      auto voiceOf = [&](const Item& perf, int p) { return perf.partVoice[p] >= 0 ? b.voices[(size_t)perf.partVoice[p]].name : std::string("-"); };
+      const bool ok = b.perfs.size() == 32 && b.voices.size() == 64;
+      ck("a DX7II PMEM reads as 32 FS1R performances", ok && b.perfs[0].name == "Dual Test" && b.perfs[0].address == 0x10 && b.perfs[0].syx.size() == 411 &&
+                                                         r.skipped.empty() && r.warnings.empty());
+      if (ok) {
+          const Item &dual = b.perfs[0], &split = b.perfs[1], &single = b.perfs[2];
+          ck("a DX7II dual performance layers its voices on parts 1 and 2", voiceOf(dual, 0) == "BANKA02" && voiceOf(dual, 1) == "BANKB02" &&
+                                                                           partByte(dual, 0, 1) == 1 && partByte(dual, 1, 1) == 1 && partByte(dual, 2, 1) == 0 &&
+                                                                           partByte(dual, 0, 4) == 0x10 && partByte(dual, 1, 4) == 0x10 && partByte(dual, 2, 4) == 0x7F);
+          ck("balance becomes part volume, dual detune part detune, note shifts each part's", partByte(dual, 0, 0x0B) == 64 && partByte(dual, 1, 0x0B) == 127 &&
+                                                                                               partByte(dual, 0, 9) == 67 && partByte(dual, 1, 9) == 61 &&
+                                                                                               partByte(dual, 0, 8) == 36 && partByte(dual, 1, 8) == 24);
+          ck("a DX7II split puts voice A below the split point and B from it", voiceOf(split, 0) == "BANKA01" && voiceOf(split, 1) == "BANKB32" &&
+                                                                              partByte(split, 0, 0x0F) == 0 && partByte(split, 0, 0x10) == 59 &&
+                                                                              partByte(split, 1, 0x0F) == 60 && partByte(split, 1, 0x10) == 127 && partByte(split, 1, 8) == 12);
+          ck("a DX7II single plays part 1 alone at its total volume", voiceOf(single, 0) == "BANKA06" && single.partVoice[1] < 0 && partByte(single, 1, 1) == 0 &&
+                                                                     partByte(single, 0, 0x0B) == 85 && partByte(single, 0, 0x10) == 127);
+
+          // It loads as the FS1R would take it: the performance bulk, then each part's voice into its part.
+          auto S = std::make_unique<Synth>();
+          load_sysex(*S, nullptr, dual.syx.data(), dual.syx.size(), 0, 0);
+          for (int p = 0; p < 4; p++) if (dual.partVoice[p] >= 0) { const Bytes& v = b.voices[(size_t)dual.partVoice[p]].syx; load_sysex(*S, nullptr, v.data(), v.size(), 0, p); }
+          ck("a DX7II performance loads with its voices in its parts", S->perf.part[1].p[9] == 61 && !memcmp(S->perf.part[1].voice.raw, "BANKB02", 7) &&
+                                                                       !memcmp(S->perf.part[0].voice.raw, "BANKA02", 7) && !memcmp(S->perf.name, "Dual Test", 9));
+      } }
+
+    // A PCED, the DX7II's edit buffer, after one bank: voice B (40) is not in it, so its part stays off and the
+    // report says so. With no bank at all the performance has nothing to play and is skipped.
+    { const Bytes pced = lmBulk("LM  8973PE", dx7iiPerf(1, 3, 40, 0, 60, 24, 24, 50, 99, "Edit Buffer"));
+      Report r; const Bank b = readPatches(cat({dxBulk(0x09, 0x20, 0x00, vmemNamed("ONLY")), pced}), "PCED", &r);
+      ck("a DX7II PCED reads as one performance", b.perfs.size() == 1 && b.perfs[0].name == "Edit Buffer" && b.perfs[0].partVoice[0] == 3 &&
+                                                   b.perfs[0].partVoice[1] < 0 && partByte(b.perfs[0], 1, 1) == 0 && r.skipped.empty() &&
+                                                   r.warnings.size() == 1 && r.summary().find("left off") != std::string::npos);
+      Report r2; const Bank none = readPatches(pced, "Alone", &r2);
+      ck("a DX7II performance with none of its voices is skipped, and reported", none.empty() && r2.skipped.size() == 1 &&
+                                                                                 r2.summary().find("voices are not in the files read") != std::string::npos); }
 
     return fails;
 }
