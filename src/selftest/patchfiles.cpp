@@ -240,6 +240,14 @@ int selftest_patchfiles() {
           for (int p = 0; p < 4; p++) if (dual.partVoice[p] >= 0) { const Bytes& v = b.voices[(size_t)dual.partVoice[p]].syx; load_sysex(*S, nullptr, v.data(), v.size(), 0, p); }
           ck("a DX7II performance loads with its voices in its parts", S->perf.part[1].p[9] == 61 && !memcmp(S->perf.part[1].voice.raw, "BANKB02", 7) &&
                                                                        !memcmp(S->perf.part[0].voice.raw, "BANKA02", 7) && !memcmp(S->perf.name, "Dual Test", 9));
+
+          // Written out as the performance bulk and its part voices, as the library keeps an imported
+          // performance, it reads back with each DX voice in the next part that plays one.
+          const Bytes kept = cat({split.syx, b.voices[(size_t)split.partVoice[0]].syx, b.voices[(size_t)split.partVoice[1]].syx});
+          Report r2; const Bank back = readPatches(kept, "Kept", &r2);
+          ck("an FS1R performance followed by DX voices takes them into its parts", back.perfs.size() == 1 && back.voices.size() == 2 &&
+                                                                                   back.perfs[0].partVoice[0] == 0 && back.perfs[0].partVoice[1] == 1 &&
+                                                                                   back.perfs[0].partVoice[2] < 0 && back.voices[1].name == "BANKB32" && r2.skipped.empty());
       } }
 
     // A PCED, the DX7II's edit buffer, after one bank: voice B (40) is not in it, so its part stays off and the

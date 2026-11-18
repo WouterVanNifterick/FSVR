@@ -14,7 +14,7 @@ One entry point, `readPatches(bytes, name, report, pending)`. A file is sniffed 
 | `container_smf.cpp` | a Standard MIDI File's sysex events, in order |
 | `container_headerless.cpp` | a 4096-byte VMEM with no frame (or one within 256 bytes of header or tail, or several), and bare 155- or 156-byte VCEDs |
 | `format_fs1r.cpp` | the FS1R's bulks: performances, voices, Fseqs; voices and an Fseq right after a performance are its own |
-| `format_vced.cpp` | a DX7 single voice, with the ACED before it |
+| `format_vced.cpp` | a DX7 single voice, with the ACED before it; right after a performance, the voice of its next Int part |
 | `format_aced.cpp` | a DX7II, DX7s or TX802 voice's supplement, held for the next VCED |
 | `format_vmem.cpp` | a DX7 or DX5 32-voice bank, unpacked to 32 VCEDs, each with its AMEM slot's ACED |
 | `format_amem.cpp` | a DX7II, DX7s or TX802 bank's supplements, held for the next VMEM, and the DX7II bank select |
