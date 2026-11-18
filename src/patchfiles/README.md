@@ -8,9 +8,10 @@ One entry point, `readPatches(bytes, name, report, pending)`. A file is sniffed 
 |---|---|
 | `patchfiles.h` | `Item`, `Bank`, `Report`, `Pending`; `readPatches`; `vmemRenamed` and `vmemBlanked`, a VMEM voice edited in its slot |
 | `reading.h` | what the dispatcher, containers and formats share: `Message`, `Reading`, each container's and format's entry |
-| `read.cpp` | `readPatches`: the containers in order (SMF, headerless, sysex), then the formats on each message; why a message nobody took was skipped |
+| `read.cpp` | `readPatches`: the containers in order (SMF, `.fsvr`, headerless, sysex), then the formats on each message; why a message nobody took was skipped |
 | `dx7.h`, `dx7.cpp` | DX7 voice data: VCED and ACED messages, the VMEM record packed and unpacked, clamping to the DX7's ranges, INIT VOICE, an AMEM slot as an ACED |
 | `container_sysex.cpp` | a sysex stream: a `.syx`, and an `.fs1`, which is the same messages |
+| `container_fsvr.cpp` | FSVR's own `.fsvr` preset: XML whose `<sysex>` is the stream in base64 |
 | `container_smf.cpp` | a Standard MIDI File's sysex events, in order |
 | `container_headerless.cpp` | a 4096-byte VMEM with no frame (or one within 256 bytes of header or tail, or several), and bare 155- or 156-byte VCEDs |
 | `format_fs1r.cpp` | the FS1R's bulks: performances, voices, Fseqs; voices and an Fseq right after a performance are its own |

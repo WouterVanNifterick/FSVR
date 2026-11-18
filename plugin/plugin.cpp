@@ -1308,11 +1308,10 @@ private:
     }
 
     void requests() {
-        if (std::string path = take("sysex.import"); !path.empty()) importSyx(path, false);
-        if (std::string path = take("fseq.import"); !path.empty()) importSyx(path, true);
+        if (std::string path = take("patch.import"); !path.empty()) importFiles(path, false);
+        if (std::string path = take("fseq.import"); !path.empty()) importFiles(path, true);
         if (std::string path = take("sysex.export"); !path.empty()) exportSyx(path);
         if (std::string path = take("fsvr.export"); !path.empty()) exportPreset(path);
-        if (std::string path = take("fsvr.import"); !path.empty()) importPreset(path);
         if (take("save.open") == "1") openSave();
         if (take("save.request") == "1") saveToBank();
         if (std::string c = st.data("item.context"); c != itemSeen) {
@@ -1336,29 +1335,40 @@ private:
             }
     }
 
-    // Import SysEx: the file becomes a bank of the library, named after it, and what it holds first loads
-    // (its first performance, else its first voice into the selected part, else its first Fseq). Several
-    // files, one path a line (a drop, or the dialog's several), share one bank, named after their folder.
-    void importSyx(const std::string& list, bool fseqFirst) {
-        std::vector<std::string> paths;
+    // Import, a pick or a drop of any patch files: one .fsvr alone plays and opens Save (importPreset). Else a
+    // file becomes a bank of the library, named after it, and what it holds first loads (its first performance,
+    // else its first voice into the selected part, else its first Fseq). Several files, one path a line, or a
+    // folder walked through its subfolders, share one bank, named after the folder.
+    void importFiles(const std::string& list, bool fseqFirst) {
+        std::vector<std::string> paths, files;
         for (size_t a = 0; a < list.size();) {
             const size_t e = std::min(list.find('\n', a), list.size());
             if (e > a) paths.push_back(list.substr(a, e - a));
             a = e + 1;
         }
-        std::string err;
+        std::string err, name;
+        std::error_code ec;
+        const bool folder = std::any_of(paths.begin(), paths.end(), [&](const std::string& p) { return std::filesystem::is_directory(std::filesystem::u8path(p), ec); });
+        if (folder && paths.size() == 1) name = std::filesystem::u8path(paths[0]).filename().u8string();
+        if (!importPaths(paths, files, err)) { message(err); return; }
+        if (files.empty()) { message("Nothing FSVR can read in " + name + ": no files in it"); return; }
+        if (files.size() == 1 && !folder && !fseqFirst && isPreset(files[0])) return importPreset(files[0]);
         Report report;
         std::lock_guard<std::mutex> g(ctl);
-        const std::vector<int> made = paths.size() == 1 ? std::vector<int>{lib.import(paths[0], err, &report)} : lib.importAll(paths, err, &report);
+        const std::vector<int> made = files.size() == 1 && !folder ? std::vector<int>{lib.import(files[0], err, &report)} : lib.importAll(files, err, &report, name);
         const std::string notes = report.summary();
-        if (made.empty() || made[0] < 0) { message(err + (notes.empty() ? "" : " (" + notes + ")")); return; }
+        if (made.empty() || made[0] < 0) {
+            if (!err.empty()) err[0] = (char)std::toupper((unsigned char)err[0]);
+            message(err + (notes.empty() ? "" : " (" + notes + ")"));
+            return;
+        }
         const int k = made[0];
         const Bank& b = lib.banks[(size_t)k];
         put(browseBank, k + 1);
         writeLists();
         std::string more;
         if (made.size() > 1) more = ", and " + std::to_string(made.size() - 1) + " more as banks of their own";   // unit dumps
-        if (!err.empty()) more += " (" + err + ")";
+        if (!err.empty()) more += "; " + err;
         if (!notes.empty()) more += "; " + notes;
         message("Imported \"" + b.name + "\": " + std::to_string(b.perfs.size()) + " performances, " + std::to_string(b.voices.size()) +
                 " voices, " + std::to_string(b.fseqs.size()) + " Fseqs" + more);
@@ -1662,7 +1672,7 @@ private:
         if (!readFile(path, raw)) { message("Cannot read " + path); return {}; }
         const std::string doc(raw.begin(), raw.end());
         if (doc.find("<fsvr") == std::string::npos) { message(std::filesystem::u8path(path).filename().u8string() + " is not an FSVR preset"); return {}; }
-        const Bank b = readPatches(unb64(xmlText(doc, "sysex")), "");
+        const Bank b = readPatches(raw, "");
         if (b.perfs.empty()) { message("No performance in " + std::filesystem::u8path(path).filename().u8string()); return {}; }
         std::string name = trimmed(xmlText(doc, "name")).substr(0, 12);
         if (name.empty()) name = b.perfs[0].name;
@@ -1673,7 +1683,15 @@ private:
         return name;
     }
 
-    // Import FSVR Preset: the preset plays at once, and the Save modal opens on its name.
+    static bool isPreset(const std::string& path) {   // a .fsvr, by its content
+        std::vector<uint8_t> raw;
+        if (!readFile(path, raw)) return false;
+        const std::string doc(raw.begin(), raw.begin() + (long)std::min<size_t>(raw.size(), 4096));
+        const size_t at = doc.find_first_not_of(" \t\r\n\xEF\xBB\xBF");
+        return at != std::string::npos && doc[at] == '<' && doc.find("<fsvr") != std::string::npos;
+    }
+
+    // One .fsvr imported: the preset plays at once, and the Save modal opens on its name.
     void importPreset(const std::string& path) {
         std::lock_guard<std::mutex> g(ctl);
         const std::string name = playPreset(path);

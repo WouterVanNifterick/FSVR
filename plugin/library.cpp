@@ -203,17 +203,60 @@ int Library::add(const std::string& name, const std::vector<uint8_t>& bytes, std
     return k;
 }
 
+bool importPaths(const std::vector<std::string>& paths, std::vector<std::string>& files, std::string& err) {
+    std::error_code ec;
+    for (auto& path : paths) {
+        const fs::path p = fs::u8path(path);
+        if (!fs::is_directory(p, ec)) { files.push_back(path); continue; }
+        std::vector<std::string> found;
+        for (fs::recursive_directory_iterator it(p, fs::directory_options::skip_permission_denied, ec), end; !ec && it != end; it.increment(ec)) {
+            if (it->path().filename().u8string()[0] == '.') {   // .DS_Store, .git
+                if (it->is_directory(ec)) it.disable_recursion_pending();
+                continue;
+            }
+            if (!it->is_regular_file(ec)) continue;
+            if (files.size() + found.size() >= kImportFiles) {
+                err = "More than 2,000 files in " + p.filename().u8string() + ": pick a smaller folder";
+                return false;
+            }
+            found.push_back(it->path().u8string());
+        }
+        std::sort(found.begin(), found.end());
+        files.insert(files.end(), found.begin(), found.end());
+    }
+    return true;
+}
+
+// Why nothing could be read in a file: what its reading skipped, without the file's name before it.
+static std::string unreadable(const Report& r, const std::string& file) {
+    std::string why;
+    for (auto& s : r.skipped) {
+        const std::string w = s.compare(0, file.size() + 2, file + ": ") == 0 ? s.substr(file.size() + 2) : s;
+        if (why.find(w) == std::string::npos) why += (why.empty() ? "" : "; ") + w;
+    }
+    return why.empty() ? "no performances, voices or Fseqs" : why;
+}
+
+static void append(Report* to, const Report& r) {
+    if (!to) return;
+    to->skipped.insert(to->skipped.end(), r.skipped.begin(), r.skipped.end());
+    to->warnings.insert(to->warnings.end(), r.warnings.begin(), r.warnings.end());
+}
+
 int Library::import(const std::string& path, std::string& err, Report* report) {
     std::vector<uint8_t> bytes;
     if (!readFile(path, bytes)) {
-        err = "cannot read " + path;
+        err = "Cannot read " + path;
         return -1;
     }
-    const Bank b = readPatches(bytes, "", report);
+    const std::string file = fs::u8path(path).filename().u8string();
+    Report own;
+    const Bank b = readPatches(bytes, file, &own);
     if (b.empty()) {
-        err = "no performances, voices or Fseqs in " + path;
+        err = "Nothing FSVR can read in " + file + ": " + unreadable(own, file);
         return -1;
     }
+    append(report, own);
     return add(fs::u8path(path).stem().u8string(), b.rewrapped.empty() ? bytes : b.rewrapped, err);
 }
 
@@ -235,10 +278,11 @@ static bool selfContained(const Bank& b) {
 // A shared bank holds its files' items in the order readPatches binds them again: every voice and Fseq no
 // performance claims first, then each performance with the voices and Fseq it claims right after it. Left
 // where it was, a loose voice after another file's performance would join that performance.
-std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::string& err, Report* report) {
+std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::string& err, Report* report, const std::string& name) {
     std::vector<std::string> made;   // the files written, the shared bank's first
     std::vector<uint8_t> loose, claimed;
-    std::string folder;
+    std::string folder = name, firstUnread;
+    int unread = 0;
     Pending pending;   // an AMEM or ACED waiting for the bank or voice in the next file
     auto fail = [&](const std::string& why) { err += (err.empty() ? "" : "; ") + why; };
     auto write = [&](const std::string& name, const std::vector<uint8_t>& bytes, bool first) {
@@ -251,11 +295,15 @@ std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::
         std::vector<uint8_t> bytes;
         if (!readFile(path, bytes)) { fail("cannot read " + path); continue; }
         const fs::path p = fs::u8path(path);
-        const Bank b = readPatches(bytes, p.filename().u8string(), report, &pending);
-        if (b.empty()) {
-            if (pending.aced.empty() && pending.amem.empty()) fail("no performances, voices or Fseqs in " + path);   // else its supplement waits
+        const std::string file = p.filename().u8string();
+        Report own;
+        const Bank b = readPatches(bytes, file, &own, &pending);
+        if (b.empty() && pending.aced.empty() && pending.amem.empty()) {   // else its supplement waits for the next file
+            if (!unread++) firstUnread = file + " (" + unreadable(own, file) + ")";
             continue;
         }
+        append(report, own);
+        if (b.empty()) continue;
         if (!selfContained(b)) { write(p.stem().u8string(), b.rewrapped.empty() ? bytes : b.rewrapped, false); continue; }
         if (folder.empty()) folder = p.parent_path().filename().u8string();
         std::vector<bool> voiceClaimed(b.voices.size()), fseqClaimed(b.fseqs.size());
@@ -277,6 +325,8 @@ std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::
     }
     loose.insert(loose.end(), claimed.begin(), claimed.end());
     if (!loose.empty()) write(folder.empty() ? "Imported" : folder, loose, true);
+    if (unread == 1) fail("nothing FSVR can read in " + firstUnread);
+    else if (unread > 1) fail("nothing FSVR can read in " + std::to_string(unread) + " files, " + firstUnread + " first");
     std::vector<int> out;   // each add() rescanned, so the indexes are read once all are written
     for (auto& path : made)
         if (const int k = bankOf(path); k >= 0) out.push_back(k);

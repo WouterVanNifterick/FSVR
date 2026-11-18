@@ -322,5 +322,22 @@ int selftest_patchfiles() {
                                                                       perfs.voices[(size_t)perfs.perfs[0].partVoice[2]].name == "BANKB01" &&
                                                                       perfs.voices[0].at == 0 && perfs.voices[0].len == 0 && perfs.voices[0].slot < 0); }
 
+    // A .fsvr preset: XML whose <sysex> is the stream in base64, read as the stream it carries.
+    { const Bytes s = fs1rVoice("In Preset");
+      static const char k64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+      std::string b64;
+      for (size_t i = 0; i < s.size(); i += 3) {
+          const uint32_t v = (uint32_t)s[i] << 16 | (i + 1 < s.size() ? s[i + 1] << 8 : 0) | (i + 2 < s.size() ? s[i + 2] : 0);
+          for (int k = 0; k < 4; k++) b64 += k <= (int)std::min<size_t>(s.size() - i, 3) ? k64[v >> (18 - 6 * k) & 63] : '=';
+          if (i % 57 == 54) b64 += "\n    ";   // wrapped, as an editor may leave it
+      }
+      const std::string xml = "\xEF\xBB\xBF<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<fsvr version=\"1\" type=\"performance\">\n  <name>A &amp; B</name>\n"
+                              "  <sysex encoding=\"base64\">" + b64 + "</sysex>\n</fsvr>\n";
+      Report r; const Bank b = readPatches(Bytes(xml.begin(), xml.end()), "Preset", &r);
+      ck("a .fsvr reads as the sysex it carries", b.voices.size() == 1 && b.voices[0].name == "In Preset" && b.rewrapped == s && r.skipped.empty());
+      const std::string other = "<?xml version=\"1.0\"?>\n<notfsvr><sysex>AAAA</sysex></notfsvr>\n";
+      Report r2; const Bank none = readPatches(Bytes(other.begin(), other.end()), "Other", &r2);
+      ck("XML that is not a .fsvr is not read", none.empty() && r2.skipped.size() == 1); }
+
     return fails;
 }
