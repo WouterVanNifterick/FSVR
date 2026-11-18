@@ -23,10 +23,11 @@ static void unbase64(const char* p, const char* end, Bytes& out) {
 }
 
 bool fsvrStream(const Bytes& file, Bytes& out, Report& report) {
+    // Text that is not XML is turned away on its first bytes, before the file is copied.
+    size_t at = file.size() >= 3 && file[0] == 0xEF && file[1] == 0xBB && file[2] == 0xBF ? 3 : 0;   // a UTF-8 byte order mark
+    while (at < file.size() && (file[at] == ' ' || file[at] == '\t' || file[at] == '\r' || file[at] == '\n')) ++at;
+    if (at == file.size() || file[at] != '<') return false;
     const std::string doc(file.begin(), file.end());
-    size_t at = doc.compare(0, 3, "\xEF\xBB\xBF") == 0 ? 3 : 0;   // a UTF-8 byte order mark
-    at = doc.find_first_not_of(" \t\r\n", at);
-    if (at == std::string::npos || doc[at] != '<') return false;   // text that is not XML
     const size_t root = doc.find("<fsvr");
     if (root == std::string::npos || root + 5 >= doc.size() || !std::strchr(" \t\r\n>/", doc[root + 5])) return false;
     size_t a = doc.find("<sysex", root), e = std::string::npos;

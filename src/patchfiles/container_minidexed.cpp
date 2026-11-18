@@ -40,7 +40,10 @@ static Bytes hexBytes(const std::string& s) {
 }
 
 bool miniDexedStream(const Bytes& file, const std::string& fileName, Bytes& out, Report& report) {
-    if (file.empty() || file[0] == 0xF0 || std::memchr(file.data(), 0, file.size())) return false;
+    // Text starts on a printable byte, a line break or a UTF-8 byte order mark: that is looked at first.
+    const uint8_t first = file.empty() ? 0 : file[0];
+    if (!(first >= 0x20 && first < 0x7F) && first != '\t' && first != '\r' && first != '\n' && first != 0xEF) return false;
+    if (std::memchr(file.data(), 0, file.size())) return false;
     const std::string doc(file.begin(), file.end());
     Tg tg[TGS];
     std::string name;
