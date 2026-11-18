@@ -345,6 +345,10 @@ bool Library::splice(int bank, std::vector<Splice> edits, std::string& err) {
     std::vector<uint8_t> b;
     if (!readFile(path, b)) { err = "Cannot read " + path; return false; }
     std::sort(edits.begin(), edits.end(), [](const Splice& x, const Splice& y) { return x.at > y.at; });   // back to front
+    for (size_t k = 1; k < edits.size(); ++k) {   // two edits of the same bytes would cut into each other's
+        const size_t at = std::min(edits[k].at, b.size()), end = at + std::min(edits[k].len, b.size() - at);
+        if (end > std::min(edits[k - 1].at, b.size())) { err = "Cannot edit " + path + ": two changes overlap"; return false; }
+    }
     for (auto& e : edits) {
         e.at = std::min(e.at, b.size());   // past the end: appended
         const size_t len = std::min(e.len, b.size() - e.at);

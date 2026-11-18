@@ -124,6 +124,7 @@ void finishPerformances(Reading& r) {
         Item it;
         it.name = text(reinterpret_cast<const uint8_t*>(d.name.data()), std::min(d.name.size(), PERF_NAME));
         it.address = 0x10;
+        it.fromDx = true;
         it.syx = performanceBulk(it.name, d.part);
         it.at = d.at;
         it.len = d.len;

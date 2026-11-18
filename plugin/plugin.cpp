@@ -1494,7 +1494,7 @@ private:
             const Bank& b = lib.banks[(size_t)k];
             std::vector<Library::Splice> e;
             for (auto& perf : b.perfs)
-                if (trimmed(perf.name) == name) {
+                if (trimmed(perf.name) == name && !perf.fromDx) {   // a DX performance stays, and the FS1R one goes after it
                     e = presetRanges(b, perf);
                     e[0].bytes = bytes;
                     break;
@@ -1506,7 +1506,7 @@ private:
         writeLists();
         const Bank& b = lib.banks[(size_t)k];
         for (int i = (int)b.perfs.size() - 1; i >= 0; --i)
-            if (trimmed(b.perfs[(size_t)i].name) == name) {
+            if (trimmed(b.perfs[(size_t)i].name) == name && !b.perfs[(size_t)i].fromDx) {
                 putUser(perfUser, userPerf, lib.number(lib.perfs, k, i));
                 break;
             }
@@ -1858,6 +1858,11 @@ private:
         }
         const Library::Ref* ref = refOf(target);
         if (!ref || lib.banks[(size_t)ref->bank].readonly()) { message("The " + (ref ? lib.banks[(size_t)ref->bank].name : "Yamaha FS1R") + " presets are read only"); return; }
+        // Its bytes in the file are the whole DX performance bank, so there is no bulk of its own to change.
+        if (it->fromDx && (r == "delete" || r == "rename" || r == "attributes" || r == "paste")) {
+            message("\"" + it->name + "\" is a DX performance: edit it and Save to keep it as an FS1R performance");
+            return;
+        }
         const Bank& b = lib.banks[(size_t)ref->bank];
         const std::string path = b.path, old = it->name;
         const Loaded was = loaded();

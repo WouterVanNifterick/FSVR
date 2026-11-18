@@ -783,6 +783,26 @@ int main() {
                   }),
                   "deleting a voice left its AMEM slot (%s)", a.data("live.message").c_str());
             a.st->setUi(ui);
+
+            // A performance built from the DX7II's PMEM is not a bulk of its own in the file: Delete, Rename and
+            // Edit Attributes leave the file as it is and say so, and Save over it adds an FS1R performance.
+            const std::vector<uint8_t> pmemKept = onDisk();
+            a.st->setData("item.context", "0\t" + uOf("browse.perf.list", "DX7II Single") + "\tDX7II Single");
+            CHECK(a.until([&] { return a.data("item.name") == "DX7II Single"; }), "the DX7II performance row did not describe itself");
+            for (const char* r : {"delete", "rename", "attributes"}) {
+                a.st->setData("item.new_name", "Other");
+                a.set("item.category", 5);
+                request("item.request", r);
+                CHECK(a.until([&] { return a.data("live.message").find("a DX performance") != std::string::npos; }), "%s on a DX7II performance said \"%s\"", r,
+                      a.data("live.message").c_str());
+                CHECK(onDisk() == pmemKept, "%s on a DX7II performance changed its file", r);
+            }
+            saveAs(rowOf(a, "save.bank.list", "DX7II"), "DX7II Dual");
+            CHECK(a.until([&] { return onDisk().size() > pmemKept.size(); }), "saving over a DX7II performance added nothing (%s)", a.data("live.message").c_str());
+            const std::vector<uint8_t> saved = onDisk();
+            CHECK(std::equal(pmemKept.begin(), pmemKept.end(), saved.begin()) && a.until([&] { return a.lines("browse.perf.list") == 33; }),
+                  "saving over a DX7II performance did not leave the PMEM and add one (%zu bytes, were %zu; %d performances)", saved.size(), pmemKept.size(),
+                  a.lines("browse.perf.list"));
         }
 
         for (int k = 0; k <= 2000; ++k) file(tmp / "Huge" / ("f" + std::to_string(k) + ".syx"), {});
