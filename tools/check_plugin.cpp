@@ -700,6 +700,36 @@ int main() {
         CHECK(imported("Deep", 1, 36), "a folder made no bank \"Deep\" (%d voices, %s)", a.lines("browse.voice.list"), a.data("live.message").c_str());
         CHECK(a.data("live.message").find("nothing FSVR can read in 2 files") != std::string::npos, "the folder's import said \"%s\"", a.data("live.message").c_str());
 
+        // A DX7II dump of a bank and its performances: they import as FS1R performances, and the first plays its
+        // two voices on parts 1 and 2, found by number in the bank (#122).
+        {
+            std::vector<uint8_t> pmem = {0xF0, 0x43, 0x00, 0x7E, (10 + 32 * 51) >> 7, (10 + 32 * 51) & 0x7F, 'L', 'M', ' ', ' ', '8', '9', '7', '3', 'P', 'M'};
+            for (int k = 0; k < 32; ++k) {
+                uint8_t r[51] = {};
+                r[0] = k == 0 ? 1 : 0;   // dual, then singles
+                r[1] = 1;                // voice A: TEST02
+                r[2] = 2;                // voice B: TEST03
+                r[13] = r[14] = 24;
+                r[15] = 50;
+                r[16] = 99;
+                std::memcpy(r + 31, k == 0 ? "DX7II Dual          " : "DX7II Single        ", 20);
+                pmem.insert(pmem.end(), r, r + 51);
+            }
+            int sum = 0;
+            for (size_t i = 6; i < pmem.size(); ++i) sum += pmem[i];
+            pmem.push_back((uint8_t)(-sum & 0x7F));
+            pmem.push_back(0xF7);
+            std::vector<uint8_t> dump = dx7Bank();
+            dump.insert(dump.end(), pmem.begin(), pmem.end());
+            file(tmp / "DX7II" / "DX7II.syx", dump);
+            request("patch.import", (tmp / "DX7II" / "DX7II.syx").u8string());
+            a.set("browse.category", 0);
+            CHECK(a.until([&] { return lineOf("bank.list", "DX7II") > 0 && a.lines("browse.perf.list") == 32 && a.data("perf.user.name") == "DX7II Dual" &&
+                                       a.data("morph.p1.bl") == "TEST02" && a.data("morph.p2.bl") == "TEST03"; }),
+                  "a DX7II PMEM did not load its first performance (%d performances, \"%s\", parts \"%s\" \"%s\", %s)", a.lines("browse.perf.list"),
+                  a.data("perf.user.name").c_str(), a.data("morph.p1.bl").c_str(), a.data("morph.p2.bl").c_str(), a.data("live.message").c_str());
+        }
+
         for (int k = 0; k <= 2000; ++k) file(tmp / "Huge" / ("f" + std::to_string(k) + ".syx"), {});
         request("patch.import", (tmp / "Huge").u8string());
         CHECK(a.until([&] { return a.data("live.message").find("More than 2,000 files") != std::string::npos; }), "a folder of 2,001 files said \"%s\"",
