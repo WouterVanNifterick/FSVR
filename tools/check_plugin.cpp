@@ -1,6 +1,6 @@
 // check_plugin: the FSVR processor end to end, as a host drives it but without one: its State (the skin's
 // params and text data), its worker and its audio, a block at a time. The factory banks, a sysex param
-// round trip through a saved session, Import SysEx into the bank manager, a pick from a user bank, the
+// round trip through a saved session, Import into the bank manager, a pick from a user bank, the
 // morph square, Import Audio, program change, panic and the monitor, Save to Bank, .fsvr presets and the
 // browser's right-click menus. Exits non-zero on any failure.
 //   build/<dir>/Release/check_plugin      (ctest runs it as "plugin")
@@ -350,13 +350,13 @@ int main() {
     // Import SysEx: a DX7 bank becomes a bank of its own, named after the file, and its first voice loads.
     const fs::path syx = tmp / "Test Bank.syx";
     writeBytes(syx, dx7Bank());
-    a.st->setData("sysex.import", syx.u8string());
+    a.st->setData("patch.import", syx.u8string());
     CHECK(a.until([&] { return a.data("bank.list") == builtins + "Test Bank\n"; }), "the bank list is \"%s\"", a.data("bank.list").c_str());
     CHECK(a.lines("voice.user.list") == bonusVoices + 32, "%d user voices, not %d", a.lines("voice.user.list"), bonusVoices + 32);
     CHECK(a.is("browse.bank", nb + 1), "the browser is not on the new bank");
     CHECK(a.until([&] { return a.is("part.bank.p1", 1) && a.is("part.user.p1", 1) && a.data("morph.p1.bl") == "TEST01"; }),
           "the first voice did not load (bank %g, user %g, \"%s\")", a.get("part.bank.p1"), a.get("part.user.p1"), a.data("morph.p1.bl").c_str());
-    a.st->setData("sysex.import", syx.u8string());
+    a.st->setData("patch.import", syx.u8string());
     CHECK(a.until([&] { return a.data("bank.list") == builtins + "Test Bank\nTest Bank 2\n"; }), "a second import did not make \"Test Bank 2\"");
     CHECK(a.lines("voice.user.list") == bonusVoices + 64, "%d user voices, not %d", a.lines("voice.user.list"), bonusVoices + 64);
     CHECK(a.data("live.message").rfind("Imported", 0) == 0, "no import message (\"%s\")", a.data("live.message").c_str());
@@ -610,7 +610,7 @@ int main() {
             if (b.first >= 0x40 && b.first <= 0x43) addBulk(unit, 0x51, 10 + b.first - 0x40, b.second);
         const fs::path unitSyx = tmp / "Unit.syx";
         writeBytes(unitSyx, unit);
-        a.st->setData("sysex.import", unitSyx.u8string());
+        a.st->setData("patch.import", unitSyx.u8string());
         CHECK(a.until([&] { return a.data("perf.name") == "Int Perf" && a.data("perf.user.name") == "Int Perf"; }), "the unit bank's performance did not load (\"%s\")",
               a.data("perf.name").c_str());
         const auto loaded = engine();
@@ -657,9 +657,60 @@ int main() {
     CHECK(a.until([&] { std::vector<uint8_t> b; std::ifstream f(preset, std::ios::binary); std::string x((std::istreambuf_iterator<char>(f)), {});
                         return x.find("<name>Int Perf</name>") != std::string::npos && x.find("<sysex") != std::string::npos; }), "Export Preset wrote no .fsvr");
     a.st->setData("hollow.modal", "");
-    request("fsvr.import", preset.u8string());
-    CHECK(a.until([&] { return a.data("hollow.modal") == "dialog_save" && a.data("save.name") == "Int Perf"; }), "Import FSVR Preset did not open the Save modal (%s)",
+    request("patch.import", preset.u8string());
+    CHECK(a.until([&] { return a.data("hollow.modal") == "dialog_save" && a.data("save.name") == "Int Perf"; }), "one .fsvr did not open the Save modal (%s)",
           a.data("live.message").c_str());
+    a.st->setData("hollow.modal", "");
+
+    // The one Import takes anything, picked or dropped: several .fsvr, a mix, a folder walked through its
+    // subfolders. Each becomes one bank named after its folder, its first performance plays, and no Save opens.
+    // A file nothing can be read in is named on the status line with the reason.
+    {
+        auto file = [&](const fs::path& p, const std::vector<uint8_t>& b) { fs::create_directories(p.parent_path(), ec); writeBytes(p, b); };
+        std::vector<uint8_t> presetBytes;
+        { std::ifstream f(preset, std::ios::binary); presetBytes.assign(std::istreambuf_iterator<char>(f), {}); }
+        const std::string junkText = "Not a patch, just words.\n";
+        const std::vector<uint8_t> junk(junkText.begin(), junkText.end());
+        auto imported = [&](const char* bank, int perfs, int voices) {
+            a.set("browse.category", 0);
+            return a.until([&] { return lineOf("bank.list", bank) > 0 && a.is("browse.bank", lineOf("bank.list", bank)) && a.lines("browse.perf.list") == perfs &&
+                                        a.lines("browse.voice.list") == voices && a.data("perf.user.name") == "Int Perf"; });
+        };
+
+        file(tmp / "Presets" / "One.fsvr", presetBytes);
+        file(tmp / "Presets" / "Two.fsvr", presetBytes);
+        request("patch.import", (tmp / "Presets" / "One.fsvr").u8string() + "\n" + (tmp / "Presets" / "Two.fsvr").u8string());
+        CHECK(imported("Presets", 2, 8), "two .fsvr made no bank \"Presets\" of 2 performances (%d, %s)", a.lines("browse.perf.list"), a.data("live.message").c_str());
+        CHECK(a.data("hollow.modal").empty(), "two .fsvr opened %s", a.data("hollow.modal").c_str());
+
+        file(tmp / "Mixed" / "One.fsvr", presetBytes);
+        file(tmp / "Mixed" / "Bank.syx", dx7Bank());
+        file(tmp / "Mixed" / "Junk.txt", junk);
+        request("patch.import", (tmp / "Mixed" / "One.fsvr").u8string() + "\n" + (tmp / "Mixed" / "Bank.syx").u8string() + "\n" + (tmp / "Mixed" / "Junk.txt").u8string());
+        CHECK(imported("Mixed", 1, 36), "a .fsvr, a .syx and a .txt made no bank \"Mixed\" (%d voices, %s)", a.lines("browse.voice.list"), a.data("live.message").c_str());
+        CHECK(a.data("live.message").find("nothing FSVR can read in Junk.txt (not a patch file FSVR knows)") != std::string::npos, "the mixed import said \"%s\"",
+              a.data("live.message").c_str());
+        CHECK(a.data("hollow.modal").empty(), "a mixed import opened %s", a.data("hollow.modal").c_str());
+
+        file(tmp / "Deep" / "a" / "One.fsvr", presetBytes);
+        file(tmp / "Deep" / "a" / "b" / "Bank", dx7Bank());   // no extension
+        file(tmp / "Deep" / "Junk.txt", junk);
+        file(tmp / "Deep" / "Junk2.txt", junk);
+        request("patch.import", (tmp / "Deep").u8string());
+        CHECK(imported("Deep", 1, 36), "a folder made no bank \"Deep\" (%d voices, %s)", a.lines("browse.voice.list"), a.data("live.message").c_str());
+        CHECK(a.data("live.message").find("nothing FSVR can read in 2 files") != std::string::npos, "the folder's import said \"%s\"", a.data("live.message").c_str());
+
+        for (int k = 0; k <= 2000; ++k) file(tmp / "Huge" / ("f" + std::to_string(k) + ".syx"), {});
+        request("patch.import", (tmp / "Huge").u8string());
+        CHECK(a.until([&] { return a.data("live.message").find("More than 2,000 files") != std::string::npos; }), "a folder of 2,001 files said \"%s\"",
+              a.data("live.message").c_str());
+        CHECK(lineOf("bank.list", "Huge") == 0, "a folder of 2,001 files was imported");
+
+        file(tmp / "Junk.txt", junk);
+        request("patch.import", (tmp / "Junk.txt").u8string());
+        CHECK(a.until([&] { return a.data("live.message") == "Nothing FSVR can read in Junk.txt: not a patch file FSVR knows"; }), "an unreadable file said \"%s\"",
+              a.data("live.message").c_str());
+    }
 
     // The right-click menu on a user performance: Rename, Edit Attributes, Paste Attributes, Delete.
     const std::string second = "0\tU" + std::to_string(lineOf("perf.user.list", "Second")) + "\tSecond";
@@ -730,7 +781,7 @@ int main() {
         }
         const fs::path unitSyx = tmp / "Unit Two.syx";
         writeBytes(unitSyx, unit);
-        a.st->setData("sysex.import", unitSyx.u8string());
+        a.st->setData("patch.import", unitSyx.u8string());
         CHECK(a.until([&] { return a.data("perf.user.name") == "Tines Int" && a.is("gui.edited", 0); }), "Unit Two's performance did not load (\"%s\")", a.data("perf.name").c_str());
         CHECK(a.is("fseq.part", 0), "Tines Int loaded with Fseq part %g", a.get("fseq.part"));
         const double hz = pitchOf(a);
@@ -840,7 +891,7 @@ int main() {
         }
         const fs::path bigSyx = tmp / "Zz Big.syx";
         writeBytes(bigSyx, big);
-        a.st->setData("sysex.import", bigSyx.u8string());
+        a.st->setData("patch.import", bigSyx.u8string());
         CHECK(a.until([&] { return lineOf("bank.list", "Zz Big") > 0; }, 30000), "the big bank did not import (%s)", a.data("live.message").c_str());
         a.set("browse.category", 0);
         a.set("browse.bank", lineOf("bank.list", "Zz Big"));
@@ -936,6 +987,6 @@ int main() {
     }
 
     fs::remove_all(tmp, ec);
-    if (!fails) std::printf("check_plugin: factory banks, sessions, Import SysEx, the bank browser, morph (off), Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, a preset's Fseq after a reopen, a host's performance bulk, the part lamp, the Init and last patches, and an unreadable library all pass\n");
+    if (!fails) std::printf("check_plugin: factory banks, sessions, Import (files, several, a folder), the bank browser, morph (off), Import Audio, program change, panic, the monitor, Save to Bank, .fsvr presets, the right-click menus, a preset's Fseq after a reopen, a host's performance bulk, the part lamp, the Init and last patches, and an unreadable library all pass\n");
     return fails ? 1 : 0;
 }
