@@ -19,6 +19,7 @@ One entry point, `readPatches(bytes, name, report, pending)`. A file is sniffed 
 | `format_vmem.cpp` | a DX7 or DX5 32-voice bank, unpacked to 32 VCEDs, each with its AMEM slot's ACED |
 | `format_amem.cpp` | a DX7II, DX7s or TX802 bank's supplements, held for the next VMEM, and the DX7II bank select |
 | `format_dx7ii.cpp` | a DX7II performance, PCED or the 32 of PMEM: single, dual or split onto parts 1 and 2 |
+| `format_tx802.cpp` | a TX802's performances, as hex digits: its first four leading tone generators onto the four parts, the rest named in the report |
 | `performance.cpp` | a DX performance as an FS1R performance bulk built on the engine's init performance, its voices found by number at the end of the read |
 
 ## Rules

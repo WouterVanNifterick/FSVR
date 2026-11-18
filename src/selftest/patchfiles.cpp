@@ -71,6 +71,21 @@ Bytes lmBulk(const char* tag, const Bytes& data) {
     return dxBulk(0x7E, (uint8_t)(body.size() >> 7), (uint8_t)(body.size() & 0x7F), body);
 }
 
+// A TX802 PMEM as the factory dumps have it: one F0 43 00 7E, then per performance its count 01 28, the tag,
+// its 84 bytes as 168 ASCII hex digits and a checksum over the tag and the digits; one F7 at the end.
+Bytes tx802Pmem(const std::vector<Bytes>& records) {
+    Bytes m = {0xF0, 0x43, 0x00, 0x7E};
+    for (const Bytes& rec : records) {
+        Bytes body = {'L', 'M', ' ', ' ', '8', '9', '5', '2', 'P', 'M'};
+        for (uint8_t v : rec) { const char* hex = "0123456789ABCDEF"; body.push_back((uint8_t)hex[v >> 4]); body.push_back((uint8_t)hex[v & 15]); }
+        m.push_back(0x01); m.push_back(0x28);
+        m.insert(m.end(), body.begin(), body.end());
+        m.push_back(sum7(body.data(), body.size()));
+    }
+    m.push_back(0xF7);
+    return m;
+}
+
 // An FS1R performance's part byte.
 int partByte(const fsvr::Item& perf, int part, int at) { return perf.data()[192 + 52 * part + at]; }
 
@@ -260,6 +275,52 @@ int selftest_patchfiles() {
       Report r2; const Bank none = readPatches(pced, "Alone", &r2);
       ck("a DX7II performance with none of its voices is skipped, and reported", none.empty() && r2.skipped.size() == 1 &&
                                                                                  r2.summary().find("voices are not in the files read") != std::string::npos); }
+
+    // A TX802 PMEM: eight tone generators per performance in eight rows of eight bytes (channel and link, voice,
+    // -, volume, detune and output, note limits low and high, note shift), then the name. A TG linked to an
+    // earlier one (the link, the top three bits of its first byte, names that TG) adds notes to it; the first
+    // four that lead and have an output become parts, and the report names the rest. Two banks, no bank select:
+    // voices 1-32, then 33-64.
+    { Bytes layer(84, 0);
+      const uint8_t rows[8][8] = {{0x00, 0x00, 0x41, 0x60, 0x90, 0xA0, 0xC0, 0xE0},    // TG2 linked to TG1; TG3 on channel 2; TG5 omni
+                                  {0x82, 0x00, 0x85, 0xA0, 0x81, 0x83, 0x84, 0x00},    // voices 3, -, 6, 33, 2, 4, 5
+                                  {0}, {99, 90, 49, 90, 90, 90, 90, 90},
+                                  {0x3B, 0x3B, 0x49, 0x2A, 0x3B, 0x3B, 0x3B, 0x38},    // TG3 detune +2 on output I, TG4 -2 on II, TG8 no output
+                                  {0, 0, 60, 0, 0, 0, 0, 0}, {59, 127, 127, 127, 127, 127, 127, 127},
+                                  {0x18, 0x18, 0x0C, 0x58, 0x18, 0x18, 0x18, 0x18}};   // TG3 an octave down
+      for (int g = 0; g < 8; g++) memcpy(layer.data() + 8 * g, rows[g], 8);
+      memcpy(layer.data() + 64, "TX Layer            ", 20);
+      Bytes plain(84, 0);
+      for (int t = 0; t < 8; t++) { plain[24 + t] = 90; plain[32 + t] = 0x3B; plain[48 + t] = 127; plain[56 + t] = 0x18; }
+      plain[8] = 0x80;
+      memcpy(plain.data() + 64, "Plain               ", 20);
+      const Bytes f = cat({dxBulk(0x09, 0x20, 0x00, vmemNamed("BANKA")), dxBulk(0x09, 0x20, 0x00, vmemNamed("BANKB")), tx802Pmem({layer, plain})});
+      Report r; const Bank b = readPatches(f, "TX802", &r);
+      const bool ok = b.perfs.size() == 2 && b.voices.size() == 64;
+      auto voiceOf = [&](const Item& perf, int p) { return perf.partVoice[p] >= 0 ? b.voices[(size_t)perf.partVoice[p]].name : std::string("-"); };
+      ck("a TX802 PMEM reads as FS1R performances", ok && b.perfs[0].name == "TX Layer" && b.perfs[1].name == "Plain" && r.skipped.empty());
+      if (ok) {
+          const Item& t = b.perfs[0];
+          ck("a TX802 performance's first four leading TGs become the parts", voiceOf(t, 0) == "BANKA03" && voiceOf(t, 1) == "BANKA06" &&
+                                                                             voiceOf(t, 2) == "BANKB01" && voiceOf(t, 3) == "BANKA02");
+          ck("a TG's channel, volume, detune, output, limits and shift go onto its part", partByte(t, 0, 4) == 0 && partByte(t, 1, 4) == 1 && partByte(t, 3, 4) == 0x10 &&
+             partByte(t, 0, 0x0B) == 127 && partByte(t, 1, 0x0B) == 63 && partByte(t, 1, 9) == 66 && partByte(t, 2, 9) == 62 && partByte(t, 0, 9) == 64 &&
+             partByte(t, 0, 0x0E) == 64 && partByte(t, 1, 0x0E) == 1 && partByte(t, 2, 0x0E) == 127 && partByte(t, 0, 0x10) == 59 &&
+             partByte(t, 1, 0x0F) == 60 && partByte(t, 1, 8) == 12 && partByte(t, 2, 8) == 24);
+          ck("the report names the TGs a TX802 performance drops", r.warnings.size() == 1 && r.summary().find("TG6, TG7") != std::string::npos &&
+                                                                   r.summary().find("TX Layer") != std::string::npos);
+          ck("a TX802 performance of one TG plays one part", voiceOf(b.perfs[1], 0) == "BANKA01" && b.perfs[1].partVoice[1] < 0 && partByte(b.perfs[1], 1, 1) == 0);
+      }
+
+      // The factory set comes as five files, the four banks and then the performances: read together, the
+      // performances find their voices in the files before.
+      Pending p; Report r2;
+      readPatches(dxBulk(0x09, 0x20, 0x00, vmemNamed("BANKA")), "A1", &r2, &p);
+      readPatches(dxBulk(0x09, 0x20, 0x00, vmemNamed("BANKB")), "A2", &r2, &p);
+      const Bank perfs = readPatches(tx802Pmem({layer}), "P", &r2, &p);
+      ck("a TX802 PMEM finds its voices in the banks read before it", perfs.perfs.size() == 1 && perfs.voices.size() == 4 &&
+                                                                      perfs.voices[(size_t)perfs.perfs[0].partVoice[2]].name == "BANKB01" &&
+                                                                      perfs.voices[0].at == 0 && perfs.voices[0].len == 0 && perfs.voices[0].slot < 0); }
 
     return fails;
 }

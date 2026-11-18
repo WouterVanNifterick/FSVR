@@ -59,6 +59,7 @@ bool readVced(const Message& m, Reading& r);   // format_vced.cpp
 bool readAmem(const Message& m, Reading& r);   // format_amem.cpp, with the DX7II bank select
 bool readVmem(const Message& m, Reading& r);   // format_vmem.cpp
 bool readDx7ii(const Message& m, Reading& r);  // format_dx7ii.cpp: PCED and PMEM
+bool readTx802(const Message& m, Reading& r);  // format_tx802.cpp
 
 // A Yamaha "LM  " bulk with this ten-byte tag: F0 43 0n 7E <count> <tag> <data> cs F7.
 inline bool lmBulk(const Message& m, const char* tag) { return m.len >= 18 && m.p[1] == 0x43 && (m.p[2] & 0xF0) == 0 && m.p[3] == 0x7E && std::equal(tag, tag + 10, m.p + 6); }

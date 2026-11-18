@@ -121,6 +121,7 @@ add_library(fs1rLib STATIC
     src/patchfiles/format_vmem.cpp
     src/patchfiles/format_amem.cpp
     src/patchfiles/format_dx7ii.cpp
+    src/patchfiles/format_tx802.cpp
     src/patchfiles/performance.cpp
     src/selftest/selftest.cpp
     src/selftest/patchfiles.cpp)
