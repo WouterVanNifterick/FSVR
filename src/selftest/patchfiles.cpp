@@ -327,6 +327,40 @@ int selftest_patchfiles() {
       ck("a DX1/DX5 performance bank is skipped with its reason", b.empty() && r.skipped.size() == 1 &&
                                                                   r.summary().find("DX1/DX5 performance") != std::string::npos); }
 
+    // A MiniDexed performance.ini: eight TGs, the first four that carry VoiceData become parts. TG2 names a voice
+    // on the SD card instead, so it is skipped and reported, and TG7 and TG8 do not fit. MIDIChannel 0 is off, and
+    // pan comes in mirrored, as MiniDexed plays it (Pan=0 sounds hard right).
+    { auto hexVoice = [](const char* name) {
+          Bytes v(156, 0); for (int op = 0; op < 6; op++) v[op * 21 + 18] = 1; v[144] = 24; memcpy(v.data() + 145, name, strlen(name)); v[155] = 0x3F;
+          std::string s; char h[4]; for (uint8_t b : v) { snprintf(h, sizeof h, "%02X ", b); s += h; } s.pop_back(); return s; };
+      std::string ini = "# MiniDexed\r\nName=Four Layers\r\n";
+      const char* names[8] = {"MD ONE", "", "MD THREE", "MD FOUR", "MD FIVE", "MD SIX", "MD SEVEN", "MD EIGHT"};
+      for (int t = 1; t <= 8; t++) {
+          const std::string n = std::to_string(t);
+          ini += "BankNumber" + n + "=0\r\nVoiceNumber" + n + "=1\r\nMIDIChannel" + n + "=" + (t == 3 ? "0" : t == 4 ? "255" : n) + "\r\n";
+          ini += "Volume" + n + "=" + (t == 1 ? "100" : "90") + "\r\nPan" + n + "=" + (t == 1 ? "0" : t == 3 ? "127" : "64") + "\r\n";
+          ini += "Detune" + n + "=" + (t == 1 ? "5" : "0") + "\r\nNoteShift" + n + "=" + (t == 1 ? "-12" : "0") + "\r\n";
+          ini += "NoteLimitLow" + n + "=" + (t == 5 ? "60" : "0") + "\r\nNoteLimitHigh" + n + "=127\r\n";
+          ini += "VoiceData" + n + "=" + (*names[t - 1] ? hexVoice(names[t - 1]) : "") + "\r\n\r\n";
+      }
+      ini += "CompressorEnable=1\r\nReverbEnable=1\r\n";
+      Report r; const Bank b = readPatches(Bytes(ini.begin(), ini.end()), "performance.ini", &r);
+      const bool ok = b.perfs.size() == 1 && b.voices.size() == 4;
+      ck("a MiniDexed performance.ini reads as one FS1R performance of four voices", ok && b.perfs[0].name == "Four Layers" && !b.rewrapped.empty());
+      if (ok) {
+          const Item& p = b.perfs[0];
+          auto voiceOf = [&](int part) { return p.partVoice[part] >= 0 ? b.voices[(size_t)p.partVoice[part]].name : std::string("-"); };
+          ck("the first four TGs with voice data are the parts", voiceOf(0) == "MD ONE" && voiceOf(1) == "MD THREE" && voiceOf(2) == "MD FOUR" && voiceOf(3) == "MD FIVE");
+          ck("a MiniDexed TG's channel, volume, pan, detune, shift and limits go onto its part",
+             partByte(p, 0, 4) == 0 && partByte(p, 1, 4) == 0x7F && partByte(p, 2, 4) == 0x10 && partByte(p, 0, 0x0B) == 100 &&
+             partByte(p, 0, 0x0E) == 127 && partByte(p, 1, 0x0E) == 1 && partByte(p, 2, 0x0E) == 64 && partByte(p, 0, 9) == 69 &&
+             partByte(p, 0, 8) == 12 && partByte(p, 3, 0x0F) == 60);
+          ck("a TG with no voice data is skipped and reported, and TGs past four named", r.skipped.size() == 1 && r.summary().find("TG2") != std::string::npos &&
+                                                                                         r.summary().find("TG7, TG8") != std::string::npos);
+      }
+      Report r2; const Bank again = readPatches(b.rewrapped, "performance", &r2);
+      ck("a MiniDexed performance is kept as the bulk and voices it was read into", again.perfs.size() == 1 && again.perfs[0].partVoice[3] == 3 && r2.skipped.empty()); }
+
     // A .fsvr preset: XML whose <sysex> is the stream in base64, read as the stream it carries.
     { const Bytes s = fs1rVoice("In Preset");
       static const char k64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

@@ -47,10 +47,11 @@ struct Reading {
 Bytes performanceBulk(const std::string& name, const PartSetup* parts);
 void finishPerformances(Reading& r);
 
-// Containers: a file to a sysex stream. The first three say whether the file is theirs and rewrap it into out.
+// Containers: a file to a sysex stream. The first four say whether the file is theirs and rewrap it into out.
 bool smfStream(const Bytes& file, Bytes& out, Report& report);          // container_smf.cpp
 bool headerlessStream(const Bytes& file, Bytes& out, Report& report);   // container_headerless.cpp
 bool fsvrStream(const Bytes& file, Bytes& out, Report& report);         // container_fsvr.cpp
+bool miniDexedStream(const Bytes& file, const std::string& name, Bytes& out, Report& report);   // container_minidexed.cpp
 std::vector<Message> messages(const Bytes& stream);                     // container_sysex.cpp: a .syx, an .fs1
 
 // Formats: each takes the messages that are its own and says whether it did.
