@@ -140,5 +140,47 @@ int selftest_patchfiles() {
       ck("an AMEM in one file pairs with the VMEM in the next", first.empty() && second.voices.size() == 32 && acedOf(second.voices[1]) &&
                                                                 acedOf(second.voices[1])[6] == 5 && !acedOf(second.voices[2]) && r2.skipped.empty()); }
 
+    // A bank with no frame: 4096 bytes, or with a librarian's header before it, or two back to back. It comes back
+    // rewrapped as the VMEM the DX7 sends, and the items count in that.
+    { const Bytes d = vmemData(), framed = dxBulk(0x09, 0x20, 0x00, d);
+      const Bank bare = readPatches(d, "Bare");
+      ck("a headerless 4096-byte bank reads as a VMEM", bare.voices.size() == 32 && bare.voices[9].name == "VOICE10" && bare.rewrapped == framed &&
+                                                       bare.voices[9].at == 0 && bare.voices[9].len == framed.size());
+      Bytes header(128, 0xD2); header[0] = 'L';
+      ck("a headerless bank after a 128-byte header reads", readPatches(cat({header, d}), "").voices.size() == 32);
+      ck("two headerless banks back to back read as 64 voices", readPatches(cat({d, d}), "").voices.size() == 64);
+      Bytes noise(4096, 0x00);
+      Report r; const Bank none = readPatches(noise, "Noise", &r);
+      ck("4096 bytes with no names in place are not a bank", none.empty() && r.skipped.size() == 1); }
+
+    // Bare VCEDs: one of 155 bytes, one of 156 with the operator on/off byte (the FS1R's .Dx7Voice), three of 155.
+    { Bytes v(155, 0); memcpy(v.data() + 145, "BARE VOICE", 10); v[0] = 99;
+      const Bank one = readPatches(v, "");
+      ck("a bare 155-byte VCED reads as a DX voice", one.voices.size() == 1 && one.voices[0].name == "BARE VOICE" && vcedOf(one.voices[0]) &&
+                                                     vcedOf(one.voices[0])[0] == 99 && one.rewrapped == dxBulk(0x00, 0x01, 0x1B, v));
+      Bytes w = v; w.push_back(0x3F);
+      ck("a 156-byte .Dx7Voice reads as a DX voice", readPatches(w, "").voices.size() == 1);
+      ck("three bare VCEDs read as three voices", readPatches(cat({v, v, v}), "").voices.size() == 3); }
+
+    // A MIDI file's sysex events, one of them split over an F0 and an F7 packet, around a note and a tempo.
+    { Bytes vced(155, 0); memcpy(vced.data() + 145, "IN A SMF  ", 10);
+      const Bytes single = dxBulk(0x00, 0x01, 0x1B, vced), bank = dxBulk(0x09, 0x20, 0x00, vmemData());
+      auto vlq = [](size_t n) { Bytes out; out.push_back((uint8_t)(n & 0x7F)); while (n >>= 7) out.insert(out.begin(), (uint8_t)(0x80 | (n & 0x7F))); return out; };
+      Bytes trk = {0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20, 0x00, 0x90, 60, 100, 0x10, 60, 0};   // tempo, note on, running status off
+      trk.push_back(0x00); trk.push_back(0xF0); { Bytes n = vlq(single.size() - 1); trk.insert(trk.end(), n.begin(), n.end()); }
+      trk.insert(trk.end(), single.begin() + 1, single.end());
+      const size_t half = 2000;
+      trk.push_back(0x00); trk.push_back(0xF0); { Bytes n = vlq(half - 1); trk.insert(trk.end(), n.begin(), n.end()); }
+      trk.insert(trk.end(), bank.begin() + 1, bank.begin() + (long)half);
+      trk.push_back(0x05); trk.push_back(0xF7); { Bytes n = vlq(bank.size() - half); trk.insert(trk.end(), n.begin(), n.end()); }
+      trk.insert(trk.end(), bank.begin() + (long)half, bank.end());
+      const Bytes end = {0x00, 0xFF, 0x2F, 0x00}; trk.insert(trk.end(), end.begin(), end.end());
+      Bytes smf = {'M', 'T', 'h', 'd', 0, 0, 0, 6, 0, 0, 0, 1, 0, 96, 'M', 'T', 'r', 'k'};
+      for (int k = 3; k >= 0; k--) smf.push_back((uint8_t)(trk.size() >> (8 * k)));
+      smf.insert(smf.end(), trk.begin(), trk.end());
+      Report r; const Bank b = readPatches(smf, "Song", &r);
+      ck("a MIDI file's sysex events read in order", b.voices.size() == 33 && b.voices[0].name == "IN A SMF" && b.voices[32].name == "VOICE32" &&
+                                                     b.rewrapped == cat({single, bank}) && r.skipped.empty()); }
+
     return fails;
 }
