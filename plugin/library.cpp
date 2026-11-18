@@ -297,6 +297,7 @@ std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::
         const fs::path p = fs::u8path(path);
         const std::string file = p.filename().u8string();
         Report own;
+        pending.folder = p.parent_path().u8string();
         const Bank b = readPatches(bytes, file, &own, &pending);
         if (b.empty() && pending.aced.empty() && pending.amem.empty()) {   // else its supplement waits for the next file
             if (!unread++) firstUnread = file + " (" + unreadable(own, file) + ")";

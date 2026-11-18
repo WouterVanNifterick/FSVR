@@ -54,6 +54,11 @@ Bank readPatches(const std::vector<uint8_t>& bytes, const std::string& name, Rep
     bank.name = name;
     Report& rep = report ? *report : ownReport;
     Reading r{bank, rep, pending ? *pending : ownPending};
+    if (r.pending.folder != r.pending.numberedIn) {   // banks in another folder are another set
+        r.pending.numbered.clear();
+        r.pending.next = 0;
+        r.pending.numberedIn = r.pending.folder;
+    }
     Bytes stream;
     const Bytes* s = &bytes;
     if (smfStream(bytes, stream, rep) || fsvrStream(bytes, stream, rep) || miniDexedStream(bytes, name, stream, rep) || headerlessStream(bytes, stream, rep)) {

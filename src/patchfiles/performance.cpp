@@ -57,6 +57,7 @@ static int voiceFor(Reading& r, int number, From from) {
     if (r.numbered[n] >= 0 && fits(r.selected[n])) return r.numbered[n];
     const std::vector<Pending::Voice>& earlier = r.pending.numbered;
     if (n >= earlier.size() || earlier[n].item.syx.empty() || !fits(earlier[n].selected)) return -1;
+    if (std::find(r.borrowed.begin(), r.borrowed.end(), earlier[n].file) == r.borrowed.end()) r.borrowed.push_back(earlier[n].file);
     Item it = earlier[n].item;
     it.at = it.len = 0;   // its bytes are in another file
     it.slot = -1;
@@ -130,11 +131,16 @@ void finishPerformances(Reading& r) {
         r.bank.perfs.push_back(std::move(it));
     }
     r.dx.clear();
+    if (!r.borrowed.empty()) {
+        std::string files;
+        for (const std::string& f : r.borrowed) files += (files.empty() ? "" : ", ") + (f.empty() ? std::string("a file") : f);
+        r.report.warnings.push_back((r.bank.name.empty() ? "" : r.bank.name + ", ") + "performances play voices from " + files + " read with it");
+    }
     // This file's banks, by number, for the performances in the files read after it.
     r.pending.numbered.resize(128);
     for (int v = 0; v < 128; ++v) {
         const int k = r.numbered[(size_t)v];
-        if (k >= 0 && r.bank.voices[(size_t)k].slot >= 0) r.pending.numbered[(size_t)v] = {r.bank.voices[(size_t)k], r.selected[(size_t)v]};
+        if (k >= 0 && r.bank.voices[(size_t)k].slot >= 0) r.pending.numbered[(size_t)v] = {r.bank.voices[(size_t)k], r.selected[(size_t)v], r.bank.name};
     }
 }
 

@@ -52,9 +52,13 @@ struct Pending {
     struct Voice {
         Item item;                       // an empty syx where none was
         bool selected = false;           // its bank came behind a bank select
+        std::string file;                // the name of the file it was read in
     };
     std::vector<Voice> numbered;         // the VMEM voices read so far by number, 0..127
     int next = 0;                        // the number a VMEM with no bank select before it starts at
+    // The folder of the file read next, set before each: the numbering starts over in another, since a set of
+    // banks and the performances that name them come together.
+    std::string folder, numberedIn;
 };
 
 // Any supported file as one bank. Pass the same Pending to each of several files read together, so a

@@ -343,6 +343,22 @@ int selftest_patchfiles() {
                                                                       perfs.voices[(size_t)perfs.perfs[0].partVoice[2]].name == "BANKB01" &&
                                                                       perfs.voices[0].at == 0 && perfs.voices[0].len == 0 && perfs.voices[0].slot < 0); }
 
+    // Banks with no bank select number on only within one folder: a file from another starts again at 1, so a
+    // performance there never plays a voice of the first folder's. A performance that plays voices of another
+    // file read with it says which.
+    { const Bytes single0 = lmBulk("LM  8973PE", dx7iiPerf(1, 0, 32, 0, 60, 24, 24, 50, 99, "Two Banks"));
+      Pending p; Report r;
+      p.folder = "X"; readPatches(dxBulk(0x09, 0x20, 0x00, vmemNamed("XBANK")), "X.syx", &r, &p);
+      p.folder = "Y"; const Bank y = readPatches(cat({dxBulk(0x09, 0x20, 0x00, vmemNamed("YBANK")), single0}), "Y.syx", &r, &p);
+      ck("a bank in another folder numbers from 1 again", y.perfs.size() == 1 && y.perfs[0].partVoice[0] >= 0 &&
+                                                          y.voices[(size_t)y.perfs[0].partVoice[0]].name == "YBANK01" && y.perfs[0].partVoice[1] < 0);
+      Pending q; Report r2;
+      readPatches(dxBulk(0x09, 0x20, 0x00, vmemNamed("XBANK")), "X.syx", &r2, &q);
+      const Bank z = readPatches(single0, "P.syx", &r2, &q);
+      ck("a performance playing another file's voices names the file", z.perfs.size() == 1 && z.perfs[0].partVoice[0] >= 0 &&
+                                                                       z.voices[(size_t)z.perfs[0].partVoice[0]].name == "XBANK01" &&
+                                                                       r2.summary().find("voices from X.syx") != std::string::npos); }
+
     // A TX802 voice number counts I01-I64, C01-C64, then the ROM's presets A and B (128-255). The factory set's
     // preset banks come as files with no bank select, so a preset voice is found only in banks sent so, and those
     // are then the presets, not the internal voices. A voice the banks read cannot hold leaves its part off.

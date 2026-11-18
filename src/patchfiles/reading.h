@@ -41,6 +41,7 @@ struct Reading {
     std::vector<DxPerformance> dx;
     std::vector<int> numbered = std::vector<int>(128, -1);   // a DX voice number's voice in this bank
     std::vector<bool> selected = std::vector<bool>(128);     // and whether its bank came behind a bank select
+    std::vector<std::string> borrowed;   // the files read before this one whose voices its performances play
     void warn(const Message& m, const std::string& what);
 };
 
