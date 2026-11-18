@@ -22,13 +22,6 @@ const char* const kCategories[23] = {"--", "Piano", "Chromatic", "Organ", "Guita
                                      "Pipe", "Synth Lead", "Synth Pad", "Synth FX", "Ethnic", "Percussive", "Sound FX", "Drums",
                                      "Synth Comp", "Vocal", "Combination", "Material Wave", "Sequence"};
 
-static std::string text(const uint8_t* p, int n) {
-    std::string s;
-    for (int i = 0; i < n; ++i) s += p[i] >= 32 && p[i] < 127 ? (char)p[i] : ' ';
-    while (!s.empty() && s.back() == ' ') s.pop_back();
-    return s;
-}
-
 std::vector<uint8_t> bulk(int ah, int am, int al, const uint8_t* data, size_t size) {
     std::vector<uint8_t> m = {0xF0, 0x43, 0x00, 0x5E, (uint8_t)(size >> 7 & 0x7F), (uint8_t)(size & 0x7F), (uint8_t)ah, (uint8_t)am, (uint8_t)al};
     m.insert(m.end(), data, data + size);
@@ -42,113 +35,6 @@ std::vector<uint8_t> bulk(int ah, int am, int al, const uint8_t* data, size_t si
 std::vector<uint8_t> readdress(const std::vector<uint8_t>& syx, int ah, int am, int al) {
     if (syx.size() < 12 || syx[3] != 0x5E) return syx;
     return bulk(ah, am, al, syx.data() + 9, syx.size() - 11);
-}
-
-// A DX7 VMEM voice (128 packed bytes) as VCED (155), DX7 sysex format: six operators, OP6 first, then the
-// voice's common block.
-static void unpackVmem(const uint8_t* v, uint8_t* o) {
-    for (int op = 0; op < 6; ++op) {
-        const uint8_t* p = v + op * 17;
-        uint8_t* d = o + op * 21;
-        for (int k = 0; k < 11; ++k) d[k] = p[k] & 0x7F;              // rates, levels, break point, depths
-        d[11] = p[11] & 3; d[12] = p[11] >> 2 & 3;                      // curves
-        d[13] = p[12] & 7; d[20] = p[12] >> 3 & 15;                     // rate scaling, detune
-        d[14] = p[13] & 3; d[15] = p[13] >> 2 & 7;                      // amp mod, key velocity sensitivity
-        d[16] = p[14] & 0x7F;                                           // output level
-        d[17] = p[15] & 1; d[18] = p[15] >> 1 & 31; d[19] = p[16] & 0x7F;   // mode, coarse, fine
-    }
-    for (int k = 0; k < 8; ++k) o[126 + k] = v[102 + k] & 0x7F;         // pitch EG
-    o[134] = v[110] & 31; o[135] = v[111] & 7; o[136] = v[111] >> 3 & 1;
-    for (int k = 0; k < 4; ++k) o[137 + k] = v[112 + k] & 0x7F;         // LFO speed, delay, depths
-    o[141] = v[116] & 1; o[142] = v[116] >> 1 & 7; o[143] = v[116] >> 4 & 7;
-    o[144] = v[117] & 0x7F;
-    for (int k = 0; k < 10; ++k) o[145 + k] = v[118 + k] & 0x7F;
-}
-
-static Item dxVoice(const uint8_t* vced, const std::vector<uint8_t>& aced) {
-    Item it;
-    it.name = text(vced + 145, 10);
-    it.syx = aced;
-    std::vector<uint8_t> m = {0xF0, 0x43, 0x00, 0x00, 0x01, 0x1B};
-    m.insert(m.end(), vced, vced + 155);
-    int sum = 0;
-    for (int k = 0; k < 155; ++k) sum += vced[k];
-    m.push_back((uint8_t)(-sum & 0x7F));
-    m.push_back(0xF7);
-    it.syx.insert(it.syx.end(), m.begin(), m.end());
-    return it;
-}
-
-Bank parseSyx(const std::vector<uint8_t>& b, const std::string& name) {
-    Bank bank;
-    bank.name = name;
-    std::vector<uint8_t> aced;   // a DX ACED waits for the VCED it completes
-    size_t acedAt = 0;
-    int open = -1;               // the performance that voice and Fseq bulks right after it belong to
-    const size_t n = b.size();
-    for (size_t i = 0; i < n;) {
-        if (b[i] != 0xF0) { ++i; continue; }
-        size_t j = i + 1;
-        while (j < n && b[j] != 0xF7) ++j;
-        if (j >= n) break;
-        const uint8_t* m = b.data() + i;
-        const size_t len = j - i + 1;
-        std::vector<uint8_t> msg(m, m + len);
-        const size_t at = i;
-        i = j + 1;
-        if (len < 8 || m[1] != 0x43 || (m[2] & 0xF0) != 0) continue;
-        if (m[3] == 0x5E && len >= 11) {
-            const int ah = m[6];
-            const uint8_t* d = m + 9;
-            const size_t dl = len - 11;
-            Item it;
-            it.address = ah;
-            it.syx = msg;
-            it.at = at;
-            it.len = len;
-            if ((ah == 0x10 || ah == 0x11) && dl >= 400) {
-                it.name = text(d, 12);
-                it.category = d[14];
-                it.number = ah == 0x11 ? m[8] : -1;
-                bank.perfs.push_back(it);
-                open = (int)bank.perfs.size() - 1;
-            } else if (((ah >= 0x40 && ah <= 0x43) || ah == 0x51) && dl >= 608) {
-                it.name = text(d, 10);
-                it.category = d[0x0E];
-                it.number = ah == 0x51 ? m[8] : -1;
-                bank.voices.push_back(it);
-                if (ah <= 0x43 && open >= 0) bank.perfs[(size_t)open].partVoice[ah - 0x40] = (int)bank.voices.size() - 1;
-                else open = -1;
-            } else if ((ah == 0x60 || ah == 0x61 || ah == 0x70) && dl >= 32) {
-                it.name = text(d, 8);
-                const int total = 128 * ((d[0x1B] & 3) + 1), end = d[0x1E] << 7 | d[0x1F];
-                it.frames = end ? std::min(total, end + 1) : total;
-                it.number = ah == 0x61 ? m[8] : -1;
-                bank.fseqs.push_back(it);
-                if (open >= 0) bank.perfs[(size_t)open].fseq = (int)bank.fseqs.size() - 1;
-                open = -1;
-            } else {
-                open = -1;
-            }
-        } else if (m[3] == 0x05 && m[4] == 0x00 && m[5] == 0x31) {
-            aced = msg;
-            acedAt = at;
-        } else if (m[3] == 0x00 && m[4] == 0x01 && m[5] == 0x1B && len >= 6 + 155 + 2) {
-            bank.voices.push_back(dxVoice(m + 6, aced));
-            bank.voices.back().at = aced.empty() ? at : acedAt;
-            bank.voices.back().len = at + len - bank.voices.back().at;
-            aced.clear();
-            open = -1;
-        } else if (m[3] == 0x09 && m[4] == 0x20 && m[5] == 0x00 && len >= 6 + 4096 + 2) {
-            uint8_t vced[155];
-            for (int k = 0; k < 32; ++k) {
-                unpackVmem(m + 6 + 128 * k, vced);
-                bank.voices.push_back(dxVoice(vced, {}));
-            }
-            open = -1;
-        }
-    }
-    return bank;
 }
 
 int nameLength(const Item& it) { return it.address >= 0x60 ? 8 : it.address >= 0x40 || !it.address ? 10 : 12; }
@@ -166,6 +52,7 @@ static void resum(std::vector<uint8_t>& syx) {
 }
 
 std::vector<uint8_t> renamed(const Item& it, const std::string& name) {
+    if (it.slot >= 0) return vmemRenamed(it, name);
     std::vector<uint8_t> s = it.syx;
     const int n = nameLength(it);
     size_t at = 9;
@@ -269,7 +156,7 @@ bool Library::rescan(bool force) {
             if (error.empty()) error = "Cannot read " + f.u8string();
             continue;
         }
-        Bank b = parseSyx(bytes, f.stem().u8string());
+        Bank b = readPatches(bytes, f.stem().u8string());
         if (b.empty()) continue;
         b.path = f.u8string();
         banks.push_back(std::move(b));
@@ -316,17 +203,18 @@ int Library::add(const std::string& name, const std::vector<uint8_t>& bytes, std
     return k;
 }
 
-int Library::import(const std::string& path, std::string& err) {
+int Library::import(const std::string& path, std::string& err, Report* report) {
     std::vector<uint8_t> bytes;
     if (!readFile(path, bytes)) {
         err = "cannot read " + path;
         return -1;
     }
-    if (parseSyx(bytes, "").empty()) {
+    const Bank b = readPatches(bytes, "", report);
+    if (b.empty()) {
         err = "no performances, voices or Fseqs in " + path;
         return -1;
     }
-    return add(fs::u8path(path).stem().u8string(), bytes, err);
+    return add(fs::u8path(path).stem().u8string(), b.rewrapped.empty() ? bytes : b.rewrapped, err);
 }
 
 // Whether a file's performances find their voices and Fseqs in any bank it shares: no bulk dumped from a
@@ -344,13 +232,14 @@ static bool selfContained(const Bank& b) {
     return true;
 }
 
-// A shared bank holds its files' items in the order parseSyx binds them again: every voice and Fseq no
+// A shared bank holds its files' items in the order readPatches binds them again: every voice and Fseq no
 // performance claims first, then each performance with the voices and Fseq it claims right after it. Left
 // where it was, a loose voice after another file's performance would join that performance.
-std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::string& err) {
+std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::string& err, Report* report) {
     std::vector<std::string> made;   // the files written, the shared bank's first
     std::vector<uint8_t> loose, claimed;
     std::string folder;
+    Pending pending;   // an AMEM or ACED waiting for the bank or voice in the next file
     auto fail = [&](const std::string& why) { err += (err.empty() ? "" : "; ") + why; };
     auto write = [&](const std::string& name, const std::vector<uint8_t>& bytes, bool first) {
         std::string e;
@@ -361,10 +250,13 @@ std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::
     for (auto& path : paths) {
         std::vector<uint8_t> bytes;
         if (!readFile(path, bytes)) { fail("cannot read " + path); continue; }
-        const Bank b = parseSyx(bytes, "");
         const fs::path p = fs::u8path(path);
-        if (b.empty()) { fail("no performances, voices or Fseqs in " + path); continue; }
-        if (!selfContained(b)) { write(p.stem().u8string(), bytes, false); continue; }
+        const Bank b = readPatches(bytes, p.filename().u8string(), report, &pending);
+        if (b.empty()) {
+            if (pending.aced.empty() && pending.amem.empty()) fail("no performances, voices or Fseqs in " + path);   // else its supplement waits
+            continue;
+        }
+        if (!selfContained(b)) { write(p.stem().u8string(), b.rewrapped.empty() ? bytes : b.rewrapped, false); continue; }
         if (folder.empty()) folder = p.parent_path().filename().u8string();
         std::vector<bool> voiceClaimed(b.voices.size()), fseqClaimed(b.fseqs.size());
         for (auto& perf : b.perfs) {
@@ -404,7 +296,7 @@ bool Library::splice(int bank, std::vector<Splice> edits, std::string& err) {
         b.erase(b.begin() + (long)e.at, b.begin() + (long)(e.at + len));
         b.insert(b.begin() + (long)e.at, e.bytes.begin(), e.bytes.end());
     }
-    if (parseSyx(b, "").empty()) return remove(bank, err);
+    if (readPatches(b, "").empty()) return remove(bank, err);
     if (!writeFile(path, b)) { err = "Cannot write " + path; return false; }
     rescan(true);
     return true;

@@ -110,7 +110,18 @@ add_library(fs1rLib STATIC
     src/device/device.cpp
     src/math/fastmath.cpp
     src/kernel/tonegen.cpp
-    src/selftest/selftest.cpp)
+    src/patchfiles/read.cpp
+    src/patchfiles/dx7.cpp
+    src/patchfiles/container_sysex.cpp
+    src/patchfiles/container_smf.cpp
+    src/patchfiles/container_headerless.cpp
+    src/patchfiles/format_fs1r.cpp
+    src/patchfiles/format_vced.cpp
+    src/patchfiles/format_aced.cpp
+    src/patchfiles/format_vmem.cpp
+    src/patchfiles/format_amem.cpp
+    src/selftest/selftest.cpp
+    src/selftest/patchfiles.cpp)
 target_include_directories(fs1rLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(fs1rLib PUBLIC vop3host)
 # The sample loop's maths backend, src/math/fastmath.h: LUT (the default, and the fastest measured), RAW

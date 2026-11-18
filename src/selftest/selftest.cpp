@@ -41,6 +41,7 @@ struct HashSink : H::WriteSink {
 };
 }  // namespace fx
 
+int selftest_patchfiles();
 static int g_fails = 0;
 static void ck(const char* what, bool ok) { if (!ok) { printf("  FAIL %s\n", what); g_fails++; } }
 int selftest(Synth& S) {
@@ -1668,6 +1669,7 @@ int selftest(Synth& S) {
         ck("filter host: its register writes are the firmware's", sink.h == 0xf188051d637d4182ull); }
     }
 
+    g_fails += selftest_patchfiles();   // selftest/patchfiles.cpp
     printf(g_fails ? "selftest: %d FAILURES\n" : "selftest: ok\n", g_fails);
     return g_fails ? 1 : 0;
 }

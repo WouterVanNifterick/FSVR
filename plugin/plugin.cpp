@@ -222,9 +222,9 @@ class Fsvr final : public hollow::Processor {
 public:
     explicit Fsvr(State& s) : st(s), base(s.size(), 0), sel(s.size(), 0), fields(s.size()) {
         buildFields();
-        factory = parseSyx(factoryBytes("fs1r_performances.syx"), "Yamaha FS1R");
-        factory.voices = parseSyx(factoryBytes("fs1r_presets.syx"), "").voices;
-        factory.fseqs = parseSyx(factoryBytes("fs1r_fseqs.syx"), "").fseqs;
+        factory = readPatches(factoryBytes("fs1r_performances.syx"), "Yamaha FS1R");
+        factory.voices = readPatches(factoryBytes("fs1r_presets.syx"), "").voices;
+        factory.fseqs = readPatches(factoryBytes("fs1r_fseqs.syx"), "").fseqs;
         lib.builtin = builtinBanks();
         dev.setSampleRate(fsvr::ENGINE_RATE);
         // A fresh instance is what its params say (FSVR's init performance and voice): the engine takes
@@ -1042,7 +1042,7 @@ private:
         Bank bonus;
         bonus.name = "Yamaha FS1R (Bonus)";
         for (const char* f : {"1_Best_of_DX.syx", "2_Popular.syx", "3_Cyber.syx", "4_WX5.syx"}) {
-            Bank b = parseSyx(factoryBytes(f), "");
+            Bank b = readPatches(factoryBytes(f), "");
             const int base = (int)bonus.voices.size();
             for (Item& perf : b.perfs) {
                 for (int p = 0; p < 4; ++p) {
@@ -1053,7 +1053,7 @@ private:
             }
             bonus.voices.insert(bonus.voices.end(), b.voices.begin(), b.voices.end());
         }
-        return {bonus, parseSyx(factoryBytes("templates.syx"), "Templates")};
+        return {bonus, readPatches(factoryBytes("templates.syx"), "Templates")};
     }
 
     // ---- loading -----------------------------------------------------------------------------------
@@ -1347,9 +1347,11 @@ private:
             a = e + 1;
         }
         std::string err;
+        Report report;
         std::lock_guard<std::mutex> g(ctl);
-        const std::vector<int> made = paths.size() == 1 ? std::vector<int>{lib.import(paths[0], err)} : lib.importAll(paths, err);
-        if (made.empty() || made[0] < 0) { message(err); return; }
+        const std::vector<int> made = paths.size() == 1 ? std::vector<int>{lib.import(paths[0], err, &report)} : lib.importAll(paths, err, &report);
+        const std::string notes = report.summary();
+        if (made.empty() || made[0] < 0) { message(err + (notes.empty() ? "" : " (" + notes + ")")); return; }
         const int k = made[0];
         const Bank& b = lib.banks[(size_t)k];
         put(browseBank, k + 1);
@@ -1357,6 +1359,7 @@ private:
         std::string more;
         if (made.size() > 1) more = ", and " + std::to_string(made.size() - 1) + " more as banks of their own";   // unit dumps
         if (!err.empty()) more += " (" + err + ")";
+        if (!notes.empty()) more += "; " + notes;
         message("Imported \"" + b.name + "\": " + std::to_string(b.perfs.size()) + " performances, " + std::to_string(b.voices.size()) +
                 " voices, " + std::to_string(b.fseqs.size()) + " Fseqs" + more);
         if (!b.fseqs.empty() && (fseqFirst || (b.perfs.empty() && b.voices.empty()))) {
@@ -1659,7 +1662,7 @@ private:
         if (!readFile(path, raw)) { message("Cannot read " + path); return {}; }
         const std::string doc(raw.begin(), raw.end());
         if (doc.find("<fsvr") == std::string::npos) { message(std::filesystem::u8path(path).filename().u8string() + " is not an FSVR preset"); return {}; }
-        const Bank b = parseSyx(unb64(xmlText(doc, "sysex")), "");
+        const Bank b = readPatches(unb64(xmlText(doc, "sysex")), "");
         if (b.perfs.empty()) { message("No performance in " + std::filesystem::u8path(path).filename().u8string()); return {}; }
         std::string name = trimmed(xmlText(doc, "name")).substr(0, 12);
         if (name.empty()) name = b.perfs[0].name;
@@ -1845,7 +1848,8 @@ private:
         std::string done, name;
         int cat = -1;
         if (r == "delete") {
-            e = target.kind == 0 ? presetRanges(b, *it) : std::vector<Library::Splice>{{it->at, it->len, {}}};
+            // A voice in a VMEM goes back to INIT VOICE, so the bank keeps 32 voices and its numbering.
+            e = target.kind == 0 ? presetRanges(b, *it) : std::vector<Library::Splice>{{it->at, it->len, it->slot >= 0 ? vmemBlanked(*it) : std::vector<uint8_t>{}}};
             done = "Deleted \"" + old + "\"";
         } else if (r == "rename") {
             name = trimmed(st.data("item.new_name")).substr(0, (size_t)nameLength(*it));

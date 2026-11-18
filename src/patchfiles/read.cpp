@@ -1,0 +1,69 @@
+// patchfiles/read.cpp - readPatches: the containers in a fixed order, then the formats on each message. Ours.
+#include "dx7.h"
+#include <map>
+
+namespace fsvr {
+
+using namespace patchfiles;
+
+void patchfiles::Reading::warn(const Message& m, const std::string& what) {
+    report.warnings.push_back((bank.name.empty() ? "" : bank.name + ", ") + "byte " + std::to_string(m.at) + ": " + what);
+}
+
+// Why a message no format took was skipped.
+static std::string skipped(const Message& m) {
+    const uint8_t* p = m.p;
+    if (m.len < 4 || p[1] != 0x43) return "a message that is not a Yamaha bulk";
+    if ((p[2] & 0xF0) == 0x10) return "a parameter change";
+    if ((p[2] & 0xF0) == 0x20) return "a dump request";
+    if ((p[2] & 0xF0) != 0) return "a Yamaha message FSVR does not read";
+    switch (p[3]) {
+    case 0x5E: return "an FS1R system bulk or one cut short";
+    case 0x03: case 0x04: return "a 4-op voice (the FS1R has no conversion for it)";
+    case 0x7E:
+        if (m.len >= 16) return "a \"" + text(p + 6, 10) + "\" bulk FSVR does not read yet";
+        break;
+    case 0x00: case 0x05: case 0x06: case 0x09: return "a DX bulk cut short";
+    }
+    return "a Yamaha bulk of a kind FSVR does not read";
+}
+
+std::string Report::summary() const {
+    auto list = [](const std::vector<std::string>& v) {
+        std::map<std::string, int> n;
+        std::vector<std::string> order;
+        for (auto& s : v) if (!n[s]++) order.push_back(s);
+        std::string out;
+        for (auto& s : order) out += (out.empty() ? "" : "; ") + s + (n[s] > 1 ? " (" + std::to_string(n[s]) + ")" : "");
+        return out;
+    };
+    std::string s;
+    if (!skipped.empty()) s = "skipped " + std::to_string(skipped.size()) + ": " + list(skipped);
+    if (!warnings.empty()) s += (s.empty() ? "" : "; ") + std::to_string(warnings.size()) + (warnings.size() == 1 ? " warning: " : " warnings: ") + list(warnings);
+    return s;
+}
+
+Bank readPatches(const std::vector<uint8_t>& bytes, const std::string& name, Report* report, Pending* pending) {
+    Report ownReport;
+    Pending ownPending;
+    Bank bank;
+    bank.name = name;
+    Report& rep = report ? *report : ownReport;
+    Reading r{bank, rep, pending ? *pending : ownPending};
+    Bytes stream;
+    const Bytes* s = &bytes;
+    if (smfStream(bytes, stream, rep) || headerlessStream(bytes, stream, rep)) {
+        bank.rewrapped = std::move(stream);
+        s = &bank.rewrapped;
+    }
+    const std::vector<Message> ms = messages(*s);
+    if (ms.empty() && s == &bytes) rep.skipped.push_back((name.empty() ? std::string("a file") : name) + ": not a patch file FSVR knows");
+    for (const Message& m : ms) {
+        if (readFs1r(m, r) || readAced(m, r) || readVced(m, r) || readAmem(m, r) || readVmem(m, r)) continue;
+        r.open = -1;
+        rep.skipped.push_back(skipped(m));
+    }
+    return bank;
+}
+
+} // namespace fsvr
