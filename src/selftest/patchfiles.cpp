@@ -149,7 +149,11 @@ int selftest_patchfiles() {
                                                named[f.size() - 2] == sum7(named.data() + 6, 4096));
       ck("a VMEM voice blanked to INIT VOICE in its slot", blank.size() == f.size() && z.voices.size() == 32 && z.voices[3].name == "INIT VOICE" &&
                                                          z.voices[4].name == "VOICE05" && same(blank, 0, s3) && same(blank, s3 + 128, f.size() - 2) &&
-                                                         blank[f.size() - 2] == sum7(blank.data() + 6, 4096)); }
+                                                         blank[f.size() - 2] == sum7(blank.data() + 6, 4096));
+      const uint8_t* init = z.voices.size() == 32 ? vcedOf(z.voices[3]) : nullptr;
+      bool c3 = init != nullptr;
+      for (int op = 0; c3 && op < 6; op++) c3 = init[op * 21 + 8] == 39;
+      ck("INIT VOICE's break point is C3 (39), as the DX7's", c3); }
 
     // A DX7II bank: bank select, AMEM, VMEM. A slot that changes the conversion gives its voice the ACED, in the
     // layout the FS1R reads (amp mod senses at 6..11, PEG range 0x0C, its velocity switch 0x0E, PEG rate scaling

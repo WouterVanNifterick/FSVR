@@ -91,12 +91,15 @@ bool clampVced(uint8_t* v) {
     return clamped;
 }
 
+constexpr uint8_t BREAK_C3 = 39;   // keyboard level scaling break point, counted from A-1
+
 void initVoice(uint8_t* v) {
     std::memset(v, 0, VCED_SIZE);
     for (int op = 0; op < 6; ++op) {
         uint8_t* d = v + op * 21;
         for (int k = 0; k < 4; ++k) d[k] = 99;
         d[4] = d[5] = d[6] = 99;   // levels 1-3; level 4 is 0
+        d[8] = BREAK_C3;
         d[18] = 1;                 // coarse 1
         d[20] = 7;                 // detune centred
     }
