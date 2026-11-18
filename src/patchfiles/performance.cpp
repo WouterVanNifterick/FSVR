@@ -59,17 +59,27 @@ static int voiceFor(Reading& r, int number) {
     return r.numbered[(size_t)number] = (int)r.bank.voices.size() - 1;
 }
 
+// Ours: a dump of the internal memory and one of the cartridge both send their banks as voices 1-64, and
+// nothing in either says which it is. A file whose banks are all in 1-64 and whose performances name a
+// cartridge voice (65-128) is taken to be the cartridge's dump, as the DX7IIFD factory CART.SYX is.
+static void cartridgeBanks(Reading& r) {
+    bool low = false, high = false, names = false;
+    for (int v = 0; v < 128; ++v)
+        if (r.numbered[(size_t)v] >= 0) (v < 64 ? low : high) = true;
+    for (const DxPerformance& d : r.dx)
+        for (const PartSetup& s : d.part) names |= s.on && s.voice >= 64;
+    if (!low || high || !names) return;
+    for (int v = 0; v < 64; ++v) { r.numbered[(size_t)v + 64] = r.numbered[(size_t)v]; r.numbered[(size_t)v] = -1; }
+}
+
 void finishPerformances(Reading& r) {
-    bool cartridge = false;
+    cartridgeBanks(r);
     for (DxPerformance& d : r.dx) {
         int found = 0, missing = 0, voice[4] = {-1, -1, -1, -1};
         for (int i = 0; i < 4; ++i) {
             PartSetup& s = d.part[i];
             if (!s.on) continue;
             voice[i] = voiceFor(r, s.voice);
-            // Ours: a dump holds the internal voices or the cartridge's, and nothing in it says which, so a
-            // number past 64 that no bank in the read holds is looked up in the first 64.
-            if (voice[i] < 0 && s.voice >= 64 && (voice[i] = voiceFor(r, s.voice - 64)) >= 0) cartridge = true;
             if (voice[i] < 0) { s.on = false; ++missing; } else ++found;
         }
         const std::string what = (r.bank.name.empty() ? "" : r.bank.name + ", ") + d.kind;
@@ -84,8 +94,13 @@ void finishPerformances(Reading& r) {
         for (int i = 0; i < 4; ++i) it.partVoice[i] = d.part[i].on ? voice[i] : -1;
         r.bank.perfs.push_back(std::move(it));
     }
-    if (cartridge) r.report.warnings.push_back((r.bank.name.empty() ? "" : r.bank.name + ", ") + "cartridge voices 65-128 read from the banks of voices 1-64");
     r.dx.clear();
+    // This file's banks, by number, for the performances in the files read after it.
+    r.pending.numbered.resize(128);
+    for (int v = 0; v < 128; ++v) {
+        const int k = r.numbered[(size_t)v];
+        if (k >= 0 && r.bank.voices[(size_t)k].slot >= 0) r.pending.numbered[(size_t)v] = r.bank.voices[(size_t)k];
+    }
 }
 
 } // namespace fsvr::patchfiles

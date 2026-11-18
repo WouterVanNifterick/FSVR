@@ -21,7 +21,6 @@ bool readVmem(const Message& m, Reading& r) {
     const int base = r.pending.half >= 0 ? 32 * r.pending.half : r.pending.next;
     r.pending.half = -1;
     r.pending.next = (base + 32) % 128;
-    r.pending.numbered.resize(128);
     int clamped = 0;
     for (int k = 0; k < 32; ++k) {
         uint8_t vced[VCED_SIZE], aced[ACED_SIZE];
@@ -33,7 +32,6 @@ bool readVmem(const Message& m, Reading& r) {
         it.len = m.len;
         it.slot = k;
         it.vmem = whole;
-        r.pending.numbered[(size_t)(base + k)] = it;
         r.numbered[(size_t)(base + k)] = (int)r.bank.voices.size();
         r.bank.voices.push_back(std::move(it));
     }

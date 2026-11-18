@@ -263,7 +263,24 @@ int selftest_patchfiles() {
           ck("an FS1R performance followed by DX voices takes them into its parts", back.perfs.size() == 1 && back.voices.size() == 2 &&
                                                                                    back.perfs[0].partVoice[0] == 0 && back.perfs[0].partVoice[1] == 1 &&
                                                                                    back.perfs[0].partVoice[2] < 0 && back.voices[1].name == "BANKB32" && r2.skipped.empty());
-      } }
+      }
+
+      // The factory's cartridge dump: its banks behind bank selects 0 and 1 like the internal ones, and a PMEM naming
+      // cartridge voices (64-127) as well as internal ones. Its banks are the cartridge's, so read after the
+      // internal dump, a performance plays one voice of each.
+      Bytes cartPmem = dx7iiPerf(1, 1, 100, 0, 60, 24, 24, 50, 99, "Both");
+      for (int k = 1; k < 32; k++) { Bytes rec = dx7iiPerf(0, 64, 0, 0, 60, 24, 24, 50, 99, "Cart"); cartPmem.insert(cartPmem.end(), rec.begin(), rec.end()); }
+      const Bytes cart = cat({sel0, dxBulk(0x09, 0x20, 0x00, vmemNamed("CARTA")), sel1, dxBulk(0x09, 0x20, 0x00, vmemNamed("CARTB")), lmBulk("LM  8973PM", cartPmem)});
+      Pending p; Report r3;
+      readPatches(f, "INTERNAL", &r3, &p);
+      const Bank c = readPatches(cart, "CART", &r3, &p);
+      const bool cok = c.perfs.size() == 32;
+      ck("a DX7II dump whose performances name cartridge voices has the cartridge's banks", cok &&
+         c.voices[(size_t)c.perfs[0].partVoice[0]].name == "BANKA02" && c.voices[(size_t)c.perfs[0].partVoice[1]].name == "CARTB05" &&
+         c.voices[(size_t)c.perfs[1].partVoice[0]].name == "CARTA01");
+      Report r4; const Bank alone = readPatches(cart, "CART", &r4);
+      ck("read alone, its internal voices are not there", alone.perfs.size() == 32 && alone.perfs[0].partVoice[0] < 0 &&
+                                                          alone.voices[(size_t)alone.perfs[0].partVoice[1]].name == "CARTB05" && r4.warnings.size() == 1); }
 
     // A PCED, the DX7II's edit buffer, after one bank: voice B (40) is not in it, so its part stays off and the
     // report says so. With no bank at all the performance has nothing to play and is skipped.
