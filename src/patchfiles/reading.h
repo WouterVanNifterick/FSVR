@@ -25,6 +25,7 @@ struct PartSetup {
 // A DX performance waiting for the end of the file, when its voices are looked up by number.
 struct DxPerformance {
     std::string name, kind;              // kind names it in the report: "a DX7II performance", "a TX802 performance"
+    bool tx802 = false;                  // its voice numbers run on to 255: presets A and B from 128
     PartSetup part[4];
     size_t at = 0, len = 0;
 };
@@ -39,6 +40,7 @@ struct Reading {
     size_t acedAt = SIZE_MAX;            // the pending ACED's place in this file; SIZE_MAX when it came in an earlier one
     std::vector<DxPerformance> dx;
     std::vector<int> numbered = std::vector<int>(128, -1);   // a DX voice number's voice in this bank
+    std::vector<bool> selected = std::vector<bool>(128);     // and whether its bank came behind a bank select
     void warn(const Message& m, const std::string& what);
 };
 

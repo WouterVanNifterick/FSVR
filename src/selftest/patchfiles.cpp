@@ -343,6 +343,23 @@ int selftest_patchfiles() {
                                                                       perfs.voices[(size_t)perfs.perfs[0].partVoice[2]].name == "BANKB01" &&
                                                                       perfs.voices[0].at == 0 && perfs.voices[0].len == 0 && perfs.voices[0].slot < 0); }
 
+    // A TX802 voice number counts I01-I64, C01-C64, then the ROM's presets A and B (128-255). The factory set's
+    // preset banks come as files with no bank select, so a preset voice is found only in banks sent so, and those
+    // are then the presets, not the internal voices. A voice the banks read cannot hold leaves its part off.
+    { Bytes two(84, 0);
+      two[0] = 0x00; two[1] = 0x20;                 // TG1 and TG2 both lead
+      two[8] = 0x82; two[9] = 0x02;                 // preset A03, internal I03
+      for (int t = 0; t < 8; t++) { two[24 + t] = 90; two[32 + t] = t < 2 ? 0x3B : 0x38; two[48 + t] = 127; two[56 + t] = 0x18; }
+      memcpy(two.data() + 64, "Two Kinds           ", 20);
+      const Bytes sel0 = {0xF0, 0x43, 0x10, 0x19, 0x4D, 0x00, 0xF7};
+      auto voiceOf = [](const Bank& b, int p) { return b.perfs.size() == 1 && b.perfs[0].partVoice[p] >= 0 ? b.voices[(size_t)b.perfs[0].partVoice[p]].name : std::string("-"); };
+      Report r; const Bank internal = readPatches(cat({sel0, dxBulk(0x09, 0x20, 0x00, vmemNamed("INT")), tx802Pmem({two})}), "TX802", &r);
+      ck("a TX802 preset voice is not found in an internal bank", voiceOf(internal, 0) == "-" && voiceOf(internal, 1) == "INT03" &&
+                                                                  r.summary().find("left off") != std::string::npos);
+      Report r2; const Bank presets = readPatches(cat({dxBulk(0x09, 0x20, 0x00, vmemNamed("PRESETA")), tx802Pmem({two})}), "TX802", &r2);
+      ck("a TX802 preset voice is found in a bank with no bank select, and an internal one is then not", voiceOf(presets, 0) == "PRESETA03" &&
+                                                                                                         voiceOf(presets, 1) == "-" && r2.summary().find("left off") != std::string::npos); }
+
     // A DX1/DX5 performance bank (format 02, 64 x 64) is not read: its layout is not settled. It says so.
     { Report r; const Bank b = readPatches(dxBulk(0x02, 0x20, 0x00, Bytes(4096, 0x20)), "DX5", &r);
       ck("a DX1/DX5 performance bank is skipped with its reason", b.empty() && r.skipped.size() == 1 &&

@@ -45,18 +45,48 @@ Bytes performanceBulk(const std::string& name, const PartSetup* parts) {
     return m;
 }
 
-// A voice number's voice: one read in this file, else one read earlier in the files read with it, copied in.
-static int voiceFor(Reading& r, int number) {
+// Which banks a voice may come from: any, only those behind a bank select, or only those with none.
+enum class From { Any, Selected, Unselected };
+
+// A voice number (0-127) in banks of the kind given: one read in this file, else one read earlier in the files
+// read with it, copied in.
+static int voiceFor(Reading& r, int number, From from) {
     if (number < 0 || number > 127) return -1;
-    if (r.numbered[(size_t)number] >= 0) return r.numbered[(size_t)number];
-    const std::vector<Item>& earlier = r.pending.numbered;
-    if ((size_t)number >= earlier.size() || earlier[(size_t)number].syx.empty()) return -1;
-    Item it = earlier[(size_t)number];
+    const size_t n = (size_t)number;
+    auto fits = [&](bool selected) { return from == From::Any || selected == (from == From::Selected); };
+    if (r.numbered[n] >= 0 && fits(r.selected[n])) return r.numbered[n];
+    const std::vector<Pending::Voice>& earlier = r.pending.numbered;
+    if (n >= earlier.size() || earlier[n].item.syx.empty() || !fits(earlier[n].selected)) return -1;
+    Item it = earlier[n].item;
     it.at = it.len = 0;   // its bytes are in another file
     it.slot = -1;
     it.vmem.reset();
     r.bank.voices.push_back(std::move(it));
-    return r.numbered[(size_t)number] = (int)r.bank.voices.size() - 1;
+    const int k = (int)r.bank.voices.size() - 1;
+    if (r.numbered[n] < 0) { r.numbered[n] = k; r.selected[n] = earlier[n].selected; }
+    return k;
+}
+
+// Ours, settled against the TX802 factory set (P.SYX and A1, A2, B1, B2 beside it): a TX802 voice number counts
+// I01-I64, C01-C64, then the ROM's presets A01-A64 and B01-B64, and the factory performances name the presets
+// (0x82 is A03, ReverbBras). The presets cannot be in a dump of the unit's memory. The set sends them as the four
+// files A1, A2, B1, B2, VMEMs with no bank select, which number on 0-127 in that order; so a preset voice is
+// looked up at its number less 128, among banks that came with no bank select. When the TX802 performances read
+// name a preset voice, those banks are taken to be the presets, and none of them then stands for a voice of
+// the unit's memory.
+constexpr int TX802_PRESETS = 128;
+
+static bool presetBanks(const Reading& r) {
+    for (const DxPerformance& d : r.dx)
+        for (const PartSetup& s : d.part)
+            if (d.tx802 && s.on && s.voice >= TX802_PRESETS) return true;
+    return false;
+}
+
+static int partVoice(Reading& r, const DxPerformance& d, int number, bool presets) {
+    if (!d.tx802) return voiceFor(r, number, From::Any);
+    if (number >= TX802_PRESETS) return voiceFor(r, number - TX802_PRESETS, From::Unselected);
+    return voiceFor(r, number, presets ? From::Selected : From::Any);
 }
 
 // Ours: a dump of the internal memory and one of the cartridge both send their banks as voices 1-64, and
@@ -67,19 +97,24 @@ static void cartridgeBanks(Reading& r) {
     for (int v = 0; v < 128; ++v)
         if (r.numbered[(size_t)v] >= 0) (v < 64 ? low : high) = true;
     for (const DxPerformance& d : r.dx)
-        for (const PartSetup& s : d.part) names |= s.on && s.voice >= 64;
+        for (const PartSetup& s : d.part) names |= s.on && s.voice >= 64 && s.voice < 128;
     if (!low || high || !names) return;
-    for (int v = 0; v < 64; ++v) { r.numbered[(size_t)v + 64] = r.numbered[(size_t)v]; r.numbered[(size_t)v] = -1; }
+    for (size_t v = 0; v < 64; ++v) {
+        r.numbered[v + 64] = r.numbered[v];
+        r.selected[v + 64] = r.selected[v];
+        r.numbered[v] = -1;
+    }
 }
 
 void finishPerformances(Reading& r) {
     cartridgeBanks(r);
+    const bool presets = presetBanks(r);
     for (DxPerformance& d : r.dx) {
         int found = 0, missing = 0, voice[4] = {-1, -1, -1, -1};
         for (int i = 0; i < 4; ++i) {
             PartSetup& s = d.part[i];
             if (!s.on) continue;
-            voice[i] = voiceFor(r, s.voice);
+            voice[i] = partVoice(r, d, s.voice, presets);
             if (voice[i] < 0) { s.on = false; ++missing; } else ++found;
         }
         const std::string what = (r.bank.name.empty() ? "" : r.bank.name + ", ") + d.kind;
@@ -99,7 +134,7 @@ void finishPerformances(Reading& r) {
     r.pending.numbered.resize(128);
     for (int v = 0; v < 128; ++v) {
         const int k = r.numbered[(size_t)v];
-        if (k >= 0 && r.bank.voices[(size_t)k].slot >= 0) r.pending.numbered[(size_t)v] = r.bank.voices[(size_t)k];
+        if (k >= 0 && r.bank.voices[(size_t)k].slot >= 0) r.pending.numbered[(size_t)v] = {r.bank.voices[(size_t)k], r.selected[(size_t)v]};
     }
 }
 

@@ -7,7 +7,7 @@
 //
 // The record is eight rows of eight bytes, one byte per tone generator, then a 20-character name:
 //   0  link (bits 5-7) and receive channel (0-15, 16 omni)   32  detune (bits 3-6, 7 centre) and output (bits 0-1)
-//   8  voice (bits 0-6: 0-63 internal, 64-127 cartridge)     40  note limit low     48  note limit high
+//   8  voice (0-63 internal, 64-127 cartridge, 128-255 presets A and B)   40  note limit low   48  note limit high
 //  24  output volume 0-99                                    56  note shift (bits 0-5, 24 centre)
 // The link names the TG whose notes this one adds to: every factory performance that stacks a voice links its
 // TGs so, the linked ones carrying no voice of their own. Settled against the factory set's 64 performances and
@@ -27,6 +27,7 @@ static int nibble(uint8_t c) {
 static DxPerformance performance(const uint8_t* b, Reading& r) {
     DxPerformance d;
     d.kind = "a TX802 performance";
+    d.tx802 = true;
     std::string name = text(b + NAME_AT, NAME_SIZE);
     name.erase(0, name.find_first_not_of(' '));
     d.name = name;
@@ -38,7 +39,7 @@ static DxPerformance performance(const uint8_t* b, Reading& r) {
         if (parts == 4) { dropped += (dropped.empty() ? "TG" : ", TG") + std::to_string(t + 1); continue; }
         PartSetup& s = d.part[parts++];
         s.on = true;
-        s.voice = b[8 + t] & 0x7F;
+        s.voice = b[8 + t];
         const int ch = b[t] & 0x1F;
         s.channel = ch >= OMNI ? PFM : ch;   // ours: omni plays on the performance channel
         s.volume = (int)std::lround(127 * std::min(b[24 + t] & 0x7F, 99) / 99.0);

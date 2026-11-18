@@ -49,7 +49,11 @@ struct Pending {
     std::vector<uint8_t> aced;           // a whole ACED message
     std::vector<uint8_t> amem;           // the 1120 data bytes of an AMEM, 32 slots of 35
     int half = -1;                       // the DX7II bank select's half: 0 voices 1-32, 1 voices 33-64
-    std::vector<Item> numbered;          // the VMEM voices read so far by number, 0..127; an empty syx where none was
+    struct Voice {
+        Item item;                       // an empty syx where none was
+        bool selected = false;           // its bank came behind a bank select
+    };
+    std::vector<Voice> numbered;         // the VMEM voices read so far by number, 0..127
     int next = 0;                        // the number a VMEM with no bank select before it starts at
 };
 
