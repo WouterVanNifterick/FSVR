@@ -55,6 +55,7 @@ static int voiceFor(Reading& r, int number, From from) {
     const size_t n = (size_t)number;
     auto fits = [&](bool selected) { return from == From::Any || selected == (from == From::Selected); };
     if (r.numbered[n] >= 0 && fits(r.selected[n])) return r.numbered[n];
+    if (r.before[n] >= 0 && fits(r.beforeSelected[n])) return r.before[n];
     const std::vector<Pending::Voice>& earlier = r.pending.numbered;
     if (n >= earlier.size() || earlier[n].item.syx.empty() || !fits(earlier[n].selected)) return -1;
     if (std::find(r.borrowed.begin(), r.borrowed.end(), earlier[n].file) == r.borrowed.end()) r.borrowed.push_back(earlier[n].file);
@@ -107,7 +108,8 @@ static void cartridgeBanks(Reading& r) {
     }
 }
 
-void finishPerformances(Reading& r) {
+// The DX performances read so far as items, their voices found by number in the banks read so far.
+static void resolve(Reading& r) {
     cartridgeBanks(r);
     const bool presets = presetBanks(r);
     for (DxPerformance& d : r.dx) {
@@ -132,6 +134,20 @@ void finishPerformances(Reading& r) {
         r.bank.perfs.push_back(std::move(it));
     }
     r.dx.clear();
+}
+
+void newDump(Reading& r) {
+    resolve(r);
+    for (size_t v = 0; v < 128; ++v)
+        if (r.numbered[v] >= 0) {
+            r.before[v] = r.numbered[v];
+            r.beforeSelected[v] = r.selected[v];
+            r.numbered[v] = -1;
+        }
+}
+
+void finishPerformances(Reading& r) {
+    resolve(r);
     if (!r.borrowed.empty()) {
         std::string files;
         for (const std::string& f : r.borrowed) files += (files.empty() ? "" : ", ") + (f.empty() ? std::string("a file") : f);
@@ -139,9 +155,10 @@ void finishPerformances(Reading& r) {
     }
     // This file's banks, by number, for the performances in the files read after it.
     r.pending.numbered.resize(128);
-    for (int v = 0; v < 128; ++v) {
-        const int k = r.numbered[(size_t)v];
-        if (k >= 0 && r.bank.voices[(size_t)k].slot >= 0) r.pending.numbered[(size_t)v] = {r.bank.voices[(size_t)k], r.selected[(size_t)v], r.bank.name};
+    for (size_t v = 0; v < 128; ++v) {
+        const bool now = r.numbered[v] >= 0;
+        const int k = now ? r.numbered[v] : r.before[v];
+        if (k >= 0 && r.bank.voices[(size_t)k].slot >= 0) r.pending.numbered[v] = {r.bank.voices[(size_t)k], now ? r.selected[v] : r.beforeSelected[v], r.bank.name};
     }
 }
 

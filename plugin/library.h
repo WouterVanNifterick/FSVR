@@ -44,7 +44,9 @@ public:
     // Several files as one new bank, named name or else after their folder, each performance keeping the voices and Fseq
     // that came with it. A file holding internal memory (a unit's dump, whose performances name their voices
     // by number) is a bank of its own, as import() makes it, since its numbers would meet another file's.
-    // The files are read as one stream, so a supplement in one pairs with the bank in the next.
+    // The files are read as one stream, so a supplement in one pairs with the bank in the next. A file with no
+    // FS1R performance (DX banks and their performances) is kept as it was, ahead of the rest; another
+    // folder's such files make a bank of their own, since DX banks number per folder.
     // The new banks' indexes, the shared one first; err says what could not be read ("nothing FSVR can read in
     // <file> (<reason>)", or in how many files).
     std::vector<int> importAll(const std::vector<std::string>& paths, std::string& err, Report* report = nullptr, const std::string& name = "");

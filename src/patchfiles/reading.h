@@ -43,6 +43,8 @@ struct Reading {
     std::vector<DxPerformance> dx;
     std::vector<int> numbered = std::vector<int>(128, -1);   // a DX voice number's voice in this bank
     std::vector<bool> selected = std::vector<bool>(128);     // and whether its bank came behind a bank select
+    std::vector<int> before = std::vector<int>(128, -1);     // the same for the dumps before the last one in this file
+    std::vector<bool> beforeSelected = std::vector<bool>(128);
     std::vector<std::string> borrowed;   // the files read before this one whose voices its performances play
     void warn(const Message& m, const std::string& what);
 };
@@ -51,6 +53,10 @@ struct Reading {
 // init performance; and the file's DX performances as items, their voices found by number (performance.cpp).
 Bytes performanceBulk(const std::string& name, const PartSetup* parts);
 void finishPerformances(Reading& r);
+// A bank landing on numbers a bank of this file already holds starts another dump, as the next of several files
+// kept one after the other does: the performances read so far find their voices first, and the banks before
+// stay for the later performances that name numbers the new banks do not hold.
+void newDump(Reading& r);
 
 // Containers: a file to a sysex stream. The first four say whether the file is theirs and rewrap it into out.
 bool smfStream(const Bytes& file, Bytes& out, Report& report);          // container_smf.cpp

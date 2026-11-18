@@ -304,7 +304,16 @@ int selftest_patchfiles() {
          c.voices[(size_t)c.perfs[1].partVoice[0]].name == "CARTA01");
       Report r4; const Bank alone = readPatches(cart, "CART", &r4);
       ck("read alone, its internal voices are not there", alone.perfs.size() == 32 && alone.perfs[0].partVoice[0] < 0 &&
-                                                          alone.voices[(size_t)alone.perfs[0].partVoice[1]].name == "CARTB05" && r4.warnings.size() == 1); }
+                                                          alone.voices[(size_t)alone.perfs[0].partVoice[1]].name == "CARTB05" && r4.warnings.size() == 1);
+
+      // The two kept one after the other in one file, as the library keeps a folder of DX files, read as they did
+      // apart: the second dump's banks land on the first's numbers, so the first's performances take their voices
+      // before them, and the second's find the first's banks still.
+      const Bank both = readPatches(cat({f, cart}), "BOTH");
+      auto nameOf = [&](size_t perf, int part) { return both.perfs[perf].partVoice[part] >= 0 ? both.voices[(size_t)both.perfs[perf].partVoice[part]].name : std::string("-"); };
+      ck("two DX7II dumps in one file read as they do apart", both.perfs.size() == 64 && both.voices.size() == 128 && nameOf(0, 0) == "BANKA02" &&
+                                                              nameOf(0, 1) == "BANKB02" && nameOf(32, 0) == "BANKA02" && nameOf(32, 1) == "CARTB05" &&
+                                                              nameOf(33, 0) == "CARTA01"); }
 
     // A PCED, the DX7II's edit buffer, after one bank: voice B (40) is not in it, so its part stays off and the
     // report says so. With no bank at all the performance has nothing to play and is skipped.

@@ -28,6 +28,7 @@ bool readVmem(const Message& m, Reading& r) {
     const int base = selected ? 32 * r.pending.half : r.pending.next;
     r.pending.half = -1;
     r.pending.next = (base + 32) % 128;
+    if (std::any_of(r.numbered.begin() + base, r.numbered.begin() + base + 32, [](int k) { return k >= 0; })) newDump(r);
     int clamped = 0;
     for (int k = 0; k < 32; ++k) {
         uint8_t vced[VCED_SIZE], aced[ACED_SIZE];

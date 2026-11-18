@@ -275,12 +275,19 @@ static bool selfContained(const Bank& b) {
     return true;
 }
 
-// A shared bank holds its files' items in the order readPatches binds them again: every voice and Fseq no
-// performance claims first, then each performance with the voices and Fseq it claims right after it. Left
-// where it was, a loose voice after another file's performance would join that performance.
+// A shared bank holds its files in the order readPatches binds them again. The files holding no FS1R
+// performance come first, each as it was (its DX banks keep their bytes, and a voice several DX performances
+// name is there once), with a file that only held a supplement before the next of its folder. Then come the FS1R
+// files' items: every voice and Fseq no performance claims, then each performance with the voices and Fseq it
+// claims right after it. Left where it was, a loose voice after another file's performance would join that
+// performance. DX files number their banks per folder, so another folder's go into a bank of their own.
 std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::string& err, Report* report, const std::string& name) {
     std::vector<std::string> made;   // the files written, the shared bank's first
     std::vector<uint8_t> loose, claimed;
+    struct Kept { std::string folder, name; std::vector<uint8_t> bytes; };
+    std::vector<Kept> kept;          // each folder's files that hold no FS1R performance, as they were
+    std::vector<uint8_t> held;       // a file that only held a supplement, for the next file of its folder
+    std::string heldIn;
     std::string folder = name, firstUnread, waiting;   // waiting: the file that left the supplement pending holds
     int unread = 0;
     Pending pending;   // an AMEM or ACED waiting for the bank or voice in the next file
@@ -307,8 +314,20 @@ std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::
             continue;
         }
         append(report, own);
-        if (b.empty()) continue;
-        if (!selfContained(b)) { write(p.stem().u8string(), b.rewrapped.empty() ? bytes : b.rewrapped, false); continue; }
+        const std::vector<uint8_t>& stream = b.rewrapped.empty() ? bytes : b.rewrapped;
+        std::vector<uint8_t> asRead;   // the file as kept: after the supplement a file before it left, if any
+        if (!held.empty() && heldIn == pending.folder) asRead = held;
+        held.clear();
+        asRead.insert(asRead.end(), stream.begin(), stream.end());
+        if (b.empty()) { held = asRead; heldIn = pending.folder; continue; }
+        if (!selfContained(b)) { write(p.stem().u8string(), asRead, false); continue; }
+        if (std::none_of(b.perfs.begin(), b.perfs.end(), [](const Item& it) { return !it.fromDx; })) {
+            auto in = std::find_if(kept.begin(), kept.end(), [&](const Kept& k) { return k.folder == pending.folder; });
+            if (in == kept.end()) in = kept.insert(kept.end(), Kept{pending.folder, p.parent_path().filename().u8string(), {}});
+            in->bytes.insert(in->bytes.end(), asRead.begin(), asRead.end());
+            if (folder.empty() && in == kept.begin()) folder = in->name;
+            continue;
+        }
         if (folder.empty()) folder = p.parent_path().filename().u8string();
         std::vector<bool> voiceClaimed(b.voices.size()), fseqClaimed(b.fseqs.size());
         for (auto& perf : b.perfs) {
@@ -328,6 +347,8 @@ std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::
         }
     }
     loose.insert(loose.end(), claimed.begin(), claimed.end());
+    if (!kept.empty()) loose.insert(loose.begin(), kept[0].bytes.begin(), kept[0].bytes.end());
+    for (size_t k = 1; k < kept.size(); ++k) write(kept[k].name, kept[k].bytes, false);
     if (!loose.empty()) write(folder.empty() ? "Imported" : folder, loose, true);
     if (unread == 1) fail("nothing FSVR can read in " + firstUnread);
     else if (unread > 1) fail("nothing FSVR can read in " + std::to_string(unread) + " files, " + firstUnread + " first");

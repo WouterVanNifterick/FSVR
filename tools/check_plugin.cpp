@@ -803,6 +803,24 @@ int main() {
             CHECK(std::equal(pmemKept.begin(), pmemKept.end(), saved.begin()) && a.until([&] { return a.lines("browse.perf.list") == 33; }),
                   "saving over a DX7II performance did not leave the PMEM and add one (%zu bytes, were %zu; %d performances)", saved.size(), pmemKept.size(),
                   a.lines("browse.perf.list"));
+
+            // A folder of DX files, the supplements, the bank and the performances apart, is kept as the files
+            // were, one after the other, so the bank keeps its own bytes and each voice is there once.
+            file(tmp / "DXSet" / "1 AMEM.syx", dx7iiAmem());
+            file(tmp / "DXSet" / "2 VMEM.syx", dx7Bank());
+            file(tmp / "DXSet" / "3 PMEM.syx", pmem);
+            request("patch.import", (tmp / "DXSet").u8string());
+            a.set("browse.category", 0);
+            CHECK(a.until([&] { return lineOf("bank.list", "DXSet") > 0 && a.is("browse.bank", lineOf("bank.list", "DXSet")) && a.lines("browse.perf.list") == 32 &&
+                                       a.lines("browse.voice.list") == 32; }),
+                  "a folder of DX files made no bank of 32 performances and 32 voices (%d, %d, %s)", a.lines("browse.perf.list"), a.lines("browse.voice.list"),
+                  a.data("live.message").c_str());
+            std::vector<uint8_t> whole = dx7iiAmem(), vmem = dx7Bank();
+            whole.insert(whole.end(), vmem.begin(), vmem.end());
+            whole.insert(whole.end(), pmem.begin(), pmem.end());
+            std::vector<uint8_t> setBytes;
+            { std::ifstream f(tmp / "Library" / "DXSet.syx", std::ios::binary); setBytes.assign(std::istreambuf_iterator<char>(f), {}); }
+            CHECK(setBytes == whole, "a folder of DX files was not kept as its files (%zu bytes, not %zu)", setBytes.size(), whole.size());
         }
 
         for (int k = 0; k <= 2000; ++k) file(tmp / "Huge" / ("f" + std::to_string(k) + ".syx"), {});
