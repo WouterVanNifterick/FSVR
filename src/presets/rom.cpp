@@ -31,7 +31,7 @@ void perf_from_bytes(Synth& S, const Rom* R, const uint8_t* d) {
     // go while they still belong to the performance that owned them, before any of its bytes change. Until
     // this was here only the plug-in's own preset browser did it, so a performance bulk from a host, an
     // editor or the MIDI in left notes sounding, and they carried on through the new performance's voices.
-    // No FUN_ for it yet: this is the unit's behaviour as reported, not read off the disassembly.
+    // The bulk handler does the same (FUN_0003d0dc: FUN_000195ac(0), every channel).
     S.all_off();
     // FUN_0000f2f0 puts every part's last pitch (0x0102885C) at 0x53AA, so a part with portamento in full-time
     // mode glides its first note in from that word. MEASURED 2026-10-26 (FS1R.unlock 2026-10-26-open, takes 9 and
@@ -84,7 +84,10 @@ bool load_sysex(Synth& S, const Rom* R, const uint8_t* d, size_t len, int pick, 
             if (i + 9 + bc + 2 > len) break;
             if (bc == 608 && ((ah >= 0x40 && ah <= 0x43) || ah == 0x51)) {
                 if (found++ != pick) continue;
+                // A voice for a part silences it first (FUN_0003d0dc: FUN_000195ac(1, part), FUN_00010384(0)),
+                // so a note of the old voice still releasing does not play on with the new one.
                 int pi = ah <= 0x43 ? ah - 0x40 : part;
+                S.silence_part(pi);
                 memcpy(S.perf.part[pi].voice.raw, p, 608); decode_voice(S.perf.part[pi].voice); return true;
             }
             if (bc == 400 && (ah == 0x10 || ah == 0x11)) {
@@ -108,6 +111,7 @@ bool load_sysex(Synth& S, const Rom* R, const uint8_t* d, size_t len, int pick, 
         } else if (d[i + 3] == 0x00 && d[i + 4] == 0x01 && d[i + 5] == 0x1B) {
             if (i + 6 + 155 + 2 > len) break;
             if (found++ != pick) continue;
+            S.silence_part(part);                                    // FUN_0003d370: FUN_000195ac(1, 0)
             convert_dx7(d + i + 6, S.perf.part[part].voice.raw); decode_voice(S.perf.part[part].voice); return true;
         }
     }
