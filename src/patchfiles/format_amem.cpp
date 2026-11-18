@@ -18,6 +18,8 @@ bool readAmem(const Message& m, Reading& r) {
     if (!dxBulk(m, 0x06) || m.p[4] != 0x08 || m.p[5] != 0x60 || m.len < 6 + AMEM_SIZE + 2) return false;
     checkSum(m, 6, AMEM_SIZE, "AMEM", r);
     r.pending.amem.assign(m.p + 6, m.p + 6 + AMEM_SIZE);
+    r.amem = std::make_shared<const Bytes>(m.p, m.p + m.len);
+    r.amemAt = m.at;
     return true;
 }
 

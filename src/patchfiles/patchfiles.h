@@ -24,6 +24,8 @@ struct Item {
     size_t at = 0, len = 0;        // its bytes in the bank's file (a DX voice: from its ACED; a VMEM voice: the whole VMEM)
     int slot = -1;                 // a VMEM voice: its place in the bank, 0..31
     std::shared_ptr<const std::vector<uint8_t>> vmem;   // and the VMEM message it is in, as read
+    std::shared_ptr<const std::vector<uint8_t>> amem;   // and the AMEM message before it in the same file, if any
+    size_t amemAt = 0;                                  // where that AMEM is in the file
     const uint8_t* data() const { return syx.data() + 9; }   // a native bulk's data, after its address
 };
 
@@ -69,5 +71,7 @@ Bank readPatches(const std::vector<uint8_t>& bytes, const std::string& name, Rep
 // A VMEM voice's message with the slot renamed, or blanked to the DX7's INIT VOICE, its checksum redone.
 std::vector<uint8_t> vmemRenamed(const Item& it, const std::string& name);
 std::vector<uint8_t> vmemBlanked(const Item& it);
+// Its AMEM message with the voice's slot back to a DX7 voice's default, so the blanked voice gets no ACED.
+std::vector<uint8_t> amemBlanked(const Item& it);
 
 } // namespace fsvr

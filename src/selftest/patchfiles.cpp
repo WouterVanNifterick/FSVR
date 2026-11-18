@@ -186,7 +186,23 @@ int selftest_patchfiles() {
 
       // Read on its own, an AMEM with no bank after it is reported, not dropped without a word.
       Report r3; const Bank alone = readPatches(cat({select, dxBulk(0x06, 0x08, 0x60, amem)}), "AMEM", &r3);
-      ck("an AMEM with no bank after it is reported", alone.empty() && r3.skipped.size() == 1 && r3.summary().find("AMEM") != std::string::npos); }
+      ck("an AMEM with no bank after it is reported", alone.empty() && r3.skipped.size() == 1 && r3.summary().find("AMEM") != std::string::npos);
+
+      // A voice blanked in its slot takes its AMEM slot back to the default with it, so it loads as a plain INIT VOICE.
+      const Item& v2 = b.voices.size() == 32 ? b.voices[1] : b.voices.at(0);
+      const Bytes amemMsg = dxBulk(0x06, 0x08, 0x60, amem);
+      ck("a VMEM voice knows its AMEM message", v2.amem && *v2.amem == amemMsg && v2.amemAt == select.size());
+      if (v2.amem) {
+          Bytes edited = f;
+          const Bytes vm = vmemBlanked(v2), am = amemBlanked(v2);
+          std::copy(vm.begin(), vm.end(), edited.begin() + (long)v2.at);
+          std::copy(am.begin(), am.end(), edited.begin() + (long)v2.amemAt);
+          Report r4; const Bank z = readPatches(edited, "", &r4);
+          ck("a VMEM voice blanked with its AMEM slot loads as a plain INIT VOICE", am.size() == amemMsg.size() && z.voices.size() == 32 &&
+                                                                                    z.voices[1].name == "INIT VOICE" && !acedOf(z.voices[1]) &&
+                                                                                    z.voices[1].syx == readPatches(vmemBlanked(v2), "").voices[1].syx &&
+                                                                                    acedOf(z.voices[0]) == nullptr && r4.warnings.empty());
+      } }
 
     // A bank with no frame: 4096 bytes, or with a librarian's header before it, or two back to back. It comes back
     // rewrapped as the VMEM the DX7 sends, and the items count in that.

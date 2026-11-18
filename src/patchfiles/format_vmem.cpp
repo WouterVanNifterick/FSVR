@@ -8,6 +8,10 @@
 
 namespace fsvr::patchfiles {
 
+// A DX7 voice's AMEM slot, as a DX7II gives a voice loaded from a DX7 bank: pitch bend range 2, the rest 0.
+constexpr size_t AMEM_BEND = 5;   // pitch bend range, bits 2-5
+constexpr int DEFAULT_BEND = 2;
+
 bool readVmem(const Message& m, Reading& r) {
     if (!dxBulk(m, 0x09) || m.len < 6 + VMEM_SIZE + 2) return false;
     checkSum(m, 6, VMEM_SIZE, "VMEM", r);
@@ -16,6 +20,8 @@ bool readVmem(const Message& m, Reading& r) {
     const auto whole = std::make_shared<const Bytes>(m.p, m.p + m.len);
     Bytes amem;
     amem.swap(r.pending.amem);
+    std::shared_ptr<const Bytes> amemMessage;
+    amemMessage.swap(r.amem);
     // The voices' numbers, for a performance that names them: 32 from the bank select's half, or, with none
     // before it, on from the last bank read (ours: a TX802's banks come as four files with no bank select).
     const bool selected = r.pending.half >= 0;
@@ -33,6 +39,8 @@ bool readVmem(const Message& m, Reading& r) {
         it.len = m.len;
         it.slot = k;
         it.vmem = whole;
+        it.amem = amemMessage;
+        it.amemAt = r.amemAt;
         r.numbered[(size_t)(base + k)] = (int)r.bank.voices.size();
         r.selected[(size_t)(base + k)] = selected;
         r.bank.voices.push_back(std::move(it));
@@ -71,6 +79,16 @@ std::vector<uint8_t> vmemBlanked(const Item& it) {
     initVoice(vced);
     packRecord(vced, m.data() + 6 + RECORD * (size_t)it.slot);
     return resummed(m);
+}
+
+std::vector<uint8_t> amemBlanked(const Item& it) {
+    if (!it.amem || it.slot < 0 || it.amem->size() < 6 + AMEM_SIZE + 2) return it.amem ? *it.amem : Bytes{};
+    Bytes m = *it.amem;
+    uint8_t* s = m.data() + 6 + AMEM_SLOT * (size_t)it.slot;
+    std::fill(s, s + AMEM_SLOT, 0);
+    s[AMEM_BEND] = DEFAULT_BEND << 2;
+    m[6 + AMEM_SIZE] = checksum(m.data() + 6, AMEM_SIZE);
+    return m;
 }
 
 } // namespace fsvr

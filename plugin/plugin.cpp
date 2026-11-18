@@ -1866,8 +1866,14 @@ private:
         std::string done, name;
         int cat = -1;
         if (r == "delete") {
-            // A voice in a VMEM goes back to INIT VOICE, so the bank keeps 32 voices and its numbering.
-            e = target.kind == 0 ? presetRanges(b, *it) : std::vector<Library::Splice>{{it->at, it->len, it->slot >= 0 ? vmemBlanked(*it) : std::vector<uint8_t>{}}};
+            // A voice in a VMEM goes back to INIT VOICE, and its AMEM slot to a DX7 voice's, so the bank keeps 32
+            // voices and its numbering, and the slot loads as a plain INIT VOICE.
+            if (target.kind == 0) e = presetRanges(b, *it);
+            else if (it->slot < 0) e = {{it->at, it->len, {}}};
+            else {
+                e = {{it->at, it->len, vmemBlanked(*it)}};
+                if (it->amem) e.push_back({it->amemAt, it->amem->size(), amemBlanked(*it)});
+            }
             done = "Deleted \"" + old + "\"";
         } else if (r == "rename") {
             name = trimmed(st.data("item.new_name")).substr(0, (size_t)nameLength(*it));

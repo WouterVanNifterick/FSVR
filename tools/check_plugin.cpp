@@ -744,7 +744,8 @@ int main() {
             for (size_t i = 6; i < pmem.size(); ++i) sum += pmem[i];
             pmem.push_back((uint8_t)(-sum & 0x7F));
             pmem.push_back(0xF7);
-            std::vector<uint8_t> dump = dx7Bank();
+            std::vector<uint8_t> dump = dx7iiAmem(), bank = dx7Bank();
+            dump.insert(dump.end(), bank.begin(), bank.end());
             dump.insert(dump.end(), pmem.begin(), pmem.end());
             file(tmp / "DX7II" / "DX7II.syx", dump);
             request("patch.import", (tmp / "DX7II" / "DX7II.syx").u8string());
@@ -753,6 +754,35 @@ int main() {
                                        a.data("morph.p1.bl") == "TEST02" && a.data("morph.p2.bl") == "TEST03"; }),
                   "a DX7II PMEM did not load its first performance (%d performances, \"%s\", parts \"%s\" \"%s\", %s)", a.lines("browse.perf.list"),
                   a.data("perf.user.name").c_str(), a.data("morph.p1.bl").c_str(), a.data("morph.p2.bl").c_str(), a.data("live.message").c_str());
+
+            const fs::path kept = tmp / "Library" / "DX7II.syx";
+            auto onDisk = [&] { std::ifstream f(kept, std::ios::binary); return std::vector<uint8_t>((std::istreambuf_iterator<char>(f)), {}); };
+            auto uOf = [&](const char* list, const std::string& name) {   // the U number of a browsed row
+                const int row = rowOf(a, list, name, 1);
+                std::string d = a.data(list);
+                size_t p = 0;
+                for (int k = 1; k < row && p < d.size(); ++k) p = d.find('\n', p) + 1;
+                return row ? d.substr(p, d.find('\t', p) - p) : std::string();
+            };
+            const std::vector<uint8_t> amem = dx7iiAmem();
+            const size_t vmemAt = amem.size();
+
+            // Delete on a voice of a bank with supplements takes its AMEM slot back to the default as well, so
+            // the slot loads as a plain INIT VOICE.
+            const std::string ui = a.st->ui();
+            a.st->setUi("{\"vars\":{\"browse\":\"voice\"}}");
+            a.st->setData("item.context", "1\t" + uOf("browse.voice.list", "TEST02") + "\tTEST02");
+            CHECK(a.until([&] { return a.data("item.name") == "TEST02"; }), "the DX7II bank's voice row did not describe itself");
+            request("item.request", "delete");
+            CHECK(a.until([&] {
+                      const std::vector<uint8_t> b = onDisk();
+                      int sum = 0;
+                      for (size_t i = 6; i < 6 + 1120 && i < b.size(); ++i) sum += b[i];
+                      return b.size() == dump.size() && b[6 + 35 + 1] == 0 && b[6 + 35 + 5] == 8 && b[6 + 1120] == (uint8_t)(-sum & 0x7F) &&
+                             std::memcmp(b.data() + vmemAt + 6 + 128 + 118, "INIT VOICE", 10) == 0;
+                  }),
+                  "deleting a voice left its AMEM slot (%s)", a.data("live.message").c_str());
+            a.st->setUi(ui);
         }
 
         for (int k = 0; k <= 2000; ++k) file(tmp / "Huge" / ("f" + std::to_string(k) + ".syx"), {});

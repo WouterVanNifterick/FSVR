@@ -38,6 +38,8 @@ struct Reading {
     Pending& pending;
     int open = -1;
     size_t acedAt = SIZE_MAX;            // the pending ACED's place in this file; SIZE_MAX when it came in an earlier one
+    std::shared_ptr<const Bytes> amem;   // the pending AMEM's message and place, when it came in this file
+    size_t amemAt = 0;
     std::vector<DxPerformance> dx;
     std::vector<int> numbered = std::vector<int>(128, -1);   // a DX voice number's voice in this bank
     std::vector<bool> selected = std::vector<bool>(128);     // and whether its bank came behind a bank select
