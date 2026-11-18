@@ -1,5 +1,6 @@
 // selftest/patchfiles.cpp - the patch file reader driven with small files built here, one per format and container.
 #include "patchfiles/patchfiles.h"
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -81,6 +82,32 @@ int selftest_patchfiles() {
            b.voices.size() == 32 && b.voices[0].name == "VOICE01" && b.voices[31].name == "VOICE32" && b.voices[31].slot == 31 &&
            b.voices[5].at == 0 && b.voices[5].len == f.size() && vcedOf(b.voices[5]) && !acedOf(b.voices[5]));
     }
+
+    // A bad checksum is a warning, not a rejection.
+    { Bytes f = dxBulk(0x09, 0x20, 0x00, vmemData()); f[f.size() - 2] ^= 0x11;
+      Report r; const Bank b = readPatches(f, "Bad", &r);
+      ck("a VMEM with a bad checksum still reads, with a warning", b.voices.size() == 32 && r.warnings.size() == 1 && r.skipped.empty() &&
+                                                                 r.summary().find("checksum") != std::string::npos); }
+
+    // Bytes out of the DX7's ranges are clamped after unpacking: an EG rate of 127, algorithm 31 stays, transpose 60.
+    { Bytes d = vmemData(); d[0] = 127; d[110] = 31; d[117] = 60;
+      Report r; const Bank b = readPatches(dxBulk(0x09, 0x20, 0x00, d), "Wild", &r);
+      const uint8_t* v = b.voices.empty() ? nullptr : vcedOf(b.voices[0]);
+      ck("out-of-range VMEM bytes are clamped to the DX7's", v && v[0] == 99 && v[134] == 31 && v[144] == 48 && r.warnings.size() == 1); }
+
+    // A VMEM voice renamed or blanked in its slot: the same 4104 bytes, the name and the checksum redone.
+    { const Bytes f = dxBulk(0x09, 0x10, 0x00, vmemData());
+      const Bank b = readPatches(f, "Edit");
+      const Bytes named = vmemRenamed(b.voices[2], "Renamed"), blank = vmemBlanked(b.voices[3]);
+      const Bank n = readPatches(named, ""), z = readPatches(blank, "");
+      auto same = [&](const Bytes& x, size_t from, size_t to) { return std::equal(x.begin() + (long)from, x.begin() + (long)to, f.begin() + (long)from); };
+      const size_t s2 = 6 + 128 * 2, s3 = 6 + 128 * 3;
+      ck("a VMEM voice renamed in its slot", named.size() == f.size() && n.voices.size() == 32 && n.voices[2].name == "Renamed" &&
+                                               n.voices[1].name == "VOICE02" && same(named, 0, s2 + 118) && same(named, s2 + 128, f.size() - 2) &&
+                                               named[f.size() - 2] == sum7(named.data() + 6, 4096));
+      ck("a VMEM voice blanked to INIT VOICE in its slot", blank.size() == f.size() && z.voices.size() == 32 && z.voices[3].name == "INIT VOICE" &&
+                                                         z.voices[4].name == "VOICE05" && same(blank, 0, s3) && same(blank, s3 + 128, f.size() - 2) &&
+                                                         blank[f.size() - 2] == sum7(blank.data() + 6, 4096)); }
 
     return fails;
 }

@@ -375,6 +375,34 @@ int main() {
     CHECK(a.until([&] { return a.data("morph.p2.bl") == "TEST04"; }), "the pick did not load TEST04");
     CHECK(a.st->modified(), "a pick from the browser left the instance unmodified");
 
+    // Rename and Delete on a voice of a 32-voice bank work on its slot: the file keeps its 4104 bytes, the name
+    // goes into the slot with the checksum redone, and Delete leaves INIT VOICE there.
+    {
+        const std::string ui = a.st->ui();
+        a.st->setUi("{\"vars\":{\"browse\":\"voice\"}}");
+        auto onDisk = [&](int slot, const char* name) {
+            std::ifstream f(tmp / "Library" / "Test Bank.syx", std::ios::binary);
+            const std::vector<uint8_t> b((std::istreambuf_iterator<char>(f)), {});
+            if (b.size() != 4104) return false;
+            int sum = 0;
+            for (size_t i = 6; i < 6 + 4096; ++i) sum += b[i];
+            return b[6 + 4096] == (uint8_t)(-sum & 0x7F) && std::memcmp(b.data() + 6 + 128 * slot + 118, name, 10) == 0;
+        };
+        a.st->setData("item.context", "1\tU" + std::to_string(rowOf(a, "voice.user.list", "TEST03")) + "\tTEST03");
+        CHECK(a.until([&] { return a.data("item.name") == "TEST03"; }), "the VMEM voice row did not describe itself (\"%s\")", a.data("item.name").c_str());
+        a.st->setData("item.new_name", "Renamed");
+        a.st->setData("live.message", "");
+        a.st->setData("item.request", "rename");
+        CHECK(a.until([&] { return onDisk(2, "Renamed   "); }), "Rename did not write the name into slot 3 of the VMEM (%s)", a.data("live.message").c_str());
+        CHECK(a.until([&] { return rowOf(a, "voice.user.list", "Renamed") == 3 && rowOf(a, "voice.user.list", "TEST01") == 1; }), "the renamed voice moved in the list");
+        a.st->setData("item.context", "1\tU4\tTEST04");
+        CHECK(a.until([&] { return a.data("item.name") == "TEST04"; }), "the fourth VMEM voice did not describe itself");
+        a.st->setData("item.request", "delete");
+        CHECK(a.until([&] { return onDisk(3, "INIT VOICE"); }), "Delete did not leave INIT VOICE in slot 4 of the VMEM (%s)", a.data("live.message").c_str());
+        CHECK(a.until([&] { return rowOf(a, "voice.user.list", "INIT VOICE") == 4 && rowOf(a, "voice.user.list", "TEST05") == 5; }), "the bank lost its numbering");
+        a.st->setUi(ui);
+    }
+
     // Morph is off until it works: a voice picked with corner A chosen reaches every corner, and moving the
     // square changes nothing.
     // a.set("part.morph_edit.p1", 0);
