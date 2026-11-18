@@ -1,8 +1,10 @@
 // selftest/patchfiles.cpp - the patch file reader driven with small files built here, one per format and container.
+#include "engine/synth.h"
 #include "patchfiles/patchfiles.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 
 namespace {
 
@@ -108,6 +110,35 @@ int selftest_patchfiles() {
       ck("a VMEM voice blanked to INIT VOICE in its slot", blank.size() == f.size() && z.voices.size() == 32 && z.voices[3].name == "INIT VOICE" &&
                                                          z.voices[4].name == "VOICE05" && same(blank, 0, s3) && same(blank, s3 + 128, f.size() - 2) &&
                                                          blank[f.size() - 2] == sum7(blank.data() + 6, 4096)); }
+
+    // A DX7II bank: bank select, AMEM, VMEM. A slot that changes the conversion gives its voice the ACED, in the
+    // layout the FS1R reads (amp mod senses at 6..11, PEG range 0x0C, its velocity switch 0x0E, PEG rate scaling
+    // 0x26); a default slot (pitch bend range 2 and nothing else) gives none, as a DX7 bank of the voice would.
+    { Bytes amem(32 * 35, 0);
+      for (int k = 0; k < 32; k++) amem[k * 35 + 5] = 0x08;
+      uint8_t* s = amem.data() + 35 * 1; s[1] = 5 | 3 << 3; s[3] = 7 << 3; s[4] = 2 | 1 << 3; s[24] = 6;   // voice 2
+      const Bytes select = {0xF0, 0x43, 0x10, 0x19, 0x4D, 0x01, 0xF7};
+      const Bytes f = cat({select, dxBulk(0x06, 0x08, 0x60, amem), dxBulk(0x09, 0x20, 0x00, vmemData())});
+      Report r; const Bank b = readPatches(f, "DX7II", &r);
+      const uint8_t* a = b.voices.size() == 32 ? acedOf(b.voices[1]) : nullptr;
+      ck("an AMEM slot becomes its VMEM voice's ACED", a && a[6] == 5 && a[7] == 3 && a[10] == 0 && a[11] == 7 && a[0x0C] == 2 && a[0x0E] == 1 && a[0x26] == 6 &&
+                                                       vcedOf(b.voices[1]) && b.voices[1].slot == 1 && r.skipped.empty() && r.warnings.empty());
+      ck("a default AMEM slot gives no ACED", b.voices.size() == 32 && !acedOf(b.voices[0]) && b.voices[0].syx == readPatches(dxBulk(0x09, 0x20, 0x00, vmemData()), "").voices[0].syx);
+
+      // The voice loads with its supplement: the ACED's 5 on DX operator 6 is the FS1R voice's amp mod sense.
+      auto S = std::make_unique<Synth>();
+      const Bytes& syx = b.voices.size() == 32 ? b.voices[1].syx : f;
+      load_sysex(*S, nullptr, syx.data(), syx.size(), 0, 0);
+      int ams = -1;
+      for (int o = 0; o < 8; o++) { const uint8_t* p = S->perf.part[0].voice.raw + 112 + o * 62; if ((p[5] & 0x3F) == 0) ams = p[33] >> 4; }
+      ck("a DX7II voice loads with its AMEM's amp mod sense and PEG range", ams == 5 && S->perf.part[0].voice.raw[0x3B] == 2);
+
+      // Files read together are one stream: the AMEM in one pairs with the VMEM in the next.
+      Pending p; Report r2;
+      const Bank first = readPatches(cat({select, dxBulk(0x06, 0x08, 0x60, amem)}), "AMEM", &r2, &p);
+      const Bank second = readPatches(dxBulk(0x09, 0x20, 0x00, vmemData()), "VMEM", &r2, &p);
+      ck("an AMEM in one file pairs with the VMEM in the next", first.empty() && second.voices.size() == 32 && acedOf(second.voices[1]) &&
+                                                                acedOf(second.voices[1])[6] == 5 && !acedOf(second.voices[2]) && r2.skipped.empty()); }
 
     return fails;
 }
