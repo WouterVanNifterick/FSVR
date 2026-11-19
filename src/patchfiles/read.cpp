@@ -73,6 +73,7 @@ Bank readPatches(const std::vector<uint8_t>& bytes, const std::string& name, Rep
         rep.skipped.push_back(skipped(m));
     }
     finishPerformances(r);   // a performance's voices may come after it in the file
+    bank.namesVoices = r.anyDx && std::none_of(bank.voices.begin(), bank.voices.end(), [](const Item& it) { return it.len > 0; });   // borrowed voices have none
     if (!pending && !ownPending.unpaired().empty()) rep.skipped.push_back((name.empty() ? std::string("a file") : name) + ": " + ownPending.unpaired());
     return bank;
 }

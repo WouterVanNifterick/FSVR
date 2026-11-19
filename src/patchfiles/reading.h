@@ -41,6 +41,7 @@ struct Reading {
     std::shared_ptr<const Bytes> amem;   // the pending AMEM's message and place, when it came in this file
     size_t amemAt = 0;
     std::vector<DxPerformance> dx;
+    bool anyDx = false;                  // the file held DX performances
     std::vector<int> numbered = std::vector<int>(128, -1);   // a DX voice number's voice in this bank
     std::vector<bool> selected = std::vector<bool>(128);     // and whether its bank came behind a bank select
     std::vector<int> before = std::vector<int>(128, -1);     // the same for the dumps before the last one in this file

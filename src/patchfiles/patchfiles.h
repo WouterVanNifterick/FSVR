@@ -36,6 +36,8 @@ struct Bank {
     // The file as sysex when it was not (a .mid, a headerless bank): what the library keeps in its place,
     // and what the items' at and len count in. Empty when the file was sysex already.
     std::vector<uint8_t> rewrapped;
+    // It holds DX performances and no voice bank of its own: read it after the files whose banks it names.
+    bool namesVoices = false;
     bool empty() const { return perfs.empty() && voices.empty() && fseqs.empty(); }
     bool readonly() const { return path.empty(); }
 };

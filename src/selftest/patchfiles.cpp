@@ -370,7 +370,10 @@ int selftest_patchfiles() {
       const Bank perfs = readPatches(tx802Pmem({layer}), "P", &r2, &p);
       ck("a TX802 PMEM finds its voices in the banks read before it", perfs.perfs.size() == 1 && perfs.voices.size() == 4 &&
                                                                       perfs.voices[(size_t)perfs.perfs[0].partVoice[2]].name == "BANKB01" &&
-                                                                      perfs.voices[0].at == 0 && perfs.voices[0].len == 0 && perfs.voices[0].slot < 0); }
+                                                                      perfs.voices[0].at == 0 && perfs.voices[0].len == 0 && perfs.voices[0].slot < 0);
+      // A file of performances with no bank of its own says so, to be read after the files that have them.
+      ck("a PMEM with no bank names voices of other files", perfs.namesVoices && readPatches(tx802Pmem({layer}), "").namesVoices &&
+                                                            !b.namesVoices && !readPatches(dxBulk(0x09, 0x20, 0x00, vmemNamed("BANKA")), "").namesVoices); }
 
     // Banks with no bank select number on only within one folder: a file from another starts again at 1, so a
     // performance there never plays a voice of the first folder's. A performance that plays voices of another

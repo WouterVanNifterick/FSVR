@@ -110,6 +110,7 @@ static void cartridgeBanks(Reading& r) {
 
 // The DX performances read so far as items, their voices found by number in the banks read so far.
 static void resolve(Reading& r) {
+    if (!r.dx.empty()) r.anyDx = true;
     cartridgeBanks(r);
     const bool presets = presetBanks(r);
     for (DxPerformance& d : r.dx) {

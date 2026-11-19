@@ -821,6 +821,30 @@ int main() {
             std::vector<uint8_t> setBytes;
             { std::ifstream f(tmp / "Library" / "DXSet.syx", std::ios::binary); setBytes.assign(std::istreambuf_iterator<char>(f), {}); }
             CHECK(setBytes == whole, "a folder of DX files was not kept as its files (%zu bytes, not %zu)", setBytes.size(), whole.size());
+
+            // The performances bind whatever order the files come in: a folder whose PMEM sorts first, and a drag
+            // that hands the PMEM first, are read and kept with the bank before it, as the TX802 factory set's
+            // P.SYX and perf_1-64.syx must be.
+            auto boundAndKept = [&](const char* bank) {
+                a.set("browse.category", 0);
+                const bool bound = a.until([&] { return lineOf("bank.list", bank) > 0 && a.is("browse.bank", lineOf("bank.list", bank)) &&
+                                                        a.lines("browse.perf.list") == 32 && a.lines("browse.voice.list") == 32; });
+                std::vector<uint8_t> b;
+                { std::ifstream f(tmp / "Library" / (std::string(bank) + ".syx"), std::ios::binary); b.assign(std::istreambuf_iterator<char>(f), {}); }
+                return bound && b == whole;
+            };
+            file(tmp / "DXFirst" / "0 PMEM.syx", pmem);
+            file(tmp / "DXFirst" / "1 AMEM.syx", dx7iiAmem());
+            file(tmp / "DXFirst" / "2 VMEM.syx", dx7Bank());
+            request("patch.import", (tmp / "DXFirst").u8string());
+            CHECK(boundAndKept("DXFirst"), "a folder whose PMEM sorts first lost its performances (%d, %d, %s)", a.lines("browse.perf.list"),
+                  a.lines("browse.voice.list"), a.data("live.message").c_str());
+            file(tmp / "DXDrag" / "A.syx", dx7iiAmem());
+            file(tmp / "DXDrag" / "B.syx", dx7Bank());
+            file(tmp / "DXDrag" / "P.syx", pmem);
+            request("patch.import", (tmp / "DXDrag" / "P.syx").u8string() + "\n" + (tmp / "DXDrag" / "A.syx").u8string() + "\n" + (tmp / "DXDrag" / "B.syx").u8string());
+            CHECK(boundAndKept("DXDrag"), "a drag handing the PMEM first lost its performances (%d, %d, %s)", a.lines("browse.perf.list"),
+                  a.lines("browse.voice.list"), a.data("live.message").c_str());
         }
 
         for (int k = 0; k <= 2000; ++k) file(tmp / "Huge" / ("f" + std::to_string(k) + ".syx"), {});

@@ -281,6 +281,8 @@ static bool selfContained(const Bank& b) {
 // files' items: every voice and Fseq no performance claims, then each performance with the voices and Fseq it
 // claims right after it. Left where it was, a loose voice after another file's performance would join that
 // performance. DX files number their banks per folder, so another folder's go into a bank of their own.
+// The files come in any order, a drag's or a folder's names, but a DX performance finds its voices only in the
+// banks read before it: so each folder's files are read together, those whose performances name voices last.
 std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::string& err, Report* report, const std::string& name) {
     std::vector<std::string> made;   // the files written, the shared bank's first
     std::vector<uint8_t> loose, claimed;
@@ -298,9 +300,22 @@ std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::
         if (k < 0) fail(e);
         else made.insert(first ? made.begin() : made.end(), banks[(size_t)k].path);
     };
+    struct File { std::string path; std::vector<uint8_t> bytes; size_t folder; bool last; };
+    std::vector<File> files;
+    std::vector<std::string> folders;   // in the order they first came
     for (auto& path : paths) {
-        std::vector<uint8_t> bytes;
-        if (!readFile(path, bytes)) { fail("cannot read " + path); continue; }
+        File f{path, {}, 0, false};
+        if (!readFile(path, f.bytes)) { fail("cannot read " + path); continue; }
+        const std::string in = fs::u8path(path).parent_path().u8string();
+        f.folder = (size_t)(std::find(folders.begin(), folders.end(), in) - folders.begin());
+        if (f.folder == folders.size()) folders.push_back(in);
+        f.last = readPatches(f.bytes, "").namesVoices;
+        files.push_back(std::move(f));
+    }
+    std::stable_sort(files.begin(), files.end(), [](const File& x, const File& y) { return x.folder != y.folder ? x.folder < y.folder : x.last < y.last; });
+    for (auto& f : files) {
+        const std::string& path = f.path;
+        const std::vector<uint8_t>& bytes = f.bytes;
         const fs::path p = fs::u8path(path);
         const std::string file = p.filename().u8string();
         Report own;
