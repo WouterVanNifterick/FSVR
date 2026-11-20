@@ -70,6 +70,8 @@ bool headerlessStream(const Bytes& file, Bytes& out, Report& report);   // conta
 bool fsvrStream(const Bytes& file, Bytes& out, Report& report);         // container_fsvr.cpp
 bool miniDexedStream(const Bytes& file, const std::string& name, Bytes& out, Report& report);   // container_minidexed.cpp
 std::vector<Message> messages(const Bytes& stream);                     // container_sysex.cpp: a .syx, an .fs1
+// A stream's Yamaha bulks with an F7 or a DX bulk's checksum missing, mended into out; false when none was.
+bool repairStream(const Bytes& stream, Bytes& out, Report& report, const std::string& name);
 
 // Formats: each takes the messages that are its own and says whether it did.
 bool readFs1r(const Message& m, Reading& r);   // format_fs1r.cpp

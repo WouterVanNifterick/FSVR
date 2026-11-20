@@ -218,6 +218,43 @@ int selftest_patchfiles() {
       Report r; const Bank none = readPatches(noise, "Noise", &r);
       ck("4096 bytes with no names in place are not a bank", none.empty() && r.skipped.size() == 1); }
 
+    // Damaged files, as MDX_Tool repairs them: a bulk that lost its F7 reads to the next message or the end of
+    // the file, a DX bulk one byte short lost its checksum, and both are mended in the stream the library keeps.
+    // A checksum with its top bit set is the right one. A bare VCED is clamped as a bank's voices are, a name
+    // keeps to ASCII, and a headerless bank with top bits set has them cleared.
+    { const Bytes d = vmemNamed("MEND"), whole = dxBulk(0x09, 0x20, 0x00, d);
+      Bytes unsummed(whole.begin(), whole.end() - 2);   // no checksum, no F7
+      Report r; const Bank b = readPatches(unsummed, "Short", &r);
+      ck("a VMEM with no checksum and no F7 reads, mended", b.voices.size() == 32 && b.voices[0].name == "MEND01" && b.rewrapped == whole &&
+                                                            r.summary().find("no F7") != std::string::npos && r.summary().find("no checksum") != std::string::npos);
+      Bytes vced(155, 0); memcpy(vced.data() + 145, "OPEN VCED ", 10);
+      Bytes open = dxBulk(0x00, 0x01, 0x1B, vced);
+      open.pop_back();   // its F7 lost, the bank right after it
+      Report r2; const Bank two = readPatches(cat({open, whole}), "", &r2);
+      ck("a bulk with no F7 before the next one does not swallow it", two.voices.size() == 33 && two.voices[0].name == "OPEN VCED" && two.voices[1].name == "MEND01");
+      Report r3; const Bank fine = readPatches(whole, "", &r3);
+      ck("a whole bulk is not mended", fine.rewrapped.empty() && r3.warnings.empty());
+
+      Bytes wild(155, 0); memcpy(wild.data() + 145, "WILD\x01VOICE", 10); wild[134] = 40; wild[0] = 120;
+      Report r4; const Bank w = readPatches(dxBulk(0x00, 0x01, 0x1B, wild), "", &r4);
+      const uint8_t* v = w.voices.empty() ? nullptr : vcedOf(w.voices[0]);
+      ck("a bare VCED out of range is clamped, its name kept to ASCII", v && v[134] == 31 && v[0] == 99 && v[149] == ' ' && w.voices[0].name == "WILD VOICE" &&
+                                                                       r4.summary().find("clamped") != std::string::npos);
+
+      Bytes topSum = whole;
+      topSum[6 + 4096] |= 0x80;
+      Bytes wrongSum = whole;
+      wrongSum[6 + 4096] ^= 0x01;
+      Report r5, r5b; readPatches(topSum, "", &r5); readPatches(wrongSum, "", &r5b);
+      ck("a checksum with its top bit set is the right one; a wrong one is reported", r5.warnings.empty() &&
+                                                                                      r5b.summary().find("checksum is") != std::string::npos);
+
+      Bytes high = d;
+      high[0] |= 0x80; high[118] |= 0x80;   // a rate, and a name's first letter
+      Report r6; const Bank h = readPatches(high, "", &r6);
+      ck("a headerless bank with top bits set reads, cleared", h.voices.size() == 32 && h.voices[0].name == "MEND01" && h.rewrapped == whole &&
+                                                               r6.summary().find("2 bytes had their top bit set") != std::string::npos); }
+
     // Bare VCEDs: one of 155 bytes, one of 156 with the operator on/off byte (the FS1R's .Dx7Voice), three of 155.
     { Bytes v(155, 0); memcpy(v.data() + 145, "BARE VOICE", 10); v[0] = 99;
       const Bank one = readPatches(v, "");

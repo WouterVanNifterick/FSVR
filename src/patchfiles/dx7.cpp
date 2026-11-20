@@ -13,8 +13,9 @@ uint8_t checksum(const uint8_t* data, size_t n) {
 
 void checkSum(const Message& m, size_t data, size_t n, const char* what, Reading& r) {
     if (data + n >= m.len) return;
+    // Ours: a checksum with its top bit set, as some librarians write the sum's low byte, is the right one.
     const uint8_t want = checksum(m.p + data, n), got = m.p[data + n];
-    if (got != want) r.warn(m, std::string(what) + " checksum is " + std::to_string(got) + ", not " + std::to_string(want) + "; read anyway");
+    if ((got & 0x7F) != want) r.warn(m, std::string(what) + " checksum is " + std::to_string(got) + ", not " + std::to_string(want) + "; read anyway");
 }
 
 std::string text(const uint8_t* p, size_t n) {
@@ -36,7 +37,8 @@ Bytes vcedMessage(const uint8_t* vced) { return message(0x00, 0x01, 0x1B, vced, 
 Bytes acedMessage(const uint8_t* aced) { return message(0x05, 0x00, 0x31, aced, ACED_SIZE); }
 
 // A VMEM record (128 bytes) as VCED (155): six operators, OP6 first, 17 packed bytes each to 21, then the
-// voice's common block.
+// voice's common block. Bits set outside a field are dropped without a word, as the DX7 ignores them: a third
+// of the DX banks in circulation carry some.
 void unpackRecord(const uint8_t* v, uint8_t* o) {
     for (int op = 0; op < 6; ++op) {
         const uint8_t* p = v + op * 17;
@@ -88,6 +90,8 @@ bool clampVced(uint8_t* v) {
     for (int op = 0; op < 6; ++op)
         for (int k = 0; k < 21; ++k) clamp(v[op * 21 + k], OP_MAX[k]);
     for (int k = 0; k < 19; ++k) clamp(v[126 + k], COMMON_MAX[k]);
+    for (size_t k = 0; k < NAME_LENGTH; ++k)   // a name is ASCII 32-126; anything else is a space
+        if (uint8_t& c = v[VCED_NAME + k]; c < 32 || c > 126) { c = ' '; clamped = true; }
     return clamped;
 }
 

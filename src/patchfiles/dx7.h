@@ -17,7 +17,7 @@ Bytes vcedMessage(const uint8_t* vced);            // F0 43 00 00 01 1B <155> cs
 Bytes acedMessage(const uint8_t* aced);            // F0 43 00 05 00 31 <49> cs F7
 void unpackRecord(const uint8_t* record, uint8_t* vced);
 void packRecord(const uint8_t* vced, uint8_t* record);
-bool clampVced(uint8_t* vced);                     // to the DX7's ranges; true when a byte was out of them
+bool clampVced(uint8_t* vced);                     // to the DX7's ranges and a printable name; true when a byte was not
 void initVoice(uint8_t* vced);                     // the DX7's INIT VOICE
 
 // An AMEM slot unpacked to the 49-byte ACED in the layout the FS1R reads (Data List 3.2.2), and whether it

@@ -65,6 +65,10 @@ Bank readPatches(const std::vector<uint8_t>& bytes, const std::string& name, Rep
         bank.rewrapped = std::move(stream);
         s = &bank.rewrapped;
     }
+    if (Bytes mended; repairStream(*s, mended, rep, name)) {
+        bank.rewrapped = std::move(mended);
+        s = &bank.rewrapped;
+    }
     const std::vector<Message> ms = messages(*s);
     if (ms.empty() && s == &bytes) rep.skipped.push_back((name.empty() ? std::string("a file") : name) + ": not a patch file FSVR knows");
     for (const Message& m : ms) {

@@ -10,7 +10,7 @@ One entry point, `readPatches(bytes, name, report, pending)`. A file is sniffed 
 | `reading.h` | what the dispatcher, containers and formats share: `Message`, `Reading`, each container's and format's entry |
 | `read.cpp` | `readPatches`: the containers in order (SMF, `.fsvr`, MiniDexed, headerless, sysex), then the formats on each message; why a message nobody took was skipped |
 | `dx7.h`, `dx7.cpp` | DX7 voice data: VCED and ACED messages, the VMEM record packed and unpacked, clamping to the DX7's ranges, INIT VOICE, an AMEM slot as an ACED |
-| `container_sysex.cpp` | a sysex stream: a `.syx`, and an `.fs1`, which is the same messages |
+| `container_sysex.cpp` | a sysex stream: a `.syx`, and an `.fs1`, which is the same messages; a stream whose bulks lost an F7 or a checksum, mended |
 | `container_fsvr.cpp` | FSVR's own `.fsvr` preset: XML whose `<sysex>` is the stream in base64 |
 | `container_minidexed.cpp` | a MiniDexed `performance.ini`: its first four tone generators with voice data as one FS1R performance and their VCEDs; the rest reported |
 | `container_smf.cpp` | a Standard MIDI File's sysex events, in order |
@@ -26,7 +26,7 @@ One entry point, `readPatches(bytes, name, report, pending)`. A file is sniffed 
 
 ## Rules
 - **Detect by content.** A container says whether a file is its own from the bytes.
-- **Never refuse for damage.** A bad checksum or a DX5's `10 00` byte count is a warning; DX voice bytes are clamped to the DX7's ranges after unpacking.
+- **Never refuse for damage.** A bad checksum or a DX5's `10 00` byte count is a warning, and a checksum with its top bit set is the right one. A bulk that lost its F7 (at the end of the file, or before the next F0) or a DX bulk that lost its checksum is mended in the stream first (`repairStream`), and the library keeps the mended one. DX voice bytes are clamped to the DX7's ranges, a bare VCED's as a bank's, and a name to ASCII 32-126; bits outside a packed field are dropped as the DX7 drops them. A headerless bank's top bits are cleared.
 - **Report what is skipped**, with the reason, so the status line can name it.
 - **Pairing follows the stream:** ACED then VCED, AMEM then VMEM. Files read together share a `Pending`, so a supplement in one file pairs with the bank in the next.
 - **A DX performance names its voices by number**: a VMEM's 32 take the numbers of the bank select before it, else follow the last bank read; a file whose banks are all 1-64 but whose performances name 65-128 is a cartridge dump, and its banks are 65-128. A TX802's presets (128-255) are looked up, less 128, only in banks sent with no bank select, as its factory set's are. They are looked up once the file is read, in it first and then in the files read before it from the same folder (`Pending::folder`; a folder's banks number from 1 again), and the report names a file whose voices were taken; a part whose voice is in neither is left off, and a performance with none is skipped. A file of performances with no bank of its own says so (`Bank::namesVoices`), and the library reads it after the other files of its folder, whatever order they came in.
