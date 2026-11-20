@@ -243,6 +243,20 @@ static void append(Report* to, const Report& r) {
     to->warnings.insert(to->warnings.end(), r.warnings.begin(), r.warnings.end());
 }
 
+// The TX802's presets A01-B64 from the library's bank that holds the most of them, for a TX802 performance whose
+// own files lack them.
+static void presetsOf(const std::vector<Bank>& banks, Pending& p) {
+    const Bank* best = nullptr;
+    long most = 0;
+    for (const Bank& b : banks) {
+        const long n = (long)std::count_if(b.tx802Presets.begin(), b.tx802Presets.end(), [](int k) { return k >= 0; });
+        if (n > most) { most = n; best = &b; }
+    }
+    if (!best) return;
+    p.presets.clear();
+    for (int k : best->tx802Presets) p.presets.push_back(k >= 0 ? Pending::Voice{best->voices[(size_t)k], false, best->name} : Pending::Voice{});
+}
+
 int Library::import(const std::string& path, std::string& err, Report* report) {
     std::vector<uint8_t> bytes;
     if (!readFile(path, bytes)) {
@@ -251,13 +265,19 @@ int Library::import(const std::string& path, std::string& err, Report* report) {
     }
     const std::string file = fs::u8path(path).filename().u8string();
     Report own;
-    const Bank b = readPatches(bytes, file, &own);
+    Pending pending;
+    presetsOf(banks, pending);
+    const Bank b = readPatches(bytes, file, &own, &pending);
+    if (!pending.unpaired().empty()) own.skipped.push_back(file + ": " + pending.unpaired());   // as readPatches says it with no Pending
     if (b.empty()) {
         err = "Nothing FSVR can read in " + file + ": " + unreadable(own, file);
         return -1;
     }
     append(report, own);
-    return add(fs::u8path(path).stem().u8string(), b.rewrapped.empty() ? bytes : b.rewrapped, err);
+    std::vector<uint8_t> kept = b.libraryPresets;   // the library's presets its performances play, first
+    const std::vector<uint8_t>& stream = b.rewrapped.empty() ? bytes : b.rewrapped;
+    kept.insert(kept.end(), stream.begin(), stream.end());
+    return add(fs::u8path(path).stem().u8string(), kept, err);
 }
 
 // Whether a file's performances find their voices and Fseqs in any bank it shares: no bulk dumped from a
@@ -283,16 +303,19 @@ static bool selfContained(const Bank& b) {
 // performance. DX files number their banks per folder, so another folder's go into a bank of their own.
 // The files come in any order, a drag's or a folder's names, but a DX performance finds its voices only in the
 // banks read before it: so each folder's files are read together, those whose performances name voices last.
+// A TX802 performance naming a preset its files lack plays the library's (presetsOf), and those banks are kept
+// first in its folder's bytes, so the bank plays them again when the library reads it alone.
 std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::string& err, Report* report, const std::string& name) {
     std::vector<std::string> made;   // the files written, the shared bank's first
     std::vector<uint8_t> loose, claimed;
-    struct Kept { std::string folder, name; std::vector<uint8_t> bytes; };
+    struct Kept { std::string folder, name; std::vector<uint8_t> bytes; bool presets = false; };
     std::vector<Kept> kept;          // each folder's files that hold no FS1R performance, as they were
     std::vector<uint8_t> held;       // a file that only held a supplement, for the next file of its folder
     std::string heldIn;
     std::string folder = name, firstUnread, waiting;   // waiting: the file that left the supplement pending holds
     int unread = 0;
     Pending pending;   // an AMEM or ACED waiting for the bank or voice in the next file
+    presetsOf(banks, pending);
     auto fail = [&](const std::string& why) { err += (err.empty() ? "" : "; ") + why; };
     auto write = [&](const std::string& name, const std::vector<uint8_t>& bytes, bool first) {
         std::string e;
@@ -335,11 +358,20 @@ std::vector<int> Library::importAll(const std::vector<std::string>& paths, std::
         held.clear();
         asRead.insert(asRead.end(), stream.begin(), stream.end());
         if (b.empty()) { held = asRead; heldIn = pending.folder; continue; }
-        if (!selfContained(b)) { write(p.stem().u8string(), asRead, false); continue; }
+        if (!selfContained(b)) {
+            asRead.insert(asRead.begin(), b.libraryPresets.begin(), b.libraryPresets.end());
+            write(p.stem().u8string(), asRead, false);
+            continue;
+        }
         if (std::none_of(b.perfs.begin(), b.perfs.end(), [](const Item& it) { return !it.fromDx; })) {
             auto in = std::find_if(kept.begin(), kept.end(), [&](const Kept& k) { return k.folder == pending.folder; });
             if (in == kept.end()) in = kept.insert(kept.end(), Kept{pending.folder, p.parent_path().filename().u8string(), {}});
             in->bytes.insert(in->bytes.end(), asRead.begin(), asRead.end());
+            // The library's presets its performances play go first, so its banks after them start a new dump.
+            if (!b.libraryPresets.empty() && !in->presets) {
+                in->bytes.insert(in->bytes.begin(), b.libraryPresets.begin(), b.libraryPresets.end());
+                in->presets = true;
+            }
             if (folder.empty() && in == kept.begin()) folder = in->name;
             continue;
         }

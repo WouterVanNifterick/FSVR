@@ -373,7 +373,33 @@ int selftest_patchfiles() {
                                                                       perfs.voices[0].at == 0 && perfs.voices[0].len == 0 && perfs.voices[0].slot < 0);
       // A file of performances with no bank of its own says so, to be read after the files that have them.
       ck("a PMEM with no bank names voices of other files", perfs.namesVoices && readPatches(tx802Pmem({layer}), "").namesVoices &&
-                                                            !b.namesVoices && !readPatches(dxBulk(0x09, 0x20, 0x00, vmemNamed("BANKA")), "").namesVoices); }
+                                                            !b.namesVoices && !readPatches(dxBulk(0x09, 0x20, 0x00, vmemNamed("BANKA")), "").namesVoices);
+
+      // The banks a TX802 PMEM took as its presets are recorded. A PMEM whose files lack them plays the library's,
+      // given in Pending::presets, and keeps those banks to go before it: read so, behind a unit's own banks sent
+      // with a bank select, it binds the same.
+      ck("a bank whose TX802 performances name presets records them", b.tx802Presets.size() == 128 && b.tx802Presets[2] >= 0 &&
+                                                                     b.voices[(size_t)b.tx802Presets[2]].name == "BANKA03" && b.tx802Presets[64] < 0);
+      if (b.tx802Presets.size() == 128) {
+          Pending q; Report r5;
+          for (int k = 0; k < 64; k++) q.presets.push_back({b.voices[(size_t)b.tx802Presets[(size_t)k]], false, "TX802"});
+          const Bytes select = {0xF0, 0x43, 0x10, 0x19, 0x4D, 0x00, 0xF7}, own = cat({select, dxBulk(0x09, 0x20, 0x00, vmemNamed("INT"))});
+          const Bank lib = readPatches(cat({own, tx802Pmem({layer})}), "Fmori", &r5, &q);
+          auto partOf = [](const Bank& k, int p) { return !k.perfs.empty() && k.perfs[0].partVoice[p] >= 0 ? k.voices[(size_t)k.perfs[0].partVoice[p]].name : std::string("-"); };
+          ck("a TX802 PMEM plays the library's presets its files lack", lib.perfs.size() == 1 && partOf(lib, 0) == "BANKA03" && partOf(lib, 2) == "BANKB01" &&
+                                                                         lib.libraryPresets.size() == 2 * (6 + 4096 + 2));
+          const Bank kept = readPatches(cat({lib.libraryPresets, own, tx802Pmem({layer})}), "Kept");
+          ck("kept before its own banks, the library's presets bind again", kept.perfs.size() == 1 && partOf(kept, 0) == "BANKA03" && partOf(kept, 2) == "BANKB01" &&
+                                                                            kept.tx802Presets.size() == 128 && kept.tx802Presets[2] >= 0);
+          Report r6; Pending none;
+          const Bank lost = readPatches(tx802Pmem({layer}), "P", &r6, &none);
+          ck("a TX802 PMEM with no presets anywhere says to import them", lost.perfs.empty() && r6.summary().find("import presets A and B") != std::string::npos);
+      }
+
+      // A blank name is an empty slot, and is not read.
+      Bytes blank = plain;
+      memset(blank.data() + 64, ' ', 20);
+      ck("a blank-named TX802 performance is an empty slot", readPatches(cat({dxBulk(0x09, 0x20, 0x00, vmemNamed("BANKA")), tx802Pmem({blank, plain})}), "").perfs.size() == 1); }
 
     // Banks with no bank select number on only within one folder: a file from another starts again at 1, so a
     // performance there never plays a voice of the first folder's. A performance that plays voices of another

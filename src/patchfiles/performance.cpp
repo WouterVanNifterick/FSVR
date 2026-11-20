@@ -85,10 +85,51 @@ static bool presetBanks(const Reading& r) {
     return false;
 }
 
+// A preset the files read do not hold, from the library's bank of them (Pending::presets), copied in once.
+static int libraryPreset(Reading& r, int n) {
+    const std::vector<Pending::Voice>& lib = r.pending.presets;
+    if (n < 0 || (size_t)n >= lib.size() || lib[(size_t)n].item.syx.empty()) return -1;
+    int& k = r.fromLibrary[(size_t)n];
+    if (k >= 0) return k;
+    Item it = lib[(size_t)n].item;
+    it.at = it.len = 0;   // its bytes are in the library's bank
+    it.slot = -1;
+    it.vmem.reset();
+    it.amem.reset();
+    r.bank.voices.push_back(std::move(it));
+    return k = (int)r.bank.voices.size() - 1;
+}
+
 static int partVoice(Reading& r, const DxPerformance& d, int number, bool presets) {
     if (!d.tx802) return voiceFor(r, number, From::Any);
-    if (number >= TX802_PRESETS) return voiceFor(r, number - TX802_PRESETS, From::Unselected);
+    if (number >= TX802_PRESETS) {
+        const int k = voiceFor(r, number - TX802_PRESETS, From::Unselected);
+        return k >= 0 ? k : libraryPreset(r, number - TX802_PRESETS);
+    }
     return voiceFor(r, number, presets ? From::Selected : From::Any);
+}
+
+// The banks this file's TX802 performances took as the presets, for the files read later that lack them.
+static void recordPresets(Reading& r) {
+    r.bank.tx802Presets.resize(TX802_PRESETS, -1);
+    for (size_t v = 0; v < (size_t)TX802_PRESETS; ++v) {
+        const int k = r.numbered[v] >= 0 && !r.selected[v] ? r.numbered[v] : r.before[v] >= 0 && !r.beforeSelected[v] ? r.before[v] : -1;
+        if (k >= 0 && r.bank.voices[(size_t)k].slot >= 0) r.bank.tx802Presets[v] = k;
+    }
+}
+
+// The library's preset banks as their messages, each AMEM before its VMEM, in the presets' order: kept before
+// the file, they number 1-128 with no bank select as they did in the library's bank.
+static Bytes libraryBanks(const Reading& r) {
+    Bytes out;
+    const void* last = nullptr;
+    for (const Pending::Voice& v : r.pending.presets) {
+        if (!v.item.vmem || v.item.vmem.get() == last) continue;
+        last = v.item.vmem.get();
+        if (v.item.amem) out.insert(out.end(), v.item.amem->begin(), v.item.amem->end());
+        out.insert(out.end(), v.item.vmem->begin(), v.item.vmem->end());
+    }
+    return out;
 }
 
 // Ours: a dump of the internal memory and one of the cartridge both send their banks as voices 1-64, and
@@ -113,15 +154,21 @@ static void resolve(Reading& r) {
     if (!r.dx.empty()) r.anyDx = true;
     cartridgeBanks(r);
     const bool presets = presetBanks(r);
+    if (presets) recordPresets(r);
     for (DxPerformance& d : r.dx) {
         int found = 0, missing = 0, voice[4] = {-1, -1, -1, -1};
+        bool preset = false;   // it names a preset none of the files read nor the library holds
         for (int i = 0; i < 4; ++i) {
             PartSetup& s = d.part[i];
             if (!s.on) continue;
             voice[i] = partVoice(r, d, s.voice, presets);
-            if (voice[i] < 0) { s.on = false; ++missing; } else ++found;
+            if (voice[i] < 0) { s.on = false; ++missing; preset |= d.tx802 && s.voice >= TX802_PRESETS; } else ++found;
         }
         const std::string what = (r.bank.name.empty() ? "" : r.bank.name + ", ") + d.kind;
+        if (!found && preset) {
+            r.report.skipped.push_back(what + " whose TX802 presets are neither in the files read nor in the library (import presets A and B with a TX802 performance file first)");
+            continue;
+        }
         if (!found) { r.report.skipped.push_back(what + " whose voices are not in the files read"); continue; }
         if (missing) r.report.warnings.push_back(what + " voice not in the files read, its part left off");
         Item it;
@@ -153,6 +200,12 @@ void finishPerformances(Reading& r) {
         std::string files;
         for (const std::string& f : r.borrowed) files += (files.empty() ? "" : ", ") + (f.empty() ? std::string("a file") : f);
         r.report.warnings.push_back((r.bank.name.empty() ? "" : r.bank.name + ", ") + "performances play voices from " + files + " read with it");
+    }
+    const auto used = std::find_if(r.fromLibrary.begin(), r.fromLibrary.end(), [](int k) { return k >= 0; });
+    if (used != r.fromLibrary.end()) {
+        r.bank.libraryPresets = libraryBanks(r);
+        r.report.warnings.push_back((r.bank.name.empty() ? "" : r.bank.name + ", ") + "performances play the TX802 presets of the library's \"" +
+                                    r.pending.presets[(size_t)(used - r.fromLibrary.begin())].file + "\", kept with it");
     }
     // This file's banks, by number, for the performances in the files read after it.
     r.pending.numbered.resize(128);

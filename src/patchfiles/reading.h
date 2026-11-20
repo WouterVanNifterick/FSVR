@@ -42,6 +42,7 @@ struct Reading {
     size_t amemAt = 0;
     std::vector<DxPerformance> dx;
     bool anyDx = false;                  // the file held DX performances
+    std::vector<int> fromLibrary = std::vector<int>(128, -1);   // a library preset's voice in this bank, once copied in
     std::vector<int> numbered = std::vector<int>(128, -1);   // a DX voice number's voice in this bank
     std::vector<bool> selected = std::vector<bool>(128);     // and whether its bank came behind a bank select
     std::vector<int> before = std::vector<int>(128, -1);     // the same for the dumps before the last one in this file

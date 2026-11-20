@@ -38,6 +38,11 @@ struct Bank {
     std::vector<uint8_t> rewrapped;
     // It holds DX performances and no voice bank of its own: read it after the files whose banks it names.
     bool namesVoices = false;
+    // Its banks its TX802 performances took as the ROM's presets A01-B64: each one's voice, -1 where none.
+    std::vector<int> tx802Presets;
+    // The library's preset banks its performances played, as messages to keep before the file so it plays
+    // them again when read alone. Empty when it took none from the library.
+    std::vector<uint8_t> libraryPresets;
     bool empty() const { return perfs.empty() && voices.empty() && fseqs.empty(); }
     bool readonly() const { return path.empty(); }
 };
@@ -60,6 +65,7 @@ struct Pending {
         std::string file;                // the name of the file it was read in
     };
     std::vector<Voice> numbered;         // the VMEM voices read so far by number, 0..127
+    std::vector<Voice> presets;          // a TX802's presets A01-B64 from the library, for a performance whose files lack them
     int next = 0;                        // the number a VMEM with no bank select before it starts at
     // The folder of the file read next, set before each: the numbering starts over in another, since a set of
     // banks and the performances that name them come together.

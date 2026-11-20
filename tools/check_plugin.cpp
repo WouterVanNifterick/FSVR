@@ -845,6 +845,52 @@ int main() {
             request("patch.import", (tmp / "DXDrag" / "P.syx").u8string() + "\n" + (tmp / "DXDrag" / "A.syx").u8string() + "\n" + (tmp / "DXDrag" / "B.syx").u8string());
             CHECK(boundAndKept("DXDrag"), "a drag handing the PMEM first lost its performances (%d, %d, %s)", a.lines("browse.perf.list"),
                   a.lines("browse.voice.list"), a.data("live.message").c_str());
+
+            // A TX802 performance naming a ROM preset its files lack plays the library's presets, taken from a bank
+            // that imported them with its performances, and those banks are kept first in the new bank.
+            std::vector<uint8_t> tx = {0xF0, 0x43, 0x00, 0x7E};
+            {
+                uint8_t r[84] = {};
+                r[8] = 0x82;                        // TG1 plays preset A03
+                r[24] = 99;
+                r[32] = 7 << 3 | 3;                 // no detune, both outputs
+                for (int t = 0; t < 8; ++t) { r[t] = (uint8_t)(t << 5); r[48 + t] = 127; r[56 + t] = 24; }
+                std::memcpy(r + 64, "TX Preset           ", 20);
+                const char* hex = "0123456789ABCDEF";
+                std::vector<uint8_t> frame = {'L', 'M', ' ', ' ', '8', '9', '5', '2', 'P', 'M'};
+                for (uint8_t b : r) { frame.push_back((uint8_t)hex[b >> 4]); frame.push_back((uint8_t)hex[b & 15]); }
+                int sum = 0;
+                for (uint8_t b : frame) sum += b;
+                tx.push_back(0x01);
+                tx.push_back(0x28);
+                tx.insert(tx.end(), frame.begin(), frame.end());
+                tx.push_back((uint8_t)(-sum & 0x7F));
+                tx.push_back(0xF7);
+            }
+            file(tmp / "TXPresets" / "A.syx", dx7Bank());
+            file(tmp / "TXPresets" / "B.syx", dx7Bank());
+            file(tmp / "TXPresets" / "P.syx", tx);
+            request("patch.import", (tmp / "TXPresets").u8string());
+            a.set("browse.category", 0);
+            CHECK(a.until([&] { return lineOf("bank.list", "TXPresets") > 0 && a.lines("browse.perf.list") == 1; }), "the TX802 presets with a performance did not import (%s)",
+                  a.data("live.message").c_str());
+            const std::vector<uint8_t> select = {0xF0, 0x43, 0x10, 0x19, 0x4D, 0x00, 0xF7};
+            std::vector<uint8_t> own = select, v = dx7Bank();
+            own.insert(own.end(), v.begin(), v.end());
+            file(tmp / "TXUnit" / "I.syx", own);
+            file(tmp / "TXUnit" / "P.syx", tx);
+            request("patch.import", (tmp / "TXUnit").u8string());
+            a.set("browse.category", 0);
+            CHECK(a.until([&] { return lineOf("bank.list", "TXUnit") > 0 && a.is("browse.bank", lineOf("bank.list", "TXUnit")) && a.lines("browse.perf.list") == 1 &&
+                                       a.lines("browse.voice.list") == 96 && a.data("perf.user.name") == "TX Preset" && a.data("morph.p1.bl") == "TEST03"; }),
+                  "a TX802 performance did not play the library's presets (%d performances, %d voices, %s)", a.lines("browse.perf.list"), a.lines("browse.voice.list"),
+                  a.data("live.message").c_str());
+            std::vector<uint8_t> unit, want = v;
+            want.insert(want.end(), v.begin(), v.end());
+            want.insert(want.end(), own.begin(), own.end());
+            want.insert(want.end(), tx.begin(), tx.end());
+            { std::ifstream f(tmp / "Library" / "TXUnit.syx", std::ios::binary); unit.assign(std::istreambuf_iterator<char>(f), {}); }
+            CHECK(unit == want, "the library's presets were not kept before the TX802 set (%zu bytes, not %zu)", unit.size(), want.size());
         }
 
         for (int k = 0; k <= 2000; ++k) file(tmp / "Huge" / ("f" + std::to_string(k) + ".syx"), {});

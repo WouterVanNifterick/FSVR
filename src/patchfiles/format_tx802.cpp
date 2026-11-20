@@ -70,11 +70,13 @@ bool readTx802(const Message& m, Reading& r) {
         if (!hex) { r.warn(m, "a TX802 performance that is not hex digits, and the rest after it, not read"); break; }
         const uint8_t want = checksum(f + 2, TAG + 2 * RECORD_SIZE), got = f[FRAME - 1];
         if (got != want) r.warn(m, "TX802 PMEM checksum is " + std::to_string(got) + ", not " + std::to_string(want) + "; read anyway");
+        any = true;
+        // Ours: a blank name is an empty slot, as the factory set's last ten are, and is not read.
+        if (std::all_of(rec + NAME_AT, rec + NAME_AT + NAME_SIZE, [](uint8_t c) { return c == ' '; })) continue;
         DxPerformance d = performance(rec, r);
         d.at = m.at;
         d.len = m.len;
         r.dx.push_back(std::move(d));
-        any = true;
     }
     r.open = -1;
     return any;
