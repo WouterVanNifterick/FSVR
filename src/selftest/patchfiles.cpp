@@ -380,7 +380,7 @@ int selftest_patchfiles() {
       Bytes apart = dx7iiPerf(1, 1, 2, 0, 60, 24, 24, 50, 99, "Apart");
       apart[20] = 2;
       Report r3; const Bank sides = pced(apart, r3);
-      ck("a DX7II pan mode puts voice A left and B right", sides.perfs.size() == 1 && partByte(sides.perfs[0], 0, 0x0E) == 1 && partByte(sides.perfs[0], 1, 0x0E) == 127);
+      ck("a DX7II pan mode puts voice A left and B right", sides.perfs.size() == 1 && partByte(sides.perfs[0], 0, 0x0E) == 16 && partByte(sides.perfs[0], 1, 0x0E) == 112);
       Report r4; const Bank onlyA = pced(dx7iiPerf(1, 1, 2, 0, 60, 24, 24, 0, 99, "Only A"), r4);
       ck("a DX7II voice balanced to 0 leaves its part off", nameOf(onlyA, 0) == "V02" && nameOf(onlyA, 1) == "-" && partByte(onlyA.perfs[0], 1, 1) == 0 &&
                                                             partByte(onlyA.perfs[0], 0, 0x0E) == 64 && r4.warnings.empty());
@@ -437,7 +437,7 @@ int selftest_patchfiles() {
                                                                              voiceOf(t, 2) == "BANKB01" && voiceOf(t, 3) == "BANKA02");
           ck("a TG's channel, volume, detune, output, limits and shift go onto its part", partByte(t, 0, 4) == 0 && partByte(t, 1, 4) == 1 && partByte(t, 3, 4) == 0x10 &&
              partByte(t, 0, 0x0B) == 127 && partByte(t, 1, 0x0B) == 63 && partByte(t, 1, 9) == 66 && partByte(t, 2, 9) == 62 && partByte(t, 0, 9) == 64 &&
-             partByte(t, 0, 0x0E) == 64 && partByte(t, 1, 0x0E) == 1 && partByte(t, 2, 0x0E) == 127 && partByte(t, 0, 0x10) == 59 &&
+             partByte(t, 0, 0x0E) == 64 && partByte(t, 1, 0x0E) == 16 && partByte(t, 2, 0x0E) == 112 && partByte(t, 0, 0x10) == 59 &&
              partByte(t, 1, 0x0F) == 60 && partByte(t, 1, 8) == 12 && partByte(t, 2, 8) == 24);
           ck("the report names the TGs a TX802 performance drops", r.warnings.size() == 1 && r.summary().find("TG6, TG7") != std::string::npos &&
                                                                    r.summary().find("TX Layer") != std::string::npos);
@@ -464,6 +464,10 @@ int selftest_patchfiles() {
         ck("a voice bank alone gives one performance per voice", vok && v.perfs[4].name == "SOLO05" && v.perfs[4].fromDx && v.perfs[4].ofVoice && v.perfs[4].partVoice[0] == 4 &&
                                                                   v.perfs[4].partVoice[1] < 0 && partByte(v.perfs[4], 0, 1) == 1 && partByte(v.perfs[4], 0, 4) == 0x10 &&
                                                                   partByte(v.perfs[4], 0, 0x0E) == 64 && partByte(v.perfs[4], 1, 1) == 0 && partByte(v.perfs[4], 3, 1) == 0);
+        // Its effects: Hall1 at return 64, and the chorus insertion on the part that plays, a little drier than D=W.
+        const uint8_t* c = vok ? v.perfs[4].data() : nullptr;
+        ck("a DX performance gets a hall and a chorus insertion on its parts", c && c[168] == 1 && c[170] == 64 && c[175] == 1 && c[179] == 127 &&
+                                                                            c[136 + 19] == 48 && partByte(v.perfs[4], 0, 0x14) == 1 && partByte(v.perfs[4], 1, 0x14) == 0);
         Bytes vced(155, 0); memcpy(vced.data() + 145, "ONE VOICE ", 10);
         const Bank one = readPatches(dxBulk(0x00, 0x01, 0x1B, vced), "");
         ck("a bare VCED gives one performance", one.perfs.size() == 1 && one.perfs[0].name == "ONE VOICE" && one.perfs[0].partVoice[0] == 0);
@@ -559,7 +563,7 @@ int selftest_patchfiles() {
           ck("the first four TGs with voice data are the parts", voiceOf(0) == "MD ONE" && voiceOf(1) == "MD THREE" && voiceOf(2) == "MD FOUR" && voiceOf(3) == "MD FIVE");
           ck("a MiniDexed TG's channel, volume, pan, detune, shift and limits go onto its part",
              partByte(p, 0, 4) == 0 && partByte(p, 1, 4) == 0x7F && partByte(p, 2, 4) == 0x10 && partByte(p, 0, 0x0B) == 100 &&
-             partByte(p, 0, 0x0E) == 127 && partByte(p, 1, 0x0E) == 1 && partByte(p, 2, 0x0E) == 64 && partByte(p, 0, 9) == 69 &&
+             partByte(p, 0, 0x0E) == 112 && partByte(p, 1, 0x0E) == 16 && partByte(p, 2, 0x0E) == 64 && partByte(p, 0, 9) == 69 &&
              partByte(p, 0, 8) == 12 && partByte(p, 3, 0x0F) == 60);
           ck("a TG with no voice data is skipped and reported, and TGs past four named", r.skipped.size() == 1 && r.summary().find("TG2") != std::string::npos &&
                                                                                          r.summary().find("TG7, TG8") != std::string::npos);
