@@ -12,6 +12,7 @@
 // The link names the TG whose notes this one adds to: every factory performance that stacks a voice links its
 // TGs so, the linked ones carrying no voice of their own. Settled against the factory set's 64 performances and
 // its voice list (Patches/TX802/TX802_Factory): voice numbers count from 0, so 0x82 is A03, ReverbBras.
+// A TG at volume 0, like one with no output, plays nothing and takes no part.
 #include "dx7.h"
 #include <cmath>
 
@@ -36,6 +37,7 @@ static DxPerformance performance(const uint8_t* b, Reading& r) {
     for (int t = 0; t < TGS; ++t) {
         const int out = b[32 + t] & 3;
         if ((b[t] >> 5) != t || !out) continue;   // linked to another TG, or no output
+        if (!(b[24 + t] & 0x7F)) { d.silent = true; continue; }   // ours: a TG at volume 0 takes no part
         if (parts == 4) { dropped += (dropped.empty() ? "TG" : ", TG") + std::to_string(t + 1); continue; }
         PartSetup& s = d.part[parts++];
         s.on = true;

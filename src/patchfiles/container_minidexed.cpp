@@ -5,6 +5,7 @@
 // Rewrapped as one FS1R performance bulk and then the VCED of each part, in part order, which is how an
 // imported performance is kept; the formats read it back from there.
 #include "dx7.h"
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
@@ -80,7 +81,8 @@ bool miniDexedStream(const Bytes& file, const std::string& fileName, Bytes& out,
     PartSetup parts[4];
     Bytes voices;
     std::string dropped;
-    int n = 0, clamped = 0;
+    int n = 0, clamped = 0, same[4] = {0, 1, 2, 3};
+    bool silent = false;
     for (int k = 0; k < TGS; ++k) {
         const Tg& t = tg[k];
         if (!t.seen) continue;
@@ -89,6 +91,7 @@ bool miniDexedStream(const Bytes& file, const std::string& fileName, Bytes& out,
             report.skipped.push_back(where + "MiniDexed " + tgName + ": no voice data (it names a voice on the MiniDexed's SD card)");
             continue;
         }
+        if (!t.volume) { silent = true; continue; }   // ours: a TG at volume 0 takes no part
         if (n == 4) { dropped += (dropped.empty() ? "" : ", ") + tgName; continue; }
         PartSetup& s = parts[n++];
         s.on = true;
@@ -104,11 +107,17 @@ bool miniDexedStream(const Bytes& file, const std::string& fileName, Bytes& out,
         std::memcpy(vced, t.voice.data(), VCED_SIZE);
         clamped += clampVced(vced);
         const Bytes m = vcedMessage(vced);
+        for (int j = 0; j < n - 1; ++j)
+            if (std::equal(m.begin(), m.end(), voices.begin() + (std::ptrdiff_t)(j * m.size()))) { same[n - 1] = j; break; }
         voices.insert(voices.end(), m.begin(), m.end());
     }
     if (!dropped.empty()) report.warnings.push_back(where + "MiniDexed " + dropped + " not read (the FS1R has four parts)");
     if (clamped) report.warnings.push_back(where + std::to_string(clamped) + " MiniDexed voices had bytes out of the DX7's ranges, clamped");
-    if (!n) return true;   // nothing to play; each TG is reported
+    if (!n) {   // nothing to play; each TG is reported
+        if (silent) report.skipped.push_back(where + "a MiniDexed performance whose TGs are all at volume 0");
+        return true;
+    }
+    arrangeParts(parts, same);
     if (name.empty()) {
         name = fileName.substr(0, fileName.rfind('.'));
         if (name.empty()) name = "MiniDexed";

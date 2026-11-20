@@ -2,6 +2,7 @@
 #include "engine/synth.h"
 #include "patchfiles/patchfiles.h"
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -326,6 +327,50 @@ int selftest_patchfiles() {
       ck("a DX7II performance with none of its voices is skipped, and reported", none.empty() && r2.skipped.size() == 1 &&
                                                                                  r2.summary().find("voices are not in the files read") != std::string::npos); }
 
+    // Ours, on the parts a DX performance plays: a voice at level 0 is left off, one channel shared by all parts
+    // becomes the performance's, and parts all at the centre are spread, further for one voice detuned against
+    // itself. Dual detune is the DX7II's in dual only; its pan modes 1-3 keep voice A left and B right.
+    { const Bytes bank = dxBulk(0x09, 0x20, 0x00, vmemNamed("V"));
+      auto pced = [&](const Bytes& rec, Report& r) { return readPatches(cat({bank, lmBulk("LM  8973PE", rec)}), "", &r); };
+      auto nameOf = [](const Bank& b, int p) { return b.perfs.size() == 1 && b.perfs[0].partVoice[p] >= 0 ? b.voices[(size_t)b.perfs[0].partVoice[p]].name : std::string("-"); };
+      Report r1; const Bank same = pced(dx7iiPerf(1, 1, 1, 3, 60, 24, 24, 50, 99, "Same"), r1);
+      ck("one voice detuned against itself spreads wide, the flatter part left", same.perfs.size() == 1 && partByte(same.perfs[0], 0, 0x0E) == 96 &&
+                                                                                 partByte(same.perfs[0], 1, 0x0E) == 32 && partByte(same.perfs[0], 0, 4) == 0x10);
+      Report r2; const Bank split = pced(dx7iiPerf(2, 1, 2, 3, 60, 24, 24, 50, 99, "Split"), r2);
+      ck("a DX7II split takes no dual detune, and its two voices spread a little", split.perfs.size() == 1 && partByte(split.perfs[0], 0, 9) == 64 &&
+                                                                                   partByte(split.perfs[0], 1, 9) == 64 && partByte(split.perfs[0], 0, 0x0E) == 48 &&
+                                                                                   partByte(split.perfs[0], 1, 0x0E) == 80);
+      Bytes apart = dx7iiPerf(1, 1, 2, 0, 60, 24, 24, 50, 99, "Apart");
+      apart[20] = 2;
+      Report r3; const Bank sides = pced(apart, r3);
+      ck("a DX7II pan mode puts voice A left and B right", sides.perfs.size() == 1 && partByte(sides.perfs[0], 0, 0x0E) == 1 && partByte(sides.perfs[0], 1, 0x0E) == 127);
+      Report r4; const Bank onlyA = pced(dx7iiPerf(1, 1, 2, 0, 60, 24, 24, 0, 99, "Only A"), r4);
+      ck("a DX7II voice balanced to 0 leaves its part off", nameOf(onlyA, 0) == "V02" && nameOf(onlyA, 1) == "-" && partByte(onlyA.perfs[0], 1, 1) == 0 &&
+                                                            partByte(onlyA.perfs[0], 0, 0x0E) == 64 && r4.warnings.empty());
+      Report r5; const Bank onlyB = pced(dx7iiPerf(2, 1, 2, 0, 60, 24, 30, 100, 99, "Only B"), r5);
+      ck("when voice A is the silent one, B plays on part 1", nameOf(onlyB, 0) == "V03" && nameOf(onlyB, 1) == "-" && partByte(onlyB.perfs[0], 0, 8) == 30 &&
+                                                              partByte(onlyB.perfs[0], 0, 0x0F) == 60);
+      Report r6; const Bank none = pced(dx7iiPerf(0, 1, 0, 0, 60, 24, 24, 50, 0, "Silent"), r6);
+      ck("a performance at total volume 0 is skipped, and says why", none.perfs.empty() && r6.summary().find("all at level 0") != std::string::npos);
+
+      // TX802: TGs leading, each with its channel, voice, volume and detune; the rest have no output.
+      auto tx = [](std::initializer_list<std::array<int, 4>> tgs, const char* name) {
+          Bytes rec(84, 0);
+          for (int t = 0; t < 8; t++) { rec[t] = (uint8_t)(t << 5); rec[32 + t] = 0x38; rec[48 + t] = 127; rec[56 + t] = 0x18; }
+          int t = 0;
+          for (const auto& g : tgs) { rec[t] |= (uint8_t)g[0]; rec[8 + t] = (uint8_t)g[1]; rec[24 + t] = (uint8_t)g[2]; rec[32 + t] = (uint8_t)((7 + g[3]) << 3 | 3); t++; }
+          char n[21]; snprintf(n, sizeof n, "%-20s", name); memcpy(rec.data() + 64, n, 20);
+          return rec; };
+      Report r7;
+      const Bank t = readPatches(cat({bank, tx802Pmem({tx({{0, 1, 0, 0}, {0, 4, 90, 0}}, "Quiet TG1"), tx({{0, 1, 0, 0}}, "All Quiet"),
+                                                       tx({{0, 1, 90, 0}, {1, 2, 90, 0}}, "Two Channels"), tx({{0, 1, 90, 3}, {0, 1, 90, -3}}, "Detuned")})}), "", &r7);
+      const bool tok = t.perfs.size() == 3;
+      ck("a TX802 TG at volume 0 takes no part, and a performance of none is skipped", tok && t.perfs[0].partVoice[0] >= 0 &&
+         t.voices[(size_t)t.perfs[0].partVoice[0]].name == "V05" && t.perfs[0].partVoice[1] < 0 && r7.summary().find("all at level 0") != std::string::npos);
+      ck("TGs on one channel receive on the performance's, TGs on two keep theirs", tok && partByte(t.perfs[0], 0, 4) == 0x10 &&
+         partByte(t.perfs[1], 0, 4) == 0 && partByte(t.perfs[1], 1, 4) == 1 && partByte(t.perfs[1], 0, 0x0E) == 48 && partByte(t.perfs[1], 1, 0x0E) == 80);
+      ck("a TX802 voice doubled and detuned spreads wide", tok && partByte(t.perfs[2], 0, 0x0E) == 96 && partByte(t.perfs[2], 1, 0x0E) == 32); }
+
     // A TX802 PMEM: eight tone generators per performance in eight rows of eight bytes (channel and link, voice,
     // -, volume, detune and output, note limits low and high, note shift), then the name. A TG linked to an
     // earlier one (the link, the top three bits of its first byte, names that TG) adds notes to it; the first
@@ -471,7 +516,17 @@ int selftest_patchfiles() {
                                                                                          r.summary().find("TG7, TG8") != std::string::npos);
       }
       Report r2; const Bank again = readPatches(b.rewrapped, "performance", &r2);
-      ck("a MiniDexed performance is kept as the bulk and voices it was read into", again.perfs.size() == 1 && again.perfs[0].partVoice[3] == 3 && r2.skipped.empty()); }
+      ck("a MiniDexed performance is kept as the bulk and voices it was read into", again.perfs.size() == 1 && again.perfs[0].partVoice[3] == 3 && r2.skipped.empty());
+      std::string two = "Name=Two\r\n";
+      for (int t = 1; t <= 3; t++) {
+          const std::string n = std::to_string(t);
+          two += "MIDIChannel" + n + "=1\r\nVolume" + n + "=" + (t == 2 ? "0" : "100") + "\r\nPan" + n + "=64\r\nVoiceData" + n + "=" +
+                 hexVoice(t == 3 ? "MD B" : "MD A") + "\r\n";
+      }
+      Report r3; const Bank md = readPatches(Bytes(two.begin(), two.end()), "two.ini", &r3);
+      ck("a MiniDexed TG at volume 0 takes no part; two on one channel receive on the performance's, spread", md.perfs.size() == 1 && md.voices.size() == 2 &&
+         partByte(md.perfs[0], 0, 4) == 0x10 && partByte(md.perfs[0], 1, 4) == 0x10 && partByte(md.perfs[0], 0, 0x0E) == 48 &&
+         partByte(md.perfs[0], 1, 0x0E) == 80 && md.voices[1].name == "MD B"); }
 
     // A .fsvr preset: XML whose <sysex> is the stream in base64, read as the stream it carries.
     { const Bytes s = fs1rVoice("In Preset");

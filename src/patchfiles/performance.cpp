@@ -5,6 +5,8 @@
 // performance (init_perf), and a DX performance changes only its name and the part bytes PartSetup names.
 #include "dx7.h"
 #include "presets/performance.h"
+#include <algorithm>
+#include <cmath>
 #include <memory>
 
 namespace fsvr::patchfiles {
@@ -43,6 +45,32 @@ Bytes performanceBulk(const std::string& name, const PartSetup* parts) {
     m.push_back(0xF7);
     static_assert(sizeof(Perf::c) + sizeof(Perf::fx) == COMMON, "the 192 common bytes");
     return m;
+}
+
+// Ours: how far either side of the centre parts left there are spread, and further for one voice detuned
+// against itself, which is played for its width.
+constexpr int PAN_CENTRE = 64, PAN_SPREAD = 16, PAN_SPREAD_DETUNED = 32;
+
+void arrangeParts(PartSetup* parts, const int* voice) {
+    int on[4], n = 0;
+    for (int i = 0; i < 4; ++i)
+        if (parts[i].on) on[n++] = i;
+    if (!n) return;
+    // Ours: parts that all receive on one channel, as a DX performance's TGs mostly do, receive on the
+    // performance's, so it plays from whichever channel the performance is set to.
+    const PartSetup& first = parts[on[0]];
+    if (first.channel != OFF && std::all_of(on, on + n, [&](int i) { return parts[i].channel == first.channel; }))
+        for (int k = 0; k < n; ++k) parts[on[k]].channel = PFM;
+    if (n < 2 || !std::all_of(on, on + n, [&](int i) { return parts[i].pan == PAN_CENTRE; })) return;
+    const bool detuned = std::all_of(on, on + n, [&](int i) {
+        const PartSetup& s = parts[i];
+        return voice[i] == voice[on[0]] && s.shift == first.shift && s.low == first.low && s.high == first.high;
+    }) && std::any_of(on, on + n, [&](int i) { return parts[i].detune != first.detune; });
+    const int width = detuned ? PAN_SPREAD_DETUNED : PAN_SPREAD;
+    // The flattest part goes left; parts tuned alike keep their order.
+    std::stable_sort(on, on + n, [&](int a, int b) { return parts[a].detune < parts[b].detune; });
+    for (int k = 0; k < n; ++k)
+        parts[on[k]].pan = PAN_CENTRE + (int)std::lround(width * (2.0 * k / (n - 1) - 1));
 }
 
 // Which banks a voice may come from: any, only those behind a bank select, or only those with none.
@@ -165,12 +193,14 @@ static void resolve(Reading& r) {
             if (voice[i] < 0) { s.on = false; ++missing; preset |= d.tx802 && s.voice >= TX802_PRESETS; } else ++found;
         }
         const std::string what = (r.bank.name.empty() ? "" : r.bank.name + ", ") + d.kind;
+        if (!found && !missing && d.silent) { r.report.skipped.push_back(what + " whose parts are all at level 0"); continue; }
         if (!found && preset) {
             r.report.skipped.push_back(what + " whose TX802 presets are neither in the files read nor in the library (import presets A and B with a TX802 performance file first)");
             continue;
         }
         if (!found) { r.report.skipped.push_back(what + " whose voices are not in the files read"); continue; }
         if (missing) r.report.warnings.push_back(what + " voice not in the files read, its part left off");
+        arrangeParts(d.part, voice);
         Item it;
         it.name = text(reinterpret_cast<const uint8_t*>(d.name.data()), std::min(d.name.size(), PERF_NAME));
         it.address = 0x10;

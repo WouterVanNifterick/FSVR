@@ -26,6 +26,7 @@ struct PartSetup {
 struct DxPerformance {
     std::string name, kind;              // kind names it in the report: "a DX7II performance", "a TX802 performance"
     bool tx802 = false;                  // its voice numbers run on to 255: presets A and B from 128
+    bool silent = false;                 // a part was left off for its level 0
     PartSetup part[4];
     size_t at = 0, len = 0;
 };
@@ -54,6 +55,9 @@ struct Reading {
 // An FS1R performance bulk (Data List 3.2.1, 400 bytes at 10 00 00) of four parts, built on the engine's own
 // init performance; and the file's DX performances as items, their voices found by number (performance.cpp).
 Bytes performanceBulk(const std::string& name, const PartSetup* parts);
+// The parts that play, once their voices are known (voice: the same number for parts playing the same voice):
+// one shared channel becomes the performance's, and parts all at the centre are spread across it.
+void arrangeParts(PartSetup* parts, const int* voice);
 void finishPerformances(Reading& r);
 // A bank landing on numbers a bank of this file already holds starts another dump, as the next of several files
 // kept one after the other does: the performances read so far find their voices first, and the banks before

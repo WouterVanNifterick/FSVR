@@ -22,7 +22,7 @@ One entry point, `readPatches(bytes, name, report, pending)`. A file is sniffed 
 | `format_amem.cpp` | a DX7II, DX7s or TX802 bank's supplements, held for the next VMEM, and the DX7II bank select |
 | `format_dx7ii.cpp` | a DX7II performance, PCED or the 32 of PMEM: single, dual or split onto parts 1 and 2 |
 | `format_tx802.cpp` | a TX802's performances, as hex digits: its first four leading tone generators onto the four parts, the rest named in the report |
-| `performance.cpp` | a DX performance as an FS1R performance bulk built on the engine's init performance, its voices found by number at the end of the read |
+| `performance.cpp` | a DX performance as an FS1R performance bulk built on the engine's init performance, its voices found by number at the end of the read and its parts arranged |
 
 ## Rules
 - **Detect by content.** A container says whether a file is its own from the bytes.
@@ -33,6 +33,7 @@ One entry point, `readPatches(bytes, name, report, pending)`. A file is sniffed 
 - **A TX802's presets can come from the library.** A bank whose TX802 performances took its banks as the presets records them (`Bank::tx802Presets`). A TX802 performance naming a preset its files lack plays the one the library passes in `Pending::presets`, and the bank gives those banks' messages (`Bank::libraryPresets`) to keep before the file, so it plays them again when read alone. A TX802 performance with a blank name is an empty slot and is not read.
 - **Several dumps in one file read as they do apart:** a bank landing on numbers an earlier bank of the file holds starts another dump (`newDump`), so the library can keep a folder of DX files one after the other.
 - **Mapping a DX performance onto FS1R parts is ours**, not the hardware's: the firmware has no such path. Each choice is marked where it is made, and none goes in `cal.h`.
+- **The parts that play are arranged once their voices are known** (`arrangeParts`): a TG or voice at level 0 takes no part, and a performance with nothing left is skipped with that reason; parts that all receive on one channel receive on the performance's (Pfm); parts all at the centre are spread ±16 across it, ±32 when they are one voice detuned against itself, the flattest left. A DX7II's pan modes 1-3 put voice A left and B right, and its dual detune applies in dual only.
 - **An AMEM slot becomes an ACED only when it would change the conversion** (`acedMatters`): a DX7 voice's default slot does not, so a DX7II bank and a DX7 bank of the same voices load the same.
 - **A file that was not sysex is rewrapped** (`Bank::rewrapped`) into the messages the instrument would have sent; the library keeps those, and the items' byte ranges count in them.
 - The engine's `load_sysex` keeps taking only what the unit takes (VCED, ACED, FS1R bulks). VMEM, AMEM and DX performances stop here.
