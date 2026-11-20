@@ -406,7 +406,13 @@ int selftest_patchfiles() {
          t.voices[(size_t)t.perfs[0].partVoice[0]].name == "V05" && t.perfs[0].partVoice[1] < 0 && r7.summary().find("all at level 0") != std::string::npos);
       ck("TGs on one channel receive on the performance's, TGs on two keep theirs", tok && partByte(t.perfs[0], 0, 4) == 0x10 &&
          partByte(t.perfs[1], 0, 4) == 0 && partByte(t.perfs[1], 1, 4) == 1 && partByte(t.perfs[1], 0, 0x0E) == 48 && partByte(t.perfs[1], 1, 0x0E) == 80);
-      ck("a TX802 voice doubled and detuned spreads wide", tok && partByte(t.perfs[2], 0, 0x0E) == 96 && partByte(t.perfs[2], 1, 0x0E) == 32); }
+      ck("a TX802 voice doubled and detuned spreads wide", tok && partByte(t.perfs[2], 0, 0x0E) == 96 && partByte(t.perfs[2], 1, 0x0E) == 32);
+      // TGs all on output I are spread, not all left, as Ensemble 2 of the factory set has them; a TG alone there is centred.
+      Bytes left = tx({{0, 1, 90, 0}, {0, 2, 90, 0}}, "All Left"), alone = tx({{0, 1, 90, 0}}, "Alone Left");
+      for (Bytes* r : {&left, &alone}) for (int k = 0; k < 8; k++) (*r)[32 + k] = (uint8_t)(((*r)[32 + k] & ~3) | 1);
+      const Bank l = readPatches(cat({bank, tx802Pmem({left, alone})}), "");
+      ck("TGs all on one output spread, a TG alone is centred", l.perfs.size() == 2 && partByte(l.perfs[0], 0, 0x0E) == 48 && partByte(l.perfs[0], 1, 0x0E) == 80 &&
+                                                                partByte(l.perfs[1], 0, 0x0E) == 64); }
 
     // A TX802 PMEM: eight tone generators per performance in eight rows of eight bytes (channel and link, voice,
     // -, volume, detune and output, note limits low and high, note shift), then the name. A TG linked to an

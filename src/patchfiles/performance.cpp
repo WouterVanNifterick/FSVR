@@ -94,7 +94,10 @@ void arrangeParts(PartSetup* parts, const int* voice) {
     const PartSetup& first = parts[on[0]];
     if (first.channel != OFF && std::all_of(on, on + n, [&](int i) { return parts[i].channel == first.channel; }))
         for (int k = 0; k < n; ++k) parts[on[k]].channel = PFM;
-    if (n < 2 || !std::all_of(on, on + n, [&](int i) { return parts[i].pan == PAN_CENTRE; })) return;
+    // Ours: a part alone is centred, wherever its format sent it (a TX802 TG alone on output I). Parts all panned
+    // alike, as a TX802's TGs all on one output are, are spread around the centre; parts panned apart keep theirs.
+    if (n == 1) { parts[on[0]].pan = PAN_CENTRE; return; }
+    if (!std::all_of(on, on + n, [&](int i) { return parts[i].pan == first.pan; })) return;
     const bool detuned = std::all_of(on, on + n, [&](int i) {
         const PartSetup& s = parts[i];
         return voice[i] == voice[on[0]] && s.shift == first.shift && s.low == first.low && s.high == first.high;
