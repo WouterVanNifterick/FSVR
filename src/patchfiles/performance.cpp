@@ -224,8 +224,32 @@ void newDump(Reading& r) {
         }
 }
 
+// Ours: a file of DX voices and no performance gives each voice a performance of its own, playing it alone on
+// part 1, so the bank plays from the performance list too. Rebuilt on every read, never stored.
+static void voicePerformances(Reading& r) {
+    if (!r.bank.perfs.empty() || r.anyDx) return;   // it had performances, even ones skipped
+    for (size_t k = 0; k < r.bank.voices.size(); ++k) {
+        const Item& v = r.bank.voices[k];
+        if (v.address || !v.len) continue;   // this file's DX voices: an FS1R voice has an address, a borrowed one no bytes
+        PartSetup part[4];
+        part[0].on = true;
+        const int voice[4] = {(int)k, -1, -1, -1};
+        arrangeParts(part, voice);
+        Item it;
+        it.name = v.name;
+        it.address = 0x10;
+        it.fromDx = it.ofVoice = true;
+        it.syx = performanceBulk(it.name, part);
+        it.at = v.at;
+        it.len = v.len;
+        it.partVoice[0] = (int)k;
+        r.bank.perfs.push_back(std::move(it));
+    }
+}
+
 void finishPerformances(Reading& r) {
     resolve(r);
+    voicePerformances(r);
     if (!r.borrowed.empty()) {
         std::string files;
         for (const std::string& f : r.borrowed) files += (files.empty() ? "" : ", ") + (f.empty() ? std::string("a file") : f);

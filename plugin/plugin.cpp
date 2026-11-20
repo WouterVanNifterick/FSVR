@@ -1377,10 +1377,10 @@ private:
             putUser(fseqUser, userFseq, n);
             choose(fseqBank, 0);
             loadUserFseq(n);
-        } else if (!b.perfs.empty()) {
+        } else if (!b.perfs.empty() && !b.perfs[0].ofVoice) {
             const int n = lib.number(lib.perfs, k, 0);
             loadUserPerf(n);
-        } else if (!b.voices.empty()) {
+        } else if (!b.voices.empty()) {   // a bank of voices, whose performances only play them, loads its first into the part
             const int p = selectedPart(), n = lib.number(lib.voices, k, 0);
             putUser(partUser[p], userVoice[p], n);
             choose(partBank[p], 1);

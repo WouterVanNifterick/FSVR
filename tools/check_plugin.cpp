@@ -406,11 +406,11 @@ int main() {
         };
         a.st->setData("item.context", "1\tU" + std::to_string(rowOf(a, "voice.user.list", "TEST03")) + "\tTEST03");
         CHECK(a.until([&] { return a.data("item.name") == "TEST03"; }), "the VMEM voice row did not describe itself (\"%s\")", a.data("item.name").c_str());
-        a.st->setData("item.new_name", "Renamed");
+        a.st->setData("item.new_name", "Revoiced");
         a.st->setData("live.message", "");
         a.st->setData("item.request", "rename");
-        CHECK(a.until([&] { return onDisk(2, "Renamed   "); }), "Rename did not write the name into slot 3 of the VMEM (%s)", a.data("live.message").c_str());
-        CHECK(a.until([&] { return rowOf(a, "voice.user.list", "Renamed") == 3 && rowOf(a, "voice.user.list", "TEST01") == 1; }), "the renamed voice moved in the list");
+        CHECK(a.until([&] { return onDisk(2, "Revoiced  "); }), "Rename did not write the name into slot 3 of the VMEM (%s)", a.data("live.message").c_str());
+        CHECK(a.until([&] { return rowOf(a, "voice.user.list", "Revoiced") == 3 && rowOf(a, "voice.user.list", "TEST01") == 1; }), "the renamed voice moved in the list");
         a.st->setData("item.context", "1\tU4\tTEST04");
         CHECK(a.until([&] { return a.data("item.name") == "TEST04"; }), "the fourth VMEM voice did not describe itself");
         a.st->setData("item.request", "delete");

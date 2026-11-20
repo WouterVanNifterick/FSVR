@@ -22,6 +22,7 @@ struct Item {
     int partVoice[4] = {-1, -1, -1, -1};   // a performance: voices (0x40..0x43 bulks) that came right after it
     int fseq = -1;                         // and the Fseq that came with them
     bool fromDx = false;           // a performance built from a DX one: at and len are the whole DX bank's, and its part voices whole VMEMs
+    bool ofVoice = false;          // and one made for a voice of a file with no performance, playing it alone on part 1
     size_t at = 0, len = 0;        // its bytes in the bank's file (a DX voice: from its ACED; a VMEM voice: the whole VMEM)
     int slot = -1;                 // a VMEM voice: its place in the bank, 0..31
     std::shared_ptr<const std::vector<uint8_t>> vmem;   // and the VMEM message it is in, as read

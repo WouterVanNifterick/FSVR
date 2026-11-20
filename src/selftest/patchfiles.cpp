@@ -457,6 +457,18 @@ int selftest_patchfiles() {
       ck("a PMEM with no bank names voices of other files", perfs.namesVoices && readPatches(tx802Pmem({layer}), "").namesVoices &&
                                                             !b.namesVoices && !readPatches(dxBulk(0x09, 0x20, 0x00, vmemNamed("BANKA")), "").namesVoices);
 
+      // A file of DX voices and no performance gives each voice a performance playing it alone on part 1, on Pfm at
+      // the centre; a file with performances, even ones all skipped, gets none.
+      { const Bank v = readPatches(dxBulk(0x09, 0x20, 0x00, vmemNamed("SOLO")), "");
+        const bool vok = v.perfs.size() == 32 && v.voices.size() == 32;
+        ck("a voice bank alone gives one performance per voice", vok && v.perfs[4].name == "SOLO05" && v.perfs[4].fromDx && v.perfs[4].ofVoice && v.perfs[4].partVoice[0] == 4 &&
+                                                                  v.perfs[4].partVoice[1] < 0 && partByte(v.perfs[4], 0, 1) == 1 && partByte(v.perfs[4], 0, 4) == 0x10 &&
+                                                                  partByte(v.perfs[4], 0, 0x0E) == 64 && partByte(v.perfs[4], 1, 1) == 0 && partByte(v.perfs[4], 3, 1) == 0);
+        Bytes vced(155, 0); memcpy(vced.data() + 145, "ONE VOICE ", 10);
+        const Bank one = readPatches(dxBulk(0x00, 0x01, 0x1B, vced), "");
+        ck("a bare VCED gives one performance", one.perfs.size() == 1 && one.perfs[0].name == "ONE VOICE" && one.perfs[0].partVoice[0] == 0);
+        ck("a voice bank with performances gets only those", b.perfs.size() == 2); }   // and one whose are all skipped none: "total volume 0" above
+
       // The banks a TX802 PMEM took as its presets are recorded. A PMEM whose files lack them plays the library's,
       // given in Pending::presets, and keeps those banks to go before it: read so, behind a unit's own banks sent
       // with a bank select, it binds the same.
